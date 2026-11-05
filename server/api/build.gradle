@@ -45,6 +45,8 @@ bootJar {
 }
 
 processResources {
+    // Ant ReplaceTokens 默认用平台编码（Windows=GBK），会把 UTF-8 的 application.yml 中文注释写坏
+    filteringCharset = 'UTF-8'
     // exclude resources when build prod
     if (isProd) {
         exclude("application-dev.yml", "generatorConfig.xml")
