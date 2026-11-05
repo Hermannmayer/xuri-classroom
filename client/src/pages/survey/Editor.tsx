@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Input, message, Modal, Space, Spin, Tooltip } from 'antd';
+import { Button, Card, Drawer, Input, message, Modal, Space, Spin, Tabs, Tooltip } from 'antd';
 import {
   ArrowLeftOutlined,
+  BgColorsOutlined,
   CodeOutlined,
   DeleteOutlined,
   DownOutlined,
@@ -20,6 +21,7 @@ import type { Project, ProjectSetting } from '../../schema/project';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
+import { parseRule } from '../../schema/rules/buildExpression';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
@@ -188,6 +190,11 @@ export default function SurveyEditor() {
   const dragFromRef = useRef<string | undefined>(undefined);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonText, setJsonText] = useState('');
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [themeText, setThemeText] = useState<{ backgroundImage: string; headerImage: string }>({
+    backgroundImage: '',
+    headerImage: '',
+  });
 
   useEffect(() => {
     let alive = true;
@@ -350,6 +357,18 @@ export default function SurveyEditor() {
         </Tooltip>
         <Button icon={<EyeOutlined />} type={preview ? 'primary' : 'default'} onClick={() => setPreview((p) => !p)}>
           {preview ? '退出预览' : '预览'}
+        </Button>
+        <Button
+          icon={<BgColorsOutlined />}
+          onClick={() => {
+            setThemeText({
+              backgroundImage: survey.attribute?.backgroundImage ?? '',
+              headerImage: survey.attribute?.headerImage ?? '',
+            });
+            setThemeOpen(true);
+          }}
+        >
+          主题
         </Button>
         <Button
           icon={<CodeOutlined />}
@@ -571,6 +590,125 @@ export default function SurveyEditor() {
           style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
         />
       </Modal>
+
+      {/* 主题 + 逻辑总览 */}
+      <Drawer
+        title="主题 / 逻辑"
+        open={themeOpen}
+        onClose={() => setThemeOpen(false)}
+        width={400}
+        extra={
+          <Button
+            type="primary"
+            onClick={() => {
+              setSurvey({
+                ...survey,
+                attribute: {
+                  ...survey.attribute,
+                  backgroundImage: themeText.backgroundImage || undefined,
+                  headerImage: themeText.headerImage || undefined,
+                },
+              });
+              setThemeOpen(false);
+              message.success('主题已应用，记得保存');
+            }}
+          >
+            应用
+          </Button>
+        }
+      >
+        <Tabs
+          items={[
+            {
+              key: 'theme',
+              label: '主题',
+              children: (
+                <>
+                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+                    填图片 URL，答题页与预览会用它做背景 / 头图；留空即恢复默认蓝图底。
+                  </div>
+                  <div style={{ fontSize: 11, marginBottom: 4 }}>背景图</div>
+                  <Input
+                    value={themeText.backgroundImage}
+                    onChange={(e) => setThemeText((t) => ({ ...t, backgroundImage: e.target.value }))}
+                    placeholder="https://…"
+                    style={{ marginBottom: 14 }}
+                  />
+                  <div style={{ fontSize: 11, marginBottom: 4 }}>头图</div>
+                  <Input
+                    value={themeText.headerImage}
+                    onChange={(e) => setThemeText((t) => ({ ...t, headerImage: e.target.value }))}
+                    placeholder="https://…"
+                  />
+                </>
+              ),
+            },
+            {
+              key: 'logic',
+              label: '逻辑总览',
+              children: (
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+                    这里是所有配了规则的题目，点一条可以跳到对应题继续编辑。
+                  </div>
+                  {flatQuestions
+                    .filter((q) => {
+                      const a = q.schema.attribute;
+                      return a?.visibleRule || a?.requiredRule || a?.jumpRule || a?.calculate;
+                    })
+                    .map((q) => {
+                      const a = q.schema.attribute;
+                      const label = (qid?: string) => {
+                        const hit = flatQuestions.find((x) => x.id === qid);
+                        return hit ? `第${hit.number}题` : '?';
+                      };
+                      const describe = (raw?: string) => {
+                        const rule = parseRule(raw);
+                        if (!rule || !rule.conditionItem.length) return '未设置';
+                        const parts = rule.conditionItem.map(
+                          (it) =>
+                            `${label(it.qId)} ${it.condition === 'CHECKED' ? '选中' : it.condition === 'UNCHECKED' ? '未选中' : it.condition === 'ANSWERED' ? '已作答' : it.condition === 'NOT_ANSWERED' ? '未作答' : it.condition === 'SHOW' ? '已显示' : it.condition === 'HIDE' ? '未显示' : it.condition === '>' ? '大于' : it.condition === '<' ? '小于' : '等于'} ${it.compare ?? ''}`,
+                        );
+                        return parts.join(rule.conditionLogic === 'AND' ? ' 且 ' : ' 或 ');
+                      };
+                      return (
+                        <div
+                          key={q.id}
+                          onClick={() => {
+                            setSelectedId(q.id);
+                            setThemeOpen(false);
+                          }}
+                          style={{
+                            border: '1px dashed var(--bp-line)',
+                            padding: 8,
+                            marginBottom: 8,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            lineHeight: 1.8,
+                          }}
+                        >
+                          <div style={{ fontSize: 12, marginBottom: 2 }}>
+                            {q.number}. {q.title || q.type}
+                          </div>
+                          {a?.visibleRule && <div>显隐：{describe(a.visibleRule)}</div>}
+                          {a?.requiredRule && <div>必填：{describe(a.requiredRule)}</div>}
+                          {a?.jumpRule && <div style={{ color: 'var(--bp-text-soft)' }}>跳转：{a.jumpRule}</div>}
+                          {a?.calculate && <div style={{ color: 'var(--bp-text-soft)' }}>计算：{a.calculate}</div>}
+                        </div>
+                      );
+                    })}
+                  {flatQuestions.every((q) => {
+                    const a = q.schema.attribute;
+                    return !a?.visibleRule && !a?.requiredRule && !a?.jumpRule && !a?.calculate;
+                  }) && (
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有任何规则</div>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Drawer>
     </div>
   );
 }
