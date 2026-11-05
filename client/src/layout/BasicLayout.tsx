@@ -164,7 +164,7 @@ export default function BasicLayout() {
                 flex: '0 0 auto',
               }}
             >
-              XR
+              {(system?.name || '云课堂').slice(0, 1)}
             </span>
             {!collapsed && (
               <span
