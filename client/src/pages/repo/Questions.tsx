@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { download, getWithPagination, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 
@@ -129,6 +130,16 @@ export default function RepoQuestions() {
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [authorities, setAuthorities] = useState<string[]>([]);
+
+  useEffect(() => {
+    void loadAuthorities().then((a) => setAuthorities(a));
+  }, []);
+
+  const canImport = can(authorities, 'template:create');
+  const canExport = can(authorities, 'template:update');
+  const canEdit = can(authorities, 'template:update');
+  const canDelete = can(authorities, 'template:delete');
 
   const [editing, setEditing] = useState<TemplateView | null>(null);
   const [saving, setSaving] = useState(false);
@@ -447,26 +458,30 @@ export default function RepoQuestions() {
               {repoName || '题库题目'}
             </h2>
             <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-              共 {total} 道题 · Excel 导入按题型分 sheet 解析，导出同样分 sheet
+              共 {total} 道题{canImport ? ' · Excel 导入按题型分 sheet 解析，导出同样分 sheet' : ' · 只读浏览'}
             </div>
           </div>
         </div>
         <Space wrap>
-          <Upload
-            accept=".xlsx,.xls"
-            showUploadList={false}
-            beforeUpload={(file) => {
-              void doImport(file);
-              return false;
-            }}
-          >
-            <Button icon={<UploadOutlined />} loading={importing}>
-              导入 Excel
+          {canImport && (
+            <Upload
+              accept=".xlsx,.xls"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                void doImport(file);
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />} loading={importing}>
+                导入 Excel
+              </Button>
+            </Upload>
+          )}
+          {canExport && (
+            <Button icon={<DownloadOutlined />} onClick={() => void onExport()}>
+              导出
             </Button>
-          </Upload>
-          <Button icon={<DownloadOutlined />} onClick={() => void onExport()}>
-            导出
-          </Button>
+          )}
         </Space>
       </div>
 
@@ -499,7 +514,7 @@ export default function RepoQuestions() {
         />
       </div>
 
-      {selectedKeys.length > 0 && (
+      {canDelete && selectedKeys.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -537,15 +552,25 @@ export default function RepoQuestions() {
         loading={loading}
         dataSource={rows}
         scroll={{ x: 900 }}
-        rowSelection={{
-          selectedRowKeys: selectedKeys,
-          onChange: (keys) => setSelectedKeys(keys.map(String)),
-        }}
+        rowSelection={
+          canDelete
+            ? {
+                selectedRowKeys: selectedKeys,
+                onChange: (keys) => setSelectedKeys(keys.map(String)),
+              }
+            : undefined
+        }
         locale={{
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={hasFilter ? '没有匹配的题目' : '题库还没有题目，点右上角「导入 Excel」批量添加'}
+              description={
+                hasFilter
+                  ? '没有匹配的题目'
+                  : canImport
+                    ? '题库还没有题目，点右上角「导入 Excel」批量添加'
+                    : '题库还没有题目'
+              }
             />
           ),
         }}
@@ -599,24 +624,30 @@ export default function RepoQuestions() {
             width: 170,
             render: (v) => v || '—',
           },
-          {
-            title: '操作',
-            width: 140,
-            render: (_: unknown, row) => (
-              <Space size={10}>
-                <a onClick={() => setEditing(row)}>编辑</a>
-                <Popconfirm
-                  title="删除这道题？"
-                  description="删除后不可恢复。"
-                  okText="删除"
-                  cancelText="取消"
-                  onConfirm={() => removeOne(row)}
-                >
-                  <a style={{ color: 'var(--bp-orange)' }}>删除</a>
-                </Popconfirm>
-              </Space>
-            ),
-          },
+          ...(canEdit || canDelete
+            ? [
+                {
+                  title: '操作',
+                  width: 140,
+                  render: (_: unknown, row: TemplateView) => (
+                    <Space size={10}>
+                      {canEdit && <a onClick={() => setEditing(row)}>编辑</a>}
+                      {canDelete && (
+                        <Popconfirm
+                          title="删除这道题？"
+                          description="删除后不可恢复。"
+                          okText="删除"
+                          cancelText="取消"
+                          onConfirm={() => removeOne(row)}
+                        >
+                          <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                        </Popconfirm>
+                      )}
+                    </Space>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
 

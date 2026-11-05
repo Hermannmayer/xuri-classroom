@@ -47,7 +47,7 @@ public class ProjectApi {
 	 * @return 项目列表分页结果
 	 */
 	@GetMapping("/list")
-	@PreAuthorize("hasAuthority('project:list')")
+	@PreAuthorize("hasAuthority('project:list') or hasAuthority('exercise:list')")
 	public PaginationResponse<ProjectView> listProject(ProjectQuery query) {
 		return projectService.listProject(query);
 	}
