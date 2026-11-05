@@ -70,6 +70,11 @@ public class SystemInfo {
 		 */
 		private Boolean strongPasswordEnabled;
 
+		/**
+		 * 新用户注册后默认进入的部门
+		 */
+		private String deptId;
+
 	}
 
 	@Data

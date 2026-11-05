@@ -75,8 +75,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	private static final String ROOT_DEPT_PARENT_ID = "0";
 
-	private static final Pattern STRONG_PASSWORD_PATTERN = Pattern
-			.compile("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])[a-zA-Z0-9]{8,16}$");
+	private static final Pattern STRONG_PASSWORD_PATTERN = Pattern.compile("^.{8,32}$");
 
 	private final AccountMapper accountMapper;
 
@@ -466,9 +465,14 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		createUserRequest.setUsername(request.getUsername());
 		createUserRequest.setPassword(request.getPassword());
 		createUserRequest.setName(request.getName());
-		createUserRequest.setDeptId(getRootDeptId());
-		createUserRequest.setStatus(AppConsts.USER_STATUS.VALID);
-		String role = request.getRole();
+		String registerDeptId = registerInfo.getDeptId() != null && !registerInfo.getDeptId().isEmpty()
+				? registerInfo.getDeptId()
+				: getRootDeptId();
+		createUserRequest.setDeptId(registerDeptId);
+		// 注册用户先进待审核状态（status=0），管理员在用户管理里启用后才能登录
+		createUserRequest.setStatus(0);
+		// 注册只能是学员；老师/管理员只能由后台分配
+		String role = null;
 		if (role != null) {
 			if (!registerInfo.getRoles().contains(role)) {
 				throw new ErrorCodeException(ErrorCode.RegisterError);
@@ -568,8 +572,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 						if (!usernameSet.add(userRequest.getUsername())) {
 							throw new InternalServerError(i18n("user.import.usernameDuplicate", rowNum[0]));
 						}
-						String password = getCellValue(r, 2).orElseThrow(
-								() -> new InternalServerError(i18n("user.import.passwordRequired", rowNum[0])));
+						// 密码列可以留空，留空时用默认密码 12345678，学员首次登录后自行修改
+						String password = getCellValue(r, 2).orElse("12345678");
 						validateStrongPassword(password, rowNum[0]);
 						userRequest.setPassword(password);
 						userRequest.setStatus(AppConsts.USER_STATUS.VALID);
