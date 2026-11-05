@@ -15,6 +15,7 @@ export const QUESTION_META: QuestionMeta[] = [
   { type: 'FillBlank', label: '填空', group: 'input', title: '填空题' },
   { type: 'Textarea', label: '多行文本', group: 'input', title: '多行文本题' },
   { type: 'Score', label: '评分', group: 'input', title: '评分题' },
+  { type: 'Judge', label: '判断', group: 'choice', title: '判断题' },
   { type: 'QuestionSet', label: '题组', group: 'structure', title: '题组' },
   { type: 'Remark', label: '说明', group: 'structure', title: '说明文字' },
   { type: 'SplitLine', label: '分割线', group: 'structure', title: '' },
@@ -43,11 +44,11 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
     attribute: {},
   };
 
-  if (OPTION_TYPES.includes(type)) {
+  if (OPTION_TYPES.includes(type) || type === 'Judge') {
     base.attribute = { required: false };
     // 选项必须同时出现在 dataSource（渲染用）和 children（Option 节点，答案 key 与后端计分/统计都按它来）
+    const labels = type === 'Judge' ? ['正确', '错误'] : ['选项一', '选项二'];
     const optionIds = [newId(), newId()];
-    const labels = ['选项一', '选项二'];
     base.dataSource = optionIds.map((id, i) => ({ label: labels[i], value: id }));
     base.children = optionIds.map((id, i) => ({
       id,
