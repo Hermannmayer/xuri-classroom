@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Select, Spin, Switch, Tabs, Upload } from 'antd';
+import { Alert, Button, Card, Form, Input, message, Select, Spin, Switch, Tabs, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { get, getSystem, post } from '../../api';
 
@@ -13,11 +13,18 @@ interface AiSetting {
   prompt?: string;
 }
 
+/** 对齐后端 RoleView；registerInfo.roles 存的是角色 id */
+interface Role {
+  id: string;
+  name?: string;
+  code?: string;
+}
+
 type TabKey = 'basic' | 'access' | 'ai';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
   basic: ['name', 'description', 'avatar', 'copyright', 'recordNum', 'favicon'],
-  access: ['captchaEnabled', 'registerEnabled'],
+  access: ['captchaEnabled', 'registerEnabled', 'roles'],
   ai: ['aiEnabled', 'baseUrl', 'apiKey', 'models', 'defaultModel', 'prompt'],
 };
 
@@ -35,23 +42,32 @@ export default function SystemSetting() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<TabKey>();
   const [uploading, setUploading] = useState(false);
+  const [roleOptions, setRoleOptions] = useState<Role[]>([]);
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
   const logo = Form.useWatch<string | undefined>('avatar', form);
+  const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
+  const registerRoles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
 
   const load = useCallback(async () => {
-    const [sys, ai] = await Promise.all([
+    const [sys, ai, roleRes] = await Promise.all([
       getSystem(),
       get<AiSetting>('/api/system/aiSetting').catch(() => ({}) as AiSetting),
+      get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 }).catch(
+        (): { list?: Role[] } => ({ list: [] }),
+      ),
     ]);
+    setRoleOptions(roleRes?.list ?? []);
     form.setFieldsValue({
       name: sys?.name,
       description: sys?.description,
       avatar: sys?.avatar,
       copyright: sys?.setting?.copyright,
       recordNum: sys?.setting?.recordNum,
-          favicon: sys?.setting?.favicon,
+      favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
       registerEnabled: Boolean(sys?.registerInfo?.registerEnabled),
+      // 注册默认角色存的是角色 id；没配置时是空数组
+      roles: sys?.registerInfo?.roles ?? [],
       aiEnabled: Boolean(ai?.enabled),
       baseUrl: ai?.baseUrl,
       apiKey: ai?.apiKey,
@@ -111,9 +127,14 @@ export default function SystemSetting() {
           setting: { copyright: v.copyright, recordNum: v.recordNum, favicon: v.favicon },
         });
       } else if (key === 'access') {
+        const roles = Array.isArray(v.roles) ? (v.roles as string[]) : [];
+        if (v.registerEnabled && roles.length === 0) {
+          message.warning('已开启注册但未选择默认角色：注册用户登录后将看不到任何菜单');
+        }
+        // registerEnabled 和 roles 一起提交；roles 传空数组会清空后端配置（merge 按非 null 覆盖）
         await post('/api/system/update', {
           setting: { captchaEnabled: Boolean(v.captchaEnabled) },
-          registerInfo: { registerEnabled: Boolean(v.registerEnabled) },
+          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles },
         });
       } else {
         await post('/api/system/update', {
@@ -234,6 +255,32 @@ export default function SystemSetting() {
                     >
                       <Switch checkedChildren="开启" unCheckedChildren="关闭" />
                     </Form.Item>
+                    <Form.Item
+                      name="roles"
+                      label="注册默认角色"
+                      extra="注册用户自动获得这些角色；不选角色时注册用户无法访问任何菜单"
+                    >
+                      <Select
+                        mode="multiple"
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        placeholder="选择注册后默认赋予的角色"
+                        options={roleOptions.map((role) => ({
+                          value: role.id,
+                          label: role.name || role.code || role.id,
+                        }))}
+                      />
+                    </Form.Item>
+                    {registerEnabled && registerRoles.length === 0 && (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="已开启注册但未选择默认角色"
+                        description="注册用户登录后将看不到任何菜单，请在下面选择至少一个默认角色。"
+                      />
+                    )}
                     <SaveBar loading={saving === 'access'} onSave={() => void save('access')} />
                   </>
                 ),
