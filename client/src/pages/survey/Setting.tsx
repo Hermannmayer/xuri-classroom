@@ -10,6 +10,8 @@ import type { AnswerSetting, ExamSetting, ProjectSetting, SubmittedSetting } fro
  * 发布设置：答题显示 / 考试控制 / 回收限制 / 投放与分享 四张卡片 + 协作管理员占位。
  * 保存走 POST /api/project/update（整包 setting），未改字段从已加载 setting 合并保留。
  */
+import PartnerPanel from './PartnerPanel';
+
 export default function SurveySetting() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -300,9 +302,7 @@ export default function SurveySetting() {
               title={cardTitle('COLLABORATORS', '协作管理员')}
               styles={{ body: { padding: 16 } }}
             >
-              <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.8 }}>
-                协作管理员功能稍后开放：届时可以添加协作者，并分配数据查看 / 编辑权限。
-              </div>
+              <PartnerPanel projectId={id} />
             </Card>
           </Col>
         </Row>

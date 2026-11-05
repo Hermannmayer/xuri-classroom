@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Select, Spin, Switch, Tabs } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { Button, Card, Form, Input, message, Select, Spin, Switch, Tabs, Upload } from 'antd';
+import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { get, getSystem, post } from '../../api';
 
 /** 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏） */
@@ -16,21 +16,27 @@ interface AiSetting {
 type TabKey = 'basic' | 'access' | 'ai';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
-  basic: ['name', 'description', 'copyright', 'recordNum'],
+  basic: ['name', 'description', 'avatar', 'copyright', 'recordNum'],
   access: ['captchaEnabled', 'registerEnabled'],
   ai: ['aiEnabled', 'baseUrl', 'apiKey', 'models', 'defaultModel', 'prompt'],
 };
 
 /**
- * 系统设置：基础信息 / 登录与验证码 / AI 设置。
- * 后端没有独立的 aiSetting 写接口，三块都走 POST /api/system/update
- * （SystemInfoRequest 里 name/description/setting/registerInfo/aiSetting 都是可选合并，只传本 Tab 的字段不会覆盖其它配置）。
+ * 系统设置：品牌信息 / 登录与验证码 / AI 设置。
+ * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
+ * setting.copyright、setting.recordNum。
+ * favicon 后端没有字段（SystemSetting 是强类型，塞 setting JSON 会被 mergeSysInfo 丢掉），
+ * 需要后端加 SystemSetting.favicon 并同步写入后，这里再加输入框。
+ * 上传走 POST /api/file/create（multipart，publicRead=true），返回文件 id，
+ * 前端存公开预览地址 /api/public/preview/<id> 到 avatar，登录页未登录也能加载。
  */
 export default function SystemSetting() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<TabKey>();
+  const [uploading, setUploading] = useState(false);
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
+  const logo = Form.useWatch<string | undefined>('avatar', form);
 
   const load = useCallback(async () => {
     const [sys, ai] = await Promise.all([
@@ -40,6 +46,7 @@ export default function SystemSetting() {
     form.setFieldsValue({
       name: sys?.name,
       description: sys?.description,
+      avatar: sys?.avatar,
       copyright: sys?.setting?.copyright,
       recordNum: sys?.setting?.recordNum,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
@@ -63,6 +70,24 @@ export default function SystemSetting() {
     };
   }, [load]);
 
+  /** 上传 Logo：POST /api/file/create（publicRead=true 才能被未登录的登录页访问），返回 id 后转公开预览地址 */
+  const uploadLogo = async (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('publicRead', 'true');
+    setUploading(true);
+    try {
+      const uploaded = await post<{ id?: string }>('/api/file/create', fd);
+      if (!uploaded?.id) throw new Error('上传失败：未返回文件 id');
+      form.setFieldValue('avatar', `/api/public/preview/${uploaded.id}`);
+      message.success('Logo 已上传，记得点保存');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const save = async (key: TabKey) => {
     let v: Record<string, unknown>;
     try {
@@ -81,6 +106,7 @@ export default function SystemSetting() {
         await post('/api/system/update', {
           name: v.name,
           description: v.description,
+          avatar: v.avatar,
           setting: { copyright: v.copyright, recordNum: v.recordNum },
         });
       } else if (key === 'access') {
@@ -132,18 +158,48 @@ export default function SystemSetting() {
             items={[
               {
                 key: 'basic',
-                label: '基础信息',
+                label: '品牌',
                 forceRender: true,
                 children: (
                   <>
                     <Form.Item name="name" label="系统名称" rules={[{ required: true, message: '请输入系统名称' }]}>
-                      <Input placeholder="显示在浏览器标题与侧栏" />
+                      <Input placeholder="显示在浏览器标题、登录页与侧栏" />
                     </Form.Item>
-                    <Form.Item name="description" label="系统描述">
-                      <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} placeholder="一句话介绍" />
+                    <Form.Item name="description" label="系统简称（副标题）" extra="登录页标题下方的副标题">
+                      <Input placeholder="例如：让问卷与考试更简单高效" allowClear />
                     </Form.Item>
+                    <Form.Item
+                      name="avatar"
+                      label="Logo"
+                      extra="填图片 URL，或上传本地图片；登录页与侧栏共用这一个 Logo"
+                    >
+                      <Input placeholder="https://… 或 /api/public/preview/<id>" allowClear />
+                    </Form.Item>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -10, marginBottom: 18 }}>
+                      <Upload
+                        accept="image/*"
+                        showUploadList={false}
+                        beforeUpload={(file) => {
+                          void uploadLogo(file);
+                          return false;
+                        }}
+                      >
+                        <Button size="small" icon={<UploadOutlined />} loading={uploading}>
+                          上传图片
+                        </Button>
+                      </Upload>
+                      {logo ? (
+                        <img
+                          src={logo}
+                          alt="Logo 预览"
+                          style={{ height: 36, maxWidth: 180, objectFit: 'contain', border: '1px solid var(--bp-line)' }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>未设置 Logo</span>
+                      )}
+                    </div>
                     <Form.Item name="copyright" label="版权信息">
-                      <Input placeholder="例如 © 2025 旭日云课堂" allowClear />
+                      <Input placeholder="例如 © 2025 某某机构" allowClear />
                     </Form.Item>
                     <Form.Item name="recordNum" label="备案号">
                       <Input placeholder="例如 京ICP备00000000号" allowClear />
