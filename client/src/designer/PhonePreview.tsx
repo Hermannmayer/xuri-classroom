@@ -14,12 +14,15 @@ export default function PhonePreview({
   schema,
   values,
   onChange,
+  displays,
   width = 308,
   height = 440,
 }: {
   schema: SurveySchema;
   values: Record<string, AnswerValue>;
   onChange: (qId: string, value: AnswerValue) => void;
+  /** 规则求值结果：false 的题不渲染 */
+  displays?: Record<string, boolean>;
   width?: number;
   height?: number;
 }) {
@@ -39,7 +42,7 @@ export default function PhonePreview({
           }}
         >
           <div style={{ padding: 16 }}>
-            <SchemaRenderer schema={schema} values={values} onChange={onChange} mode="preview" />
+            <SchemaRenderer schema={schema} values={values} onChange={onChange} mode="preview" displays={displays} />
           </div>
         </div>
       </div>

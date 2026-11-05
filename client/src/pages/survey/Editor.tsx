@@ -17,6 +17,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { get, updateProject } from '../../api';
 import type { Project, ProjectSetting } from '../../schema/project';
 import type { QuestionType, SurveySchema } from '../../schema/types';
+import { flattenSchema } from '../../schema/flatten';
+import { evaluateVisible } from '../../schema/rules/engine';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
@@ -221,6 +223,26 @@ export default function SurveyEditor() {
 
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
+  const flatQuestions = useMemo(() => flattenSchema(survey), [survey]);
+
+  /** 规则条件只能引用当前题之前的题，避免自引用 */
+  const candidateQuestions = useMemo(() => {
+    if (!selectedId) return [];
+    const index = flatQuestions.findIndex((q) => q.id === selectedId);
+    return index < 0 ? flatQuestions : flatQuestions.slice(0, index);
+  }, [flatQuestions, selectedId]);
+
+  /** 预览态才应用显隐规则；编辑态全部显示，否则隐藏题在设计器里会消失 */
+  const displays = useMemo(() => {
+    const rules: Record<string, string | undefined> = {};
+    const titles: Record<string, string> = {};
+    for (const q of flatQuestions) {
+      titles[q.id] = q.title;
+      if (q.schema.attribute?.visibleRule) rules[q.id] = q.schema.attribute.visibleRule;
+    }
+    return evaluateVisible(rules, { values, titles });
+  }, [flatQuestions, values]);
+
   const addQuestion = useCallback(
     (type: QuestionType) => {
       const node = createQuestion(type);
@@ -401,6 +423,7 @@ export default function SurveyEditor() {
                 values={values}
                 onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
                 mode={preview ? 'preview' : 'edit'}
+                displays={preview ? displays : undefined}
               />
             ) : (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>
@@ -441,6 +464,7 @@ export default function SurveyEditor() {
             schema={survey}
             values={values}
             onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+            displays={displays}
           />
           <hr className="bp-dim" style={{ margin: '14px 0 12px' }} />
           {selected ? (
@@ -461,7 +485,7 @@ export default function SurveyEditor() {
                 autoSize={{ minRows: 2, maxRows: 4 }}
                 style={{ marginBottom: 12 }}
               />
-              <AttributePanel schema={selected} onChange={patchAttribute} />
+              <AttributePanel schema={selected} onChange={patchAttribute} questions={candidateQuestions} />
             </>
           ) : (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>
