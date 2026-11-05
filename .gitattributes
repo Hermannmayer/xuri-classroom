@@ -1,0 +1,12 @@
+# 上游构建产物与自动生成的数据：不计入语言统计，别在 diff 里刷屏
+frontend-recon/web/**            linguist-vendored
+frontend-recon/modules3/**       linguist-vendored
+frontend-recon/extract/**        linguist-generated
+frontend-recon/recovered/_reference/** linguist-vendored
+
+# 逆向产物统一 LF，避免 Windows 的 CRLF 抖动（只作用于本目录）
+frontend-recon/** text=auto eol=lf
+
+# 压缩产物不要试图 diff
+frontend-recon/web/*.js  -diff
+frontend-recon/web/*.css -diff
