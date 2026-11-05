@@ -452,8 +452,12 @@ export default function BatchSettingModal({
       }
 
       const parts: string[] = [];
-      if (hasSettingChanges) parts.push(`已更新 ${updated} 项`);
-      if (authDeptIds.length > 0) parts.push(`${authDeptIds.length} 个班级授权`);
+      if (authDeptIds.length > 0) {
+        parts.push(`已更新 ${hasSettingChanges ? updated : 0} 项`);
+        parts.push(`${authDeptIds.length} 个班级授权`);
+      } else {
+        parts.push(`已更新 ${updated} 项`);
+      }
       message.success(parts.join('，'));
       onUpdated();
     } catch (e) {
