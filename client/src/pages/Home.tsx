@@ -196,16 +196,7 @@ export default function Home() {
               </Button>
             </div>
             <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 12, lineHeight: 1.8 }}>
-              新建后在「我的项目」里编辑题目、发布并查看数据。
-            </div>
-
-            <hr className="bp-dim" style={{ margin: '14px 0' }} />
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
-              <a onClick={() => navigate('/project')}>我的项目</a>
-              <a onClick={() => navigate('/exercise')}>我的练习</a>
-              <a onClick={() => navigate('/repo/index')}>题库中心</a>
-              <a onClick={() => navigate('/account/settings')}>账号设置</a>
+              新建后在「我的考试」里编辑题目、发布并查看数据。
             </div>
           </Card>
         </Col>

@@ -72,9 +72,10 @@ export default function BasicLayout() {
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
     if (has('project:')) {
-      menu.push({ key: '/project', icon: <ProjectOutlined />, label: t('menu.project', '我的项目') });
+      menu.push({ key: '/project', icon: <ProjectOutlined />, label: t('menu.project', '我的考试') });
     }
-    if (has('exercise:')) {
+    // 管理员不做题，练习入口只给老师/学员
+    if (has('exercise:') && !isAdmin) {
       menu.push({ key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') });
     }
     if (has('repo:')) {
@@ -84,7 +85,7 @@ export default function BasicLayout() {
         label: t('menu.repo', '题库中心'),
         children: [
           { key: '/repo/index', label: t('menu.repo.list', '题库列表') },
-          { key: '/repo/book', label: t('menu.repo.book', '练习册') },
+          ...(isAdmin ? [] : [{ key: '/repo/book', label: t('menu.repo.book', '练习册') }]),
         ],
       });
     }
