@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { download, get, getWithPagination, post } from '../../api';
+import { pager } from '../repo/table';
 
 interface SysUser {
   userId: string;
@@ -195,17 +196,7 @@ export default function SystemUser() {
           size="small"
           loading={loading}
           dataSource={rows}
-          pagination={{
-            current: page,
-            pageSize,
-            total,
-            showSizeChanger: true,
-            onChange: (p, ps) => {
-              setPage(p);
-              setPageSize(ps);
-            },
-            showTotal: (t) => `共 ${t} 条`,
-          }}
+          pagination={pager(page, pageSize, total, setPage, setPageSize)}
           columns={[
             { title: '姓名', dataIndex: 'name', width: 140, render: (v) => v || '—' },
             { title: '账号', dataIndex: 'username', width: 160 },

@@ -17,6 +17,7 @@ import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom';
 import { createProject, deleteProject, listProjects, updateProject } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
+import { pager } from '../repo/table';
 
 type Crumb = { id: string; name: string };
 
@@ -213,17 +214,7 @@ export default function ProjectList() {
             />
           ),
         }}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          showTotal: (n) => `共 ${n} 项`,
-          onChange: (p, s) => {
-            setPage(p);
-            setPageSize(s);
-          },
-        }}
+        pagination={pager(page, pageSize, total, setPage, setPageSize, (n) => `共 ${n} 项`)}
         columns={[
           {
             title: '名称',

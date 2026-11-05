@@ -16,7 +16,7 @@ import { DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { isAdmin, loadAuthorities } from '../../auth/permissions';
-import { TABLE_COMPONENTS } from './table';
+import { pager, TABLE_COMPONENTS } from './table';
 
 /** 与后端 RepoView 对齐（只取列表要用的字段） */
 interface RepoView {
@@ -197,17 +197,7 @@ export default function RepoList() {
             />
           ),
         }}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          showTotal: (n) => `共 ${n} 个题库`,
-          onChange: (p, s) => {
-            setPage(p);
-            setPageSize(s);
-          },
-        }}
+        pagination={pager(page, pageSize, total, setPage, setPageSize, (n) => `共 ${n} 个题库`)}
         columns={[
           {
             title: '名称',

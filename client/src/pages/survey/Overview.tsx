@@ -128,8 +128,7 @@ export default function SurveyOverview() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* 收集趋势 */}
         <Card
-          className="bp-corners"
-          style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}
+          className="bp-corners bp-card"
           title={<span className="bp-title" style={{ fontSize: 12 }}>DAILY / 每日收集</span>}
         >
           {daily.entries.length === 0 ? (
@@ -155,7 +154,7 @@ export default function SurveyOverview() {
 
         {/* 分享 */}
         <Card
-          style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}
+          className="bp-card"
           title={<span className="bp-title" style={{ fontSize: 12 }}>SHARE / 分享</span>}
         >
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
