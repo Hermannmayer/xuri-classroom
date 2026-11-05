@@ -5,6 +5,7 @@
 import { registerQuestion } from './registry';
 import Checkbox from './questions/Checkbox';
 import FillBlank from './questions/FillBlank';
+import Judge from './questions/Judge';
 import Radio from './questions/Radio';
 import Score from './questions/Score';
 import Select from './questions/Select';
@@ -16,3 +17,4 @@ registerQuestion('Select', Select);
 registerQuestion('FillBlank', FillBlank);
 registerQuestion('Textarea', Textarea);
 registerQuestion('Score', Score);
+registerQuestion('Judge', Judge);
