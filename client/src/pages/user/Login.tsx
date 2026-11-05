@@ -79,8 +79,8 @@ export default function Login() {
             marginBottom: 8,
           }}
         >
-          <span>XURI CLASS</span>
-          <span>DWG NO. XR-0013</span>
+          <span>{system?.name || '考试与学习平台'}</span>
+          <span>{(system?.description || 'EXAM & PRACTICE').toUpperCase()}</span>
         </div>
 
         <div
@@ -113,7 +113,7 @@ export default function Login() {
               letterSpacing: '0.06em',
             }}
           >
-            {system?.name || t('pages.login.defaultSystemName', '考试系统')}
+            {system?.name || '考试与学习平台'}
           </h1>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
             <span className="bp-tag">{versionTag(system?.version)}</span>

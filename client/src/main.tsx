@@ -12,6 +12,22 @@ import './styles/answer.css';
 
 dayjs.locale('zh-cn');
 
+// 用系统配置的 logo 当 favicon（机构换 logo 后标签页跟着换）
+void fetch('/api/system')
+  .then((res) => res.json())
+  .then((body: { data?: { avatar?: string } }) => {
+    const avatar = body?.data?.avatar;
+    if (!avatar) return;
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = avatar;
+  })
+  .catch(() => undefined);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ConfigProvider locale={zhCN}>
     <ThemeProvider>
