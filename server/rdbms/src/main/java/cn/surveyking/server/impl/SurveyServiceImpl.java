@@ -427,6 +427,8 @@ public class SurveyServiceImpl implements SurveyService {
 		AnswerRequest answerRequest = new AnswerRequest();
 		answerRequest.setId(answerId);
 		answerRequest.setTempSave(0);
+		// updateAnswer 链路会按 projectId 取项目，漏传会 NPE
+		answerRequest.setProjectId(projectId);
 		answerRequest.setTempAnswer(request.getTempAnswer());
 		answerService.updateAnswer(answerRequest);
 	}
