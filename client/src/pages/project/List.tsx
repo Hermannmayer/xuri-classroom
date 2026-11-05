@@ -13,7 +13,7 @@ import {
   Table,
   Tag,
 } from 'antd';
-import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { createProject, deleteProject, listProjects, updateProject } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
@@ -150,6 +150,9 @@ export default function ProjectList() {
             这里是你创建和参与协作的考试/问卷；题库在「题库中心」，不在此列表。
           </div>
         </div>
+        <Button icon={<DeleteOutlined />} onClick={() => navigate('/project/trash')}>
+          回收站
+        </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           新建
         </Button>
