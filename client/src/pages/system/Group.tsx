@@ -14,6 +14,22 @@ interface Dept {
  * 用户组（班级）管理：复用后端的组织机构表 t_dept。
  * 题库授权时按这里的分组批量把组员加入 t_repo_partner。
  */
+/** 后端 /api/system/dept/list 返回扁平列表，这里按 parentId 组装成树 */
+function buildTree(list: Dept[]): Dept[] {
+  const map = new Map<string, Dept & { children: Dept[] }>();
+  list.forEach((d) => map.set(d.id, { ...d, children: [] }));
+  const roots: Dept[] = [];
+  map.forEach((node) => {
+    const parent = node.parentId ? map.get(node.parentId) : undefined;
+    if (parent && parent.id !== node.id) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+}
+
 function flattenDepts(list: Dept[], depth = 0): { id: string; name: string; depth: number }[] {
   return list.flatMap((d) => [{ id: d.id, name: d.name, depth }, ...flattenDepts(d.children ?? [], depth + 1)]);
 }
@@ -29,7 +45,8 @@ export default function SystemGroup() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setTree(await get<Dept[]>('/api/system/dept/list'));
+      const list = await get<Dept[]>('/api/system/dept/list');
+      setTree(buildTree(Array.isArray(list) ? list : []));
     } catch (e) {
       message.error((e as Error).message);
     } finally {
