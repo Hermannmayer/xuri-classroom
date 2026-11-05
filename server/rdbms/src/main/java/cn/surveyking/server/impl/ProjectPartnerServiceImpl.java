@@ -97,6 +97,21 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 						.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.OWNER.getType())) > 0) {
 			throw new AccessDeniedException("请使用专用的所有权转移功能");
 		}
+		// 授权给用户组（班级）：只写一条 group_id 记录，组员自动继承可见
+		if (org.apache.commons.lang3.StringUtils.isNotBlank(request.getGroupId())) {
+			long exists = count(Wrappers.<ProjectPartner>lambdaQuery()
+					.eq(ProjectPartner::getProjectId, request.getProjectId())
+					.eq(ProjectPartner::getGroupId, request.getGroupId())
+					.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType()));
+			if (exists == 0) {
+				ProjectPartner partner = new ProjectPartner();
+				partner.setProjectId(request.getProjectId());
+				partner.setGroupId(request.getGroupId());
+				partner.setType(ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType());
+				save(partner);
+			}
+			return;
+		}
 		// 添加答题人
 		List<ProjectPartner> existUserIds = list(Wrappers.<ProjectPartner>lambdaQuery()
 				.in(request.getUserIds() != null, ProjectPartner::getUserId, request.getUserIds())

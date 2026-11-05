@@ -14,6 +14,7 @@ import {
   Spin,
   Table,
   Tag,
+  Tree,
   Upload,
 } from 'antd';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
@@ -21,7 +22,8 @@ import { download, get, getWithPagination, post } from '../../api';
 import { pager } from '../repo/table';
 
 interface SysUser {
-  userId: string;
+  id?: string;
+  userId?: string;
   name?: string;
   username?: string;
   phone?: string;
@@ -38,6 +40,25 @@ interface Role {
   name?: string;
   code?: string;
 }
+
+interface Dept {
+  id: string;
+  parentId?: string;
+  name?: string;
+  children?: Dept[];
+}
+
+interface TreeNode {
+  title: string;
+  key: string;
+  children?: TreeNode[];
+}
+
+const ALL_DEPT = 'all';
+const NO_DEPT = 'none';
+
+/** 后端 UserView 返回主键字段是 id（旧代码用了 userId，这里兼容两者） */
+const userKey = (row: SysUser) => row.id ?? row.userId ?? '';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
@@ -68,7 +89,9 @@ export default function SystemUser() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [depts, setDepts] = useState<{ id: string; name: string }[]>([]);
+  const [deptFlat, setDeptFlat] = useState<Dept[]>([]);
+  const [deptTree, setDeptTree] = useState<Dept[]>([]);
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [deptFilter, setDeptFilter] = useState<string | undefined>(undefined);
 
   const [editing, setEditing] = useState<SysUser | null>(null);
@@ -80,14 +103,26 @@ export default function SystemUser() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getWithPagination<SysUser>('/api/system/user/list', {
-        current: page,
-        pageSize,
-        name: keyword,
-        deptId: deptFilter,
-      });
-      setRows(res.data);
-      setTotal(res.total);
+      if (deptFilter === NO_DEPT) {
+        // 后端 deptId 为空时不做分组过滤，也没有「未分组」参数；这里一次取全量再前端过滤/分页
+        const res = await getWithPagination<SysUser>('/api/system/user/list', {
+          current: 1,
+          pageSize: 1000,
+          name: keyword,
+        });
+        const ungrouped = res.data.filter((user) => !user.deptId);
+        setRows(ungrouped.slice((page - 1) * pageSize, page * pageSize));
+        setTotal(ungrouped.length);
+      } else {
+        const res = await getWithPagination<SysUser>('/api/system/user/list', {
+          current: page,
+          pageSize,
+          name: keyword,
+          deptId: deptFilter,
+        });
+        setRows(res.data);
+        setTotal(res.total);
+      }
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -100,13 +135,51 @@ export default function SystemUser() {
   }, [load]);
 
   useEffect(() => {
-    get<{ id: string; name: string }[]>('/api/system/dept/list')
-      .then((list) => setDepts(Array.isArray(list) ? list : []))
+    get<Dept[]>('/api/system/dept/list')
+      .then((list) => {
+        const flat = Array.isArray(list) ? list : [];
+        setDeptFlat(flat);
+        // 后端 /dept/list 实际返回扁平列表（靠 parentId 关联），这里组装成 Tree 需要的 children 结构
+        const map = new Map<string, Dept>();
+        flat.forEach((dept) => map.set(dept.id, { ...dept, children: [] }));
+        const roots: Dept[] = [];
+        map.forEach((dept) => {
+          const parent = dept.parentId ? map.get(dept.parentId) : undefined;
+          if (parent) parent.children!.push(dept);
+          else roots.push(dept);
+        });
+        setDeptTree(roots);
+        setExpandedKeys(flat.map((dept) => dept.id));
+      })
       .catch(() => undefined);
     get<{ list: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 })
       .then((res) => setRoles(res?.list ?? []))
       .catch(() => undefined);
   }, []);
+
+  const toTreeNodes = (nodes: Dept[]): TreeNode[] =>
+    nodes.map((dept) => ({
+      title: dept.name || dept.id,
+      key: dept.id,
+      children: dept.children?.length ? toTreeNodes(dept.children) : undefined,
+    }));
+
+  const treeData: TreeNode[] = [
+    { title: '全部', key: ALL_DEPT },
+    ...toTreeNodes(deptTree),
+    { title: '未分组', key: NO_DEPT },
+  ];
+
+  const deptOptions = [
+    { value: ALL_DEPT, label: '全部用户组' },
+    ...deptFlat.map((dept) => ({ value: dept.id, label: dept.name || dept.id })),
+    { value: NO_DEPT, label: '未分组' },
+  ];
+
+  const changeDept = (value: string) => {
+    setPage(1);
+    setDeptFilter(value === ALL_DEPT ? undefined : value);
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -134,7 +207,7 @@ export default function SystemUser() {
     setSaving(true);
     try {
       if (editing) {
-        await post('/api/system/user/update', { id: editing.userId, ...values });
+        await post('/api/system/user/update', { id: userKey(editing), ...values });
         message.success('已保存');
       } else {
         await post('/api/system/user/create', values);
@@ -151,7 +224,7 @@ export default function SystemUser() {
 
   const remove = async (row: SysUser) => {
     try {
-      await post('/api/system/user/delete', { id: row.userId });
+      await post('/api/system/user/delete', { id: userKey(row) });
       message.success('已删除');
       await load();
     } catch (e) {
@@ -208,18 +281,15 @@ export default function SystemUser() {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <Select
-            allowClear
-            placeholder="全部用户组"
-            style={{ width: 160 }}
-            value={deptFilter}
-            onChange={(v) => {
-              setPage(1);
-              setDeptFilter(v);
-            }}
-            options={depts.map((d) => ({ value: d.id, label: d.name }))}
+        {isMobile && (
+          <Select
+            value={deptFilter ?? ALL_DEPT}
+            style={{ width: '100%' }}
+            onChange={changeDept}
+            options={deptOptions}
           />
-          <Input.Search
+        )}
+        <Input.Search
           placeholder="搜索姓名"
           allowClear
           style={{ width: isMobile ? '100%' : 200 }}
@@ -249,14 +319,37 @@ export default function SystemUser() {
         </Button>
       </div>
 
-      {isMobile ? (
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        {!isMobile && (
+          <Card
+            className="bp-card bp-corners"
+            size="small"
+            title="用户组"
+            style={{ width: 200, flex: '0 0 200px', alignSelf: 'flex-start' }}
+            styles={{ body: { padding: '8px 4px' } }}
+          >
+            <Tree
+              blockNode
+              treeData={treeData}
+              expandedKeys={expandedKeys}
+              selectedKeys={[deptFilter ?? ALL_DEPT]}
+              onExpand={(keys) => setExpandedKeys(keys.map(String))}
+              onSelect={(keys) => {
+                if (keys.length) changeDept(String(keys[0]));
+              }}
+            />
+          </Card>
+        )}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {isMobile ? (
         <>
           <Spin spinning={loading}>
             {rows.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {rows.map((row) => (
                   <div
-                    key={row.userId}
+                    key={userKey(row)}
                     className="bp-card"
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
@@ -346,7 +439,7 @@ export default function SystemUser() {
       ) : (
       <Card className="bp-corners bp-card">
         <Table<SysUser>
-          rowKey="userId"
+          rowKey={(row) => userKey(row)}
           size="small"
           loading={loading}
           dataSource={rows}
@@ -384,7 +477,9 @@ export default function SystemUser() {
           ]}
         />
       </Card>
-      )}
+          )}
+        </div>
+      </div>
 
       <Modal
         title={editing ? '编辑用户' : '新建用户'}
@@ -418,7 +513,7 @@ export default function SystemUser() {
             <Select
               allowClear
               placeholder="不选则不属于任何组"
-              options={depts.map((d) => ({ value: d.id, label: d.name }))}
+              options={deptFlat.map((d) => ({ value: d.id, label: d.name || d.id }))}
             />
           </Form.Item>
           <Form.Item name="roles" label="角色" extra="不分配角色等于没有后台权限；学员不需要分配">

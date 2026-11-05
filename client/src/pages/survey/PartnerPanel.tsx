@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Empty, message, Modal, Popconfirm, Select, Table, Tag } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { getWithPagination, post } from '../../api';
+import { PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { get, getWithPagination, post } from '../../api';
 
 interface Partner {
   id: string;
   userId?: string;
   userName?: string;
+  groupId?: string;
   type?: number;
   status?: number;
 }
@@ -17,16 +18,30 @@ interface SysUser {
   username?: string;
 }
 
+interface Dept {
+  id: string;
+  name: string;
+}
+
 /**
- * 协作管理员：给一份考试/问卷加协作者（后端 type=2）。
- * 协作者可以编辑题目、看数据，但不能删除项目本身。
+ * 协作 + 授权：一份考试/问卷可以
+ * 1) 加协作者（type=2，能编辑题目、看数据）
+ * 2) 授权给班级（type=3 + group_id，该班学员在「我的考试」里能看到这份卷子）
+ *
+ * 匿名答题不受这里影响：公开链接 /s/:id 任何人都能答。
  */
 export default function PartnerPanel({ projectId }: { projectId: string }) {
   const [rows, setRows] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [depts, setDepts] = useState<Dept[]>([]);
+
+  const [collabOpen, setCollabOpen] = useState(false);
   const [users, setUsers] = useState<SysUser[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [grantDept, setGrantDept] = useState<string>();
+
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -38,8 +53,7 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
         current: 1,
         pageSize: 100,
       });
-      // 只显示协作者（type=2），答卷人/白名单不在这里管
-      setRows(res.data.filter((item) => item.type === 2 || item.type === undefined));
+      setRows(res.data.filter((item) => item.type === 2 || item.type === 3 || item.type === undefined));
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -49,11 +63,14 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     void load();
+    get<Dept[]>('/api/system/dept/list')
+      .then((list) => setDepts(Array.isArray(list) ? list : []))
+      .catch(() => undefined);
   }, [load]);
 
-  const openAdd = async () => {
-    setOpen(true);
-    setSelected([]);
+  const openCollab = async () => {
+    setCollabOpen(true);
+    setSelectedUsers([]);
     try {
       const res = await getWithPagination<SysUser>('/api/system/user/list', { current: 1, pageSize: 200 });
       setUsers(res.data);
@@ -62,16 +79,35 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
     }
   };
 
-  const add = async () => {
-    if (selected.length === 0) {
+  const addCollab = async () => {
+    if (selectedUsers.length === 0) {
       message.warning('先选要添加的人');
       return;
     }
     setSaving(true);
     try {
-      await post('/api/project/partner/create', { projectId, type: 2, userIds: selected });
-      message.success(`已添加 ${selected.length} 位协作者`);
-      setOpen(false);
+      await post('/api/project/partner/create', { projectId, type: 2, userIds: selectedUsers });
+      message.success(`已添加 ${selectedUsers.length} 位协作者`);
+      setCollabOpen(false);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addGrant = async () => {
+    if (!grantDept) {
+      message.warning('先选一个班级');
+      return;
+    }
+    setSaving(true);
+    try {
+      await post('/api/project/partner/create', { projectId, type: 3, groupId: grantDept });
+      message.success('已授权给该班级，组内学员可在「我的考试」看到这份卷子');
+      setGrantOpen(false);
+      setGrantDept(undefined);
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -90,14 +126,18 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
     }
   };
 
+  const deptName = (id?: string) => depts.find((d) => d.id === id)?.name ?? '未知班级';
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
-          协作者可以编辑题目、查看数据，不能删除项目
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', flex: 1, minWidth: 200 }}>
+          协作者能编辑题目、看数据；授权班级后该班学员能在「我的考试」里看到。公开链接仍然任何人都能答。
         </div>
-        <div style={{ flex: 1 }} />
-        <Button size="small" icon={<PlusOutlined />} onClick={openAdd}>
+        <Button size="small" icon={<TeamOutlined />} onClick={() => setGrantOpen(true)}>
+          授权给班级
+        </Button>
+        <Button size="small" icon={<PlusOutlined />} onClick={openCollab}>
           添加协作者
         </Button>
       </div>
@@ -108,21 +148,27 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
         loading={loading}
         dataSource={rows}
         pagination={false}
-        locale={{ emptyText: <Empty description="还没有协作者" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+        locale={{ emptyText: <Empty description="还没有协作者或班级授权" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         columns={[
-          { title: '姓名', dataIndex: 'userName', render: (v: string) => v || '—' },
+          {
+            title: '对象',
+            key: 'target',
+            render: (_, row) =>
+              row.groupId ? `班级：${deptName(row.groupId)}` : row.userName || row.userId || '—',
+          },
           {
             title: '角色',
-            dataIndex: 'type',
-            width: 100,
-            render: () => <Tag color="blue">协作者</Tag>,
+            key: 'type',
+            width: 120,
+            render: (_, row) =>
+              row.groupId ? <Tag color="orange">班级可见</Tag> : <Tag color="blue">协作者</Tag>,
           },
           {
             title: '操作',
             key: 'ops',
             width: 80,
             render: (_, row) => (
-              <Popconfirm title="移除这位协作者？" okText="移除" cancelText="取消" onConfirm={() => remove(row)}>
+              <Popconfirm title="移除此授权？" okText="移除" cancelText="取消" onConfirm={() => remove(row)}>
                 <a style={{ color: 'var(--bp-orange)' }}>移除</a>
               </Popconfirm>
             ),
@@ -132,9 +178,9 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
 
       <Modal
         title="添加协作者"
-        open={open}
-        onCancel={() => setOpen(false)}
-        onOk={add}
+        open={collabOpen}
+        onCancel={() => setCollabOpen(false)}
+        onOk={addCollab}
         confirmLoading={saving}
         okText="添加"
         cancelText="取消"
@@ -144,14 +190,33 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
           mode="multiple"
           style={{ width: '100%' }}
           placeholder="选择用户（可多选）"
-          value={selected}
-          onChange={setSelected}
+          value={selectedUsers}
+          onChange={setSelectedUsers}
           optionFilterProp="label"
           options={users.map((u) => ({ value: u.userId, label: u.name || u.username || u.userId }))}
         />
-        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--bp-text-soft)' }}>
-          只能选已有账号的用户；学员账号一般不需要加进来。
+      </Modal>
+
+      <Modal
+        title="授权给班级"
+        open={grantOpen}
+        onCancel={() => setGrantOpen(false)}
+        onOk={addGrant}
+        confirmLoading={saving}
+        okText="授权"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+          授权后，该班级的学员登录后能在「我的考试」里看到这份卷子；未注册的人仍可通过公开链接作答。
         </div>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="选择班级 / 用户组"
+          value={grantDept}
+          onChange={setGrantDept}
+          options={depts.map((d) => ({ value: d.id, label: d.name }))}
+        />
       </Modal>
     </div>
   );
