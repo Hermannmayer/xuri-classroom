@@ -11,6 +11,8 @@ export interface SchemaRendererProps {
   mode: RenderMode;
   /** 规则求值结果：false 的节点整题不渲染 */
   displays?: Record<string, boolean>;
+  /** 题号偏移：一页一题时传当前页索引，保证题号跟着变而不是永远 01 */
+  numberOffset?: number;
 }
 
 const styles = {
@@ -52,15 +54,15 @@ const styles = {
   },
 } satisfies Record<string, CSSProperties>;
 
-export function SchemaRenderer({ schema, values, onChange, mode, displays }: SchemaRendererProps) {
+export function SchemaRenderer({ schema, values, onChange, mode, displays, numberOffset = 0 }: SchemaRendererProps) {
   // 题号只对数据题递增，交给 flattenSchema 统一算，避免与设计器大纲/规则引用的编号漂移
   const numbers = useMemo(() => {
     const map = new Map<string, number>();
     for (const q of flattenSchema(schema)) {
-      if (q.number !== undefined) map.set(q.id, q.number);
+      if (q.number !== undefined) map.set(q.id, q.number + numberOffset);
     }
     return map;
-  }, [schema]);
+  }, [schema, numberOffset]);
 
   function renderNodes(nodes?: SurveySchema[]): ReactNode[] {
     return (nodes ?? []).map(renderNode);

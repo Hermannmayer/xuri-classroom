@@ -152,3 +152,43 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* 字号控件：两端 A-/A+ 大按钮 + 中间滑块，老人点按钮、年轻人拖滑块 */
+.sk-font-ctl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.sk-font-btn {
+  min-width: 36px;
+  padding: 0 8px !important;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.sk-font-slider {
+  width: 96px;
+  margin: 0 8px !important;
+}
+.sk-font-slider .ant-slider-rail {
+  background: rgba(255, 255, 255, 0.22);
+  height: 4px;
+}
+.sk-font-slider .ant-slider-track {
+  background: var(--bp-orange);
+  height: 4px;
+}
+.sk-font-slider .ant-slider-handle::after {
+  width: 14px;
+  height: 14px;
+  box-shadow: 0 0 0 2px var(--bp-orange);
+}
+@media (max-width: 520px) {
+  .sk-font-slider {
+    width: 62px;
+    margin: 0 4px !important;
+  }
+  .sk-font-btn {
+    min-width: 32px;
+    padding: 0 6px !important;
+  }
+}

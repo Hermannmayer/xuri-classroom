@@ -135,6 +135,7 @@ export interface Answer {  id: string;
   tempSave?: number;
   createAt?: string;
   createBy?: string;
+  createByName?: string;
   updateAt?: string;
 }
 
