@@ -457,7 +457,18 @@ export default function PublicAnswer() {
   const showSubmit = onePage ? currentIndex >= total - 1 : nearBottom;
 
   return (
-    <div className="sk-answer" style={{ minHeight: '100vh', paddingBottom: 96 }}>
+    <div
+      className="sk-answer"
+      style={{
+        minHeight: '100vh',
+        paddingBottom: 96,
+        backgroundImage: project.survey?.attribute?.backgroundImage
+          ? `url(${project.survey.attribute.backgroundImage})`
+          : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       {/* 顶部：标题 + 字号 + 答题卡入口 */}
       <div className="sk-answer-top">
         <div style={{ flex: 1, minWidth: 0 }}>
