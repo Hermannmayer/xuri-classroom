@@ -17,6 +17,8 @@ public class RepoPartner extends BaseModel {
 	@TableField(value = "user_id")
 	private String userId;
 
+	private String deptId;
+
 	@TableField(exist = false)
 	private static final long serialVersionUID = 1L;
 

@@ -67,8 +67,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				Wrappers.<Repo>lambdaQuery().like(isNotBlank(query.getName()), Repo::getName, query.getName())
 						.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory()).and(x -> {
 							if (Boolean.TRUE.equals(query.getMemberOnly())) {
+								// 自己创建的、或被逐个授权、或所在用户组被授权（组员自动继承）
 								x.eq(Repo::getCreateBy, currentUserId).or().apply(
-										"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND rp.user_id = {0})",
+										"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id = (SELECT u.dept_id FROM t_user u WHERE u.id = {0}))))",
 										currentUserId);
 							}
 							else {
@@ -994,12 +995,14 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private void assertReadableRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
-		// 管理员全放行；其他人只能读自己创建的或被 t_repo_partner 授权的
+		String userId = SecurityContextUtils.getUserId();
+		// 管理员全放行；其他人只能读自己创建的、被逐个授权的、或所在用户组被授权的
 		// （去掉 shared 全放行，否则知道 id 就能绕过「按组授权」的可见性）
-		if (SecurityContextUtils.isAdmin()
-				|| Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())
+		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
-						.eq(RepoPartner::getUserId, SecurityContextUtils.getUserId())) > 0) {
+						.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
+								"dept_id IS NOT NULL AND dept_id = (SELECT u.dept_id FROM t_user u WHERE u.id = {0})",
+								userId))) > 0) {
 			return;
 		}
 		throw new AccessDeniedException("无权限访问该题库");

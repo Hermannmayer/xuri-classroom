@@ -1,21 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Alert, message, Modal, Select, Table } from 'antd';
-import { get, getWithPagination, post } from '../../api';
+import { Alert, message, Modal, Select } from 'antd';
+import { get, post } from '../../api';
 
 interface Dept {
   id: string;
   name: string;
   children?: Dept[];
 }
-interface User {
-  userId: string;
-  name?: string;
-  username?: string;
-}
 
 /**
- * 题库授权：按用户组（班级）批量把组员加入 t_repo_partner。
- * 走现有接口，不需要后端新增能力；组员变动后重新授权一次即可。
+ * 题库授权：按用户组（班级）授权，只写一条 dept 记录，组员靠 t_user.dept_id 自动继承。
+ * 后端 t_repo_partner.dept_id + listRepo/assertReadableRepo 的组匹配负责可见性。
  */
 export default function GrantModal({
   repoId,
@@ -30,43 +25,25 @@ export default function GrantModal({
 }) {
   const [depts, setDepts] = useState<Dept[]>([]);
   const [deptId, setDeptId] = useState<string>();
-  const [members, setMembers] = useState<User[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setDeptId(undefined);
     get<Dept[]>('/api/system/dept/list')
       .then((list) => setDepts(list ?? []))
-      .catch(() => undefined);
+      .catch((e: Error) => message.error(e.message));
   }, [open]);
 
-  useEffect(() => {
-    if (!deptId) {
-      setMembers([]);
-      setSelected([]);
-      return;
-    }
-    setLoading(true);
-    getWithPagination<User>('/api/system/user/list', { deptId, current: 1, pageSize: -1 })
-      .then((res) => {
-        setMembers(res.data);
-        setSelected(res.data.map((u) => u.userId));
-      })
-      .catch((e: Error) => message.error(e.message))
-      .finally(() => setLoading(false));
-  }, [deptId]);
-
   const grant = async () => {
-    if (!repoId || selected.length === 0) {
-      message.warning('先选一个分组');
+    if (!repoId || !deptId) {
+      message.warning('先选一个用户组');
       return;
     }
     setSaving(true);
     try {
-      await post('/api/repo/partner/create', { repoId, userIds: selected });
-      message.success(`已授权 ${selected.length} 人`);
+      await post('/api/repo/partner/create', { repoId, deptId });
+      message.success('已授权该用户组，组内成员自动可见');
       onClose();
     } catch (e) {
       message.error((e as Error).message);
@@ -85,38 +62,22 @@ export default function GrantModal({
       onCancel={onClose}
       onOk={grant}
       confirmLoading={saving}
-      okText="授权选中人员"
+      okText="授权该用户组"
       cancelText="取消"
-      width={560}
+      width={480}
     >
       <Alert
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="按分组批量授权：选中分组后会把该组所有成员加入这个题库的可见名单。组员变动后重新授权一次即可。"
+        message="按用户组授权后，组内成员自动可见；以后新加入该组的学员无需重新授权。"
       />
       <Select
-        style={{ width: '100%', marginBottom: 12 }}
+        style={{ width: '100%' }}
         placeholder="选择用户组 / 班级"
         value={deptId}
         onChange={setDeptId}
         options={flatten(depts).map((d) => ({ value: d.id, label: `${'　'.repeat(d.depth)}${d.name}` }))}
-      />
-      <Table<User>
-        rowKey="userId"
-        size="small"
-        loading={loading}
-        dataSource={members}
-        pagination={false}
-        scroll={{ y: 240 }}
-        rowSelection={{
-          selectedRowKeys: selected,
-          onChange: (keys) => setSelected(keys as string[]),
-        }}
-        columns={[
-          { title: '姓名', dataIndex: 'name', render: (v: string) => v || '—' },
-          { title: '账号', dataIndex: 'username' },
-        ]}
       />
     </Modal>
   );
