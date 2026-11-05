@@ -116,7 +116,6 @@ export default function RepoQuestions() {
   const [pageSize, setPageSize] = useState(20);
   const [keyword, setKeyword] = useState('');
   const [questionType, setQuestionType] = useState<string>();
-  const [tagFilter, setTagFilter] = useState<string>();
   // 默认给任务要求的 5 种题型；加载后把当前页出现的新题型并进来
   const [typeOptions, setTypeOptions] = useState<string[]>([
     'Radio',
@@ -135,6 +134,8 @@ export default function RepoQuestions() {
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [correct, setCorrect] = useState<string | string[]>('');
+  // 多空填空逐空答案，下标与 schema.children 一一对应
+  const [blanks, setBlanks] = useState<string[]>([]);
   const [editForm] = Form.useForm<{
     title: string;
     score?: number;
@@ -152,7 +153,6 @@ export default function RepoQuestions() {
         pageSize,
         name: keyword,
         questionType: questionType || undefined,
-        tag: tagFilter || undefined,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -166,7 +166,7 @@ export default function RepoQuestions() {
     } finally {
       setLoading(false);
     }
-  }, [repoId, page, pageSize, keyword, questionType, tagFilter]);
+  }, [repoId, page, pageSize, keyword, questionType]);
 
   useEffect(() => {
     void load();
@@ -175,14 +175,17 @@ export default function RepoQuestions() {
   // 翻页/筛选后旧选中项可能已不在当前列表，直接清空避免误删
   useEffect(() => {
     setSelectedKeys([]);
-  }, [repoId, page, pageSize, keyword, questionType, tagFilter]);
+  }, [repoId, page, pageSize, keyword, questionType]);
 
-  const hasFilter = Boolean(keyword || questionType || tagFilter);
+  const hasFilter = Boolean(keyword || questionType);
 
   const editType = editing?.questionType ?? editing?.template?.type ?? '';
   const isChoice = CHOICE_TYPES.has(editType);
   const isJudge = editType === 'Judge';
   const isMulti = editType === 'Checkbox';
+  const isMultipleBlank = editType === 'MultipleBlank';
+  // 多空填空的空位就是 children，title 是给用户看的提示
+  const editChildren = editing?.template?.children ?? [];
 
   // Modal 关闭时会销毁 Form，等它挂载后再回填
   useEffect(() => {
@@ -208,6 +211,14 @@ export default function RepoQuestions() {
     }
     setOptions(opts);
     setCorrect(templateCorrect(template, type, opts));
+    // 多空填空逐空回填；没有空位时留一个空输入框，保存时再补 children
+    setBlanks(
+      type === 'MultipleBlank'
+        ? (template?.children ?? []).length
+          ? (template?.children ?? []).map((child) => child.attribute?.examCorrectAnswer ?? '')
+          : ['']
+        : [],
+    );
     editForm.setFieldsValue({
       title: template?.title || editing.name || '',
       score: template?.attribute?.examScore,
@@ -328,8 +339,24 @@ export default function RepoQuestions() {
           label: judge ? opt.text || (index === 0 ? '正确' : '错误') : opt.text,
           value: opt.id,
         }));
+      } else if (type === 'MultipleBlank') {
+        // 多空填空：逐空写回对应 child 的 examCorrectAnswer；空值置 undefined，避免残留旧答案
+        const answers = blanks.map((value) => value.trim());
+        if (children.length) {
+          children = children.map((child, index) => ({
+            ...child,
+            attribute: { ...(child.attribute ?? {}), examCorrectAnswer: answers[index] || undefined },
+          }));
+        } else {
+          children = answers.map((answer) => ({
+            id: newOptionId(),
+            title: '',
+            type: 'Option',
+            attribute: { examCorrectAnswer: answer || undefined },
+          }));
+        }
       } else {
-        // 填空/简答：正确答案写第一个空位；其余 children 原样保留
+        // 单空填空/简答：正确答案写第一个空位；其余 children 原样保留
         const correctText = typeof correct === 'string' ? correct.trim() : '';
         if (children.length) {
           children = children.map((child, index) =>
@@ -457,18 +484,10 @@ export default function RepoQuestions() {
           }}
           options={typeOptions.map((t) => ({ value: t, label: TYPE_LABEL[t] ?? t }))}
         />
-        <Select
-          allowClear
-          showSearch
-          value={tagFilter}
-          placeholder="全部标签"
-          style={{ width: 160, flexShrink: 0 }}
-          onChange={(v) => {
-            setTagFilter(v);
-            setPage(1);
-          }}
-          options={tagOptions.map((t) => ({ value: t, label: t }))}
-        />
+        {/* TODO 标签筛选暂时隐藏：/api/template/list 的 tag 过滤走 t_tag 表
+            （TemplateServiceImpl#getTaggedTemplateIds），但本页编辑标签只写 t_template.tag，t_tag 不落库；
+            /api/template/listTag 又硬编码 question_type=Survey，题库题型（Radio/FillBlank…）永远查不到。
+            等后端把过滤改成 t_template.tag（或在保存模板时同步 t_tag）再恢复这个下拉。 */}
         <Input.Search
           allowClear
           placeholder="搜索题干"
@@ -655,7 +674,7 @@ export default function RepoQuestions() {
             </Form.Item>
           )}
 
-          <Form.Item label="正确答案">
+          <Form.Item label={isMultipleBlank ? '正确答案（逐空填写）' : '正确答案'}>
             {isChoice ? (
               isMulti ? (
                 <Select
@@ -683,6 +702,23 @@ export default function RepoQuestions() {
                   }))}
                 />
               )
+            ) : isMultipleBlank ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {blanks.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 48, flexShrink: 0, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                      空 {index + 1}
+                    </span>
+                    <Input
+                      value={value}
+                      placeholder={editChildren[index]?.title || `第 ${index + 1} 空的正确答案`}
+                      onChange={(e) =>
+                        setBlanks((prev) => prev.map((item, i) => (i === index ? e.target.value : item)))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
             ) : (
               <Input.TextArea
                 autoSize={{ minRows: 1, maxRows: 4 }}

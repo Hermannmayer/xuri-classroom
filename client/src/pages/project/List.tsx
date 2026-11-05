@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { createProject, deleteProject, listProjects, updateProject } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import { pager } from '../repo/table';
+import ComposeModal from './ComposeModal';
 
 type Crumb = { id: string; name: string };
 
@@ -73,9 +74,17 @@ export default function ProjectList() {
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeName, setComposeName] = useState('');
   const [renaming, setRenaming] = useState<ProjectView | null>(null);
-  const [createForm] = Form.useForm<{ name: string; mode: 'survey' | 'exam' }>();
+  const [createForm] = Form.useForm<{
+    name: string;
+    mode: 'survey' | 'exam';
+    source?: 'blank' | 'compose';
+  }>();
   const [renameForm] = Form.useForm<{ name: string }>();
+  const createMode = Form.useWatch('mode', createForm);
+  const createSource = Form.useWatch('source', createForm);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,12 +104,18 @@ export default function ProjectList() {
   }, [load]);
 
   const openCreate = () => {
-    createForm.setFieldsValue({ name: '', mode: 'exam' });
+    createForm.setFieldsValue({ name: '', mode: 'exam', source: 'blank' });
     setCreateOpen(true);
   };
 
   const submitCreate = async () => {
     const v = await createForm.validateFields();
+    if (v.mode === 'exam' && v.source === 'compose') {
+      setCreateOpen(false);
+      setComposeName(v.name.trim());
+      setComposeOpen(true);
+      return;
+    }
     try {
       const created = await createProject({
         name: v.name,
@@ -480,7 +495,7 @@ export default function ProjectList() {
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         onOk={submitCreate}
-        okText="创建"
+        okText={createMode === 'exam' && createSource === 'compose' ? '下一步' : '创建'}
         cancelText="取消"
         destroyOnClose
       >
@@ -496,8 +511,28 @@ export default function ProjectList() {
               ]}
             />
           </Form.Item>
+          {createMode === 'exam' && (
+            <Form.Item name="source" label="新建方式">
+              <Segmented
+                options={[
+                  { label: '空白新建', value: 'blank' },
+                  { label: '从题库组卷', value: 'compose' },
+                ]}
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
+
+      <ComposeModal
+        open={composeOpen}
+        initialName={composeName}
+        onCancel={() => setComposeOpen(false)}
+        onCreated={(id) => {
+          setComposeOpen(false);
+          navigate(`/survey/${id}/edit`);
+        }}
+      />
 
       <Modal
         title="重命名"

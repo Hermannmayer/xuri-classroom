@@ -206,7 +206,7 @@ export default function LoginCaptcha({
           width: '100%',
           maxWidth: BG_WIDTH,
           border: '1px solid var(--bp-line)',
-          background: 'rgba(21,42,68,0.75)',
+          background: 'var(--bp-panel-strong)',
         }}
       >
         {images ? (
@@ -254,7 +254,7 @@ export default function LoginCaptcha({
                 padding: 0,
                 border: 0,
                 cursor: 'pointer',
-                color: '#fff',
+                color: 'var(--bp-on-primary)',
                 background: 'rgba(0,0,0,0.28)',
                 lineHeight: '26px',
               }}
@@ -269,7 +269,7 @@ export default function LoginCaptcha({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: 'rgba(21,42,68,0.6)',
+                  background: 'var(--bp-mask)',
                   fontSize: 11,
                   color: 'var(--bp-text-soft)',
                 }}
@@ -310,7 +310,7 @@ export default function LoginCaptcha({
             position: 'relative',
             height: HANDLE,
             borderTop: '1px solid var(--bp-line)',
-            background: 'rgba(255,255,255,0.03)',
+            background: 'var(--bp-fill-weak)',
             userSelect: 'none',
             touchAction: 'none',
           }}
@@ -322,7 +322,7 @@ export default function LoginCaptcha({
               top: 0,
               bottom: 0,
               width: left,
-              background: 'rgba(74,144,217,0.22)',
+              background: 'var(--bp-blue-weak)',
               pointerEvents: 'none',
             }}
           />
@@ -359,9 +359,9 @@ export default function LoginCaptcha({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: phase === 'ok' ? 'rgba(74,144,217,0.55)' : 'rgba(74,144,217,0.35)',
+              background: phase === 'ok' ? 'var(--bp-handle-bg)' : 'var(--bp-handle-bg-idle)',
               border: '1px solid var(--bp-line)',
-              color: '#fff',
+              color: 'var(--bp-on-primary)',
               cursor: phase === 'ready' ? 'grab' : 'default',
               touchAction: 'none',
             }}

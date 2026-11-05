@@ -8,14 +8,17 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MoonOutlined,
   ProjectOutlined,
   SettingOutlined,
+  SunOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
 import { t } from '../i18n';
+import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
 
 const { Header, Sider, Content } = Layout;
@@ -46,6 +49,7 @@ export default function BasicLayout() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const authorities = user?.authorityList ?? [];
+  const { mode, toggle } = useThemeMode();
 
   useEffect(() => {
     Promise.all([getCurrentUser(), getSystem().catch(() => undefined)])
@@ -129,10 +133,10 @@ export default function BasicLayout() {
           collapsible
           collapsed={collapsed}
           onCollapse={setCollapsed}
-          theme="dark"
+          theme={mode}
           width={siderWidth}
           style={{
-            background: 'rgba(21,42,68,0.92)',
+            background: 'var(--bp-nav)',
             borderRight: '1px solid var(--bp-line-soft)',
           }}
         >
@@ -152,7 +156,7 @@ export default function BasicLayout() {
               style={{
                 width: 18,
                 height: 18,
-                border: '1px solid #fff',
+                border: '1px solid var(--bp-text)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -173,7 +177,7 @@ export default function BasicLayout() {
           </div>
           <Menu
             mode="inline"
-            theme="dark"
+            theme={mode}
             items={items}
             selectedKeys={[location.pathname]}
             defaultOpenKeys={['/repo', '/system']}
@@ -186,7 +190,7 @@ export default function BasicLayout() {
       <Layout style={{ background: 'transparent' }}>
         <Header
           style={{
-            background: 'rgba(21,42,68,0.92)',
+            background: 'var(--bp-nav)',
             height: 56,
             lineHeight: '56px',
             padding: isMobile ? '0 14px' : '0 20px',
@@ -232,34 +236,44 @@ export default function BasicLayout() {
               </span>
             </div>
           )}
-          <Dropdown
-            menu={{
-              items: [
-                { key: 'account', icon: <UserOutlined />, label: t('menu.account', '账号设置') },
-                { type: 'divider' },
-                { key: 'logout', icon: <LogoutOutlined />, label: t('menu.logout', '退出登录') },
-              ],
-              onClick: async ({ key }) => {
-                if (key === 'logout') {
-                  await logout().catch(() => undefined);
-                  navigate('/user/login', { replace: true });
-                } else {
-                  navigate('/account/settings');
-                }
-              },
-            }}
-          >
-            <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <Avatar
-                size={22}
-                shape="square"
-                style={{ background: 'rgba(74,144,217,0.25)', border: '1px solid var(--bp-line)' }}
-              >
-                {(user?.name || user?.userId || '?').slice(0, 1).toUpperCase()}
-              </Avatar>
-              {!isMobile && <span style={{ fontSize: 12 }}>{user?.name || user?.userId}</span>}
-            </span>
-          </Dropdown>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
+            <Button
+              type="text"
+              size="small"
+              aria-label={mode === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
+              title={mode === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
+              icon={mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+              onClick={toggle}
+            />
+            <Dropdown
+              menu={{
+                items: [
+                  { key: 'account', icon: <UserOutlined />, label: t('menu.account', '账号设置') },
+                  { type: 'divider' },
+                  { key: 'logout', icon: <LogoutOutlined />, label: t('menu.logout', '退出登录') },
+                ],
+                onClick: async ({ key }) => {
+                  if (key === 'logout') {
+                    await logout().catch(() => undefined);
+                    navigate('/user/login', { replace: true });
+                  } else {
+                    navigate('/account/settings');
+                  }
+                },
+              }}
+            >
+              <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Avatar
+                  size={22}
+                  shape="square"
+                  style={{ background: 'var(--bp-blue-weak)', border: '1px solid var(--bp-line)' }}
+                >
+                  {(user?.name || user?.userId || '?').slice(0, 1).toUpperCase()}
+                </Avatar>
+                {!isMobile && <span style={{ fontSize: 12 }}>{user?.name || user?.userId}</span>}
+              </span>
+            </Dropdown>
+          </div>
         </Header>
 
         <Content

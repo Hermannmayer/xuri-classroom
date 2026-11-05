@@ -87,10 +87,10 @@ export default function Login() {
           className="bp-corners"
           style={{
             border: '1px solid var(--bp-line)',
-            background: 'rgba(30,58,95,0.62)',
+            background: 'var(--bp-panel)',
             backdropFilter: 'blur(2px)',
             padding: 32,
-            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+            boxShadow: 'inset 0 0 0 1px var(--bp-fill-soft)',
           }}
         >
           <div
@@ -164,7 +164,7 @@ export default function Login() {
             display: 'flex',
             justifyContent: 'space-between',
             fontSize: 10,
-            color: 'rgba(160,196,232,0.55)',
+            color: 'var(--bp-hint)',
             letterSpacing: '0.1em',
           }}
         >
