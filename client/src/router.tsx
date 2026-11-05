@@ -6,7 +6,13 @@ import ProjectList from './pages/project/List';
 import SurveyEditor from './pages/survey/Editor';
 import SurveySetting from './pages/survey/Setting';
 import SurveyData from './pages/survey/Data';
+import SurveyReport from './pages/survey/Report';
 import SystemUser from './pages/system/User';
+import SystemSetting from './pages/system/Setting';
+import AccountSettings from './pages/account/Settings';
+import RepoList from './pages/repo/List';
+import RepoQuestions from './pages/repo/Questions';
+import ExerciseList from './pages/exercise/List';
 import PublicAnswer from './pages/answer/PublicAnswer';
 import Placeholder from './pages/Placeholder';
 import Playground from './pages/Playground';
@@ -29,20 +35,20 @@ export const router = createBrowserRouter([
       { path: 'playground', element: <Playground /> },
       { path: 'project', element: <ProjectList /> },
       { path: 'project/:id', element: <Placeholder title="项目详情" /> },
-      { path: 'exercise', element: <Placeholder title="我的练习" /> },
+      { path: 'exercise', element: <ExerciseList /> },
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
-      { path: 'repo/index', element: <Placeholder title="题库列表" /> },
+      { path: 'repo/index', element: <RepoList /> },
       { path: 'repo/book', element: <Placeholder title="练习册" /> },
-      { path: 'repo/:repoId/questions/:mode', element: <Placeholder title="题目管理" /> },
-      { path: 'account/settings', element: <Placeholder title="账号设置" /> },
+      { path: 'repo/:repoId/questions/:mode', element: <RepoQuestions /> },
+      { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: <Placeholder title="问卷总览" /> },
       { path: 'survey/:id/edit', element: <SurveyEditor /> },
       { path: 'survey/:id/setting', element: <SurveySetting /> },
       { path: 'survey/:id/data', element: <SurveyData /> },
-      { path: 'survey/:id/report', element: <Placeholder title="数据分析" /> },
+      { path: 'survey/:id/report', element: <SurveyReport /> },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
       { path: 'system/user', element: <SystemUser /> },
-      { path: 'system/setting', element: <Placeholder title="系统设置" /> },
+      { path: 'system/setting', element: <SystemSetting /> },
     ],
   },
   // 公开答题侧不需要登录与侧栏
