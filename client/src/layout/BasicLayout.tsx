@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   DatabaseOutlined,
   FormOutlined,
@@ -37,12 +38,27 @@ export default function BasicLayout() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  const items = useMemo(
-    () => [
-      { key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') },
-      { key: '/project', icon: <ProjectOutlined />, label: t('menu.project', '我的项目') },
-      { key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') },
-      {
+  /**
+   * 菜单按权限过滤（权限串来自 /api/currentUser 的 authorityList）：
+   * - ROLE_admin 视为全权限
+   * - 学员只需 exercise:*（我的练习）与 repo:*（题库只读）
+   * - 管理员才有 project:* 与 system:*
+   */
+  const items = useMemo(() => {
+    const authorities = user?.authorityList ?? [];
+    const isAdmin = authorities.includes('ROLE_admin');
+    const has = (prefix: string) => isAdmin || authorities.some((a) => a.startsWith(prefix));
+
+    const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
+
+    if (has('project:')) {
+      menu.push({ key: '/project', icon: <ProjectOutlined />, label: t('menu.project', '我的项目') });
+    }
+    if (has('exercise:')) {
+      menu.push({ key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') });
+    }
+    if (has('repo:')) {
+      menu.push({
         key: '/repo',
         icon: <DatabaseOutlined />,
         label: t('menu.repo', '题库中心'),
@@ -50,8 +66,10 @@ export default function BasicLayout() {
           { key: '/repo/index', label: t('menu.repo.list', '题库列表') },
           { key: '/repo/book', label: t('menu.repo.book', '练习册') },
         ],
-      },
-      {
+      });
+    }
+    if (has('system:')) {
+      menu.push({
         key: '/system',
         icon: <SettingOutlined />,
         label: t('menu.system', '系统管理'),
@@ -59,10 +77,15 @@ export default function BasicLayout() {
           { key: '/system/user', label: t('menu.system.user', '用户管理') },
           { key: '/system/setting', label: t('menu.system.setting', '系统设置') },
         ],
-      },
-    ],
-    [],
-  );
+      });
+    }
+
+    // 学员账号（无任何角色）至少能看到「我的练习」，否则登录后是一片空白
+    if (!isAdmin && !menu.some((m) => m?.key === '/exercise')) {
+      menu.push({ key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') });
+    }
+    return menu;
+  }, [user]);
 
   if (loading) {
     return (

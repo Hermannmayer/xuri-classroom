@@ -123,3 +123,17 @@ export function reorderChildren(
   if (!parentId) return { ...root, children: apply(root.children ?? []) };
   return updateNode(root, parentId, (node) => ({ children: apply(node.children ?? []) }));
 }
+
+/** 把 fromId 移到 toId 前面（要求同父级；跨父级不处理，避免把节点拖进自己子树） */
+export function moveBefore(root: SurveySchema, fromId: string, toId: string): SurveySchema {
+  const fromParent = findParent(root, fromId);
+  const toParent = findParent(root, toId);
+  if (!fromParent || !toParent || fromParent.id !== toParent.id) return root;
+  const list = [...(fromParent.children ?? [])];
+  const fromIndex = list.findIndex((c) => c.id === fromId);
+  const toIndex = list.findIndex((c) => c.id === toId);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return root;
+  const [moved] = list.splice(fromIndex, 1);
+  list.splice(toIndex, 0, moved);
+  return updateNode(root, fromParent.id, { children: list });
+}

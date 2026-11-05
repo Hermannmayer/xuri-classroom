@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { get, getWithPagination, post } from '../../api';
+import { Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
+import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { download, get, getWithPagination, post } from '../../api';
 
 interface SysUser {
   userId: string;
@@ -37,6 +37,7 @@ export default function SystemUser() {
   const [editing, setEditing] = useState<SysUser | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -116,9 +117,41 @@ export default function SystemUser() {
     }
   };
 
+  const downloadTemplate = async () => {
+    try {
+      await download('/api/file/downloadTemplate', { name: '卷王用户导入模板' }, '卷王用户导入模板.xlsx');
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const doImport = async (file: File) => {
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      // UserRequest.file：后端 importUser(UserRequest request) 直接从 multipart 绑 file
+      fd.append('file', file);
+      await post('/api/importUser', fd);
+      message.success('导入成功');
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginBottom: 14,
+        }}
+      >
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SYSTEM / 用户</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
@@ -136,6 +169,21 @@ export default function SystemUser() {
           }}
         />
         <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading} />
+        <Upload
+          accept=".xlsx"
+          showUploadList={false}
+          beforeUpload={(file) => {
+            void doImport(file);
+            return false;
+          }}
+        >
+          <Button icon={<UploadOutlined />} loading={importing}>
+            批量导入
+          </Button>
+        </Upload>
+        <Button icon={<DownloadOutlined />} onClick={() => void downloadTemplate()}>
+          下载模板
+        </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           新建用户
         </Button>

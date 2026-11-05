@@ -55,6 +55,9 @@ export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema |
   return undefined;
 }
 
+/** 匿名答题者没有账号，用本地保存的 answerId 当凭证：下次打开同一问卷可以续答或回看 */
+const answerKey = (projectId: string) => `sk-answer-${projectId}`;
+
 export default function PublicAnswer() {
   const { id = '' } = useParams();
   const { modal } = App.useApp();
@@ -92,15 +95,19 @@ export default function PublicAnswer() {
     setProject(data);
     setNeedPassword(false);
     setNeedLogin(false);
-    if (data.answerId) setAnswerId(data.answerId);
+    if (data.answerId) {
+      setAnswerId(data.answerId);
+      localStorage.setItem(answerKey(id), data.answerId);
+    }
     if (data.answer) setValues(data.answer as Record<string, AnswerValue>);
-  }, []);
+  }, [id]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setFatal(undefined);
     try {
-      applyProject(await post<PublicProjectView>('/api/public/loadProject', { id }));
+      const savedId = localStorage.getItem(answerKey(id)) ?? undefined;
+      applyProject(await post<PublicProjectView>('/api/public/loadProject', { id, answerId: savedId }));
     } catch (e) {
       setFatal((e as Error).message || '加载失败');
     } finally {
@@ -196,7 +203,10 @@ export default function PublicAnswer() {
         answer: values,
         survey: project.survey,
       });
-      if (res?.answerId) setAnswerId(res.answerId);
+      if (res?.answerId) {
+        setAnswerId(res.answerId);
+        localStorage.setItem(answerKey(id), res.answerId);
+      }
       setResult(res);
       message.success('已提交');
     } catch (e) {
@@ -265,6 +275,11 @@ export default function PublicAnswer() {
 
   /** 提交：必填没填直接拦下并跳过去；填全了才出二次确认 */
   const confirmSubmit = () => {
+    // 匿名续答：本地已有 answerId 且问卷不允许修改时，后端会抛 4020，这里提前拦住
+    if (answerId && !project?.setting?.submittedSetting?.enableUpdate) {
+      message.error('你已提交过这份问卷，且发布方未开启「允许修改答案」');
+      return;
+    }
     if (unansweredRequired.length) {
       const first = unansweredRequired[0];
       const no = visibleQuestions.findIndex((q) => q.id === first.id) + 1;
@@ -371,15 +386,13 @@ export default function PublicAnswer() {
     const html = project.submittedHtml || project.setting?.submittedSetting?.contentHtml;
     const showAnalysis = Boolean(project.setting?.submittedSetting?.answerAnalysis);
     const explanations = showAnalysis && project.survey
-      ? flattenSchema(project.survey)
-          .map((q) => ({
-            id: q.id,
-            title: q.title || q.type,
-            mine: formatValue(q, values[q.id]),
-            correct: q.schema.attribute?.examCorrectAnswer,
-            analysis: q.schema.attribute?.examAnalysis,
-          }))
-          .filter((row) => row.correct || row.analysis)
+      ? flattenSchema(project.survey).map((q) => ({
+          id: q.id,
+          title: q.title || q.type,
+          mine: formatValue(q, values[q.id]),
+          correct: q.schema.attribute?.examCorrectAnswer,
+          analysis: q.schema.attribute?.examAnalysis,
+        }))
       : [];
 
     return (

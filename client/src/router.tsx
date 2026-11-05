@@ -16,6 +16,7 @@ import RepoQuestions from './pages/repo/Questions';
 import RepoBook from './pages/repo/Book';
 import ExerciseList from './pages/exercise/List';
 import PublicAnswer from './pages/answer/PublicAnswer';
+import PublicQuery from './pages/answer/PublicQuery';
 import Placeholder from './pages/Placeholder';
 import Playground from './pages/Playground';
 
@@ -57,7 +58,7 @@ export const router = createBrowserRouter([
   { path: '/s/:id', element: <PublicAnswer /> },
   { path: '/s/:id/:answerId', element: <Placeholder title="答题页" public /> },
   { path: '/s/:id/exam-result/:answerId', element: <Placeholder title="考试成绩" public /> },
-  { path: '/s/:id/result/:resultId', element: <Placeholder title="结果查询" public /> },
+  { path: '/s/:id/result/:resultId', element: <PublicQuery /> },
   { path: '/setup', element: <Placeholder title="初始化向导" public /> },
   { path: '*', element: <Placeholder title="页面不存在" /> },
 ]);
