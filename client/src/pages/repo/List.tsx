@@ -15,12 +15,13 @@ import {
   Table,
   Tag,
 } from 'antd';
-import { DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { isAdmin, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
+import RepoGroups from './RepoGroups';
 
 /** 与后端 RepoView 对齐（只取列表要用的字段） */
 interface RepoView {
@@ -73,6 +74,7 @@ export default function RepoList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<RepoView | null>(null);
   const [granting, setGranting] = useState<RepoView | null>(null);
+  const [groupsOpen, setGroupsOpen] = useState(false);
   const [createForm] = Form.useForm<{
     name: string;
     category: string;
@@ -210,6 +212,9 @@ export default function RepoList() {
             管理题目与 Excel 导入导出；练习记录在「我的练习」。
           </div>
         </div>
+        <Button icon={<AppstoreOutlined />} onClick={() => setGroupsOpen(true)}>
+          按分类浏览
+        </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           新建题库
         </Button>
@@ -528,6 +533,20 @@ export default function RepoList() {
           </Form.Item>
         </Form>
       </Modal>
+      <RepoGroups
+        open={groupsOpen}
+        repos={rows}
+        onClose={() => setGroupsOpen(false)}
+        onEdit={(repo) => {
+          setGroupsOpen(false);
+          renameForm.setFieldsValue({
+            name: repo.name || '',
+            category: repo.category,
+            description: (repo as RepoView).description,
+          });
+          setRenaming(repo as RepoView);
+        }}
+      />
       <GrantModal
         repoId={granting?.id}
         repoName={granting?.name}
