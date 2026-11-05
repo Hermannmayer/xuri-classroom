@@ -14,8 +14,8 @@ export default function PhonePreview({
   schema,
   values,
   onChange,
-  width = 252,
-  height = 420,
+  width = 308,
+  height = 440,
 }: {
   schema: SurveySchema;
   values: Record<string, AnswerValue>;

@@ -14,7 +14,7 @@ function Panel({
   span?: number;
 }) {
   return (
-    <Col span={span}>
+    <Col xs={24} md={span === 24 ? 24 : 12} xl={span}>
       <div style={{ position: 'relative' }}>
         <span
           className="bp-tag"

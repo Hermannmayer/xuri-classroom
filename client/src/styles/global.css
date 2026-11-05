@@ -217,6 +217,23 @@ body {
   }
 }
 
+/* 规则字段的 JSON 示例：换行不溢出 */
+.bp-hint {
+  margin: 6px 0 0;
+  font-size: 10px;
+  line-height: 1.6;
+  color: rgba(160, 196, 232, 0.6);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: inherit;
+}
+.bp-rule-collapse .ant-collapse-header {
+  padding: 4px 0 !important;
+}
+.bp-rule-collapse .ant-collapse-content-box {
+  padding: 0 0 8px !important;
+}
+
 .ant-layout-sider {
   border-right: 1px solid var(--bp-line-soft);
 }

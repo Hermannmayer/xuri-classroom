@@ -80,3 +80,44 @@ export function cloneNode(node: SurveySchema, newId: () => string): SurveySchema
     children: node.children?.map((c) => cloneNode(c, newId)),
   };
 }
+
+export interface OutlineItem {
+  id: string;
+  parentId?: string;
+  depth: number;
+  node: SurveySchema;
+}
+
+/** 大纲是扁平列表（带 parentId/depth），拖拽排序按同级数组重排；折叠的节点不下钻子项 */
+export function flattenOutline(
+  root: SurveySchema,
+  collapsed?: Set<string>,
+  parentId?: string,
+  depth = 0,
+): OutlineItem[] {
+  const out: OutlineItem[] = [];
+  for (const child of root.children ?? []) {
+    out.push({ id: child.id, parentId, depth, node: child });
+    if (collapsed?.has(child.id)) continue;
+    out.push(...flattenOutline(child, collapsed, child.id, depth + 1));
+  }
+  return out;
+}
+
+export function reorderChildren(
+  root: SurveySchema,
+  parentId: string | undefined,
+  from: number,
+  to: number,
+): SurveySchema {
+  if (from === to || from < 0 || to < 0) return root;
+  const apply = (children: SurveySchema[]) => {
+    const next = [...children];
+    const [moved] = next.splice(from, 1);
+    if (!moved) return children;
+    next.splice(to, 0, moved);
+    return next;
+  };
+  if (!parentId) return { ...root, children: apply(root.children ?? []) };
+  return updateNode(root, parentId, (node) => ({ children: apply(node.children ?? []) }));
+}

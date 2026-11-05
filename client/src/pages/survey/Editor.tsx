@@ -11,6 +11,9 @@ import {
   UpOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { get, updateProject } from '../../api';
 import type { Project, ProjectSetting } from '../../schema/project';
 import type { QuestionType, SurveySchema } from '../../schema/types';
@@ -19,7 +22,17 @@ import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
 import PhonePreview, { DEVICE_H, DEVICE_W } from '../../designer/PhonePreview';
 import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey } from '../../designer/defaults';
-import { findNode, findParent, insertNode, moveNode, removeNode, updateNode } from '../../designer/tree';
+import {
+  findNode,
+  findParent,
+  flattenOutline,
+  insertNode,
+  moveNode,
+  removeNode,
+  reorderChildren,
+  updateNode,
+  type OutlineItem,
+} from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
@@ -32,60 +45,135 @@ const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
   Survey: '问卷',
 };
 
-function Outline({
-  node,
-  depth,
+function OutlineRow({
+  item,
   selectedId,
+  collapsed,
+  hasChildren,
+  onToggle,
   onSelect,
   onRemove,
   onMove,
 }: {
-  node: SurveySchema;
-  depth: number;
+  item: OutlineItem;
   selectedId?: string;
+  collapsed: boolean;
+  hasChildren: boolean;
+  onToggle: () => void;
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
 }) {
-  const isRoot = node.type === 'Survey';
-  const label = node.title || TYPE_LABEL[node.type] || node.type;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const label = item.node.title || TYPE_LABEL[item.node.type] || item.node.type;
+  const selected = selectedId === item.id;
+
   return (
-    <>
-      {!isRoot && (
-        <div
-          onClick={() => onSelect(node.id)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 8px',
-            paddingLeft: 8 + depth * 14,
-            cursor: 'pointer',
-            fontSize: 12,
-            borderLeft: selectedId === node.id ? '2px solid var(--bp-orange)' : '2px solid transparent',
-            background: selectedId === node.id ? 'rgba(74,144,217,0.18)' : 'transparent',
-          }}
-        >
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-          <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', gap: 2 }}>
-            <UpOutlined style={{ fontSize: 10 }} onClick={() => onMove(node.id, -1)} />
-            <DownOutlined style={{ fontSize: 10 }} onClick={() => onMove(node.id, 1)} />
-            <DeleteOutlined style={{ fontSize: 10 }} onClick={() => onRemove(node.id)} />
-          </span>
-        </div>
-      )}
-      {node.children?.map((child) => (
-        <Outline
-          key={child.id}
-          node={child}
-          depth={isRoot ? depth : depth + 1}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onRemove={onRemove}
-          onMove={onMove}
-        />
-      ))}
-    </>
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={() => onSelect(item.id)}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '4px 8px',
+        paddingLeft: 8 + item.depth * 14,
+        cursor: 'grab',
+        fontSize: 12,
+        borderLeft: selected ? '2px solid var(--bp-orange)' : '2px solid transparent',
+        background: selected ? 'rgba(74,144,217,0.18)' : 'transparent',
+        touchAction: 'none',
+      }}
+    >
+      <span
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (hasChildren) onToggle();
+        }}
+        style={{ width: 12, fontSize: 10, cursor: hasChildren ? 'pointer' : 'default', color: 'var(--bp-text-soft)' }}
+      >
+        {hasChildren ? (collapsed ? '▸' : '▾') : ''}
+      </span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: 'inline-flex', gap: 3, cursor: 'pointer' }}
+      >
+        <UpOutlined style={{ fontSize: 10 }} onClick={() => onMove(item.id, -1)} />
+        <DownOutlined style={{ fontSize: 10 }} onClick={() => onMove(item.id, 1)} />
+        <DeleteOutlined style={{ fontSize: 10 }} onClick={() => onRemove(item.id)} />
+      </span>
+    </div>
+  );
+}
+
+/** 大纲：扁平列表 + dnd-kit 同级排序（跨父级拖拽直接忽略，天然避免把节点拖进自己的子树） */
+function OutlineList({
+  root,
+  selectedId,
+  onSelect,
+  onRemove,
+  onMove,
+  onReorder,
+}: {
+  root: SurveySchema;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+  onReorder: (parentId: string | undefined, from: number, to: number) => void;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // 渲染用折叠后的列表；排序索引用完整列表，避免折叠状态影响落点
+  const allItems = useMemo(() => flattenOutline(root), [root]);
+  const items = useMemo(() => flattenOutline(root, collapsed), [root, collapsed]);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  const toggle = (nodeId: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = allItems.find((i) => i.id === active.id);
+    const to = allItems.find((i) => i.id === over.id);
+    if (!from || !to || from.parentId !== to.parentId) return;
+    const siblings = allItems.filter((i) => i.parentId === from.parentId);
+    const fromIndex = siblings.findIndex((i) => i.id === active.id);
+    const toIndex = siblings.findIndex((i) => i.id === over.id);
+    if (fromIndex < 0 || toIndex < 0) return;
+    onReorder(from.parentId, fromIndex, toIndex);
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+        {items.map((item) => (
+          <OutlineRow
+            key={item.id}
+            item={item}
+            selectedId={selectedId}
+            collapsed={collapsed.has(item.id)}
+            hasChildren={Boolean(item.node.children?.length)}
+            onToggle={() => toggle(item.id)}
+            onSelect={onSelect}
+            onRemove={onRemove}
+            onMove={onMove}
+          />
+        ))}
+      </SortableContext>
+    </DndContext>
   );
 }
 
@@ -277,13 +365,13 @@ export default function SurveyEditor() {
           >
             OUTLINE / 大纲
           </div>
-          <Outline
-            node={survey}
-            depth={0}
+          <OutlineList
+            root={survey}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onRemove={handleRemove}
             onMove={handleMove}
+            onReorder={(parentId, from, to) => setSurvey(reorderChildren(survey, parentId, from, to))}
           />
         </div>
 
@@ -325,8 +413,8 @@ export default function SurveyEditor() {
         {/* 右栏：手机预览 + 属性 */}
         <div
           style={{
-            width: 300,
-            flex: '0 0 300px',
+            width: 340,
+            flex: '0 0 340px',
             border: '1px solid var(--bp-line)',
             background: 'rgba(21,42,68,0.7)',
             overflow: 'auto',
