@@ -28,6 +28,22 @@ export interface Authority {
   authority?: string;
 }
 
+/** 项目：问卷 / 考试 / 文件夹，统一存在 t_project，题树在 survey 字段 */
+export type ProjectMode = 'survey' | 'exam' | 'folder';
+
+export interface ProjectView {
+  id: string;
+  name?: string;
+  mode?: ProjectMode;
+  /** 0 未发布 1 已发布 */
+  status?: number;
+  /** folder 为子项数，其余为答卷数 */
+  total?: number;
+  parentId?: string;
+  createAt?: string;
+  updateAt?: string;
+}
+
 export interface UserInfo {
   userId: string;
   name?: string;

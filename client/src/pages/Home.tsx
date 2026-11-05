@@ -81,9 +81,9 @@ export default function Home() {
         </Panel>
         <Panel index="04" title="Next / 下一步" span={24}>
           <div style={{ fontSize: 12, lineHeight: 1.9, color: 'var(--bp-text-soft)' }}>
-            P1 内核：SurveySchema 类型 · 题型注册表 · SchemaRenderer 三态 · 规则引擎移植
+            P1 内核已完成：SurveySchema 类型 · 题型注册表 · SchemaRenderer 三态 · 规则引擎（27 项自检）
             <br />
-            P2 设计器 · P3 答题闭环
+            当前：P2 设计器（大纲树 · 属性面板 · 保存）→ P3 答题闭环
           </div>
         </Panel>
       </Row>
