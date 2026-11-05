@@ -179,6 +179,43 @@ export default function RepoQuestions() {
 
   const hasFilter = Boolean(keyword || questionType || tagFilter);
 
+  const editType = editing?.questionType ?? editing?.template?.type ?? '';
+  const isChoice = CHOICE_TYPES.has(editType);
+  const isJudge = editType === 'Judge';
+  const isMulti = editType === 'Checkbox';
+
+  // Modal 关闭时会销毁 Form，等它挂载后再回填
+  useEffect(() => {
+    if (!editing) return;
+    const template = editing.template;
+    const type = editing.questionType ?? template?.type ?? '';
+    let opts = templateOptions(template);
+    if (CHOICE_TYPES.has(type)) {
+      if (type === 'Judge') {
+        opts = opts.slice(0, 2);
+        while (opts.length < 2) {
+          opts.push({ id: newOptionId(), text: opts.length === 0 ? '正确' : '错误' });
+        }
+        opts = opts.map((opt, index) => ({ ...opt, text: opt.text || (index === 0 ? '正确' : '错误') }));
+      } else if (opts.length === 0) {
+        opts = [
+          { id: newOptionId(), text: '' },
+          { id: newOptionId(), text: '' },
+        ];
+      } else {
+        opts = opts.slice(0, 8);
+      }
+    }
+    setOptions(opts);
+    setCorrect(templateCorrect(template, type, opts));
+    editForm.setFieldsValue({
+      title: template?.title || editing.name || '',
+      score: template?.attribute?.examScore,
+      analysis: template?.attribute?.examAnalysis,
+      tags: editing.tag ?? template?.tags ?? [],
+    });
+  }, [editing, editForm]);
+
   const doImport = async (file: File) => {
     setImporting(true);
     try {
@@ -222,6 +259,132 @@ export default function RepoQuestions() {
       message.error((e as Error).message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const removeOne = async (row: TemplateView) => {
+    try {
+      await post<void>('/api/template/delete', { ids: [row.id] });
+      message.success('已删除');
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const changeOption = (id: string, text: string) => {
+    setOptions((prev) => prev.map((opt) => (opt.id === id ? { ...opt, text } : opt)));
+  };
+
+  const addOption = () => {
+    setOptions((prev) => (prev.length >= 8 ? prev : [...prev, { id: newOptionId(), text: '' }]));
+  };
+
+  const removeOption = (id: string) => {
+    if (options.length <= 1) return;
+    setOptions((prev) => prev.filter((opt) => opt.id !== id));
+    setCorrect((prev) =>
+      Array.isArray(prev) ? prev.filter((item) => item !== id) : prev === id ? '' : prev,
+    );
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const values = await editForm.validateFields();
+    setSaving(true);
+    try {
+      const base = editing.template;
+      const type = (editing.questionType ?? base?.type ?? 'FillBlank') as QuestionType;
+      const judge = type === 'Judge';
+      const multi = type === 'Checkbox';
+      const correctIds = multi
+        ? Array.isArray(correct)
+          ? correct
+          : []
+        : typeof correct === 'string' && correct
+          ? [correct]
+          : [];
+      const oldChildren = base?.children ?? [];
+      let children: SurveySchema[] = oldChildren;
+      let dataSource = base?.dataSource;
+
+      if (CHOICE_TYPES.has(type)) {
+        children = options.map((opt, index): SurveySchema => {
+          const previous = oldChildren.find((child) => child.id === opt.id);
+          const text = judge ? opt.text || (index === 0 ? '正确' : '错误') : opt.text;
+          return {
+            id: opt.id,
+            title: text,
+            type: 'Option',
+            attribute: {
+              ...(previous?.attribute ?? {}),
+              ...(correctIds.includes(opt.id)
+                ? { examCorrectAnswer: opt.id }
+                : { examCorrectAnswer: undefined }),
+            },
+          };
+        });
+        dataSource = options.map((opt, index) => ({
+          label: judge ? opt.text || (index === 0 ? '正确' : '错误') : opt.text,
+          value: opt.id,
+        }));
+      } else {
+        // 填空/简答：正确答案写第一个空位；其余 children 原样保留
+        const correctText = typeof correct === 'string' ? correct.trim() : '';
+        if (children.length) {
+          children = children.map((child, index) =>
+            index === 0
+              ? {
+                  ...child,
+                  attribute: { ...(child.attribute ?? {}), examCorrectAnswer: correctText || undefined },
+                }
+              : child,
+          );
+        } else {
+          children = [
+            {
+              id: newOptionId(),
+              title: '',
+              type: 'Option',
+              attribute: { examCorrectAnswer: correctText || undefined },
+            },
+          ];
+        }
+      }
+
+      const nextTemplate: SurveySchema = {
+        ...(base ?? { id: editing.id, title: values.title.trim(), type, attribute: {} }),
+        title: values.title.trim(),
+        type,
+        attribute: {
+          ...(base?.attribute ?? {}),
+          examScore: values.score,
+          examAnalysis: values.analysis?.trim() || undefined,
+        },
+        tags: values.tags ?? [],
+        children,
+        dataSource,
+      };
+
+      // 回传完整 TemplateRequest：后端 updateById 忽略 null，但 template 是整包 JSON，必须带全
+      await post<void>('/api/template/update', {
+        id: editing.id,
+        name: values.title.trim(),
+        questionType: type,
+        template: nextTemplate,
+        mode: editing.mode,
+        tag: values.tags ?? [],
+        category: editing.category,
+        repoId: editing.repoId ?? repoId,
+        previewUrl: editing.previewUrl,
+      });
+      message.success('已保存');
+      setEditing(null);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -417,8 +580,135 @@ export default function RepoQuestions() {
             width: 170,
             render: (v) => v || '—',
           },
+          {
+            title: '操作',
+            width: 140,
+            render: (_: unknown, row) => (
+              <Space size={10}>
+                <a onClick={() => setEditing(row)}>编辑</a>
+                <Popconfirm
+                  title="删除这道题？"
+                  description="删除后不可恢复。"
+                  okText="删除"
+                  cancelText="取消"
+                  onConfirm={() => removeOne(row)}
+                >
+                  <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                </Popconfirm>
+              </Space>
+            ),
+          },
         ]}
       />
+
+      <Modal
+        title="编辑题目"
+        open={!!editing}
+        width="min(720px, 94vw)"
+        onCancel={() => setEditing(null)}
+        onOk={saveEdit}
+        confirmLoading={saving}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
+      >
+        <Form form={editForm} layout="vertical" size="small" preserve={false}>
+          <Form.Item
+            name="title"
+            label="题干"
+            rules={[{ required: true, whitespace: true, message: '请输入题干' }]}
+          >
+            <Input.TextArea autoSize={{ minRows: 3, maxRows: 8 }} placeholder="请输入题干" />
+          </Form.Item>
+
+          {isChoice && (
+            <Form.Item label={isJudge ? '选项（正确/错误）' : '选项（最多 8 个）'}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {options.map((opt, index) => (
+                  <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 18, color: 'var(--bp-text-soft)' }}>
+                      {String.fromCharCode(65 + index)}
+                    </span>
+                    <Input
+                      value={opt.text}
+                      placeholder={`选项 ${String.fromCharCode(65 + index)}`}
+                      onChange={(e) => changeOption(opt.id, e.target.value)}
+                    />
+                    {!isJudge && (
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        disabled={options.length <= 1}
+                        onClick={() => removeOption(opt.id)}
+                      />
+                    )}
+                  </div>
+                ))}
+                {!isJudge && (
+                  <Button icon={<PlusOutlined />} disabled={options.length >= 8} onClick={addOption}>
+                    添加选项
+                  </Button>
+                )}
+              </div>
+            </Form.Item>
+          )}
+
+          <Form.Item label="正确答案">
+            {isChoice ? (
+              isMulti ? (
+                <Select
+                  mode="multiple"
+                  allowClear
+                  value={Array.isArray(correct) ? correct : []}
+                  placeholder="选择正确选项（可多选）"
+                  onChange={(v) => setCorrect(v)}
+                  options={options.map((opt, index) => ({
+                    value: opt.id,
+                    label: `${String.fromCharCode(65 + index)}. ${opt.text || '(未填写)'}`,
+                  }))}
+                />
+              ) : (
+                <Select
+                  allowClear
+                  value={typeof correct === 'string' && correct ? correct : undefined}
+                  placeholder={isJudge ? '选择正确/错误' : '选择正确选项'}
+                  onChange={(v) => setCorrect(v ?? '')}
+                  options={options.map((opt, index) => ({
+                    value: opt.id,
+                    label: isJudge
+                      ? opt.text || (index === 0 ? '正确' : '错误')
+                      : `${String.fromCharCode(65 + index)}. ${opt.text || '(未填写)'}`,
+                  }))}
+                />
+              )
+            ) : (
+              <Input.TextArea
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                value={typeof correct === 'string' ? correct : ''}
+                placeholder="填写正确答案"
+                onChange={(e) => setCorrect(e.target.value)}
+              />
+            )}
+          </Form.Item>
+
+          <Form.Item name="score" label="分值">
+            <InputNumber min={0} step={0.5} style={{ width: 160 }} placeholder="选填" />
+          </Form.Item>
+          <Form.Item name="analysis" label="解析">
+            <Input.TextArea autoSize={{ minRows: 2, maxRows: 6 }} placeholder="选填" />
+          </Form.Item>
+          <Form.Item name="tags" label="标签">
+            <Select
+              mode="tags"
+              allowClear
+              placeholder="输入后回车添加标签"
+              options={tagOptions.map((t) => ({ value: t, label: t }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 }
