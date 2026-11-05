@@ -1,4 +1,10 @@
-:root {
+/* ---------------------------------------------------------------- 主题变量
+ * 两套主题：dark = 深蓝图纸（默认），light = 米白图纸。
+ * 暗色值 = 改造前的字面量，保证零视觉回归；亮色值见 README 的学校配色。
+ * 页面里的 inline 颜色也应走这些变量，theme.ts 的 token 与这里一一对应。
+ */
+:root,
+:root[data-theme='dark'] {
   --bp-bg: #1e3a5f;
   --bp-bg-deep: #152a44;
   --bp-line: rgba(255, 255, 255, 0.3);
@@ -8,6 +14,110 @@
   --bp-text-soft: #a0c4e8;
   --bp-blue: #4a90d9;
   --bp-orange: #ff6b35;
+
+  /* 表面：卡片 / 次级面板 / 侧栏 / 顶栏 / 底栏 / 手机预览 / 遮罩 */
+  --bp-panel: rgba(30, 58, 95, 0.55);
+  --bp-panel-soft: rgba(30, 58, 95, 0.35);
+  --bp-panel-strong: rgba(21, 42, 68, 0.7);
+  --bp-toolbar: rgba(21, 42, 68, 0.85);
+  --bp-nav: rgba(21, 42, 68, 0.92);
+  --bp-nav-solid: rgba(21, 42, 68, 0.96);
+  --bp-chrome: rgba(21, 42, 68, 0.98);
+  --bp-phone: rgba(21, 42, 68, 0.9);
+  --bp-mask: rgba(21, 42, 68, 0.6);
+
+  /* 蓝色系 / 强调 */
+  --bp-blue-weak: rgba(74, 144, 217, 0.22);
+  --bp-blue-strong: rgba(74, 144, 217, 0.55);
+  --bp-orange-line: rgba(255, 107, 53, 0.5);
+  --bp-orange-weak: rgba(255, 107, 53, 0.05);
+  --bp-orange-tint: rgba(255, 107, 53, 0.12);
+  --bp-answered-bg: rgba(74, 144, 217, 0.32);
+  --bp-answered-text: #ffffff;
+  --bp-handle-bg: rgba(74, 144, 217, 0.55);
+  --bp-handle-bg-idle: rgba(74, 144, 217, 0.35);
+
+  /* 控件 */
+  --bp-control-border: rgba(255, 255, 255, 0.4);
+  --bp-hover-border: rgba(255, 255, 255, 0.6);
+  --bp-primary-bg: rgba(74, 144, 217, 0.18);
+  --bp-primary-bg-hover: rgba(74, 144, 217, 0.3);
+  --bp-primary-border: #4a90d9;
+  --bp-primary-text: #ffffff;
+  --bp-primary-hover-border: #ffffff;
+  --bp-primary-hover-text: #ffffff;
+  --bp-on-primary: #ffffff;
+
+  /* 填充 / 轨道 / 滚动条 / 选中 */
+  --bp-fill-weak: rgba(255, 255, 255, 0.03);
+  --bp-fill-soft: rgba(255, 255, 255, 0.06);
+  --bp-hint: rgba(160, 196, 232, 0.6);
+  --bp-track: rgba(255, 255, 255, 0.1);
+  --bp-option-hover: rgba(74, 144, 217, 0.14);
+  --bp-matrix-inner: rgba(21, 42, 68, 0.9);
+  --bp-slider-rail: rgba(255, 255, 255, 0.22);
+  --bp-scroll-track: rgba(0, 0, 0, 0.15);
+  --bp-scroll-thumb: rgba(255, 255, 255, 0.25);
+  --bp-scroll-thumb-hover: rgba(255, 255, 255, 0.4);
+  --bp-selection-bg: rgba(74, 144, 217, 0.5);
+  --bp-selection-text: #ffffff;
+}
+
+:root[data-theme='light'] {
+  --bp-bg: #f7f5f0;
+  --bp-bg-deep: #efece4;
+  --bp-line: #d8d3c8;
+  --bp-line-soft: #e6e1d6;
+  --bp-grid: rgba(30, 58, 95, 0.06);
+  --bp-text: #1e3a5f;
+  --bp-text-soft: #5b6b7d;
+  --bp-blue: #2f5d8c;
+  --bp-orange: #e8590c;
+
+  /* 米白面板：卡片纯色，次级面板略深一档；导航/底栏与卡片同色 */
+  --bp-panel: #fffdf8;
+  --bp-panel-soft: #f4f1e8;
+  --bp-panel-strong: #f2efe6;
+  --bp-toolbar: #f4f1e8;
+  --bp-nav: #fffdf8;
+  --bp-nav-solid: #fffdf8;
+  --bp-chrome: #fffdf8;
+  --bp-phone: #fffdf8;
+  --bp-mask: rgba(247, 245, 240, 0.86);
+
+  --bp-blue-weak: rgba(47, 93, 140, 0.12);
+  --bp-blue-strong: rgba(47, 93, 140, 0.22);
+  --bp-orange-line: rgba(232, 89, 12, 0.45);
+  --bp-orange-weak: rgba(232, 89, 12, 0.08);
+  --bp-orange-tint: rgba(232, 89, 12, 0.1);
+  --bp-answered-bg: rgba(232, 89, 12, 0.14);
+  --bp-answered-text: #1e3a5f;
+  --bp-handle-bg: #e8590c;
+  --bp-handle-bg-idle: rgba(232, 89, 12, 0.8);
+
+  /* 亮色的按钮用实心深蓝（纸面上的墨），选中/强调交给深橙 */
+  --bp-control-border: #c9c2b4;
+  --bp-hover-border: #a89f8c;
+  --bp-primary-bg: #1e3a5f;
+  --bp-primary-bg-hover: #2f5d8c;
+  --bp-primary-border: #1e3a5f;
+  --bp-primary-text: #fffdf8;
+  --bp-primary-hover-border: #2f5d8c;
+  --bp-primary-hover-text: #fffdf8;
+  --bp-on-primary: #fffdf8;
+
+  --bp-fill-weak: rgba(30, 58, 95, 0.03);
+  --bp-fill-soft: rgba(30, 58, 95, 0.06);
+  --bp-hint: rgba(91, 107, 125, 0.75);
+  --bp-track: rgba(30, 58, 95, 0.1);
+  --bp-option-hover: rgba(232, 89, 12, 0.06);
+  --bp-matrix-inner: #fffdf8;
+  --bp-slider-rail: rgba(30, 58, 95, 0.18);
+  --bp-scroll-track: rgba(30, 58, 95, 0.05);
+  --bp-scroll-thumb: rgba(30, 58, 95, 0.2);
+  --bp-scroll-thumb-hover: rgba(30, 58, 95, 0.32);
+  --bp-selection-bg: rgba(232, 89, 12, 0.22);
+  --bp-selection-text: #1e3a5f;
 }
 
 html,
@@ -18,7 +128,7 @@ body,
   padding: 0;
 }
 
-/* 蓝图底：深蓝 + 20px 网格 */
+/* 蓝图底：底色 + 20px 网格（亮色是米白纸上的淡蓝细线） */
 body {
   background-color: var(--bp-bg);
   background-image:
@@ -36,21 +146,21 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--bp-scroll-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--bp-scroll-thumb);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--bp-scroll-thumb-hover);
 }
 
 ::selection {
-  background: rgba(74, 144, 217, 0.5);
-  color: #fff;
+  background: var(--bp-selection-bg);
+  color: var(--bp-selection-text);
 }
 
-/* 角标记：容器四角的白线，图纸感 */
+/* 角标记：容器四角的白线，图纸感（亮色是深蓝角标） */
 .bp-corners {
   position: relative;
 }
@@ -78,7 +188,12 @@ body {
 /* 蓝图卡片底板：统一页面 Card/容器的边框与半透明底色，避免每页重复 inline style */
 .bp-card {
   border: 1px solid var(--bp-line);
-  background: rgba(30, 58, 95, 0.55);
+  background: var(--bp-panel);
+}
+
+/* 亮色：页面里还留着 inline 的深蓝卡片底，统一压回米白面板（暗色不动，避免回归） */
+:root[data-theme='light'] .ant-card {
+  background: var(--bp-panel) !important;
 }
 
 /* 标题：大写 + 字距，工程图标注感 */
@@ -99,7 +214,7 @@ body {
   display: inline-block;
   padding: 1px 6px;
   color: var(--bp-orange);
-  border: 1px solid rgba(255, 107, 53, 0.5);
+  border: 1px solid var(--bp-orange-line);
   font-size: 11px;
   letter-spacing: 0.08em;
   line-height: 16px;
@@ -111,19 +226,19 @@ body {
   letter-spacing: 0.06em;
 }
 .ant-btn-primary {
-  background: rgba(74, 144, 217, 0.18);
-  border-color: var(--bp-blue);
-  color: var(--bp-text);
+  background: var(--bp-primary-bg);
+  border-color: var(--bp-primary-border);
+  color: var(--bp-primary-text);
 }
 .ant-btn-primary:not(:disabled):hover {
-  background: rgba(74, 144, 217, 0.3) !important;
-  border-color: #fff !important;
-  color: #fff !important;
+  background: var(--bp-primary-bg-hover) !important;
+  border-color: var(--bp-primary-hover-border) !important;
+  color: var(--bp-primary-hover-text) !important;
 }
 .ant-input,
 .ant-input-affix-wrapper,
 .ant-select-selector {
-  border-color: rgba(255, 255, 255, 0.4) !important;
+  border-color: var(--bp-control-border) !important;
 }
 .ant-input-affix-wrapper .ant-input {
   border: 0 !important;
@@ -162,14 +277,14 @@ body {
 }
 .sk-canvas .bp-selected {
   outline: 1px solid var(--bp-orange) !important;
-  background: rgba(255, 107, 53, 0.05);
+  background: var(--bp-orange-weak);
 }
 
 /* 手机预览外框：直角 + 听筒 + home 键，不用圆角 */
 .bp-phone {
   position: relative;
   border: 1px solid var(--bp-line);
-  background: rgba(21, 42, 68, 0.9);
+  background: var(--bp-phone);
   padding: 16px 6px 22px;
   margin: 0 auto;
 }
@@ -228,7 +343,7 @@ body {
   margin: 6px 0 0;
   font-size: 10px;
   line-height: 1.6;
-  color: rgba(160, 196, 232, 0.6);
+  color: var(--bp-hint);
   white-space: pre-wrap;
   word-break: break-all;
   font-family: inherit;
@@ -259,7 +374,7 @@ body {
   box-sizing: border-box;
   height: calc(56px + env(safe-area-inset-bottom, 0px));
   padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
-  background: rgba(21, 42, 68, 0.98);
+  background: var(--bp-chrome);
   border-top: 1px solid var(--bp-line);
   backdrop-filter: blur(6px);
 }
@@ -318,7 +433,7 @@ body {
 }
 
 .sk-mobile-tabbar-item:active {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bp-fill-soft);
 }
 
 .sk-mobile-tabbar-item:focus-visible {

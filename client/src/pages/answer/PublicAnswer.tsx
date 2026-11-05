@@ -414,7 +414,7 @@ export default function PublicAnswer() {
   if (needPassword) {
     return (
       <div style={{ maxWidth: 420, margin: '80px auto', padding: 16 }}>
-        <div style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.6)', padding: 24 }}>
+        <div style={{ border: '1px solid var(--bp-line)', background: 'var(--bp-panel)', padding: 24 }}>
           <div className="bp-title" style={{ fontSize: 14, marginBottom: 12 }}>
             需要密码
           </div>
@@ -618,7 +618,7 @@ export default function PublicAnswer() {
             ANSWER SHEET / 答题卡
           </div>
           {Sheet}
-          <div style={{ marginTop: 10, fontSize: 10, color: 'rgba(160,196,232,0.6)', lineHeight: 1.8 }}>
+          <div style={{ marginTop: 10, fontSize: 10, color: 'var(--bp-hint)', lineHeight: 1.8 }}>
             已答 {Object.values(answered).filter(Boolean).length} / {total}
             {unansweredRequired.length ? (
               <div style={{ color: 'var(--bp-orange)' }}>必填未答 {unansweredRequired.length}</div>
@@ -671,7 +671,7 @@ export default function PublicAnswer() {
           )}
 
           {!onePage && (
-            <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(160,196,232,0.5)', fontSize: 11 }}>
+            <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bp-hint)', fontSize: 11 }}>
               到底了 · 检查无误后再提交
             </div>
           )}

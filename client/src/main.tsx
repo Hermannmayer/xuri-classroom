@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
-import { blueprintTheme } from './theme';
+import { ThemeProvider } from './theme/ThemeProvider';
 import './renderer/registerAll';
 import './styles/global.css';
 import './styles/answer.css';
@@ -13,9 +13,11 @@ import './styles/answer.css';
 dayjs.locale('zh-cn');
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <ConfigProvider locale={zhCN} theme={blueprintTheme}>
-    <AntApp>
-      <RouterProvider router={router} />
-    </AntApp>
+  <ConfigProvider locale={zhCN}>
+    <ThemeProvider>
+      <AntApp>
+        <RouterProvider router={router} />
+      </AntApp>
+    </ThemeProvider>
   </ConfigProvider>,
 );

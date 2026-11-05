@@ -5,6 +5,9 @@ import type { ThemeConfig } from 'antd';
 export const MONO =
   "'Cascadia Mono', 'JetBrains Mono', Consolas, 'SF Mono', 'Microsoft YaHei', monospace";
 
+export type ThemeMode = 'dark' | 'light';
+
+/** 暗色蓝图：深蓝底 + 白线 + 亮橙。与 global.css 的 --bp-* 保持一致 */
 export const BLUEPRINT = {
   bg: '#1e3a5f',
   bgDeep: '#152a44',
@@ -17,12 +20,36 @@ export const BLUEPRINT = {
   orange: '#ff6b35',
 };
 
-const line = BLUEPRINT.line;
-const lineSoft = BLUEPRINT.lineSoft;
+/** 亮色图纸：米白底 + 深蓝线 + 深橙强调。与 global.css 的 light 变量保持一致 */
+export const PAPER = {
+  bg: '#f7f5f0',
+  bgDeep: '#efece4',
+  panel: '#fffdf8',
+  line: '#d8d3c8',
+  lineSoft: '#e6e1d6',
+  grid: 'rgba(30,58,95,0.06)',
+  text: '#1e3a5f',
+  textSoft: '#5b6b7d',
+  blue: '#2f5d8c',
+  orange: '#e8590c',
+};
 
-export const blueprintTheme: ThemeConfig = {
+/** 两套主题共用的骨架 token：直角、等宽、统一控件高度 */
+const SHARED_TOKEN: ThemeConfig['token'] = {
+  borderRadius: 0,
+  borderRadiusLG: 0,
+  borderRadiusSM: 0,
+  borderRadiusXS: 0,
+  fontFamily: MONO,
+  fontSize: 13,
+  controlHeight: 34,
+  wireframe: false,
+};
+
+const darkTheme: ThemeConfig = {
   algorithm: theme.darkAlgorithm,
   token: {
+    ...SHARED_TOKEN,
     colorPrimary: BLUEPRINT.blue,
     colorInfo: BLUEPRINT.blue,
     colorLink: BLUEPRINT.textSoft,
@@ -38,19 +65,11 @@ export const blueprintTheme: ThemeConfig = {
     colorTextSecondary: BLUEPRINT.textSoft,
     colorTextTertiary: 'rgba(160,196,232,0.65)',
     colorTextQuaternary: 'rgba(160,196,232,0.40)',
-    colorBorder: line,
-    colorBorderSecondary: lineSoft,
+    colorBorder: BLUEPRINT.line,
+    colorBorderSecondary: BLUEPRINT.lineSoft,
     colorFillSecondary: 'rgba(255,255,255,0.06)',
     colorFillTertiary: 'rgba(255,255,255,0.04)',
     colorFillQuaternary: 'rgba(255,255,255,0.02)',
-    borderRadius: 0,
-    borderRadiusLG: 0,
-    borderRadiusSM: 0,
-    borderRadiusXS: 0,
-    fontFamily: MONO,
-    fontSize: 13,
-    controlHeight: 34,
-    wireframe: false,
   },
   components: {
     Layout: {
@@ -113,9 +132,9 @@ export const blueprintTheme: ThemeConfig = {
     Table: {
       headerBg: 'rgba(255,255,255,0.05)',
       headerColor: BLUEPRINT.textSoft,
-      headerSplitColor: lineSoft,
+      headerSplitColor: BLUEPRINT.lineSoft,
       rowHoverBg: 'rgba(74,144,217,0.12)',
-      borderColor: lineSoft,
+      borderColor: BLUEPRINT.lineSoft,
       colorBgContainer: 'transparent',
       headerBorderRadius: 0,
     },
@@ -158,3 +177,143 @@ export const blueprintTheme: ThemeConfig = {
     },
   },
 };
+
+const lightTheme: ThemeConfig = {
+  algorithm: theme.defaultAlgorithm,
+  token: {
+    ...SHARED_TOKEN,
+    // 亮色把「强调/选中」交给深橙，深蓝留给信息与链接，错误用暗红避免与主色混淆
+    colorPrimary: PAPER.orange,
+    colorInfo: PAPER.blue,
+    colorLink: PAPER.text,
+    colorSuccess: PAPER.blue,
+    colorWarning: '#b7791f',
+    colorError: '#c0392b',
+    colorBgBase: PAPER.bg,
+    colorBgLayout: PAPER.bgDeep,
+    colorBgContainer: PAPER.panel,
+    colorBgElevated: PAPER.panel,
+    colorBgSpotlight: PAPER.text,
+    colorText: PAPER.text,
+    colorTextSecondary: PAPER.textSoft,
+    colorTextTertiary: 'rgba(91,107,125,0.75)',
+    colorTextQuaternary: 'rgba(91,107,125,0.50)',
+    colorBorder: PAPER.line,
+    colorBorderSecondary: PAPER.lineSoft,
+    colorFillSecondary: 'rgba(30,58,95,0.06)',
+    colorFillTertiary: 'rgba(30,58,95,0.04)',
+    colorFillQuaternary: 'rgba(30,58,95,0.02)',
+  },
+  components: {
+    Layout: {
+      headerBg: PAPER.panel,
+      siderBg: PAPER.panel,
+      bodyBg: 'transparent',
+      headerHeight: 56,
+      headerPadding: '0 20px',
+    },
+    Menu: {
+      itemBg: 'transparent',
+      subMenuItemBg: 'transparent',
+      itemColor: PAPER.textSoft,
+      itemHoverBg: 'rgba(30,58,95,0.06)',
+      itemHoverColor: PAPER.text,
+      itemSelectedBg: 'rgba(232,89,12,0.10)',
+      itemSelectedColor: PAPER.orange,
+      itemActiveBg: 'rgba(232,89,12,0.08)',
+      itemHeight: 40,
+      itemBorderRadius: 0,
+      subMenuItemBorderRadius: 0,
+      horizontalItemSelectedColor: PAPER.orange,
+    },
+    Card: {
+      colorBgContainer: PAPER.panel,
+      headerBg: 'transparent',
+      headerFontSize: 13,
+      paddingLG: 20,
+    },
+    Button: {
+      borderRadius: 0,
+      fontWeight: 500,
+      primaryShadow: 'none',
+      defaultShadow: 'none',
+      dangerShadow: 'none',
+      defaultBg: 'transparent',
+      defaultColor: PAPER.text,
+      defaultBorderColor: PAPER.line,
+      contentFontSize: 13,
+    },
+    Input: {
+      colorBgContainer: PAPER.panel,
+      activeBorderColor: PAPER.orange,
+      hoverBorderColor: '#b8b1a2',
+      activeShadow: 'none',
+      addonBg: 'rgba(30,58,95,0.04)',
+    },
+    InputNumber: {
+      colorBgContainer: PAPER.panel,
+      activeBorderColor: PAPER.orange,
+      hoverBorderColor: '#b8b1a2',
+      activeShadow: 'none',
+    },
+    Select: {
+      colorBgContainer: PAPER.panel,
+      optionSelectedBg: 'rgba(232,89,12,0.12)',
+      optionSelectedColor: PAPER.text,
+      selectorBg: PAPER.panel,
+    },
+    Table: {
+      headerBg: 'rgba(30,58,95,0.05)',
+      headerColor: PAPER.textSoft,
+      headerSplitColor: PAPER.lineSoft,
+      rowHoverBg: 'rgba(30,58,95,0.04)',
+      borderColor: PAPER.lineSoft,
+      colorBgContainer: 'transparent',
+      headerBorderRadius: 0,
+    },
+    Modal: {
+      contentBg: PAPER.panel,
+      headerBg: 'transparent',
+      titleColor: PAPER.text,
+    },
+    Tabs: {
+      itemColor: PAPER.textSoft,
+      itemSelectedColor: PAPER.orange,
+      itemHoverColor: PAPER.text,
+      inkBarColor: PAPER.orange,
+    },
+    Dropdown: {
+      colorBgElevated: PAPER.panel,
+      controlItemBgHover: 'rgba(232,89,12,0.10)',
+    },
+    Tooltip: {
+      colorBgSpotlight: PAPER.text,
+      colorTextLightSolid: PAPER.panel,
+    },
+    Form: {
+      labelColor: PAPER.textSoft,
+      itemMarginBottom: 18,
+    },
+    Typography: {
+      titleMarginBottom: 0.35,
+      titleMarginTop: 0,
+    },
+    Spin: { colorPrimary: PAPER.orange },
+    Message: { contentBg: PAPER.panel },
+    Notification: { colorBgElevated: PAPER.panel },
+    Pagination: { itemActiveBg: 'rgba(232,89,12,0.12)' },
+    Drawer: { colorBgElevated: PAPER.panel },
+    Segmented: {
+      itemSelectedBg: 'rgba(232,89,12,0.14)',
+      itemSelectedColor: PAPER.text,
+      trackBg: 'rgba(30,58,95,0.06)',
+    },
+  },
+};
+
+export function buildTheme(mode: ThemeMode): ThemeConfig {
+  return mode === 'light' ? lightTheme : darkTheme;
+}
+
+/** 旧入口：默认暗色，保留给还没接 buildTheme 的地方 */
+export const blueprintTheme: ThemeConfig = buildTheme('dark');

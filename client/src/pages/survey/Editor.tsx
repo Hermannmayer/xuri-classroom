@@ -81,7 +81,7 @@ function OutlineRow({
         cursor: 'grab',
         fontSize: 12,
         borderLeft: selected ? '2px solid var(--bp-orange)' : '2px solid transparent',
-        background: selected ? 'rgba(74,144,217,0.18)' : 'transparent',
+        background: selected ? 'var(--bp-primary-bg)' : 'transparent',
         touchAction: 'none',
       }}
     >
@@ -335,7 +335,7 @@ export default function SurveyEditor() {
           alignItems: 'center',
           gap: 12,
           border: '1px solid var(--bp-line)',
-          background: 'rgba(21,42,68,0.85)',
+          background: 'var(--bp-toolbar)',
           padding: '8px 12px',
         }}
       >
@@ -391,7 +391,7 @@ export default function SurveyEditor() {
             width: 220,
             flex: '0 0 220px',
             border: '1px solid var(--bp-line)',
-            background: 'rgba(21,42,68,0.7)',
+            background: 'var(--bp-panel-strong)',
             overflow: 'auto',
             padding: 10,
           }}
@@ -401,7 +401,7 @@ export default function SurveyEditor() {
           </div>
           {grouped.map((group) => (
             <div key={group} style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: 'rgba(160,196,232,0.55)', margin: '4px 0' }}>
+              <div style={{ fontSize: 10, color: 'var(--bp-hint)', margin: '4px 0' }}>
                 {GROUP_LABEL[group]}
               </div>
               <Space wrap size={4}>
@@ -503,7 +503,7 @@ export default function SurveyEditor() {
             width: 340,
             flex: '0 0 340px',
             border: '1px solid var(--bp-line)',
-            background: 'rgba(21,42,68,0.7)',
+            background: 'var(--bp-panel-strong)',
             overflow: 'auto',
             padding: 12,
           }}
@@ -520,7 +520,7 @@ export default function SurveyEditor() {
             }}
           >
             <span>DEVICE / 手机</span>
-            <span style={{ color: 'rgba(160,196,232,0.5)' }}>
+            <span style={{ color: 'var(--bp-hint)' }}>
               {DEVICE_W}×{DEVICE_H}
             </span>
           </div>
