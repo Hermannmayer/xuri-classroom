@@ -16,7 +16,7 @@ interface AiSetting {
 type TabKey = 'basic' | 'access' | 'ai';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
-  basic: ['name', 'description', 'avatar', 'copyright', 'recordNum'],
+  basic: ['name', 'description', 'avatar', 'copyright', 'recordNum', 'favicon'],
   access: ['captchaEnabled', 'registerEnabled'],
   ai: ['aiEnabled', 'baseUrl', 'apiKey', 'models', 'defaultModel', 'prompt'],
 };
@@ -49,6 +49,7 @@ export default function SystemSetting() {
       avatar: sys?.avatar,
       copyright: sys?.setting?.copyright,
       recordNum: sys?.setting?.recordNum,
+          favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
       registerEnabled: Boolean(sys?.registerInfo?.registerEnabled),
       aiEnabled: Boolean(ai?.enabled),
@@ -107,7 +108,7 @@ export default function SystemSetting() {
           name: v.name,
           description: v.description,
           avatar: v.avatar,
-          setting: { copyright: v.copyright, recordNum: v.recordNum },
+          setting: { copyright: v.copyright, recordNum: v.recordNum, favicon: v.favicon },
         });
       } else if (key === 'access') {
         await post('/api/system/update', {
@@ -203,6 +204,9 @@ export default function SystemSetting() {
                     </Form.Item>
                     <Form.Item name="recordNum" label="备案号">
                       <Input placeholder="例如 京ICP备00000000号" allowClear />
+                    </Form.Item>
+                    <Form.Item name="favicon" label="Favicon" extra="浏览器标签页图标 URL，留空则用 Logo">
+                      <Input placeholder="https://…/favicon.ico" allowClear />
                     </Form.Item>
                     <SaveBar loading={saving === 'basic'} onSave={() => void save('basic')} />
                   </>

@@ -18,6 +18,7 @@ export interface SystemInfo {
     captchaEnabled?: boolean;
     copyright?: string;
     recordNum?: string;
+    favicon?: string;
     amapKey?: string;
     amapSecurityJsCode?: string;
   };
