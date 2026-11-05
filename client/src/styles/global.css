@@ -325,3 +325,30 @@ body {
   outline: 1px dashed var(--bp-orange);
   outline-offset: -2px;
 }
+
+/* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
+@media (max-width: 767.98px) {
+  .sk-designer {
+    flex-direction: column !important;
+    overflow-y: auto;
+  }
+  .sk-designer > div:first-child {
+    width: 100% !important;
+    flex: none !important;
+    max-height: 220px;
+  }
+  .sk-designer > div:nth-child(2) {
+    width: 100% !important;
+    flex: none !important;
+    min-height: 60vh;
+  }
+  .sk-designer > div:last-child {
+    width: 100% !important;
+    flex: none !important;
+  }
+  /* 编辑器工具栏：按钮换行，不横向挤出屏幕 */
+  .sk-editor-toolbar {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+}

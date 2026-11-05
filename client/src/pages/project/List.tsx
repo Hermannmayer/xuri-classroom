@@ -7,9 +7,11 @@ import {
   Input,
   message,
   Modal,
+  Pagination,
   Popconfirm,
   Segmented,
   Space,
+  Spin,
   Table,
   Tag,
 } from 'antd';
@@ -40,8 +42,26 @@ const DEFAULT_SETTING = {
   submittedSetting: {},
 };
 
+const MOBILE_QUERY = '(max-width: 767.98px)';
+
+/** 与 BasicLayout 同款：matchMedia 监听，不做宽度轮询 */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  return isMobile;
+}
+
 export default function ProjectList() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [rows, setRows] = useState<ProjectView[]>([]);
   const [total, setTotal] = useState(0);
@@ -137,10 +157,31 @@ export default function ProjectList() {
     setPage(1);
   };
 
+  const emptyNode = (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description={keyword ? '没有匹配的结果' : '还没有考试，点右上角「新建」开始'}
+    />
+  );
+
+  const openRename = (row: ProjectView) => {
+    renameForm.setFieldsValue({ name: row.name || '' });
+    setRenaming(row);
+  };
+
   return (
     <>
-      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
+      <div
+        style={{
+          marginBottom: 18,
+          display: 'flex',
+          alignItems: isMobile ? 'flex-start' : 'flex-end',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 10,
+        }}
+      >
+        <div style={{ minWidth: 0, flex: isMobile ? '1 1 100%' : '1 1 auto' }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
             EXAMS / 考试管理
           </div>
@@ -161,7 +202,7 @@ export default function ProjectList() {
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <Breadcrumb
           items={[
             {
@@ -193,7 +234,7 @@ export default function ProjectList() {
         <Input.Search
           allowClear
           placeholder="搜索名称"
-          style={{ width: 220 }}
+          style={{ width: isMobile ? '100%' : 220 }}
           onSearch={(v) => {
             setKeyword(v.trim());
             setPage(1);
@@ -201,6 +242,143 @@ export default function ProjectList() {
         />
       </div>
 
+      {isMobile ? (
+        <>
+          <Spin spinning={loading}>
+            {rows.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {rows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="bp-card"
+                    style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <a
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 14,
+                        }}
+                        onClick={() =>
+                          row.mode === 'folder' ? enterFolder(row) : navigate(`/survey/${row.id}/edit`)
+                        }
+                      >
+                        {row.name || '(未命名)'}
+                      </a>
+                      <Tag color={row.mode ? MODE_COLOR[row.mode] ?? 'default' : 'default'}>
+                        {row.mode ? MODE_LABEL[row.mode] ?? row.mode : '—'}
+                      </Tag>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: 12,
+                        color: 'var(--bp-text-soft)',
+                      }}
+                    >
+                      {row.mode === 'folder' ? (
+                        <span>{row.total ?? 0} 项</span>
+                      ) : (
+                        <>
+                          <Tag color={row.status === 1 ? 'success' : 'default'}>
+                            {row.status === 1 ? '收集中' : '未发布'}
+                          </Tag>
+                          <span>{row.total ?? 0} 份答卷</span>
+                        </>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {row.mode === 'folder' ? (
+                        <>
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => openRename(row)}
+                          >
+                            重命名
+                          </Button>
+                          <Popconfirm
+                            title={`删除「${row.name || ''}」？`}
+                            description="删除后可在回收站找回。"
+                            okText="删除"
+                            cancelText="取消"
+                            onConfirm={() => remove(row)}
+                          >
+                            <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                              删除
+                            </Button>
+                          </Popconfirm>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => navigate(`/survey/${row.id}/edit`)}
+                          >
+                            编辑
+                          </Button>
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => navigate(`/survey/${row.id}/data`)}
+                          >
+                            数据
+                          </Button>
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => navigate(`/survey/${row.id}/report`)}
+                          >
+                            分析
+                          </Button>
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => navigate(`/survey/${row.id}/setting`)}
+                          >
+                            设置
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              emptyNode
+            )}
+          </Spin>
+          {rows.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                marginTop: 12,
+              }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 项</span>
+              {total > pageSize && (
+                <Pagination
+                  simple
+                  current={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onChange={(p, s) => {
+                    setPage(p);
+                    setPageSize(s);
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </>
+      ) : (
       <Table<ProjectView>
         rowKey="id"
         size="middle"
@@ -295,6 +473,7 @@ export default function ProjectList() {
           },
         ]}
       />
+      )}
 
       <Modal
         title="新建"
