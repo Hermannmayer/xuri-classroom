@@ -20,9 +20,9 @@ import MobileTabBar from './MobileTabBar';
 
 const { Header, Sider, Content } = Layout;
 
-const MOBILE_QUERY = '(max-width: 767px)';
+const MOBILE_QUERY = '(max-width: 767.98px)';
 
-/** 用 matchMedia 而不是读 innerWidth，避免滚动/键盘引起的宽度抖动 */
+/** 用 matchMedia 而不是读 innerWidth，避免滚动/键盘引起的宽度抖动；767.98 与 antd md 断点对齐，覆盖 767.x 的小数视口 */
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
 
@@ -122,7 +122,7 @@ export default function BasicLayout() {
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
       {!isMobile && (
         <Sider
-          breakpoint="lg"
+          breakpoint="md"
           collapsedWidth={0}
           trigger={null}
           collapsible
