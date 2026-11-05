@@ -5,18 +5,12 @@ import { useParams } from 'react-router-dom';
 import { post } from '../../api';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
+import { isEmptyAnswer } from '../../schema/empty';
 import { flattenSchema, type FlatQuestion } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
 import type { PublicAnswerView, PublicProjectView } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
 import '../../styles/answer.css';
-
-function isEmpty(v: AnswerValue): boolean {
-  if (v === null || v === undefined || v === '') return true;
-  if (Array.isArray(v)) return v.length === 0;
-  if (typeof v === 'object') return Object.keys(v as object).length === 0;
-  return false;
-}
 
 const CHOICE_SET = new Set(['Radio', 'Checkbox', 'Select', 'Judge']);
 
@@ -234,7 +228,7 @@ export default function PublicAnswer() {
 
   const answered = useMemo(() => {
     const map: Record<string, boolean> = {};
-    for (const q of visibleQuestions) map[q.id] = !isEmpty(values[q.id]);
+    for (const q of visibleQuestions) map[q.id] = !isEmptyAnswer(values[q.id]);
     return map;
   }, [visibleQuestions, values]);
 

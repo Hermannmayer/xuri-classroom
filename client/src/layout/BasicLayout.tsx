@@ -75,6 +75,7 @@ export default function BasicLayout() {
         label: t('menu.system', '系统管理'),
         children: [
           { key: '/system/user', label: t('menu.system.user', '用户管理') },
+          { key: '/system/group', label: t('menu.system.group', '用户组') },
           { key: '/system/setting', label: t('menu.system.setting', '系统设置') },
         ],
       });

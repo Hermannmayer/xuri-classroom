@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { isAdmin, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
+import GrantModal from './GrantModal';
 
 /** 与后端 RepoView 对齐（只取列表要用的字段） */
 interface RepoView {
@@ -50,6 +51,7 @@ export default function RepoList() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<RepoView | null>(null);
+  const [granting, setGranting] = useState<RepoView | null>(null);
   const [createForm] = Form.useForm<{
     name: string;
     category: string;
@@ -263,6 +265,7 @@ export default function RepoList() {
             render: (_: unknown, row) => (
               <Space size={4}>
                 <a onClick={() => enter(row)}>题目</a>
+                <a onClick={() => setGranting(row)}>授权</a>
                 <a
                   onClick={() => {
                     renameForm.setFieldsValue({ name: row.name || '' });
@@ -344,6 +347,12 @@ export default function RepoList() {
           </Form.Item>
         </Form>
       </Modal>
+      <GrantModal
+        repoId={granting?.id}
+        repoName={granting?.name}
+        open={Boolean(granting)}
+        onClose={() => setGranting(null)}
+      />
     </>
   );
 }

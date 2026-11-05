@@ -11,6 +11,7 @@ import SurveyOverview from './pages/survey/Overview';
 import SurveyData from './pages/survey/Data';
 import SurveyReport from './pages/survey/Report';
 import SystemUser from './pages/system/User';
+import SystemGroup from './pages/system/Group';
 import SystemSetting from './pages/system/Setting';
 import AccountSettings from './pages/account/Settings';
 import RepoList from './pages/repo/List';
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: 'survey/:id/report', element: guard('answer:list', <SurveyReport />) },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
       { path: 'system/user', element: guard('system:user:list', <SystemUser />) },
+      { path: 'system/group', element: guard('system:dept:list', <SystemGroup />) },
       { path: 'system/setting', element: guard('system:role:list', <SystemSetting />) },
     ],
   },
