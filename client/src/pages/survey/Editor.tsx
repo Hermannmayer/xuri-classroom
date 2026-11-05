@@ -829,6 +829,37 @@ export default function SurveyEditor() {
           ]}
         />
       </Drawer>
+
+      <Dropdown
+        open={Boolean(contextMenu)}
+        onOpenChange={(open) => {
+          if (!open) setContextMenu(null);
+        }}
+        trigger={[]}
+        menu={{
+          items: [
+            { key: 'edit', label: '编辑属性', icon: <EditOutlined /> },
+            { key: 'copy', label: '复制一份', icon: <CopyOutlined /> },
+            { type: 'divider' },
+            { key: 'up', label: '上移', icon: <UpOutlined /> },
+            { key: 'down', label: '下移', icon: <DownOutlined /> },
+            { type: 'divider' },
+            { key: 'delete', label: '删除', icon: <DeleteOutlined />, danger: true },
+          ],
+          onClick: ({ key }) => handleContextAction(key),
+        }}
+      >
+        <span
+          style={{
+            position: 'fixed',
+            left: contextMenu?.x ?? 0,
+            top: contextMenu?.y ?? 0,
+            width: 1,
+            height: 1,
+            pointerEvents: 'none',
+          }}
+        />
+      </Dropdown>
     </div>
   );
 }
