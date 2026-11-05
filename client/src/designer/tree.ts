@@ -97,6 +97,8 @@ export function flattenOutline(
 ): OutlineItem[] {
   const out: OutlineItem[] = [];
   for (const child of root.children ?? []) {
+    // 选项/填空空位节点不是题目，不进大纲
+    if (child.type === 'Option') continue;
     out.push({ id: child.id, parentId, depth, node: child });
     if (collapsed?.has(child.id)) continue;
     out.push(...flattenOutline(child, collapsed, child.id, depth + 1));

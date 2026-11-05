@@ -1,4 +1,4 @@
-import type { QuestionType, SurveySchema } from '../schema/types';
+import { DATA_TYPES, type QuestionType, type SurveySchema } from '../schema/types';
 
 export interface QuestionMeta {
   type: QuestionType;
@@ -45,14 +45,20 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
 
   if (OPTION_TYPES.includes(type)) {
     base.attribute = { required: false };
-    base.dataSource = [
-      { label: '选项一', value: 'o1' },
-      { label: '选项二', value: 'o2' },
-    ];
-  } else if (type === 'FillBlank') {
-    base.attribute = { required: false, placeholder: '请输入' };
-  } else if (type === 'Textarea') {
-    base.attribute = { rows: 3, placeholder: '请输入' };
+    // 选项必须同时出现在 dataSource（渲染用）和 children（Option 节点，答案 key 与后端计分/统计都按它来）
+    const optionIds = [newId(), newId()];
+    const labels = ['选项一', '选项二'];
+    base.dataSource = optionIds.map((id, i) => ({ label: labels[i], value: id }));
+    base.children = optionIds.map((id, i) => ({
+      id,
+      title: labels[i],
+      type: 'Option',
+      attribute: {},
+    }));
+  } else if (type === 'FillBlank' || type === 'Textarea') {
+    base.attribute = { required: false, placeholder: '请输入', ...(type === 'Textarea' ? { rows: 3 } : {}) };
+    // 后端填空答案格式是 {题目id: {空位id: 文本}}，空位节点必须有 id（见 AnswerServiceImpl 造 schema）
+    base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'Score') {
     base.attribute = { scope: '[0,5]' };
   } else if (type === 'QuestionSet') {
@@ -74,4 +80,24 @@ export function nextOptionValue(schema: SurveySchema): string {
   let i = (schema.dataSource?.length ?? 0) + 1;
   while (existing.has(`o${i}`)) i += 1;
   return `o${i}`;
+}
+
+/**
+ * 保证每道数据题都有 children。
+ * 后端 AnswerServiceImpl.updateLinkSurveyAnswer 直接取 getChildren().get(0)，
+ * 缺 children 的题会让整次提交 500；选项类还要与 dataSource 的 value 对齐（答案 key 就是它）。
+ */
+export function normalizeSchema(schema: SurveySchema): SurveySchema {
+  const children = schema.children?.map(normalizeSchema);
+  if (!DATA_TYPES.has(schema.type)) return { ...schema, children };
+  if (children && children.length) return { ...schema, children };
+
+  if (schema.type === 'Radio' || schema.type === 'Checkbox' || schema.type === 'Select') {
+    const options = schema.dataSource ?? [];
+    return {
+      ...schema,
+      children: options.map((o) => ({ id: o.value, title: o.label, type: 'Option' as QuestionType, attribute: {} })),
+    };
+  }
+  return { ...schema, children: [{ id: newId(), title: '', type: 'Option' as QuestionType, attribute: {} }] };
 }

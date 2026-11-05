@@ -4,6 +4,8 @@ import Login from './pages/user/Login';
 import Home from './pages/Home';
 import ProjectList from './pages/project/List';
 import SurveyEditor from './pages/survey/Editor';
+import SurveySetting from './pages/survey/Setting';
+import PublicAnswer from './pages/answer/PublicAnswer';
 import Placeholder from './pages/Placeholder';
 import Playground from './pages/Playground';
 
@@ -33,7 +35,7 @@ export const router = createBrowserRouter([
       { path: 'account/settings', element: <Placeholder title="账号设置" /> },
       { path: 'survey/:id', element: <Placeholder title="问卷总览" /> },
       { path: 'survey/:id/edit', element: <SurveyEditor /> },
-      { path: 'survey/:id/setting', element: <Placeholder title="发布设置" /> },
+      { path: 'survey/:id/setting', element: <SurveySetting /> },
       { path: 'survey/:id/data', element: <Placeholder title="答卷数据" /> },
       { path: 'survey/:id/report', element: <Placeholder title="数据分析" /> },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
@@ -42,7 +44,7 @@ export const router = createBrowserRouter([
     ],
   },
   // 公开答题侧不需要登录与侧栏
-  { path: '/s/:id', element: <Placeholder title="公开答题" public /> },
+  { path: '/s/:id', element: <PublicAnswer /> },
   { path: '/s/:id/:answerId', element: <Placeholder title="答题页" public /> },
   { path: '/s/:id/exam-result/:answerId', element: <Placeholder title="考试成绩" public /> },
   { path: '/s/:id/result/:resultId', element: <Placeholder title="结果查询" public /> },
