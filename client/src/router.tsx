@@ -3,6 +3,7 @@ import BasicLayout from './layout/BasicLayout';
 import Login from './pages/user/Login';
 import Home from './pages/Home';
 import ProjectList from './pages/project/List';
+import SurveyEditor from './pages/survey/Editor';
 import Placeholder from './pages/Placeholder';
 import Playground from './pages/Playground';
 
@@ -31,7 +32,7 @@ export const router = createBrowserRouter([
       { path: 'repo/:repoId/questions/:mode', element: <Placeholder title="题目管理" /> },
       { path: 'account/settings', element: <Placeholder title="账号设置" /> },
       { path: 'survey/:id', element: <Placeholder title="问卷总览" /> },
-      { path: 'survey/:id/edit', element: <Placeholder title="问卷设计器" /> },
+      { path: 'survey/:id/edit', element: <SurveyEditor /> },
       { path: 'survey/:id/setting', element: <Placeholder title="发布设置" /> },
       { path: 'survey/:id/data', element: <Placeholder title="答卷数据" /> },
       { path: 'survey/:id/report', element: <Placeholder title="数据分析" /> },
