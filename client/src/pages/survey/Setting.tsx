@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Col, DatePicker, Form, Input, InputNumber, message, Row, Spin, Switch } from 'antd';
+import { Button, Card, Col, DatePicker, Form, Input, InputNumber, message, Row, Select, Space, Spin, Switch } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -38,6 +38,12 @@ export default function SurveySetting() {
           questionNumber: value.answerSetting?.questionNumber ?? true,
           copyEnabled: value.answerSetting?.copyEnabled ?? true,
           maxAnswers: value.answerSetting?.maxAnswers,
+          ipLimitEnabled: Boolean(value.answerSetting?.ipLimit),
+          ipLimitNum: value.answerSetting?.ipLimit?.limitNum,
+          ipLimitFreq: value.answerSetting?.ipLimit?.limitFreq,
+          deviceLimitEnabled: Boolean(value.answerSetting?.cookieLimit),
+          deviceLimitNum: value.answerSetting?.cookieLimit?.limitNum,
+          deviceLimitFreq: value.answerSetting?.cookieLimit?.limitFreq,
           endTime: value.answerSetting?.endTime ? dayjs(value.answerSetting.endTime) : undefined,
           enableUpdate: value.submittedSetting?.enableUpdate,
           redirectUrl: value.submittedSetting?.redirectUrl,
@@ -79,6 +85,12 @@ export default function SurveySetting() {
       questionNumber: Boolean(v.questionNumber),
       copyEnabled: Boolean(v.copyEnabled),
       maxAnswers: v.maxAnswers ?? undefined,
+          ipLimit: v.ipLimitEnabled
+            ? { limitNum: Number(v.ipLimitNum ?? 1), limitFreq: v.ipLimitFreq ?? 'only' }
+            : undefined,
+          cookieLimit: v.deviceLimitEnabled
+            ? { limitNum: Number(v.deviceLimitNum ?? 1), limitFreq: v.deviceLimitFreq ?? 'only' }
+            : undefined,
       endTime: v.endTime ? (v.endTime as Dayjs).valueOf() : undefined,
     };
 
@@ -248,6 +260,48 @@ export default function SurveySetting() {
                     <InputNumber min={1} style={{ width: '100%' }} placeholder="不限" />
                   </Form.Item>
                 </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item label="每 IP 限次">
+                      <Space.Compact style={{ width: '100%' }}>
+                        <Form.Item name="ipLimitEnabled" valuePropName="checked" noStyle>
+                          <Switch />
+                        </Form.Item>
+                        <Form.Item name="ipLimitNum" noStyle>
+                          <InputNumber min={1} style={{ width: '38%' }} placeholder="次数" />
+                        </Form.Item>
+                        <Form.Item name="ipLimitFreq" noStyle>
+                          <Select style={{ width: '52%' }} placeholder="频率" options={[
+                        { value: 'only', label: '仅一次' },
+                        { value: 'hour', label: '每小时' },
+                        { value: 'day', label: '每天' },
+                        { value: 'week', label: '每周' },
+                        { value: 'month', label: '每月' },
+                      ]} />
+                        </Form.Item>
+                      </Space.Compact>
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item label="每台设备限次" extra="按浏览器 cookie 识别">
+                      <Space.Compact style={{ width: '100%' }}>
+                        <Form.Item name="deviceLimitEnabled" valuePropName="checked" noStyle>
+                          <Switch />
+                        </Form.Item>
+                        <Form.Item name="deviceLimitNum" noStyle>
+                          <InputNumber min={1} style={{ width: '38%' }} placeholder="次数" />
+                        </Form.Item>
+                        <Form.Item name="deviceLimitFreq" noStyle>
+                          <Select style={{ width: '52%' }} placeholder="频率" options={[
+                        { value: 'only', label: '仅一次' },
+                        { value: 'hour', label: '每小时' },
+                        { value: 'day', label: '每天' },
+                        { value: 'week', label: '每周' },
+                        { value: 'month', label: '每月' },
+                      ]} />
+                        </Form.Item>
+                      </Space.Compact>
+                    </Form.Item>
+                  </Col>
                 <Col xs={24} md={12}>
                   <Form.Item name="endTime" label="回收截止时间">
                     <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
