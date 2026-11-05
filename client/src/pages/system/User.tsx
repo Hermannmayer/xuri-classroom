@@ -1,5 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
+import {
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  message,
+  Modal,
+  Pagination,
+  Popconfirm,
+  Select,
+  Space,
+  Spin,
+  Table,
+  Tag,
+  Upload,
+} from 'antd';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { download, get, getWithPagination, post } from '../../api';
 import { pager } from '../repo/table';
@@ -22,11 +38,28 @@ interface Role {
   code?: string;
 }
 
+const MOBILE_QUERY = '(max-width: 767.98px)';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  return isMobile;
+}
+
 /**
  * 用户管理：列表 / 新建 / 编辑 / 删除。
  * 后端字段：UserRequest{ id, username, name, password, roles[], phone, email, status }
  */
 export default function SystemUser() {
+  const isMobile = useIsMobile();
   const [rows, setRows] = useState<SysUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -142,6 +175,13 @@ export default function SystemUser() {
     }
   };
 
+  const mobileEmpty = (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description={keyword ? '没有匹配的用户' : '还没有用户'}
+    />
+  );
+
   return (
     <div>
       <div
@@ -163,7 +203,7 @@ export default function SystemUser() {
         <Input.Search
           placeholder="搜索姓名"
           allowClear
-          style={{ width: 200 }}
+          style={{ width: isMobile ? '100%' : 200 }}
           onSearch={(v) => {
             setPage(1);
             setKeyword(v);
@@ -190,6 +230,101 @@ export default function SystemUser() {
         </Button>
       </div>
 
+      {isMobile ? (
+        <>
+          <Spin spinning={loading}>
+            {rows.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {rows.map((row) => (
+                  <div
+                    key={row.userId}
+                    className="bp-card"
+                    style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 14,
+                        }}
+                      >
+                        {row.name || '—'}
+                      </span>
+                      <Tag color={row.status === 0 ? 'default' : 'success'}>
+                        {row.status === 0 ? '停用' : '正常'}
+                      </Tag>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        fontSize: 12,
+                        color: 'var(--bp-text-soft)',
+                      }}
+                    >
+                      <span>账号：{row.username || '—'}</span>
+                      <span>手机：{row.phone || '—'}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button
+                        style={{ flex: 1, height: 38, paddingInline: 0 }}
+                        onClick={() => openEdit(row)}
+                      >
+                        编辑
+                      </Button>
+                      <Popconfirm
+                        title={`删除「${row.name || row.username}」？`}
+                        okText="删除"
+                        cancelText="取消"
+                        onConfirm={() => remove(row)}
+                      >
+                        <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                          删除
+                        </Button>
+                      </Popconfirm>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              mobileEmpty
+            )}
+          </Spin>
+          {rows.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                marginTop: 12,
+              }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 个账号</span>
+              {total > pageSize && (
+                <Pagination
+                  simple
+                  current={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onChange={(p, s) => {
+                    setPage(p);
+                    setPageSize(s);
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </>
+      ) : (
       <Card className="bp-corners bp-card">
         <Table<SysUser>
           rowKey="userId"
@@ -229,6 +364,7 @@ export default function SystemUser() {
           ]}
         />
       </Card>
+      )}
 
       <Modal
         title={editing ? '编辑用户' : '新建用户'}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, message, Popconfirm, Progress, Select, Space, Table, Tag } from 'antd';
+import { Button, Empty, message, Pagination, Popconfirm, Progress, Select, Space, Spin, Table, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { pager, TABLE_COMPONENTS } from '../repo/table';
@@ -31,8 +31,25 @@ const TYPE_COLOR: Record<string, string> = {
 /** 后端按 Answer.tempSave 过滤：0 暂存/进行中，1 已完成 */
 type StatusFilter = 'all' | '0' | '1';
 
+const MOBILE_QUERY = '(max-width: 767.98px)';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  return isMobile;
+}
+
 export default function ExerciseList() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [rows, setRows] = useState<ExerciseView[]>([]);
   const [total, setTotal] = useState(0);
@@ -81,6 +98,14 @@ export default function ExerciseList() {
     }
   };
 
+  const emptyNode = (
+    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有练习记录">
+      <Button type="primary" onClick={() => navigate('/repo/index')}>
+        去题库挑一套
+      </Button>
+    </Empty>
+  );
+
   return (
     <>
       <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -128,6 +153,98 @@ export default function ExerciseList() {
         </Space>
       </div>
 
+      {isMobile ? (
+        <>
+          <Spin spinning={loading}>
+            {rows.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {rows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="bp-card"
+                    style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <a
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 14,
+                        }}
+                        onClick={() => enter(row)}
+                      >
+                        {row.projectName || '(未命名练习)'}
+                      </a>
+                      {row.examExerciseType && (
+                        <Tag color={TYPE_COLOR[row.examExerciseType] ?? 'default'}>
+                          {TYPE_LABEL[row.examExerciseType] ?? row.examExerciseType}
+                        </Tag>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Progress percent={row.percent ?? 0} size="small" style={{ flex: 1, minWidth: 0 }} />
+                      <Tag color={row.tempSave === 1 ? 'blue' : 'orange'}>
+                        {row.tempSave === 1 ? '已完成' : '进行中'}
+                      </Tag>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button
+                        style={{ flex: 1, height: 38, paddingInline: 0 }}
+                        onClick={() => enter(row)}
+                      >
+                        {row.tempSave === 1 ? '查看' : '继续练习'}
+                      </Button>
+                      <Popconfirm
+                        title="删除这条练习记录？"
+                        description="删除后不可恢复。"
+                        okText="删除"
+                        cancelText="取消"
+                        onConfirm={() => remove(row)}
+                      >
+                        <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                          删除
+                        </Button>
+                      </Popconfirm>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              emptyNode
+            )}
+          </Spin>
+          {rows.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                marginTop: 12,
+              }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 条练习记录</span>
+              {total > pageSize && (
+                <Pagination
+                  simple
+                  current={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onChange={(p, s) => {
+                    setPage(p);
+                    setPageSize(s);
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </>
+      ) : (
       <Table<ExerciseView>
         rowKey="id"
         size="middle"
@@ -135,15 +252,7 @@ export default function ExerciseList() {
         loading={loading}
         dataSource={rows}
         scroll={{ x: 820 }}
-        locale={{
-          emptyText: (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有练习记录">
-              <Button type="primary" onClick={() => navigate('/repo/index')}>
-                去题库挑一套
-              </Button>
-            </Empty>
-          ),
-        }}
+        locale={{ emptyText: emptyNode }}
         pagination={pager(page, pageSize, total, setPage, setPageSize, (n) => `共 ${n} 条练习记录`)}
         columns={[
           {
@@ -200,6 +309,7 @@ export default function ExerciseList() {
           },
         ]}
       />
+      )}
     </>
   );
 }
