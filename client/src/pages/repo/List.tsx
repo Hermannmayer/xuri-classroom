@@ -18,7 +18,7 @@ import {
 import { AppstoreOutlined, DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
-import { can, loadAuthorities } from '../../auth/permissions';
+import { loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
 import RepoGroups from './RepoGroups';
@@ -88,10 +88,17 @@ export default function RepoList() {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  const canCreate = can(authorities, 'repo:create');
-  const canDetail = can(authorities, 'repo:detail');
-  const canUpdate = can(authorities, 'repo:update');
-  const canDelete = can(authorities, 'repo:delete');
+  // permissions.ts 的 can() 会按域前缀放行（学员的 repo:list 会被当成 repo:*），
+  // 这里按「精确权限 / 域通配符 / ROLE_admin」判断，避免学员拿到管理操作。
+  const hasPermission = (permission: string) =>
+    authorities.includes('ROLE_admin') ||
+    authorities.includes(permission) ||
+    authorities.includes(`${permission.split(':')[0]}:*`);
+
+  const canCreate = hasPermission('repo:create');
+  const canDetail = hasPermission('repo:detail');
+  const canUpdate = hasPermission('repo:update');
+  const canDelete = hasPermission('repo:delete');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,6 +107,8 @@ export default function RepoList() {
         current: page,
         pageSize,
         name: keyword,
+        // 学员没有 repo:create 时只看「自己/被授权/共享」的题库；否则后端会返回 0 条
+        memberOnly: canCreate ? undefined : true,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -108,7 +117,7 @@ export default function RepoList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword, categoryFilter]);
+  }, [page, pageSize, keyword, categoryFilter, canCreate]);
 
   useEffect(() => {
     void load();

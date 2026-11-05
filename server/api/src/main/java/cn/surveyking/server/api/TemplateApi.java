@@ -23,7 +23,7 @@ public class TemplateApi {
 	private final TemplateService templateService;
 
 	@GetMapping("/list")
-	@PreAuthorize("hasAuthority('template:list')")
+	@PreAuthorize("hasAuthority('template:list') or hasAuthority('repo:detail')")
 	public PaginationResponse<TemplateView> listQuestionTemplate(TemplateQuery query) {
 		return templateService.listTemplate(query);
 	}

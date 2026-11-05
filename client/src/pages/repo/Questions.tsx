@@ -23,7 +23,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { download, getWithPagination, post } from '../../api';
-import { can, loadAuthorities } from '../../auth/permissions';
+import { loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 
@@ -136,11 +136,17 @@ export default function RepoQuestions() {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  const canImport = can(authorities, 'template:create');
-  const canExport = can(authorities, 'template:update');
-  const canEdit = can(authorities, 'template:update');
-  const canDelete = can(authorities, 'template:delete');
+  // permissions.ts 的 can() 按域前缀放行，学员的 template:list 会被当成 template:*；
+  // 这里只认精确权限 / 域通配符 / ROLE_admin。
+  const hasPermission = (permission: string) =>
+    authorities.includes('ROLE_admin') ||
+    authorities.includes(permission) ||
+    authorities.includes(`${permission.split(':')[0]}:*`);
 
+  const canImport = hasPermission('template:create');
+  const canExport = hasPermission('template:update');
+  const canEdit = hasPermission('template:update');
+  const canDelete = hasPermission('template:delete');
   const [editing, setEditing] = useState<TemplateView | null>(null);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);

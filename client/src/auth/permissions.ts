@@ -30,6 +30,8 @@ export function isAdmin(authorities: string[]) {
 
 export function can(authorities: string[], permission: string): boolean {
   if (isAdmin(authorities)) return true;
-  const domain = `${permission.split(':')[0]}:`;
-  return authorities.some((a) => a === permission || a.startsWith(domain));
+  // 只认精确权限或该域的显式通配符（repo:*）。
+  // 不能用前缀匹配：学员的 repo:list 会误放行 repo:create / repo:delete。
+  const domain = permission.split(':')[0];
+  return authorities.includes(permission) || authorities.includes(`${domain}:*`);
 }
