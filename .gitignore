@@ -65,5 +65,6 @@ client/*.tsbuildinfo
 
 ### 本地开发运行时产物 ###
 server/backend.log
+server/backend.err.log
 server/application.properties
 
