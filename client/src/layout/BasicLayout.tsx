@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Avatar, Dropdown, Layout, Menu, Spin } from 'antd';
+import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import {
   DatabaseOutlined,
   FormOutlined,
   HomeOutlined,
   LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   ProjectOutlined,
   SettingOutlined,
   UserOutlined,
@@ -75,6 +77,9 @@ export default function BasicLayout() {
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
       <Sider
+        breakpoint="lg"
+        collapsedWidth={0}
+        trigger={null}
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
@@ -144,16 +149,27 @@ export default function BasicLayout() {
             borderBottom: '1px solid var(--bp-line-soft)',
           }}
         >
-          <span
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.18em',
-              color: 'var(--bp-text-soft)',
-              textTransform: 'uppercase',
-            }}
-          >
-            {location.pathname.replace(/^\//, '').replace(/\//g, ' / ') || 'dashboard'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <Button
+              type="text"
+              size="small"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed((c) => !c)}
+            />
+            <span
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                color: 'var(--bp-text-soft)',
+                textTransform: 'uppercase',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {location.pathname.replace(/^\//, '').replace(/\//g, ' / ') || 'dashboard'}
+            </span>
+          </div>
           <Dropdown
             menu={{
               items: [

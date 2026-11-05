@@ -17,6 +17,7 @@ import type { QuestionType, SurveySchema } from '../../schema/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
+import PhonePreview, { DEVICE_H, DEVICE_W } from '../../designer/PhonePreview';
 import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey } from '../../designer/defaults';
 import { findNode, findParent, insertNode, moveNode, removeNode, updateNode } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
@@ -241,7 +242,7 @@ export default function SurveyEditor() {
         </Button>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
+      <div className="sk-designer" style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
         {/* 左栏：题型 + 大纲 */}
         <div
           style={{
@@ -321,7 +322,7 @@ export default function SurveyEditor() {
           </div>
         </Card>
 
-        {/* 右栏：属性 */}
+        {/* 右栏：手机预览 + 属性 */}
         <div
           style={{
             width: 300,
@@ -332,6 +333,28 @@ export default function SurveyEditor() {
             padding: 12,
           }}
         >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: 'var(--bp-text-soft)',
+              marginBottom: 6,
+            }}
+          >
+            <span>DEVICE / 手机</span>
+            <span style={{ color: 'rgba(160,196,232,0.5)' }}>
+              {DEVICE_W}×{DEVICE_H}
+            </span>
+          </div>
+          <PhonePreview
+            schema={survey}
+            values={values}
+            onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+          />
+          <hr className="bp-dim" style={{ margin: '14px 0 12px' }} />
           {selected ? (
             <>
               <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
