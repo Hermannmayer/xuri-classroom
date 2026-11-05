@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Breadcrumb,
   Button,
+  Checkbox,
   Empty,
   Form,
   Input,
@@ -19,10 +20,13 @@ import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom';
 import { createProject, deleteProject, listProjects, updateProject } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
+import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
+import BatchSettingModal from './BatchSettingModal';
 import ComposeModal from './ComposeModal';
 
 type Crumb = { id: string; name: string };
+type ProjectRow = ProjectView & { setting?: ProjectSetting };
 
 const MODE_LABEL: Record<ProjectMode, string> = {
   survey: '问卷',
@@ -64,12 +68,15 @@ export default function ProjectList() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  const [rows, setRows] = useState<ProjectView[]>([]);
+  const [rows, setRows] = useState<ProjectRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [batchSettingOpen, setBatchSettingOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
@@ -102,6 +109,15 @@ export default function ProjectList() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 翻页/搜索/进文件夹后旧选中项可能已不在当前列表，直接清空避免误操作
+  useEffect(() => {
+    setSelectedKeys([]);
+  }, [page, pageSize, keyword, parentId]);
+
+  const selectedProjects = rows.filter(
+    (row) => selectedKeys.includes(row.id) && row.mode !== 'folder',
+  );
 
   const openCreate = () => {
     createForm.setFieldsValue({ name: '', mode: 'exam', source: 'blank' });
@@ -164,6 +180,31 @@ export default function ProjectList() {
       await load();
     } catch (e) {
       message.error((e as Error).message);
+    }
+  };
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedKeys((prev) =>
+      checked ? Array.from(new Set([...prev, id])) : prev.filter((item) => item !== id),
+    );
+  };
+
+  const batchDelete = async () => {
+    if (!selectedKeys.length) return;
+    const ids = [...selectedKeys];
+    setBatchDeleting(true);
+    try {
+      // ProjectApi#delete 只按单个 id 删除，前端循环调用
+      for (const id of ids) {
+        await deleteProject(id);
+      }
+      message.success(`已删除 ${ids.length} 项`);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBatchDeleting(false);
+      setSelectedKeys([]);
+      await load();
     }
   };
 
@@ -257,6 +298,40 @@ export default function ProjectList() {
         />
       </div>
 
+      {selectedKeys.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            marginBottom: 12,
+            padding: '8px 10px',
+            border: '1px dashed var(--bp-line)',
+          }}
+        >
+          <span style={{ fontSize: 12 }}>已选中 {selectedKeys.length} 项</span>
+          <div style={{ flex: 1 }} />
+          <Button size="small" onClick={() => setBatchSettingOpen(true)}>
+            批量设置
+          </Button>
+          <Popconfirm
+            title={`删除选中的 ${selectedKeys.length} 个考试/问卷？`}
+            description="可在回收站恢复。"
+            okText="删除"
+            cancelText="取消"
+            onConfirm={() => batchDelete()}
+          >
+            <Button danger size="small" loading={batchDeleting}>
+              批量删除
+            </Button>
+          </Popconfirm>
+          <Button size="small" onClick={() => setSelectedKeys([])}>
+            取消选择
+          </Button>
+        </div>
+      )}
+
       {isMobile ? (
         <>
           <Spin spinning={loading}>
@@ -269,6 +344,12 @@ export default function ProjectList() {
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {row.mode !== 'folder' && (
+                        <Checkbox
+                          checked={selectedKeys.includes(row.id)}
+                          onChange={(e) => toggleSelected(row.id, e.target.checked)}
+                        />
+                      )}
                       <a
                         style={{
                           flex: 1,
@@ -394,11 +475,16 @@ export default function ProjectList() {
           )}
         </>
       ) : (
-      <Table<ProjectView>
+      <Table<ProjectRow>
         rowKey="id"
         size="middle"
         loading={loading}
         dataSource={rows}
+        rowSelection={{
+          selectedRowKeys: selectedKeys,
+          onChange: (keys) => setSelectedKeys(keys.map(String)),
+          getCheckboxProps: (row) => ({ disabled: row.mode === 'folder' }),
+        }}
         locale={{
           emptyText: (
             <Empty
@@ -531,6 +617,17 @@ export default function ProjectList() {
         onCreated={(id) => {
           setComposeOpen(false);
           navigate(`/survey/${id}/edit`);
+        }}
+      />
+
+      <BatchSettingModal
+        open={batchSettingOpen}
+        projects={selectedProjects}
+        onCancel={() => setBatchSettingOpen(false)}
+        onUpdated={() => {
+          setBatchSettingOpen(false);
+          setSelectedKeys([]);
+          void load();
         }}
       />
 
