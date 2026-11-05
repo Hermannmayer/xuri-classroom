@@ -9,6 +9,7 @@ import {
   Pagination,
   Popconfirm,
   Segmented,
+  Select,
   Space,
   Spin,
   Table,
@@ -66,6 +67,7 @@ export default function RepoList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [keyword, setKeyword] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>();
   const [loading, setLoading] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -77,7 +79,7 @@ export default function RepoList() {
     mode: 'exam' | 'survey';
     description?: string;
   }>();
-  const [renameForm] = Form.useForm<{ name: string }>();
+  const [renameForm] = Form.useForm<{ name: string; category?: string; tag?: string; description?: string }>();
 
   const isAdminRef = useRef(false);
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function RepoList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword]);
+  }, [page, pageSize, keyword, categoryFilter]);
 
   useEffect(() => {
     void load();
@@ -131,22 +133,22 @@ export default function RepoList() {
 
   const submitRename = async () => {
     if (!renaming) return;
-    const { name } = await renameForm.validateFields();
+    const { name, category, tag, description } = await renameForm.validateFields();
     try {
       // updateRepo 会先删光旧标签再按 tag 重建，只传 id+name 会把题库标签清空
       await post<void>('/api/repo/update', {
         id: renaming.id,
         name: name.trim(),
-        description: renaming.description,
-        category: renaming.category,
+        description: description ?? renaming.description,
+        category: category ?? renaming.category,
+        tag: tag ? tag.split(/[,，]/).map((s) => s.trim()).filter(Boolean) : (renaming.tag ?? []),
         mode: renaming.mode,
-        tag: renaming.tag ?? [],
         shared: renaming.shared,
         isPractice: renaming.isPractice,
         priority: renaming.priority,
         setting: renaming.setting,
       });
-      message.success('已重命名');
+      message.success('已保存');
       setRenaming(null);
       await load();
     } catch (e) {
@@ -213,6 +215,17 @@ export default function RepoList() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 个题库</span>
         <div style={{ flex: 1 }} />
+        <Select
+          allowClear
+          placeholder="全部分类"
+          style={{ width: 160 }}
+          value={categoryFilter}
+          onChange={(v) => {
+            setPage(1);
+            setCategoryFilter(v);
+          }}
+          options={[...new Set(rows.map((r) => r.category).filter(Boolean))].map((c) => ({ value: c as string, label: c as string }))}
+        />
         <Input.Search
           allowClear
           placeholder="搜索题库名称"
@@ -284,7 +297,7 @@ export default function RepoList() {
                         style={{ flex: 1, height: 38, paddingInline: 0 }}
                         onClick={() => openRename(row)}
                       >
-                        重命名
+                        编辑
                       </Button>
                       <Popconfirm
                         title={`删除「${row.name || '未命名题库'}」？`}
@@ -416,11 +429,16 @@ export default function RepoList() {
                 <a onClick={() => setGranting(row)}>授权</a>
                 <a
                   onClick={() => {
-                    renameForm.setFieldsValue({ name: row.name || '' });
+                    renameForm.setFieldsValue({
+                      name: row.name || '',
+                      category: row.category,
+                      tag: (row.tag || []).join(','),
+                      description: row.description,
+                    });
                     setRenaming(row);
                   }}
                 >
-                  重命名
+                  编辑
                 </a>
                 <Popconfirm
                   title={`删除「${row.name || '未命名题库'}」？`}
@@ -478,7 +496,7 @@ export default function RepoList() {
       </Modal>
 
       <Modal
-        title="重命名题库"
+        title="编辑题库"
         open={!!renaming}
         onCancel={() => setRenaming(null)}
         onOk={submitRename}
