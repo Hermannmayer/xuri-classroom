@@ -9,6 +9,7 @@ import {
   Input,
   message,
   Space,
+  Spin,
   Table,
   Tag,
 } from 'antd';
@@ -32,6 +33,7 @@ import { flattenSchema } from '../../schema/flatten';
 import type { AnswerValue } from '../../renderer/types';
 import { TABLE_COMPONENTS } from '../repo/table';
 import AnswerEditorModal from './data/AnswerEditorModal';
+import AnswerCards from './data/AnswerCards';
 import TrashDrawer from './data/TrashDrawer';
 import {
   EMPTY,
@@ -42,6 +44,23 @@ import {
 } from './data/format';
 
 const { RangePicker } = DatePicker;
+
+const MOBILE_QUERY = '(max-width: 767.98px)';
+
+/** 手机端换卡片布局：390px 下横向滚动的表格点不准 */
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setMobile(event.matches);
+    setMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  return mobile;
+}
 
 type EditorState = { mode: 'create' } | { mode: 'edit'; row: Answer };
 
@@ -55,6 +74,7 @@ export default function SurveyData() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { modal } = App.useApp();
+  const mobile = useIsMobile();
 
   const [project, setProject] = useState<Project>();
   const [rows, setRows] = useState<Answer[]>([]);
@@ -137,6 +157,14 @@ export default function SurveyData() {
       return true;
     });
   }, [rows, range, author]);
+
+  /** 手机端分页在前端切页；桌面端交给 Table 自己的分页 */
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageRows = useMemo(
+    () => (mobile ? filtered.slice((page - 1) * pageSize, page * pageSize) : []),
+    [mobile, filtered, page, pageSize],
+  );
+  const emptyText = rows.length ? '当前筛选没有匹配的答卷' : '还没有答卷，点「添加数据」补录一份';
 
   const columns = useMemo<ColumnsType<Answer>>(() => {
     const fixedColumns: ColumnsType<Answer> = [
@@ -255,19 +283,20 @@ export default function SurveyData() {
     setEditor({ mode: 'edit', row });
   };
 
-  const removeSelected = () => {
-    if (selected.length === 0) return;
+  /** 批量删：桌面端用勾选，手机端用卡片上的「删除」单条删 */
+  const removeRows = (ids: string[]) => {
+    if (ids.length === 0) return;
     modal.confirm({
-      title: `删除 ${selected.length} 份答卷？`,
+      title: `删除 ${ids.length} 份答卷？`,
       content: '删除后进回收站，可以恢复。',
       okText: '删除',
       okType: 'danger',
       cancelText: '取消',
       onOk: async () => {
         try {
-          await post('/api/answer/delete', { ids: selected });
-          message.success(`已移入回收站 ${selected.length} 份`);
-          setSelected([]);
+          await post('/api/answer/delete', { ids });
+          message.success(`已移入回收站 ${ids.length} 份`);
+          setSelected((prev) => prev.filter((x) => !ids.includes(x)));
           setPage(1); // 删到当前页空掉时别停在空白页
           await load();
         } catch (e) {
@@ -276,6 +305,8 @@ export default function SurveyData() {
       },
     });
   };
+
+  const removeSelected = () => removeRows(selected);
 
   const exportXlsx = () => {
     const [from, to] = range ?? [];
@@ -315,8 +346,27 @@ export default function SurveyData() {
     [detail],
   );
 
+  const deleteButton = (
+    <Button danger icon={<DeleteOutlined />} disabled={selected.length === 0} onClick={removeSelected}>
+      删除数据
+    </Button>
+  );
+
   return (
     <div>
+      <style>{`
+        /* 表格单元格是透明的（主题 colorBgContainer: transparent），固定列横向滚动时会透出下层内容，这里补底色 */
+        .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-left,
+        .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-right { background: #263f62; }
+        .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-left,
+        .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-right { background: var(--bp-bg); }
+        .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+        .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-right { background: #23446e; }
+        .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-left,
+        .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-right { background: rgb(36,57,79); }
+        /* 手机上工具条按钮要够 36px 才好点 */
+        .sk-data-toolbar-mobile .ant-btn { height: 36px; }
+      `}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}/edit`)} />
         <div style={{ minWidth: 0 }}>
@@ -337,26 +387,20 @@ export default function SurveyData() {
       </div>
 
       <Card className="bp-corners bp-card">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <div
+          className={mobile ? 'sk-data-toolbar-mobile' : undefined}
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}
+        >
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor({ mode: 'create' })}>
             添加数据
           </Button>
-          <Button icon={<EditOutlined />} disabled={selected.length !== 1} onClick={editSelected}>
-            编辑数据
-          </Button>
-          <Button
-            danger
-            icon={<DeleteOutlined />}
-            disabled={selected.length === 0}
-            onClick={removeSelected}
-          >
-            删除数据
-          </Button>
-          <Button
-            icon={<UploadOutlined />}
-            loading={importing}
-            onClick={() => fileRef.current?.click()}
-          >
+          {!mobile && (
+            <Button icon={<EditOutlined />} disabled={selected.length !== 1} onClick={editSelected}>
+              编辑数据
+            </Button>
+          )}
+          {!mobile && deleteButton}
+          <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileRef.current?.click()}>
             导入数据
           </Button>
           <Button icon={<DownloadOutlined />} disabled={rows.length === 0} onClick={exportXlsx}>
@@ -365,12 +409,13 @@ export default function SurveyData() {
           <Button icon={<RestOutlined />} onClick={() => setTrashOpen(true)}>
             回收站
           </Button>
-          <div style={{ flex: 1 }} />
+          {mobile && deleteButton}
+          {!mobile && <div style={{ flex: 1 }} />}
           <RangePicker
             value={range}
             allowClear
             placeholder={['开始日期', '结束日期']}
-            style={{ width: 236 }}
+            style={{ width: mobile ? '100%' : 236 }}
             onChange={(dates) => setRange((dates ?? null) as [Dayjs | null, Dayjs | null] | null)}
           />
           <Input
@@ -379,7 +424,7 @@ export default function SurveyData() {
             placeholder="答卷人"
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
-            style={{ width: 160 }}
+            style={{ width: mobile ? '100%' : 160 }}
           />
         </div>
 
@@ -389,54 +434,78 @@ export default function SurveyData() {
           </div>
         )}
 
-        <div className="sk-data-grid">
-          {/* 表格单元格是透明的（主题 colorBgContainer: transparent），固定列横向滚动时会透出下层内容，这里补底色 */}
-          <style>{`
-            .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-left,
-            .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-right { background: #263f62; }
-            .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-left,
-            .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-right { background: var(--bp-bg); }
-            .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
-            .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-right { background: #23446e; }
-            .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-left,
-            .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-right { background: rgb(36,57,79); }
-          `}</style>
-          <Table<Answer>
-            rowKey="id"
-            size="small"
-            loading={loading}
-            dataSource={filtered}
-            columns={columns}
-            components={TABLE_COMPONENTS}
-            // 固定表头 + 横向滚动：列多时表头贴住表体顶部，手机上左右滑
-            scroll={{ x: 'max-content', y: 'max(240px, calc(100vh - 360px))' }}
-            rowSelection={{
-              selectedRowKeys: selected,
-              preserveSelectedRowKeys: true,
-              onChange: (keys) => setSelected(keys as string[]),
-            }}
-            locale={{
-              emptyText: (
-                <Empty
-                  description={rows.length ? '当前筛选没有匹配的答卷' : '还没有答卷，点「添加数据」补录一份'}
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+        {mobile ? (
+          <>
+            <Spin spinning={loading}>
+              {pageRows.length === 0 ? (
+                <Empty description={emptyText} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : (
+                <AnswerCards
+                  rows={pageRows}
+                  questions={questions}
+                  cells={cells}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onDetail={setDetail}
+                  onEdit={(row) => setEditor({ mode: 'edit', row })}
+                  onDelete={(row) => removeRows([row.id])}
                 />
-              ),
-            }}
-            pagination={{
-              current: page,
-              pageSize,
-              total: filtered.length,
-              showSizeChanger: true,
-              pageSizeOptions: [20, 50, 100],
-              showTotal: (t) => `共 ${t} 条`,
-              onChange: (p, ps) => {
-                setPage(p);
-                setPageSize(ps);
-              },
-            }}
-          />
-        </div>
+              )}
+            </Spin>
+            {filtered.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <Button
+                  style={{ height: 36 }}
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  上一页
+                </Button>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                  第 {Math.min(page, pageCount)} / {pageCount} 页 · 共 {filtered.length} 条
+                </div>
+                <Button
+                  style={{ height: 36 }}
+                  disabled={page >= pageCount}
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                >
+                  下一页
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="sk-data-grid">
+            <Table<Answer>
+              rowKey="id"
+              size="small"
+              loading={loading}
+              dataSource={filtered}
+              columns={columns}
+              components={TABLE_COMPONENTS}
+              // 固定表头 + 横向滚动：列多时表头贴住表体顶部，手机上左右滑
+              scroll={{ x: 'max-content', y: 'max(240px, calc(100vh - 360px))' }}
+              rowSelection={{
+                selectedRowKeys: selected,
+                preserveSelectedRowKeys: true,
+                onChange: (keys) => setSelected(keys as string[]),
+              }}
+              locale={{ emptyText: <Empty description={emptyText} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+              pagination={{
+                current: page,
+                pageSize,
+                total: filtered.length,
+                showSizeChanger: true,
+                pageSizeOptions: [20, 50, 100],
+                showTotal: (t) => `共 ${t} 条`,
+                onChange: (p, ps) => {
+                  setPage(p);
+                  setPageSize(ps);
+                },
+              }}
+            />
+          </div>
+        )}
       </Card>
 
       <input
@@ -470,7 +539,7 @@ export default function SurveyData() {
       <Drawer
         title="答卷详情"
         placement="right"
-        width={520}
+        width="min(520px, 100vw)"
         open={Boolean(detail)}
         onClose={() => setDetail(undefined)}
       >

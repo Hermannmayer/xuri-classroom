@@ -71,7 +71,13 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
   };
 
   return (
-    <Drawer title={`回收站 · 共 ${rows.length} 份`} placement="right" width={560} open={open} onClose={onClose}>
+    <Drawer
+      title={`回收站 · 共 ${rows.length} 份`}
+      placement="right"
+      width="min(560px, 100vw)"
+      open={open}
+      onClose={onClose}
+    >
       <Space style={{ marginBottom: 12 }} wrap>
         <Button disabled={selected.length === 0} onClick={() => void run('restore', selected)}>
           恢复选中
