@@ -23,7 +23,7 @@ import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
 import PhonePreview, { DEVICE_H, DEVICE_W } from '../../designer/PhonePreview';
-import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey } from '../../designer/defaults';
+import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, normalizeSchema } from '../../designer/defaults';
 import {
   findNode,
   findParent,
@@ -296,7 +296,8 @@ export default function SurveyEditor() {
   const save = async () => {
     setSaving(true);
     try {
-      await updateProject({ id, name, survey, setting });
+      // 保存前补齐 children：后端提交链路会直接取每道题的 children.get(0)
+      await updateProject({ id, name, survey: normalizeSchema(survey), setting });
       message.success('已保存');
     } catch (e) {
       message.error((e as Error).message);

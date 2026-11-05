@@ -8,6 +8,7 @@ import { router } from './router';
 import { blueprintTheme } from './theme';
 import './renderer/registerAll';
 import './styles/global.css';
+import './styles/answer.css';
 
 dayjs.locale('zh-cn');
 

@@ -121,8 +121,7 @@ export interface ProjectRequest {
 }
 
 /** 答卷：answer 是 questionId → 值 的扁平 map，survey 是答卷时的快照 */
-export interface Answer {
-  id: string;
+export interface Answer {  id: string;
   projectId: string;
   repoId?: string;
   answer?: Record<string, unknown>;
@@ -137,4 +136,35 @@ export interface Answer {
   createAt?: string;
   createBy?: string;
   updateAt?: string;
+}
+
+/** 公开答题：POST /api/public/loadProject 的返回 */
+export interface PublicProjectView {
+  id: string;
+  survey?: SurveySchema;
+  status?: number;
+  setting?: ProjectSetting;
+  name?: string;
+  mode?: ProjectModeEnum;
+  passwordRequired?: boolean;
+  loginRequired?: boolean;
+  createAt?: string;
+  submittedHtml?: string;
+  /** 当前会话对应的答卷 id（续答用） */
+  answerId?: string;
+  /** 允许修改且已识别身份时，后端回填的旧答案 */
+  answer?: Record<string, unknown>;
+  isAuthenticated?: boolean;
+  wechatAuthorizationRequired?: boolean;
+  examInfo?: Record<string, unknown>;
+}
+
+/** 公开答题：POST /api/public/saveAnswer 的返回 */
+export interface PublicAnswerView {
+  answerId?: string;
+  examScore?: number;
+  examRanking?: number;
+  questionScore?: Record<string, number>;
+  answer?: Record<string, unknown>;
+  createAt?: string;
 }

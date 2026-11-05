@@ -1,0 +1,468 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Button, Drawer, Input, message, Modal, Select, Spin } from 'antd';
+import { MenuOutlined } from '@ant-design/icons';
+import { useParams } from 'react-router-dom';
+import { post } from '../../api';
+import type { AnswerValue } from '../../renderer/types';
+import SchemaRenderer from '../../renderer/SchemaRenderer';
+import { flattenSchema } from '../../schema/flatten';
+import { evaluateVisible } from '../../schema/rules/engine';
+import type { PublicAnswerView, PublicProjectView } from '../../schema/project';
+import type { SurveySchema } from '../../schema/types';
+import '../../styles/answer.css';
+
+function isEmpty(v: AnswerValue): boolean {
+  if (v === null || v === undefined || v === '') return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'object') return Object.keys(v as object).length === 0;
+  return false;
+}
+
+function formFieldIds(p?: PublicProjectView): string[] {
+  return (p?.survey?.children ?? []).map((c) => c.id);
+}
+
+/** 字号档位：中老年学员需要能放得很大 */
+const FONT_OPTIONS = [
+  { value: 0.9, label: '小' },
+  { value: 1, label: '标准' },
+  { value: 1.15, label: '大' },
+  { value: 1.3, label: '较大' },
+  { value: 1.5, label: '特大' },
+  { value: 1.75, label: '超大' },
+  { value: 2, label: '巨大' },
+];
+const FONT_KEY = 'sk-font-scale';
+
+/** 从整棵树里摘出单道题（一页一题时用） */
+export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema | undefined {
+  if (root.id === id) return root;
+  for (const child of root.children ?? []) {
+    const hit = pickQuestionNode(child, id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+export default function PublicAnswer() {
+  const { id = '' } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState<PublicProjectView>();
+  const [values, setValues] = useState<Record<string, AnswerValue>>({});
+  const [displays, setDisplays] = useState<Record<string, boolean>>({});
+  const [needPassword, setNeedPassword] = useState(false);
+  const [needLogin, setNeedLogin] = useState(false);
+  const [password, setPassword] = useState('');
+  const [fatal, setFatal] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<PublicAnswerView>();
+  const [answerId, setAnswerId] = useState<string>();
+
+  const [fontScale, setFontScale] = useState<number>(() => Number(localStorage.getItem(FONT_KEY)) || 1);
+  const [page, setPage] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [nearBottom, setNearBottom] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const applyProject = useCallback((data: PublicProjectView) => {
+    const fields = formFieldIds(data);
+    if (fields.includes('extraPassword')) {
+      setNeedPassword(true);
+      return;
+    }
+    if (fields.includes('username')) {
+      setNeedLogin(true);
+      return;
+    }
+    setProject(data);
+    setNeedPassword(false);
+    setNeedLogin(false);
+    if (data.answerId) setAnswerId(data.answerId);
+    if (data.answer) setValues(data.answer as Record<string, AnswerValue>);
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setFatal(undefined);
+    try {
+      applyProject(await post<PublicProjectView>('/api/public/loadProject', { id }));
+    } catch (e) {
+      setFatal((e as Error).message || '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, applyProject]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const submitPassword = async () => {
+    setLoading(true);
+    try {
+      applyProject(
+        await post<PublicProjectView>('/api/public/validateProject', {
+          id,
+          answer: { extraPassword: { extraPassword: password } },
+        }),
+      );
+      setPassword('');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onePage = Boolean(project?.setting?.answerSetting?.onePageOneQuestion);
+  const flatQuestions = useMemo(() => (project?.survey ? flattenSchema(project.survey) : []), [project]);
+  const visibleQuestions = useMemo(
+    () => flatQuestions.filter((q) => displays[q.id] !== false),
+    [flatQuestions, displays],
+  );
+  const total = visibleQuestions.length;
+  const currentIndex = Math.min(page, Math.max(total - 1, 0));
+  const currentQuestion = visibleQuestions[currentIndex];
+
+  // 规则显隐：答题态必须应用，隐藏题的答案不参与校验与提交
+  useEffect(() => {
+    const rules: Record<string, string | undefined> = {};
+    const titles: Record<string, string> = {};
+    for (const q of flatQuestions) {
+      titles[q.id] = q.title;
+      if (q.schema.attribute?.visibleRule) rules[q.id] = q.schema.attribute.visibleRule;
+    }
+    setDisplays(evaluateVisible(rules, { values, titles }));
+  }, [flatQuestions, values]);
+
+  const answered = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const q of visibleQuestions) map[q.id] = !isEmpty(values[q.id]);
+    return map;
+  }, [visibleQuestions, values]);
+
+  const unansweredRequired = visibleQuestions.filter(
+    (q) => q.schema.attribute?.required && !answered[q.id],
+  );
+
+  // 滚动模式下，滚到接近底部才露出提交按钮，避免中途误触
+  useEffect(() => {
+    if (onePage) return;
+    const el = contentRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const rest = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setNearBottom(rest < 160);
+    };
+    el.addEventListener('scroll', onScroll);
+    onScroll();
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [onePage, values, visibleQuestions.length]);
+
+  const changeFont = (value: number) => {
+    setFontScale(value);
+    localStorage.setItem(FONT_KEY, String(value));
+  };
+
+  const doSubmit = async () => {
+    if (!project) return;
+    setSubmitting(true);
+    try {
+      const res = await post<PublicAnswerView>('/api/public/saveAnswer', {
+        projectId: id,
+        id: answerId,
+        answer: values,
+        survey: project.survey,
+      });
+      if (res?.answerId) setAnswerId(res.answerId);
+      setResult(res);
+      message.success('已提交');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** 提交前二次确认，并把未答的必填题列出来 */
+  const confirmSubmit = () => {
+    const missingText = unansweredRequired.length
+      ? `还有 ${unansweredRequired.length} 道必填题没填：${unansweredRequired
+          .slice(0, 3)
+          .map((q) => q.title || q.type)
+          .join('、')}${unansweredRequired.length > 3 ? ' 等' : ''}`
+      : '提交后不可再修改（除非问卷允许修改答案）';
+    Modal.confirm({
+      title: '确认提交这份答卷？',
+      content: missingText,
+      okText: '确认提交',
+      cancelText: '再检查一下',
+      okButtonProps: { danger: unansweredRequired.length > 0 },
+      onOk: doSubmit,
+    });
+  };
+
+  const jumpTo = (index: number) => {
+    setPage(index);
+    setSheetOpen(false);
+    contentRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const Sheet = (
+    <div className="sk-sheet">
+      {visibleQuestions.map((q, i) => {
+        const cls = [
+          answered[q.id] ? 'answered' : '',
+          i === currentIndex && onePage ? 'current' : '',
+          !answered[q.id] && q.schema.attribute?.required ? 'missing' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        return (
+          <button key={q.id} className={cls} onClick={() => jumpTo(i)} title={q.title}>
+            {i + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin />
+      </div>
+    );
+  }
+
+  if (fatal) {
+    return (
+      <div style={{ maxWidth: 480, margin: '80px auto', padding: 16 }}>
+        <Alert type="warning" showIcon message="无法打开这份问卷" description={fatal} />
+      </div>
+    );
+  }
+
+  if (needPassword) {
+    return (
+      <div style={{ maxWidth: 420, margin: '80px auto', padding: 16 }}>
+        <div style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.6)', padding: 24 }}>
+          <div className="bp-title" style={{ fontSize: 14, marginBottom: 12 }}>
+            需要密码
+          </div>
+          <Input.Password
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="请输入答题密码"
+            onPressEnter={submitPassword}
+          />
+          <Button type="primary" block style={{ marginTop: 12 }} onClick={submitPassword}>
+            进入
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (needLogin) {
+    return (
+      <div style={{ maxWidth: 480, margin: '80px auto', padding: 16 }}>
+        <Alert
+          type="info"
+          showIcon
+          message="需要登录后作答"
+          description="这份问卷要求登录，请先登录再回到这个链接。"
+          action={
+            <Button size="small" type="primary" href={`/user/login?redirect=${encodeURIComponent(location.pathname)}`}>
+              去登录
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (!project) return null;
+
+  if (result) {
+    const html = project.submittedHtml || project.setting?.submittedSetting?.contentHtml;
+    return (
+      <div style={{ maxWidth: 560, margin: '80px auto', padding: 16, textAlign: 'center' }}>
+        <div style={{ fontSize: 40, color: 'var(--bp-orange)' }}>✓</div>
+        <div className="bp-title" style={{ fontSize: 18, margin: '12px 0' }}>
+          已提交
+        </div>
+        {html ? (
+          <div dangerouslySetInnerHTML={{ __html: html }} />
+        ) : (
+          <div style={{ color: 'var(--bp-text-soft)', fontSize: 13 }}>感谢你的填写。</div>
+        )}
+        {typeof result.examScore === 'number' && result.examScore > 0 && (
+          <div style={{ marginTop: 12, fontSize: 15 }}>
+            得分：<span style={{ color: 'var(--bp-orange)' }}>{result.examScore}</span>
+          </div>
+        )}
+        {project.setting?.submittedSetting?.enableUpdate && (
+          <Button style={{ marginTop: 20 }} onClick={() => setResult(undefined)}>
+            修改答案
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  const schemaForCanvas: SurveySchema = onePage
+    ? {
+        id: 'page',
+        title: '',
+        type: 'Survey',
+        attribute: {},
+        children: currentQuestion ? [currentQuestion.schema] : [],
+      }
+    : project.survey ?? { id: 'root', title: '', type: 'Survey', attribute: {}, children: [] };
+
+  const showSubmit = onePage ? currentIndex >= total - 1 : nearBottom;
+
+  return (
+    <div className="sk-answer" style={{ minHeight: '100vh', paddingBottom: 96 }}>
+      {/* 顶部：标题 + 字号 + 答题卡入口 */}
+      <div className="sk-answer-top">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SURVEY / 答题</div>
+          <div
+            className="bp-title"
+            style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {project.name}
+          </div>
+        </div>
+        <Select
+          size="small"
+          value={fontScale}
+          onChange={changeFont}
+          options={FONT_OPTIONS}
+          style={{ width: 92 }}
+          popupMatchSelectWidth={false}
+        />
+        <Button size="small" icon={<MenuOutlined />} onClick={() => setSheetOpen(true)} className="sk-answer-sheet-btn">
+          答题卡
+        </Button>
+      </div>
+
+      {/* 进度条：一页一题看页码，滚动模式看已答比例 */}
+      <div className="sk-answer-progress">
+        <div
+          style={{
+            width: `${
+              onePage
+                ? ((currentIndex + 1) / Math.max(total, 1)) * 100
+                : (Object.values(answered).filter(Boolean).length / Math.max(total, 1)) * 100
+            }%`,
+          }}
+        />
+      </div>
+
+      <div className="sk-answer-layout" ref={contentRef}>
+        {/* 桌面端常驻答题卡 */}
+        <aside className="sk-answer-sheet-side">
+          <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+            ANSWER SHEET / 答题卡
+          </div>
+          {Sheet}
+          <div style={{ marginTop: 10, fontSize: 10, color: 'rgba(160,196,232,0.6)', lineHeight: 1.8 }}>
+            已答 {Object.values(answered).filter(Boolean).length} / {total}
+            {unansweredRequired.length ? (
+              <div style={{ color: 'var(--bp-orange)' }}>必填未答 {unansweredRequired.length}</div>
+            ) : null}
+          </div>
+        </aside>
+
+        <div style={{ flex: 1, minWidth: 0, zoom: fontScale }}>
+          {onePage && (
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+              第 {currentIndex + 1} / {total} 题
+            </div>
+          )}
+          <SchemaRenderer
+            schema={schemaForCanvas}
+            values={values}
+            onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+            mode="answer"
+            displays={displays}
+          />
+          {onePage && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginTop: 24,
+                paddingTop: 16,
+                borderTop: '1px dashed var(--bp-line)',
+              }}
+            >
+              <Button size="large" disabled={currentIndex <= 0} onClick={() => jumpTo(currentIndex - 1)}>
+                上一题
+              </Button>
+              <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                {currentIndex + 1} / {total}
+              </div>
+              {currentIndex >= total - 1 ? (
+                <Button type="primary" size="large" loading={submitting} onClick={confirmSubmit}>
+                  提交答卷
+                </Button>
+              ) : (
+                <Button type="primary" size="large" onClick={() => jumpTo(currentIndex + 1)}>
+                  下一题
+                </Button>
+              )}
+            </div>
+          )}
+
+          {!onePage && (
+            <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(160,196,232,0.5)', fontSize: 11 }}>
+              到底了 · 检查无误后再提交
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 移动端答题卡 */}
+      <Drawer
+        title="答题卡"
+        placement="right"
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        width={320}
+      >
+        {Sheet}
+        <div style={{ marginTop: 14, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+          已答 {Object.values(answered).filter(Boolean).length} / {total}
+        </div>
+      </Drawer>
+
+      {/* 底部操作栏：只在一屏滚动模式下出现。一页一题的导航按钮在题目下方 */}
+      {!onePage && (
+        <div className="sk-answer-bar">
+          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+              共 {total} 题 · 已答 {Object.values(answered).filter(Boolean).length}
+              {unansweredRequired.length ? ` · 必填未答 ${unansweredRequired.length}` : ''}
+            </span>
+            <div style={{ flex: 1 }} />
+            {showSubmit ? (
+              <Button type="primary" size="large" loading={submitting} onClick={confirmSubmit}>
+                提交
+              </Button>
+            ) : (
+              <Button size="large" disabled>
+                继续答题…
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
