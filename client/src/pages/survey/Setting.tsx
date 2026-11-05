@@ -4,7 +4,7 @@ import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import { get, updateProject } from '../../api';
-import type { AnswerSetting, ProjectSetting, SubmittedSetting } from '../../schema/project';
+import type { AnswerSetting, ExamSetting, ProjectSetting, SubmittedSetting } from '../../schema/project';
 
 /**
  * 发布设置：只做一期闭环用得到的字段，其余留到后续。
@@ -38,6 +38,17 @@ export default function SurveySetting() {
           transcriptVisible: setting?.submittedSetting?.transcriptVisible,
           rankVisible: setting?.submittedSetting?.rankVisible,
           answerAnalysis: setting?.submittedSetting?.answerAnalysis,
+          examStartTime: setting?.examSetting?.startTime ? dayjs(setting.examSetting.startTime) : undefined,
+          examEndTime: setting?.examSetting?.endTime ? dayjs(setting.examSetting.endTime) : undefined,
+          minSubmitMinutes: setting?.examSetting?.minSubmitMinutes,
+          maxSubmitMinutes: setting?.examSetting?.maxSubmitMinutes,
+          rankingEnabled: setting?.examSetting?.rankingEnabled,
+          exerciseMode: setting?.examSetting?.exerciseMode,
+          passMode: setting?.examSetting?.passMode,
+          passModePerSeconds: setting?.examSetting?.passModePerSeconds,
+          randomOrder: setting?.examSetting?.randomOrder,
+          randomSurveyWrong: setting?.examSetting?.randomSurveyWrong,
+          maxSwitchScreenTimes: setting?.examSetting?.maxSwitchScreenTimes,
         });
       })
       .catch((e: Error) => message.error(e.message))
@@ -69,6 +80,19 @@ export default function SurveySetting() {
         rankVisible: Boolean(v.rankVisible),
         answerAnalysis: Boolean(v.answerAnalysis),
       } satisfies SubmittedSetting,
+      examSetting: {
+        startTime: v.examStartTime ? (v.examStartTime as Dayjs).valueOf() : undefined,
+        endTime: v.examEndTime ? (v.examEndTime as Dayjs).valueOf() : undefined,
+        minSubmitMinutes: v.minSubmitMinutes ?? undefined,
+        maxSubmitMinutes: v.maxSubmitMinutes ?? undefined,
+        rankingEnabled: Boolean(v.rankingEnabled),
+        exerciseMode: Boolean(v.exerciseMode),
+        passMode: Boolean(v.passMode),
+        passModePerSeconds: v.passModePerSeconds ?? undefined,
+        randomOrder: Boolean(v.randomOrder),
+        randomSurveyWrong: Boolean(v.randomSurveyWrong),
+        maxSwitchScreenTimes: v.maxSwitchScreenTimes ?? undefined,
+      } satisfies ExamSetting,
     };
     setSaving(true);
     try {
@@ -190,6 +214,50 @@ export default function SurveySetting() {
                     </Form.Item>
                     <Form.Item name="answerAnalysis" label="显示答案解析" valuePropName="checked">
                       <Switch />
+                    </Form.Item>
+                  </>
+                ),
+              },
+              {
+                key: 'exam',
+                label: '考试设置',
+                children: (
+                  <>
+                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+                      仅考试模式生效；问卷模式这些设置会被忽略
+                    </div>
+                    <Form.Item name="examStartTime" label="考试开始时间">
+                      <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
+                    </Form.Item>
+                    <Form.Item name="examEndTime" label="考试结束时间">
+                      <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
+                    </Form.Item>
+                    <Form.Item name="minSubmitMinutes" label="最短交卷时间（分钟）" extra="不到时间不能交卷">
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                    </Form.Item>
+                    <Form.Item name="maxSubmitMinutes" label="最长答题时间（分钟）" extra="到点自动交卷">
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                    </Form.Item>
+                    <Form.Item name="rankingEnabled" label="交卷后显示排名" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item name="exerciseMode" label="练习模式（答完立即看答案）" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item name="passMode" label="闯关模式（答对才能进下一题）" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item name="passModePerSeconds" label="闯关每题限时（秒）">
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                    </Form.Item>
+                    <Form.Item name="randomOrder" label="随机题目顺序" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item name="randomSurveyWrong" label="错题练习" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item name="maxSwitchScreenTimes" label="允许切屏次数" extra="超过后按交卷处理，留空不限制">
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
                     </Form.Item>
                   </>
                 ),

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
+import { Alert, App, Button, Collapse, Drawer, Input, message, Slider, Spin } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { post } from '../../api';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
-import { flattenSchema } from '../../schema/flatten';
+import { flattenSchema, type FlatQuestion } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
 import type { PublicAnswerView, PublicProjectView } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
@@ -16,6 +16,24 @@ function isEmpty(v: AnswerValue): boolean {
   if (Array.isArray(v)) return v.length === 0;
   if (typeof v === 'object') return Object.keys(v as object).length === 0;
   return false;
+}
+
+const CHOICE_SET = new Set(['Radio', 'Checkbox', 'Select', 'Judge']);
+
+/** 把答案值转成可读文本（结果页看答案解析用） */
+function formatValue(q: FlatQuestion, value: AnswerValue): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value !== 'object') return String(value);
+  const record = value as Record<string, unknown>;
+  if (CHOICE_SET.has(q.type)) {
+    return Object.keys(record)
+      .map((id) => q.schema.dataSource?.find((o) => o.value === id)?.label ?? id)
+      .join('、');
+  }
+  return Object.values(record)
+    .map((v) => (v === true ? '是' : String(v)))
+    .join('，');
 }
 
 function formFieldIds(p?: PublicProjectView): string[] {
@@ -56,7 +74,10 @@ export default function PublicAnswer() {
   const [page, setPage] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [nearBottom, setNearBottom] = useState(false);
+  const [remainMs, setRemainMs] = useState<number>();
+  const [switchCount, setSwitchCount] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const submittedRef = useRef(false);
 
   const applyProject = useCallback((data: PublicProjectView) => {
     const fields = formFieldIds(data);
@@ -165,7 +186,8 @@ export default function PublicAnswer() {
   };
 
   const doSubmit = async () => {
-    if (!project) return;
+    if (!project || submittedRef.current) return;
+    submittedRef.current = true;
     setSubmitting(true);
     try {
       const res = await post<PublicAnswerView>('/api/public/saveAnswer', {
@@ -178,11 +200,56 @@ export default function PublicAnswer() {
       setResult(res);
       message.success('已提交');
     } catch (e) {
+      submittedRef.current = false;
       message.error((e as Error).message);
     } finally {
       setSubmitting(false);
     }
   };
+
+  /** 考试限时：到点自动交卷 */
+  useEffect(() => {
+    const minutes = project?.setting?.examSetting?.maxSubmitMinutes;
+    if (!minutes) return;
+    const deadline = Date.now() + minutes * 60_000;
+    const tick = () => {
+      const left = deadline - Date.now();
+      setRemainMs(left);
+      if (left <= 0) {
+        window.clearInterval(timer);
+        if (!submittedRef.current) {
+          message.warning('答题时间到，已自动交卷');
+          void doSubmit();
+        }
+      }
+    };
+    const timer = window.setInterval(tick, 1000);
+    tick();
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.setting?.examSetting?.maxSubmitMinutes]);
+
+  /** 切屏检测：超过允许次数直接交卷 */
+  useEffect(() => {
+    const limit = project?.setting?.examSetting?.maxSwitchScreenTimes;
+    if (limit === undefined || limit === null) return;
+    const onVisibility = () => {
+      if (!document.hidden || submittedRef.current) return;
+      setSwitchCount((prev) => {
+        const next = prev + 1;
+        if (next > limit) {
+          message.error('切屏次数超限，已自动交卷');
+          void doSubmit();
+        } else {
+          message.warning(`已切屏 ${next}/${limit} 次，超过将自动交卷`);
+        }
+        return next;
+      });
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.setting?.examSetting?.maxSwitchScreenTimes]);
 
   /** 跳到指定题：一页一题切页，滚动模式滚到题目 */
   const goToQuestion = (qId: string) => {
@@ -302,26 +369,63 @@ export default function PublicAnswer() {
 
   if (result) {
     const html = project.submittedHtml || project.setting?.submittedSetting?.contentHtml;
+    const showAnalysis = Boolean(project.setting?.submittedSetting?.answerAnalysis);
+    const explanations = showAnalysis && project.survey
+      ? flattenSchema(project.survey)
+          .map((q) => ({
+            id: q.id,
+            title: q.title || q.type,
+            mine: formatValue(q, values[q.id]),
+            correct: q.schema.attribute?.examCorrectAnswer,
+            analysis: q.schema.attribute?.examAnalysis,
+          }))
+          .filter((row) => row.correct || row.analysis)
+      : [];
+
     return (
-      <div style={{ maxWidth: 560, margin: '80px auto', padding: 16, textAlign: 'center' }}>
-        <div style={{ fontSize: 40, color: 'var(--bp-orange)' }}>✓</div>
-        <div className="bp-title" style={{ fontSize: 18, margin: '12px 0' }}>
-          已提交
-        </div>
-        {html ? (
-          <div dangerouslySetInnerHTML={{ __html: html }} />
-        ) : (
-          <div style={{ color: 'var(--bp-text-soft)', fontSize: 13 }}>感谢你的填写。</div>
-        )}
-        {typeof result.examScore === 'number' && result.examScore > 0 && (
-          <div style={{ marginTop: 12, fontSize: 15 }}>
-            得分：<span style={{ color: 'var(--bp-orange)' }}>{result.examScore}</span>
+      <div style={{ maxWidth: 640, margin: '60px auto', padding: 16 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40, color: 'var(--bp-orange)' }}>✓</div>
+          <div className="bp-title" style={{ fontSize: 18, margin: '12px 0' }}>
+            已提交
           </div>
-        )}
-        {project.setting?.submittedSetting?.enableUpdate && (
-          <Button style={{ marginTop: 20 }} onClick={() => setResult(undefined)}>
-            修改答案
-          </Button>
+          {html ? (
+            <div dangerouslySetInnerHTML={{ __html: html }} />
+          ) : (
+            <div style={{ color: 'var(--bp-text-soft)', fontSize: 13 }}>感谢你的填写。</div>
+          )}
+          {typeof result.examScore === 'number' && (
+            <div style={{ marginTop: 12, fontSize: 15 }}>
+              得分：<span style={{ color: 'var(--bp-orange)' }}>{result.examScore}</span>
+            </div>
+          )}
+          {project.setting?.submittedSetting?.enableUpdate && (
+            <Button style={{ marginTop: 16 }} onClick={() => setResult(undefined)}>
+              修改答案
+            </Button>
+          )}
+        </div>
+
+        {explanations.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+              ANALYSIS / 答案解析
+            </div>
+            <Collapse
+              size="small"
+              items={explanations.map((row) => ({
+                key: row.id,
+                label: <span style={{ fontSize: 12 }}>{row.title}</span>,
+                children: (
+                  <div style={{ fontSize: 12, lineHeight: 1.9 }}>
+                    <div>你的答案：{row.mine || '—'}</div>
+                    {row.correct && <div style={{ color: 'var(--bp-orange)' }}>正确答案：{row.correct}</div>}
+                    {row.analysis && <div style={{ color: 'var(--bp-text-soft)' }}>解析：{row.analysis}</div>}
+                  </div>
+                ),
+              }))}
+            />
+          </div>
         )}
       </div>
     );
@@ -352,6 +456,27 @@ export default function PublicAnswer() {
             {project.name}
           </div>
         </div>
+        {remainMs !== undefined && (
+          <span
+            title="剩余答题时间"
+            style={{
+              fontSize: 13,
+              fontVariantNumeric: 'tabular-nums',
+              color: remainMs < 60_000 ? 'var(--bp-orange)' : 'var(--bp-text-soft)',
+              letterSpacing: '0.05em',
+            }}
+          >
+            {(() => {
+              const total = Math.max(0, Math.floor(remainMs / 1000));
+              return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+            })()}
+          </span>
+        )}
+        {switchCount > 0 && (
+          <span style={{ fontSize: 11, color: 'var(--bp-orange)' }} title="已切屏次数">
+            切屏 {switchCount}
+          </span>
+        )}
         <div className="sk-font-ctl">
           <Button size="small" className="sk-font-btn" onClick={() => bumpFont(-0.15)}>
             A-
