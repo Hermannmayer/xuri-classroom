@@ -458,6 +458,9 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getRecordNum() != null) {
 				setting.setRecordNum(source.getRecordNum());
 			}
+			if (source.getFavicon() != null) {
+				setting.setFavicon(source.getFavicon());
+			}
 			if (isNotBlank(source.getAmapKey())) {
 				setting.setAmapKey(source.getAmapKey());
 			}
