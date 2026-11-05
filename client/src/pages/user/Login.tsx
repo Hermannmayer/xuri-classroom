@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Typography } from 'antd';
+import { Button, Form, Input, message } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, login } from '../../api';
 import type { SystemInfo } from '../../api';
 import { encryptPassword } from '../../utils/crypto';
 import { t } from '../../i18n';
+
+function versionTag(version?: string) {
+  return version && /^\d/.test(version) ? `v${version}` : 'BUILD 1.13.0';
+}
 
 export default function Login() {
   const [system, setSystem] = useState<SystemInfo>();
@@ -29,7 +33,6 @@ export default function Login() {
         username: values.username,
         password: encryptPassword(values.password, system.publicKey),
       });
-      // 登录接口无响应体，用 currentUser 确认会话真的建立了
       await getCurrentUser();
       navigate('/home', { replace: true });
     } catch (e) {
@@ -46,46 +49,117 @@ export default function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%)',
+        padding: 24,
       }}
     >
-      <Card style={{ width: 380 }} styles={{ body: { padding: 32 } }}>
-        <Typography.Title level={3} style={{ textAlign: 'center', marginBottom: 4 }}>
-          {system?.name || t('pages.login.defaultSystemName', '卷王问卷考试系统')}
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
-          {t('pages.login.slogan', '让问卷与考试更简单高效')}
-        </Typography.Paragraph>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        {/* 图纸标题栏 */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            fontSize: 10,
+            letterSpacing: '0.16em',
+            color: 'var(--bp-text-soft)',
+            marginBottom: 8,
+          }}
+        >
+          <span>SURVEY KING</span>
+          <span>DWG NO. SK-0013</span>
+        </div>
 
-        {system?.setting?.captchaEnabled && (
-          <Typography.Paragraph type="warning" style={{ fontSize: 12 }}>
-            后端已开启验证码，新前端尚未接入，请先在系统设置中关闭验证码。
-          </Typography.Paragraph>
-        )}
+        <div
+          className="bp-corners"
+          style={{
+            border: '1px solid var(--bp-line)',
+            background: 'rgba(30,58,95,0.62)',
+            backdropFilter: 'blur(2px)',
+            padding: 32,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: '0.2em',
+              color: 'var(--bp-text-soft)',
+              textTransform: 'uppercase',
+            }}
+          >
+            Sign in / 登录
+          </div>
+          <h1
+            className="bp-title"
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              margin: '10px 0 10px',
+              lineHeight: 1.3,
+              letterSpacing: '0.06em',
+            }}
+          >
+            {system?.name || t('pages.login.defaultSystemName', '卷王问卷考试系统')}
+          </h1>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
+            <span className="bp-tag">{versionTag(system?.version)}</span>
+            <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+              {t('pages.login.slogan', '让问卷与考试更简单高效')}
+            </span>
+          </div>
 
-        <Form layout="vertical" onFinish={onFinish} requiredMark={false}>
-          <Form.Item
-            name="username"
-            rules={[{ required: true, message: '请输入用户名' }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="用户名" size="large" autoComplete="username" />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: t('pages.login.password.required', '请输入密码！') }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder={t('pages.login.password.placeholder', '密码')}
-              size="large"
-              autoComplete="current-password"
-            />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" size="large" block loading={loading}>
-            {t('pages.login.submit', '登录')}
-          </Button>
-        </Form>
-      </Card>
+          <hr className="bp-dim" style={{ margin: '0 0 22px' }} />
+
+          {system?.setting?.captchaEnabled && (
+            <div
+              style={{
+                border: '1px dashed rgba(255,107,53,0.6)',
+                color: 'var(--bp-orange)',
+                fontSize: 11,
+                padding: '8px 10px',
+                marginBottom: 16,
+                lineHeight: 1.6,
+              }}
+            >
+              后端已开启验证码，新前端尚未接入，请先在系统设置中关闭。
+            </div>
+          )}
+
+          <Form layout="vertical" onFinish={onFinish} requiredMark={false} size="large">
+            <Form.Item name="username" label="USERNAME" rules={[{ required: true, message: '请输入用户名' }]}>
+              <Input prefix={<UserOutlined />} placeholder="用户名" autoComplete="username" />
+            </Form.Item>
+            <Form.Item
+              name="password"
+              label="PASSWORD"
+              rules={[{ required: true, message: t('pages.login.password.required', '请输入密码！') }]}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder={t('pages.login.password.placeholder', '密码')}
+                autoComplete="current-password"
+              />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" block loading={loading} style={{ marginTop: 4 }}>
+              {t('pages.login.submit', '登录')}
+            </Button>
+          </Form>
+        </div>
+
+        <div
+          style={{
+            marginTop: 10,
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: 10,
+            color: 'rgba(160,196,232,0.55)',
+            letterSpacing: '0.1em',
+          }}
+        >
+          <span>SCALE 1:1</span>
+          <span>GRID 20 / 20</span>
+        </div>
+      </div>
     </div>
   );
 }

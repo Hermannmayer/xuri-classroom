@@ -1,0 +1,152 @@
+:root {
+  --bp-bg: #1e3a5f;
+  --bp-bg-deep: #152a44;
+  --bp-line: rgba(255, 255, 255, 0.3);
+  --bp-line-soft: rgba(255, 255, 255, 0.15);
+  --bp-grid: rgba(255, 255, 255, 0.05);
+  --bp-text: #ffffff;
+  --bp-text-soft: #a0c4e8;
+  --bp-blue: #4a90d9;
+  --bp-orange: #ff6b35;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 蓝图底：深蓝 + 20px 网格 */
+body {
+  background-color: var(--bp-bg);
+  background-image:
+    linear-gradient(var(--bp-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bp-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: var(--bp-text);
+  font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'SF Mono', 'Microsoft YaHei', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+::selection {
+  background: rgba(74, 144, 217, 0.5);
+  color: #fff;
+}
+
+/* 角标记：容器四角的白线，图纸感 */
+.bp-corners {
+  position: relative;
+}
+.bp-corners::before,
+.bp-corners::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+}
+.bp-corners::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--bp-text);
+  border-left: 1px solid var(--bp-text);
+}
+.bp-corners::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid var(--bp-text);
+  border-right: 1px solid var(--bp-text);
+}
+
+/* 标题：大写 + 字距，工程图标注感 */
+.bp-title {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* 辅助标注：虚线段 + 端点 */
+.bp-dim {
+  border: 0;
+  border-top: 1px dashed var(--bp-line);
+  position: relative;
+}
+
+/* 橙色标注块（编号 / 坐标） */
+.bp-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  color: var(--bp-orange);
+  border: 1px solid rgba(255, 107, 53, 0.5);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+}
+
+/* antd 细节修正：输入框/按钮去掉柔和过渡与阴影 */
+.ant-btn {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ant-btn-primary {
+  background: rgba(74, 144, 217, 0.18);
+  border-color: var(--bp-blue);
+  color: var(--bp-text);
+}
+.ant-btn-primary:not(:disabled):hover {
+  background: rgba(74, 144, 217, 0.3) !important;
+  border-color: #fff !important;
+  color: #fff !important;
+}
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+.ant-input-affix-wrapper .ant-input {
+  border: 0 !important;
+}
+.ant-card-head {
+  border-bottom: 1px dashed var(--bp-line) !important;
+  min-height: 44px;
+}
+.ant-table-thead > tr > th {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px !important;
+}
+.ant-menu-inline,
+.ant-menu-vertical {
+  border-inline-end: 0 !important;
+}
+/* 子菜单展开后 antd 会给一层 colorBgContainer，这里压回透明，保持蓝图底 */
+.ant-menu-inline .ant-menu-sub.ant-menu-inline,
+.ant-menu-dark .ant-menu-sub {
+  background: transparent !important;
+}
+.ant-menu-submenu-title,
+.ant-menu-item {
+  letter-spacing: 0.02em;
+}
+.ant-layout-sider {
+  border-right: 1px solid var(--bp-line-soft);
+}
+.ant-layout-header {
+  border-bottom: 1px solid var(--bp-line-soft);
+}

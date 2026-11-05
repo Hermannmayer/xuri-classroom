@@ -5,11 +5,14 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
+import { blueprintTheme } from './theme';
+import './renderer/registerAll';
+import './styles/global.css';
 
 dayjs.locale('zh-cn');
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: '#3873f6', borderRadius: 6 } }}>
+  <ConfigProvider locale={zhCN} theme={blueprintTheme}>
     <AntApp>
       <RouterProvider router={router} />
     </AntApp>
