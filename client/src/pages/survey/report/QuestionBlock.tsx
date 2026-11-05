@@ -242,7 +242,7 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
   ];
 
   return (
-    <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
+    <Card className="bp-corners bp-card">
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
         <span className="bp-tag" style={{ marginTop: 2 }}>
           {q.number ?? q.index + 1}

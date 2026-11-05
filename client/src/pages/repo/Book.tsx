@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Empty, Form, Input, message, Modal, Table, Tag, Typography } from 'antd';
 import { getWithPagination, post } from '../../api';
-import { TABLE_COMPONENTS } from './table';
+import { pager, TABLE_COMPONENTS } from './table';
 
 /** 与后端 UserBookView 对齐 */
 interface UserBookView {
@@ -157,17 +157,7 @@ export default function RepoBook() {
             />
           ),
         }}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          showTotal: (n) => `共 ${n} 条笔记`,
-          onChange: (p, s) => {
-            setPage(p);
-            setPageSize(s);
-          },
-        }}
+        pagination={pager(page, pageSize, total, setPage, setPageSize, (n) => `共 ${n} 条笔记`)}
         columns={[
           {
             title: '题目',

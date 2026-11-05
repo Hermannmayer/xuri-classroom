@@ -87,6 +87,8 @@ export default function PublicAnswer() {
   const [switchCount, setSwitchCount] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const submittedRef = useRef(false);
+  /** 远程暂存用：避免 answerId 变化触发暂存 effect 重跑 */
+  const answerIdRef = useRef<string | undefined>(undefined);
 
   const applyProject = useCallback((data: PublicProjectView) => {
     const fields = formFieldIds(data);
@@ -122,6 +124,11 @@ export default function PublicAnswer() {
     }
   }, [id, routeAnswerId, applyProject]);
 
+  /** answerId state 变化时同步给 ref（暂存 effect 只读 ref，不重跑） */
+  useEffect(() => {
+    answerIdRef.current = answerId;
+  }, [answerId]);
+
   /** 打开时如果本地有未提交草稿、且这次不是回看已提交答卷，就回填 */
   useEffect(() => {
     if (!project || result) return;
@@ -147,6 +154,36 @@ export default function PublicAnswer() {
     const timer = window.setTimeout(() => {
       localStorage.setItem(draftKey(id), JSON.stringify({ values, at: Date.now() }));
     }, 600);
+    return () => window.clearTimeout(timer);
+  }, [values, project, result, id]);
+
+  /**
+   * 远程暂存（跨设备续答）：把未提交答案作为草稿存到后端（tempSave=0），
+   * 拿到 answerId 后写进 localStorage，换设备时用链接里的 answerId 就能接上。
+   */
+  useEffect(() => {
+    if (!project || result) return;
+    if (project.setting?.answerSetting?.autoSave === false) return;
+    if (Object.keys(values).length === 0) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await post<{ answerId?: string }>('/api/public/saveAnswer', {
+          projectId: id,
+          id: answerIdRef.current,
+          answer: values,
+          tempAnswer: values,
+          tempSave: 0,
+          survey: project.survey,
+        });
+        if (res?.answerId && res.answerId !== answerIdRef.current) {
+          answerIdRef.current = res.answerId;
+          setAnswerId(res.answerId);
+          localStorage.setItem(answerKey(id), res.answerId);
+        }
+      } catch {
+        // 暂存失败不打扰用户，本地草稿仍然在
+      }
+    }, 8000);
     return () => window.clearTimeout(timer);
   }, [values, project, result, id]);
 

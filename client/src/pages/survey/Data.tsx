@@ -336,10 +336,7 @@ export default function SurveyData() {
         </Button>
       </div>
 
-      <Card
-        className="bp-corners"
-        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}
-      >
+      <Card className="bp-corners bp-card">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor({ mode: 'create' })}>
             添加数据

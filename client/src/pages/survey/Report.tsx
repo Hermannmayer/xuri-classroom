@@ -118,7 +118,7 @@ export default function SurveyReport() {
       </div>
 
       {answers.length === 0 ? (
-        <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
+        <Card className="bp-corners bp-card">
           <Empty description="还没有答卷，发布后收集到数据再看" />
         </Card>
       ) : (
@@ -126,8 +126,7 @@ export default function SurveyReport() {
           {/* 每日答卷趋势 */}
           {daily.entries.length > 0 && (
             <Card
-              className="bp-corners"
-              style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}
+              className="bp-corners bp-card"
               title={<span className="bp-title" style={{ fontSize: 12 }}>DAILY / 每日答卷</span>}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -148,7 +147,7 @@ export default function SurveyReport() {
           ))}
 
           {blocks.length === 0 && (
-            <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
+            <Card className="bp-corners bp-card">
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`没有题干包含「${search.trim()}」的题目`} />
             </Card>
           )}
@@ -156,8 +155,7 @@ export default function SurveyReport() {
           {/* 数值统计 */}
           {numeric.length > 0 && (
             <Card
-              className="bp-corners"
-              style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}
+              className="bp-corners bp-card"
               title={<span className="bp-title" style={{ fontSize: 12 }}>NUMERIC / 数值统计</span>}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>

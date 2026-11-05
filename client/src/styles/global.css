@@ -75,6 +75,12 @@ body {
   border-right: 1px solid var(--bp-text);
 }
 
+/* 蓝图卡片底板：统一页面 Card/容器的边框与半透明底色，避免每页重复 inline style */
+.bp-card {
+  border: 1px solid var(--bp-line);
+  background: rgba(30, 58, 95, 0.55);
+}
+
 /* 标题：大写 + 字距，工程图标注感 */
 .bp-title {
   letter-spacing: 0.08em;

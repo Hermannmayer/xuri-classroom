@@ -274,7 +274,9 @@ public class SurveyServiceImpl implements SurveyService {
 			// 传入答案ID 并且设置了允许修改答案，则可以修改问卷答案
 			getAnswerForProject(projectId, request.getId());
 			boolean enableUpdate = Boolean.TRUE.equals(project.getSetting().getSubmittedSetting().getEnableUpdate());
-			if (!enableUpdate) {
+			// 暂存(tempSave=0)允许覆盖自己未提交的草稿，否则「答一半续上」会被 AnswerChangeDisabled 拦住
+			boolean tempSaving = Integer.valueOf(0).equals(request.getTempSave());
+			if (!enableUpdate && !tempSaving) {
 				throw new ErrorCodeException(ErrorCode.AnswerChangeDisabled);
 			}
 		}

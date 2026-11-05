@@ -3,7 +3,7 @@ import { Button, Empty, Input, message, Space, Table, Tag, Upload } from 'antd';
 import { ArrowLeftOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { download, getWithPagination, post } from '../../api';
-import { TABLE_COMPONENTS } from './table';
+import { pager, TABLE_COMPONENTS } from './table';
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
 interface TemplateView {
@@ -199,17 +199,7 @@ export default function RepoQuestions() {
             />
           ),
         }}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          showTotal: (n) => `共 ${n} 道题`,
-          onChange: (p, s) => {
-            setPage(p);
-            setPageSize(s);
-          },
-        }}
+        pagination={pager(page, pageSize, total, setPage, setPageSize, (n) => `共 ${n} 道题`)}
         columns={[
           {
             title: '序号',
