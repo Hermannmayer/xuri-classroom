@@ -13,6 +13,11 @@ public class RegisterRequest {
 
 	private String name;
 
+	/**
+	 * 手机号（同时作为登录账号）
+	 */
+	private String phone;
+
 	@NotBlank
 	private String username;
 

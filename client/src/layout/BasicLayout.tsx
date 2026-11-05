@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
+import { Avatar, Button, Dropdown, Layout, Menu, Select, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DatabaseOutlined,
@@ -50,6 +50,12 @@ export default function BasicLayout() {
   const isMobile = useIsMobile();
   const authorities = user?.authorityList ?? [];
   const { mode, toggle } = useThemeMode();
+  // 页面缩放：整体放大，方便年长老师看清
+  const [zoom, setZoom] = useState<number>(() => Number(localStorage.getItem('sk-zoom')) || 1);
+  useEffect(() => {
+    document.documentElement.style.zoom = String(zoom);
+    localStorage.setItem('sk-zoom', String(zoom));
+  }, [zoom]);
 
   useEffect(() => {
     Promise.all([getCurrentUser(), getSystem().catch(() => undefined)])
@@ -152,20 +158,28 @@ export default function BasicLayout() {
               whiteSpace: 'nowrap',
             }}
           >
-            <span
-              style={{
-                width: 18,
-                height: 18,
-                border: '1px solid var(--bp-text)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 9,
-                flex: '0 0 auto',
-              }}
-            >
-              {(system?.name || '云课堂').slice(0, 1)}
-            </span>
+            {system?.avatar ? (
+              <img
+                src={system.avatar}
+                alt=""
+                style={{ width: 20, height: 20, objectFit: 'contain', flex: '0 0 auto' }}
+              />
+            ) : (
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  border: '1px solid var(--bp-text)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 9,
+                  flex: '0 0 auto',
+                }}
+              >
+                {(system?.name || '云课堂').slice(0, 1)}
+              </span>
+            )}
             {!collapsed && (
               <span
                 className="bp-title"
@@ -237,6 +251,14 @@ export default function BasicLayout() {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
+            <Select
+              size="small"
+              value={zoom}
+              onChange={setZoom}
+              style={{ width: 84 }}
+              title="页面缩放"
+              options={[0.9, 1, 1.1, 1.25, 1.5, 1.75].map((v) => ({ value: v, label: `${Math.round(v * 100)}%` }))}
+            />
             <Button
               type="text"
               size="small"
@@ -263,11 +285,7 @@ export default function BasicLayout() {
               }}
             >
               <span style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Avatar
-                  size={22}
-                  shape="square"
-                  style={{ background: 'var(--bp-blue-weak)', border: '1px solid var(--bp-line)' }}
-                >
+                <Avatar style={{ background: 'var(--bp-blue-weak)', border: '1px solid var(--bp-line)' }} src={user?.avatar || undefined}>
                   {(user?.name || user?.userId || '?').slice(0, 1).toUpperCase()}
                 </Avatar>
                 {!isMobile && <span style={{ fontSize: 12 }}>{user?.name || user?.userId}</span>}

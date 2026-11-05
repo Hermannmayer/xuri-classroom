@@ -66,6 +66,10 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		if (StringUtils.isEmpty(request.getParentId())) {
 			dept.setParentId("0");
 		}
+		// short_name 在库里是 NOT NULL 且无默认值，不传会直接 SQL 500
+		if (StringUtils.isEmpty(dept.getShortName())) {
+			dept.setShortName(dept.getName());
+		}
 		dept.setSortCode((int) count(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, request.getParentId())));
 		save(dept);
 	}

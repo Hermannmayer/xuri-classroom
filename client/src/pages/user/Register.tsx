@@ -5,34 +5,24 @@ import { useNavigate } from 'react-router-dom';
 import { get, post } from '../../api';
 import type { SystemInfo } from '../../api';
 
-
-
-
-
-
-
 /**
- * 注册页：仅在后端开启「允许注册」时可用。
- * 密码规则与后端一致（8–16 位、大小写 + 数字），否则提交会 500。
+ * 注册页：手机号即登录账号（用户的核心标识）。
+ * 密码规则与后端一致（≥8 位），注册后进入待审核状态，管理员启用后才能登录。
  */
 export default function Register() {
   const navigate = useNavigate();
   const [system, setSystem] = useState<SystemInfo>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm<{ username: string; name: string; password: string; confirm: string; role?: string }>();
+  const [form] = Form.useForm<{ phone: string; name: string; password: string; confirm: string }>();
 
   const enabled = Boolean(system?.registerInfo?.registerEnabled);
 
   useEffect(() => {
-    Promise.all([
-      get<SystemInfo>('/api/system').catch(() => undefined),
-    ])
-      .then(([sys]) => {
-        setSystem(sys);
-      })
+    get<SystemInfo>('/api/system')
+      .catch(() => undefined)
+      .then((sys) => setSystem(sys))
       .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async () => {
@@ -43,13 +33,14 @@ export default function Register() {
     }
     setSaving(true);
     try {
+      // 手机号直接作为登录账号，后端注册接口的 username 即手机号
       await post('/api/public/register', {
-        username: values.username.trim(),
+        username: values.phone.trim(),
+        phone: values.phone.trim(),
         password: values.password,
         name: values.name.trim(),
-        // 注册固定为学员，老师/管理员只能由管理员在后台分配
       });
-      message.success('注册成功，请登录');
+      message.success('注册成功，等待管理员审核后即可登录');
       navigate('/user/login');
     } catch (e) {
       message.error((e as Error).message);
@@ -95,11 +86,15 @@ export default function Register() {
         ) : (
           <Form form={form} layout="vertical" requiredMark={false} onFinish={submit} size="large">
             <Form.Item
-              name="username"
-              label="用户名"
-              rules={[{ required: true, whitespace: true, message: '请输入用户名' }]}
+              name="phone"
+              label="手机号"
+              extra="手机号就是你的登录账号"
+              rules={[
+                { required: true, message: '请输入手机号' },
+                { pattern: /^1\d{10}$/, message: '请输入 11 位手机号' },
+              ]}
             >
-              <Input prefix={<UserOutlined />} placeholder="登录用的账号" autoComplete="username" />
+              <Input prefix={<UserOutlined />} placeholder="11 位手机号" maxLength={11} inputMode="numeric" />
             </Form.Item>
             <Form.Item name="name" label="姓名" rules={[{ required: true, whitespace: true, message: '请输入姓名' }]}>
               <Input placeholder="真实姓名" />
@@ -107,13 +102,10 @@ export default function Register() {
             <Form.Item
               name="password"
               label="密码"
-              extra="至少 8 位，建议字母和数字组合"
+              extra="至少 8 位"
               rules={[
                 { required: true, message: '请输入密码' },
-                {
-                  pattern: /^.{8,32}$/,
-                  message: '密码至少 8 位',
-                },
+                { pattern: /^.{8,32}$/, message: '密码至少 8 位' },
               ]}
             >
               <Input.Password prefix={<LockOutlined />} placeholder="设置密码" autoComplete="new-password" />
@@ -137,6 +129,9 @@ export default function Register() {
             <Button type="primary" htmlType="submit" block loading={saving}>
               注册
             </Button>
+            <div style={{ marginTop: 12, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+              注册后需要管理员审核，审核通过前无法登录。
+            </div>
           </Form>
         )}
       </Card>

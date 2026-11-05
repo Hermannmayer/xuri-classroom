@@ -441,6 +441,9 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getStrongPasswordEnabled() != null) {
 				registerInfo.setStrongPasswordEnabled(source.getStrongPasswordEnabled());
 			}
+			if (source.getDeptId() != null) {
+				registerInfo.setDeptId(source.getDeptId());
+			}
 		}
 		if (request.getSetting() != null) {
 			SystemInfo.SystemSetting source = request.getSetting();

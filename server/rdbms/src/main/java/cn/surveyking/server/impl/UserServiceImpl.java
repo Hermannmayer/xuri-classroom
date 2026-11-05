@@ -465,6 +465,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		createUserRequest.setUsername(request.getUsername());
 		createUserRequest.setPassword(request.getPassword());
 		createUserRequest.setName(request.getName());
+		createUserRequest.setPhone(request.getPhone());
 		String registerDeptId = registerInfo.getDeptId() != null && !registerInfo.getDeptId().isEmpty()
 				? registerInfo.getDeptId()
 				: getRootDeptId();
