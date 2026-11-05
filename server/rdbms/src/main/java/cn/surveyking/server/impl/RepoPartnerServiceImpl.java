@@ -110,7 +110,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		}
 		return count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
 				.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
-						"dept_id IS NOT NULL AND dept_id = (SELECT u.dept_id FROM t_user u WHERE u.id = {0})", userId))) > 0;
+						"dept_id IS NOT NULL AND dept_id IN (SELECT id FROM (WITH RECURSIVE dept_anc AS (SELECT id, parent_id FROM t_dept WHERE id = (SELECT dept_id FROM t_user WHERE id = {0}) UNION ALL SELECT d.id, d.parent_id FROM t_dept d JOIN dept_anc a ON d.id = a.parent_id) SELECT id FROM dept_anc) anc)", userId))) > 0;
 	}
 
 	private void assertManagePermission(String repoId) {
