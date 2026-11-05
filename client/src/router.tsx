@@ -13,6 +13,7 @@ import SystemSetting from './pages/system/Setting';
 import AccountSettings from './pages/account/Settings';
 import RepoList from './pages/repo/List';
 import RepoQuestions from './pages/repo/Questions';
+import RepoBook from './pages/repo/Book';
 import ExerciseList from './pages/exercise/List';
 import PublicAnswer from './pages/answer/PublicAnswer';
 import Placeholder from './pages/Placeholder';
@@ -39,7 +40,7 @@ export const router = createBrowserRouter([
       { path: 'exercise', element: <ExerciseList /> },
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
       { path: 'repo/index', element: <RepoList /> },
-      { path: 'repo/book', element: <Placeholder title="练习册" /> },
+      { path: 'repo/book', element: <RepoBook /> },
       { path: 'repo/:repoId/questions/:mode', element: <RepoQuestions /> },
       { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: <SurveyOverview /> },

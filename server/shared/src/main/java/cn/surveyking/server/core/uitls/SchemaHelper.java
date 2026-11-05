@@ -318,6 +318,10 @@ public class SchemaHelper {
 	 * 解析选项值
 	 */
 	private static String parseOptionValue(SurveySchema schemaType, SurveySchema optionSchema, Object valueObj) {
+		// 评分等题型的答案直接是数值/字符串（没有选项键），强转 Map 会抛 ClassCastException 导致整份导出失败
+		if (!(valueObj instanceof Map)) {
+			return valueObj.toString();
+		}
 		Object optionValue = ((Map<?, ?>) valueObj).get(optionSchema.getId());
 		if (optionValue == null) {
 			return null;
