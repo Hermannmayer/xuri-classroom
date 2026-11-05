@@ -29,7 +29,7 @@
   "layout.basic.userSetting": "账号设置",
   "menu.account.settings": "账号设置",
   "menu.home": "首页",
-  "menu.project": "我的项目",
+  "menu.project": "我的考试",
   "pages.account.settings.ai.apiKey.extra": "密钥不会回显；留空将保留当前已配置的密钥",
   "pages.account.settings.ai.apiKey.label": "API Key",
   "pages.account.settings.ai.apiKey.placeholder": "请输入模型服务的 API Key",
