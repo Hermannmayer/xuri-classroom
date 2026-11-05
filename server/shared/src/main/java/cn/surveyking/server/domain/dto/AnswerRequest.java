@@ -34,6 +34,11 @@ public class AnswerRequest {
 	 */
 	private Integer tempSave;
 
+	/**
+	 * 练习类型（O 顺序 / R 随机 / W 错题），练习记录靠它区分
+	 */
+	private String examExerciseType;
+
 	private AnswerExamInfo examInfo;
 
 	/**

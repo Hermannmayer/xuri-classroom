@@ -4,6 +4,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   message,
   Modal,
   Pagination,
@@ -43,6 +44,14 @@ const MODE_LABEL: Record<string, string> = {
   survey: '问卷',
 };
 
+const PRACTICE_TYPE_LABEL: Record<string, string> = {
+  Radio: '单选',
+  Checkbox: '多选',
+  Judge: '判断',
+  FillBlank: '填空',
+  Textarea: '简答',
+};
+
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
 function useIsMobile() {
@@ -74,7 +83,9 @@ export default function RepoList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<RepoView | null>(null);
   const [granting, setGranting] = useState<RepoView | null>(null);
+  const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
   const [groupsOpen, setGroupsOpen] = useState(false);
+  const [randomForm] = Form.useForm<Record<string, number>>();
   const [createForm] = Form.useForm<{
     name: string;
     category: string;
@@ -99,6 +110,41 @@ export default function RepoList() {
   const canDetail = hasPermission('repo:detail');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
+
+  const hasPracticeProgress = (id: string) => {
+    try {
+      return Boolean(localStorage.getItem(`practice:${id}`));
+    } catch {
+      return false;
+    }
+  };
+
+  const startPractice = (row: RepoView, mode: 'full' | 'resume') => {
+    navigate(`/exercise/practice/${row.id}?mode=${mode}`, { state: { repoName: row.name } });
+  };
+
+  const openRandom = (row: RepoView) => {
+    setRandomRepo(row);
+  };
+
+  const submitRandom = async () => {
+    if (!randomRepo) return;
+    const values = await randomForm.validateFields();
+    const counts = ['Radio', 'Checkbox', 'Judge', 'FillBlank', 'Textarea']
+      .map((type) => ({ type, count: Number(values[type] ?? 0) }))
+      .filter((item) => item.count > 0)
+      .map((item) => `${item.type}:${item.count}`)
+      .join(',');
+    if (!counts) {
+      message.warning('请至少选择题型并填写题数');
+      return;
+    }
+    const row = randomRepo;
+    setRandomRepo(null);
+    navigate(`/exercise/practice/${row.id}?mode=random&counts=${encodeURIComponent(counts)}`, {
+      state: { repoName: row.name },
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -345,6 +391,32 @@ export default function RepoList() {
                         </Popconfirm>
                       )}
                     </div>
+
+                    {!canCreate && (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Button
+                          type="primary"
+                          style={{ flex: '1 1 100px', height: 38, paddingInline: 0 }}
+                          onClick={() => startPractice(row, 'full')}
+                        >
+                          开始练习
+                        </Button>
+                        <Button
+                          style={{ flex: '1 1 100px', height: 38, paddingInline: 0 }}
+                          onClick={() => openRandom(row)}
+                        >
+                          随机练习
+                        </Button>
+                        {hasPracticeProgress(row.id) && (
+                          <Button
+                            style={{ flex: '1 1 100px', height: 38, paddingInline: 0 }}
+                            onClick={() => startPractice(row, 'resume')}
+                          >
+                            继续练习
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -458,10 +530,15 @@ export default function RepoList() {
             ? [
                 {
                   title: '操作',
-                  width: canUpdate || canDelete ? 200 : 80,
+                  width: canUpdate || canDelete ? 200 : 280,
                   render: (_: unknown, row: RepoView) => (
                     <Space size={4}>
                       {canDetail && <a onClick={() => enter(row)}>题目</a>}
+                      {!canCreate && <a onClick={() => startPractice(row, 'full')}>开始练习</a>}
+                      {!canCreate && <a onClick={() => openRandom(row)}>随机练习</a>}
+                      {!canCreate && hasPracticeProgress(row.id) && (
+                        <a onClick={() => startPractice(row, 'resume')}>继续练习</a>
+                      )}
                       {canUpdate && <a onClick={() => setGranting(row)}>授权</a>}
                       {canUpdate && (
                         <a
@@ -497,6 +574,35 @@ export default function RepoList() {
         ]}
       />
       )}
+
+      <Modal
+        title={`随机练习${randomRepo?.name ? `：${randomRepo.name}` : ''}`}
+        open={Boolean(randomRepo)}
+        onCancel={() => setRandomRepo(null)}
+        onOk={submitRandom}
+        okText="开始随机练习"
+        cancelText="取消"
+        width={520}
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+          选择题型并填写题数，题数为 0 的题型不会抽取。
+        </div>
+        <Form
+          form={randomForm}
+          layout="vertical"
+          preserve={false}
+          initialValues={{ Radio: 0, Checkbox: 0, Judge: 0, FillBlank: 0, Textarea: 0 }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            {Object.entries(PRACTICE_TYPE_LABEL).map(([type, label]) => (
+              <Form.Item key={type} name={type} label={label}>
+                <InputNumber min={0} precision={0} style={{ width: '100%' }} placeholder="0" />
+              </Form.Item>
+            ))}
+          </div>
+        </Form>
+      </Modal>
 
       <Modal
         title="新建题库"

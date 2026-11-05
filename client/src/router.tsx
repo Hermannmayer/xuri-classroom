@@ -19,6 +19,7 @@ import RepoList from './pages/repo/List';
 import RepoQuestions from './pages/repo/Questions';
 import RepoBook from './pages/repo/Book';
 import ExerciseList from './pages/exercise/List';
+import Practice from './pages/exercise/Practice';
 import PublicAnswer from './pages/answer/PublicAnswer';
 import PublicQuery from './pages/answer/PublicQuery';
 import ExamResult from './pages/answer/ExamResult';
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: 'project/trash', element: guard('project:list', <ProjectTrash />) },
       { path: 'project/:id', element: <Placeholder title="项目详情" /> },
       { path: 'exercise', element: guard('exercise:list', <ExerciseList />) },
+      { path: 'exercise/practice/:repoId', element: guard('exercise:list', <Practice />) },
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
       { path: 'repo/index', element: guard('repo:list', <RepoList />) },
       { path: 'repo/book', element: guard('repo:list', <RepoBook />) },
