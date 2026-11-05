@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Empty,
@@ -18,7 +18,7 @@ import {
 import { AppstoreOutlined, DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
-import { isAdmin, loadAuthorities } from '../../auth/permissions';
+import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
 import RepoGroups from './RepoGroups';
@@ -83,12 +83,15 @@ export default function RepoList() {
   }>();
   const [renameForm] = Form.useForm<{ name: string; category?: string; tag?: string; description?: string }>();
 
-  const isAdminRef = useRef(false);
+  const [authorities, setAuthorities] = useState<string[]>([]);
   useEffect(() => {
-    void loadAuthorities().then((a) => {
-      isAdminRef.current = isAdmin(a);
-    });
+    void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
+
+  const canCreate = can(authorities, 'repo:create');
+  const canDetail = can(authorities, 'repo:detail');
+  const canUpdate = can(authorities, 'repo:update');
+  const canDelete = can(authorities, 'repo:delete');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -175,7 +178,7 @@ export default function RepoList() {
   const emptyNode = (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
-      description={keyword ? '没有匹配的结果' : '还没有题库，点右上角「新建题库」开始'}
+      description={keyword ? '没有匹配的结果' : canCreate ? '还没有题库，点右上角「新建题库」开始' : '还没有可浏览的题库'}
     />
   );
 
@@ -206,18 +209,22 @@ export default function RepoList() {
             REPO / 题库中心
           </div>
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
-            我的题库
+            {canCreate ? '我的题库' : '题库浏览'}
           </h2>
           <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-            管理题目与 Excel 导入导出；练习记录在「我的练习」。
+            {canCreate
+              ? '管理题目与 Excel 导入导出；练习记录在「我的练习」。'
+              : '浏览题库题目；练习记录在「我的练习」。'}
           </div>
         </div>
         <Button icon={<AppstoreOutlined />} onClick={() => setGroupsOpen(true)}>
           按分类浏览
         </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          新建题库
-        </Button>
+        {canCreate && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            新建题库
+          </Button>
+        )}
       </div>
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
@@ -291,35 +298,43 @@ export default function RepoList() {
                     </div>
 
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <Button
-                        style={{ flex: 1, height: 38, paddingInline: 0 }}
-                        onClick={() => enter(row)}
-                      >
-                        题目
-                      </Button>
-                      <Button
-                        style={{ flex: 1, height: 38, paddingInline: 0 }}
-                        onClick={() => setGranting(row)}
-                      >
-                        授权
-                      </Button>
-                      <Button
-                        style={{ flex: 1, height: 38, paddingInline: 0 }}
-                        onClick={() => openRename(row)}
-                      >
-                        编辑
-                      </Button>
-                      <Popconfirm
-                        title={`删除「${row.name || '未命名题库'}」？`}
-                        description="题库里的题目会一起删除，且不可恢复。"
-                        okText="删除"
-                        cancelText="取消"
-                        onConfirm={() => remove(row)}
-                      >
-                        <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
-                          删除
+                      {canDetail && (
+                        <Button
+                          style={{ flex: 1, height: 38, paddingInline: 0 }}
+                          onClick={() => enter(row)}
+                        >
+                          题目
                         </Button>
-                      </Popconfirm>
+                      )}
+                      {canUpdate && (
+                        <Button
+                          style={{ flex: 1, height: 38, paddingInline: 0 }}
+                          onClick={() => setGranting(row)}
+                        >
+                          授权
+                        </Button>
+                      )}
+                      {canUpdate && (
+                        <Button
+                          style={{ flex: 1, height: 38, paddingInline: 0 }}
+                          onClick={() => openRename(row)}
+                        >
+                          编辑
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Popconfirm
+                          title={`删除「${row.name || '未命名题库'}」？`}
+                          description="题库里的题目会一起删除，且不可恢复。"
+                          okText="删除"
+                          cancelText="取消"
+                          onConfirm={() => remove(row)}
+                        >
+                          <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                            删除
+                          </Button>
+                        </Popconfirm>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -366,7 +381,7 @@ export default function RepoList() {
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={keyword ? '没有匹配的结果' : '还没有题库，点右上角「新建题库」开始'}
+              description={keyword ? '没有匹配的结果' : canCreate ? '还没有题库，点右上角「新建题库」开始' : '还没有可浏览的题库'}
             />
           ),
         }}
@@ -430,38 +445,46 @@ export default function RepoList() {
                 '—'
               ),
           },
-          {
-            title: '操作',
-            width: 200,
-            render: (_: unknown, row) => (
-              <Space size={4}>
-                <a onClick={() => enter(row)}>题目</a>
-                <a onClick={() => setGranting(row)}>授权</a>
-                <a
-                  onClick={() => {
-                    renameForm.setFieldsValue({
-                      name: row.name || '',
-                      category: row.category,
-                      tag: (row.tag || []).join(','),
-                      description: row.description,
-                    });
-                    setRenaming(row);
-                  }}
-                >
-                  编辑
-                </a>
-                <Popconfirm
-                  title={`删除「${row.name || '未命名题库'}」？`}
-                  description="题库里的题目会一起删除，且不可恢复。"
-                  okText="删除"
-                  cancelText="取消"
-                  onConfirm={() => remove(row)}
-                >
-                  <a style={{ color: 'var(--bp-orange)' }}>删除</a>
-                </Popconfirm>
-              </Space>
-            ),
-          },
+          ...(canDetail || canUpdate || canDelete
+            ? [
+                {
+                  title: '操作',
+                  width: canUpdate || canDelete ? 200 : 80,
+                  render: (_: unknown, row: RepoView) => (
+                    <Space size={4}>
+                      {canDetail && <a onClick={() => enter(row)}>题目</a>}
+                      {canUpdate && <a onClick={() => setGranting(row)}>授权</a>}
+                      {canUpdate && (
+                        <a
+                          onClick={() => {
+                            renameForm.setFieldsValue({
+                              name: row.name || '',
+                              category: row.category,
+                              tag: (row.tag || []).join(','),
+                              description: row.description,
+                            });
+                            setRenaming(row);
+                          }}
+                        >
+                          编辑
+                        </a>
+                      )}
+                      {canDelete && (
+                        <Popconfirm
+                          title={`删除「${row.name || '未命名题库'}」？`}
+                          description="题库里的题目会一起删除，且不可恢复。"
+                          okText="删除"
+                          cancelText="取消"
+                          onConfirm={() => remove(row)}
+                        >
+                          <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                        </Popconfirm>
+                      )}
+                    </Space>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
       )}
