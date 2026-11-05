@@ -79,8 +79,8 @@ export default function Login() {
             marginBottom: 8,
           }}
         >
-          <span>SURVEY KING</span>
-          <span>DWG NO. SK-0013</span>
+          <span>XURI CLASS</span>
+          <span>DWG NO. XR-0013</span>
         </div>
 
         <div

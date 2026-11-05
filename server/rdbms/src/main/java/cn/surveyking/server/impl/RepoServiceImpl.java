@@ -994,8 +994,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private void assertReadableRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
-		if (Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())
-				|| Boolean.TRUE.equals(repo.getShared())
+		// 管理员全放行；其他人只能读自己创建的或被 t_repo_partner 授权的
+		// （去掉 shared 全放行，否则知道 id 就能绕过「按组授权」的可见性）
+		if (SecurityContextUtils.isAdmin()
+				|| Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())
 				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
 						.eq(RepoPartner::getUserId, SecurityContextUtils.getUserId())) > 0) {
 			return;

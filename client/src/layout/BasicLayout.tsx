@@ -32,7 +32,7 @@ export default function BasicLayout() {
       .then(([u, s]) => {
         setUser(u);
         setSystem(s);
-        document.title = s?.name || 'SurveyKing';
+        document.title = s?.name || '旭日云课堂';
       })
       .catch(() => navigate('/user/login', { replace: true }))
       .finally(() => setLoading(false));
@@ -138,14 +138,14 @@ export default function BasicLayout() {
               flex: '0 0 auto',
             }}
           >
-            SK
+            XR
           </span>
           {!collapsed && (
             <span
               className="bp-title"
               style={{ fontSize: 12, letterSpacing: '0.08em', overflow: 'hidden', textOverflow: 'ellipsis' }}
             >
-              {system?.name || 'SurveyKing'}
+              {system?.name || '旭日云课堂'}
             </span>
           )}
         </div>

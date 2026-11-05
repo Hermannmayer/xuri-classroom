@@ -212,11 +212,6 @@ export default function PublicQuery() {
       ? String((passwordRaw as Record<string, unknown>)[PASSWORD_FIELD_ID] ?? '')
       : '';
 
-  const cardStyle = {
-    border: '1px solid var(--bp-line)',
-    background: 'rgba(30,58,95,0.55)',
-  } as const;
-
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 16px 64px', boxSizing: 'border-box' }}>
       <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
@@ -243,7 +238,7 @@ export default function PublicQuery() {
       ) : fatal ? (
         <Alert type="warning" showIcon message="无法打开查询" description={fatal} />
       ) : result ? (
-        <Card className="bp-corners" style={cardStyle} styles={{ body: { padding: 20 } }}>
+        <Card className="bp-corners bp-card" styles={{ body: { padding: 20 } }}>
           <div
             style={{
               display: 'flex',
@@ -306,7 +301,7 @@ export default function PublicQuery() {
           )}
         </Card>
       ) : formSchema ? (
-        <Card className="bp-corners" style={cardStyle} styles={{ body: { padding: 20 } }}>
+        <Card className="bp-corners bp-card" styles={{ body: { padding: 20 } }}>
           {renderSchema && (
             <SchemaRenderer
               schema={renderSchema}
