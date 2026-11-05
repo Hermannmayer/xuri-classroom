@@ -15,7 +15,9 @@ dayjs.locale('zh-cn');
 // 用系统配置的 logo 当 favicon（机构换 logo 后标签页跟着换）
 void fetch('/api/system')
   .then((res) => res.json())
-  .then((body: { data?: { avatar?: string; setting?: { favicon?: string } } }) => {
+  .then((body: { data?: { name?: string; avatar?: string; setting?: { favicon?: string } } }) => {
+    // 系统名跟随后端配置，登录页也要生效
+    if (body?.data?.name) document.title = body.data.name;
     const avatar = body?.data?.setting?.favicon || body?.data?.avatar;
     if (!avatar) return;
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
