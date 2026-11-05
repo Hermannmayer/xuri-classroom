@@ -16,8 +16,26 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
 import { t } from '../i18n';
+import MobileTabBar from './MobileTabBar';
 
 const { Header, Sider, Content } = Layout;
+
+const MOBILE_QUERY = '(max-width: 767px)';
+
+/** 用 matchMedia 而不是读 innerWidth，避免滚动/键盘引起的宽度抖动 */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  return isMobile;
+}
 
 export default function BasicLayout() {
   const [user, setUser] = useState<UserInfo>();
@@ -26,6 +44,8 @@ export default function BasicLayout() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
+  const authorities = user?.authorityList ?? [];
 
   useEffect(() => {
     Promise.all([getCurrentUser(), getSystem().catch(() => undefined)])
@@ -100,65 +120,67 @@ export default function BasicLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
-      <Sider
-        breakpoint="lg"
-        collapsedWidth={0}
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        theme="dark"
-        width={siderWidth}
-        style={{
-          background: 'rgba(21,42,68,0.92)',
-          borderRight: '1px solid var(--bp-line-soft)',
-        }}
-      >
-        <div
+      {!isMobile && (
+        <Sider
+          breakpoint="lg"
+          collapsedWidth={0}
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          theme="dark"
+          width={siderWidth}
           style={{
-            height: 56,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: collapsed ? '0 0 0 18px' : '0 16px',
-            borderBottom: '1px solid var(--bp-line-soft)',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
+            background: 'rgba(21,42,68,0.92)',
+            borderRight: '1px solid var(--bp-line-soft)',
           }}
         >
-          <span
+          <div
             style={{
-              width: 18,
-              height: 18,
-              border: '1px solid #fff',
-              display: 'inline-flex',
+              height: 56,
+              display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 9,
-              flex: '0 0 auto',
+              gap: 8,
+              padding: collapsed ? '0 0 0 18px' : '0 16px',
+              borderBottom: '1px solid var(--bp-line-soft)',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
             }}
           >
-            XR
-          </span>
-          {!collapsed && (
             <span
-              className="bp-title"
-              style={{ fontSize: 12, letterSpacing: '0.08em', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              style={{
+                width: 18,
+                height: 18,
+                border: '1px solid #fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 9,
+                flex: '0 0 auto',
+              }}
             >
-              {system?.name || '旭日云课堂'}
+              XR
             </span>
-          )}
-        </div>
-        <Menu
-          mode="inline"
-          theme="dark"
-          items={items}
-          selectedKeys={[location.pathname]}
-          defaultOpenKeys={['/repo', '/system']}
-          onClick={({ key }) => navigate(key)}
-          style={{ background: 'transparent', borderInlineEnd: 0 }}
-        />
-      </Sider>
+            {!collapsed && (
+              <span
+                className="bp-title"
+                style={{ fontSize: 12, letterSpacing: '0.08em', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                {system?.name || '旭日云课堂'}
+              </span>
+            )}
+          </div>
+          <Menu
+            mode="inline"
+            theme="dark"
+            items={items}
+            selectedKeys={[location.pathname]}
+            defaultOpenKeys={['/repo', '/system']}
+            onClick={({ key }) => navigate(key)}
+            style={{ background: 'transparent', borderInlineEnd: 0 }}
+          />
+        </Sider>
+      )}
 
       <Layout style={{ background: 'transparent' }}>
         <Header
@@ -166,34 +188,49 @@ export default function BasicLayout() {
             background: 'rgba(21,42,68,0.92)',
             height: 56,
             lineHeight: '56px',
-            padding: '0 20px',
+            padding: isMobile ? '0 14px' : '0 20px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             borderBottom: '1px solid var(--bp-line-soft)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <Button
-              type="text"
-              size="small"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed((c) => !c)}
-            />
+          {isMobile ? (
             <span
+              className="bp-title"
               style={{
-                fontSize: 10,
-                letterSpacing: '0.18em',
-                color: 'var(--bp-text-soft)',
-                textTransform: 'uppercase',
+                fontSize: 13,
+                letterSpacing: '0.08em',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
             >
-              {location.pathname.replace(/^\//, '').replace(/\//g, ' / ') || 'dashboard'}
+              {system?.name || '旭日云课堂'}
             </span>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <Button
+                type="text"
+                size="small"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed((c) => !c)}
+              />
+              <span
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  color: 'var(--bp-text-soft)',
+                  textTransform: 'uppercase',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {location.pathname.replace(/^\//, '').replace(/\//g, ' / ') || 'dashboard'}
+              </span>
+            </div>
+          )}
           <Dropdown
             menu={{
               items: [
@@ -219,15 +256,25 @@ export default function BasicLayout() {
               >
                 {(user?.name || user?.userId || '?').slice(0, 1).toUpperCase()}
               </Avatar>
-              <span style={{ fontSize: 12 }}>{user?.name || user?.userId}</span>
+              {!isMobile && <span style={{ fontSize: 12 }}>{user?.name || user?.userId}</span>}
             </span>
           </Dropdown>
         </Header>
 
-        <Content style={{ margin: 16, paddingBottom: 8 }}>
+        <Content
+          style={
+            isMobile
+              ? {
+                  margin: '12px 12px 0',
+                  paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)',
+                }
+              : { margin: 16, paddingBottom: 8 }
+          }
+        >
           <Outlet context={{ user, system }} />
         </Content>
       </Layout>
+      {isMobile && <MobileTabBar authorities={authorities} />}
     </Layout>
   );
 }

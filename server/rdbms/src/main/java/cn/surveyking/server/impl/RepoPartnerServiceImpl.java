@@ -58,6 +58,18 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 	@Override
 	public void addRepoPartner(RepoPartnerRequest request) {
 		assertManagePermission(request.getRepoId());
+		// 按用户组授权：只存一条 dept 记录，组员靠 t_user.dept_id 自动继承，新增组员不用重新授权
+		if (StringUtils.hasText(request.getDeptId())) {
+			boolean exists = count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, request.getRepoId())
+					.eq(RepoPartner::getDeptId, request.getDeptId())) > 0;
+			if (!exists) {
+				RepoPartner partner = new RepoPartner();
+				partner.setRepoId(request.getRepoId());
+				partner.setDeptId(request.getDeptId());
+				save(partner);
+			}
+			return;
+		}
 		if (CollectionUtils.isEmpty(request.getUserIds())) {
 			return;
 		}
@@ -96,8 +108,9 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (Objects.equals(repo.getCreateBy(), userId)) {
 			return true;
 		}
-		return count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId).eq(RepoPartner::getUserId,
-				userId)) > 0;
+		return count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
+				.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
+						"dept_id IS NOT NULL AND dept_id = (SELECT u.dept_id FROM t_user u WHERE u.id = {0})", userId))) > 0;
 	}
 
 	private void assertManagePermission(String repoId) {
