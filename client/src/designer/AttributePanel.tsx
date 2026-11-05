@@ -66,6 +66,47 @@ export function AttributePanel({ schema, onChange }: AttributePanelProps) {
     }
   };
 
+  const renderField = (field: AttributeField) => (
+    <Form.Item key={field.key} label={field.label} extra={field.hint} style={ITEM_STYLE}>
+      {renderControl(field)}
+    </Form.Item>
+  );
+
+  /** 规则字段默认收起：四个 textarea 各占一大块，展开才编辑 */
+  const renderRuleField = (field: AttributeField) => {
+    const raw = attribute[field.key];
+    const filled = typeof raw === 'string' && raw.trim().length > 0;
+    return (
+      <Collapse
+        key={field.key}
+        size="small"
+        ghost
+        className="bp-rule-collapse"
+        items={[
+          {
+            key: field.key,
+            label: (
+              <span style={{ fontSize: 12 }}>
+                {field.label}
+                {filled ? <span style={{ color: 'var(--bp-orange)', marginLeft: 6 }}>●</span> : null}
+              </span>
+            ),
+            children: (
+              <div>
+                <Input.TextArea
+                  autoSize={{ minRows: 3, maxRows: 8 }}
+                  value={(raw as string | undefined) ?? ''}
+                  onChange={(e) => set(field.key, e.target.value)}
+                />
+                {field.hint && <pre className="bp-hint">{field.hint}</pre>}
+              </div>
+            ),
+          },
+        ]}
+      />
+    );
+  };
+
   const items = ATTRIBUTE_GROUPS.map((group) => ({
     key: group,
     label: group,
@@ -73,16 +114,9 @@ export function AttributePanel({ schema, onChange }: AttributePanelProps) {
       <div>
         {attributeSchema
           .filter((f) => f.group === group)
-          .map((field) => (
-            <Form.Item
-              key={field.key}
-              label={field.label}
-              extra={field.hint}
-              style={ITEM_STYLE}
-            >
-              {renderControl(field)}
-            </Form.Item>
-          ))}
+          .map((field) =>
+            group === '规则' && field.control === 'textarea' ? renderRuleField(field) : renderField(field),
+          )}
       </div>
     ),
   }));
