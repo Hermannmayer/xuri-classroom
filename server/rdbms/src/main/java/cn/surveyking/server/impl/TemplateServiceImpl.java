@@ -240,10 +240,14 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 
 	private boolean isReadableRepo(String repoId) {
 		Repo repo = repoMapper.selectById(repoId);
-		return repo != null && (Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())
+		String userId = SecurityContextUtils.getUserId();
+		// 与 RepoServiceImpl#assertReadableRepo 保持一致：管理员 / 创建者 / 逐个授权 / 所在用户组（含父组）授权
+		return repo != null && (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())
 				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
-						.eq(RepoPartner::getUserId, SecurityContextUtils.getUserId())) > 0);
+						.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
+								"dept_id IS NOT NULL AND dept_id IN (SELECT id FROM (WITH RECURSIVE dept_anc AS (SELECT id, parent_id FROM t_dept WHERE id = (SELECT dept_id FROM t_user WHERE id = {0}) UNION ALL SELECT d.id, d.parent_id FROM t_dept d JOIN dept_anc a ON d.id = a.parent_id) SELECT id FROM dept_anc) anc)",
+								userId))) > 0);
 	}
 
 	private List<String> getTaggedTemplateIds(List<String> tags) {
