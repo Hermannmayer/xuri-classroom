@@ -165,7 +165,20 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public ProjectSetting getSetting(ProjectQuery query) {
-		return null;
+		// 上游这里是个返回 null 的桩，导致「设置」页打开时永远是空的（保存了也不回显）
+		Project project = getById(query.getId());
+		if (project == null || project.getSetting() == null) {
+			return new ProjectSetting();
+		}
+		ProjectSetting setting = project.getSetting();
+		if (setting == null) {
+			return new ProjectSetting();
+		}
+		// 访问密码不回传给前端，避免在页面上明文暴露
+		if (setting.getAnswerSetting() != null) {
+			setting.getAnswerSetting().setPassword(null);
+		}
+		return setting;
 	}
 
 	@Override

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Drawer, Input, message, Modal, Space, Spin, Tabs, Tooltip } from 'antd';
+import { Button, Card, Drawer, Dropdown, Input, message, Modal, Space, Spin, Tabs, Tooltip } from 'antd';
 import {
   ArrowLeftOutlined,
   BgColorsOutlined,
   CodeOutlined,
+  CopyOutlined,
   DeleteOutlined,
   DownOutlined,
+  EditOutlined,
   EyeOutlined,
   RedoOutlined,
   SaveOutlined,
@@ -26,11 +28,14 @@ import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
 import PhonePreview, { DEVICE_H, DEVICE_W } from '../../designer/PhonePreview';
-import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, normalizeSchema } from '../../designer/defaults';
-import { findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
+import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, newId, normalizeSchema } from '../../designer/defaults';
+import { cloneNode, findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
+
+/** 左侧 ADD 面板可拖拽的题型集合 */
+const PALETTE_TYPES = new Set<QuestionType>(QUESTION_META.map((m) => m.type));
 
 /** 无标题的结构节点在大纲里的显示名 */
 const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
@@ -188,6 +193,8 @@ export default function SurveyEditor() {
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragFromRef = useRef<string | undefined>(undefined);
+  const dragTypeRef = useRef<QuestionType | undefined>(undefined);
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [themeOpen, setThemeOpen] = useState(false);
@@ -221,6 +228,13 @@ export default function SurveyEditor() {
       el.classList.toggle('bp-selected', el.getAttribute('data-qid') === selectedId);
     });
   }, [selectedId, survey, preview]);
+
+  // 选中（尤其从左侧拖入的新题）后滚动到可见
+  useEffect(() => {
+    if (!selectedId) return;
+    const el = canvasRef.current?.querySelector(`[data-qid="${selectedId}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
 
   /** 画布内拖拽排序：渲染器不感知 dnd，这里给每个题目节点挂上 draggable */
   useEffect(() => {
@@ -282,6 +296,46 @@ export default function SurveyEditor() {
     },
     [survey, setSurvey],
   );
+
+  const handleContextAction = (key: string) => {
+    const menu = contextMenu;
+    if (!menu) return;
+    setContextMenu(null);
+    const nodeId = menu.id;
+
+    if (key === 'edit') {
+      setSelectedId(nodeId);
+      return;
+    }
+    if (key === 'copy') {
+      const source = findNode(survey, nodeId);
+      if (!source) return;
+      const copy = cloneNode(source, newId);
+      const parent = findParent(survey, nodeId);
+      const index = parent?.children?.findIndex((child) => child.id === nodeId) ?? -1;
+      setSurvey(insertNode(survey, parent?.id, copy, index >= 0 ? index + 1 : undefined));
+      setSelectedId(copy.id);
+      return;
+    }
+    if (key === 'up') {
+      handleMove(nodeId, -1);
+      return;
+    }
+    if (key === 'down') {
+      handleMove(nodeId, 1);
+      return;
+    }
+    if (key === 'delete') {
+      Modal.confirm({
+        title: '删除这道题？',
+        content: '删除后不可恢复。',
+        okText: '删除',
+        cancelText: '取消',
+        okButtonProps: { danger: true },
+        onOk: () => handleRemove(nodeId),
+      });
+    }
+  };
 
   const patchNode = useCallback(
     (patch: Partial<SurveySchema>) => {
@@ -406,7 +460,24 @@ export default function SurveyEditor() {
               </div>
               <Space wrap size={4}>
                 {QUESTION_META.filter((m) => m.group === group).map((m) => (
-                  <Button key={m.type} size="small" onClick={() => addQuestion(m.type)}>
+                  <Button
+                    key={m.type}
+                    size="small"
+                    draggable
+                    onDragStart={(e) => {
+                      dragTypeRef.current = m.type;
+                      e.dataTransfer.effectAllowed = 'copy';
+                      try {
+                        e.dataTransfer.setData('text/plain', m.type);
+                      } catch {
+                        /* 某些浏览器限制 setData，忽略 */
+                      }
+                    }}
+                    onDragEnd={() => {
+                      dragTypeRef.current = undefined;
+                    }}
+                    onClick={() => addQuestion(m.type)}
+                  >
                     {m.label}
                   </Button>
                 ))}
@@ -449,9 +520,19 @@ export default function SurveyEditor() {
               const el = (e.target as HTMLElement).closest('[data-qid]');
               if (el) setSelectedId(el.getAttribute('data-qid') ?? undefined);
             }}
+            onContextMenu={(e) => {
+              // 手机端没有右键菜单
+              if (window.matchMedia('(max-width: 767.98px)').matches) return;
+              const el = (e.target as HTMLElement).closest('[data-qid]');
+              if (!el) return;
+              e.preventDefault();
+              const id = el.getAttribute('data-qid');
+              if (id) setContextMenu({ id, x: e.clientX, y: e.clientY });
+            }}
             onDragStart={(e) => {
               const el = (e.target as HTMLElement).closest('[data-qid]');
               if (!el) return;
+              dragTypeRef.current = undefined;
               dragFromRef.current = el.getAttribute('data-qid') ?? undefined;
               e.dataTransfer.effectAllowed = 'move';
               try {
@@ -461,23 +542,57 @@ export default function SurveyEditor() {
               }
             }}
             onDragOver={(e) => {
-              if (dragFromRef.current) {
+              if (
+                dragFromRef.current ||
+                dragTypeRef.current ||
+                e.dataTransfer.types.includes('text/plain')
+              ) {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
+                e.dataTransfer.dropEffect = dragFromRef.current ? 'move' : 'copy';
               }
             }}
             onDrop={(e) => {
               e.preventDefault();
-              const from = dragFromRef.current;
+              let raw = '';
+              try {
+                raw = e.dataTransfer.getData('text/plain');
+              } catch {
+                /* 忽略受限浏览器的 getData */
+              }
+              const droppedType =
+                dragTypeRef.current ??
+                (PALETTE_TYPES.has(raw as QuestionType) ? (raw as QuestionType) : undefined);
               const toEl = (e.target as HTMLElement).closest('[data-qid]');
               const to = toEl?.getAttribute('data-qid');
+              const from = dragFromRef.current;
               dragFromRef.current = undefined;
-              if (from && to && from !== to) setSurvey(moveBefore(survey, from, to));
+              dragTypeRef.current = undefined;
+
+              if (droppedType) {
+                const node = createQuestion(droppedType);
+                if (to) {
+                  const parent = findParent(survey, to);
+                  const index = parent?.children?.findIndex((child) => child.id === to) ?? -1;
+                  setSurvey(
+                    index >= 0
+                      ? insertNode(survey, parent?.id, node, index + 1)
+                      : insertNode(survey, undefined, node),
+                  );
+                } else {
+                  // 空白处追加到末尾
+                  setSurvey(insertNode(survey, undefined, node));
+                }
+                setSelectedId(node.id);
+                return;
+              }
+
+              if (to && from && from !== to) setSurvey(moveBefore(survey, from, to));
             }}
             onDragEnd={() => {
               // 拖拽结束后下一帧再清，避免 click 抢在 dragend 之前
               window.setTimeout(() => {
                 dragFromRef.current = undefined;
+                dragTypeRef.current = undefined;
               }, 0);
             }}
           >
@@ -549,8 +664,12 @@ export default function SurveyEditor() {
                 autoSize={{ minRows: 2, maxRows: 4 }}
                 style={{ marginBottom: 12 }}
               />
-              <AttributePanel schema={selected} onChange={patchAttribute} questions={candidateQuestions} />
+              <AttributePanel
+                schema={selected}
+                onChange={patchAttribute}
+                questions={candidateQuestions}
                 onPatchNode={patchNode}
+              />
             </>
           ) : (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>
