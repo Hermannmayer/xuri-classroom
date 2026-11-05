@@ -40,3 +40,21 @@ yarn-error.log*
 *.iws
 *.iml
 *.ipr
+
+### 前端逆向工程 (frontend-recon) ###
+# 依赖
+frontend-recon/node_modules/
+
+# 以下均为可从 web/ 重新生成的中间产物，不入库
+frontend-recon/pretty/
+frontend-recon/modules/
+frontend-recon/modules2/
+frontend-recon/dec_umi/
+frontend-recon/dec_umi_nojsx/
+frontend-recon/dec_test/
+frontend-recon/analysis/
+frontend-recon/digest/
+
+# 本地基线服务的临时文件
+frontend-recon/*.log
+

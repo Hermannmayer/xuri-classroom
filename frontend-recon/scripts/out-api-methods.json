@@ -1,0 +1,1560 @@
+{
+ "methods": [
+  {
+   "name": "logout",
+   "arg": "",
+   "endpoint": "/api/public/logout",
+   "verb": "POST",
+   "line": 55563,
+   "epLine": 55571
+  },
+  {
+   "name": "dbInitEnvironment",
+   "arg": "",
+   "endpoint": "/api/public/dbInit/environment",
+   "verb": "GET",
+   "line": 55580,
+   "epLine": 55588
+  },
+  {
+   "name": "dbInitTest",
+   "arg": "e",
+   "endpoint": "/api/public/dbInit/test",
+   "verb": "POST",
+   "line": 55597,
+   "epLine": 55605
+  },
+  {
+   "name": "dbInit",
+   "arg": "e",
+   "endpoint": "/api/public/dbInit",
+   "verb": "POST",
+   "line": 55614,
+   "epLine": 55622
+  },
+  {
+   "name": "sysInfo",
+   "arg": "",
+   "endpoint": "/api/system",
+   "verb": "GET",
+   "line": 55631,
+   "epLine": 55639
+  },
+  {
+   "name": "getAiSetting",
+   "arg": "",
+   "endpoint": "/api/system/aiSetting",
+   "verb": "GET",
+   "line": 55648,
+   "epLine": 55656
+  },
+  {
+   "name": "getOAuthSetting",
+   "arg": "",
+   "endpoint": "/api/system/oauthSetting",
+   "verb": "GET",
+   "line": 55665,
+   "epLine": 55673
+  },
+  {
+   "name": "updateOAuthSetting",
+   "arg": "e",
+   "endpoint": "/api/system/oauthSetting",
+   "verb": "POST",
+   "line": 55682,
+   "epLine": 55690
+  },
+  {
+   "name": "startOAuthBind",
+   "arg": "e",
+   "endpoint": "/api/oauth/bind/",
+   "verb": "POST",
+   "line": 55719,
+   "epLine": 55729
+  },
+  {
+   "name": "getOAuthBindings",
+   "arg": "",
+   "endpoint": "/api/oauth/bindings",
+   "verb": "GET",
+   "line": 55764,
+   "epLine": 55772
+  },
+  {
+   "name": "deleteOAuthBinding",
+   "arg": "e",
+   "endpoint": "/api/oauth/bindings/",
+   "verb": "DELETE",
+   "line": 55781,
+   "epLine": 55789
+  },
+  {
+   "name": "getOAuthRegistration",
+   "arg": "e",
+   "endpoint": "/api/public/oauth/register/",
+   "verb": "GET",
+   "line": 55798,
+   "epLine": 55808
+  },
+  {
+   "name": "register",
+   "arg": "e",
+   "endpoint": "/api/public/register",
+   "verb": "POST",
+   "line": 55818,
+   "epLine": 55825
+  },
+  {
+   "name": "userOverview",
+   "arg": "",
+   "endpoint": "/api/userOverview",
+   "verb": "GET",
+   "line": 55834,
+   "epLine": 55841
+  },
+  {
+   "name": "getRegisterRoles",
+   "arg": "",
+   "endpoint": "/api/public/listRegisterRole",
+   "verb": "GET",
+   "line": 55850,
+   "epLine": 55857
+  },
+  {
+   "name": "updateSysInfo",
+   "arg": "e",
+   "endpoint": "/api/system/update",
+   "verb": "POST",
+   "line": 55866,
+   "epLine": 55874
+  },
+  {
+   "name": "exportSystemBackup",
+   "arg": "",
+   "endpoint": "/api/system/backup/export",
+   "verb": "GET(download)",
+   "line": 55883,
+   "epLine": 55891
+  },
+  {
+   "name": "importSystemBackup",
+   "arg": "e",
+   "endpoint": "/api/system/backup/import",
+   "verb": "POST",
+   "line": 55900,
+   "epLine": 55909
+  },
+  {
+   "name": "loadProjects",
+   "arg": "e",
+   "endpoint": "/api/project/list",
+   "verb": "GET(paged)",
+   "line": 55926,
+   "epLine": 55934
+  },
+  {
+   "name": "loadProject",
+   "arg": "e",
+   "endpoint": "/api/project?id=",
+   "verb": "GET",
+   "line": 55943,
+   "epLine": 55944
+  },
+  {
+   "name": "getDeletedProject",
+   "arg": "",
+   "endpoint": "/api/project/trash",
+   "verb": "GET",
+   "line": 55946,
+   "epLine": 55947
+  },
+  {
+   "name": "destroyProject",
+   "arg": "e",
+   "endpoint": "/api/project/destroy",
+   "verb": "POST",
+   "line": 55949,
+   "epLine": 55950
+  },
+  {
+   "name": "restoreProject",
+   "arg": "e",
+   "endpoint": "/api/project/restore",
+   "verb": "POST",
+   "line": 55952,
+   "epLine": 55953
+  },
+  {
+   "name": "loadData",
+   "arg": "e",
+   "endpoint": "/api/answer/list",
+   "verb": "GET(paged)",
+   "line": 55955,
+   "epLine": 55956
+  },
+  {
+   "name": "loadDeletedData",
+   "arg": "e",
+   "endpoint": "/api/answer/trash",
+   "verb": "GET",
+   "line": 55958,
+   "epLine": 55959
+  },
+  {
+   "name": "saveAnswer",
+   "arg": "e",
+   "endpoint": "/api/answer/create",
+   "verb": "POST",
+   "line": 55961,
+   "epLine": 55962
+  },
+  {
+   "name": "restoreAnswer",
+   "arg": "e",
+   "endpoint": "/api/answer/restore",
+   "verb": "POST",
+   "line": 55964,
+   "epLine": 55965
+  },
+  {
+   "name": "updateAnswer",
+   "arg": "e",
+   "endpoint": "/api/answer/update",
+   "verb": "POST",
+   "line": 55967,
+   "epLine": 55968
+  },
+  {
+   "name": "deleteAnswer",
+   "arg": "e",
+   "endpoint": "/api/answer/delete",
+   "verb": "POST",
+   "line": 55970,
+   "epLine": 55971
+  },
+  {
+   "name": "physicalDeleteAnswer",
+   "arg": "e",
+   "endpoint": "/api/answer/destroy",
+   "verb": "POST",
+   "line": 55973,
+   "epLine": 55974
+  },
+  {
+   "name": "saveProject",
+   "arg": "e",
+   "endpoint": "/api/project/create",
+   "verb": "POST",
+   "line": 55976,
+   "epLine": 55977
+  },
+  {
+   "name": "updateProject",
+   "arg": "e",
+   "endpoint": "/api/project/update",
+   "verb": "POST",
+   "line": 55979,
+   "epLine": 55980
+  },
+  {
+   "name": "deleteProject",
+   "arg": "e",
+   "endpoint": "/api/project/delete",
+   "verb": "POST",
+   "line": 55982,
+   "epLine": 55983
+  },
+  {
+   "name": "updateSetting",
+   "arg": "e",
+   "endpoint": "/api/project/update",
+   "verb": "POST",
+   "line": 55985,
+   "epLine": 55986
+  },
+  {
+   "name": "loadReportData",
+   "arg": "e",
+   "endpoint": "/api/report/",
+   "verb": "GET",
+   "line": 55988,
+   "epLine": 55990
+  },
+  {
+   "name": "loadFiles",
+   "arg": "e",
+   "endpoint": "/api/file/list",
+   "verb": "GET",
+   "line": 55992,
+   "epLine": 55993
+  },
+  {
+   "name": "deleteImage",
+   "arg": "e",
+   "endpoint": "/api/file/delete",
+   "verb": "POST",
+   "line": 55998,
+   "epLine": 55999
+  },
+  {
+   "name": "getTemplate",
+   "arg": "e",
+   "endpoint": "/api/template/get",
+   "verb": "GET",
+   "line": 56001,
+   "epLine": 56002
+  },
+  {
+   "name": "loadTemplate",
+   "arg": "e",
+   "endpoint": "/api/template/list",
+   "verb": "GET(paged)",
+   "line": 56004,
+   "epLine": 56005
+  },
+  {
+   "name": "saveTemplate",
+   "arg": "e",
+   "endpoint": "/api/template/create",
+   "verb": "POST",
+   "line": 56007,
+   "epLine": 56008
+  },
+  {
+   "name": "deleteTemplate",
+   "arg": "",
+   "endpoint": "/api/template/delete",
+   "verb": "POST",
+   "line": 56010,
+   "epLine": 56013
+  },
+  {
+   "name": "loadCategories",
+   "arg": "e",
+   "endpoint": "/api/template/listCategory",
+   "verb": "GET",
+   "line": 56015,
+   "epLine": 56016
+  },
+  {
+   "name": "loadTags",
+   "arg": "e",
+   "endpoint": "/api/template/listTag",
+   "verb": "GET",
+   "line": 56018,
+   "epLine": 56019
+  },
+  {
+   "name": "loadRoles",
+   "arg": "e",
+   "endpoint": "/api/system/role/list",
+   "verb": "GET(paged)",
+   "line": 56021,
+   "epLine": 56031
+  },
+  {
+   "name": "deleteRole",
+   "arg": "e",
+   "endpoint": "/api/system/role/delete",
+   "verb": "POST",
+   "line": 56041,
+   "epLine": 56049
+  },
+  {
+   "name": "saveRole",
+   "arg": "e",
+   "endpoint": "/api/system/role/create",
+   "verb": "POST",
+   "line": 56058,
+   "epLine": 56066
+  },
+  {
+   "name": "updateRole",
+   "arg": "e",
+   "endpoint": "/api/system/role/update",
+   "verb": "POST",
+   "line": 56075,
+   "epLine": 56083
+  },
+  {
+   "name": "loadPermissions",
+   "arg": "",
+   "endpoint": "/api/system/permission/list",
+   "verb": "GET",
+   "line": 56092,
+   "epLine": 56093
+  },
+  {
+   "name": "loadUsers",
+   "arg": "e",
+   "endpoint": "/api/system/user/list",
+   "verb": "GET(paged)",
+   "line": 56095,
+   "epLine": 56105
+  },
+  {
+   "name": "deleteUser",
+   "arg": "e",
+   "endpoint": "/api/system/user/delete",
+   "verb": "POST",
+   "line": 56115,
+   "epLine": 56123
+  },
+  {
+   "name": "saveUser",
+   "arg": "e",
+   "endpoint": "/api/system/user/create",
+   "verb": "POST",
+   "line": 56132,
+   "epLine": 56140
+  },
+  {
+   "name": "updateUser",
+   "arg": "e",
+   "endpoint": "/api/system/user/update",
+   "verb": "POST",
+   "line": 56149,
+   "epLine": 56157
+  },
+  {
+   "name": "updateUserInfo",
+   "arg": "e",
+   "endpoint": "/api/user",
+   "verb": "POST",
+   "line": 56166,
+   "epLine": 56174
+  },
+  {
+   "name": "checkUsernameExist",
+   "arg": "e",
+   "endpoint": "/api/system/checkUsernameExist",
+   "verb": "GET",
+   "line": 56183,
+   "epLine": 56193
+  },
+  {
+   "name": "loadDepts",
+   "arg": "",
+   "endpoint": "/api/system/dept/list",
+   "verb": "GET",
+   "line": 56203,
+   "epLine": 56211
+  },
+  {
+   "name": "saveDept",
+   "arg": "e",
+   "endpoint": "/api/system/dept/create",
+   "verb": "POST",
+   "line": 56220,
+   "epLine": 56228
+  },
+  {
+   "name": "updateDept",
+   "arg": "e",
+   "endpoint": "/api/system/dept/update",
+   "verb": "POST",
+   "line": 56237,
+   "epLine": 56245
+  },
+  {
+   "name": "sortDept",
+   "arg": "e",
+   "endpoint": "/api/system/dept/sort",
+   "verb": "POST",
+   "line": 56254,
+   "epLine": 56262
+  },
+  {
+   "name": "deleteDept",
+   "arg": "e",
+   "endpoint": "/api/system/dept/delete",
+   "verb": "POST",
+   "line": 56271,
+   "epLine": 56279
+  },
+  {
+   "name": "loadPositions",
+   "arg": "e",
+   "endpoint": "/api/system/position/list",
+   "verb": "GET(paged)",
+   "line": 56288,
+   "epLine": 56298
+  },
+  {
+   "name": "savePosition",
+   "arg": "e",
+   "endpoint": "/api/system/position/create",
+   "verb": "POST",
+   "line": 56308,
+   "epLine": 56316
+  },
+  {
+   "name": "updatePosition",
+   "arg": "e",
+   "endpoint": "/api/system/position/update",
+   "verb": "POST",
+   "line": 56325,
+   "epLine": 56333
+  },
+  {
+   "name": "deletePosition",
+   "arg": "e",
+   "endpoint": "/api/system/position/delete",
+   "verb": "POST",
+   "line": 56342,
+   "epLine": 56352
+  },
+  {
+   "name": "saveFlow",
+   "arg": "e",
+   "endpoint": "/api/workflow/saveFlow",
+   "verb": "POST",
+   "line": 56362,
+   "epLine": 56363
+  },
+  {
+   "name": "getFlow",
+   "arg": "e",
+   "endpoint": "/api/workflow/getFlow?projectId=",
+   "verb": "GET",
+   "line": 56365,
+   "epLine": 56366
+  },
+  {
+   "name": "deployFlow",
+   "arg": "e",
+   "endpoint": "/api/workflow/deploy?projectId=",
+   "verb": "POST",
+   "line": 56368,
+   "epLine": 56369
+  },
+  {
+   "name": "loadFlowTasks",
+   "arg": "e",
+   "endpoint": "/api/workflow/getFlowTasks",
+   "verb": "GET(paged)",
+   "line": 56371,
+   "epLine": 56372
+  },
+  {
+   "name": "loadFlowSchema",
+   "arg": "e",
+   "endpoint": "/api/workflow/loadSchema",
+   "verb": "GET",
+   "line": 56374,
+   "epLine": 56375
+  },
+  {
+   "name": "approvalTask",
+   "arg": "e",
+   "endpoint": "/api/workflow/approvalTask",
+   "verb": "POST",
+   "line": 56377,
+   "epLine": 56378
+  },
+  {
+   "name": "getFlowStatics",
+   "arg": "",
+   "endpoint": "/api/workflow/statics",
+   "verb": "GET",
+   "line": 56380,
+   "epLine": 56381
+  },
+  {
+   "name": "getAuditRecord",
+   "arg": "e",
+   "endpoint": "/api/workflow/getAuditRecord?processInstanceId=",
+   "verb": "GET",
+   "line": 56383,
+   "epLine": 56384
+  },
+  {
+   "name": "getRevertNodes",
+   "arg": "e",
+   "endpoint": "/api/workflow/getRevertNodes?processInstanceId=",
+   "verb": "GET",
+   "line": 56386,
+   "epLine": 56387
+  },
+  {
+   "name": "loadProjectPartner",
+   "arg": "e",
+   "endpoint": "/api/project/partner/list",
+   "verb": "GET(paged)",
+   "line": 56389,
+   "epLine": 56390
+  },
+  {
+   "name": "addProjectPartner",
+   "arg": "e",
+   "endpoint": "/api/project/partner/create",
+   "verb": "POST",
+   "line": 56392,
+   "epLine": 56393
+  },
+  {
+   "name": "deleteProjectPartner",
+   "arg": "e",
+   "endpoint": "/api/project/partner/delete",
+   "verb": "POST",
+   "line": 56395,
+   "epLine": 56396
+  },
+  {
+   "name": "importProjectPartner",
+   "arg": "e",
+   "endpoint": "/api/project/partner/import",
+   "verb": "UPLOAD(POST multipart)",
+   "line": 56398,
+   "epLine": 56406
+  },
+  {
+   "name": "selectUser",
+   "arg": "e",
+   "endpoint": "/api/project/selectUser",
+   "verb": "POST",
+   "line": 56415,
+   "epLine": 56416
+  },
+  {
+   "name": "selectDept",
+   "arg": "e",
+   "endpoint": "/api/project/selectDept",
+   "verb": "POST",
+   "line": 56418,
+   "epLine": 56419
+  },
+  {
+   "name": "selectRole",
+   "arg": "e",
+   "endpoint": "/api/project/selectRole",
+   "verb": "POST",
+   "line": 56421,
+   "epLine": 56422
+  },
+  {
+   "name": "selectDict",
+   "arg": "",
+   "endpoint": "/api/project/selectDict",
+   "verb": "POST",
+   "line": 56424,
+   "epLine": 56425
+  },
+  {
+   "name": "selectPosition",
+   "arg": "e",
+   "endpoint": "/api/project/selectPosition",
+   "verb": "POST",
+   "line": 56427,
+   "epLine": 56428
+  },
+  {
+   "name": "selectTemplate",
+   "arg": "e",
+   "endpoint": "/api/project/selectTemplate",
+   "verb": "POST",
+   "line": 56430,
+   "epLine": 56431
+  },
+  {
+   "name": "selectRepo",
+   "arg": "e",
+   "endpoint": "/api/project/selectRepo",
+   "verb": "POST",
+   "line": 56433,
+   "epLine": 56434
+  },
+  {
+   "name": "selectTag",
+   "arg": "e",
+   "endpoint": "/api/project/selectTag",
+   "verb": "POST",
+   "line": 56436,
+   "epLine": 56437
+  },
+  {
+   "name": "loadRepo",
+   "arg": "e",
+   "endpoint": "/api/repo/list",
+   "verb": "GET(paged)",
+   "line": 56439,
+   "epLine": 56440
+  },
+  {
+   "name": "loadRepoPartner",
+   "arg": "e",
+   "endpoint": "/api/repo/partner/list",
+   "verb": "GET(paged)",
+   "line": 56442,
+   "epLine": 56443
+  },
+  {
+   "name": "addRepoPartner",
+   "arg": "e",
+   "endpoint": "/api/repo/partner/create",
+   "verb": "POST",
+   "line": 56445,
+   "epLine": 56446
+  },
+  {
+   "name": "deleteRepoPartner",
+   "arg": "e",
+   "endpoint": "/api/repo/partner/delete",
+   "verb": "POST",
+   "line": 56448,
+   "epLine": 56449
+  },
+  {
+   "name": "saveOrUpdateRepo",
+   "arg": "e",
+   "endpoint": "/api/repo/update",
+   "verb": "POST",
+   "line": 56451,
+   "epLine": 56452
+  },
+  {
+   "name": "deleteRepo",
+   "arg": "e",
+   "endpoint": "/api/repo/delete",
+   "verb": "POST",
+   "line": 56454,
+   "epLine": 56455
+  },
+  {
+   "name": "batchAddRepoTemplate",
+   "arg": "e",
+   "endpoint": "/api/repo/batchCreate",
+   "verb": "POST",
+   "line": 56457,
+   "epLine": 56458
+  },
+  {
+   "name": "pickRepoQuestion",
+   "arg": "e",
+   "endpoint": "/api/repo/pick",
+   "verb": "POST",
+   "line": 56460,
+   "epLine": 56461
+  },
+  {
+   "name": "loadQuery",
+   "arg": "e",
+   "endpoint": "/api/public/loadQuery",
+   "verb": "POST",
+   "line": 56466,
+   "epLine": 56467
+  },
+  {
+   "name": "loadDict",
+   "arg": "e",
+   "endpoint": "/api/public/loadDict",
+   "verb": "POST",
+   "line": 56469,
+   "epLine": 56470
+  },
+  {
+   "name": "loadExamResult",
+   "arg": "e",
+   "endpoint": "/api/public/loadExamResult",
+   "verb": "POST",
+   "line": 56472,
+   "epLine": 56473
+  },
+  {
+   "name": "loadLinkResult",
+   "arg": "e",
+   "endpoint": "/api/public/loadLinkResult",
+   "verb": "POST",
+   "line": 56475,
+   "epLine": 56476
+  },
+  {
+   "name": "getQueryResult",
+   "arg": "e",
+   "endpoint": "/api/public/getQueryResult",
+   "verb": "POST",
+   "line": 56478,
+   "epLine": 56479
+  },
+  {
+   "name": "loadDicts",
+   "arg": "e",
+   "endpoint": "/api/system/dict/list",
+   "verb": "GET(paged)",
+   "line": 56481,
+   "epLine": 56491
+  },
+  {
+   "name": "saveDict",
+   "arg": "e",
+   "endpoint": "/api/system/dict/create",
+   "verb": "POST",
+   "line": 56501,
+   "epLine": 56509
+  },
+  {
+   "name": "updateDict",
+   "arg": "e",
+   "endpoint": "/api/system/dict/update",
+   "verb": "POST",
+   "line": 56518,
+   "epLine": 56526
+  },
+  {
+   "name": "deleteDict",
+   "arg": "e",
+   "endpoint": "/api/system/dict/delete",
+   "verb": "POST",
+   "line": 56535,
+   "epLine": 56543
+  },
+  {
+   "name": "loadDictItems",
+   "arg": "e",
+   "endpoint": "/api/system/dictItem/list",
+   "verb": "GET(paged)",
+   "line": 56552,
+   "epLine": 56562
+  },
+  {
+   "name": "saveOrUpdateDictItem",
+   "arg": "e",
+   "endpoint": "/api/system/dictItem/update",
+   "verb": "POST",
+   "line": 56572,
+   "epLine": 56584
+  },
+  {
+   "name": "deleteDictItem",
+   "arg": "e",
+   "endpoint": "/api/system/dictItem/delete",
+   "verb": "POST",
+   "line": 56595,
+   "epLine": 56605
+  },
+  {
+   "name": "importDictItems",
+   "arg": "e",
+   "endpoint": "/api/system/dictItem/import",
+   "verb": "UPLOAD(POST multipart)",
+   "line": 56615,
+   "epLine": 56623
+  },
+  {
+   "name": "listUserBook",
+   "arg": "e",
+   "endpoint": "/api/repo/book/list",
+   "verb": "GET(paged)",
+   "line": 56632,
+   "epLine": 56640
+  },
+  {
+   "name": "getUserBookQuestion",
+   "arg": "e",
+   "endpoint": "/api/repo/book/question",
+   "verb": "GET",
+   "line": 56649,
+   "epLine": 56657
+  },
+  {
+   "name": "createUserBook",
+   "arg": "e",
+   "endpoint": "/api/repo/book/create",
+   "verb": "POST",
+   "line": 56666,
+   "epLine": 56674
+  },
+  {
+   "name": "updateUserBook",
+   "arg": "e",
+   "endpoint": "/api/repo/book/update",
+   "verb": "POST",
+   "line": 56683,
+   "epLine": 56691
+  },
+  {
+   "name": "deleteUserBook",
+   "arg": "e",
+   "endpoint": "/api/repo/book/delete",
+   "verb": "POST",
+   "line": 56700,
+   "epLine": 56708
+  },
+  {
+   "name": "listUserTask",
+   "arg": "e",
+   "endpoint": "/api/listUserTask",
+   "verb": "GET(paged)",
+   "line": 56717,
+   "epLine": 56725
+  },
+  {
+   "name": "listHistoryTask",
+   "arg": "e",
+   "endpoint": "/api/listHistoryTask",
+   "verb": "GET(paged)",
+   "line": 56734,
+   "epLine": 56742
+  },
+  {
+   "name": "listExercise",
+   "arg": "e",
+   "endpoint": "/api/exercise/list",
+   "verb": "GET(paged)",
+   "line": 56751,
+   "epLine": 56759
+  },
+  {
+   "name": "deleteExercise",
+   "arg": "e",
+   "endpoint": "/api/exercise/delete",
+   "verb": "POST",
+   "line": 56768,
+   "epLine": 56776
+  },
+  {
+   "name": "getAIModels",
+   "arg": "",
+   "endpoint": "/api/ai/chat/models",
+   "verb": "GET",
+   "line": 56785,
+   "epLine": 56793
+  },
+  {
+   "name": "createAIConversation",
+   "arg": "e",
+   "endpoint": "/api/ai/chat/create-conversation",
+   "verb": "POST",
+   "line": 56802,
+   "epLine": 56810
+  },
+  {
+   "name": "createAIAnswerAnalysisConversation",
+   "arg": "e",
+   "endpoint": "/api/ai/chat/answer-analysis/create-conversation",
+   "verb": "POST",
+   "line": 56819,
+   "epLine": 56829
+  },
+  {
+   "name": "createAIChatStream",
+   "arg": "e",
+   "endpoint": "/api/ai/chat/stream?",
+   "verb": "?",
+   "line": 56839,
+   "epLine": 56853
+  },
+  {
+   "name": "createAIAnswerAnalysisStream",
+   "arg": "e",
+   "endpoint": "/api/ai/chat/answer-analysis/stream?",
+   "verb": "?",
+   "line": 56864,
+   "epLine": 56877
+  },
+  {
+   "name": "closeAIConversation",
+   "arg": "e",
+   "endpoint": "/api/ai/chat/close-conversation?",
+   "verb": "POST",
+   "line": 56888,
+   "epLine": 56902
+  },
+  {
+   "name": "closeAIAnswerAnalysisConversation",
+   "arg": "e",
+   "endpoint": "/api/ai/chat/answer-analysis/close-conversation?",
+   "verb": "?",
+   "line": 56913,
+   "epLine": 56928
+  }
+ ],
+ "usage": {
+  "dbInitEnvironment": [
+   {
+    "file": "p__Setup.aba9894f.async.js",
+    "line": 283
+   }
+  ],
+  "dbInitTest": [
+   {
+    "file": "p__Setup.aba9894f.async.js",
+    "line": 468
+   }
+  ],
+  "dbInit": [
+   {
+    "file": "p__Setup.aba9894f.async.js",
+    "line": 599
+   }
+  ],
+  "getAiSetting": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 283
+   }
+  ],
+  "getOAuthSetting": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 613
+   }
+  ],
+  "updateOAuthSetting": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 638
+   }
+  ],
+  "startOAuthBind": [
+   {
+    "file": "p__account__settings.d6826f16.async.js",
+    "line": 645
+   }
+  ],
+  "getOAuthBindings": [
+   {
+    "file": "p__account__settings.d6826f16.async.js",
+    "line": 568
+   }
+  ],
+  "deleteOAuthBinding": [
+   {
+    "file": "p__account__settings.d6826f16.async.js",
+    "line": 701
+   }
+  ],
+  "getRegisterRoles": [
+   {
+    "file": "p__user__Register.0d2f4be3.async.js",
+    "line": 242
+   }
+  ],
+  "updateSysInfo": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 1155
+   }
+  ],
+  "exportSystemBackup": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 1400
+   }
+  ],
+  "importSystemBackup": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 1478
+   }
+  ],
+  "loadProjects": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 2310
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 21440
+   }
+  ],
+  "loadProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 2320
+   }
+  ],
+  "getDeletedProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 1564
+   }
+  ],
+  "destroyProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 1635
+   }
+  ],
+  "restoreProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 1677
+   }
+  ],
+  "saveProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 2218
+   }
+  ],
+  "updateProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 2215
+   },
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 2543
+   }
+  ],
+  "deleteProject": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 2635
+   }
+  ],
+  "loadFiles": [
+   {
+    "file": "1027.f52936bd.async.js",
+    "line": 122
+   },
+   {
+    "file": "323.e658095d.async.js",
+    "line": 123
+   }
+  ],
+  "getTemplate": [
+   {
+    "file": "p__Answer__Practice.e90cea53.async.js",
+    "line": 717
+   }
+  ],
+  "loadCategories": [
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 20188
+   }
+  ],
+  "loadTags": [
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 381
+   }
+  ],
+  "loadRoles": [
+   {
+    "file": "p__system__User.ed284d5e.async.js",
+    "line": 1770
+   }
+  ],
+  "updateRole": [
+   {
+    "file": "p__system__Role.a759c0e3.async.js",
+    "line": 2157
+   },
+   {
+    "file": "p__system__Role.a759c0e3.async.js",
+    "line": 2248
+   },
+   {
+    "file": "p__system__Role.a759c0e3.async.js",
+    "line": 2553
+   }
+  ],
+  "loadUsers": [
+   {
+    "file": "p__system__Dept.2db3138c.async.js",
+    "line": 402
+   },
+   {
+    "file": "p__system__Role.a759c0e3.async.js",
+    "line": 2198
+   },
+   {
+    "file": "p__system__Role.a759c0e3.async.js",
+    "line": 2410
+   },
+   {
+    "file": "p__system__User.ed284d5e.async.js",
+    "line": 873
+   }
+  ],
+  "updateUserInfo": [
+   {
+    "file": "3633.25827928.async.js",
+    "line": 125
+   },
+   {
+    "file": "5069.776e4314.async.js",
+    "line": 137
+   },
+   {
+    "file": "p__account__settings.d6826f16.async.js",
+    "line": 311
+   },
+   {
+    "file": "p__account__settings.d6826f16.async.js",
+    "line": 392
+   },
+   {
+    "file": "p__user__mobile.4a1c8ad2.async.js",
+    "line": 163
+   }
+  ],
+  "checkUsernameExist": [
+   {
+    "file": "p__system__User.ed284d5e.async.js",
+    "line": 1544
+   }
+  ],
+  "getAuditRecord": [
+   {
+    "file": "p__survey__Overview.b175398f.async.js",
+    "line": 656
+   }
+  ],
+  "getRevertNodes": [
+   {
+    "file": "p__survey__Overview.b175398f.async.js",
+    "line": 920
+   }
+  ],
+  "loadProjectPartner": [
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 852
+   },
+   {
+    "file": "p__survey__Setting.6415c143.async.js",
+    "line": 487
+   }
+  ],
+  "addProjectPartner": [
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 1031
+   }
+  ],
+  "deleteProjectPartner": [
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 683
+   }
+  ],
+  "importProjectPartner": [
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 605
+   }
+  ],
+  "selectUser": [
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 156
+   },
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 167
+   },
+   {
+    "file": "5069.776e4314.async.js",
+    "line": 4427
+   },
+   {
+    "file": "5069.776e4314.async.js",
+    "line": 4529
+   },
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 165
+   },
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 176
+   }
+  ],
+  "selectDept": [
+   {
+    "file": "1642.a77bd65f.async.js",
+    "line": 153
+   },
+   {
+    "file": "3633.25827928.async.js",
+    "line": 4352
+   },
+   {
+    "file": "5069.776e4314.async.js",
+    "line": 2743
+   },
+   {
+    "file": "5069.776e4314.async.js",
+    "line": 2782
+   },
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 162
+   }
+  ],
+  "selectRole": [
+   {
+    "file": "p__system__SystemSettings.b41d236d.async.js",
+    "line": 1130
+   }
+  ],
+  "selectTemplate": [
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 12550
+   }
+  ],
+  "selectRepo": [
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 9997
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 10445
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 20178
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 20552
+   }
+  ],
+  "selectTag": [
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 20198
+   }
+  ],
+  "loadRepo": [
+   {
+    "file": "4942.38251b99.async.js",
+    "line": 8205
+   },
+   {
+    "file": "4942.38251b99.async.js",
+    "line": 8687
+   },
+   {
+    "file": "5652.12655ebc.async.js",
+    "line": 102
+   },
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 1652
+   }
+  ],
+  "addRepoPartner": [
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 1138
+   }
+  ],
+  "deleteRepoPartner": [
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 936
+   }
+  ],
+  "saveOrUpdateRepo": [
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 466
+   }
+  ],
+  "deleteRepo": [
+   {
+    "file": "p__repo__Repo.8b9319b1.async.js",
+    "line": 1557
+   }
+  ],
+  "pickRepoQuestion": [
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 11292
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 20775
+   }
+  ],
+  "loadQuery": [
+   {
+    "file": "p__Answer__PublicQuery.8c4ae2a7.async.js",
+    "line": 70
+   }
+  ],
+  "loadDict": [
+   {
+    "file": "p__Answer.346afd2a.async.js",
+    "line": 479
+   },
+   {
+    "file": "p__Answer__Practice.e90cea53.async.js",
+    "line": 587
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 11205
+   },
+   {
+    "file": "p__repo__Template.0e3ebd20.async.js",
+    "line": 13413
+   },
+   {
+    "file": "p__survey__Data.4b42c5b0.async.js",
+    "line": 1044
+   },
+   {
+    "file": "p__survey__Data.4b42c5b0.async.js",
+    "line": 1842
+   }
+  ],
+  "loadExamResult": [
+   {
+    "file": "p__Answer__ExamResult.e83013c6.async.js",
+    "line": 239
+   }
+  ],
+  "getQueryResult": [
+   {
+    "file": "p__Answer__PublicQuery.8c4ae2a7.async.js",
+    "line": 106
+   }
+  ],
+  "loadDicts": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 737
+   }
+  ],
+  "saveDict": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 443
+   }
+  ],
+  "updateDict": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 438
+   }
+  ],
+  "deleteDict": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 692
+   }
+  ],
+  "loadDictItems": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 294
+   }
+  ],
+  "saveOrUpdateDictItem": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 337
+   }
+  ],
+  "deleteDictItem": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 354
+   }
+  ],
+  "importDictItems": [
+   {
+    "file": "p__system__Dict.678f5b97.async.js",
+    "line": 107
+   }
+  ],
+  "listUserBook": [
+   {
+    "file": "p__repo__Book.59a092c3.async.js",
+    "line": 8186
+   },
+   {
+    "file": "p__repo__Book.59a092c3.async.js",
+    "line": 8372
+   }
+  ],
+  "updateUserBook": [
+   {
+    "file": "p__Answer__Practice.e90cea53.async.js",
+    "line": 689
+   }
+  ],
+  "deleteUserBook": [
+   {
+    "file": "p__repo__Book.59a092c3.async.js",
+    "line": 8145
+   },
+   {
+    "file": "p__repo__Book.59a092c3.async.js",
+    "line": 8336
+   }
+  ],
+  "listUserTask": [
+   {
+    "file": "2645.42b4f05d.async.js",
+    "line": 276
+   }
+  ],
+  "listHistoryTask": [
+   {
+    "file": "2645.42b4f05d.async.js",
+    "line": 276
+   }
+  ],
+  "listExercise": [
+   {
+    "file": "4942.38251b99.async.js",
+    "line": 8591
+   },
+   {
+    "file": "5652.12655ebc.async.js",
+    "line": 157
+   }
+  ],
+  "deleteExercise": [
+   {
+    "file": "4942.38251b99.async.js",
+    "line": 8524
+   }
+  ],
+  "getAIModels": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 321
+   }
+  ],
+  "createAIConversation": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 360
+   }
+  ],
+  "createAIChatStream": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 467
+   }
+  ],
+  "closeAIConversation": [
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 628
+   },
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 636
+   },
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 639
+   },
+   {
+    "file": "p__Project.c0aefc19.async.js",
+    "line": 645
+   }
+  ]
+ }
+}

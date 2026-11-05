@@ -1,0 +1,1380 @@
+{
+  "/api/ai/chat/answer-analysis/create-conversation": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/ai/chat/create-conversation": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/ai/chat/models": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/destroy": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/restore": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/trash": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/answer/upload": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "p__Project.c0aefc19.async.js",
+      "p__survey__Data.4b42c5b0.async.js"
+    ]
+  },
+  "/api/currentUser": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/exercise/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/exercise/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/file/create": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "p__account__settings.d6826f16.async.js",
+      "p__system__SystemSettings.b41d236d.async.js",
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/file/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/file/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/importUser": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "p__system__User.ed284d5e.async.js"
+    ]
+  },
+  "/api/listHistoryTask": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/listUserTask": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/oauth/bind/": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/oauth/bindings": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/oauth/bindings/": {
+    "methods": [
+      "DELETE"
+    ],
+    "callers": [
+      "delete"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/destroy": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/partner/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/partner/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/partner/import": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/partner/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/restore": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectDept": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectDict": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectPosition": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectRepo": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectRole": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectTag": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectTemplate": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/selectUser": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/trash": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/project/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/dbInit": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/dbInit/environment": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/dbInit/test": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/getQueryResult": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/listRegisterRole": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/loadDict": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/loadExamResult": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/loadLinkResult": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/loadProject": {
+    "methods": [],
+    "callers": [
+      "getUrlWithToken"
+    ],
+    "chunks": [
+      "1699.2ef20283.async.js"
+    ]
+  },
+  "/api/public/loadQuery": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/login": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/logout": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/oauth/login/": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/oauth/register/": {
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "callers": [
+      "get",
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/oauth/survey/wechat/start": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/preview/": {
+    "methods": [],
+    "callers": [
+      "a",
+      "l"
+    ],
+    "chunks": [
+      "8221.a435c80d.async.js"
+    ]
+  },
+  "/api/public/register": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/saveAnswer": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "getUrlWithToken",
+      "post"
+    ],
+    "chunks": [
+      "1699.2ef20283.async.js",
+      "p__Answer__PublicQuery.8c4ae2a7.async.js"
+    ]
+  },
+  "/api/public/statistics": {
+    "methods": [],
+    "callers": [
+      "getUrlWithToken"
+    ],
+    "chunks": [
+      "1699.2ef20283.async.js"
+    ]
+  },
+  "/api/public/upload": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "1699.2ef20283.async.js",
+      "3633.25827928.async.js",
+      "856.e9c89a4d.async.js",
+      "p__Answer__PublicQuery.8c4ae2a7.async.js",
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/public/validateProject": {
+    "methods": [],
+    "callers": [
+      "getUrlWithToken"
+    ],
+    "chunks": [
+      "1699.2ef20283.async.js"
+    ]
+  },
+  "/api/repo/batchCreate": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/book/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/book/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/book/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/book/question": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/book/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/import": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "p__repo__Repo.8b9319b1.async.js"
+    ]
+  },
+  "/api/repo/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/partner/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/partner/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/partner/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/pick": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/unbind": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/repo/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/report/": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "fetch",
+      "get"
+    ],
+    "chunks": [
+      "p__Setup.aba9894f.async.js",
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/aiSetting": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/backup/export": {
+    "methods": [],
+    "callers": [
+      "download"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/checkUsernameExist": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dept/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dept/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dept/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dept/sort": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dept/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dict/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dict/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dict/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dict/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dictItem/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dictItem/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dictItem/import": {
+    "methods": [],
+    "callers": [
+      "upload"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dictItem/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/dictItem/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/oauthSetting": {
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "callers": [
+      "get",
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/permission/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/position/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/position/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/position/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/position/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/role/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/role/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/role/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/role/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/user/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/user/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/user/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/system/user/update": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/template/create": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/template/delete": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/template/get": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/template/list": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/template/listCategory": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/template/listTag": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/user": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/userOverview": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/workflow/approvalTask": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/workflow/getFlowTasks": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "getWithPagination"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/workflow/loadSchema": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/workflow/saveFlow": {
+    "methods": [
+      "POST"
+    ],
+    "callers": [
+      "post"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  },
+  "/api/workflow/statics": {
+    "methods": [
+      "GET"
+    ],
+    "callers": [
+      "get"
+    ],
+    "chunks": [
+      "umi.ded23be0.js"
+    ]
+  }
+}

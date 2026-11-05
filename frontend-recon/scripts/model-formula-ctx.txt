@@ -1,0 +1,383 @@
+
+===== hit #1 @1011541 =====
+ll records",
+            "pages.survey.data.download.mode.current": "Current page",
+            "pages.survey.data.download.mode.selected": "Selected records",
+            "pages.survey.data.download.formula.select": "Choose field",
+            "pages.survey.data.download.formula.help": "How to customize export",
+            "pages.survey.data.download.formula.title": "Attachment naming rules",
+            "pages.survey.data.download.formula.option.sourceName": "Original filename",
+            "pages.survey.data.download.formula.tooltip.sourceName":
+              "Filename uploaded by the resp
+===== hit #2 @1011614 =====
+ent page",
+            "pages.survey.data.download.mode.selected": "Selected records",
+            "pages.survey.data.download.formula.select": "Choose field",
+            "pages.survey.data.download.formula.help": "How to customize export",
+            "pages.survey.data.download.formula.title": "Attachment naming rules",
+            "pages.survey.data.download.formula.option.sourceName": "Original filename",
+            "pages.survey.data.download.formula.tooltip.sourceName":
+              "Filename uploaded by the respondent",
+            "pages.survey.data.download.formula.option.serialNum
+===== hit #3 @1011696 =====
+ds",
+            "pages.survey.data.download.formula.select": "Choose field",
+            "pages.survey.data.download.formula.help": "How to customize export",
+            "pages.survey.data.download.formula.title": "Attachment naming rules",
+            "pages.survey.data.download.formula.option.sourceName": "Original filename",
+            "pages.survey.data.download.formula.tooltip.sourceName":
+              "Filename uploaded by the respondent",
+            "pages.survey.data.download.formula.option.serialNum": "Sequential number",
+            "pages.survey.data.download.formula.tooltip.se
+===== hit #4 @1011779 =====
+       "pages.survey.data.download.formula.help": "How to customize export",
+            "pages.survey.data.download.formula.title": "Attachment naming rules",
+            "pages.survey.data.download.formula.option.sourceName": "Original filename",
+            "pages.survey.data.download.formula.tooltip.sourceName":
+              "Filename uploaded by the respondent",
+            "pages.survey.data.download.formula.option.serialNum": "Sequential number",
+            "pages.survey.data.download.formula.tooltip.serialNum": "Numbering starting from 1",
+            "pages.survey.data.download.form
+===== hit #5 @1011868 =====
+"pages.survey.data.download.formula.title": "Attachment naming rules",
+            "pages.survey.data.download.formula.option.sourceName": "Original filename",
+            "pages.survey.data.download.formula.tooltip.sourceName":
+              "Filename uploaded by the respondent",
+            "pages.survey.data.download.formula.option.serialNum": "Sequential number",
+            "pages.survey.data.download.formula.tooltip.serialNum": "Numbering starting from 1",
+            "pages.survey.data.download.formula.option.serialNumInAnswer":
+              "Sequential number within survey",
+         
+===== hit #6 @1011990 =====
+ion.sourceName": "Original filename",
+            "pages.survey.data.download.formula.tooltip.sourceName":
+              "Filename uploaded by the respondent",
+            "pages.survey.data.download.formula.option.serialNum": "Sequential number",
+            "pages.survey.data.download.formula.tooltip.serialNum": "Numbering starting from 1",
+            "pages.survey.data.download.formula.option.serialNumInAnswer":
+              "Sequential number within survey",
+            "pages.survey.data.download.formula.tooltip.serialNumInAnswer":
+              "Numbering starting from 1 within the sam
+===== hit #7 @1012078 =====
+oltip.sourceName":
+              "Filename uploaded by the respondent",
+            "pages.survey.data.download.formula.option.serialNum": "Sequential number",
+            "pages.survey.data.download.formula.tooltip.serialNum": "Numbering starting from 1",
+            "pages.survey.data.download.formula.option.serialNumInAnswer":
+              "Sequential number within survey",
+            "pages.survey.data.download.formula.tooltip.serialNumInAnswer":
+              "Numbering starting from 1 within the same survey",
+            "pages.survey.data.download.formula.option.uploadDateTime":
+     
+===== hit #8 @1012175 =====
+.data.download.formula.option.serialNum": "Sequential number",
+            "pages.survey.data.download.formula.tooltip.serialNum": "Numbering starting from 1",
+            "pages.survey.data.download.formula.option.serialNumInAnswer":
+              "Sequential number within survey",
+            "pages.survey.data.download.formula.tooltip.serialNumInAnswer":
+              "Numbering starting from 1 within the same survey",
+            "pages.survey.data.download.formula.option.uploadDateTime":
+              "Attachment upload datetime",
+            "pages.survey.data.download.formula.tooltip.up
+===== hit #9 @1012299 =====
+lNum": "Numbering starting from 1",
+            "pages.survey.data.download.formula.option.serialNumInAnswer":
+              "Sequential number within survey",
+            "pages.survey.data.download.formula.tooltip.serialNumInAnswer":
+              "Numbering starting from 1 within the same survey",
+            "pages.survey.data.download.formula.option.uploadDateTime":
+              "Attachment upload datetime",
+            "pages.survey.data.download.formula.tooltip.uploadDateTime":
+              "Timestamp when the attachment was uploaded",
+            "pages.survey.data.download.formula.o
+===== hit #10 @1012441 =====
+r within survey",
+            "pages.survey.data.download.formula.tooltip.serialNumInAnswer":
+              "Numbering starting from 1 within the same survey",
+            "pages.survey.data.download.formula.option.uploadDateTime":
+              "Attachment upload datetime",
+            "pages.survey.data.download.formula.tooltip.uploadDateTime":
+              "Timestamp when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.uploadDate": "Attachment upload date",
+            "pages.survey.data.download.formula.tooltip.uploadDate":
+              "Date when the
+===== hit #11 @1012557 =====
+ng starting from 1 within the same survey",
+            "pages.survey.data.download.formula.option.uploadDateTime":
+              "Attachment upload datetime",
+            "pages.survey.data.download.formula.tooltip.uploadDateTime":
+              "Timestamp when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.uploadDate": "Attachment upload date",
+            "pages.survey.data.download.formula.tooltip.uploadDate":
+              "Date when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.questionTitle": "Attachment questi
+===== hit #12 @1012690 =====
+tachment upload datetime",
+            "pages.survey.data.download.formula.tooltip.uploadDateTime":
+              "Timestamp when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.uploadDate": "Attachment upload date",
+            "pages.survey.data.download.formula.tooltip.uploadDate":
+              "Date when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.questionTitle": "Attachment question title",
+            "pages.survey.data.download.formula.tooltip.questionTitle":
+              "Title of the question that owns the
+===== hit #13 @1012784 =====
+ime":
+              "Timestamp when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.uploadDate": "Attachment upload date",
+            "pages.survey.data.download.formula.tooltip.uploadDate":
+              "Date when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.questionTitle": "Attachment question title",
+            "pages.survey.data.download.formula.tooltip.questionTitle":
+              "Title of the question that owns the attachment",
+            "pages.survey.editor.attributes.answerLimit.label": "Option count se
+===== hit #14 @1012908 =====
+oadDate": "Attachment upload date",
+            "pages.survey.data.download.formula.tooltip.uploadDate":
+              "Date when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.questionTitle": "Attachment question title",
+            "pages.survey.data.download.formula.tooltip.questionTitle":
+              "Title of the question that owns the attachment",
+            "pages.survey.editor.attributes.answerLimit.label": "Option count settings",
+            "pages.survey.editor.attributes.answerLimit.max": "Maximum",
+            "pages.survey.editor.attribute
+===== hit #15 @1013008 =====
+te":
+              "Date when the attachment was uploaded",
+            "pages.survey.data.download.formula.option.questionTitle": "Attachment question title",
+            "pages.survey.data.download.formula.tooltip.questionTitle":
+              "Title of the question that owns the attachment",
+            "pages.survey.editor.attributes.answerLimit.label": "Option count settings",
+            "pages.survey.editor.attributes.answerLimit.max": "Maximum",
+            "pages.survey.editor.attributes.answerLimit.min": "Minimum",
+            "pages.survey.editor.attributes.answerLimit.option.item":
+===== hit #16 @1014261 =====
+his answer based on other questions",
+            "pages.survey.editor.attributes.calculate.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.calculate.title": "Calculation formula",
+            "pages.survey.editor.attributes.cameraOnly.title": "Camera uploads only",
+            "pages.survey.editor.attributes.cascaderLevel.option": "{level} level options",
+            "pages.survey.editor.attributes.checkedRule.help": "How to configure auto-check logic",
+            "pages.survey.editor.attributes.checkedRule.modal.title":
+              "Auto-Check Logic - Formula 
+===== hit #17 @1014794 =====
+heckedRule.modal.title":
+              "Auto-Check Logic - Formula Settings",
+            "pages.survey.editor.attributes.checkedRule.popover":
+              "Automatically check this option when the formula is satisfied.",
+            "pages.survey.editor.attributes.checkedRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.checkedRule.title": "Auto-check formula",
+            "pages.survey.editor.attributes.dataSource.action.add": "Add option",
+            "pages.survey.editor.attributes.dataSource.column.actions": "Actions",
+            "pages.survey.editor.att
+===== hit #18 @1014983 =====
+n when the formula is satisfied.",
+            "pages.survey.editor.attributes.checkedRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.checkedRule.title": "Auto-check formula",
+            "pages.survey.editor.attributes.dataSource.action.add": "Add option",
+            "pages.survey.editor.attributes.dataSource.column.actions": "Actions",
+            "pages.survey.editor.attributes.dataSource.column.label": "Option name",
+            "pages.survey.editor.attributes.dataSource.modal.title": "Dropdown option settings",
+            "pages.survey.editor.attributes
+===== hit #19 @1030849 =====
+ey.editor.attributes.finishRule.modal.title":
+              "Finish Survey - Formula Settings",
+            "pages.survey.editor.attributes.finishRule.popover":
+              "End the survey when the formula evaluates to true.",
+            "pages.survey.editor.attributes.finishRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.finishRule.title": "Finish formula",
+            "pages.survey.editor.attributes.hidden.popover":
+              "Question stays hidden but appears in answers, usually with {link}.",
+            "pages.survey.editor.attributes.hidden.popove
+===== hit #20 @1031037 =====
+ey when the formula evaluates to true.",
+            "pages.survey.editor.attributes.finishRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.finishRule.title": "Finish formula",
+            "pages.survey.editor.attributes.hidden.popover":
+              "Question stays hidden but appears in answers, usually with {link}.",
+            "pages.survey.editor.attributes.hidden.popover.link":
+              "Prefill answers via custom URL params",
+            "pages.survey.editor.attributes.hidden.title": "Hidden by default",
+            "pages.survey.editor.attributes.
+===== hit #21 @1031798 =====
+,
+            "pages.survey.editor.attributes.jumpRule.help": "How to configure jump logic",
+            "pages.survey.editor.attributes.jumpRule.modal.placeholder":
+              "First line for the formula, second line for the target question",
+            "pages.survey.editor.attributes.jumpRule.modal.title": "Jump Logic Settings",
+            "pages.survey.editor.attributes.jumpRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.jumpRule.title": "Jump formula",
+            "pages.survey.editor.attributes.mapMove.title": "Allow moving the map marker",
+         
+===== hit #22 @1032088 =====
+.jumpRule.modal.title": "Jump Logic Settings",
+            "pages.survey.editor.attributes.jumpRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.jumpRule.title": "Jump formula",
+            "pages.survey.editor.attributes.mapMove.title": "Allow moving the map marker",
+            "pages.survey.editor.attributes.matrixType.option.matrixCheckbox":
+              "Matrix multiple choice",
+            "pages.survey.editor.attributes.matrixType.option.matrixFillBlank":
+              "Matrix fill-in-the-blank",
+            "pages.survey.editor.attributes.matrixType.opt
+===== hit #23 @1040727 =====
+ation rules for this question.",
+            "pages.survey.editor.attributes.validateRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.validateRule.title": "Validation formula",
+            "pages.survey.editor.attributes.visibleRule.help": "How to configure visibility logic",
+            "pages.survey.editor.attributes.visibleRule.modal.title":
+              "Visibility Logic - Formula Settings",
+            "pages.survey.editor.attributes.visibleRule.popover":
+              "Show this question or option only when the formula is satisfied.",
+            "pages.
+===== hit #24 @1041084 =====
+ibleRule.modal.title":
+              "Visibility Logic - Formula Settings",
+            "pages.survey.editor.attributes.visibleRule.popover":
+              "Show this question or option only when the formula is satisfied.",
+            "pages.survey.editor.attributes.visibleRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.visibleRule.title": "Visibility formula",
+            "pages.survey.editor.template.common.option1": "Option 1",
+            "pages.survey.editor.template.common.option2": "Option 2",
+            "pages.survey.editor.template.common.blank1": "
+===== hit #25 @1041273 =====
+y when the formula is satisfied.",
+            "pages.survey.editor.attributes.visibleRule.subtitle": "Click to configure",
+            "pages.survey.editor.attributes.visibleRule.title": "Visibility formula",
+            "pages.survey.editor.template.common.option1": "Option 1",
+            "pages.survey.editor.template.common.option2": "Option 2",
+            "pages.survey.editor.template.common.blank1": "Blank 1",
+            "pages.survey.editor.template.common.blank2": "Blank 2",
+            "pages.survey.editor.template.common.pleaseSelect": "Please select",
+            "pages.survey.edi
+===== hit #26 @1080188 =====
+ditor.widgets.horzBlankSetting.dictCodeTitle": "Dictionary code",
+            "pages.survey.editor.widgets.horzBlankSetting.cascaderTitle": "Cascader levels",
+            "pages.survey.editor.widgets.formulaEditor.modeTooltip":
+              "Logic uses actual values in calculations (e.g. a selected option equals true); Text uses option labels in text expressions.",
+            "pages.survey.editor.widgets.formulaEditor.mode.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.mode.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.tips":
+              "Pi
+===== hit #27 @1080398 =====
+tor.modeTooltip":
+              "Logic uses actual values in calculations (e.g. a selected option equals true); Text uses option labels in text expressions.",
+            "pages.survey.editor.widgets.formulaEditor.mode.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.mode.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.tips":
+              "Pick functions or variables on the left and edit in English input mode.",
+            "pages.survey.editor.widgets.formulaEditor.doc": "Formula documentation",
+            "pages.survey.editor.widgets.formulaEdit
+===== hit #28 @1080475 =====
+g. a selected option equals true); Text uses option labels in text expressions.",
+            "pages.survey.editor.widgets.formulaEditor.mode.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.mode.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.tips":
+              "Pick functions or variables on the left and edit in English input mode.",
+            "pages.survey.editor.widgets.formulaEditor.doc": "Formula documentation",
+            "pages.survey.editor.widgets.formulaEditor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formula
+===== hit #29 @1080550 =====
+ons.",
+            "pages.survey.editor.widgets.formulaEditor.mode.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.mode.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.tips":
+              "Pick functions or variables on the left and edit in English input mode.",
+            "pages.survey.editor.widgets.formulaEditor.doc": "Formula documentation",
+            "pages.survey.editor.widgets.formulaEditor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widget
+===== hit #30 @1080701 =====
+"Text",
+            "pages.survey.editor.widgets.formulaEditor.tips":
+              "Pick functions or variables on the left and edit in English input mode.",
+            "pages.survey.editor.widgets.formulaEditor.doc": "Formula documentation",
+            "pages.survey.editor.widgets.formulaEditor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widgets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overvi
+===== hit #31 @1080787 =====
+ick functions or variables on the left and edit in English input mode.",
+            "pages.survey.editor.widgets.formulaEditor.doc": "Formula documentation",
+            "pages.survey.editor.widgets.formulaEditor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widgets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Do
+===== hit #32 @1080868 =====
+    "pages.survey.editor.widgets.formulaEditor.doc": "Formula documentation",
+            "pages.survey.editor.widgets.formulaEditor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widgets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic":
+===== hit #33 @1080952 =====
+      "pages.survey.editor.widgets.formulaEditor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widgets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text"
+===== hit #34 @1080994 =====
+Editor.tab.fields": "Questions",
+            "pages.survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widgets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor
+===== hit #35 @1081046 =====
+survey.editor.widgets.formulaEditor.tab.functions": "Functions",
+            "pages.survey.editor.widgets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.number": "Numer
+===== hit #36 @1081147 =====
+gets.formulaEditor.searchPlaceholder": "Search formulas",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.number": "Numeric",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.time": "Date & time",
+     
+===== hit #37 @1081233 =====
+itor.widgets.formulaEditor.function.popover.title": "Function overview",
+            "pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.number": "Numeric",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.time": "Date & time",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.common": "Common",
+   
+===== hit #38 @1081319 =====
+pages.survey.editor.widgets.formulaEditor.function.popover.doc": "Docs",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.number": "Numeric",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.time": "Date & time",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.common": "Common",
+            "pages.survey.editor.widgets.formulaEditor.function.IF.description":
+        
+===== hit #39 @1081403 =====
+ "pages.survey.editor.widgets.formulaEditor.functionGroup.logic": "Logic",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.number": "Numeric",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.time": "Date & time",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.common": "Common",
+            "pages.survey.editor.widgets.formulaEditor.function.IF.description":
+              "Return one value if a condition is met, otherwise another value.",
+          
+===== hit #40 @1081492 =====
+ages.survey.editor.widgets.formulaEditor.functionGroup.text": "Text",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.number": "Numeric",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.time": "Date & time",
+            "pages.survey.editor.widgets.formulaEditor.functionGroup.common": "Common",
+            "pages.survey.editor.widgets.formulaEditor.function.IF.description":
+              "Return one value if a condition is met, otherwise another value.",
+            "pages.survey.editor.widgets.formulaEditor.function.AND.description":
+              "Re
