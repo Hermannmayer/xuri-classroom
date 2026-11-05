@@ -20,6 +20,11 @@ public class ProjectPartnerRequest {
 
 	private List<String> userIds;
 
+	/**
+	 * 授权给用户组（t_dept.id），与 userIds 二选一
+	 */
+	private String groupId;
+
 	private List<String> userNames;
 
 	private MultipartFile file;
