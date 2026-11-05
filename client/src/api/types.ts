@@ -12,6 +12,7 @@ export interface SystemInfo {
   registerInfo?: {
     registerEnabled?: boolean;
     roles?: string[];
+    deptId?: string;
     strongPasswordEnabled?: boolean;
   };
   setting?: {

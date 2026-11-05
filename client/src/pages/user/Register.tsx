@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, message, Select, Spin } from 'antd';
+import { Alert, Button, Card, Form, Input, message, Spin } from 'antd';
 import { ArrowLeftOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { get, post } from '../../api';
 import type { SystemInfo } from '../../api';
 
-interface Role {
-  id: string;
-  name?: string;
-  code?: string;
-}
+
+
+
+
+
 
 /**
  * 注册页：仅在后端开启「允许注册」时可用。
@@ -18,24 +18,18 @@ interface Role {
 export default function Register() {
   const navigate = useNavigate();
   const [system, setSystem] = useState<SystemInfo>();
-  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<{ username: string; name: string; password: string; confirm: string; role?: string }>();
 
   const enabled = Boolean(system?.registerInfo?.registerEnabled);
-  const roleIds = system?.registerInfo?.roles ?? [];
 
   useEffect(() => {
     Promise.all([
       get<SystemInfo>('/api/system').catch(() => undefined),
-      get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 }).catch(() => undefined),
     ])
-      .then(([sys, roleRes]) => {
+      .then(([sys]) => {
         setSystem(sys);
-        const all = roleRes?.list ?? [];
-        // 只允许选后端配置里允许注册的角色
-        setRoles(roleIds.length > 0 ? all.filter((r) => roleIds.includes(r.id)) : all);
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,7 +47,7 @@ export default function Register() {
         username: values.username.trim(),
         password: values.password,
         name: values.name.trim(),
-        role: values.role,
+        // 注册固定为学员，老师/管理员只能由管理员在后台分配
       });
       message.success('注册成功，请登录');
       navigate('/user/login');
@@ -113,12 +107,12 @@ export default function Register() {
             <Form.Item
               name="password"
               label="密码"
-              extra="8–16 位，需同时包含大写字母、小写字母和数字"
+              extra="至少 8 位，建议字母和数字组合"
               rules={[
                 { required: true, message: '请输入密码' },
                 {
-                  pattern: /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[a-zA-Z0-9]{8,16}$/,
-                  message: '密码需 8–16 位，且包含大写、小写字母和数字',
+                  pattern: /^.{8,32}$/,
+                  message: '密码至少 8 位',
                 },
               ]}
             >
@@ -140,14 +134,6 @@ export default function Register() {
             >
               <Input.Password prefix={<LockOutlined />} placeholder="再输一次" autoComplete="new-password" />
             </Form.Item>
-            {roles.length > 1 && (
-              <Form.Item name="role" label="注册身份" extra="不同身份能看到的菜单不同">
-                <Select
-                  placeholder="默认由系统分配"
-                  options={roles.map((r) => ({ value: r.id, label: r.name || r.code || r.id }))}
-                />
-              </Form.Item>
-            )}
             <Button type="primary" htmlType="submit" block loading={saving}>
               注册
             </Button>

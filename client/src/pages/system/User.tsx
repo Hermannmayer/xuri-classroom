@@ -254,8 +254,8 @@ export default function SystemUser() {
                       >
                         {row.name || '—'}
                       </span>
-                      <Tag color={row.status === 0 ? 'default' : 'success'}>
-                        {row.status === 0 ? '停用' : '正常'}
+                      <Tag color={row.status === 0 ? 'warning' : 'success'}>
+                        {row.status === 0 ? '待审核' : '正常'}
                       </Tag>
                     </div>
 
@@ -341,7 +341,7 @@ export default function SystemUser() {
               title: '状态',
               dataIndex: 'status',
               width: 90,
-              render: (v?: number) => (v === 0 ? <Tag>停用</Tag> : <Tag color="success">正常</Tag>),
+              render: (v?: number) => (v === 0 ? <Tag color="warning">待审核</Tag> : <Tag color="success">正常</Tag>),
             },
             {
               title: '操作',

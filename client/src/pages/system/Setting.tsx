@@ -46,17 +46,20 @@ export default function SystemSetting() {
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
   const logo = Form.useWatch<string | undefined>('avatar', form);
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
-  const registerRoles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
+  const [depts, setDepts] = useState<{ id: string; name: string }[]>([]);
+  const roles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
 
   const load = useCallback(async () => {
-    const [sys, ai, roleRes] = await Promise.all([
+    const [sys, ai, deptRes, roleRes] = await Promise.all([
       getSystem(),
       get<AiSetting>('/api/system/aiSetting').catch(() => ({}) as AiSetting),
+      get<{ id: string; name: string }[]>('/api/system/dept/list').catch((): { id: string; name: string }[] => []),
       get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 }).catch(
         (): { list?: Role[] } => ({ list: [] }),
       ),
     ]);
     setRoleOptions(roleRes?.list ?? []);
+    setDepts(Array.isArray(deptRes) ? deptRes : []);
     form.setFieldsValue({
       name: sys?.name,
       description: sys?.description,
@@ -66,6 +69,7 @@ export default function SystemSetting() {
       favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
       registerEnabled: Boolean(sys?.registerInfo?.registerEnabled),
+        registerDeptId: sys?.registerInfo?.deptId,
       // 注册默认角色存的是角色 id；没配置时是空数组
       roles: sys?.registerInfo?.roles ?? [],
       aiEnabled: Boolean(ai?.enabled),
@@ -134,7 +138,7 @@ export default function SystemSetting() {
         // registerEnabled 和 roles 一起提交；roles 传空数组会清空后端配置（merge 按非 null 覆盖）
         await post('/api/system/update', {
           setting: { captchaEnabled: Boolean(v.captchaEnabled) },
-          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles },
+          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles, deptId: v.registerDeptId },
         });
       } else {
         await post('/api/system/update', {
@@ -272,7 +276,14 @@ export default function SystemSetting() {
                         }))}
                       />
                     </Form.Item>
-                    {registerEnabled && registerRoles.length === 0 && (
+                      <Form.Item name="registerDeptId" label="新用户默认部门" extra="注册用户会自动进入这个部门；不选则进根部门">
+                        <Select
+                          allowClear
+                          placeholder="默认根部门"
+                          options={depts.map((d) => ({ value: d.id, label: d.name }))}
+                        />
+                      </Form.Item>
+                    {registerEnabled && roles.length === 0 && (
                       <Alert
                         type="warning"
                         showIcon
