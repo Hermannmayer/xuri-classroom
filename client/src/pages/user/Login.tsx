@@ -113,7 +113,7 @@ export default function Login() {
               letterSpacing: '0.06em',
             }}
           >
-            {system?.name || t('pages.login.defaultSystemName', '卷王问卷考试系统')}
+            {system?.name || t('pages.login.defaultSystemName', '考试系统')}
           </h1>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
             <span className="bp-tag">{versionTag(system?.version)}</span>
