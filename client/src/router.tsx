@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import ProjectList from './pages/project/List';
 import SurveyEditor from './pages/survey/Editor';
 import SurveySetting from './pages/survey/Setting';
+import SurveyData from './pages/survey/Data';
 import PublicAnswer from './pages/answer/PublicAnswer';
 import Placeholder from './pages/Placeholder';
 import Playground from './pages/Playground';
@@ -36,7 +37,7 @@ export const router = createBrowserRouter([
       { path: 'survey/:id', element: <Placeholder title="问卷总览" /> },
       { path: 'survey/:id/edit', element: <SurveyEditor /> },
       { path: 'survey/:id/setting', element: <SurveySetting /> },
-      { path: 'survey/:id/data', element: <Placeholder title="答卷数据" /> },
+      { path: 'survey/:id/data', element: <SurveyData /> },
       { path: 'survey/:id/report', element: <Placeholder title="数据分析" /> },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
       { path: 'system/user', element: <Placeholder title="用户管理" /> },

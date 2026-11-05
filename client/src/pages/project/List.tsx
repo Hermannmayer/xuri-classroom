@@ -275,6 +275,7 @@ export default function ProjectList() {
                     <a onClick={() => navigate(`/survey/${row.id}`)}>打开</a>
                     <a onClick={() => toggleStatus(row)}>{row.status === 1 ? '停止' : '发布'}</a>
               <a onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</a>
+              <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
                   </>
                 )}
                 <a

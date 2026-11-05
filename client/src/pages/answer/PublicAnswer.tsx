@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Drawer, Input, message, Modal, Select, Spin } from 'antd';
+import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { post } from '../../api';
@@ -22,16 +22,9 @@ function formFieldIds(p?: PublicProjectView): string[] {
   return (p?.survey?.children ?? []).map((c) => c.id);
 }
 
-/** 字号档位：中老年学员需要能放得很大 */
-const FONT_OPTIONS = [
-  { value: 0.9, label: '小' },
-  { value: 1, label: '标准' },
-  { value: 1.15, label: '大' },
-  { value: 1.3, label: '较大' },
-  { value: 1.5, label: '特大' },
-  { value: 1.75, label: '超大' },
-  { value: 2, label: '巨大' },
-];
+/** 字号范围：0.9（小）到 2.0（巨大），滑块直接拖 */
+const FONT_MIN = 0.9;
+const FONT_MAX = 2;
 const FONT_KEY = 'sk-font-scale';
 
 /** 从整棵树里摘出单道题（一页一题时用） */
@@ -46,6 +39,7 @@ export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema |
 
 export default function PublicAnswer() {
   const { id = '' } = useParams();
+  const { modal } = App.useApp();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<PublicProjectView>();
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
@@ -164,6 +158,12 @@ export default function PublicAnswer() {
     localStorage.setItem(FONT_KEY, String(value));
   };
 
+  /** A- / A+ 按档走，老年人不用精确拖滑块 */
+  const bumpFont = (delta: number) => {
+    const next = Math.min(FONT_MAX, Math.max(FONT_MIN, Number((fontScale + delta).toFixed(2))));
+    changeFont(next);
+  };
+
   const doSubmit = async () => {
     if (!project) return;
     setSubmitting(true);
@@ -184,20 +184,35 @@ export default function PublicAnswer() {
     }
   };
 
-  /** 提交前二次确认，并把未答的必填题列出来 */
+  /** 跳到指定题：一页一题切页，滚动模式滚到题目 */
+  const goToQuestion = (qId: string) => {
+    const index = visibleQuestions.findIndex((q) => q.id === qId);
+    if (index < 0) return;
+    if (onePage) {
+      setPage(index);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      document.querySelector(`[data-qid="${qId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  /** 提交：必填没填直接拦下并跳过去；填全了才出二次确认 */
   const confirmSubmit = () => {
-    const missingText = unansweredRequired.length
-      ? `还有 ${unansweredRequired.length} 道必填题没填：${unansweredRequired
-          .slice(0, 3)
-          .map((q) => q.title || q.type)
-          .join('、')}${unansweredRequired.length > 3 ? ' 等' : ''}`
-      : '提交后不可再修改（除非问卷允许修改答案）';
-    Modal.confirm({
+    if (unansweredRequired.length) {
+      const first = unansweredRequired[0];
+      const no = visibleQuestions.findIndex((q) => q.id === first.id) + 1;
+      message.error({
+        content: `还有 ${unansweredRequired.length} 道必填题没填，已跳到第 ${no} 题「${first.title || first.type}」`,
+        duration: 3,
+      });
+      goToQuestion(first.id);
+      return;
+    }
+    modal.confirm({
       title: '确认提交这份答卷？',
-      content: missingText,
+      content: '提交后不可再修改（除非问卷允许修改答案）。',
       okText: '确认提交',
       cancelText: '再检查一下',
-      okButtonProps: { danger: unansweredRequired.length > 0 },
       onOk: doSubmit,
     });
   };
@@ -337,14 +352,23 @@ export default function PublicAnswer() {
             {project.name}
           </div>
         </div>
-        <Select
-          size="small"
-          value={fontScale}
-          onChange={changeFont}
-          options={FONT_OPTIONS}
-          style={{ width: 92 }}
-          popupMatchSelectWidth={false}
-        />
+        <div className="sk-font-ctl">
+          <Button size="small" className="sk-font-btn" onClick={() => bumpFont(-0.15)}>
+            A-
+          </Button>
+          <Slider
+            min={FONT_MIN}
+            max={FONT_MAX}
+            step={0.05}
+            value={fontScale}
+            onChange={changeFont}
+            className="sk-font-slider"
+            tooltip={{ formatter: (v) => `${Number(v).toFixed(2)}×` }}
+          />
+          <Button size="small" className="sk-font-btn" onClick={() => bumpFont(0.15)}>
+            A+
+          </Button>
+        </div>
         <Button size="small" icon={<MenuOutlined />} onClick={() => setSheetOpen(true)} className="sk-answer-sheet-btn">
           答题卡
         </Button>
@@ -390,6 +414,7 @@ export default function PublicAnswer() {
             onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
             mode="answer"
             displays={displays}
+            numberOffset={onePage ? currentIndex : 0}
           />
           {onePage && (
             <div
