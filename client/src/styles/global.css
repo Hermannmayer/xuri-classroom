@@ -144,6 +144,21 @@ body {
 .ant-menu-item {
   letter-spacing: 0.02em;
 }
+/* 设计器画布：可点选题目的反馈 */
+.sk-canvas [data-qid] {
+  cursor: pointer;
+  outline: 1px dashed transparent;
+  outline-offset: 4px;
+  transition: outline-color 100ms;
+}
+.sk-canvas [data-qid]:hover {
+  outline-color: var(--bp-line);
+}
+.sk-canvas .bp-selected {
+  outline: 1px solid var(--bp-orange) !important;
+  background: rgba(255, 107, 53, 0.05);
+}
+
 .ant-layout-sider {
   border-right: 1px solid var(--bp-line-soft);
 }

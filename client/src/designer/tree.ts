@@ -1,0 +1,82 @@
+import type { SurveySchema } from '../schema/types';
+
+/** 不可变树操作：所有函数返回新树，不修改入参 */
+
+export function findNode(root: SurveySchema, id: string): SurveySchema | undefined {
+  if (root.id === id) return root;
+  for (const child of root.children ?? []) {
+    const hit = findNode(child, id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+export function findParent(root: SurveySchema, id: string): SurveySchema | undefined {
+  for (const child of root.children ?? []) {
+    if (child.id === id) return root;
+    const hit = findParent(child, id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+export function updateNode(
+  root: SurveySchema,
+  id: string,
+  patch: Partial<SurveySchema> | ((node: SurveySchema) => Partial<SurveySchema>),
+): SurveySchema {
+  if (root.id === id) {
+    const delta = typeof patch === 'function' ? patch(root) : patch;
+    return { ...root, ...delta };
+  }
+  if (!root.children?.length) return root;
+  return {
+    ...root,
+    children: root.children.map((c) => updateNode(c, id, patch)),
+  };
+}
+
+export function insertNode(root: SurveySchema, parentId: string | undefined, node: SurveySchema, index?: number): SurveySchema {
+  if (!parentId) {
+    const children = [...(root.children ?? [])];
+    children.splice(index ?? children.length, 0, node);
+    return { ...root, children };
+  }
+  if (root.id === parentId) {
+    const children = [...(root.children ?? [])];
+    children.splice(index ?? children.length, 0, node);
+    return { ...root, children };
+  }
+  if (!root.children?.length) return root;
+  return { ...root, children: root.children.map((c) => insertNode(c, parentId, node, index)) };
+}
+
+export function removeNode(root: SurveySchema, id: string): SurveySchema {
+  if (!root.children?.length) return root;
+  return {
+    ...root,
+    children: root.children.filter((c) => c.id !== id).map((c) => removeNode(c, id)),
+  };
+}
+
+/** 在同父级里上下移动；返回原树表示移到边界外 */
+export function moveNode(root: SurveySchema, id: string, direction: -1 | 1): SurveySchema {
+  const parent = findParent(root, id);
+  if (!parent?.children) return root;
+  const list = parent.children;
+  const index = list.findIndex((c) => c.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= list.length) return root;
+  const next = [...list];
+  [next[index], next[target]] = [next[target], next[index]];
+  return updateNode(root, parent.id, { children: next });
+}
+
+/** 复制节点（含子树），重新生成所有 id */
+export function cloneNode(node: SurveySchema, newId: () => string): SurveySchema {
+  return {
+    ...node,
+    id: newId(),
+    children: node.children?.map((c) => cloneNode(c, newId)),
+  };
+}
