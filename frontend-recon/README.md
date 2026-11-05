@@ -19,17 +19,23 @@ node scripts/serve.mjs web http://你的后端:端口 4173
 
 ## 目录
 
-| 路径 | 内容 |
-|---|---|
-| `web/` | 从实例抓下来的原始产物（163 文件 / 14 MB） |
-| `pretty/` | prettier 美化后的同一批产物 |
-| `dec_umi_nojsx/` | webcrack 解包结果（1085 个模块，`--no-jsx`，可被 Node 解析） |
-| `modules3/` | 解包结果包上 webpack 工厂外壳，可直接 `require` |
-| `modules/` | 早期按 chunk 拆的版本（保留作对照） |
-| `extract/` | 机械抽取的中间数据（端点、i18n、路由、页面清单） |
-| `spec/` | **人类可读的规格文档**（架构/API/页面/模型/规则引擎/可行性） |
-| `recovered/` | **可移植的源码级产物**（规则引擎、API 客户端、i18n） |
-| `scripts/` | 全部工具链脚本 |
+| 路径 | 内容 | 入库 |
+|---|---|---|
+| `web/` | 从实例抓下来的原始产物（165 文件 / 14 MB） | ✅ 原始素材，丢了不可复现 |
+| `modules3/` | 解包结果包上 webpack 工厂外壳，可直接 `require`（1086 个） | ✅ 让 `npm test` 免联网即可跑 |
+| `extract/` | 机械抽取的中间数据（端点、i18n、路由、页面清单） | ✅ |
+| `spec/` | **人类可读的规格文档**（架构/API/页面/模型/规则引擎/可行性） | ✅ |
+| `recovered/` | **可移植的源码级产物**（规则引擎、API 客户端、i18n） | ✅ |
+| `scripts/` | 全部工具链脚本 | ✅ |
+| `dec_umi_nojsx/` | webcrack 解包结果（1085 个模块） | ❌ 由 `npm run unpack` 重建 |
+| `pretty/` | prettier 美化后的产物 | ❌ 可由 `web/` 重新美化 |
+| `modules/` `modules2/` | 早期按 chunk 拆的版本 | ❌ 已被 `modules3/` 取代 |
+| `dec_umi/` `dec_test/` `analysis/` `digest/` | 试验产物 | ❌ |
+| `node_modules/` | 依赖 | ❌ |
+
+**入库与不入库的界线**：原始素材 + 结论 + 可复用代码入库；一切能从 `web/` 重新算出来的中间产物不入库。
+
+`web/` 的归属与公开风险见 [NOTICE.md](./NOTICE.md)。
 
 ## 流水线
 
@@ -63,8 +69,26 @@ node scripts/serve.mjs web http://你的后端:端口 4173
 | 求值器封装 | `npm run test` | 6/6 |
 | API 客户端联机 | `npm run test:net` | 4/4 |
 
+## 从零重建
+
+入库的只有原始素材和结论。下面这些目录**不在版本控制里**，需要时按顺序生成：
+
+```bash
+npm install                    # 装 webcrack / prettier / jsdom
+npm run fetch                  # 1. 从实例重新抓产物 → web/
+npm run unpack                 # 2. webcrack 解包 + 包装 → dec_umi_nojsx/, modules3/
+npx prettier --write pretty/*  # 3. 美化（先把 web/*.js 拷进 pretty/）
+npm run test                   # 4. 验证
+```
+
+`npm run fetch` 默认抓 `http://192.168.0.2:201`，换地址：
+```bash
+node scripts/fetch-assets.mjs http://你的地址:端口 ./web
+```
+
 ## 局限
 
 - 设计器（`p__repo__Template`，935 KB / 21 556 行）**未回收**为可编译源码；React/Formily 耦合深，建议照着 `spec/model.md` 重写
 - 原产物无 sourcemap，变量名是还原的推断值，不是原始命名
 - `dec_umi_nojsx/` 里少数模块仍带 ESM 语法，直接跑需 `.mjs` 或转译
+- **新前端本体尚未开工**：这里只有规格 + 可复用模块，没有 `web-next/` 之类的应用工程
