@@ -254,7 +254,7 @@
   "pages.home.todo.table.title.surveyName": "问卷名称",
   "pages.home.welcome.message": "{greeting}，{name}，祝你开心每一天！",
   "pages.login.accountLogin.errorMessage": "账户或密码错误",
-  "pages.login.defaultSystemName": "卷王问卷考试系统",
+  "pages.login.defaultSystemName": "考试系统",
   "pages.login.failure": "登录失败，请重试！",
   "pages.login.loginWith": "其他登录方式",
   "pages.login.noAccount": "还没有账号？",
