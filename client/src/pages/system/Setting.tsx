@@ -143,7 +143,7 @@ export default function SystemSetting() {
                       <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} placeholder="一句话介绍" />
                     </Form.Item>
                     <Form.Item name="copyright" label="版权信息">
-                      <Input placeholder="例如 © 2025 SurveyKing" allowClear />
+                      <Input placeholder="例如 © 2025 旭日云课堂" allowClear />
                     </Form.Item>
                     <Form.Item name="recordNum" label="备案号">
                       <Input placeholder="例如 京ICP备00000000号" allowClear />
