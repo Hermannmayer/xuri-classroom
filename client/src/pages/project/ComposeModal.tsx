@@ -160,17 +160,28 @@ export default function ComposeModal({ open, initialName, onCancel, onCreated }:
         return;
       }
 
+      // 后端 pick 返回的题目只有 children（Option 节点），渲染器读 dataSource，这里补一份
+      const questions = picked.map((question) => {
+        if (question.dataSource?.length) return question;
+        const options = (question.children ?? []).filter((child) => child.type === 'Option' || !child.type);
+        if (options.length === 0) return question;
+        return {
+          ...question,
+          dataSource: options.map((child) => ({ label: child.title ?? '', value: child.id })),
+        };
+      });
+
       const survey: SurveySchema = {
         id: rootId(),
         title,
         type: 'Survey',
         attribute: {},
-        children: picked,
+        children: questions,
       };
       await updateProject({ id: projectId, survey });
 
-      const actualScore = picked.reduce((sum, question) => sum + (question.attribute?.examScore ?? 0), 0);
-      message.success(`已生成 ${picked.length} 道题，总分 ${actualScore}`);
+      const actualScore = questions.reduce((sum, question) => sum + (question.attribute?.examScore ?? 0), 0);
+      message.success(`已生成 ${questions.length} 道题，总分 ${actualScore}`);
       onCreated(projectId);
     } catch (e) {
       if (projectId) {
