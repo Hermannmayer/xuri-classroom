@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import ProjectList from './pages/project/List';
 import SurveyEditor from './pages/survey/Editor';
 import SurveySetting from './pages/survey/Setting';
+import SurveyOverview from './pages/survey/Overview';
 import SurveyData from './pages/survey/Data';
 import SurveyReport from './pages/survey/Report';
 import SystemUser from './pages/system/User';
@@ -41,7 +42,7 @@ export const router = createBrowserRouter([
       { path: 'repo/book', element: <Placeholder title="练习册" /> },
       { path: 'repo/:repoId/questions/:mode', element: <RepoQuestions /> },
       { path: 'account/settings', element: <AccountSettings /> },
-      { path: 'survey/:id', element: <Placeholder title="问卷总览" /> },
+      { path: 'survey/:id', element: <SurveyOverview /> },
       { path: 'survey/:id/edit', element: <SurveyEditor /> },
       { path: 'survey/:id/setting', element: <SurveySetting /> },
       { path: 'survey/:id/data', element: <SurveyData /> },
