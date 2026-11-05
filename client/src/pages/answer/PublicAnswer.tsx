@@ -58,6 +58,12 @@ export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema |
 /** 匿名答题者没有账号，用本地保存的 answerId 当凭证：下次打开同一问卷可以续答或回看 */
 const answerKey = (projectId: string) => `sk-answer-${projectId}`;
 
+/**
+ * 未提交草稿：后端 tempSaveAnswer 要求「已登录 + 随机卷 cookie」才生效，
+ * 匿名场景靠本地草稿续答（发布设置 autoSave 关掉时不存）。
+ */
+const draftKey = (projectId: string) => `sk-draft-${projectId}`;
+
 export default function PublicAnswer() {
   const { id = '', answerId: routeAnswerId } = useParams();
   const { modal } = App.useApp();
@@ -115,6 +121,34 @@ export default function PublicAnswer() {
       setLoading(false);
     }
   }, [id, routeAnswerId, applyProject]);
+
+  /** 打开时如果本地有未提交草稿、且这次不是回看已提交答卷，就回填 */
+  useEffect(() => {
+    if (!project || result) return;
+    if (project.answer) return;
+    const raw = localStorage.getItem(draftKey(id));
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw) as { values?: Record<string, AnswerValue> };
+      if (draft.values && Object.keys(draft.values).length > 0) {
+        setValues(draft.values);
+        message.info('已恢复上次未提交的答案');
+      }
+    } catch {
+      localStorage.removeItem(draftKey(id));
+    }
+  }, [project, id, result]);
+
+  /** 自动暂存到本地（防抖 600ms），提交成功后清除 */
+  useEffect(() => {
+    if (!project || result) return;
+    if (project.setting?.answerSetting?.autoSave === false) return;
+    if (Object.keys(values).length === 0) return;
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(draftKey(id), JSON.stringify({ values, at: Date.now() }));
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [values, project, result, id]);
 
   useEffect(() => {
     void load();
@@ -212,6 +246,7 @@ export default function PublicAnswer() {
         localStorage.setItem(answerKey(id), res.answerId);
       }
       setResult(res);
+      localStorage.removeItem(draftKey(id));
       message.success('已提交');
     } catch (e) {
       submittedRef.current = false;
