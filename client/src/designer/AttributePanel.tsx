@@ -1,11 +1,15 @@
 import { Collapse, Form, Input, InputNumber, Select, Switch } from 'antd';
 import type { Attribute, SurveySchema } from '../schema/types';
+import type { FlatQuestion } from '../schema/flatten';
 import { ATTRIBUTE_GROUPS, attributeSchema, type AttributeField } from './attributeSchema';
+import RuleEditor from './RuleEditor';
 
 export interface AttributePanelProps {
   schema: SurveySchema;
   /** 只回传被改动的字段，由调用方合并进 schema.attribute */
   onChange: (patch: Partial<Attribute>) => void;
+  /** 规则条件可选的题目（通常传当前题之前的题） */
+  questions?: FlatQuestion[];
 }
 
 const ITEM_STYLE = { marginBottom: 12 };
@@ -14,7 +18,7 @@ const ITEM_STYLE = { marginBottom: 12 };
  * 数据驱动的属性面板：字段全部来自 attributeSchema，按 group 折叠。
  * 值直接取自 schema.attribute（受控），不另建表单状态，避免与设计器其它入口互相覆盖。
  */
-export function AttributePanel({ schema, onChange }: AttributePanelProps) {
+export function AttributePanel({ schema, onChange, questions }: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
 
   const set = (key: keyof Attribute, value: unknown) => {
@@ -107,6 +111,18 @@ export function AttributePanel({ schema, onChange }: AttributePanelProps) {
     );
   };
 
+  /** 可视化规则编辑器：显隐 / 必填用条件构建器，其余仍是 JSON（动作语义等 P3） */
+  const renderConditionalField = (field: AttributeField) => (
+    <div key={field.key} style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--bp-text)' }}>{field.label}</div>
+      <RuleEditor
+        value={attribute[field.key] as string | undefined}
+        questions={questions ?? []}
+        onChange={(next) => set(field.key, next)}
+      />
+    </div>
+  );
+
   const items = ATTRIBUTE_GROUPS.map((group) => ({
     key: group,
     label: group,
@@ -114,9 +130,14 @@ export function AttributePanel({ schema, onChange }: AttributePanelProps) {
       <div>
         {attributeSchema
           .filter((f) => f.group === group)
-          .map((field) =>
-            group === '规则' && field.control === 'textarea' ? renderRuleField(field) : renderField(field),
-          )}
+          .map((field) => {
+            if (group === '规则') {
+              const conditional = field.key === 'visibleRule' || field.key === 'requiredRule';
+              if (conditional) return renderConditionalField(field);
+              return renderRuleField(field);
+            }
+            return renderField(field);
+          })}
       </div>
     ),
   }));
