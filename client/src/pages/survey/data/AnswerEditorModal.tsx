@@ -40,7 +40,7 @@ export default function AnswerEditorModal({
     <Modal
       open={open}
       title={mode === 'edit' ? '编辑答卷' : '添加数据'}
-      width={760}
+      width="min(760px, 94vw)"
       okText="保存"
       cancelText="取消"
       confirmLoading={submitting}
