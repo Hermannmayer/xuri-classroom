@@ -1,0 +1,302 @@
+{
+  "POST /api/public/saveAnswer": [
+    "p__Answer__PublicQuery.8c4ae2a7.async.js"
+  ],
+  "POST /api/public/logout": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/public/dbInit/environment": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/dbInit/test": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/dbInit": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/system": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/system/aiSetting": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/system/oauthSetting": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/oauthSetting": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/oauth/login/": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/oauth/bind/": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/oauth/survey/wechat/start": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/oauth/bindings": [
+    "umi.ded23be0.js"
+  ],
+  "DELETE /api/oauth/bindings/": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/public/oauth/register/": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/register": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/userOverview": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/public/listRegisterRole": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/update": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/project/trash": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/destroy": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/restore": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/answer/trash": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/answer/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/answer/restore": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/answer/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/answer/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/answer/destroy": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/delete": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/report/": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/file/list": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/file/delete": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/template/get": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/template/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/template/delete": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/template/listCategory": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/template/listTag": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/role/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/role/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/role/update": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/system/permission/list": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/user/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/user/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/user/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/user": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/system/checkUsernameExist": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/system/dept/list": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dept/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dept/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dept/sort": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dept/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/position/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/position/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/position/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/workflow/saveFlow": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/workflow/loadSchema": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/workflow/approvalTask": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/workflow/statics": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/partner/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/partner/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectUser": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectDept": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectRole": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectDict": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectPosition": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectTemplate": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectRepo": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/project/selectTag": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/partner/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/partner/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/batchCreate": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/pick": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/unbind": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/loadQuery": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/loadDict": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/loadExamResult": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/loadLinkResult": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/getQueryResult": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dict/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dict/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dict/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dictItem/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dictItem/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/system/dictItem/delete": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/repo/book/question": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/book/create": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/book/update": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/repo/book/delete": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/exercise/delete": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/ai/chat/models": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/ai/chat/create-conversation": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/ai/chat/answer-analysis/create-conversation": [
+    "umi.ded23be0.js"
+  ],
+  "GET /api/currentUser": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/login": [
+    "umi.ded23be0.js"
+  ],
+  "POST /api/public/oauth/register/": [
+    "umi.ded23be0.js"
+  ]
+}

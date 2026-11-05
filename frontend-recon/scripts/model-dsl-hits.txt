@@ -1,0 +1,1107 @@
+
+===== 1642.a77bd65f.async.js #1 @85686 =====
+ (s(84705), s(17793)),
+        ve = s(56274),
+        ye = s(21487),
+        xe = (s(86087), s(2760)),
+        Me = s(25468),
+        je = s(81764),
+        Ze = [
+          "FillBlank",
+          "MultipleBlank",
+          "Textarea",
+          "Signature",
+          "Radio",
+          "Checkbox",
+          "Select",
+          "Cascader",
+          "HorzBlank",
+          "MatrixAuto",
+          "MatrixRadio",
+          "MatrixCheckbox",
+          "MatrixFillBlank",
+          "MatrixNps",
+          "MatrixScore",
+          "Upload",
+          "Score",
+          "Nps",
+          "Remark",
+          "SplitLine",
+          "User",
+          "Dept",
+          "Address",
+          "Barcode",
+        ],
+        be = ["Pagination", "Remark", "SplitLine"];
+      function ke(e, t) {
+        var s = [];
+        return e
+          ? ((Ze.includes(e.type) || be.includes(e.type)) &&
+              s.push({ id: e.id, title: t ? t(e) : (0, Me.WO)(e.title), type: e.type }),
+            e.children &&
+              e.children.map(function (e) {
+                var n = ke(e, t);
+                n && s.push.apply(s, (0, Q.Z)(n));
+              }),
+            s)
+          : s;
+      }
+      var Ce = function (e) {
+          var t = e.value,
+            s = e.onChange;
+          return (0, a.jsxs)(
+  
+
+===== 3633.25827928.async.js #1 @192824 =====
+     );
+        };
+        return (0, p.jsx)(ln.Z, {
+          children: o.map(function (e) {
+            return c(e);
+          }),
+        });
+      }
+      ((0, d.RM)("MatrixAuto", Nn, "antdMobile"),
+        (0, d.RM)("MatrixCheckbox", Zn, "antdMobile"),
+        (0, d.RM)("MatrixFillBlank", (0, o.Pi)(Sn), "antdMobile"),
+        (0, d.uF)("MatrixFillBlank", Mn, "antdMobile"),
+        (0, d.RM)("MatrixRadio", En, "antdMobile"),
+        (0, d.RM)("Nps", Rn, "antdMobile"));
+      var Qn = Se.ZP.Group;
+      function Dn(e) {
+        var n,
+          t = e.schema,
+          i = e.onChange,
+          a = e.value,
+          s = void 0 === a ? {} : a,
+          o = t.children,
+          d = (0, c.AK)("-body-question"),
+          u = !(null === (n = t.attribute) || void 0 === n || !n.statEnabled),
+          h = (0, c.Rk)(),
+          v = h.hiddenOption[t.id] || [],
+          f = (0, c.Al)(),
+          m = "exam" === f.mode && "Radio" === t.type;
+        function g(e, n) {
+          i((0, j.Z)({}, e, n || !0));
+        }
+        return (
+          (0, l.useEffect)(
+            function () {
+              var e = Object.keys(s)[0];
+              v.includes(e) && i(void 0);
+            },
+            [v],
+          ),
+          (0, l.useEffect)(function () {
+            var e;
+            
+
+===== 5069.776e4314.async.js #1 @141611 =====
+n: [
+                    (0, c.jsx)("div", { children: s ? v : d }),
+                    (0, c.jsx)("div", { children: s ? d : v }),
+                  ],
+                }),
+              ],
+            },
+            e.id,
+          );
+        };
+        return (0, c.jsx)(Se.Z, {
+          children: l.map(function (e) {
+            return x(e);
+          }),
+        });
+      }
+      ((0, d.RM)("MatrixRadio", Nn, "antd"),
+        (0, d.uF)("MatrixRadio", kn, "antd"),
+        (0, d.RM)("Nps", Sn, "antd"));
+      var In = oe.ZP.Group;
+      function Mn(e) {
+        var n = e.schema,
+          t = e.onChange,
+          i = e.value,
+          r = void 0 === i ? {} : i,
+          o = e.onBlur,
+          d = n.children,
+          u = n.attribute,
+          v = 24 / ((null === u || void 0 === u ? void 0 : u.columns) || 1),
+          h = (0, l.AK)("-body-question"),
+          f = !(null === u || void 0 === u || !u.statEnabled),
+          m = (0, l.Rk)(),
+          x = m.hiddenOption[n.id] || [],
+          p = (0, l.Al)(),
+          g = "exam" === p.mode && "Radio" === n.type;
+        function j(e) {
+          var i,
+            a = e.target.value,
+            o =
+              null === (i = n.children) || void 0 === i
+                ? void 0
+                : i.find(function (e) {
+    
+
+===== 5069.776e4314.async.js #2 @141657 =====
+hildren: s ? v : d }),
+                    (0, c.jsx)("div", { children: s ? d : v }),
+                  ],
+                }),
+              ],
+            },
+            e.id,
+          );
+        };
+        return (0, c.jsx)(Se.Z, {
+          children: l.map(function (e) {
+            return x(e);
+          }),
+        });
+      }
+      ((0, d.RM)("MatrixRadio", Nn, "antd"),
+        (0, d.uF)("MatrixRadio", kn, "antd"),
+        (0, d.RM)("Nps", Sn, "antd"));
+      var In = oe.ZP.Group;
+      function Mn(e) {
+        var n = e.schema,
+          t = e.onChange,
+          i = e.value,
+          r = void 0 === i ? {} : i,
+          o = e.onBlur,
+          d = n.children,
+          u = n.attribute,
+          v = 24 / ((null === u || void 0 === u ? void 0 : u.columns) || 1),
+          h = (0, l.AK)("-body-question"),
+          f = !(null === u || void 0 === u || !u.statEnabled),
+          m = (0, l.Rk)(),
+          x = m.hiddenOption[n.id] || [],
+          p = (0, l.Al)(),
+          g = "exam" === p.mode && "Radio" === n.type;
+        function j(e) {
+          var i,
+            a = e.target.value,
+            o =
+              null === (i = n.children) || void 0 === i
+                ? void 0
+                : i.find(function (e) {
+                    return e.id === a;
+           
+
+===== 8221.a435c80d.async.js #1 @454711 =====
+ired: !0 },
+          children: [
+            { title: "\u8bf7\u8f93\u5165", attribute: { dataType: "text" } },
+            {
+              title: "\u8bf7\u9009\u62e9",
+              dataSource: [{ label: "\u9009\u98791", value: "" }],
+              attribute: { dataType: "select" },
+            },
+          ],
+        },
+        q = {
+          title: "\u77e9\u9635\u5355\u9009",
+          type: "MatrixRadio",
+          attribute: { required: !0 },
+          row: [{ title: "\u77e9\u9635\u884c1" }, { title: "\u77e9\u9635\u884c2" }],
+          children: [{ title: "\u9009\u98791" }, { title: "\u9009\u98792" }],
+        },
+        k = {
+          title: "\u77e9\u9635\u591a\u9009",
+          type: "MatrixCheckbox",
+          attribute: { required: !0 },
+          row: [{ title: "\u77e9\u9635\u884c1" }, { title: "\u77e9\u9635\u884c2" }],
+          children: [{ title: "\u9009\u98791" }, { title: "\u9009\u98792" }],
+        },
+        w = {
+          title: "\u77e9\u9635\u586b\u7a7a",
+          type: "MatrixFillBlank",
+          attribute: { required: !0 },
+          row: [{ title: "\u77e9\u9635\u884c1" }, { title: "\u77e9\u9635\u884c2" }],
+          children: [{ title: "\u9009\u98791" }, { title: "\u9009\u98792" }],
+        },
+        C = {
+          title: "\u4e0a\u4f20\u9898",
+       
+
+===== 8221.a435c80d.async.js #2 @456345 =====
+5e8\u5b57\u6bb5",
+          type: "Dept",
+          attribute: { required: !0 },
+          children: [{}],
+        },
+        j = {
+          Survey: i,
+          QuestionSet: r,
+          Radio: v,
+          Checkbox: s,
+          Select: c,
+          FillBlank: d,
+          Textarea: f,
+          HorzBlank: h,
+          MultipleBlank: g,
+          Cascader: x,
+          MatrixAuto: y,
+          MatrixRadio: q,
+          MatrixCheckbox: k,
+          MatrixFillBlank: w,
+          Option: S,
+          Upload: C,
+          Signature: m,
+          Score: b,
+          User: N,
+          Dept: E,
+          Nps: o,
+          Address: p,
+        };
+      n.registerQuestionTemplates(j, "exam");
+      var Z = a(88769),
+        _ = (0, u.JH)(),
+        T = (0, Z.lw)(),
+        A = function (l, e) {
+          return T.formatMessage({ id: l, defaultMessage: e });
+        },
+        M = A("pages.survey.editor.template.common.option1", "\u9009\u98791"),
+        R = A("pages.survey.editor.template.common.option2", "\u9009\u98792"),
+        D = A("pages.survey.editor.template.common.blank1", "\u586b\u7a7a1"),
+        z = A("pages.survey.editor.template.common.blank2", "\u586b\u7a7a2"),
+        L = A("pages.survey.editor.template.common.pleaseSelect", "\u8bf7\u9009\u62e9"),
+        O = A("pages.s
+
+===== 8221.a435c80d.async.js #3 @463108 =====
+      type: "MatrixAuto",
+          attribute: { required: !0 },
+          children: [
+            { title: O, attribute: { dataType: "text" } },
+            { title: L, dataSource: [{ label: M, value: "" }], attribute: { dataType: "select" } },
+          ],
+        },
+        rl = {
+          title: A("pages.survey.editor.template.matrixRadio.title", "\u77e9\u9635\u5355\u9009"),
+          type: "MatrixRadio",
+          attribute: { required: !0 },
+          row: [{ title: I }, { title: B }],
+          children: [{ title: M }, { title: R }],
+        },
+        vl = {
+          title: A("pages.survey.editor.template.matrixCheckbox.title", "\u77e9\u9635\u591a\u9009"),
+          type: "MatrixCheckbox",
+          attribute: { required: !0 },
+          row: [{ title: I }, { title: B }],
+          children: [{ title: M }, { title: R }],
+        },
+        bl = {
+          title: A(
+            "pages.survey.editor.template.matrixFillBlank.title",
+            "\u77e9\u9635\u586b\u7a7a",
+          ),
+          type: "MatrixFillBlank",
+          attribute: { required: !0 },
+          row: [{ title: I }, { title: B }],
+          children: [{ title: M }, { title: R }],
+        },
+        ol = {
+          title: A("pages.survey.editor.template.upload.title", "\u4e0a\u4f20\u9898"),
+          
+
+===== 8221.a435c80d.async.js #4 @465559 =====
+        type: "RichText",
+          attribute: { required: !0 },
+          children: [{ title: P }],
+        },
+        ml = {
+          Survey: W,
+          QuestionSet: Q,
+          Radio: J,
+          Checkbox: Y,
+          Select: $,
+          FillBlank: G,
+          Textarea: al,
+          HorzBlank: ll,
+          MultipleBlank: ul,
+          Cascader: nl,
+          MatrixAuto: il,
+          MatrixRadio: rl,
+          MatrixCheckbox: vl,
+          MatrixFillBlank: bl,
+          Option: sl,
+          Upload: ol,
+          Signature: tl,
+          Score: K,
+          User: cl,
+          Dept: dl,
+          Nps: X,
+          Address: el,
+          Barcode: hl,
+          ChartRadar: pl,
+          RichText: fl,
+        };
+      _.registerQuestionTemplates(ml);
+    },
+    74875: function (l, e, a) {
+      "use strict";
+      a.d(e, {
+        te: function () {
+          return b;
+        },
+        jE: function () {
+          return C;
+        },
+        Uh: function () {
+          return g;
+        },
+        k6: function () {
+          return d;
+        },
+        XI: function () {
+          return c;
+        },
+        $1: function () {
+          return r;
+        },
+        Mq: function () {
+          return o;
+        },
+        Tv: function () {
+          return f;
+        },
+
+===== p__repo__Template.0e3ebd20.async.js #1 @43742 =====
+5730\u5740\u9898",
+          Cascader: "\u7ea7\u8054\u9898",
+          MultipleBlank: "\u591a\u9879\u586b\u7a7a\u9898",
+          Dept: "\u90e8\u95e8\u9898",
+          MatrixAuto: "\u77e9\u9635\u81ea\u589e\u9898",
+          MatrixCheckbox: "\u77e9\u9635\u591a\u9009\u9898",
+          MatrixFillBlank: "\u77e9\u9635\u586b\u7a7a\u9898",
+          MatrixNps: "\u77e9\u9635\u91cf\u8868\u9898",
+          MatrixRadio: "\u77e9\u9635\u5355\u9009\u9898",
+          MatrixScore: "\u77e9\u9635\u6253\u5206\u9898",
+          Nps: "Nps\u9898",
+          Option: "\u9009\u9879",
+          Pagination: "\u5206\u9875\u9898",
+          QuestionSet: "\u95ee\u9898\u7ec4",
+          Remark: "\u5907\u6ce8\u9898",
+          Score: "\u6253\u5206\u9898",
+          Signature: "\u7b7e\u540d\u9898",
+          SplitLine: "\u5206\u5272\u7ebf\u9898",
+          Survey: "\u95ee\u5377",
+          Upload: "\u4e0a\u4f20\u9898",
+          User: "\u7528\u6237\u9898",
+          Barcode: "\u4e8c\u7ef4\u7801",
+          RichText: "\u5bcc\u6587\u672c",
+          Judge: "\u5224\u65ad\u9898",
+          RandomSurvey: "\u968f\u673a\u95ee\u5377",
+        },
+        S = (0, x.Pi)(function (e) {
+          var t = e.repoId,
+            n = e.mode,
+            v = (0, m.eM)(),
+            x = v.templates,
+            C = (0, y.useRef)(
+
+===== p__repo__Template.0e3ebd20.async.js #2 @136755 =====
+        var e = (0, C.YB)();
+          return (0, p.jsx)(ie, {
+            title: e.formatMessage({
+              id: "pages.survey.editor.attributes.readonly.title",
+              defaultMessage: "\u53ea\u8bfb",
+            }),
+            name: "readOnly",
+          });
+        },
+        Te = function () {
+          var e = (0, C.YB)(),
+            t = [
+              {
+                value: "MatrixRadio",
+                label: e.formatMessage({
+                  id: "pages.survey.editor.attributes.matrixType.option.matrixRadio",
+                  defaultMessage: "\u77e9\u9635\u5355\u9009",
+                }),
+              },
+              {
+                value: "MatrixCheckbox",
+                label: e.formatMessage({
+                  id: "pages.survey.editor.attributes.matrixType.option.matrixCheckbox",
+                  defaultMessage: "\u77e9\u9635\u591a\u9009",
+                }),
+              },
+              {
+                value: "MatrixFillBlank",
+                label: e.formatMessage({
+                  id: "pages.survey.editor.attributes.matrixType.option.matrixFillBlank",
+                  defaultMessage: "\u77e9\u9635\u586b\u7a7a",
+                }),
+              },
+            ];
+          return (0, p.jsx)(te, {
+            dataSource: t,
+          
+
+===== p__repo__Template.0e3ebd20.async.js #3 @322674 =====
+.attribute) || void 0 === a
+                          ? void 0
+                          : a.exclusiveFillBlankInMatrix;
+                    e.forEach(function (e) {
+                      switch (n.type) {
+                        case "MatrixFillBlank":
+                          e[t.id] = (0, p.jsx)(g.uO, { dataType: r, width: 120 });
+                          break;
+                        case "MatrixRadio":
+                          e[t.id] = (0, p.jsxs)("div", {
+                            style: {
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            },
+                            children: [
+                              !s && (0, p.jsx)(En.ZP, {}),
+                              r && (0, p.jsx)(g.uO, { dataType: r }),
+                            ],
+                          });
+                          break;
+                        case "MatrixCheckbox":
+                          e[t.id] = (0, p.jsxs)("div", {
+                            style: {
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            },
+                
+
+===== p__repo__Template.0e3ebd20.async.js #4 @327747 =====
+iv", { className: o()("matrix"), children: (0, p.jsx)(Dn, {}) });
+      }
+      function Un(e) {
+        var t = e.settingType;
+        return (0, p.jsx)("div", {
+          children:
+            "question" === t &&
+            (0, p.jsxs)(p.Fragment, { children: [(0, p.jsx)(de, {}), (0, p.jsx)(ce, {})] }),
+        });
+      }
+      ((0, v.j1)("MatrixFillBlank", (0, pe.Pi)(Fn)),
+        (0, v.j1)("MatrixRadio", (0, pe.Pi)(Fn)),
+        (0, v.j1)("MatrixCheckbox", (0, pe.Pi)(Fn)),
+        (0, v.QT)(
+          "MatrixFillBlank",
+          _n("MatrixFillBlank", function (e) {
+            return (0, p.jsxs)("div", {
+              children: [
+                (0, p.jsx)(de, {}),
+                (0, p.jsx)(ke, {}),
+                (0, p.jsx)(le, {}),
+                (0, p.jsx)(At, { syncDisplay: { dataType: ["text"] } }),
+                (0, p.jsx)(Se, {}),
+                (0, p.jsx)(At, {
+                  syncDisplay: { dataType: ["text", "chinese", "alphabet", "number"] },
+                }),
+                (0, p.jsx)(wt, { syncDisplay: { dataType: ["text"] } }),
+                (0, p.jsx)(gt, { syncDisplay: { dataType: ["date"] } }),
+                (0, p.jsx)(ht, {
+                  name: "dictCode",
+                  title: e.formatMessage({
+                    id: "pages.survey.e
+
+===== p__repo__Template.0e3ebd20.async.js #5 @329011 =====
+                 id: "pages.survey.editor.questions.common.dictCode",
+                    defaultMessage: "\u5b57\u5178\u7f16\u7801",
+                  }),
+                  syncDisplay: { dataType: ["selectDict"] },
+                }),
+                (0, p.jsx)(Zt, { syncDisplay: { dataType: ["select"] } }),
+              ],
+            });
+          }),
+        ),
+        (0, v.QT)(
+          "MatrixRadio",
+          _n("MatrixRadio", function (e) {
+            return (0, p.jsx)("div", {
+              children: (0, p.jsx)(g.Sc, {
+                title: e.formatMessage({
+                  id: "pages.survey.editor.questions.matrix.addBlankControl",
+                  defaultMessage: "\u5728\u9009\u9879\u540e\u589e\u52a0\u586b\u7a7a\u6846",
+                }),
+                initialDependOn: "dataType",
+                name: "_void",
+                children: (0, p.jsxs)("div", {
+                  className: "collapse-fill-blank",
+                  children: [
+                    (0, p.jsx)(le, {}),
+                    (0, p.jsx)(Ae, {}),
+                    (0, p.jsx)(de, {}),
+                    (0, p.jsx)(At, { syncDisplay: { dataType: ["text"] } }),
+                    (0, p.jsx)(Se, {}),
+                    (0, p.jsx)(g.KV, {
+                      title: e.formatMessage({
+  
+
+===== p__repo__Template.0e3ebd20.async.js #6 @329039 =====
+survey.editor.questions.common.dictCode",
+                    defaultMessage: "\u5b57\u5178\u7f16\u7801",
+                  }),
+                  syncDisplay: { dataType: ["selectDict"] },
+                }),
+                (0, p.jsx)(Zt, { syncDisplay: { dataType: ["select"] } }),
+              ],
+            });
+          }),
+        ),
+        (0, v.QT)(
+          "MatrixRadio",
+          _n("MatrixRadio", function (e) {
+            return (0, p.jsx)("div", {
+              children: (0, p.jsx)(g.Sc, {
+                title: e.formatMessage({
+                  id: "pages.survey.editor.questions.matrix.addBlankControl",
+                  defaultMessage: "\u5728\u9009\u9879\u540e\u589e\u52a0\u586b\u7a7a\u6846",
+                }),
+                initialDependOn: "dataType",
+                name: "_void",
+                children: (0, p.jsxs)("div", {
+                  className: "collapse-fill-blank",
+                  children: [
+                    (0, p.jsx)(le, {}),
+                    (0, p.jsx)(Ae, {}),
+                    (0, p.jsx)(de, {}),
+                    (0, p.jsx)(At, { syncDisplay: { dataType: ["text"] } }),
+                    (0, p.jsx)(Se, {}),
+                    (0, p.jsx)(g.KV, {
+                      title: e.formatMessage({
+                        id: "p
+
+===== p__repo__Template.0e3ebd20.async.js #7 @331601 =====
+           (0, p.jsx)(de, {}),
+                    (0, p.jsx)(le, {}),
+                    (0, p.jsx)(Ae, {}),
+                    (0, p.jsx)(At, { syncDisplay: { dataType: ["text"] } }),
+                    (0, p.jsx)(Se, {}),
+                  ],
+                }),
+              }),
+            });
+          }),
+        ),
+        (0, v.RY)("MatrixFillBlank", (0, r.Pi)(Yn)),
+        (0, v.RY)("MatrixRadio", (0, r.Pi)(Yn)),
+        (0, v.RY)("MatrixCheckbox", (0, r.Pi)(Yn)),
+        (0, v.QT)("Pagination", (0, r.Pi)(Un)));
+      var Wn = (0, r.Pi)(function () {
+        var e = (0, l.useContext)(v.Gb),
+          t = e.node,
+          n = (0, l.useContext)(v.rU),
+          i = n.tree,
+          a = i.children.filter(function (e) {
+            return "Pagination" === e.type;
+          }).length,
+          r = (0, C.YB)();
+        return (0, p.jsx)("div", {
+          className: o()("pagination"),
+          children: r.formatMessage(
+            {
+              id: "pages.survey.editor.questions.pagination.label",
+              defaultMessage: "\u7b2c{current}\u9875(\u5171{total}\u9875)",
+            },
+            { current: t.index + 1, total: a },
+          ),
+        });
+      });
+      function Qn(e) {
+        return (0, p.jsx)("div", { children: (0, p.jsx)(Ue, {}) });
+      }
+
+
+===== p__repo__Template.0e3ebd20.async.js #8 @556815 =====
+   },
+          MenuJudge: function () {
+            return le;
+          },
+          MenuMatrixAuto: function () {
+            return F;
+          },
+          MenuMatrixCheckbox: function () {
+            return Y;
+          },
+          MenuMatrixFillBlank: function () {
+            return _;
+          },
+          MenuMatrixNps: function () {
+            return oe;
+          },
+          MenuMatrixRadio: function () {
+            return U;
+          },
+          MenuMobile: function () {
+            return ae;
+          },
+          MenuMulti: function () {
+            return W;
+          },
+          MenuMultipleBlank: function () {
+            return Q;
+          },
+          MenuName: function () {
+            return de;
+          },
+          MenuNation: function () {
+            return te;
+          },
+          MenuNps: function () {
+            return G;
+          },
+          MenuPagination: function () {
+            return J;
+          },
+          MenuProvinceCityCounty: function () {
+            return ee;
+          },
+          MenuQuestionSet: function () {
+            return X;
+          },
+          MenuRadio: function () {
+            return K;
+          },
+          MenuRandomSurvey: function () {
+            return ge;
+          },
+          MenuRemark: fun
+
+===== p__repo__Template.0e3ebd20.async.js #9 @561424 =====
+ title: "\u6a2a\u5411\u586b\u7a7a" },
+            { type: "Barcode", title: "\u626b\u7801\u9898" },
+          ],
+          "\u6253\u5206\u9898": [
+            { type: "Score", title: "\u6253\u5206\u9898" },
+            { type: "Nps", title: "NPS\u9898" },
+          ],
+          "\u77e9\u9635\u9898": [
+            { type: "MatrixFillBlank", title: "\u77e9\u9635\u586b\u7a7a" },
+            { type: "MatrixRadio", title: "\u77e9\u9635\u5355\u9009" },
+            { type: "MatrixCheckbox", title: "\u77e9\u9635\u591a\u9009" },
+            { type: "MatrixAuto", title: "\u8868\u683c\u81ea\u589e" },
+          ],
+          "\u8f85\u52a9\u5e03\u5c40": [
+            { type: "QuestionSet", title: "\u95ee\u9898\u7ec4" },
+            { type: "Remark", title: "\u6587\u5b57\u63cf\u8ff0" },
+            { type: "Pagination", title: "\u5206\u9875" },
+            { type: "SplitLine", title: "\u5206\u5272\u7ebf" },
+          ],
+          "\u9ad8\u7ea7\u9898\u578b": [
+            { type: "User", title: "\u6210\u5458" },
+            { type: "Dept", title: "\u90e8\u95e8" },
+            { type: "RichText", title: "\u5bcc\u6587\u672c" },
+          ],
+          "\u4e2a\u4eba\u4fe1\u606f": [
+            { type: "Address", title: "\u5730\u7406\u4f4d\u7f6e" },
+            { type: "Cascader", title: "\u7701\u5e0
+
+===== p__survey__Flow.4421c92c.async.js #1 @85377 =====
+t(22964)),
+        Oe = t(21487),
+        De = (t(86087), t(2760)),
+        Ie = (t(84705), t(17793)),
+        Le = t(37268),
+        Re = t(25468),
+        Ae = t(81764),
+        Be = [
+          "FillBlank",
+          "MultipleBlank",
+          "Textarea",
+          "Signature",
+          "Radio",
+          "Checkbox",
+          "Select",
+          "Cascader",
+          "MatrixAuto",
+          "MatrixRadio",
+          "MatrixCheckbox",
+          "MatrixFillBlank",
+          "MatrixScore",
+          "Upload",
+          "Score",
+          "Nps",
+          "Remark",
+          "SplitLine",
+          "User",
+          "Dept",
+        ],
+        Ue = ["Pagination", "Remark", "SplitLine"],
+        Ve = {
+          Pagination: "\u5206\u9875",
+          Remark: "\u5907\u6ce8",
+          SplitLine: "\u5206\u5272\u7ebf",
+        };
+      function ze(e) {
+        var n = [];
+        return e
+          ? ((Be.includes(e.type) || Ue.includes(e.type)) &&
+              n.push({ id: e.id, title: Ve[e.type] || (0, Re.WO)(e.title), type: e.type }),
+            e.children &&
+              e.children.map(function (e) {
+                var t = ze(e);
+                t && n.push.apply(n, (0, d.Z)(t));
+              }),
+            n)
+          : n;
+      }
+      var We = function (e) {
+          var 
+
+===== umi.ded23be0.js #1 @1100755 =====
+ll-in",
+            "pages.survey.editor.widgets.questionType.item.Barcode": "Barcode",
+            "pages.survey.editor.widgets.questionType.item.Score": "Rating",
+            "pages.survey.editor.widgets.questionType.item.Nps": "NPS question",
+            "pages.survey.editor.widgets.questionType.item.MatrixFillBlank": "Matrix fill-in",
+            "pages.survey.editor.widgets.questionType.item.MatrixRadio": "Matrix single choice",
+            "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+              "Matrix multiple choice",
+            "pages.survey.editor.widgets.questionType.item.MatrixAuto": "Auto table",
+            "pages.survey.editor.widgets.questionType.item.QuestionSet": "Question group",
+            "pages.survey.editor.widgets.questionType.item.Remark": "Text description",
+            "pages.survey.editor.widgets.questionType.item.Pagination": "Pagination",
+            "pages.survey.editor.widgets.questionType.item.SplitLine": "Divider",
+            "pages.survey.editor.widgets.questionType.item.User": "Member",
+            "pages.survey.editor.widgets.questionType.item.Dept": "Department",
+            "pages.survey.editor.widgets.questionType.item.RichText": "Rich text",
+            "pages.survey.editor.widgets.questionType.item.Address": "Loca
+
+===== umi.ded23be0.js #2 @1306246 =====
+vey.editor.widgets.questionType.item.Barcode": "Barcode",
+              "pages.survey.editor.widgets.questionType.item.Score": "Bewertung",
+              "pages.survey.editor.widgets.questionType.item.Nps": "NPS-Frage",
+              "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+                "Matrix-Ausf\xfcllung",
+              "pages.survey.editor.widgets.questionType.item.MatrixRadio": "Matrix-Einzelauswahl",
+              "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+                "Matrix-Multiple-Choice",
+              "pages.survey.editor.widgets.questionType.item.MatrixAuto": "Automatischer Tisch",
+              "pages.survey.editor.widgets.questionType.item.QuestionSet": "Fragengruppe",
+              "pages.survey.editor.widgets.questionType.item.Remark": "Textbeschreibung",
+              "pages.survey.editor.widgets.questionType.item.Pagination": "Paginierung",
+              "pages.survey.editor.widgets.questionType.item.SplitLine": "Teiler",
+              "pages.survey.editor.widgets.questionType.item.User": "Mitglied",
+              "pages.survey.editor.widgets.questionType.item.Dept": "Abteilung",
+              "pages.survey.editor.widgets.questionType.item.RichText": "Rich-Text",
+              "pages.survey.editor.widgets.que
+
+===== umi.ded23be0.js #3 @1529977 =====
+idgets.questionType.item.Barcode": "Code \xe0 barres",
+              "pages.survey.editor.widgets.questionType.item.Score": "Note",
+              "pages.survey.editor.widgets.questionType.item.Nps": "Question NPS",
+              "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+                "Remplissage de la matrice",
+              "pages.survey.editor.widgets.questionType.item.MatrixRadio":
+                "Matrice \xe0 choix unique",
+              "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+                "Matrice \xe0 choix multiples",
+              "pages.survey.editor.widgets.questionType.item.MatrixAuto": "Tableau automatique",
+              "pages.survey.editor.widgets.questionType.item.QuestionSet": "Groupe de questions",
+              "pages.survey.editor.widgets.questionType.item.Remark": "Description textuelle",
+              "pages.survey.editor.widgets.questionType.item.Pagination": "Pagination",
+              "pages.survey.editor.widgets.questionType.item.SplitLine": "Diviseur",
+              "pages.survey.editor.widgets.questionType.item.User": "Membre",
+              "pages.survey.editor.widgets.questionType.item.Dept": "D\xe9partement",
+              "pages.survey.editor.widgets.questionType.item.RichText": "Texte enrichi",
+
+===== umi.ded23be0.js #4 @1818658 =====
+           "pages.survey.editor.widgets.questionType.item.Score": "\u8a55\u4fa1",
+              "pages.survey.editor.widgets.questionType.item.Nps": "NPS\u306e\u8cea\u554f",
+              "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+                "\u30de\u30c8\u30ea\u30c3\u30af\u30b9\u30d5\u30a3\u30eb\u30a4\u30f3",
+              "pages.survey.editor.widgets.questionType.item.MatrixRadio":
+                "\u30de\u30c8\u30ea\u30c3\u30af\u30b9\u306e\u5358\u4e00\u9078\u629e",
+              "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+                "\u30de\u30c8\u30ea\u30c3\u30af\u30b9\u306e\u591a\u80a2\u9078\u629e",
+              "pages.survey.editor.widgets.questionType.item.MatrixAuto":
+                "\u30aa\u30fc\u30c8\u30c6\u30fc\u30d6\u30eb",
+              "pages.survey.editor.widgets.questionType.item.QuestionSet":
+                "\u8cea\u554f\u30b0\u30eb\u30fc\u30d7",
+              "pages.survey.editor.widgets.questionType.item.Remark":
+                "\u30c6\u30ad\u30b9\u30c8\u306e\u8aac\u660e",
+              "pages.survey.editor.widgets.questionType.item.Pagination":
+                "\u30da\u30fc\u30b8\u30cd\u30fc\u30b7\u30e7\u30f3",
+              "pages.survey.editor.widgets.questionType.item.SplitLine":
+                "\u30c
+
+===== umi.ded23be0.js #5 @2090955 =====
+": "\ubc14\ucf54\ub4dc",
+              "pages.survey.editor.widgets.questionType.item.Score": "\ub4f1\uae09",
+              "pages.survey.editor.widgets.questionType.item.Nps": "NPS \uc9c8\ubb38",
+              "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+                "\ub9e4\ud2b8\ub9ad\uc2a4 \ucc44\uc6b0\uae30",
+              "pages.survey.editor.widgets.questionType.item.MatrixRadio":
+                "\ub9e4\ud2b8\ub9ad\uc2a4 \ub2e8\uc77c \uc120\ud0dd",
+              "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+                "\ub9e4\ud2b8\ub9ad\uc2a4 \uac1d\uad00\uc2dd",
+              "pages.survey.editor.widgets.questionType.item.MatrixAuto":
+                "\uc790\ub3d9 \ud14c\uc774\ube14",
+              "pages.survey.editor.widgets.questionType.item.QuestionSet":
+                "\uc9c8\ubb38 \uadf8\ub8f9",
+              "pages.survey.editor.widgets.questionType.item.Remark":
+                "\ud14d\uc2a4\ud2b8 \uc124\uba85",
+              "pages.survey.editor.widgets.questionType.item.Pagination":
+                "\ud398\uc774\uc9c0 \ub9e4\uae40",
+              "pages.survey.editor.widgets.questionType.item.SplitLine": "\ubd84\ubc30\uae30",
+              "pages.survey.editor.widgets.questionType.item.User": "\ud68c\uc6d0",
+     
+
+===== umi.ded23be0.js #6 @2495577 =====
+estionType.item.Nps":
+                "\u0e04\u0e33\u0e16\u0e32\u0e21\u0e02\u0e2d\u0e07\u0e01\u0e23\u0e21\u0e2d\u0e38\u0e17\u0e22\u0e32\u0e19\u0e2f",
+              "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+                "\u0e01\u0e32\u0e23\u0e40\u0e15\u0e34\u0e21\u0e40\u0e21\u0e17\u0e23\u0e34\u0e01\u0e0b\u0e4c",
+              "pages.survey.editor.widgets.questionType.item.MatrixRadio":
+                "\u0e40\u0e21\u0e17\u0e23\u0e34\u0e01\u0e0b\u0e4c\u0e15\u0e31\u0e27\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e40\u0e14\u0e35\u0e22\u0e27",
+              "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+                "\u0e40\u0e21\u0e17\u0e23\u0e34\u0e01\u0e0b\u0e4c\u0e2b\u0e25\u0e32\u0e22\u0e15\u0e31\u0e27\u0e40\u0e25\u0e37\u0e2d\u0e01",
+              "pages.survey.editor.widgets.questionType.item.MatrixAuto":
+                "\u0e15\u0e32\u0e23\u0e32\u0e07\u0e2d\u0e31\u0e15\u0e42\u0e19\u0e21\u0e31\u0e15\u0e34",
+              "pages.survey.editor.widgets.questionType.item.QuestionSet":
+                "\u0e01\u0e25\u0e38\u0e48\u0e21\u0e04\u0e33\u0e16\u0e32\u0e21",
+              "pages.survey.editor.widgets.questionType.item.Remark":
+                "\u0e04\u0e33\u0e2d\u0e18\u0e34\u0e1a\u0e32\u0e22\u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21",
+         
+
+===== umi.ded23be0.js #7 @2733218 =====
+gets.questionType.item.Barcode": "\u626b\u7801\u9898",
+            "pages.survey.editor.widgets.questionType.item.Score": "\u6253\u5206\u9898",
+            "pages.survey.editor.widgets.questionType.item.Nps": "NPS\u9898",
+            "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+              "\u77e9\u9635\u586b\u7a7a",
+            "pages.survey.editor.widgets.questionType.item.MatrixRadio": "\u77e9\u9635\u5355\u9009",
+            "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+              "\u77e9\u9635\u591a\u9009",
+            "pages.survey.editor.widgets.questionType.item.MatrixAuto": "\u8868\u683c\u81ea\u589e",
+            "pages.survey.editor.widgets.questionType.item.QuestionSet": "\u95ee\u9898\u7ec4",
+            "pages.survey.editor.widgets.questionType.item.Remark": "\u6587\u5b57\u63cf\u8ff0",
+            "pages.survey.editor.widgets.questionType.item.Pagination": "\u5206\u9875",
+            "pages.survey.editor.widgets.questionType.item.SplitLine": "\u5206\u5272\u7ebf",
+            "pages.survey.editor.widgets.questionType.item.User": "\u6210\u5458",
+            "pages.survey.editor.widgets.questionType.item.Dept": "\u90e8\u95e8",
+            "pages.survey.editor.widgets.questionType.item.RichText": "\u5bcc\u6587\u672c",
+            
+
+===== umi.ded23be0.js #8 @2971422 =====
+questionType.item.Barcode": "\u689d\u78bc",
+              "pages.survey.editor.widgets.questionType.item.Score": "\u8a55\u7d1a",
+              "pages.survey.editor.widgets.questionType.item.Nps": "NPS \u554f\u984c",
+              "pages.survey.editor.widgets.questionType.item.MatrixFillBlank":
+                "\u77e9\u9663\u586b\u5145",
+              "pages.survey.editor.widgets.questionType.item.MatrixRadio":
+                "\u77e9\u9663\u55ae\u9078",
+              "pages.survey.editor.widgets.questionType.item.MatrixCheckbox":
+                "\u77e9\u9663\u591a\u91cd\u9078\u64c7",
+              "pages.survey.editor.widgets.questionType.item.MatrixAuto": "\u81ea\u52d5\u8868",
+              "pages.survey.editor.widgets.questionType.item.QuestionSet": "\u63d0\u554f\u7d44",
+              "pages.survey.editor.widgets.questionType.item.Remark": "\u6587\u5b57\u63cf\u8ff0",
+              "pages.survey.editor.widgets.questionType.item.Pagination": "\u5206\u9801",
+              "pages.survey.editor.widgets.questionType.item.SplitLine": "\u5206\u97f3\u5668",
+              "pages.survey.editor.widgets.questionType.item.User": "\u6703\u54e1",
+              "pages.survey.editor.widgets.questionType.item.Dept": "\u90e8\u9580",
+              "pages.survey.editor.widgets.questionType.item.Ric
+
+===== umi.ded23be0.js #9 @3004392 =====
+Blank: "\u591a\u9879\u586b\u7a7a\u9898",
+              HorzBlank: "\u6a2a\u5411\u586b\u7a7a\u9898",
+              Signature: "\u7b7e\u540d\u9898",
+              Radio: "\u5355\u9009\u9898",
+              Checkbox: "\u591a\u9009\u9898",
+              Select: "\u4e0b\u62c9\u9898",
+              Cascader: "\u7ea7\u8054\u9898",
+              MatrixAuto: "\u77e9\u9635\u81ea\u589e\u9898",
+              MatrixRadio: "\u77e9\u9635\u5355\u9009\u9898",
+              MatrixCheckbox: "\u77e9\u9635\u591a\u9009\u9898",
+              MatrixFillBlank: "\u77e9\u9635\u586b\u7a7a\u9898",
+              MatrixScore: "\u77e9\u9635\u6253\u5206\u63d0",
+              MatrixNps: "\u77e9\u9635NPS\u9898",
+              Upload: "\u4e0a\u4f20\u9898",
+              Score: "\u6253\u5206\u9898",
+              Nps: "Nps \u9898",
+              Address: "\u5730\u7406\u4f4d\u7f6e\u9898",
+              Survey: "\u95ee\u5377",
+              QuestionSet: "\u9898\u7ec4",
+              Pagination: "\u5206\u9875",
+              Remark: "\u5907\u6ce8",
+              SplitLine: "\u5206\u5272\u7ebf",
+              Option: "\u9009\u9879",
+              Barcode: "\u6761\u7801\u9898",
+              Button: "\u6309\u94ae",
+              Drug: "\u836f\u7269\u9898",
+            }),
+          k = {
+            antd: "PC\u7aef\u4e3b
+
+===== umi.ded23be0.js #10 @3064263 =====
+9\u9898",
+            Checkbox: "\u591a\u9009\u9898",
+            Judge: "\u5224\u65ad\u9898",
+            FillBlank: "\u586b\u7a7a\u9898",
+            MultipleBlank: "\u591a\u9879\u586b\u7a7a\u9898",
+            HorzBlank: "\u6a2a\u5411\u586b\u7a7a\u9898",
+            Textarea: "\u7b80\u7b54\u9898",
+            Select: "\u4e0b\u62c9\u9898",
+            Cascader: "\u7ea7\u8054\u9898",
+            MatrixRadio: "\u77e9\u9635\u5355\u9009\u9898",
+            MatrixCheckbox: "\u77e9\u9635\u591a\u9009\u9898",
+            MatrixFillBlank: "\u77e9\u9635\u586b\u7a7a\u9898",
+            MatrixAuto: "\u77e9\u9635\u9898",
+            Score: "\u8bc4\u5206\u9898",
+            Nps: "NPS \u9898",
+          },
+          x = function (e) {
+            return (null === e || void 0 === e ? void 0 : e.replace(/\s+/g, " ").trim()) || "";
+          },
+          E = function (e) {
+            if (!e) return "";
+            if ("undefined" === typeof window || "undefined" === typeof DOMParser)
+              return x(e.replace(/<[^>]+>/g, " "));
+            var t = new DOMParser().parseFromString(e, "text/html");
+            return x(t.body.textContent || "");
+          },
+          k = function (e) {
+            return w[e] || e;
+          },
+          S = function (e) {
+            var t;
+            re
+
+===== umi.ded23be0.js #11 @3086127 =====
+"QuestionSet"];
+          return t.includes(e);
+        }
+        function k(e) {
+          var t = [
+            "FillBlank",
+            "Textarea",
+            "User",
+            "Dept",
+            "MultipleBlank",
+            "HorzBlank",
+            "Signature",
+            "Radio",
+            "Checkbox",
+            "Select",
+            "Cascader",
+            "MatrixAuto",
+            "MatrixRadio",
+            "MatrixCheckbox",
+            "MatrixFillBlank",
+            "MatrixScore",
+            "MatrixNps",
+            "Upload",
+            "Score",
+            "Nps",
+            "Address",
+            "RichText",
+            "Judge",
+          ];
+          return t.includes(e);
+        }
+        function S(e) {
+          var t,
+            r =
+              (null === (t = e.children) || void 0 === t
+                ? void 0
+                : t.filter(function (e) {
+                    return "Pagination" !== e.type;
+                  })) || [],
+            n = (0, o.Z)((0, o.Z)({}, e), {}, { children: r });
+          return n;
+        }
+        function T(e) {
+          var t,
+            r = {};
+          return (
+            null === (t = e.children) ||
+              void 0 === t ||
+              t.forEach(function (e) {
+                if ("QuestionSet" === e.ty
+
+===== umi.ded23be0.js #12 @3093178 =====
+0, d.Bl)(x)) {
+              if ("string" === typeof x && x.includes("|")) return x.substring(x.indexOf("|") + 1);
+              if ("" !== x) return x;
+            }
+            if (void 0 === x)
+              return void 0 !== a
+                ? a
+                : "Radio" !== m.type &&
+                    "Checkbox" !== m.type &&
+                    "Select" !== m.type &&
+                    "MatrixRadio" !== m.type &&
+                    "MatrixCheckbox" !== m.type &&
+                    void 0;
+            if (n && i) {
+              if ("MatrixAuto" === m.type)
+                return (
+                  h
+                    .map(function (e) {
+                      return e[i];
+                    })
+                    .filter(function (e) {
+                      return e;
+                    })
+                    .map(function (e) {
+                      return (0, d.sI)(e) ? e : "'".concat(e, "'");
+                    }) || []
+                );
+              if (m.type.startsWith("Matrix"))
+                return (
+                  Object.values(h)
+                    .map(function (e) {
+                      return e[i];
+                    })
+                    .filter(function (e) {
+                      return e;
+                    }) || []
+                );
+
+
+===== umi.ded23be0.js #13 @3120928 =====
+" !== typeof e || "" !== e.trim())
+          );
+        }
+        function v(e) {
+          var t = [
+            "FillBlank",
+            "Textarea",
+            "User",
+            "Dept",
+            "MultipleBlank",
+            "HorzBlank",
+            "Signature",
+            "Radio",
+            "Checkbox",
+            "Select",
+            "Cascader",
+            "MatrixAuto",
+            "MatrixRadio",
+            "MatrixCheckbox",
+            "MatrixFillBlank",
+            "MatrixScore",
+            "MatrixNps",
+            "Upload",
+            "Score",
+            "Nps",
+            "Address",
+            "Drug",
+          ];
+          return t.includes(e);
+        }
+        function y(e) {
+          var t,
+            r = {};
+          return (
+            null === (t = e.children) ||
+              void 0 === t ||
+              t.forEach(function (e) {
+                if ("QuestionSet" === e.type) e.children && Object.assign(r, y(e));
+                else {
+                  var t,
+                    n = ["FillBlank", "MultipleBlank", "MatrixFillBlank", "HorzBlank", "Nps"],
+                    i = "boolean";
+                  (n.includes(e.type) && (i = "number"),
+                    (r[e.id] = i),
+                    null === (t = e.children) ||
+                    

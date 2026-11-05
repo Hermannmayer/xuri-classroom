@@ -1,0 +1,334 @@
+## /api/ai/chat/answer-analysis/create-conversation
+   umi.ded23be0.js:56829   t.post("/api/ai/chat/answer-analysis/create-conversation", e), );
+## /api/ai/chat/create-conversation
+   umi.ded23be0.js:56810   return r.abrupt("return", t.post("/api/ai/chat/create-conversation", e));
+## /api/ai/chat/models
+   umi.ded23be0.js:56793   return t.abrupt("return", e.get("/api/ai/chat/models"));
+## /api/answer/create
+   umi.ded23be0.js:55962   return this.post("/api/answer/create", e);
+## /api/answer/delete
+   umi.ded23be0.js:55971   return this.post("/api/answer/delete", { ids: e });
+## /api/answer/destroy
+   umi.ded23be0.js:55974   return this.post("/api/answer/destroy", { ids: e });
+## /api/answer/list
+   umi.ded23be0.js:55956   return this.getWithPagination("/api/answer/list", e);
+## /api/answer/restore
+   umi.ded23be0.js:55965   return this.post("/api/answer/restore", { ids: e });
+## /api/answer/trash
+   umi.ded23be0.js:55959   return this.get("/api/answer/trash", e);
+## /api/answer/update
+   umi.ded23be0.js:55968   return this.post("/api/answer/update", e);
+## /api/answer/upload
+   p__Project.c0aefc19.async.js:1805   "/api/answer/upload", { file: v[0], autoSchema: !0, parentId: a }, function (e) {},
+   p__survey__Data.4b42c5b0.async.js:3143   "/api/answer/upload", { file: v[0], autoSchema: !0, projectId: j.id }, function (e) {},
+## /api/currentUser
+   umi.ded23be0.js:151545   return ((e.next = 2), S.hi.get("/api/currentUser"));
+## /api/exercise/delete
+   umi.ded23be0.js:56776   return r.abrupt("return", t.post("/api/exercise/delete", { ids: e }));
+## /api/exercise/list
+   umi.ded23be0.js:56759   return r.abrupt("return", t.getWithPagination("/api/exercise/list", e));
+## /api/file/create
+   p__account__settings.d6826f16.async.js:300   "/api/file/create", { file: i, publicRead: !0 }, function (e) {
+   p__system__SystemSettings.b41d236d.async.js:1038   "/api/file/create", { file: l, publicRead: !0 }, function (e) {
+   umi.ded23be0.js:55996   return this.upload("/api/file/create", { fileType: e, file: t, publicRead: !0 }, r);
+## /api/file/delete
+   umi.ded23be0.js:55999   return this.post("/api/file/delete", { id: e });
+## /api/file/list
+   umi.ded23be0.js:55993   return this.get("/api/file/list", e);
+## /api/importUser
+   p__system__User.ed284d5e.async.js:1899   .upload("/api/importUser", { file: u[0] }, function (e) {})
+## /api/listHistoryTask
+   6223.6e7906c7.async.js:110   "todo" === d ? "/api/listUserTask" : "/api/listHistoryTask", (0, c.Z)( (0, c.Z)({}, w.current),
+   umi.ded23be0.js:56742   return r.abrupt("return", t.getWithPagination("/api/listHistoryTask", e));
+## /api/listUserTask
+   6223.6e7906c7.async.js:110   "todo" === d ? "/api/listUserTask" : "/api/listHistoryTask", (0, c.Z)( (0, c.Z)({}, w.current),
+   umi.ded23be0.js:56725   return r.abrupt("return", t.getWithPagination("/api/listUserTask", e));
+## /api/oauth/bind/
+   umi.ded23be0.js:55729   t.post("/api/oauth/bind/".concat(e, "/start"), {
+## /api/oauth/bindings
+   umi.ded23be0.js:55772   return t.abrupt("return", e.get("/api/oauth/bindings"));
+   umi.ded23be0.js:55789   return r.abrupt("return", t.delete("/api/oauth/bindings/".concat(e)));
+## /api/oauth/bindings/
+   umi.ded23be0.js:55772   return t.abrupt("return", e.get("/api/oauth/bindings"));
+   umi.ded23be0.js:55789   return r.abrupt("return", t.delete("/api/oauth/bindings/".concat(e)));
+## /api/project/create
+   umi.ded23be0.js:55977   return this.post("/api/project/create", e);
+## /api/project/delete
+   umi.ded23be0.js:55983   return this.post("/api/project/delete", { id: e });
+## /api/project/destroy
+   umi.ded23be0.js:55950   return this.post("/api/project/destroy", { ids: e });
+## /api/project/list
+   umi.ded23be0.js:55934   return r.abrupt("return", t.getWithPagination("/api/project/list", e));
+## /api/project/partner/create
+   umi.ded23be0.js:56393   return this.post("/api/project/partner/create", e);
+## /api/project/partner/delete
+   umi.ded23be0.js:56396   return this.post("/api/project/partner/delete", e);
+## /api/project/partner/import
+   umi.ded23be0.js:56406   return r.abrupt("return", t.upload("/api/project/partner/import", e));
+## /api/project/partner/list
+   umi.ded23be0.js:56390   return this.getWithPagination("/api/project/partner/list", e);
+## /api/project/restore
+   umi.ded23be0.js:55953   return this.post("/api/project/restore", { ids: e });
+## /api/project/selectDept
+   umi.ded23be0.js:56419   return this.post("/api/project/selectDept", e);
+## /api/project/selectDict
+   umi.ded23be0.js:56425   return this.post("/api/project/selectDict");
+## /api/project/selectPosition
+   umi.ded23be0.js:56428   return this.post("/api/project/selectPosition", e);
+## /api/project/selectRepo
+   umi.ded23be0.js:56434   return this.post("/api/project/selectRepo", e);
+## /api/project/selectRole
+   umi.ded23be0.js:56422   return this.post("/api/project/selectRole", e);
+## /api/project/selectTag
+   umi.ded23be0.js:56437   return this.post("/api/project/selectTag", e);
+## /api/project/selectTemplate
+   umi.ded23be0.js:56431   return this.post("/api/project/selectTemplate", e);
+## /api/project/selectUser
+   umi.ded23be0.js:56416   return this.post("/api/project/selectUser", e);
+## /api/project/trash
+   umi.ded23be0.js:55947   return this.get("/api/project/trash");
+## /api/project/update
+   umi.ded23be0.js:55980   return this.post("/api/project/update", e);
+   umi.ded23be0.js:55986   return this.post("/api/project/update", e);
+## /api/public/dbInit
+   umi.ded23be0.js:55588   return t.abrupt("return", e.get("/api/public/dbInit/environment"));
+   umi.ded23be0.js:55605   return r.abrupt("return", t.post("/api/public/dbInit/test", e));
+   umi.ded23be0.js:55622   return r.abrupt("return", t.post("/api/public/dbInit", e));
+## /api/public/dbInit/environment
+   umi.ded23be0.js:55588   return t.abrupt("return", e.get("/api/public/dbInit/environment"));
+## /api/public/dbInit/test
+   umi.ded23be0.js:55605   return r.abrupt("return", t.post("/api/public/dbInit/test", e));
+## /api/public/getQueryResult
+   umi.ded23be0.js:56479   return this.post("/api/public/getQueryResult", e);
+## /api/public/listRegisterRole
+   umi.ded23be0.js:55857   return e.abrupt("return", y.get("/api/public/listRegisterRole"));
+## /api/public/loadDict
+   umi.ded23be0.js:56470   return this.post("/api/public/loadDict", e);
+## /api/public/loadExamResult
+   umi.ded23be0.js:56473   return this.post("/api/public/loadExamResult", e);
+## /api/public/loadLinkResult
+   umi.ded23be0.js:56476   return this.post("/api/public/loadLinkResult", e);
+## /api/public/loadProject
+   1699.2ef20283.async.js:396   c.hi.post(this.getUrlWithToken("/api/public/loadProject"), {
+## /api/public/loadQuery
+   umi.ded23be0.js:56467   return this.post("/api/public/loadQuery", e);
+## /api/public/login
+   umi.ded23be0.js:151615   S.hi.post("/api/public/login", t)
+## /api/public/logout
+   umi.ded23be0.js:55571   return t.abrupt("return", e.post("/api/public/logout"));
+## /api/public/oauth/login/
+   umi.ded23be0.js:55709   r.post("/api/public/oauth/login/".concat(e, "/start"), { redirect: t }), );
+## /api/public/oauth/register/
+   umi.ded23be0.js:55808   t.get("/api/public/oauth/register/".concat(encodeURIComponent(e))), );
+   umi.ded23be0.js:151675   "/api/public/oauth/register/".concat(encodeURIComponent(t)), r, ),
+## /api/public/oauth/survey/wechat/start
+   umi.ded23be0.js:55751   r.post("/api/public/oauth/survey/wechat/start", {
+## /api/public/preview/
+   1485.887a35cc.async.js:2560   ? (i.src = "/api/public/preview/".concat(a.id, "@thumbnail"))
+   2645.42b4f05d.async.js:475   ? "/api/public/preview/".concat(a.avatar)
+   3165.997b6d68.async.js:409   src: "/api/public/preview/".concat(n), style: { maxWidth: "100%" }, });
+   3633.25827928.async.js:3909   src: "/api/public/preview/".concat(n), style: { maxWidth: "100%" }, });
+   3633.25827928.async.js:5720   : "/api/public/preview/".concat(n)
+   5069.776e4314.async.js:2340   src: "/api/public/preview/".concat(n), style: { maxWidth: "100%" }, });
+   5069.776e4314.async.js:4634   : "/api/public/preview/".concat(n)
+   8113.237f413f.async.js:228   t && (t.src = M.avatar ? "/api/public/preview/".concat(M.avatar) : y());
+   8113.237f413f.async.js:327   src: M.avatar ? "/api/public/preview/".concat(M.avatar) : y(), }), formatMessage: O,
+   8113.237f413f.async.js:402   w && w.avatar ? "/api/public/preview/".concat(w.avatar) : y(), size: 28, }),
+   8221.a435c80d.async.js:2533   e.success && l("/api/public/preview/".concat(e.data.id));
+   8221.a435c80d.async.js:2543   e.success && l("/api/public/preview/".concat(e.data.id));
+   8221.a435c80d.async.js:3871   l.success && a("/api/public/preview/".concat(l.data.id));
+   8221.a435c80d.async.js:3881   e.success && l("/api/public/preview/".concat(e.data.id));
+   p__account__settings.d6826f16.async.js:1161   : "/api/public/preview/".concat(s)
+   p__repo__Template.0e3ebd20.async.js:12806   thumbUrl: e.previewUrl || "/api/public/preview/".concat(e.id, "@thumbnail"), url: e.previewUrl || "/api/public/preview/".concat(e.id), };
+   p__repo__Template.0e3ebd20.async.js:12807   url: e.previewUrl || "/api/public/preview/".concat(e.id), };
+   p__repo__Template.0e3ebd20.async.js:13001   "new" !== s && (0, p.jsx)("img", { src: "/api/public/preview/".concat(s) }), (0, p.jsxs)("span", {
+   p__survey.dcfe1ea3.async.js:919   : "/api/public/preview/".concat(t)
+   p__survey__Data.4b42c5b0.async.js:3038   { style: { display: "none" }, src: "/api/public/preview/".concat(e.id) }, e.id, );
+   p__survey__Flow.4421c92c.async.js:4457   : "/api/public/preview/".concat(n)
+   p__survey__Poster.70233319.async.js:211   value: "/api/public/preview/".concat(e.id), children: (0, y.jsx)("img", { src: "/api/public/preview/".concat(e.id), alt: "" }), },
+   p__survey__Poster.70233319.async.js:212   children: (0, y.jsx)("img", { src: "/api/public/preview/".concat(e.id), alt: "" }), }, "img" + n,
+   p__survey__Poster.70233319.async.js:994   thumbUrl: e.previewUrl || "/api/public/preview/".concat(e.id, "@thumbnail"), url: e.previewUrl || "/api/public/preview/".concat(e.id), };
+   p__survey__Poster.70233319.async.js:995   url: e.previewUrl || "/api/public/preview/".concat(e.id), };
+   p__system__SystemSettings.b41d236d.async.js:1092   src: "/api/public/preview/".concat( null === a || void 0 === a ? void 0 : a.avatar, ),
+   p__Template.dd198dac.async.js:407   ((e.src = "/api/public/preview/".concat(t.previewUrl)), (e.onload = function () {
+   p__user__Login.7c34278b.async.js:1029   ? "/api/public/preview/".concat( null === A || void 0 === A ? void 0 : A.avatar, )
+   p__user__mobile.4a1c8ad2.async.js:249   : "/api/public/preview/".concat(n)
+   p__user__Register.0d2f4be3.async.js:298   ? "/api/public/preview/".concat( null === V || void 0 === V ? void 0 : V.avatar, )
+## /api/public/register
+   umi.ded23be0.js:55825   return t.abrupt("return", y.post("/api/public/register", e));
+   umi.ded23be0.js:151649   return e.abrupt("return", S.hi.post("/api/public/register", t));
+## /api/public/saveAnswer
+   1699.2ef20283.async.js:297   c.hi.post(this.getUrlWithToken("/api/public/saveAnswer"), h)
+   p__Answer__PublicQuery.8c4ae2a7.async.js:147   f.hi.post("/api/public/saveAnswer", {
+## /api/public/statistics
+   1699.2ef20283.async.js:352   c.hi.post(this.getUrlWithToken("/api/public/statistics"), {
+## /api/public/upload
+   1699.2ef20283.async.js:551   "/api/public/upload", (0, i.Z)({ fileType: 4, basePath: this.id }, t), r,
+   3633.25827928.async.js:5664   return r.hi.upload("/api/public/upload", {
+   856.e9c89a4d.async.js:142   return i.hi.upload("/api/public/upload", {
+   p__Answer__PublicQuery.8c4ae2a7.async.js:185   "/api/public/upload", (0, u.Z)( (0, u.Z)({}, r),
+   umi.ded23be0.js:58908   "/api/public/upload", (0, g.Z)({ fileType: 4, basePath: this.id }, t), r,
+## /api/public/validateProject
+   1699.2ef20283.async.js:491   c.hi.post(this.getUrlWithToken("/api/public/validateProject"), {
+## /api/repo/batchCreate
+   umi.ded23be0.js:56458   return this.post("/api/repo/batchCreate", e);
+## /api/repo/book/create
+   umi.ded23be0.js:56674   return r.abrupt("return", t.post("/api/repo/book/create", e));
+## /api/repo/book/delete
+   umi.ded23be0.js:56708   return r.abrupt("return", t.post("/api/repo/book/delete", e));
+## /api/repo/book/list
+   umi.ded23be0.js:56640   return r.abrupt("return", t.getWithPagination("/api/repo/book/list", e));
+## /api/repo/book/question
+   umi.ded23be0.js:56657   return r.abrupt("return", t.get("/api/repo/book/question", { id: e }));
+## /api/repo/book/update
+   umi.ded23be0.js:56691   return r.abrupt("return", t.post("/api/repo/book/update", e));
+## /api/repo/create
+   umi.ded23be0.js:56452  return e.id ? this.post("/api/repo/update", e) : this.post("/api/repo/create", e);
+## /api/repo/delete
+   umi.ded23be0.js:56455   return this.post("/api/repo/delete", { id: e });
+## /api/repo/import
+   p__repo__Repo.8b9319b1.async.js:708   .upload("/api/repo/import", { file: y[0], repoId: t.id })
+## /api/repo/list
+   umi.ded23be0.js:56440   return this.getWithPagination("/api/repo/list", e);
+## /api/repo/partner/create
+   umi.ded23be0.js:56446   return this.post("/api/repo/partner/create", e);
+## /api/repo/partner/delete
+   umi.ded23be0.js:56449   return this.post("/api/repo/partner/delete", e);
+## /api/repo/partner/list
+   umi.ded23be0.js:56443   return this.getWithPagination("/api/repo/partner/list", e);
+## /api/repo/pick
+   umi.ded23be0.js:56461   return this.post("/api/repo/pick", e);
+## /api/repo/unbind
+   umi.ded23be0.js:56464   return this.post("/api/repo/unbind", { repoId: e, ids: t });
+## /api/repo/update
+   umi.ded23be0.js:56452   return e.id ? this.post("/api/repo/update", e) : this.post("/api/repo/create", e);
+## /api/report/
+   umi.ded23be0.js:55990   return this.get("/api/report/".concat(e, "?search=").concat(t));
+## /api/system
+   p__Setup.aba9894f.async.js:655   fetch("/api/system")
+   umi.ded23be0.js:55639   return t.abrupt("return", e.get("/api/system"));
+   umi.ded23be0.js:55656   return t.abrupt("return", e.get("/api/system/aiSetting"));
+   umi.ded23be0.js:55673   return t.abrupt("return", e.get("/api/system/oauthSetting"));
+   umi.ded23be0.js:55690   return r.abrupt("return", t.post("/api/system/oauthSetting", e));
+   umi.ded23be0.js:55874   return r.abrupt("return", t.post("/api/system/update", e));
+   umi.ded23be0.js:55891   return t.abrupt("return", e.download("/api/system/backup/export"));
+   umi.ded23be0.js:55909   m("POST", "/api/system/backup/import", e.file, {
+   umi.ded23be0.js:56031   t.getWithPagination("/api/system/role/list", e), );
+   umi.ded23be0.js:56049   return r.abrupt("return", t.post("/api/system/role/delete", { id: e }));
+   umi.ded23be0.js:56066   return r.abrupt("return", t.post("/api/system/role/create", e));
+   umi.ded23be0.js:56083   return r.abrupt("return", t.post("/api/system/role/update", e));
+   umi.ded23be0.js:56093   return this.get("/api/system/permission/list");
+   umi.ded23be0.js:56105   t.getWithPagination("/api/system/user/list", e), );
+   umi.ded23be0.js:56123   return r.abrupt("return", t.post("/api/system/user/delete", { id: e }));
+   umi.ded23be0.js:56140   return r.abrupt("return", t.post("/api/system/user/create", e));
+   umi.ded23be0.js:56157   return r.abrupt("return", t.post("/api/system/user/update", e));
+   umi.ded23be0.js:56193   t.get("/api/system/checkUsernameExist", { username: e }), );
+   umi.ded23be0.js:56211   return t.abrupt("return", e.get("/api/system/dept/list"));
+   umi.ded23be0.js:56228   return r.abrupt("return", t.post("/api/system/dept/create", e));
+   umi.ded23be0.js:56245   return r.abrupt("return", t.post("/api/system/dept/update", e));
+   umi.ded23be0.js:56262   return r.abrupt("return", t.post("/api/system/dept/sort", { nodes: e }));
+   umi.ded23be0.js:56279   return r.abrupt("return", t.post("/api/system/dept/delete", { id: e }));
+   umi.ded23be0.js:56298   t.getWithPagination("/api/system/position/list", e), );
+   umi.ded23be0.js:56316   return r.abrupt("return", t.post("/api/system/position/create", e));
+   umi.ded23be0.js:56333   return r.abrupt("return", t.post("/api/system/position/update", e));
+   umi.ded23be0.js:56352   t.post("/api/system/position/delete", { id: e }), );
+   umi.ded23be0.js:56491   t.getWithPagination("/api/system/dict/list", e), );
+   umi.ded23be0.js:56509   return r.abrupt("return", t.post("/api/system/dict/create", e));
+   umi.ded23be0.js:56526   return r.abrupt("return", t.post("/api/system/dict/update", e));
+   umi.ded23be0.js:56543   return r.abrupt("return", t.post("/api/system/dict/delete", { id: e }));
+   umi.ded23be0.js:56562   t.getWithPagination("/api/system/dictItem/list", e), );
+   umi.ded23be0.js:56584   return r.abrupt("return", t.post("/api/system/dictItem/update", e));
+   umi.ded23be0.js:56586   return r.abrupt("return", t.post("/api/system/dictItem/create", e));
+   umi.ded23be0.js:56605   t.post("/api/system/dictItem/delete", { id: e }), );
+   umi.ded23be0.js:56623   return r.abrupt("return", t.upload("/api/system/dictItem/import", e));
+## /api/system/aiSetting
+   umi.ded23be0.js:55656   return t.abrupt("return", e.get("/api/system/aiSetting"));
+## /api/system/backup/export
+   umi.ded23be0.js:55891   return t.abrupt("return", e.download("/api/system/backup/export"));
+## /api/system/checkUsernameExist
+   umi.ded23be0.js:56193   t.get("/api/system/checkUsernameExist", { username: e }), );
+## /api/system/dept/create
+   umi.ded23be0.js:56228   return r.abrupt("return", t.post("/api/system/dept/create", e));
+## /api/system/dept/delete
+   umi.ded23be0.js:56279   return r.abrupt("return", t.post("/api/system/dept/delete", { id: e }));
+## /api/system/dept/list
+   umi.ded23be0.js:56211   return t.abrupt("return", e.get("/api/system/dept/list"));
+## /api/system/dept/sort
+   umi.ded23be0.js:56262   return r.abrupt("return", t.post("/api/system/dept/sort", { nodes: e }));
+## /api/system/dept/update
+   umi.ded23be0.js:56245   return r.abrupt("return", t.post("/api/system/dept/update", e));
+## /api/system/dict/create
+   umi.ded23be0.js:56509   return r.abrupt("return", t.post("/api/system/dict/create", e));
+## /api/system/dict/delete
+   umi.ded23be0.js:56543   return r.abrupt("return", t.post("/api/system/dict/delete", { id: e }));
+## /api/system/dict/list
+   umi.ded23be0.js:56491   t.getWithPagination("/api/system/dict/list", e), );
+## /api/system/dict/update
+   umi.ded23be0.js:56526   return r.abrupt("return", t.post("/api/system/dict/update", e));
+## /api/system/dictItem/create
+   umi.ded23be0.js:56586   return r.abrupt("return", t.post("/api/system/dictItem/create", e));
+## /api/system/dictItem/delete
+   umi.ded23be0.js:56605   t.post("/api/system/dictItem/delete", { id: e }), );
+## /api/system/dictItem/import
+   umi.ded23be0.js:56623   return r.abrupt("return", t.upload("/api/system/dictItem/import", e));
+## /api/system/dictItem/list
+   umi.ded23be0.js:56562   t.getWithPagination("/api/system/dictItem/list", e), );
+## /api/system/dictItem/update
+   umi.ded23be0.js:56584   return r.abrupt("return", t.post("/api/system/dictItem/update", e));
+## /api/system/oauthSetting
+   umi.ded23be0.js:55673   return t.abrupt("return", e.get("/api/system/oauthSetting"));
+   umi.ded23be0.js:55690   return r.abrupt("return", t.post("/api/system/oauthSetting", e));
+## /api/system/permission/list
+   umi.ded23be0.js:56093   return this.get("/api/system/permission/list");
+## /api/system/position/create
+   umi.ded23be0.js:56316   return r.abrupt("return", t.post("/api/system/position/create", e));
+## /api/system/position/delete
+   umi.ded23be0.js:56352   t.post("/api/system/position/delete", { id: e }), );
+## /api/system/position/list
+   umi.ded23be0.js:56298   t.getWithPagination("/api/system/position/list", e), );
+## /api/system/position/update
+   umi.ded23be0.js:56333   return r.abrupt("return", t.post("/api/system/position/update", e));
+## /api/system/role/create
+   umi.ded23be0.js:56066   return r.abrupt("return", t.post("/api/system/role/create", e));
+## /api/system/role/delete
+   umi.ded23be0.js:56049   return r.abrupt("return", t.post("/api/system/role/delete", { id: e }));
+## /api/system/role/list
+   umi.ded23be0.js:56031   t.getWithPagination("/api/system/role/list", e), );
+## /api/system/role/update
+   umi.ded23be0.js:56083   return r.abrupt("return", t.post("/api/system/role/update", e));
+## /api/system/update
+   umi.ded23be0.js:55874   return r.abrupt("return", t.post("/api/system/update", e));
+## /api/system/user/create
+   umi.ded23be0.js:56140   return r.abrupt("return", t.post("/api/system/user/create", e));
+## /api/system/user/delete
+   umi.ded23be0.js:56123   return r.abrupt("return", t.post("/api/system/user/delete", { id: e }));
+## /api/system/user/list
+   umi.ded23be0.js:56105   t.getWithPagination("/api/system/user/list", e), );
+## /api/system/user/update
+   umi.ded23be0.js:56157   return r.abrupt("return", t.post("/api/system/user/update", e));
+## /api/template/create
+   umi.ded23be0.js:56008   return this.post("/api/template/create", e);
+## /api/template/delete
+   umi.ded23be0.js:56013   return this.post("/api/template/delete", { ids: t });
+## /api/template/get
+   umi.ded23be0.js:56002   return this.get("/api/template/get", e);
+## /api/template/list
+   umi.ded23be0.js:56005   return this.getWithPagination("/api/template/list", e);
+## /api/template/listCategory
+   umi.ded23be0.js:56016   return this.get("/api/template/listCategory", e);
+## /api/template/listTag
+   umi.ded23be0.js:56019   return this.get("/api/template/listTag", e);
+## /api/user
+   umi.ded23be0.js:56174   return r.abrupt("return", t.post("/api/user", e));
+## /api/userOverview
+   umi.ded23be0.js:55841   return e.abrupt("return", y.get("/api/userOverview"));
+## /api/workflow/approvalTask
+   umi.ded23be0.js:56378   return this.post("/api/workflow/approvalTask", e);
+## /api/workflow/getFlowTasks
+   umi.ded23be0.js:56372   return this.getWithPagination("/api/workflow/getFlowTasks", e);
+## /api/workflow/loadSchema
+   umi.ded23be0.js:56375   return this.get("/api/workflow/loadSchema", e);
+## /api/workflow/saveFlow
+   umi.ded23be0.js:56363   return this.post("/api/workflow/saveFlow", e);
+## /api/workflow/statics
+   umi.ded23be0.js:56381   return this.get("/api/workflow/statics");
