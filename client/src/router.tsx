@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import BasicLayout from './layout/BasicLayout';
 import Login from './pages/user/Login';
 import Home from './pages/Home';
+import ProjectList from './pages/project/List';
 import Placeholder from './pages/Placeholder';
 import Playground from './pages/Playground';
 
@@ -21,7 +22,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
       { path: 'playground', element: <Playground /> },
-      { path: 'project', element: <Placeholder title="我的项目" /> },
+      { path: 'project', element: <ProjectList /> },
       { path: 'project/:id', element: <Placeholder title="项目详情" /> },
       { path: 'exercise', element: <Placeholder title="我的练习" /> },
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
