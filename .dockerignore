@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+client/dist
+server/.gradle
+server/*/build
+server/build
+server/backend.log
+server/backend.err.log
+server/application.properties
+server/logs
+backups
+.git
+*.md
+!README.md
