@@ -91,6 +91,11 @@ public class SystemInfo {
 		private String recordNum;
 
 		/**
+		 * 浏览器标签页图标（不填则用 avatar）
+		 */
+		private String favicon;
+
+		/**
 		 * 高德地图 key
 		 */
 		private String amapKey;

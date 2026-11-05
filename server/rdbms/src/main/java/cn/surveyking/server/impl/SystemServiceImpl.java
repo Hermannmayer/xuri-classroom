@@ -416,10 +416,10 @@ public class SystemServiceImpl implements SystemService {
 		if (isNotBlank(request.getName())) {
 			target.setName(request.getName());
 		}
-		if (isNotBlank(request.getDescription())) {
+		if (request.getDescription() != null) {
 			target.setDescription(request.getDescription());
 		}
-		if (isNotBlank(request.getAvatar())) {
+		if (request.getAvatar() != null) {
 			target.setAvatar(request.getAvatar());
 		}
 		if (isNotBlank(request.getLocale())) {
@@ -452,10 +452,10 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getCaptchaEnabled() != null) {
 				setting.setCaptchaEnabled(source.getCaptchaEnabled());
 			}
-			if (isNotBlank(source.getCopyright())) {
+			if (source.getCopyright() != null) {
 				setting.setCopyright(source.getCopyright());
 			}
-			if (isNotBlank(source.getRecordNum())) {
+			if (source.getRecordNum() != null) {
 				setting.setRecordNum(source.getRecordNum());
 			}
 			if (isNotBlank(source.getAmapKey())) {
