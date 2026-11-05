@@ -102,7 +102,10 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 
 	private void assertManagePermission(String repoId) {
 		Repo repo = repoMapper.selectById(repoId);
-		if (repo == null || !Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())) {
+		// 管理员可以替任何题库授权；其他人只能管自己创建的题库
+		if (repo == null
+				|| (!SecurityContextUtils.isAdmin()
+						&& !Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId()))) {
 			throw new AccessDeniedException("无权限管理该题库成员");
 		}
 	}
