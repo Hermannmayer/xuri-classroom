@@ -27,6 +27,7 @@ interface SysUser {
   phone?: string;
   email?: string;
   status?: number;
+  deptId?: string;
   deptName?: string;
   roleNames?: string[];
   createAt?: string;
@@ -67,6 +68,8 @@ export default function SystemUser() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [depts, setDepts] = useState<{ id: string; name: string }[]>([]);
+  const [deptFilter, setDeptFilter] = useState<string | undefined>(undefined);
 
   const [editing, setEditing] = useState<SysUser | null>(null);
   const [open, setOpen] = useState(false);
@@ -81,6 +84,7 @@ export default function SystemUser() {
         current: page,
         pageSize,
         name: keyword,
+        deptId: deptFilter,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -89,13 +93,16 @@ export default function SystemUser() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword]);
+  }, [page, pageSize, keyword, deptFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
+    get<{ id: string; name: string }[]>('/api/system/dept/list')
+      .then((list) => setDepts(Array.isArray(list) ? list : []))
+      .catch(() => undefined);
     get<{ list: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 })
       .then((res) => setRoles(res?.list ?? []))
       .catch(() => undefined);
@@ -113,6 +120,7 @@ export default function SystemUser() {
     form.resetFields();
     form.setFieldsValue({
       name: row.name,
+      deptId: row.deptId,
       username: row.username,
       phone: row.phone,
       email: row.email,
@@ -200,7 +208,18 @@ export default function SystemUser() {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <Input.Search
+        <Select
+            allowClear
+            placeholder="全部用户组"
+            style={{ width: 160 }}
+            value={deptFilter}
+            onChange={(v) => {
+              setPage(1);
+              setDeptFilter(v);
+            }}
+            options={depts.map((d) => ({ value: d.id, label: d.name }))}
+          />
+          <Input.Search
           placeholder="搜索姓名"
           allowClear
           style={{ width: isMobile ? '100%' : 200 }}
@@ -335,6 +354,7 @@ export default function SystemUser() {
           columns={[
             { title: '姓名', dataIndex: 'name', width: 140, render: (v) => v || '—' },
             { title: '账号', dataIndex: 'username', width: 160 },
+            { title: '用户组', dataIndex: 'deptName', width: 140, render: (v) => v || '—' },
             { title: '手机', dataIndex: 'phone', width: 140, render: (v) => v || '—' },
             { title: '邮箱', dataIndex: 'email', render: (v) => v || '—' },
             {
@@ -393,6 +413,13 @@ export default function SystemUser() {
             rules={[{ required: !editing, message: '请输入密码' }]}
           >
             <Input.Password placeholder={editing ? '留空表示不修改' : '至少 6 位'} autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="deptId" label="用户组 / 班级" extra="决定能看到哪些题库和考试">
+            <Select
+              allowClear
+              placeholder="不选则不属于任何组"
+              options={depts.map((d) => ({ value: d.id, label: d.name }))}
+            />
           </Form.Item>
           <Form.Item name="roles" label="角色" extra="不分配角色等于没有后台权限；学员不需要分配">
             <Select

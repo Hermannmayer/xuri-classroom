@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Modal, Popconfirm, Space, Table } from 'antd';
+import { Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Table } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { get, post } from '../../api';
 
@@ -14,6 +14,10 @@ interface Dept {
  * 用户组（班级）管理：复用后端的组织机构表 t_dept。
  * 题库授权时按这里的分组批量把组员加入 t_repo_partner。
  */
+function flattenDepts(list: Dept[], depth = 0): { id: string; name: string; depth: number }[] {
+  return list.flatMap((d) => [{ id: d.id, name: d.name, depth }, ...flattenDepts(d.children ?? [], depth + 1)]);
+}
+
 export default function SystemGroup() {
   const [tree, setTree] = useState<Dept[]>([]);
   const [loading, setLoading] = useState(false);
@@ -144,8 +148,14 @@ export default function SystemGroup() {
           <Form.Item name="name" label="分组名称" rules={[{ required: true, message: '请输入名称' }]}>
             <Input placeholder="例如：育婴五级 2026 春季班" />
           </Form.Item>
-          <Form.Item name="parentId" label="上级分组" extra="留空表示顶层">
-            <Input placeholder="上级分组 id（从列表点「加子组」会自动带上）" />
+<Form.Item name="parentId" label="上级分组" extra="留空表示顶层">
+            <Select
+              allowClear
+              placeholder="顶层（不选）"
+              options={flattenDepts(tree)
+                .filter((d) => d.id !== editing?.id)
+                .map((d) => ({ value: d.id, label: `${"　".repeat(d.depth)}${d.name}` }))}
+            />
           </Form.Item>
         </Form>
       </Modal>

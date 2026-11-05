@@ -62,7 +62,10 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				.and(isBlank(query.getParentId()),
 						c -> c.isNull(Project::getParentId).or().eq(Project::getParentId, "0"))
 				.eq(query.getMode() != null, Project::getMode, query.getMode())
-				.exists("SELECT 1 FROM t_project_partner t WHERE t.type in (1, 2) AND t.user_id = {0} AND t.project_id = t_project.id",
+				// 可见性：本人被授权(type 1/2/3)，或所在用户组被授权（group_id 存 dept id）
+				.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
+						+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id = (SELECT u.dept_id FROM t_user u WHERE u.id = {0})))"
+						+ " AND t.type IN (1, 2, 3)",
 						SecurityContextUtils.getUserId())
 				// 文件夹排在前面，然后按创建时间从近到远排序
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));
