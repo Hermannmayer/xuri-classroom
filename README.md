@@ -1,183 +1,122 @@
-<p align="center">
-  <img src="website/static/img/surveyking.svg" alt="SurveyKing" height="76" />
-</p>
+# 旭日云课堂
 
-<h1 align="center">SurveyKing</h1>
+**威海市旭日职业培训学校 · 考试与学习平台**
 
-<p align="center">
-  <strong>Open-source surveys, exams, and question-bank practice—self-hosted on your infrastructure</strong>
-</p>
+面向职业技能等级认定与日常教学的一体化平台：出卷、组卷、答题、判分、数据分析，以及题库和练习。
 
-<p align="center">
-  Create forms with AI, run automatically graded exams, help learners practice from question banks, and analyze every response in one platform.
-</p>
+---
 
-<p align="center">
-  <a href="https://github.com/javahuang/SurveyKing/stargazers"><img src="https://img.shields.io/github/stars/javahuang/SurveyKing?style=flat-square&logo=github" alt="GitHub stars" /></a>
-  <a href="https://github.com/javahuang/SurveyKing/network/members"><img src="https://img.shields.io/github/forks/javahuang/SurveyKing?style=flat-square&logo=github" alt="GitHub forks" /></a>
-  <img src="https://img.shields.io/badge/version-v1.13.0-brightgreen?style=flat-square" alt="Version 1.13.0" />
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License" /></a>
-  <a href="https://hub.docker.com/r/surveyking/surveyking"><img src="https://img.shields.io/docker/pulls/surveyking/surveyking?style=flat-square&logo=docker" alt="Docker pulls" /></a>
-</p>
+## 这是什么
 
-<p align="center">
-  <a href="https://surveyking.cn/">Website</a> ·
-  <a href="https://s.surveyking.cn/">Live Demo</a> ·
-  <a href="https://surveyking.cn/help/quickstart/">Documentation</a> ·
-  <a href="https://surveyking.cn/open-source/deploy/">Deployment</a>
-</p>
+旭日云课堂是威海市旭日职业培训学校自用的考评系统，围绕「育婴员 / 养老护理员 / 保育员」三类职业技能等级认定场景设计：
 
-<p align="center">
-  English ·
-  <a href="./README.zh-CN.md">简体中文</a> ·
-  <a href="./README.zh-TW.md">繁體中文</a> ·
-  <a href="./README.ja.md">日本語</a> ·
-  <a href="./README.ko.md">한국어</a> ·
-  <a href="./README.de.md">Deutsch</a> ·
-  <a href="./README.fr.md">Français</a> ·
-  <a href="./README.th.md">ไทย</a>
-</p>
+- **考试**：建卷、组卷、限时答题、自动判分、成绩单与排名
+- **问卷**：报名收集、满意度调查、信息登记
+- **题库**：按专业与等级分类的复习题库，支持 Excel 导入导出
+- **练习**：学员按题库刷题，错题自动进笔记
+- **数据**：答卷电子表格、逐题统计、答卷导出
 
-> **Own the workflow and the data.** SurveyKing brings content creation, publishing, responses, grading, practice, analytics, users, and permissions into one deployable system. Start with the embedded H2 database, then move to MySQL when you are ready for production.
+三类专业的复习题已导入 9 个题库，共 11,000 余道题：
 
-## Get running in a minute
+| 专业 | 三级 | 四级 | 五级 |
+|---|---|---|---|
+| 保育员 | 1401 | 1023 | 1034 |
+| 养老护理员 | 1412 | 1208 | 1205 |
+| 育婴员 | 1402 | 1195 | 1204 |
 
-Start SurveyKing with Docker and the built-in H2 database:
+## 技术构成
 
-```bash
-docker run -d \
-  --name surveyking \
-  -p 1991:1991 \
-  surveyking/surveyking:latest
-```
+| 层 | 说明 |
+|---|---|
+| **前端** | 本校内自行开发，React 18 + TypeScript + Ant Design 5 + Vite，源码在 `client/` |
+| **后端** | 基于开源项目 [SurveyKing](https://github.com/javahuang/SurveyKing)（MIT 协议）二次开发，源码在 `server/`；在原有答题与题库能力上做了权限分层、题库组卷、导入导出修复等改动 |
 
-Open [http://localhost:1991](http://localhost:1991) and sign in:
+> 前端为学校自行开发（蓝图风格界面、手机端底栏、移动优先的答题页），与上游 SurveyKing 的前端没有代码继承关系。
 
-- Username: `admin`
-- Password: `123456`
-- Change the default password immediately. The new password must be 8–16 characters and contain uppercase letters, lowercase letters, and digits.
+## 主要功能
 
-## One platform, three workflows
+### 角色与权限
 
-| Surveys | Exams | Question-bank practice |
-| --- | --- | --- |
-| Build responsive forms with 20+ question types, conditional logic, themes, and publishing controls | Reuse question banks, configure answers and scores, randomize content, and grade submissions automatically | Offer sequential, random, and incorrect-answer practice with progress tracking on desktop and mobile |
-| Create with AI, Excel, plain text, templates, or the visual editor | Analyze scores, answers, rankings, and question-level performance | Add answer explanations, favorites, notes, question flags, and AI-assisted explanations |
+| 角色 | 能做什么 |
+|---|---|
+| 管理员 | 全部功能：账号、用户组、系统设置、题库与考试管理 |
+| 老师 | 建卷、组卷、管理题库、查看答卷与报表，不能进系统管理 |
+| 学员 | 按班级可见的题库、练习、答题、查看自己的成绩 |
 
-## Product tour
+- 题库按**用户组（班级）**授权，组员自动继承——新学员入班即可看到对应题库
+- 未授权的题库对学员不可见（列表与详情都做了限制）
 
-> The survey and exam editor screenshots are localized in English. The remaining product screenshots currently show the Simplified Chinese interface. SurveyKing's interface can be switched between English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, and Thai.
+### 出题与组卷
 
-### Surveys and response analytics
+- **题库导入**：Excel 按题型分 sheet 导入（单选题 / 多选题 / 判断题 / 填空题 / 简答题）
+- **题库组卷**：选题库、按题型配「题数 × 每题分值」，自动汇总总分并抽题成卷
+- **手工加题**：14 种题型（单选、多选、判断、填空、多空填空、评分、NPS、矩阵单选/多选/填空、级联、地址、文本等）
+- 编辑器支持拖拽排序、逻辑规则（显隐 / 必填）、主题、JSON 视图
 
-Design surveys visually, preview them on mobile, publish a respondent-friendly form, and turn collected responses into live reports.
+### 答题
 
-<table>
-  <tr>
-    <td width="50%" align="center"><a href="docs/readme/locales/en/survey-editor.webp"><img src="docs/readme/locales/en/survey-editor.webp" alt="Survey editor" width="100%" /></a><br /><sub>Visual editor</sub></td>
-    <td width="50%" align="center"><a href="docs/readme/survey-mobile-preview.webp"><img src="docs/readme/survey-mobile-preview.webp" alt="Mobile survey preview" width="100%" /></a><br /><sub>Mobile preview</sub></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><a href="docs/readme/survey-answer-ui.webp"><img src="docs/readme/survey-answer-ui.webp" alt="Respondent-facing survey" width="100%" /></a><br /><sub>Respondent experience</sub></td>
-    <td width="50%" align="center"><a href="docs/readme/survey-report.webp"><img src="docs/readme/survey-report.webp" alt="Survey analytics" width="100%" /></a><br /><sub>Response analytics</sub></td>
-  </tr>
-</table>
+- 一页一题 / 滚动两种模式
+- 字号可调（0.9×–2.0×，适合中老年学员）
+- 答题卡、进度条、必填拦截、二次确认
+- 考试模式：倒计时、切屏检测、交卷后成绩单与逐题解析
+- 未提交答案本地暂存，换设备可通过答卷链接继续
 
-### Exams and automatic grading
+### 手机端
 
-Build exams from reusable question banks, define scoring rules and explanations, randomize questions or options, and review automatically calculated results.
+- 手机端独立底栏导航（首页 / 我的考试 / 我的练习 / 题库 / 我的）
+- 列表页在手机上改为卡片，按钮尺寸适配手指点击
 
-<table>
-  <tr>
-    <td width="50%" align="center"><a href="docs/readme/locales/en/exam-editor.webp"><img src="docs/readme/locales/en/exam-editor.webp" alt="Exam editor" width="100%" /></a><br /><sub>Exam editor</sub></td>
-    <td width="50%" align="center"><a href="docs/readme/exam-mobile-preview.webp"><img src="docs/readme/exam-mobile-preview.webp" alt="Mobile exam preview" width="100%" /></a><br /><sub>Mobile preview</sub></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><a href="docs/readme/exam-answer-ui.webp"><img src="docs/readme/exam-answer-ui.webp" alt="Candidate-facing exam" width="100%" /></a><br /><sub>Candidate experience</sub></td>
-    <td width="50%" align="center"><a href="docs/readme/exam-data.webp"><img src="docs/readme/exam-data.webp" alt="Exam results" width="100%" /></a><br /><sub>Scores and results</sub></td>
-  </tr>
-</table>
+## 本地运行
 
-### Practice on desktop and mobile
-
-Use the same question bank for formal exams and self-directed learning. Learners get instant grading, answer comparison, explanations, favorites, notes, progress, and an incorrect-answer workflow.
-
-<p align="center">
-  <img src="docs/readme/practice-desktop.webp" alt="Question practice on desktop" width="69%" />
-  <img src="docs/readme/practice-mobile.webp" alt="Question practice on mobile" width="20%" />
-</p>
-
-### AI-assisted creation
-
-Describe the survey or exam you need in natural language. SurveyKing streams the generated structure into a live preview so you can review it before creating the project.
-
-<p align="center">
-  <img src="docs/readme/ai-create.webp" alt="AI-assisted survey and exam creation" width="72%" />
-</p>
-
-## What you can build
-
-| Area | Capabilities |
-| --- | --- |
-| **Surveys** | Single and multiple choice, dropdowns, cascading choices, text input, matrices, NPS, ratings, signatures, file uploads, QR codes, locations, and more |
-| **Logic** | Conditional visibility, branching, calculations, text replacement, validation, dynamic required fields, and automatic option selection |
-| **Publishing** | Passwords, allowlists, login requirements, schedules, response limits, public result lookup, and WeChat-based responses |
-| **Exams** | Question banks, bulk import, reusable questions, random selection, answer keys, scoring rules, automatic grading, rankings, and result analysis |
-| **Practice** | Sequential, random, and incorrect-answer practice; answer cards; flags; favorites; notes; progress; and AI-assisted explanations |
-| **Data** | Response editing, search, filters, imports, exports, printing, attachment downloads, and real-time reports |
-| **Administration** | Users, roles, departments, positions, organizations, collaboration, and role-based access control (RBAC) |
-
-## AI, integrations, and languages
-
-- Connect OpenAI-compatible APIs and configure available and default models.
-- Generate surveys and exams through streaming AI output with a live preview.
-- Use Google OAuth, WeChat Open Platform QR login, WeChat Official Account authorization, and account linking.
-- Configure Amap for location questions and use built-in H2 or an external MySQL database.
-- Switch the application interface among English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, and Thai.
-
-## Deployment options
-
-| Option | Best for | Entry point |
-| --- | --- | --- |
-| **Docker + H2** | Evaluation and small self-hosted deployments | `surveyking/surveyking:latest` |
-| **Docker + MySQL** | Production deployments with an external database | [Deployment guide](https://surveyking.cn/open-source/deploy/) |
-| **Windows package** | A quick start without container tooling | [Deployment guide](https://surveyking.cn/open-source/deploy/) |
-| **Nginx, BaoTa, or EazyDevelop** | Managed or region-specific deployment workflows | [All deployment options](https://surveyking.cn/open-source/deploy/) |
-
-If Docker Hub is slow in your region, a mirror is available from Alibaba Cloud:
+前置：JDK 8、MySQL 8、Node.js 18+
 
 ```bash
-docker run -d \
-  --name surveyking \
-  -p 1991:1991 \
-  registry.cn-hangzhou.aliyuncs.com/surveyking/surveyking:latest
+# 1. 启动 MySQL（脚本里写死了便携版路径，按需修改）
+scripts\dev\start-mysql.ps1
+
+# 2. 构建并启动后端（默认 80 端口，需要管理员权限）
+cd server
+.\gradlew.bat :api:bootJar -x test
+cd ..
+scripts\dev\start-backend.ps1
+
+# 3. 启动前端开发服务器（5173，代理到 80）
+cd client
+npm install
+npm run dev
 ```
 
-## Technology
+- 后台入口：`http://localhost:5173`
+- 答题链接：`http://<本机IP>:5173/s/<项目ID>`
+- 默认账号：`admin` / `123456`（首次登录后请修改）
 
-| Layer | Technology |
-| --- | --- |
-| Frontend | React, Ant Design, responsive web UI |
-| Backend | Java, Spring Boot 2.7, Spring Security, MyBatis-Plus |
-| Databases | H2, MySQL |
-| Deployment | Docker, Windows, Nginx, BaoTa, EazyDevelop |
+## 目录结构
 
-## Documentation and community
+```
+client/            前端（自研）
+  src/pages/       页面：首页/考试/题库/练习/系统管理
+  src/renderer/    题型渲染器（14 种题型）
+  src/designer/    问卷设计器（大纲、属性面板、规则编辑器）
+  src/schema/      数据结构、规则引擎
+server/            后端（基于 SurveyKing 二次开发）
+  api/             REST 接口
+  rdbms/           数据访问与业务实现
+  shared/          公共模型与工具
+scripts/dev/       本地启动、数据导入、SQL 脚本
+```
 
-- [Quick start](https://surveyking.cn/help/quickstart/)
-- [Deployment guide](https://surveyking.cn/open-source/deploy/)
-- [AI configuration](https://surveyking.cn/open-source/docs/ai/)
-- [Live demo](https://s.surveyking.cn/)
-- [GitHub Issues](https://github.com/javahuang/SurveyKing/issues)
+## 与上游 SurveyKing 的差异
 
-Issues and pull requests are welcome. If SurveyKing helps your team, consider starring the repository and sharing how you use it.
+- 前端完全重写（上游为 UmiJS + ProLayout，本项目为 React Router + 自研蓝图风格）
+- 新增题库按用户组授权（`t_repo_partner.dept_id`）、管理员代授权
+- 修复答题导出在评分题为纯数字时抛异常导致空文件的问题
+- 修复 `tempSaveAnswer` 漏传 projectId 导致的空指针
+- 新增题库组卷、手机端卡片布局、亮/暗双主题
 
-### Regional resources
+## 许可
 
-- [Gitee mirror](https://gitee.com/surveyking/surveyking)
-- [Complete feature list (Chinese)](https://docs.qq.com/sheet/DZEVveUVMSHpVZkJw)
-- QQ community: `980962382`
+后端继承上游 SurveyKing 的 MIT 协议；前端代码归威海市旭日职业培训学校所有。
 
-## License
+---
 
-SurveyKing is open-source software released under the [MIT License](./LICENSE).
+**威海市旭日职业培训学校** · 技能培训 / 职业技能等级认定
