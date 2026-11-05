@@ -59,7 +59,7 @@ export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema |
 const answerKey = (projectId: string) => `sk-answer-${projectId}`;
 
 export default function PublicAnswer() {
-  const { id = '' } = useParams();
+  const { id = '', answerId: routeAnswerId } = useParams();
   const { modal } = App.useApp();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<PublicProjectView>();
@@ -106,14 +106,15 @@ export default function PublicAnswer() {
     setLoading(true);
     setFatal(undefined);
     try {
-      const savedId = localStorage.getItem(answerKey(id)) ?? undefined;
+      // URL 里带 answerId（成绩单/回看链接）优先，其次用本地保存的匿名凭证
+      const savedId = routeAnswerId ?? localStorage.getItem(answerKey(id)) ?? undefined;
       applyProject(await post<PublicProjectView>('/api/public/loadProject', { id, answerId: savedId }));
     } catch (e) {
       setFatal((e as Error).message || '加载失败');
     } finally {
       setLoading(false);
     }
-  }, [id, applyProject]);
+  }, [id, routeAnswerId, applyProject]);
 
   useEffect(() => {
     void load();
@@ -137,6 +138,9 @@ export default function PublicAnswer() {
   };
 
   const onePage = Boolean(project?.setting?.answerSetting?.onePageOneQuestion);
+  /** 这两项来自发布设置的「答题体验」，旧版是开关，默认都开 */
+  const showProgress = project?.setting?.answerSetting?.progressBar !== false;
+  const showSheet = project?.setting?.answerSetting?.answerSheetVisible !== false;
   const flatQuestions = useMemo(() => (project?.survey ? flattenSchema(project.survey) : []), [project]);
   const visibleQuestions = useMemo(
     () => flatQuestions.filter((q) => displays[q.id] !== false),
@@ -518,27 +522,32 @@ export default function PublicAnswer() {
             A+
           </Button>
         </div>
-        <Button size="small" icon={<MenuOutlined />} onClick={() => setSheetOpen(true)} className="sk-answer-sheet-btn">
-          答题卡
-        </Button>
+        {showSheet && (
+          <Button size="small" icon={<MenuOutlined />} onClick={() => setSheetOpen(true)} className="sk-answer-sheet-btn">
+            答题卡
+          </Button>
+        )}
       </div>
 
       {/* 进度条：一页一题看页码，滚动模式看已答比例 */}
-      <div className="sk-answer-progress">
-        <div
-          style={{
-            width: `${
-              onePage
-                ? ((currentIndex + 1) / Math.max(total, 1)) * 100
-                : (Object.values(answered).filter(Boolean).length / Math.max(total, 1)) * 100
-            }%`,
-          }}
-        />
-      </div>
+      {showProgress && (
+        <div className="sk-answer-progress">
+          <div
+            style={{
+              width: `${
+                onePage
+                  ? ((currentIndex + 1) / Math.max(total, 1)) * 100
+                  : (Object.values(answered).filter(Boolean).length / Math.max(total, 1)) * 100
+              }%`,
+            }}
+          />
+        </div>
+      )}
 
       <div className="sk-answer-layout" ref={contentRef}>
         {/* 桌面端常驻答题卡 */}
-        <aside className="sk-answer-sheet-side">
+        {showSheet && (
+          <aside className="sk-answer-sheet-side">
           <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
             ANSWER SHEET / 答题卡
           </div>
@@ -550,6 +559,7 @@ export default function PublicAnswer() {
             ) : null}
           </div>
         </aside>
+        )}
 
         <div style={{ flex: 1, minWidth: 0, zoom: fontScale }}>
           {onePage && (
