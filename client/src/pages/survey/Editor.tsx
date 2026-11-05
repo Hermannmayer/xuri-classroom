@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Input, message, Space, Spin, Tooltip } from 'antd';
+import { Button, Card, Input, message, Modal, Space, Spin, Tooltip } from 'antd';
 import {
   ArrowLeftOutlined,
+  CodeOutlined,
   DeleteOutlined,
   DownOutlined,
   EyeOutlined,
@@ -24,17 +25,7 @@ import type { AnswerValue } from '../../renderer/types';
 import AttributePanel from '../../designer/AttributePanel';
 import PhonePreview, { DEVICE_H, DEVICE_W } from '../../designer/PhonePreview';
 import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, normalizeSchema } from '../../designer/defaults';
-import {
-  findNode,
-  findParent,
-  flattenOutline,
-  insertNode,
-  moveNode,
-  removeNode,
-  reorderChildren,
-  updateNode,
-  type OutlineItem,
-} from '../../designer/tree';
+import { findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
@@ -194,6 +185,9 @@ export default function SurveyEditor() {
   const [preview, setPreview] = useState(false);
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
+  const dragFromRef = useRef<string | undefined>(undefined);
+  const [jsonOpen, setJsonOpen] = useState(false);
+  const [jsonText, setJsonText] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -220,6 +214,15 @@ export default function SurveyEditor() {
       el.classList.toggle('bp-selected', el.getAttribute('data-qid') === selectedId);
     });
   }, [selectedId, survey, preview]);
+
+  /** 画布内拖拽排序：渲染器不感知 dnd，这里给每个题目节点挂上 draggable */
+  useEffect(() => {
+    const root = canvasRef.current;
+    if (!root || preview) return;
+    root.querySelectorAll('[data-qid]').forEach((el) => {
+      (el as HTMLElement).draggable = true;
+    });
+  }, [survey, preview]);
 
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
@@ -348,6 +351,15 @@ export default function SurveyEditor() {
         <Button icon={<EyeOutlined />} type={preview ? 'primary' : 'default'} onClick={() => setPreview((p) => !p)}>
           {preview ? '退出预览' : '预览'}
         </Button>
+        <Button
+          icon={<CodeOutlined />}
+          onClick={() => {
+            setJsonText(JSON.stringify(survey, null, 2));
+            setJsonOpen(true);
+          }}
+        >
+          JSON
+        </Button>
         <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
           保存
         </Button>
@@ -414,8 +426,40 @@ export default function SurveyEditor() {
             className="sk-canvas"
             style={{ maxWidth: 760 }}
             onClick={(e) => {
+              if (dragFromRef.current) return;
               const el = (e.target as HTMLElement).closest('[data-qid]');
               if (el) setSelectedId(el.getAttribute('data-qid') ?? undefined);
+            }}
+            onDragStart={(e) => {
+              const el = (e.target as HTMLElement).closest('[data-qid]');
+              if (!el) return;
+              dragFromRef.current = el.getAttribute('data-qid') ?? undefined;
+              e.dataTransfer.effectAllowed = 'move';
+              try {
+                e.dataTransfer.setData('text/plain', dragFromRef.current ?? '');
+              } catch {
+                /* 某些浏览器限制 setData，忽略 */
+              }
+            }}
+            onDragOver={(e) => {
+              if (dragFromRef.current) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const from = dragFromRef.current;
+              const toEl = (e.target as HTMLElement).closest('[data-qid]');
+              const to = toEl?.getAttribute('data-qid');
+              dragFromRef.current = undefined;
+              if (from && to && from !== to) setSurvey(moveBefore(survey, from, to));
+            }}
+            onDragEnd={() => {
+              // 拖拽结束后下一帧再清，避免 click 抢在 dragend 之前
+              window.setTimeout(() => {
+                dragFromRef.current = undefined;
+              }, 0);
             }}
           >
             {survey.children?.length ? (
@@ -495,6 +539,38 @@ export default function SurveyEditor() {
           )}
         </div>
       </div>
+
+      {/* JSON 视图：树结构出问题时的手动兜底 */}
+      <Modal
+        title="Schema JSON"
+        open={jsonOpen}
+        width={760}
+        okText="应用"
+        cancelText="取消"
+        onCancel={() => setJsonOpen(false)}
+        onOk={() => {
+          try {
+            const parsed = JSON.parse(jsonText) as SurveySchema;
+            if (!parsed || typeof parsed !== 'object' || !parsed.type) throw new Error('缺少 type 字段');
+            setSurvey(parsed);
+            setSelectedId(undefined);
+            setJsonOpen(false);
+            message.success('已应用，记得保存');
+          } catch (e) {
+            message.error(`JSON 不合法：${(e as Error).message}`);
+          }
+        }}
+      >
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+          直接编辑整棵树（危险操作）：改完点「应用」回到设计器，再点保存才会写库。
+        </div>
+        <Input.TextArea
+          value={jsonText}
+          onChange={(e) => setJsonText(e.target.value)}
+          autoSize={{ minRows: 18, maxRows: 30 }}
+          style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
+        />
+      </Modal>
     </div>
   );
 }
