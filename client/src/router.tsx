@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import BasicLayout from './layout/BasicLayout';
 import RequirePerm from './components/RequirePerm';
 import Login from './pages/user/Login';
+import Register from './pages/user/Register';
 import Home from './pages/Home';
 import ProjectList from './pages/project/List';
 import ProjectTrash from './pages/project/Trash';
@@ -34,6 +35,7 @@ const guard = (perm: string, element: JSX.Element) => <RequirePerm perm={perm}>{
  */
 export const router = createBrowserRouter([
   { path: '/user/login', element: <Login /> },
+  { path: '/user/register', element: <Register /> },
   {
     path: '/',
     element: <BasicLayout />,

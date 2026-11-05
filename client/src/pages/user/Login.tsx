@@ -155,6 +155,14 @@ export default function Login() {
             >
               {t('pages.login.submit', '登录')}
             </Button>
+            {system?.registerInfo?.registerEnabled && (
+              <div style={{ marginTop: 12, textAlign: 'center', fontSize: 12 }}>
+                还没有账号？
+                <a onClick={() => navigate('/user/register')} style={{ marginLeft: 4 }}>
+                  注册
+                </a>
+              </div>
+            )}
           </Form>
         </div>
 
