@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, message, Popconfirm, Progress, Space, Table, Tag } from 'antd';
+import { Button, Empty, message, Popconfirm, Progress, Select, Space, Table, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { TABLE_COMPONENTS } from '../repo/table';
@@ -28,6 +28,9 @@ const TYPE_COLOR: Record<string, string> = {
   W: 'orange',
 };
 
+/** 后端按 Answer.tempSave 过滤：0 暂存/进行中，1 已完成 */
+type StatusFilter = 'all' | '0' | '1';
+
 export default function ExerciseList() {
   const navigate = useNavigate();
 
@@ -35,6 +38,7 @@ export default function ExerciseList() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [status, setStatus] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -43,6 +47,7 @@ export default function ExerciseList() {
       const res = await getWithPagination<ExerciseView>('/api/exercise/list', {
         current: page,
         pageSize,
+        tempSave: status === 'all' ? undefined : Number(status),
       });
       setRows(res.data);
       setTotal(res.total);
@@ -51,7 +56,7 @@ export default function ExerciseList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, status]);
 
   useEffect(() => {
     void load();
@@ -94,6 +99,35 @@ export default function ExerciseList() {
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
 
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginBottom: 12,
+        }}
+      >
+        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 条练习记录</span>
+        <div style={{ flex: 1 }} />
+        <Space size={8}>
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>状态</span>
+          <Select<StatusFilter>
+            value={status}
+            style={{ width: 140 }}
+            onChange={(v) => {
+              setStatus(v);
+              setPage(1);
+            }}
+            options={[
+              { label: '全部状态', value: 'all' },
+              { label: '进行中', value: '0' },
+              { label: '已完成', value: '1' },
+            ]}
+          />
+        </Space>
+      </div>
+
       <Table<ExerciseView>
         rowKey="id"
         size="middle"
@@ -130,7 +164,7 @@ export default function ExerciseList() {
             ),
           },
           {
-            title: '类型',
+            title: '练习类型',
             dataIndex: 'examExerciseType',
             width: 120,
             render: (t) =>
