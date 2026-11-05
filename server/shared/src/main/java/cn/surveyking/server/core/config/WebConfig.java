@@ -5,14 +5,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -47,11 +49,12 @@ public class WebConfig implements WebMvcConfigurer {
 	}
 
 	/**
-	 * @return
+	 * SPA 入口：直接写响应流，避免 Resource 被 Jackson 序列化
 	 */
 	@GetMapping
-	public Object index() {
-		return ResponseEntity.ok().body(indexHtml);
+	public void index(HttpServletResponse response) throws IOException {
+		response.setContentType("text/html;charset=UTF-8");
+		StreamUtils.copy(indexHtml.getInputStream(), response.getOutputStream());
 	}
 
 }

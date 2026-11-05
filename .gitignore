@@ -58,3 +58,12 @@ frontend-recon/digest/
 # 本地基线服务的临时文件
 frontend-recon/*.log
 
+### 新前端 (client) ###
+client/node_modules/
+client/dist/
+client/*.tsbuildinfo
+
+### 本地开发运行时产物 ###
+server/backend.log
+server/application.properties
+
