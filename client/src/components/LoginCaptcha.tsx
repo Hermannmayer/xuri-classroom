@@ -132,9 +132,10 @@ export default function LoginCaptcha({
       if (res?.repCode === '0000') {
         setPhase('ok');
         setMsg('验证成功');
-        // 后端 verification 会先 AES 解密整串，再按 "token---pointJson" 拆分并用缓存的 secretKey 解密第二段，
-        // 所以第二段必须是 check 用的那份**密文** pointJson，不能拼明文坐标。
-        onVerified(aesEncrypt(`${tokenRef.current}---${pointJson}`, secretRef.current));
+        // 后端 BlockPuzzleCaptchaServiceImpl#check 成功后缓存的是
+        // AES(secretKey, token + '---' + 解密后的明文坐标 JSON)，verification 直接拿 captchaVerification 查这个 key；
+        // 所以这里必须拼明文坐标，拼 check 用的密文 pointJson 会让后端查不到 key、一律返回 6110。
+        onVerified(aesEncrypt(`${tokenRef.current}---${JSON.stringify({ x, y: 5 })}`, secretRef.current));
         return;
       }
       setPhase('fail');
