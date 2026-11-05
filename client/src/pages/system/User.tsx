@@ -32,6 +32,7 @@ interface SysUser {
   deptId?: string;
   deptName?: string;
   roleNames?: string[];
+  roles?: { id: string; name?: string; code?: string }[];
   createAt?: string;
 }
 
@@ -194,6 +195,7 @@ export default function SystemUser() {
     form.setFieldsValue({
       name: row.name,
       deptId: row.deptId,
+      roles: (row.roles ?? []).map((r) => r.id),
       username: row.username,
       phone: row.phone,
       email: row.email,
@@ -500,14 +502,14 @@ export default function SystemUser() {
             label="账号"
             rules={[{ required: !editing, message: '请输入账号' }]}
           >
-            <Input placeholder="登录账号" disabled={Boolean(editing)} />
+            <Input placeholder="登录账号（建议直接填手机号）" disabled={Boolean(editing)} />
           </Form.Item>
           <Form.Item
             name="password"
             label={editing ? '重置密码（留空不改）' : '密码'}
             rules={[{ required: !editing, message: '请输入密码' }]}
           >
-            <Input.Password placeholder={editing ? '留空表示不修改' : '至少 6 位'} autoComplete="new-password" />
+            <Input.Password placeholder={editing ? '留空表示不修改' : '默认 12345678'} autoComplete="new-password" />
           </Form.Item>
           <Form.Item name="deptId" label="用户组 / 班级" extra="决定能看到哪些题库和考试">
             <Select
