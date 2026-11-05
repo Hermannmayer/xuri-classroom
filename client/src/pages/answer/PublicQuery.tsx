@@ -4,6 +4,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { post } from '../../api';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
+import { isEmptyAnswer } from '../../schema/empty';
 import { flattenSchema, type FlatQuestion } from '../../schema/flatten';
 import type { SurveySchema } from '../../schema/types';
 import { EMPTY, formatAnswer, questionHeader } from '../survey/data/format';
@@ -28,19 +29,6 @@ interface PublicQueryView {
   schema?: SurveySchema;
   answers?: QueryAnswerView[];
   fieldPermission?: Record<string, number>;
-}
-
-/** 空字符串、空对象、空数组都算没填，避免 { blankId: '' } 被当成有效条件 */
-function isBlankValue(value: unknown): boolean {
-  if (value === null || value === undefined) return true;
-  if (typeof value === 'string') return value.trim() === '';
-  if (typeof value === 'number' || typeof value === 'boolean') return false;
-  if (Array.isArray(value)) return value.length === 0 || value.every(isBlankValue);
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    return entries.length === 0 || entries.every(([, v]) => isBlankValue(v));
-  }
-  return false;
 }
 
 export default function PublicQuery() {
@@ -140,7 +128,7 @@ export default function PublicQuery() {
   }, [load]);
 
   const submit = () => {
-    const filled = conditionQuestions.filter((q) => !isBlankValue(values[q.id]));
+    const filled = conditionQuestions.filter((q) => !isEmptyAnswer(values[q.id], true));
     const hasUrlCondition = Object.keys(urlQuery).some((key) =>
       conditionQuestions.some((q) => (q.schema.children ?? []).some((child) => child.id === key)),
     );
@@ -150,7 +138,7 @@ export default function PublicQuery() {
     }
 
     const missing = formQuestions.filter((q) => {
-      if (!q.schema.attribute?.required || !isBlankValue(values[q.id])) return false;
+      if (!q.schema.attribute?.required || !isEmptyAnswer(values[q.id], true)) return false;
       // 非密码条件如果已经在 URL 里，视为已提供
       if (
         q.id !== PASSWORD_FIELD_ID &&

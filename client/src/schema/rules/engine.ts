@@ -11,6 +11,7 @@
  * 关键语义：布尔型选项判断的是「key 是否存在」，不是值真假。
  */
 import { buildExpression, parseRule, type RuleConfig } from './buildExpression';
+import { isEmptyAnswer } from '../empty';
 
 export interface ParsedRef {
   raw: string;
@@ -120,13 +121,6 @@ function truthy(value: unknown): boolean {
   return Boolean(value);
 }
 
-function isAnswered(value: unknown): boolean {
-  if (value === null || value === undefined || value === '') return false;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === 'object') return Object.keys(value as object).length > 0;
-  return true;
-}
-
 function firstValue(value: unknown): unknown {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const keys = Object.keys(value as object);
@@ -139,7 +133,7 @@ export function resolveRef(ref: ParsedRef, ctx: EvalContext): unknown {
   const { prefix, qId, oId, subId, defaultValue } = ref;
   const value = ctx.values[qId];
 
-  if (prefix === '+') return isAnswered(value);
+  if (prefix === '+') return !isEmptyAnswer(value);
   if (prefix === '-') return (ctx.displays?.[qId] ?? 'visible') === 'visible';
   if (prefix === '$') return ctx.scores?.[qId] ?? 0;
   if (prefix === '_') return ctx.titles?.[qId] ?? '';
