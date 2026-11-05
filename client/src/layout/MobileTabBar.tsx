@@ -43,14 +43,15 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => under(p, '/project'),
     });
   }
+  const exerciseTab: TabItem = {
+    key: 'exercise',
+    path: '/exercise',
+    label: t('menu.exercise', '我的练习'),
+    icon: <FormOutlined />,
+    active: (p) => under(p, '/exercise'),
+  };
   if (can(authorities, 'exercise:list')) {
-    tabs.push({
-      key: 'exercise',
-      path: '/exercise',
-      label: t('menu.exercise', '我的练习'),
-      icon: <FormOutlined />,
-      active: (p) => under(p, '/exercise'),
-    });
+    tabs.push(exerciseTab);
   }
   if (can(authorities, 'repo:list')) {
     tabs.push({
@@ -60,6 +61,10 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       icon: <DatabaseOutlined />,
       active: (p) => under(p, '/repo'),
     });
+  }
+  // 与桌面端一致：没有任何角色的学员至少能看到「我的练习」
+  if (!authorities.includes('ROLE_admin') && !tabs.some((tab) => tab.key === 'exercise')) {
+    tabs.push(exerciseTab);
   }
   tabs.push({
     key: 'account',
