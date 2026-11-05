@@ -178,7 +178,12 @@ export default function RepoList() {
   );
 
   const openRename = (row: RepoView) => {
-    renameForm.setFieldsValue({ name: row.name || '' });
+    renameForm.setFieldsValue({
+      name: row.name || '',
+      category: row.category,
+      tag: (row.tag || []).join(','),
+      description: row.description,
+    });
     setRenaming(row);
   };
 
@@ -511,6 +516,15 @@ export default function RepoList() {
             rules={[{ required: true, whitespace: true, message: '请填写名称' }]}
           >
             <Input maxLength={120} />
+          </Form.Item>
+          <Form.Item name="category" label="分类" extra="例如：保育员 / 养老护理员 / 育婴员">
+            <Input maxLength={60} placeholder="按专业或课程分类" />
+          </Form.Item>
+          <Form.Item name="tag" label="标签" extra="多个标签用英文逗号分隔">
+            <Input maxLength={200} placeholder="例如：三级,重点,2025" />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
+            <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} placeholder="选填" />
           </Form.Item>
         </Form>
       </Modal>

@@ -1,8 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, Input, message, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
-import { ArrowLeftOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import {
+  Button,
+  Empty,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Upload,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  PlusOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { download, getWithPagination, post } from '../../api';
+import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
@@ -10,16 +31,12 @@ interface TemplateView {
   id: string;
   name?: string;
   questionType?: string;
-  template?: {
-    title?: string;
-    type?: string;
-    tags?: string[];
-    attribute?: {
-      examScore?: number;
-    };
-  };
+  template?: SurveySchema;
   tag?: string[];
   category?: string;
+  mode?: string;
+  repoId?: string;
+  previewUrl?: string;
   createAt?: string;
 }
 
@@ -48,6 +65,44 @@ const TYPE_COLOR: Record<string, string> = {
   Textarea: 'green',
 };
 
+interface OptionDraft {
+  id: string;
+  text: string;
+}
+
+const CHOICE_TYPES = new Set(['Radio', 'Checkbox', 'Judge']);
+
+let optionSeq = 0;
+function newOptionId() {
+  optionSeq += 1;
+  return `opt_${Date.now().toString(36)}_${optionSeq.toString(36)}`;
+}
+
+/** 从模板 children/dataSource 提取选项，保留原 option id */
+function templateOptions(template?: SurveySchema): OptionDraft[] {
+  const fromChildren = (template?.children ?? [])
+    .filter((child) => child.type === 'Option' || !child.type)
+    .map((child) => ({ id: child.id, text: child.title ?? '' }));
+  if (fromChildren.length) return fromChildren;
+  return (template?.dataSource ?? []).map((item) => ({ id: item.value, text: item.label ?? '' }));
+}
+
+/** 正确答案：选择题存 option.attribute.examCorrectAnswer，填空/简答存第一个空位 */
+function templateCorrect(template: SurveySchema | undefined, type: string, options: OptionDraft[]): string | string[] {
+  if (type === 'Checkbox') {
+    return options
+      .filter((opt) => Boolean(template?.children?.find((child) => child.id === opt.id)?.attribute?.examCorrectAnswer))
+      .map((opt) => opt.id);
+  }
+  if (CHOICE_TYPES.has(type)) {
+    return (
+      options.find((opt) => Boolean(template?.children?.find((child) => child.id === opt.id)?.attribute?.examCorrectAnswer))
+        ?.id ?? ''
+    );
+  }
+  return template?.children?.[0]?.attribute?.examCorrectAnswer ?? template?.attribute?.examCorrectAnswer ?? '';
+}
+
 export default function RepoQuestions() {
   const { repoId = '', mode = 'normal' } = useParams();
   const navigate = useNavigate();
@@ -62,12 +117,30 @@ export default function RepoQuestions() {
   const [keyword, setKeyword] = useState('');
   const [questionType, setQuestionType] = useState<string>();
   const [tagFilter, setTagFilter] = useState<string>();
-  const [typeOptions, setTypeOptions] = useState<string[]>([]);
+  // 默认给任务要求的 5 种题型；加载后把当前页出现的新题型并进来
+  const [typeOptions, setTypeOptions] = useState<string[]>([
+    'Radio',
+    'Checkbox',
+    'Judge',
+    'FillBlank',
+    'Textarea',
+  ]);
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [editing, setEditing] = useState<TemplateView | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [options, setOptions] = useState<OptionDraft[]>([]);
+  const [correct, setCorrect] = useState<string | string[]>('');
+  const [editForm] = Form.useForm<{
+    title: string;
+    score?: number;
+    analysis?: string;
+    tags?: string[];
+  }>();
 
   const load = useCallback(async () => {
     if (!repoId) return;
