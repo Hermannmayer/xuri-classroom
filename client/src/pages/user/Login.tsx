@@ -6,6 +6,7 @@ import { getCurrentUser, getSystem, login } from '../../api';
 import type { SystemInfo } from '../../api';
 import { encryptPassword } from '../../utils/crypto';
 import { t } from '../../i18n';
+import LoginCaptcha from '../../components/LoginCaptcha';
 
 function versionTag(version?: string) {
   return version && /^\d/.test(version) ? `v${version}` : 'BUILD 1.13.0';
@@ -14,7 +15,11 @@ function versionTag(version?: string) {
 export default function Login() {
   const [system, setSystem] = useState<SystemInfo>();
   const [loading, setLoading] = useState(false);
+  const [captchaVerification, setCaptchaVerification] = useState<string>();
+  // 登录失败时后端已消费验证码，换 key 让滑块重新拉一张
+  const [captchaKey, setCaptchaKey] = useState(0);
   const navigate = useNavigate();
+  const captchaEnabled = Boolean(system?.setting?.captchaEnabled);
 
   useEffect(() => {
     getSystem()
@@ -27,15 +32,24 @@ export default function Login() {
       message.error('系统信息未就绪，请刷新页面');
       return;
     }
+    if (captchaEnabled && !captchaVerification) {
+      message.error('请先完成滑块验证');
+      return;
+    }
     setLoading(true);
     try {
       await login({
         username: values.username,
         password: encryptPassword(values.password, system.publicKey),
+        captchaVerification: captchaEnabled ? captchaVerification : undefined,
       });
       await getCurrentUser();
       navigate('/home', { replace: true });
     } catch (e) {
+      if (captchaEnabled) {
+        setCaptchaVerification(undefined);
+        setCaptchaKey((k) => k + 1);
+      }
       message.error(e instanceof Error ? e.message : t('pages.login.failure', '登录失败，请重试！'));
     } finally {
       setLoading(false);
@@ -110,21 +124,6 @@ export default function Login() {
 
           <hr className="bp-dim" style={{ margin: '0 0 22px' }} />
 
-          {system?.setting?.captchaEnabled && (
-            <div
-              style={{
-                border: '1px dashed rgba(255,107,53,0.6)',
-                color: 'var(--bp-orange)',
-                fontSize: 11,
-                padding: '8px 10px',
-                marginBottom: 16,
-                lineHeight: 1.6,
-              }}
-            >
-              后端已开启验证码，新前端尚未接入，请先在系统设置中关闭。
-            </div>
-          )}
-
           <Form layout="vertical" onFinish={onFinish} requiredMark={false} size="large">
             <Form.Item name="username" label="USERNAME" rules={[{ required: true, message: '请输入用户名' }]}>
               <Input prefix={<UserOutlined />} placeholder="用户名" autoComplete="username" />
@@ -140,7 +139,20 @@ export default function Login() {
                 autoComplete="current-password"
               />
             </Form.Item>
-            <Button type="primary" htmlType="submit" block loading={loading} style={{ marginTop: 4 }}>
+            {/* 验证码放在账号密码下面、登录按钮上面 */}
+            {captchaEnabled && (
+              <div style={{ marginBottom: 16 }}>
+                <LoginCaptcha key={captchaKey} onVerified={setCaptchaVerification} />
+              </div>
+            )}
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              loading={loading}
+              disabled={captchaEnabled && !captchaVerification}
+              style={{ marginTop: 4 }}
+            >
               {t('pages.login.submit', '登录')}
             </Button>
           </Form>
