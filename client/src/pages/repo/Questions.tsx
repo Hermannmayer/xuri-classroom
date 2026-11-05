@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, Input, message, Space, Table, Tag, Upload } from 'antd';
-import { ArrowLeftOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Empty, Input, message, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
+import { ArrowLeftOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { download, getWithPagination, post } from '../../api';
 import { pager, TABLE_COMPONENTS } from './table';
@@ -28,7 +28,7 @@ const TYPE_LABEL: Record<string, string> = {
   Checkbox: '多选',
   Judge: '判断',
   FillBlank: '填空',
-  Textarea: '多行文本',
+  Textarea: '简答',
   Select: '下拉',
   Score: '评分',
   MultipleBlank: '多空',
@@ -60,8 +60,14 @@ export default function RepoQuestions() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [keyword, setKeyword] = useState('');
+  const [questionType, setQuestionType] = useState<string>();
+  const [tagFilter, setTagFilter] = useState<string>();
+  const [typeOptions, setTypeOptions] = useState<string[]>([]);
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!repoId) return;
@@ -72,19 +78,33 @@ export default function RepoQuestions() {
         current: page,
         pageSize,
         name: keyword,
+        questionType: questionType || undefined,
+        tag: tagFilter || undefined,
       });
       setRows(res.data);
       setTotal(res.total);
+      // 下拉选项从当前/已加载数据里累积，避免筛选后选项消失
+      const nextTypes = res.data.map((row) => row.questionType).filter((t): t is string => Boolean(t));
+      const nextTags = res.data.flatMap((row) => row.tag ?? row.template?.tags ?? []);
+      setTypeOptions((prev) => Array.from(new Set([...prev, ...nextTypes])));
+      setTagOptions((prev) => Array.from(new Set([...prev, ...nextTags])));
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [repoId, page, pageSize, keyword]);
+  }, [repoId, page, pageSize, keyword, questionType, tagFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 翻页/筛选后旧选中项可能已不在当前列表，直接清空避免误删
+  useEffect(() => {
+    setSelectedKeys([]);
+  }, [repoId, page, pageSize, keyword, questionType, tagFilter]);
+
+  const hasFilter = Boolean(keyword || questionType || tagFilter);
 
   const doImport = async (file: File) => {
     setImporting(true);
@@ -104,7 +124,7 @@ export default function RepoQuestions() {
 
   const onExport = async () => {
     // ponytail: 空题库导出后端会 500（fastexcel 不允许 0 个 sheet），先在前端挡掉
-    if (!loading && total === 0 && !keyword) {
+    if (!loading && total === 0 && !hasFilter) {
       message.warning('题库还没有题目，先导入再导出');
       return;
     }
@@ -112,6 +132,23 @@ export default function RepoQuestions() {
       await download('/api/repo/export', { id: repoId }, `${repoName || '题库'}题目.xlsx`);
     } catch (e) {
       message.error((e as Error).message);
+    }
+  };
+
+  const batchDelete = async () => {
+    if (!selectedKeys.length) return;
+    const count = selectedKeys.length;
+    setDeleting(true);
+    try {
+      // TemplateApi#deleteTemplate(TemplateRequest)，批量 id 走 ids
+      await post<void>('/api/template/delete', { ids: selectedKeys });
+      message.success(`已删除 ${count} 道题`);
+      setSelectedKeys([]);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -172,17 +209,71 @@ export default function RepoQuestions() {
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <Select
+          allowClear
+          value={questionType}
+          placeholder="全部题型"
+          style={{ width: 140, flexShrink: 0 }}
+          onChange={(v) => {
+            setQuestionType(v);
+            setPage(1);
+          }}
+          options={typeOptions.map((t) => ({ value: t, label: TYPE_LABEL[t] ?? t }))}
+        />
+        <Select
+          allowClear
+          showSearch
+          value={tagFilter}
+          placeholder="全部标签"
+          style={{ width: 160, flexShrink: 0 }}
+          onChange={(v) => {
+            setTagFilter(v);
+            setPage(1);
+          }}
+          options={tagOptions.map((t) => ({ value: t, label: t }))}
+        />
         <Input.Search
           allowClear
-          placeholder="搜索题目名称"
-          style={{ width: 220 }}
+          placeholder="搜索题干"
+          style={{ width: 220, flexShrink: 0 }}
           onSearch={(v) => {
             setKeyword(v.trim());
             setPage(1);
           }}
         />
       </div>
+
+      {selectedKeys.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            marginBottom: 10,
+            padding: '8px 10px',
+            border: '1px dashed var(--bp-line)',
+          }}
+        >
+          <span style={{ fontSize: 12 }}>已选中 {selectedKeys.length} 道</span>
+          <div style={{ flex: 1 }} />
+          <Popconfirm
+            title={`删除选中的 ${selectedKeys.length} 道题？`}
+            description="删除后不可恢复。"
+            okText="删除"
+            cancelText="取消"
+            onConfirm={() => batchDelete()}
+          >
+            <Button danger size="small" icon={<DeleteOutlined />} loading={deleting}>
+              批量删除
+            </Button>
+          </Popconfirm>
+          <Button size="small" onClick={() => setSelectedKeys([])}>
+            取消选择
+          </Button>
+        </div>
+      )}
 
       <Table<TemplateView>
         rowKey="id"
@@ -191,11 +282,15 @@ export default function RepoQuestions() {
         loading={loading}
         dataSource={rows}
         scroll={{ x: 900 }}
+        rowSelection={{
+          selectedRowKeys: selectedKeys,
+          onChange: (keys) => setSelectedKeys(keys.map(String)),
+        }}
         locale={{
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={keyword ? '没有匹配的题目' : '题库还没有题目，点右上角「导入 Excel」批量添加'}
+              description={hasFilter ? '没有匹配的题目' : '题库还没有题目，点右上角「导入 Excel」批量添加'}
             />
           ),
         }}
