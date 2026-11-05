@@ -1,3 +1,4 @@
+import { DATA_TYPES } from '../schema/types';
 import type { SurveySchema } from '../schema/types';
 
 /** 不可变树操作：所有函数返回新树，不修改入参 */
@@ -98,7 +99,7 @@ export function flattenOutline(
   const out: OutlineItem[] = [];
   for (const child of root.children ?? []) {
     // 选项/填空空位节点不是题目，不进大纲
-    if (child.type === 'Option') continue;
+    if (!DATA_TYPES.has(child.type)) continue;
     out.push({ id: child.id, parentId, depth, node: child });
     if (collapsed?.has(child.id)) continue;
     out.push(...flattenOutline(child, collapsed, child.id, depth + 1));
