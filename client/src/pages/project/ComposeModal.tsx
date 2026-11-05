@@ -111,6 +111,26 @@ export default function ComposeModal({ open, initialName, onCancel, onCreated }:
     return { questions, score };
   }, [selectedRepoIds, configs]);
 
+  /** 按当前分值比例缩放到目标总分 */
+  const applyTotalScore = (target: number) => {
+    const current = totals.score;
+    if (!Number.isFinite(target) || target <= 0 || current <= 0) return;
+    const ratio = target / current;
+    setConfigs((prev) => {
+      const next: typeof prev = {};
+      for (const repoId of Object.keys(prev)) {
+        const perRepo: NonNullable<(typeof prev)[string]> = {};
+        for (const type of Object.keys(prev[repoId] ?? {}) as ComposeType[]) {
+          const config = prev[repoId]?.[type];
+          if (!config || !config.count) continue;
+          perRepo[type] = { ...config, score: Number((Number(config.score ?? 0) * ratio).toFixed(2)) };
+        }
+        next[repoId] = perRepo;
+      }
+      return next;
+    });
+  };
+
   const generate = async () => {
     const title = name.trim();
     if (!title) {
@@ -162,11 +182,14 @@ export default function ComposeModal({ open, initialName, onCancel, onCreated }:
 
       // 后端 pick 返回的题目只有 children（Option 节点），渲染器读 dataSource，这里补一份
       const questions = picked.map((question) => {
-        if (question.dataSource?.length) return question;
-        const options = (question.children ?? []).filter((child) => child.type === 'Option' || !child.type);
-        if (options.length === 0) return question;
+        // 考试场景所有题必答
+        const base = { ...question, attribute: { ...(question.attribute ?? {}), required: true } };
+        if (base.dataSource?.length) return base;
+        const options = (base.children ?? []).filter((child) => child.type === 'Option' || !child.type);
+        if (options.length === 0) return base;
+        // 后端 pick 只返回 children（Option 节点），渲染器读 dataSource，这里补一份
         return {
-          ...question,
+          ...base,
           dataSource: options.map((child) => ({ label: child.title ?? '', value: child.id })),
         };
       });
@@ -308,6 +331,13 @@ export default function ComposeModal({ open, initialName, onCancel, onCreated }:
           <span>
             总分 <b style={{ color: 'var(--bp-orange)' }}>{totals.score}</b>
           </span>
+          <InputNumber
+            size="small"
+            min={1}
+            placeholder="目标总分"
+            style={{ width: 110 }}
+            onPressEnter={(e) => applyTotalScore(Number((e.target as HTMLInputElement).value))}
+          />
         </div>
       </div>
     </Modal>

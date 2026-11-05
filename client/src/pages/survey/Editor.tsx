@@ -550,6 +550,7 @@ export default function SurveyEditor() {
                 style={{ marginBottom: 12 }}
               />
               <AttributePanel schema={selected} onChange={patchAttribute} questions={candidateQuestions} />
+                onPatchNode={patchNode}
             </>
           ) : (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>

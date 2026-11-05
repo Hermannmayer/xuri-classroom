@@ -3,6 +3,7 @@ import type { Attribute, SurveySchema } from '../schema/types';
 import type { FlatQuestion } from '../schema/flatten';
 import { ATTRIBUTE_GROUPS, attributeSchema, type AttributeField } from './attributeSchema';
 import RuleEditor from './RuleEditor';
+import OptionEditor from './OptionEditor';
 
 export interface AttributePanelProps {
   schema: SurveySchema;
@@ -10,6 +11,8 @@ export interface AttributePanelProps {
   onChange: (patch: Partial<Attribute>) => void;
   /** 规则条件可选的题目（通常传当前题之前的题） */
   questions?: FlatQuestion[];
+  /** 改非 attribute 的节点字段（选项等），由设计器传入 patchNode */
+  onPatchNode?: (patch: Partial<SurveySchema>) => void;
 }
 
 const ITEM_STYLE = { marginBottom: 12 };
@@ -18,7 +21,7 @@ const ITEM_STYLE = { marginBottom: 12 };
  * 数据驱动的属性面板：字段全部来自 attributeSchema，按 group 折叠。
  * 值直接取自 schema.attribute（受控），不另建表单状态，避免与设计器其它入口互相覆盖。
  */
-export function AttributePanel({ schema, onChange, questions }: AttributePanelProps) {
+export function AttributePanel({ schema, onChange, questions, onPatchNode }: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
 
   const set = (key: keyof Attribute, value: unknown) => {
@@ -167,6 +170,8 @@ export function AttributePanel({ schema, onChange, questions }: AttributePanelPr
         <span className="bp-tag">{schema.type}</span>
       </div>
       <hr className="bp-dim" style={{ margin: '0 0 10px' }} />
+
+      {onPatchNode && <OptionEditor schema={schema} onPatch={onPatchNode} />}
 
       <Form layout="vertical" size="small" requiredMark={false}>
         <Collapse size="small" defaultActiveKey={[...ATTRIBUTE_GROUPS]} items={items} />
