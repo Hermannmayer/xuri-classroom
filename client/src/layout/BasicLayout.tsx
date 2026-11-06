@@ -110,6 +110,7 @@ export default function BasicLayout() {
           { key: '/system/user', label: t('menu.system.user', '用户管理') },
           { key: '/system/group', label: t('menu.system.group', '用户组') },
           { key: '/system/setting', label: t('menu.system.setting', '系统设置') },
+          { key: '/system/permissions', label: t('menu.system.permissions', '权限配置') },
         ],
       });
     }

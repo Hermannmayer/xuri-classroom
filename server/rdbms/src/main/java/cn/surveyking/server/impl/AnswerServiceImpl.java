@@ -728,6 +728,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private Answer beforeSaveAnswer(Answer answer) {
 		ProjectView project = projectService.getProject(answer.getProjectId());
 		Answer previousAnswer = StringUtils.hasText(answer.getId()) ? getById(answer.getId()) : null;
+		assertWithinTimeLimit(answer, project, previousAnswer);
 		SurveySchema answerSurvey = answer.getSurvey() != null ? answer.getSurvey()
 				: previousAnswer != null && previousAnswer.getSurvey() != null ? previousAnswer.getSurvey()
 						: project.getSurvey();
@@ -736,6 +737,27 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		computeExamScore(answer, project);
 		updateLinkSurveyAnswer(answer, project);
 		return answer;
+	}
+
+	/**
+	 * 服务端裁决最长答题时间。
+	 *
+	 * <p>此前 maxSubmitMinutes 只有前端倒计时，刷新页面就会从头算，等于没有限制。
+	 * 这里以答卷的创建时间（create_at）为起点，在服务端再判一次，超时直接拒绝保存。
+	 * 允许 60 秒宽限，覆盖网络延迟与自动交卷的边界。
+	 */
+	private void assertWithinTimeLimit(Answer answer, ProjectView project, Answer previousAnswer) {
+		if (project == null || project.getSetting() == null || project.getSetting().getExamSetting() == null) {
+			return;
+		}
+		Integer maxMinutes = project.getSetting().getExamSetting().getMaxSubmitMinutes();
+		if (maxMinutes == null || maxMinutes <= 0 || previousAnswer == null || previousAnswer.getCreateAt() == null) {
+			return;
+		}
+		long deadline = previousAnswer.getCreateAt().getTime() + maxMinutes * 60_000L + 60_000L;
+		if (System.currentTimeMillis() > deadline) {
+			throw new AccessDeniedException("本次考试已超过最长答题时间（" + maxMinutes + " 分钟），无法再提交");
+		}
 	}
 
 	private void assertAnswerAccess(Answer answer) {

@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -30,12 +31,12 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
-	@Value("classpath:/static/index.html")
-	private Resource indexHtml;
-
 	@ExceptionHandler(NoHandlerFoundException.class)
 	public Object handleError404(HttpServletRequest request, Exception e) {
-		return ResponseEntity.ok().body(indexHtml);
+		// 前端已迁到独立的 nginx / vite，jar 里不再打包 SPA 入口；
+		// 后端遇到未知路径直接返回 JSON 404，而不是去找已删除的 static/index.html。
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(new ApiResponse<>(ResponseCode.FAIL.code, "接口不存在：" + request.getRequestURI()));
 	}
 
 	@ExceptionHandler(ValidationException.class)

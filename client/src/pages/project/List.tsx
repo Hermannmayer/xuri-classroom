@@ -559,8 +559,9 @@ export default function ProjectList() {
               <Space size={4}>
                 {row.mode !== 'folder' && (
                   <>
-                    {/* 顺序固定：设置 → 开启/关闭 → 编辑（题目）→ 数据；「分析」已并入数据页，不再单列 */}
-                    <a onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</a>
+                    {/* 「设置」作为唯一入口，进入概述页（含分享链接/打开答题页/发布设置）；
+                        原来单独的「打开」按钮已删除，避免两个按钮功能重叠 */}
+                    <a onClick={() => navigate(`/survey/${row.id}`)}>设置</a>
                     {row.status === 1 ? (
                       <Popconfirm
                         title="关闭后学员将无法打开答题链接"
@@ -576,7 +577,6 @@ export default function ProjectList() {
                     )}
                     <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
                     <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
-                    <a onClick={() => navigate(`/survey/${row.id}`)}>打开</a>
                   </>
                 )}
                 <a onClick={() => openRename(row)}>重命名</a>

@@ -690,6 +690,8 @@ export default function RepoList() {
         repoName={granting?.name}
         open={Boolean(granting)}
         onClose={() => setGranting(null)}
+        // 授权/取消后刷新列表：题库的可见范围变了，列表里的「已授权」状态也要跟着变
+        onChanged={() => void load()}
       />
     </>
   );

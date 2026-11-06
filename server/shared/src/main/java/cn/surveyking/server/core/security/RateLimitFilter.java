@@ -32,17 +32,34 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-	/** 命中限流的接口前缀 */
+	/**
+	 * 批量读取类接口：单用户每分钟 60 次。
+	 * 正常答题 1 分钟约 10 题，60 次留 6 倍余量，同时能挡住脚本刷全库。
+	 */
 	private static final String[] GUARDED_PREFIXES = { "/api/repo", "/api/template", "/api/project" };
+
+	/**
+	 * 逐题下发接口单独计数：瀑布流模式一次性并发拉全量题目，
+	 * 若与上面的 60 次共用同一桶，超过 60 题的问卷会大面积 429 直接交不了卷。
+	 * 这里给更高额度，仍能挡住"逐题刷全库"的极端行为。
+	 */
+	private static final String QUESTION_PREFIX = "/api/public/question";
+
+	@Value("${surveyking.rate-limit.question-max-per-minute:240}")
+	private int maxQuestionPerMinute = 240;
 
 	/** 每个用户保留一个 60 秒窗口的请求时间戳队列 */
 	private static final Map<String, Deque<Long>> WINDOWS = new ConcurrentHashMap<>();
 
 	private static final long WINDOW_MS = 60_000L;
 
-	/** 单用户每分钟允许的题库类请求数，可用 surveyking.rate-limit.max-per-minute 覆盖 */
-	@Value("${surveyking.rate-limit.max-per-minute:300}")
-	private int maxPerMinute = 300;
+	/**
+	 * 单用户每分钟允许的题库类请求数。
+	 * 正常答题 1 分钟约 10 题（每题 1 次取题），60 次留了 6 倍余量：
+	 * 既能让人正常做题，又能让「脚本刷全库」在一个窗口内被挡住。
+	 */
+	@Value("${surveyking.rate-limit.max-per-minute:60}")
+	private int maxPerMinute = 60;
 
 	/** 避免 WINDOWS 无限增长：超过这个用户量时清一次过期用户 */
 	private static final int CLEAN_THRESHOLD = 5_000;
@@ -53,42 +70,57 @@ public class RateLimitFilter extends OncePerRequestFilter {
 		if (uri == null) {
 			return true;
 		}
-		boolean guarded = false;
+		if (uri.startsWith(QUESTION_PREFIX)) {
+			return false;
+		}
 		for (String prefix : GUARDED_PREFIXES) {
 			if (uri.startsWith(prefix)) {
-				guarded = true;
-				break;
+				return false;
 			}
 		}
-		// 未登录（匿名答题等）不计数，登录校验交给后面的 Security 链
-		return !guarded || !SecurityContextUtils.isAuthenticated();
+		return true;
 	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws ServletException, IOException {
-		String userId = SecurityContextUtils.getUserId();
+		String userId;
+		if (SecurityContextUtils.isAuthenticated()) {
+			userId = SecurityContextUtils.getUserId();
+		}
+		else {
+			String clientIp = request.getHeader("X-Real-IP");
+			if (clientIp == null || clientIp.trim().isEmpty()) {
+				clientIp = request.getRemoteAddr();
+			}
+			userId = "ip:" + clientIp;
+		}
 		long now = System.currentTimeMillis();
+
+		// 逐题接口与批量接口分别计数，避免瀑布流被批量额度误伤
+		boolean isQuestionApi = request.getRequestURI().startsWith(QUESTION_PREFIX);
+		int limit = isQuestionApi ? maxQuestionPerMinute : maxPerMinute;
+		String bucketKey = isQuestionApi ? userId + "|q" : userId;
 
 		if (WINDOWS.size() > CLEAN_THRESHOLD) {
 			cleanup(now);
 		}
 
-		Deque<Long> window = WINDOWS.computeIfAbsent(userId, key -> new ArrayDeque<>());
+		Deque<Long> window = WINDOWS.computeIfAbsent(bucketKey, key -> new ArrayDeque<>());
 		int hits;
 		synchronized (window) {
 			while (!window.isEmpty() && now - window.peekFirst() > WINDOW_MS) {
 				window.pollFirst();
 			}
 			hits = window.size();
-			if (hits < maxPerMinute) {
+			if (hits < limit) {
 				window.addLast(now);
 			}
 		}
 
-		if (hits >= maxPerMinute) {
+		if (hits >= limit) {
 			log.warn("rate limit exceeded: userId={}, uri={}, hits={}/{} per minute", userId,
-					request.getRequestURI(), hits, maxPerMinute);
+					request.getRequestURI(), hits, limit);
 			writeTooManyRequests(response);
 			return;
 		}

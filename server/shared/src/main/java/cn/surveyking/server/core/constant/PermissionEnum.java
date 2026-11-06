@@ -1,0 +1,247 @@
+package cn.surveyking.server.core.constant;
+
+import lombok.Getter;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 权限目录：权限串的唯一来源，供「角色权限矩阵」页面列出可勾选项。
+ *
+ * <p>
+ * 盘点依据 docs/permissions.md：
+ * <ul>
+ * <li>第 2 节的 56 个权限串，全部来自 {@code @PreAuthorize("hasAuthority('...')")}，
+ * 这类条目的 {@code suggested=false}；</li>
+ * <li>第 4 节建议新增的条目，{@code suggested=true}，本版本只进目录、暂未接到注解上，
+ * 勾选后对现有接口没有实际约束力，等后续接口补注解时即可生效。</li>
+ * </ul>
+ *
+ * <p>
+ * 权限串保持「域:对象:动作」约定；分组仅用于展示排序，不参与鉴权。
+ * 注意：{@code t_role.authority} 里还存在 {@code answer}、{@code system:role}、{@code position}
+ * 这类历史遗留的前缀串（早期权限提取器把层级前缀一并写库），它们不是真正的权限点，不在本目录内，
+ * 前端保存角色权限时应原样保留，避免误删。
+ *
+ * @author perm-matrix
+ */
+@Getter
+public enum PermissionEnum {
+
+	/* ---------------------------------------------------------------- 考试 / 项目 */
+
+	PROJECT_LIST("project:list", "查看考试列表", Group.EXAM, "考试与问卷列表；学员的「我的考试」用 exercise:list 兜底"),
+	PROJECT_DETAIL("project:detail", "查看考试详情", Group.EXAM, "读取考试基本信息与设置、答题页与预览"),
+	PROJECT_CREATE("project:create", "新建考试", Group.EXAM, "新建考试/问卷、复制、从回收站恢复"),
+	PROJECT_UPDATE("project:update", "编辑考试", Group.EXAM, "保存题目、修改考试设置"),
+	PROJECT_DELETE("project:delete", "删除考试", Group.EXAM, "移入回收站；回收站内的项目不会被物理删除"),
+	PROJECT_REPORT("project:report", "查看考试报表", Group.EXAM, "按题目统计的图表报表"),
+	PROJECT_PUBLISH("project:publish", "开启/关闭收集", Group.EXAM, "关闭后学员打不开问卷，属于高风险操作", true),
+	PROJECT_PARTNER("project:partner", "协作者与班级授权", Group.EXAM, "把考试授权给协作者或班级，目前混在编辑考试里", true),
+
+	/* ---------------------------------------------------------------- 答卷 */
+
+	ANSWER_LIST("answer:list", "查看答卷列表", Group.ANSWER, "答卷列表与答卷数据页"),
+	ANSWER_DETAIL("answer:detail", "查看单份答卷", Group.ANSWER, "查看单份答卷的作答明细"),
+	ANSWER_CREATE("answer:create", "补录答卷", Group.ANSWER, "后台代填、批量导入答卷"),
+	ANSWER_UPDATE("answer:update", "修改答卷", Group.ANSWER, "改答卷内容与批注"),
+	ANSWER_DELETE("answer:delete", "删除答卷", Group.ANSWER, "把答卷移入回收站"),
+	ANSWER_EXPORT("answer:export", "导出答卷", Group.ANSWER, "导出 Excel，含作答人信息，可单独关闭"),
+	ANSWER_UPLOAD("answer:upload", "上传答卷附件", Group.ANSWER, "为答卷补充附件材料"),
+	ANSWER_AUDIT("answer:audit", "人工改分/审核", Group.ANSWER, "改主观题得分；与「修改答卷内容」区分，便于追溯", true),
+	ANSWER_RESTORE("answer:restore", "恢复答卷", Group.ANSWER, "从回收站恢复答卷，与删除答卷对称", true),
+
+	/* ---------------------------------------------------------------- 题库 */
+
+	REPO_LIST("repo:list", "查看题库列表", Group.REPO, "题库列表、练习册入口"),
+	REPO_DETAIL("repo:detail", "查看题库详情", Group.REPO, "读取题库信息与题目；学员靠它浏览题库"),
+	REPO_CREATE("repo:create", "新建题库", Group.REPO, "新建题库、从题库复制"),
+	REPO_UPDATE("repo:update", "编辑题库", Group.REPO, "改题库、改题目、导入题目"),
+	REPO_DELETE("repo:delete", "删除题库", Group.REPO, "删题库/删题目；代价高，建议改为归档"),
+	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本、收藏与练习入口，属于学员功能"),
+	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭", true),
+	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志", true),
+	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", true),
+
+	/* ---------------------------------------------------------------- 题目 */
+
+	TEMPLATE_LIST("template:list", "查看题目列表", Group.TEMPLATE, "题目列表与题目详情"),
+	TEMPLATE_CREATE("template:create", "新增题目", Group.TEMPLATE, "新建题目并入库"),
+	TEMPLATE_UPDATE("template:update", "修改题目", Group.TEMPLATE, "修改题干、选项与属性"),
+	TEMPLATE_DELETE("template:delete", "删除题目", Group.TEMPLATE, "删除题库中的题目，不可恢复"),
+	TEMPLATE_EXPORT("template:export", "导出题目", Group.TEMPLATE, "题目级导出，和题库导出一样危险", true),
+
+	/* ---------------------------------------------------------------- 练习 */
+
+	EXERCISE_LIST("exercise:list", "练习记录与练习页", Group.EXERCISE, "我的练习、练习作答；同时给考试列表兜底"),
+	EXERCISE_MANAGE("exercise:manage", "管理他人练习记录", Group.EXERCISE, "删除他人练习记录；现在管理员也删不了别人的", true),
+
+	/* ---------------------------------------------------------------- 文件 */
+
+	FILE_LIST("file:list", "查看附件列表", Group.FILE, "附件与导入文件列表"),
+	FILE_DETAIL("file:detail", "下载/预览附件", Group.FILE, "按 id 读取附件内容"),
+	FILE_IMPORT("file:import", "导入文件", Group.FILE, "上传并导入外部文件"),
+	FILE_DELETE("file:delete", "删除文件", Group.FILE, "删除已上传的附件"),
+
+	/* ---------------------------------------------------------------- 用户 */
+
+	USER_UPDATE("user:update", "修改本人资料", Group.USER, "改自己的资料与密码，三个角色都应具备"),
+	USER_IMPORT("user:import", "批量导入用户", Group.USER, "目前隐含在新建用户里，单独拆出来便于审计", true),
+	USER_EXPORT("user:export", "导出用户", Group.USER, "导出用户名单与联系方式，属于数据外流动作", true),
+
+	/* ---------------------------------------------------------------- 系统 */
+
+	SYSTEM_USER_LIST("system:user:list", "查看用户列表", Group.SYSTEM, "用户管理列表、协作者候选"),
+	SYSTEM_USER_CREATE("system:user:create", "新建用户", Group.SYSTEM, "后台创建账号"),
+	SYSTEM_USER_UPDATE("system:user:update", "修改用户", Group.SYSTEM, "改用户资料、状态与角色"),
+	SYSTEM_USER_UPDATE_POSITION("system:user:updatePosition", "调整用户岗位", Group.SYSTEM, "修改用户所属岗位，影响数据可见范围"),
+	SYSTEM_USER_DELETE("system:user:delete", "删除用户", Group.SYSTEM, "删除账号并清理角色关联"),
+	SYSTEM_ROLE_LIST("system:role:list", "查看角色", Group.SYSTEM, "角色列表与权限目录；权限矩阵页的进入条件"),
+	SYSTEM_ROLE_CREATE("system:role:create", "新建角色", Group.SYSTEM, "新建角色并授予权限"),
+	SYSTEM_ROLE_UPDATE("system:role:update", "修改角色", Group.SYSTEM, "改角色信息与权限串；权限矩阵保存所需"),
+	SYSTEM_ROLE_DELETE("system:role:delete", "删除角色", Group.SYSTEM, "删除角色；至少保留一个角色"),
+	SYSTEM_DEPT_LIST("system:dept:list", "查看用户组", Group.SYSTEM, "用户组（班级）树"),
+	SYSTEM_DEPT_CREATE("system:dept:create", "新建用户组", Group.SYSTEM, "新建分组、调整分组排序"),
+	SYSTEM_DEPT_UPDATE("system:dept:update", "修改用户组", Group.SYSTEM, "重命名、调整上级分组"),
+	SYSTEM_DEPT_DELETE("system:dept:delete", "删除用户组", Group.SYSTEM, "删除分组；至少保留一个分组"),
+	SYSTEM_POSITION_LIST("system:position:list", "查看职务", Group.SYSTEM, "职务列表（前端入口已裁剪，权限仍在）"),
+	SYSTEM_POSITION_CREATE("system:position:create", "新建职务", Group.SYSTEM, "新增职务"),
+	SYSTEM_POSITION_UPDATE("system:position:update", "修改职务", Group.SYSTEM, "改职务名称与数据权限"),
+	SYSTEM_POSITION_DELETE("system:position:delete", "删除职务", Group.SYSTEM, "删除职务"),
+	SYSTEM_DICT_LIST("system:dict:list", "查看数据字典", Group.SYSTEM, "字典列表（前端入口已裁剪，权限仍在）"),
+	SYSTEM_DICT_CREATE("system:dict:create", "新建字典", Group.SYSTEM, "新增字典"),
+	SYSTEM_DICT_UPDATE("system:dict:update", "修改字典", Group.SYSTEM, "改字典"),
+	SYSTEM_DICT_DELETE("system:dict:delete", "删除字典", Group.SYSTEM, "删除字典"),
+	SYSTEM_DICT_ITEM_LIST("system:dictItem:list", "查看字典项", Group.SYSTEM, "字典项列表"),
+	SYSTEM_DICT_ITEM_CREATE("system:dictItem:create", "新建字典项", Group.SYSTEM, "新增字典项"),
+	SYSTEM_DICT_ITEM_UPDATE("system:dictItem:update", "修改字典项", Group.SYSTEM, "改字典项"),
+	SYSTEM_DICT_ITEM_IMPORT("system:dictItem:import", "导入字典项", Group.SYSTEM, "批量导入字典项"),
+	SYSTEM_DICT_ITEM_DELETE("system:dictItem:delete", "删除字典项", Group.SYSTEM, "删除字典项"),
+	SYSTEM_SETTING_UPDATE("system:setting:update", "修改系统设置", Group.SYSTEM, "水印、防复制、协作者策略都在这里；现在靠查看角色兜底，必须独立", true),
+	SYSTEM_LOG_LIST("system:log:list", "查看操作日志", Group.SYSTEM, "审计能力的前提：谁导出了什么、谁改了谁的权限", true),
+	SYSTEM_LOG_EXPORT("system:log:export", "导出操作日志", Group.SYSTEM, "出事时的取证能力", true),
+	SYSTEM_BACKUP("system:backup", "备份系统", Group.SYSTEM, "部署脚本已有备份能力，界面还没有", true),
+	SYSTEM_RESTORE("system:restore", "恢复备份", Group.SYSTEM, "恢复备份会覆盖现有数据，必须独立授权", true),
+
+	/* ---------------------------------------------------------------- 内容保护 */
+
+	CONTENT_PROTECT("content:protect", "水印与防复制策略", Group.CONTENT, "全站水印与防复制开关；文档里标注可与修改系统设置二选一", true),
+
+	/* ---------------------------------------------------------------- 其它 */
+
+	HOME("home", "首页", Group.OTHER, "登录后的默认页；本质是默认页而不是权限点，保留以兼容现有接口");
+
+	private final String code;
+
+	/** 中文名，权限矩阵里的主标题 */
+	private final String name;
+
+	/** 展示分组 */
+	private final Group group;
+
+	/** 一句话说明，权限矩阵里的副标题 */
+	private final String description;
+
+	/** 是否为 docs/permissions.md 第 4 节建议新增、尚未接入注解的权限点 */
+	private final boolean suggested;
+
+	PermissionEnum(String code, String name, Group group, String description) {
+		this(code, name, group, description, false);
+	}
+
+	PermissionEnum(String code, String name, Group group, String description, boolean suggested) {
+		this.code = code;
+		this.name = name;
+		this.group = group;
+		this.description = description;
+		this.suggested = suggested;
+	}
+
+	/**
+	 * 权限分组：声明顺序即前端卡片的展示顺序。
+	 */
+	@Getter
+	public enum Group {
+
+		EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), FILE("文件"), USER("用户"),
+		SYSTEM("系统"), CONTENT("内容保护"), OTHER("其它");
+
+		private final String label;
+
+		Group(String label) {
+			this.label = label;
+		}
+
+	}
+
+	/**
+	 * 单个权限点（目录接口的叶子节点）。
+	 */
+	@Getter
+	public static class PermissionItem {
+
+		private final String code;
+
+		private final String name;
+
+		private final String group;
+
+		private final String description;
+
+		private final boolean suggested;
+
+		PermissionItem(PermissionEnum permission) {
+			this.code = permission.getCode();
+			this.name = permission.getName();
+			this.group = permission.getGroup().getLabel();
+			this.description = permission.getDescription();
+			this.suggested = permission.isSuggested();
+		}
+
+	}
+
+	/**
+	 * 一个分组的权限点集合（目录接口的顶层节点）。
+	 */
+	@Getter
+	public static class PermissionGroupView {
+
+		private final String group;
+
+		private final int total;
+
+		private final List<PermissionItem> permissions;
+
+		PermissionGroupView(String group, List<PermissionItem> permissions) {
+			this.group = group;
+			this.total = permissions.size();
+			this.permissions = permissions;
+		}
+
+	}
+
+	/**
+	 * 目录按分组输出；空分组不出现在结果里。
+	 * @return 按 {@link Group} 声明顺序排列的分组列表
+	 */
+	public static List<PermissionGroupView> grouped() {
+		Map<Group, List<PermissionItem>> buckets = new LinkedHashMap<>();
+		for (Group group : Group.values()) {
+			buckets.put(group, new ArrayList<PermissionItem>());
+		}
+		for (PermissionEnum permission : values()) {
+			buckets.get(permission.getGroup()).add(new PermissionItem(permission));
+		}
+		List<PermissionGroupView> result = new ArrayList<>();
+		for (Map.Entry<Group, List<PermissionItem>> entry : buckets.entrySet()) {
+			if (entry.getValue().isEmpty()) {
+				continue;
+			}
+			result.add(new PermissionGroupView(entry.getKey().getLabel(), entry.getValue()));
+		}
+		return result;
+	}
+
+}

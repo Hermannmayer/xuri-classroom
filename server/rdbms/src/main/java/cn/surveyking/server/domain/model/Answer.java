@@ -2,6 +2,7 @@ package cn.surveyking.server.domain.model;
 
 import cn.surveyking.server.core.constant.ExamExerciseTypeEnum;
 import cn.surveyking.server.core.model.BaseModel;
+import cn.surveyking.server.core.handler.EncryptedSurveyTypeHandler;
 import cn.surveyking.server.domain.dto.AnswerExamInfo;
 import cn.surveyking.server.domain.dto.AnswerMetaInfo;
 import cn.surveyking.server.domain.dto.SurveySchema;
@@ -45,7 +46,7 @@ public class Answer extends BaseModel {
 	/**
 	 * 问卷
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
+	@TableField(typeHandler = EncryptedSurveyTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
 	private SurveySchema survey;
 
 	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)

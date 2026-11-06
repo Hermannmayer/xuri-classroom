@@ -34,4 +34,9 @@ public class UserBookQuery extends PageQuery {
 	 */
 	private Integer status;
 
+	/**
+	 * 来源考试 id：只看某一场考试产生的错题（为空表示不限）。
+	 */
+	private String projectId;
+
 }

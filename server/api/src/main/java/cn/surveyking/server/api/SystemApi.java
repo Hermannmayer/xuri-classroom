@@ -1,6 +1,7 @@
 package cn.surveyking.server.api;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.service.*;
@@ -152,13 +153,15 @@ public class SystemApi {
 	}
 
 	/**
-	 * 获取系统权限列表
-	 * @return 权限列表
+	 * 获取系统权限目录（按分组）。
+	 * 数据来源是 PermissionEnum，包含中文名/分组/说明，供「角色权限矩阵」页面渲染；
+	 * 比注解扫描多了「建议新增但尚未接入」的权限点。
+	 * @return 按分组排列的权限目录
 	 */
-	@RequestMapping("/permission/list")
-	@PreAuthorize("hasAuthority('system:role:list')")
-	public List<PermissionView> permissions() {
-		return systemService.getPermissions();
+	@GetMapping("/permission/list")
+	@PreAuthorize("hasAuthority('system:role:list') or hasRole('admin')")
+	public List<PermissionEnum.PermissionGroupView> permissions() {
+		return systemService.getPermissionCatalog();
 	}
 
 	/**

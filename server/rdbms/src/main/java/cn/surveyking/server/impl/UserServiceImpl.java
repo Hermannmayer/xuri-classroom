@@ -121,8 +121,42 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (existAccount.getStatus() != AppConsts.USER_STATUS.VALID) {
 			throw new AccessDeniedException(i18n("user.service.disabled", username));
 		}
+		// 用户组有效期：过期后不允许登录（匿名答题走公开链接，不受此限）
+		assertDeptValid(existAccount.getUserId());
 
 		return userViewMapper.toUserView(existAccount);
+	}
+
+	/**
+	 * 校验用户所属组链的有效期。
+	 * 组上的 valid_from / valid_to 为空表示不限制；任意一层过期即拒绝登录。
+	 */
+	private void assertDeptValid(String userId) {
+		if (!StringUtils.hasText(userId)) {
+			return;
+		}
+		User user = this.getById(userId);
+		if (user == null || !StringUtils.hasText(user.getDeptId())) {
+			return;
+		}
+		java.util.Date now = new java.util.Date();
+		String deptId = user.getDeptId();
+		java.util.Set<String> visited = new java.util.HashSet<>();
+		while (StringUtils.hasText(deptId) && !ROOT_DEPT_PARENT_ID.equals(deptId) && visited.add(deptId)) {
+			Dept dept = deptMapper.selectById(deptId);
+			if (dept == null) {
+				break;
+			}
+			if (dept.getValidFrom() != null && now.before(dept.getValidFrom())) {
+				throw new AccessDeniedException("所在班级「" + dept.getName() + "」尚未到生效时间（"
+						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidFrom()) + " 起），请联系管理员");
+			}
+			if (dept.getValidTo() != null && now.after(dept.getValidTo())) {
+				throw new AccessDeniedException("所在班级「" + dept.getName() + "」有效期已过（"
+						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidTo()) + " 截止），请联系管理员延期");
+			}
+			deptId = dept.getParentId();
+		}
 	}
 
 	@Override
@@ -145,8 +179,9 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				Arrays.stream(role.getAuthority().split(",")).filter(StringUtils::hasText).forEach(authorities::add);
 			}
 		});
-		userInfo.setAuthorities(
-				authorities.stream().map(authority -> (GrantedAuthority) () -> authority).collect(Collectors.toSet()));
+		Set<String> resolvedAuthorities = resolveDeptAuthorities(user.getDeptId(), authorities);
+		userInfo.setAuthorities(resolvedAuthorities.stream()
+				.map(authority -> (GrantedAuthority) () -> authority).collect(Collectors.toSet()));
 		// 设置用户部门
 		if (user.getDeptId() != null) {
 			Dept dept = deptMapper.selectById(user.getDeptId());
@@ -156,6 +191,69 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 
 		return userInfo;
+	}
+
+	/**
+	 * 组权限只覆盖普通权限串，角色身份标记（ROLE_teacher/ROLE_student）始终保留。
+	 * 超级管理员角色不受组策略影响，保持全权限。
+	 */
+	private Set<String> resolveDeptAuthorities(String deptId, Set<String> roleAuthorities) {
+		if (roleAuthorities.contains("ROLE_admin")) {
+			return roleAuthorities;
+		}
+		Set<String> roleMarkers = roleAuthorities.stream().filter(x -> x.startsWith("ROLE_"))
+				.collect(Collectors.toSet());
+		Set<String> rolePermissions = roleAuthorities.stream().filter(x -> !x.startsWith("ROLE_"))
+				.collect(Collectors.toSet());
+		Set<String> effective = resolveDeptPermissions(deptId, rolePermissions, new HashSet<String>());
+		effective.addAll(roleMarkers);
+		return effective;
+	}
+
+	/**
+	 * INHERIT：继承父组最终权限；根组回到角色权限。
+	 * APPEND：在继承结果上追加本组权限。
+	 * OVERRIDE：只保留本组配置权限，忽略角色与父组功能权限。
+	 */
+	private Set<String> resolveDeptPermissions(String deptId, Set<String> rolePermissions, Set<String> path) {
+		if (!StringUtils.hasText(deptId) || ROOT_DEPT_PARENT_ID.equals(deptId) || !path.add(deptId)) {
+			return new HashSet<>(rolePermissions);
+		}
+		Dept dept = deptMapper.selectById(deptId);
+		if (dept == null) {
+			path.remove(deptId);
+			return new HashSet<>(rolePermissions);
+		}
+		Set<String> inherited = resolveDeptPermissions(dept.getParentId(), rolePermissions, path);
+		String mode = StringUtils.hasText(dept.getAuthorityMode())
+				? dept.getAuthorityMode().trim().toUpperCase(Locale.ROOT)
+				: "INHERIT";
+		Set<String> own = parseDeptAuthorities(dept.getAuthority());
+		Set<String> result;
+		switch (mode) {
+			case "OVERRIDE":
+				result = own;
+				break;
+			case "APPEND":
+				result = inherited;
+				result.addAll(own);
+				break;
+			case "INHERIT":
+			default:
+				result = inherited;
+				break;
+		}
+		path.remove(deptId);
+		return result;
+	}
+
+	private Set<String> parseDeptAuthorities(String authority) {
+		if (!StringUtils.hasText(authority)) {
+			return new HashSet<>();
+		}
+		return Arrays.stream(authority.split(",")).map(String::trim)
+				.filter(StringUtils::hasText).filter(x -> !x.startsWith("ROLE_"))
+				.collect(Collectors.toCollection(HashSet::new));
 	}
 
 	@Override

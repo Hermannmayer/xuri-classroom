@@ -19,6 +19,11 @@ public class AnswerMetaInfo {
 
 	private AnswerInfo answerInfo;
 
+	/**
+	 * 本次作答累计切屏次数：超过考试允许次数会触发自动交卷
+	 */
+	private Integer switchScreenTimes;
+
 	@Data
 	public static class AnswerInfo {
 

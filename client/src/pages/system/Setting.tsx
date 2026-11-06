@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, AutoComplete, Button, Card, Form, Input, message, Segmented, Select, Spin, Switch, Tabs, Upload } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  message,
+  Modal,
+  Segmented,
+  Select,
+  Spin,
+  Switch,
+  Tabs,
+  Upload,
+} from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { get, getSystem, post } from '../../api';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
@@ -24,7 +38,7 @@ interface Role {
   code?: string;
 }
 
-/** 内容与隐私保护：三项都是即时保存，缺省全部开启（与后端契约一致） */
+/** 内容与隐私：水印/防复制三项都是即时保存，缺省全部开启（与后端契约一致） */
 interface ProtectionSetting {
   watermarkEnabled: boolean;
   watermarkMode: WatermarkMode;
@@ -37,18 +51,47 @@ const DEFAULT_PROTECTION: ProtectionSetting = {
   copyProtected: true,
 };
 
-/** 可担任项目协作者的默认权限串：有 project:create 的账号（管理员 + 老师）；ROLE_admin 始终可以 */
-const DEFAULT_COLLABORATOR_AUTHORITY = 'project:create';
+/** GET /api/system/crypto/generate-key 的返回：密钥只返回这一次，服务器不落库 */
+interface CryptoKeyInfo {
+  key: string;
+  fileName?: string;
+  notice?: string;
+}
 
-/** 下拉里的两个快捷选项，也允许直接输入别的权限串 */
-const COLLABORATOR_AUTHORITY_OPTIONS = [
-  { value: 'project:create', label: 'project:create（管理员 + 老师，推荐）' },
-  { value: 'system:user:update', label: 'system:user:update（仅管理员）' },
-];
+const KEY_FILE_FALLBACK = 'surveyking-crypto-key.txt';
 
 /** 后端 watermarkMode 是 string；老数据 / 脏值（含 null）一律回落到默认的「姓名+手机号」 */
 function normalizeMode(value?: string | null): WatermarkMode {
   return value === 'name' || value === 'phone' ? value : 'name_phone';
+}
+
+/**
+ * 触发浏览器下载密钥文件（Blob + <a download>，不引第三方依赖）。
+ * 文件内容除了密钥本身，还写清楚「丢失后题库无法解密」和配置方式，避免管理员随手关掉弹窗。
+ */
+function downloadKeyFile(info: CryptoKeyInfo) {
+  const lines = [
+    'SurveyKing 题库字段加密密钥',
+    '========================================',
+    '',
+    `密钥（Base64，32 字节）：${info.key}`,
+    '',
+    info.notice ||
+      '请立即下载并离线备份该密钥。它不会再次显示，也不会写入数据库；一旦丢失，已加密的题库将永久无法解密。',
+    '',
+    '配置方式：把上面的密钥写入后端环境变量 SK_CRYPTO_KEY（或 JVM 参数 -Dsurveyking.crypto.key），然后重启后端。',
+    `导出时间：${new Date().toLocaleString('zh-CN')}`,
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = info.fileName || KEY_FILE_FALLBACK;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // 立刻 revoke 在部分浏览器会打断下载，延后释放
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 type TabKey = 'basic' | 'access' | 'ai';
@@ -60,16 +103,20 @@ const TAB_FIELDS: Record<TabKey, string[]> = {
 };
 
 /**
- * 系统设置：品牌信息 / 登录与验证码 / AI 设置 +「内容与隐私保护」「协作与权限」两块即时保存的卡片。
+ * 系统设置：四个区块（基本 / 登录与注册 / 内容与隐私 / AI），每个区块只渲染一次。
+ *
+ * 历史问题：早先「内容与隐私保护」是一张放在 Tabs 之外的 Card，切到任何 Tab 它都挂在下面，
+ * 看起来就像每个 Tab 都重复了一遍；现在它有自己的 Tab，页面里只有一份。
+ *
+ * 保存方式分两种：
+ * - 基本 / 登录与注册 / AI 走 Form + 各自底部的「保存」按钮（save）；
+ * - 内容与隐私是「改完即存」，直接 POST /api/system/update 的 setting 增量字段（后端 merge 式更新），
+ *   保存成功后广播 window 事件，让 main.tsx 里挂的水印 / 防复制组件立即生效。
+ *
  * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
- * setting.copyright、setting.recordNum。
- * favicon 后端没有字段（SystemSetting 是强类型，塞 setting JSON 会被 mergeSysInfo 丢掉），
- * 需要后端加 SystemSetting.favicon 并同步写入后，这里再加输入框。
+ * setting.copyright、setting.recordNum、setting.favicon。
  * 上传走 POST /api/file/create（multipart，publicRead=true），返回文件 id，
  * 前端存公开预览地址 /api/public/preview/<id> 到 avatar，登录页未登录也能加载。
- * 内容与隐私保护（水印 / 防复制）和协作与权限都不进 Form，改完直接 POST /api/system/update
- * 的 setting 增量字段（后端 merge 式更新）；水印 / 防复制保存成功后广播 window 事件，
- * 让 main.tsx 里挂的全局组件立即生效，不用刷新整页。
  */
 export default function SystemSetting() {
   const [form] = Form.useForm();
@@ -82,13 +129,12 @@ export default function SystemSetting() {
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
   const [depts, setDepts] = useState<{ id: string; name: string }[]>([]);
   const roles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
-  // 内容与隐私保护三项都是「改完即存」，所以不进 Form，避免和上面的「保存」按钮抢状态
+  // 内容与隐私三项不进 Form，改完即存
   const [protection, setProtection] = useState<ProtectionSetting>(DEFAULT_PROTECTION);
   const [savingProtection, setSavingProtection] = useState(false);
-  // 协作者权限串是自由文本：草稿（输入框里的值）+ 已保存值（失败回滚用）
-  const [authorityDraft, setAuthorityDraft] = useState(DEFAULT_COLLABORATOR_AUTHORITY);
-  const [savedAuthority, setSavedAuthority] = useState(DEFAULT_COLLABORATOR_AUTHORITY);
-  const [savingAuthority, setSavingAuthority] = useState(false);
+  // 题库字段加密：迁移 / 解密期间置 busy，开关显示 loading 且不可再点
+  const [encryption, setEncryption] = useState(false);
+  const [cryptoBusy, setCryptoBusy] = useState(false);
 
   const load = useCallback(async () => {
     const [sys, ai, deptRes, roleRes] = await Promise.all([
@@ -110,7 +156,7 @@ export default function SystemSetting() {
       favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
       registerEnabled: Boolean(sys?.registerInfo?.registerEnabled),
-        registerDeptId: sys?.registerInfo?.deptId,
+      registerDeptId: sys?.registerInfo?.deptId,
       // 注册默认角色存的是角色 id；没配置时是空数组
       roles: sys?.registerInfo?.roles ?? [],
       aiEnabled: Boolean(ai?.enabled),
@@ -120,16 +166,14 @@ export default function SystemSetting() {
       defaultModel: ai?.defaultModel,
       prompt: ai?.prompt,
     });
-    // 三项缺省都开启：后端没返回这些字段（旧版本）时也按「开着 + 姓名+手机号」显示
+    // 水印 / 防复制缺省都开启：后端没返回这些字段（旧版本）时也按「开着 + 姓名+手机号」显示
     setProtection({
       watermarkEnabled: sys?.setting?.watermarkEnabled !== false,
       watermarkMode: normalizeMode(sys?.setting?.watermarkMode),
       copyProtected: sys?.setting?.copyProtected !== false,
     });
-    // 协作者权限串：老数据可能是 null / 空串，回落默认的 project:create
-    const authority = sys?.setting?.collaboratorAuthority || DEFAULT_COLLABORATOR_AUTHORITY;
-    setAuthorityDraft(authority);
-    setSavedAuthority(authority);
+    // 加密缺省关闭：只有显式 true 才算开启
+    setEncryption(Boolean(sys?.setting?.fieldEncryptionEnabled));
   }, [form]);
 
   useEffect(() => {
@@ -161,7 +205,7 @@ export default function SystemSetting() {
   };
 
   /**
-   * 内容与隐私保护：单项改完立即保存，只提交改动的那一个字段（后端是 merge 式更新）。
+   * 内容与隐私：单项改完立即保存，只提交改动的那一个字段（后端是 merge 式更新）。
    * 先乐观更新界面，失败回滚到改动前并给出错误提示。
    */
   const saveProtection = async (patch: Partial<ProtectionSetting>) => {
@@ -189,28 +233,88 @@ export default function SystemSetting() {
     }
   };
 
+  /** 落库加密开关（只提交这一个增量字段） */
+  const saveEncryptionFlag = (enabled: boolean) =>
+    post('/api/system/update', { setting: { fieldEncryptionEnabled: enabled } });
+
   /**
-   * 协作者权限串：点「保存」或选中下拉里的快捷值时提交（自由文本，不做成改一个字就存）。
-   * 失败回滚到上一次保存成功的值并提示。
+   * 开启加密：下载密钥 → 迁移存量 → 开关置 true。
+   *
+   * 注意顺序：后端 CryptoUtils.enabled() = 运行时开关 && 已配置密钥，而 /crypto/migrate 在未 enabled 时
+   * 会直接报「未配置 SK_CRYPTO_KEY」。所以迁移前必须先把开关写进库（后端 updateSystemInfo 会同步运行时开关），
+   * 迁移一旦失败立刻把开关回滚成 false，避免出现「设置里显示已加密、库里却还是明文」。
    */
-  const saveAuthority = async (value?: string) => {
-    const authority = String(value ?? authorityDraft).trim();
-    if (!authority) {
-      message.warning('请填写权限串，例如 project:create');
-      return;
-    }
-    setAuthorityDraft(authority);
-    setSavingAuthority(true);
-    try {
-      await post('/api/system/update', { setting: { collaboratorAuthority: authority } });
-      setSavedAuthority(authority);
-      message.success('已保存');
-    } catch (e) {
-      setAuthorityDraft(savedAuthority); // 回滚，避免界面显示成已生效
-      message.error((e as Error).message);
-    } finally {
-      setSavingAuthority(false);
-    }
+  const confirmEnableEncryption = () => {
+    Modal.confirm({
+      title: '开启题库字段加密？',
+      content: (
+        <div style={{ fontSize: 12, lineHeight: 1.9 }}>
+          将按以下顺序执行：
+          <br />
+          1. 下载密钥文件（只显示这一次，请立即离线备份）；
+          <br />
+          2. 把题库里已有的题目与答卷快照加密；
+          <br />
+          3. 打开加密开关。
+          <br />
+          <span style={{ color: 'var(--bp-orange)' }}>密钥丢失后，已加密的题库将永久无法解密。</span>
+        </div>
+      ),
+      okText: '下载密钥并加密',
+      cancelText: '取消',
+      onOk: async () => {
+        setCryptoBusy(true);
+        try {
+          const info = await get<CryptoKeyInfo>('/api/system/crypto/generate-key');
+          if (!info?.key) throw new Error('后端未返回加密密钥，已中止');
+          downloadKeyFile(info);
+          await saveEncryptionFlag(true); // 先开运行时开关，migrate 才不会报未配置密钥
+          await post('/api/system/crypto/migrate');
+          setEncryption(true);
+          message.success('已开启题库字段加密，请妥善保存刚下载的密钥文件');
+        } catch (e) {
+          await saveEncryptionFlag(false).catch(() => undefined); // 任一步失败：回滚成关闭
+          setEncryption(false);
+          message.error(`开启加密失败：${(e as Error).message}`);
+        } finally {
+          setCryptoBusy(false);
+        }
+      },
+    });
+  };
+
+  /**
+   * 关闭加密：先把存量密文解密还原成明文，再落开关 false。
+   * 解密失败时开关保持开启（数据仍是密文），避免开关关了但库里还是密文读不出来。
+   */
+  const confirmDisableEncryption = () => {
+    Modal.confirm({
+      title: '关闭题库字段加密？',
+      content: (
+        <div style={{ fontSize: 12, lineHeight: 1.9 }}>
+          会先把题库中的密文解密还原为明文，再关闭开关。解密期间请不要关闭页面。
+          <br />
+          关闭后数据库备份里不再有加密保护。
+        </div>
+      ),
+      okText: '解密并关闭',
+      cancelText: '取消',
+      onOk: async () => {
+        setCryptoBusy(true);
+        try {
+          await post('/api/system/crypto/decrypt');
+          await saveEncryptionFlag(false);
+          setEncryption(false);
+          message.success('已关闭题库字段加密，题库字段已还原为明文');
+        } catch (e) {
+          await saveEncryptionFlag(true).catch(() => undefined); // 回滚成开启
+          setEncryption(true);
+          message.error(`关闭加密失败：${(e as Error).message}`);
+        } finally {
+          setCryptoBusy(false);
+        }
+      },
+    });
   };
 
   const save = async (key: TabKey) => {
@@ -235,14 +339,14 @@ export default function SystemSetting() {
           setting: { copyright: v.copyright, recordNum: v.recordNum, favicon: v.favicon },
         });
       } else if (key === 'access') {
-        const roles = Array.isArray(v.roles) ? (v.roles as string[]) : [];
-        if (v.registerEnabled && roles.length === 0) {
+        const selectedRoles = Array.isArray(v.roles) ? (v.roles as string[]) : [];
+        if (v.registerEnabled && selectedRoles.length === 0) {
           message.warning('已开启注册但未选择默认角色：注册用户登录后将看不到任何菜单');
         }
         // registerEnabled 和 roles 一起提交；roles 传空数组会清空后端配置（merge 按非 null 覆盖）
         await post('/api/system/update', {
           setting: { captchaEnabled: Boolean(v.captchaEnabled) },
-          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles, deptId: v.registerDeptId },
+          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles: selectedRoles, deptId: v.registerDeptId },
         });
       } else {
         await post('/api/system/update', {
@@ -288,7 +392,7 @@ export default function SystemSetting() {
             items={[
               {
                 key: 'basic',
-                label: '品牌',
+                label: '基本',
                 forceRender: true,
                 children: (
                   <>
@@ -343,7 +447,7 @@ export default function SystemSetting() {
               },
               {
                 key: 'access',
-                label: '登录与验证码',
+                label: '登录与注册',
                 forceRender: true,
                 children: (
                   <>
@@ -380,13 +484,13 @@ export default function SystemSetting() {
                         }))}
                       />
                     </Form.Item>
-                      <Form.Item name="registerDeptId" label="新用户默认部门" extra="注册用户会自动进入这个部门；不选则进根部门">
-                        <Select
-                          allowClear
-                          placeholder="默认根部门"
-                          options={depts.map((d) => ({ value: d.id, label: d.name }))}
-                        />
-                      </Form.Item>
+                    <Form.Item name="registerDeptId" label="新用户默认部门" extra="注册用户会自动进入这个部门；不选则进根部门">
+                      <Select
+                        allowClear
+                        placeholder="默认根部门"
+                        options={depts.map((d) => ({ value: d.id, label: d.name }))}
+                      />
+                    </Form.Item>
                     {registerEnabled && roles.length === 0 && (
                       <Alert
                         type="warning"
@@ -401,8 +505,77 @@ export default function SystemSetting() {
                 ),
               },
               {
+                key: 'privacy',
+                label: '内容与隐私',
+                forceRender: true,
+                children: (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
+                      以下设置改完即时保存。水印与防复制作用于全站；题库字段加密是可选功能，密钥由你保管。
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      <ProtectionRow
+                        label="全站水印"
+                        hint="登录后每页平铺淡色水印；登录、注册、公开答题等匿名页面不显示"
+                      >
+                        <Switch
+                          checked={protection.watermarkEnabled}
+                          loading={savingProtection}
+                          checkedChildren="开启"
+                          unCheckedChildren="关闭"
+                          onChange={(checked) => void saveProtection({ watermarkEnabled: checked })}
+                        />
+                      </ProtectionRow>
+                      <ProtectionRow label="水印内容" hint="手机号默认中间四位打码，避免完整号码随截图流出">
+                        <Segmented
+                          value={protection.watermarkMode}
+                          onChange={(value) => void saveProtection({ watermarkMode: value as WatermarkMode })}
+                          options={[
+                            { label: '姓名+手机号', value: 'name_phone' },
+                            { label: '仅姓名', value: 'name' },
+                            { label: '仅手机号', value: 'phone' },
+                          ]}
+                        />
+                      </ProtectionRow>
+                      <ProtectionRow
+                        label="防复制"
+                        hint="拦截右键、复制、剪切与开发者工具快捷键；粘贴和输入框编辑不受影响"
+                      >
+                        <Switch
+                          checked={protection.copyProtected}
+                          loading={savingProtection}
+                          checkedChildren="开启"
+                          unCheckedChildren="关闭"
+                          onChange={(checked) => void saveProtection({ copyProtected: checked })}
+                        />
+                      </ProtectionRow>
+                      <hr className="bp-dim" style={{ margin: '2px 0' }} />
+                      <ProtectionRow
+                        label="题库字段加密"
+                        hint="开启后题库题目与答卷快照以密文存储：打开时先下载密钥再加密存量，关闭时先解密还原明文"
+                      >
+                        <Switch
+                          checked={encryption}
+                          loading={cryptoBusy}
+                          checkedChildren="开启"
+                          unCheckedChildren="关闭"
+                          onChange={(checked) =>
+                            checked ? confirmEnableEncryption() : confirmDisableEncryption()
+                          }
+                        />
+                      </ProtectionRow>
+                      {encryption && (
+                        <div style={{ fontSize: 11, color: 'var(--bp-orange)', lineHeight: 1.7 }}>
+                          已开启：请确认密钥文件已离线备份；密钥丢失后题库将无法解密。
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ),
+              },
+              {
                 key: 'ai',
-                label: 'AI 设置',
+                label: 'AI',
                 forceRender: true,
                 children: (
                   <>
@@ -445,88 +618,19 @@ export default function SystemSetting() {
           />
         </Form>
       </Card>
-
-      {/* 内容与隐私保护：三项都是改完即存，不走上方的「保存」按钮 */}
-      <Card
-        className="bp-corners"
-        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)', marginTop: 14 }}
-        title={<span className="bp-title" style={{ fontSize: 12 }}>CONTENT & PRIVACY / 内容与隐私保护</span>}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <ProtectionRow
-            label="全站水印"
-            hint="登录后每页平铺淡色水印；登录、注册、公开答题等匿名页面不显示"
-          >
-            <Switch
-              checked={protection.watermarkEnabled}
-              loading={savingProtection}
-              checkedChildren="开启"
-              unCheckedChildren="关闭"
-              onChange={(checked) => void saveProtection({ watermarkEnabled: checked })}
-            />
-          </ProtectionRow>
-          <ProtectionRow label="水印内容" hint="手机号默认中间四位打码，避免完整号码随截图流出">
-            <Segmented
-              value={protection.watermarkMode}
-              onChange={(value) => void saveProtection({ watermarkMode: value as WatermarkMode })}
-              options={[
-                { label: '姓名+手机号', value: 'name_phone' },
-                { label: '仅姓名', value: 'name' },
-                { label: '仅手机号', value: 'phone' },
-              ]}
-            />
-          </ProtectionRow>
-          <ProtectionRow
-            label="防复制"
-            hint="拦截右键、复制、剪切与开发者工具快捷键；粘贴和输入框编辑不受影响"
-          >
-            <Switch
-              checked={protection.copyProtected}
-              loading={savingProtection}
-              checkedChildren="开启"
-              unCheckedChildren="关闭"
-              onChange={(checked) => void saveProtection({ copyProtected: checked })}
-            />
-          </ProtectionRow>
-        </div>
-      </Card>
-
-      {/* 协作与权限：协作者候选的过滤在后端完成，这里只配置「具备哪种权限的人能当协作者」 */}
-      <Card
-        className="bp-corners"
-        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)', marginTop: 14 }}
-        title={<span className="bp-title" style={{ fontSize: 12 }}>COLLABORATION / 协作与权限</span>}
-      >
-        <ProtectionRow
-          label="可担任协作者"
-          hint="填写权限串，默认 project:create；具备该权限的账号（以及超级管理员）才能被加为协作者，改完点右侧保存"
-        >
-          <AutoComplete
-            value={authorityDraft}
-            onChange={setAuthorityDraft}
-            onSelect={(value) => void saveAuthority(value)}
-            options={COLLABORATOR_AUTHORITY_OPTIONS}
-            placeholder={DEFAULT_COLLABORATOR_AUTHORITY}
-            style={{ width: 320 }}
-          />
-          <Button size="small" type="primary" loading={savingAuthority} onClick={() => void saveAuthority()}>
-            保存
-          </Button>
-        </ProtectionRow>
-      </Card>
     </div>
   );
 }
 
-/** 内容与隐私保护的一行：左侧固定宽度标签 + 控件，下面一行灰色说明 */
+/** 内容与隐私的一行：左侧固定宽度标签 + 控件，下面一行灰色说明 */
 function ProtectionRow({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ width: 88, flex: '0 0 auto', fontSize: 13 }}>{label}</span>
+        <span style={{ width: 96, flex: '0 0 auto', fontSize: 13 }}>{label}</span>
         {children}
       </div>
-      <div style={{ marginTop: 4, paddingLeft: 100, fontSize: 11, color: 'var(--bp-text-soft)' }}>{hint}</div>
+      <div style={{ marginTop: 4, paddingLeft: 108, fontSize: 11, color: 'var(--bp-text-soft)' }}>{hint}</div>
     </div>
   );
 }

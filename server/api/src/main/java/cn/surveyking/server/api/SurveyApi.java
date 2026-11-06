@@ -39,6 +39,24 @@ public class SurveyApi {
 		return surveyService.loadProject(query);
 	}
 
+	/** 首屏只返回项目设置与不含题干/选项的题目大纲。 */
+	@PostMapping("/projectOutline")
+	public PublicProjectView projectOutline(@RequestBody ProjectQuery query) {
+		return surveyService.loadProjectOutline(query);
+	}
+
+	/** 密码/登录校验成功后仍然只返回大纲。 */
+	@PostMapping("/validateProjectOutline")
+	public PublicProjectView validateProjectOutline(@RequestBody ProjectQuery query) {
+		return surveyService.validateProjectOutline(query);
+	}
+
+	/** 按题目 id 取单题；后端会重新校验项目访问权限，并验证题目属于当前问卷。 */
+	@PostMapping("/question")
+	public SurveySchema question(@RequestBody PublicQuestionRequest request) {
+		return surveyService.loadPublicQuestion(request);
+	}
+
 	/**
 	 * 问卷校验
 	 * @param query
@@ -153,6 +171,26 @@ public class SurveyApi {
 	@PostMapping("/loadLinkResult")
 	public PublicLinkResult loadLinkResult(@RequestBody PublicLinkRequest request) {
 		return surveyService.loadLinkResult(request);
+	}
+
+	/**
+	 * 考试切屏计数：前端每次 visibilitychange 上报一次，返回累计次数（落库，刷新不丢）
+	 * @param request
+	 * @return 当前累计切屏次数
+	 */
+	@PostMapping("/exam/switch-screen")
+	public Integer recordSwitchScreen(@RequestBody PublicSwitchScreenRequest request) {
+		return surveyService.recordSwitchScreen(request);
+	}
+
+	/**
+	 * 当前登录用户在这份试卷/问卷上的历次作答（用于「最高 X 分 · 共 N 次」与逐次查看成绩）
+	 * @param request
+	 * @return 按提交时间倒序的作答摘要
+	 */
+	@PostMapping("/attempts")
+	public List<PublicAttemptView> listAttempts(@RequestBody PublicAttemptRequest request) {
+		return surveyService.listPublicAttempts(request);
 	}
 
 }

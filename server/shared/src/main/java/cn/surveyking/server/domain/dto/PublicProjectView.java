@@ -19,6 +19,9 @@ public class PublicProjectView {
 
 	private SurveySchema survey;
 
+	/** 逐题下发时返回的最小题目大纲；此模式下 survey 为 null。 */
+	private java.util.List<PublicQuestionOutline> outline;
+
 	private Integer status;
 
 	private ProjectSetting setting;
@@ -47,5 +50,8 @@ public class PublicProjectView {
 	private Boolean wechatAuthorizationRequired;
 
 	private AnswerExamInfo examInfo;
+
+	/** 当前作答的元信息（切屏次数等）；刷新页面后前端用它恢复计数 */
+	private AnswerMetaInfo metaInfo;
 
 }

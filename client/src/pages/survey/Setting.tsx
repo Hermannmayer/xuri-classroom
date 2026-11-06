@@ -164,7 +164,7 @@ export default function SurveySetting() {
   return (
     <div style={{ maxWidth: 1200 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}/edit`)} />
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}`)} />
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>PUBLISH / 发布设置</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>

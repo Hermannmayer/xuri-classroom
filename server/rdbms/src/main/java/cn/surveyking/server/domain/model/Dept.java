@@ -36,4 +36,21 @@ public class Dept extends BaseModel {
 
 	private String remark;
 
+	/** 组级权限模式：INHERIT、APPEND、OVERRIDE；旧数据/空值按 INHERIT 处理 */
+	private String authorityMode;
+
+	/** 组级权限串，逗号分隔 */
+	private String authority;
+
+	/**
+	 * 有效期开始（含）。为空表示不限制开始时间。
+	 * 组员只有在 [validFrom, validTo] 内才允许登录并作答/看课。
+	 */
+	private java.util.Date validFrom;
+
+	/**
+	 * 有效期结束（含）。为空表示**永久有效**。
+	 */
+	private java.util.Date validTo;
+
 }

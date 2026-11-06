@@ -35,6 +35,11 @@ public class AnswerRequest {
 	private Integer tempSave;
 
 	/**
+	 * 是否「再考一次」的新一轮作答：true 时不复用本人最近一份答卷，直接新建记录
+	 */
+	private Boolean freshAttempt;
+
+	/**
 	 * 练习类型（O 顺序 / R 随机 / W 错题），练习记录靠它区分
 	 */
 	private String examExerciseType;

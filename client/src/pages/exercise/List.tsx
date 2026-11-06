@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, message, Pagination, Popconfirm, Progress, Segmented, Select, Space, Spin, Table, Tag } from 'antd';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Button, Empty, message, Pagination, Popconfirm, Popover, Progress, Segmented, Select, Space, Spin, Table, Tag } from 'antd';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -335,6 +336,15 @@ const TASK_TYPE_LABEL: Record<string, string> = {
 const taskAnswerKey = (id: string) => `sk-answer-${id}`;
 const taskDraftKey = (id: string) => `sk-draft-${id}`;
 
+/** 单次作答摘要（/api/public/attempts 返回，按提交时间倒序） */
+interface PublicAttempt {
+  answerId: string;
+  examScore?: number;
+  createAt?: number;
+}
+
+const formatAttemptTime = (at?: number) => (at ? dayjs(at).format('YYYY-MM-DD HH:mm') : '—');
+
 function taskState(id: string): 'done' | 'doing' | 'none' {
   try {
     if (localStorage.getItem(taskAnswerKey(id))) return 'done';
@@ -358,7 +368,8 @@ function StudentTasks() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
-  const [scores, setScores] = useState<Record<string, number | undefined>>({});
+  /** 每场考试的历次作答（服务端为准，不依赖 localStorage 里那份「最近一次」） */
+  const [attempts, setAttempts] = useState<Record<string, PublicAttempt[]>>({});
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [page, setPage] = useState(1);
@@ -374,23 +385,18 @@ function StudentTasks() {
       const list = res.data.filter((item) => item.mode === 'exam' || item.mode === 'survey');
       setTasks(list);
 
-      const done = list
-        .map((task) => ({ task, answerId: taskAnswerId(task.id) }))
-        .filter((item): item is { task: ProjectTask; answerId: string } => Boolean(item.answerId));
-      const scorePairs = await Promise.all(
-        done.map(async ({ task, answerId }) => {
+      // 历次作答（服务端为准）：既能显示「最高 X 分 · 共 N 次」，也能逐次打开成绩单
+      const attemptPairs = await Promise.all(
+        list.map(async (task) => {
           try {
-            const result = await post<{ examScore?: number }>('/api/public/loadExamResult', {
-              id: task.id,
-              answerId,
-            });
-            return [task.id, result?.examScore] as const;
+            const rows = await post<PublicAttempt[]>('/api/public/attempts', { projectId: task.id });
+            return [task.id, rows ?? []] as const;
           } catch {
-            return [task.id, undefined] as const;
+            return [task.id, [] as PublicAttempt[]] as const;
           }
         }),
       );
-      setScores(Object.fromEntries(scorePairs));
+      setAttempts(Object.fromEntries(attemptPairs));
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -402,41 +408,94 @@ function StudentTasks() {
     void load();
   }, [load]);
 
+  const attemptsOf = (task: ProjectTask): PublicAttempt[] => attempts[task.id] ?? [];
+  /** 服务端有作答记录就算已完成；localStorage 只用来补「进行中」 */
+  const stateOf = (task: ProjectTask): 'done' | 'doing' | 'none' =>
+    attemptsOf(task).length ? 'done' : taskState(task.id);
+
   const filtered = tasks.filter((task) => {
     if (filter === 'exam' && task.mode !== 'exam') return false;
     if (filter === 'survey' && task.mode !== 'survey') return false;
-    if (filter === 'unfinished' && taskState(task.id) === 'done') return false;
+    if (filter === 'unfinished' && stateOf(task) === 'done') return false;
     return true;
   });
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const start = (task: ProjectTask) => navigate(`/s/${task.id}`);
-  const viewScore = (task: ProjectTask) => {
-    const answerId = taskAnswerId(task.id);
-    if (!answerId) return;
-    if (task.mode === 'exam') navigate(`/s/${task.id}/exam-result/${answerId}`);
-    else navigate(`/s/${task.id}/${answerId}`);
+  /** 「再考一次」：带 fresh=1，答题页从空答案开始，提交时后端新建一条答卷，历史成绩保留 */
+  const retry = (task: ProjectTask) => navigate(`/s/${task.id}?fresh=1`);
+  const viewScore = (task: ProjectTask, answerId?: string) => {
+    const target = answerId ?? taskAnswerId(task.id) ?? attemptsOf(task)[0]?.answerId;
+    if (!target) return;
+    if (task.mode === 'exam') navigate(`/s/${task.id}/exam-result/${target}`);
+    else navigate(`/s/${task.id}/${target}`);
   };
 
   const stateTag = (task: ProjectTask) => {
-    const state = taskState(task.id);
+    const state = stateOf(task);
     if (state === 'done') return <Tag color="blue">已完成</Tag>;
     if (state === 'doing') return <Tag color="orange">进行中</Tag>;
     return <Tag>未开始</Tag>;
   };
 
   const answerInfo = (task: ProjectTask) => {
-    const state = taskState(task.id);
-    if (state === 'done') {
-      const score = scores[task.id];
-      return score == null ? '已提交（成绩见成绩页）' : `已提交 · ${score} 分`;
+    const rows = attemptsOf(task);
+    if (rows.length) {
+      const scored = rows.map((row) => row.examScore).filter((score): score is number => typeof score === 'number');
+      if (task.mode === 'exam' && scored.length) {
+        return `最高 ${Math.max(...scored)} 分 · 共 ${rows.length} 次`;
+      }
+      return `共 ${rows.length} 次作答`;
     }
-    return state === 'doing' ? '有未提交草稿' : '未作答';
+    return taskState(task.id) === 'doing' ? '有未提交草稿' : '未作答';
+  };
+
+  /** 历次作答浮层：按时间倒序，点某一次直接打开那次的成绩单/解析 */
+  const attemptsPopover = (task: ProjectTask, mobile = false, btnStyle?: CSSProperties) => {
+    const rows = attemptsOf(task);
+    if (!rows.length) return null;
+    return (
+      <Popover
+        trigger="click"
+        placement="bottomRight"
+        title={`历次作答（共 ${rows.length} 次）`}
+        content={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 250 }}>
+            {rows.map((row, index) => (
+              <button
+                key={row.answerId}
+                type="button"
+                onClick={() => viewScore(task, row.answerId)}
+                style={{
+                  textAlign: 'left',
+                  padding: '5px 8px',
+                  border: '1px solid var(--bp-line-soft)',
+                  borderRadius: 0,
+                  background: 'transparent',
+                  color: 'var(--bp-text)',
+                  fontFamily: 'inherit',
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  cursor: 'pointer',
+                }}
+              >
+                第 {rows.length - index} 次
+                {typeof row.examScore === 'number' ? ` · ${row.examScore} 分` : ''} · {formatAttemptTime(row.createAt)}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        <Button size={mobile ? 'middle' : 'small'} style={btnStyle}>
+          历次成绩
+        </Button>
+      </Popover>
+    );
   };
 
   const actions = (task: ProjectTask, mobile = false) => {
-    const state = taskState(task.id);
-    const retry = Boolean(task.setting?.submittedSetting?.enableUpdate);
+    const state = stateOf(task);
+    const canRetry = Boolean(task.setting?.submittedSetting?.enableUpdate);
     const btnStyle = mobile ? { flex: 1, height: 38, paddingInline: 0 } : undefined;
     if (state === 'done') {
       return (
@@ -444,8 +503,9 @@ function StudentTasks() {
           <Button size={mobile ? 'middle' : 'small'} style={btnStyle} onClick={() => viewScore(task)}>
             查看成绩
           </Button>
-          {retry && (
-            <Button size={mobile ? 'middle' : 'small'} type="primary" style={btnStyle} onClick={() => start(task)}>
+          {attemptsPopover(task, mobile, btnStyle)}
+          {canRetry && (
+            <Button size={mobile ? 'middle' : 'small'} type="primary" style={btnStyle} onClick={() => retry(task)}>
               再考一次
             </Button>
           )}
@@ -549,7 +609,7 @@ function StudentTasks() {
             { title: '答题情况', dataIndex: 'id', render: (_: unknown, task) => answerInfo(task) },
             {
               title: '操作',
-              width: 210,
+              width: 300,
               render: (_: unknown, task) => actions(task),
             },
           ]}

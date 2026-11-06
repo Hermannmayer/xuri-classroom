@@ -92,7 +92,7 @@ interface BlankPair {
   ok?: boolean;
 }
 
-interface QuestionView {
+export interface QuestionView {
   q: FlatQuestion;
   options: OptionView[];
   blanks: BlankPair[];
@@ -280,7 +280,7 @@ function matrixLines(q: FlatQuestion, value: AnswerValue): string[] {
 
 /* ---------------------------------------------------------------- 一道题的视图模型 */
 
-function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
+export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
   const options = buildOptions(q, value);
   const blanks = buildBlanks(q, value);
   const analysis = trimmed(q.schema.attribute?.examAnalysis);
@@ -338,7 +338,7 @@ function statusBadge(view: QuestionView): { text: string; tone: string } | undef
 
 /* ---------------------------------------------------------------- 卡片 */
 
-function QuestionCard({ view }: { view: QuestionView }) {
+export function QuestionCard({ view }: { view: QuestionView }) {
   const { q, options, blanks, analysis } = view;
   const badge = statusBadge(view);
   const mineLabels = options.filter((option) => option.picked).map((option) => option.label);

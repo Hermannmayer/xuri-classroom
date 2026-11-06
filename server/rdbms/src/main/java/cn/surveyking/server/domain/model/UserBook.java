@@ -63,6 +63,12 @@ public class UserBook extends BaseModel {
 	private String repoId;
 
 	/**
+	 * 来源考试 id：这条错题是哪场考试产生的。 题库练习 / 历史数据为空。
+	 */
+	@TableField(value = "project_id")
+	private String projectId;
+
+	/**
 	 * 是否标记
 	 */
 	private Boolean isMarked;

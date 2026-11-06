@@ -1,13 +1,18 @@
 package cn.surveyking.server.impl;
 
+import cn.surveyking.server.core.constant.CacheConsts;
 import cn.surveyking.server.domain.dto.DeptRequest;
-import cn.surveyking.server.domain.dto.DeptView;
 import cn.surveyking.server.domain.dto.DeptSortRequest;
+import cn.surveyking.server.domain.dto.DeptView;
 import cn.surveyking.server.domain.dto.SelectDeptRequest;
 import cn.surveyking.server.domain.mapper.DeptDtoMapper;
 import cn.surveyking.server.domain.model.Dept;
+import cn.surveyking.server.domain.model.DeptRole;
+import cn.surveyking.server.domain.model.Role;
 import cn.surveyking.server.domain.model.UserPosition;
 import cn.surveyking.server.mapper.DeptMapper;
+import cn.surveyking.server.mapper.DeptRoleMapper;
+import cn.surveyking.server.mapper.RoleMapper;
 import cn.surveyking.server.mapper.UserPositionMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.DeptService;
@@ -15,11 +20,14 @@ import cn.surveyking.server.service.UserService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
@@ -38,6 +46,10 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 
 	private final UserPositionMapper userPositionMapper;
 
+	private final DeptRoleMapper deptRoleMapper;
+
+	private final RoleMapper roleMapper;
+
 	@Override
 	public List<DeptView> listDept(SelectDeptRequest request) {
 		if (request == null) {
@@ -51,6 +63,15 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 			if (isNotBlank(managerId)) {
 				orgView.setManagerName(userService.loadUserById(managerId).getName());
 			}
+			// 回填该组绑定的角色，前端用户组页要回显「这个组有哪些角色」
+			List<String> roleIds = deptRoleMapper.selectList(Wrappers.<DeptRole>lambdaQuery()
+					.eq(DeptRole::getDeptId, orgView.getId())).stream().map(DeptRole::getRoleId)
+							.collect(Collectors.toList());
+			orgView.setRoleIds(roleIds);
+			orgView.setRoleNames(roleIds.stream().map(roleId -> {
+				Role role = roleMapper.selectById(roleId);
+				return role == null ? roleId : role.getName();
+			}).collect(Collectors.toList()));
 		});
 		return result;
 	}
@@ -60,9 +81,27 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		return deptDtoMapper.toView(getById(id));
 	}
 
+	/**
+	 * 写操作必须同时清 deptCache 与 userCache。
+	 *
+	 * <p>
+	 * deptCache 是 {@code GET /api/system/dept/list}（request 为 null 时取全量列表）的缓存，
+	 * 命中后方法体根本不会执行。此前实现类方法上只写了 {@code @CacheEvict(userCache)}，
+	 * 而 Spring 的缓存拦截器先按「最具体的实现方法」找注解、找到就直接用，<b>不会</b>再回退到
+	 * 接口 {@code DeptService} 上的 {@code @CacheEvict(deptCache)}——于是 deptCache 只写不清：
+	 * 给用户组绑好角色后列表最长 1 天（deptCache 的 TTL）都还是旧值，前端编辑弹窗又拿这份旧数据
+	 * 回填 roleIds，一保存就把空数组写回去，saveDeptRoles 的「先删后插」于是把真实绑定清掉。
+	 * 所以四个写方法统一用 {@code @Caching} 同时清两个缓存，注解只写在实现方法上。
+	 */
 	@Override
+	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
+			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void addDept(DeptRequest request) {
+		validateAuthorityPolicy(request);
 		Dept dept = deptDtoMapper.fromRequest(request);
+		if (!isNotBlank(dept.getAuthorityMode())) {
+			dept.setAuthorityMode("INHERIT");
+		}
 		if (StringUtils.isEmpty(request.getParentId())) {
 			dept.setParentId("0");
 		}
@@ -72,20 +111,67 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		}
 		dept.setSortCode((int) count(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, request.getParentId())));
 		save(dept);
+		saveDeptRoles(dept.getId(), request.getRoleIds());
 	}
 
 	@Override
+	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
+			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void updateDept(DeptRequest request) {
+		validateAuthorityPolicy(request);
 		updateById(deptDtoMapper.fromRequest(request));
+		// roleIds 为 null 表示本次不改角色（只改名字/上级）；传空数组表示清空
+		if (request.getRoleIds() != null) {
+			saveDeptRoles(request.getId(), request.getRoleIds());
+		}
+	}
+
+	/** 组→角色绑定：先删后插，保证与界面勾选一致；用物理删除，避免软删行撞 (dept_id, role_id) 唯一键 */
+	private void saveDeptRoles(String deptId, List<String> roleIds) {
+		if (!isNotBlank(deptId)) {
+			return;
+		}
+		deptRoleMapper.deleteByDeptId(deptId);
+		if (CollectionUtils.isEmpty(roleIds)) {
+			return;
+		}
+		roleIds.stream().filter(StringUtils::isNotBlank).distinct().forEach(roleId -> {
+			DeptRole binding = new DeptRole();
+			binding.setDeptId(deptId);
+			binding.setRoleId(roleId);
+			deptRoleMapper.insert(binding);
+		});
+	}
+
+	private void validateAuthorityPolicy(DeptRequest request) {
+		if (request == null) {
+			return;
+		}
+		if (isNotBlank(request.getAuthorityMode())) {
+			String mode = request.getAuthorityMode().trim().toUpperCase(java.util.Locale.ROOT);
+			if (!"INHERIT".equals(mode) && !"APPEND".equals(mode) && !"OVERRIDE".equals(mode)) {
+				throw new IllegalArgumentException("权限模式必须是 INHERIT、APPEND 或 OVERRIDE");
+			}
+			request.setAuthorityMode(mode);
+		}
+		if (isNotBlank(request.getAuthority()) && request.getAuthority().contains("ROLE_")) {
+			throw new IllegalArgumentException("用户组权限不能包含 ROLE_ 身份标记");
+		}
 	}
 
 	@Override
+	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
+			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void deleteDept(String id) {
 		removeById(id);
 		userPositionMapper.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getDeptId, id));
+		// 组没了，组与角色的绑定也要一起清，否则 t_dept_role 会留下孤儿行
+		deptRoleMapper.deleteByDeptId(id);
 	}
 
 	@Override
+	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
+			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void sortDept(DeptSortRequest request) {
 		for (int i = 0; i < request.getNodes().size(); i++) {
 			Dept dept = getById(request.getNodes().get(i));

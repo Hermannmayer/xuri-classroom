@@ -139,10 +139,19 @@ export interface Answer {  id: string;
   updateAt?: string;
 }
 
-/** 公开答题：POST /api/public/loadProject 的返回 */
+/** 逐题下发时首屏只返回的安全大纲，绝不包含题干/选项/题目属性 */
+export interface PublicQuestionOutline {
+  id: string;
+  type: import('./types').QuestionType;
+  number: number;
+  required: boolean;
+}
+
+/** 公开答题：POST /api/public/projectOutline 的返回 */
 export interface PublicProjectView {
   id: string;
   survey?: SurveySchema;
+  outline?: PublicQuestionOutline[];
   status?: number;
   setting?: ProjectSetting;
   name?: string;

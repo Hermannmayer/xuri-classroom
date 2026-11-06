@@ -369,7 +369,7 @@ export default function SurveyData() {
         .sk-data-toolbar-mobile .ant-btn { height: 36px; }
       `}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}/edit`)} />
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}`)} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
             DATA / 数据与分析
