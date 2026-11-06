@@ -30,10 +30,6 @@ public class DeptView {
 	/** 拓展属性 */
 	private String propertyJson;
 
-	private String authorityMode;
-
-	private String authority;
-
 	private java.util.Date validFrom;
 
 	private java.util.Date validTo;

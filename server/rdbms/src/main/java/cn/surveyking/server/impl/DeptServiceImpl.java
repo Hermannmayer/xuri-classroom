@@ -111,11 +111,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void addDept(DeptRequest request) {
-		validateAuthorityPolicy(request);
 		Dept dept = deptDtoMapper.fromRequest(request);
-		if (!isNotBlank(dept.getAuthorityMode())) {
-			dept.setAuthorityMode("INHERIT");
-		}
 		if (StringUtils.isEmpty(request.getParentId())) {
 			dept.setParentId("0");
 		}
@@ -132,7 +128,6 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void updateDept(DeptRequest request) {
-		validateAuthorityPolicy(request);
 		updateById(deptDtoMapper.fromRequest(request));
 		// roleIds 为 null 表示本次不改角色（只改名字/上级）；传空数组表示清空
 		if (request.getRoleIds() != null) {
@@ -222,27 +217,6 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		}
 		else {
 			clear.run();
-		}
-	}
-
-	/**
-	 * 组级权限串（authority / authority_mode，INHERIT/APPEND/OVERRIDE）已废弃：
-	 * 权限点只挂角色，组通过 t_dept_role 授权（见 UserServiceImpl#loadUserById）。
-	 * 这里仅对旧客户端传来的字段做格式校验，字段本身不再参与权限计算，等确认无人写入后即可删除。
-	 */
-	private void validateAuthorityPolicy(DeptRequest request) {
-		if (request == null) {
-			return;
-		}
-		if (isNotBlank(request.getAuthorityMode())) {
-			String mode = request.getAuthorityMode().trim().toUpperCase(java.util.Locale.ROOT);
-			if (!"INHERIT".equals(mode) && !"APPEND".equals(mode) && !"OVERRIDE".equals(mode)) {
-				throw new IllegalArgumentException("权限模式必须是 INHERIT、APPEND 或 OVERRIDE");
-			}
-			request.setAuthorityMode(mode);
-		}
-		if (isNotBlank(request.getAuthority()) && request.getAuthority().contains("ROLE_")) {
-			throw new IllegalArgumentException("用户组权限不能包含 ROLE_ 身份标记");
 		}
 	}
 

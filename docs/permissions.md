@@ -145,13 +145,13 @@
 
 - 权限目录：`GET /api/system/permission/list`，按「考试/答卷/题库/题目/练习/文件/用户/系统/内容保护/其它」分组，目录包含 56 个已有权限点与 17 个建议新增项。
 - 角色矩阵：`/system/permissions` 可勾选并保存老师/学员权限；超级管理员始终全权限，前端禁用，后端 `SystemServiceImpl` 也拒绝修改内置 admin 权限。
-- 用户组策略：`t_dept.authority_mode` + `t_dept.authority`，在「系统管理 → 用户组」里配置：
-  - `INHERIT`（默认）：根组用角色权限，子组继承父组最终权限。
-  - `APPEND`：在父组最终权限（根组则为角色权限）上追加本组权限。
-  - `OVERRIDE`：只使用本组配置的权限，不继承角色/父组的普通权限。
-- `ROLE_admin` 等角色身份标记不能由组策略授予，也不被覆盖；超级管理员始终全权限。
-- 修改组权限后会清除用户权限缓存；组策略在用户下次鉴权时生效，已有 JWT 后续请求会经 `loadUserById` 重新取权限。
-- 旧组默认为 `INHERIT`，与迁移前的角色权限行为一致。已有数据库执行 `scripts/dev/add-dept-authority.sql`；新库初始化脚本已包含两列。
+- 用户组 = 成员 + 绑定的角色 + 有效期（`scripts/dev/drop-dept-authority.sql` 已删除旧的 `t_dept.authority_mode` / `t_dept.authority`）：
+  - 组的权限来自**绑定角色**（`t_dept_role`），最终权限 = 用户直挂角色 ∪ 主组与所有附加组（含祖先链）绑定的角色；
+  - 组级权限串（INHERIT / APPEND / OVERRIDE）已下线，任何组都**只能加权限，不能减权限**；
+  - 有效期为空表示永久，过期后该组内成员无法登录。
+- `ROLE_admin` 等角色身份标记同样可以由组绑定角色带来；但非管理员不能把权限高于自己的角色绑定到组上（后端 `assertGrantableDeptRoles`）。
+- 修改组绑定角色后会清用户权限缓存；组变更在用户下次鉴权时生效，已有 JWT 后续请求会经 `loadUserById` 重新取权限。
+- 数据库迁移：`scripts/dev/add-dept-role.sql`（组-角色绑定表）、`scripts/dev/add-user-dept.sql`（用户附加组）、`scripts/dev/drop-dept-authority.sql`（删除旧组权限串列）；新建库的初始化脚本已包含前两者、不含旧字段。
 
 ## 7. 数据可见性（与功能权限是两条线）
 
