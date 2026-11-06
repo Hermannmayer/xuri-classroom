@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Empty, message, Modal, Popconfirm, Select, Table, Tag } from 'antd';
 import { PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import LinkAction from '../../components/LinkAction';
 import { get, getWithPagination, post } from '../../api';
 
 interface Partner {
@@ -174,7 +175,7 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
             width: 80,
             render: (_, row) => (
               <Popconfirm title="移除此授权？" okText="移除" cancelText="取消" onConfirm={() => remove(row)}>
-                <a style={{ color: 'var(--bp-orange)' }}>移除</a>
+                <LinkAction style={{ color: 'var(--bp-orange)' }}>移除</LinkAction>
               </Popconfirm>
             ),
           },
