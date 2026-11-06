@@ -60,8 +60,9 @@ docs/             文档
 
 启动顺序：`scripts/dev/start-mysql.ps1` → `scripts/dev/start-backend.ps1` → `npm run dev`（均在仓库根目录执行）。
 
-端口约定：**前端占 80，后端随便一个端口（默认 7007）**。后端不再需要管理员权限，也不对外暴露；
-接口走同源代理，JWT 的 HttpOnly cookie 才能正常工作。生产环境同构：nginx 80 + 后端 7007 内网。
+端口约定：**开发态前端占 80，后端随便一个端口（默认 7007）**。后端不对外暴露；
+接口走同源代理，JWT 的 HttpOnly cookie 才能正常工作。
+生产态（Docker）容器内 nginx 仍监听 80，宿主机默认发布到 **9527**（改 `.env` 的 `APP_PORT`）。
 
 **改后端代码后必须重新构建并重启**，否则 `@Cacheable` 的缓存不会刷新（表现是改了库但页面没变）。
 
