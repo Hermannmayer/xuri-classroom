@@ -28,7 +28,11 @@ public class Dashboard implements Serializable {
 	/**
 	 * 仪表盘组件key
 	 */
-	@TableField(value = "key")
+	/**
+	 * `key` 是 MySQL 8 的保留字，字段名必须用反引号转义，否则 SELECT 会直接语法错误
+	 * （GET /api/dashboard/list 一直 500 的第二个原因）。
+	 */
+	@TableField(value = "`key`")
 	private String key;
 
 	/**

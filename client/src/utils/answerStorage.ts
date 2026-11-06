@@ -78,6 +78,22 @@ export function clearAnswerStorage(): number {
   return keys.length;
 }
 
+/** 登出信号：BasicLayout 登出时 `window.dispatchEvent(new Event(LOGOUT_EVENT))` 即可清空 */
+export const LOGOUT_EVENT = 'sk:logout';
+
+/**
+ * 注册「登出即清空答题数据」的监听（幂等）。
+ * 答题页挂载时会调用一次；BasicLayout 只需在登出逻辑里 dispatch LOGOUT_EVENT（或直接调用
+ * `clearAnswerStorage()`），不需要在这里改 layout。返回取消监听的函数。
+ */
+export function installAnswerStorageCleanup(): () => void {
+  const handler = () => {
+    clearAnswerStorage();
+  };
+  window.addEventListener(LOGOUT_EVENT, handler);
+  return () => window.removeEventListener(LOGOUT_EVENT, handler);
+}
+
 /* ---------------------------------------------------------------- answerId */
 
 /** 读取本机保存的匿名答卷 id：空串/非字符串一律当没有 */

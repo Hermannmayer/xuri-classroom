@@ -26,20 +26,25 @@ export function setUnauthorizedHandler(fn: () => void) {
 }
 
 const CHINESE = /[\u4e00-\u9fa5]/;
+/** 内部异常的特征：SQL / 堆栈 / 英文异常类名，这类原文不能直出给用户 */
+const INTERNAL_ERROR = /exception|sql|stack\s*trace|caused by|syntaxerror|at\s+[\w$.]+\s*\(/i;
 
 /**
  * 把后端 code/message 归一成「能直接给用户看」的中文。
  *
- * 后端异常（InternalServerError 等）会把堆栈/数据库异常文本塞进 message，
- * 这类原文不能直出给用户；403 的英文 "Authentication failed" 也要统一。
- * 业务校验错误（如「名称不能为空」）本身是中文，保留原文。
+ * - 401/403/-1 统一文案；
+ * - 后端业务错误（如导出密码错误 code=4030）自带中文提示，原样展示；
+ * - 内部异常（SQL/英文异常类名/堆栈）一律兜底，避免把实现细节泄露给用户。
  */
 export function humanizeApiError(code: number, backendMessage?: string): string {
   if (code === 401) return '登录已过期，请重新登录';
   if (code === 403) return '没有权限执行该操作（如为导出，请检查导出密码）';
   if (code === -1) return backendMessage || '无法连接后端服务，请确认后端已启动';
-  if (code >= 500) return '服务器内部错误，请稍后重试';
-  return backendMessage && CHINESE.test(backendMessage) ? backendMessage : `操作失败（${code}）`;
+  if (backendMessage && CHINESE.test(backendMessage) && !INTERNAL_ERROR.test(backendMessage)) {
+    return backendMessage;
+  }
+  if (code === 500 || code >= 5000) return '服务器内部错误，请稍后重试';
+  return `操作失败（${code}）`;
 }
 
 function qs(params?: Record<string, unknown>): string {
