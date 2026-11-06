@@ -22,6 +22,8 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { download, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
@@ -570,6 +572,7 @@ export default function RepoQuestions() {
         </div>
       )}
 
+      <TableScrollRegion label="题目列表（可横向滚动）">
       <Table<TemplateView>
         rowKey="id"
         size="middle"
@@ -656,7 +659,7 @@ export default function RepoQuestions() {
                   width: 140,
                   render: (_: unknown, row: TemplateView) => (
                     <Space size={10}>
-                      {canEdit && <a onClick={() => setEditing(row)}>编辑</a>}
+                      {canEdit && <LinkAction onClick={() => setEditing(row)}>编辑</LinkAction>}
                       {canDelete && (
                         <Popconfirm
                           title="删除这道题？"
@@ -665,7 +668,7 @@ export default function RepoQuestions() {
                           cancelText="取消"
                           onConfirm={() => removeOne(row)}
                         >
-                          <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                          <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
                         </Popconfirm>
                       )}
                     </Space>
@@ -675,6 +678,7 @@ export default function RepoQuestions() {
             : []),
         ]}
       />
+      </TableScrollRegion>
 
       <Modal
         title="编辑题目"

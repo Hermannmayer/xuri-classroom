@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Empty, message, Popconfirm, Table, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { updateProject } from '../../api';
 import type { ProjectView } from '../../api';
 
@@ -65,7 +67,8 @@ export function ProjectTable({
   };
 
   return (
-    <Table<ProjectView>
+    <TableScrollRegion label={`${label}列表（可横向滚动）`}>
+      <Table<ProjectView>
       rowKey="id"
       size="middle"
       loading={loading}
@@ -83,7 +86,7 @@ export function ProjectTable({
           dataIndex: 'name',
           render: (_: unknown, row) => (
             <>
-              <a onClick={() => navigate(`/survey/${row.id}`)}>{row.name || '(未命名)'}</a>
+              <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>{row.name || '(未命名)'}</LinkAction>
               <span style={{ ...SOFT, fontSize: 11, marginLeft: 8 }}>{row.total ?? 0} 份答卷</span>
             </>
           ),
@@ -110,7 +113,7 @@ export function ProjectTable({
             canManage ? (
               // 管理 / 老师视角：设置 → 开启·关闭 → 编辑（题目）→ 数据
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <a onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</a>
+                <LinkAction onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</LinkAction>
                 {row.status === 1 ? (
                   <Popconfirm
                     title="关闭后学员将无法打开答题链接"
@@ -119,26 +122,27 @@ export function ProjectTable({
                     cancelText="取消"
                     onConfirm={() => toggleStatus(row)}
                   >
-                    <a style={{ color: 'var(--bp-orange)' }}>
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>
                       {togglingId === row.id ? '关闭中' : '关闭'}
-                    </a>
+                    </LinkAction>
                   </Popconfirm>
                 ) : (
-                  <a
+                  <LinkAction
                     onClick={() => (togglingId === row.id ? undefined : void toggleStatus(row))}
                   >
                     {togglingId === row.id ? '开启中' : '开启'}
-                  </a>
+                  </LinkAction>
                 )}
-                <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
-                <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
+                <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
+                <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
               </div>
             ) : (
-              <a onClick={() => navigate(`/s/${row.id}`)}>去答题</a>
+              <LinkAction onClick={() => navigate(`/s/${row.id}`)}>去答题</LinkAction>
             ),
         },
       ]}
     />
+    </TableScrollRegion>
   );
 }
 
@@ -154,7 +158,8 @@ export function RecordTable({
 }) {
   const navigate = useNavigate();
   return (
-    <Table<MyTask>
+    <TableScrollRegion label="记录列表（可横向滚动）">
+      <Table<MyTask>
       rowKey="id"
       size="middle"
       loading={loading}
@@ -192,7 +197,7 @@ export function RecordTable({
           title: '操作',
           width: 110,
           render: (_: unknown, row) => (
-            <a
+            <LinkAction
               onClick={() =>
                 navigate(
                   exam
@@ -202,10 +207,11 @@ export function RecordTable({
               }
             >
               {exam ? '查看结果' : '查看答案'}
-            </a>
+            </LinkAction>
           ),
         },
       ]}
     />
+    </TableScrollRegion>
   );
 }

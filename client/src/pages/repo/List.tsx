@@ -18,6 +18,8 @@ import {
 } from 'antd';
 import { AppstoreOutlined, DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
 import { loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
@@ -342,7 +344,7 @@ export default function RepoList() {
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <a
+                      <LinkAction
                         style={{
                           flex: 1,
                           minWidth: 0,
@@ -354,7 +356,7 @@ export default function RepoList() {
                         onClick={() => enter(row)}
                       >
                         {row.name || '(未命名题库)'}
-                      </a>
+                      </LinkAction>
                       <Tag color={row.mode === 'exam' ? 'orange' : 'blue'}>
                         {row.mode ? MODE_LABEL[row.mode] ?? row.mode : '—'}
                       </Tag>
@@ -472,6 +474,7 @@ export default function RepoList() {
           )}
         </>
       ) : (
+      <TableScrollRegion label="题库列表（可横向滚动）">
       <Table<RepoView>
         rowKey="id"
         size="middle"
@@ -496,7 +499,7 @@ export default function RepoList() {
               <div>
                 <Space size={6}>
                   <DatabaseOutlined style={{ color: 'var(--bp-text-soft)' }} />
-                  <a onClick={() => enter(row)}>{row.name || '(未命名题库)'}</a>
+                  <LinkAction onClick={() => enter(row)}>{row.name || '(未命名题库)'}</LinkAction>
                 </Space>
                 {row.description && (
                   <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.65)', marginTop: 2 }}>
@@ -554,15 +557,15 @@ export default function RepoList() {
                   width: canUpdate || canDelete ? 200 : 280,
                   render: (_: unknown, row: RepoView) => (
                     <Space size={4}>
-                      {canDetail && <a onClick={() => enter(row)}>题目</a>}
-                      {!canCreate && <a onClick={() => startPractice(row, 'full')}>开始练习</a>}
-                      {!canCreate && <a onClick={() => openRandom(row)}>随机练习</a>}
+                      {canDetail && <LinkAction onClick={() => enter(row)}>题目</LinkAction>}
+                      {!canCreate && <LinkAction onClick={() => startPractice(row, 'full')}>开始练习</LinkAction>}
+                      {!canCreate && <LinkAction onClick={() => openRandom(row)}>随机练习</LinkAction>}
                       {!canCreate && hasPracticeProgress(row.id) && (
-                        <a onClick={() => startPractice(row, 'resume')}>继续练习</a>
+                        <LinkAction onClick={() => startPractice(row, 'resume')}>继续练习</LinkAction>
                       )}
-                      {canUpdate && <a onClick={() => setGranting(row)}>授权</a>}
+                      {canUpdate && <LinkAction onClick={() => setGranting(row)}>授权</LinkAction>}
                       {canUpdate && (
-                        <a
+                        <LinkAction
                           onClick={() => {
                             renameForm.setFieldsValue({
                               name: row.name || '',
@@ -574,7 +577,7 @@ export default function RepoList() {
                           }}
                         >
                           编辑
-                        </a>
+                        </LinkAction>
                       )}
                       {canDelete && (
                         <Popconfirm
@@ -584,7 +587,7 @@ export default function RepoList() {
                           cancelText="取消"
                           onConfirm={() => remove(row)}
                         >
-                          <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                          <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
                         </Popconfirm>
                       )}
                     </Space>
@@ -594,6 +597,7 @@ export default function RepoList() {
             : []),
         ]}
       />
+      </TableScrollRegion>
       )}
 
       <Modal

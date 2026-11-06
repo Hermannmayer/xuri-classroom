@@ -238,6 +238,8 @@ export default function BasicLayout() {
                 type="text"
                 size="small"
                 icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                aria-label={collapsed ? '展开侧栏菜单' : '收起侧栏菜单'}
+                title={collapsed ? '展开侧栏菜单' : '收起侧栏菜单'}
                 onClick={() => setCollapsed((c) => !c)}
               />
               <span

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, DatePicker, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import LinkAction from '../../components/LinkAction';
 import { get, post } from '../../api';
 
 interface Dept {
@@ -248,8 +249,8 @@ export default function SystemGroup() {
               width: 200,
               render: (_, row) => (
                 <Space size={12}>
-                  <a onClick={() => openCreate(row)}>加子组</a>
-                  <a onClick={() => openEdit(row)}>编辑</a>
+                  <LinkAction onClick={() => openCreate(row)}>加子组</LinkAction>
+                  <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>
                   <Popconfirm
                     title={`删除「${row.name}」？`}
                     okText="删除"
@@ -257,7 +258,7 @@ export default function SystemGroup() {
                     cancelText="取消"
                     onConfirm={() => remove(row)}
                   >
-                    <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
                   </Popconfirm>
                 </Space>
               ),

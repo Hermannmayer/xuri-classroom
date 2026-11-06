@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Button, Empty, message, Pagination, Popconfirm, Popover, Progress, Segmented, Select, Space, Spin, Table, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from '../repo/table';
@@ -167,7 +169,7 @@ function PracticeRecords() {
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <a
+                      <LinkAction
                         style={{
                           flex: 1,
                           minWidth: 0,
@@ -179,7 +181,7 @@ function PracticeRecords() {
                         onClick={() => enter(row)}
                       >
                         {row.projectName || '(未命名练习)'}
-                      </a>
+                      </LinkAction>
                       {row.examExerciseType && (
                         <Tag color={TYPE_COLOR[row.examExerciseType] ?? 'default'}>
                           {TYPE_LABEL[row.examExerciseType] ?? row.examExerciseType}
@@ -247,6 +249,7 @@ function PracticeRecords() {
           )}
         </>
       ) : (
+      <TableScrollRegion label="练习列表（可横向滚动）">
       <Table<ExerciseView>
         rowKey="id"
         size="middle"
@@ -261,7 +264,7 @@ function PracticeRecords() {
             title: '名称',
             dataIndex: 'projectName',
             render: (_: unknown, row) => (
-              <a onClick={() => enter(row)}>{row.projectName || '(未命名练习)'}</a>
+              <LinkAction onClick={() => enter(row)}>{row.projectName || '(未命名练习)'}</LinkAction>
             ),
           },
           {
@@ -296,7 +299,7 @@ function PracticeRecords() {
             width: 170,
             render: (_: unknown, row) => (
               <Space size={4}>
-                <a onClick={() => enter(row)}>{row.tempSave === 1 ? '查看' : '继续练习'}</a>
+                <LinkAction onClick={() => enter(row)}>{row.tempSave === 1 ? '查看' : '继续练习'}</LinkAction>
                 <Popconfirm
                   title="删除这条练习记录？"
                   description="删除后不可恢复。"
@@ -304,13 +307,14 @@ function PracticeRecords() {
                   cancelText="取消"
                   onConfirm={() => remove(row)}
                 >
-                  <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                  <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
                 </Popconfirm>
               </Space>
             ),
           },
         ]}
       />
+      </TableScrollRegion>
       )}
     </>
   );
@@ -563,9 +567,9 @@ function StudentTasks() {
                 {paged.map((task) => (
                   <div key={task.id} className="bp-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <a style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => start(task)}>
+                      <LinkAction style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => start(task)}>
                         {task.name || '(未命名)'}
-                      </a>
+                      </LinkAction>
                       <Tag color={task.mode === 'exam' ? 'orange' : 'blue'}>{TASK_TYPE_LABEL[task.mode || ''] ?? task.mode}</Tag>
                       {stateTag(task)}
                     </div>
@@ -597,7 +601,7 @@ function StudentTasks() {
             {
               title: '名称',
               dataIndex: 'name',
-              render: (_: unknown, task) => <a onClick={() => start(task)}>{task.name || '(未命名)'}</a>,
+              render: (_: unknown, task) => <LinkAction onClick={() => start(task)}>{task.name || '(未命名)'}</LinkAction>,
             },
             {
               title: '类型',

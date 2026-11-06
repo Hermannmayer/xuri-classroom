@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowRightOutlined, LoadingOutlined, ReloadOutlined } from '@ant-design/icons';
 import CryptoJS from 'crypto-js';
+import LinkAction from './LinkAction';
 import { post } from '../api';
 
 /**
@@ -294,7 +295,7 @@ export default function LoginCaptcha({
             {phase === 'fail' ? (
               <>
                 <span>{msg || '验证码加载失败'}</span>
-                <a onClick={() => void refresh()}>重试</a>
+                <LinkAction onClick={() => void refresh()}>重试</LinkAction>
               </>
             ) : (
               <>

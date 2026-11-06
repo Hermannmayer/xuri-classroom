@@ -26,6 +26,8 @@ import {
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
 import { pager, TABLE_COMPONENTS } from './table';
 
@@ -601,9 +603,9 @@ export default function RepoBook() {
               批量删除
             </Button>
           </Popconfirm>
-          <a style={{ fontSize: 11 }} onClick={() => setSelectedKeys([])}>
+          <LinkAction style={{ fontSize: 11 }} onClick={() => setSelectedKeys([])}>
             取消选择
-          </a>
+          </LinkAction>
         </div>
       )}
 
@@ -629,9 +631,9 @@ export default function RepoBook() {
             title={projectId}
           >
             来源考试：{projectLabel(projectId)}
-            <a style={{ marginLeft: 8 }} onClick={clearProject}>
+            <LinkAction style={{ marginLeft: 8 }} onClick={clearProject}>
               清除
-            </a>
+            </LinkAction>
           </span>
         )}
         <div style={{ flex: 1, minWidth: 12 }} />
@@ -658,6 +660,7 @@ export default function RepoBook() {
         </Button>
       </div>
 
+      <TableScrollRegion label="错题/收藏列表（可横向滚动）">
       <Table<UserBookView>
         rowKey="id"
         size="middle"
@@ -690,7 +693,7 @@ export default function RepoBook() {
             dataIndex: 'name',
             render: (_: unknown, row) => (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <a
+                <LinkAction
                   style={{
                     fontWeight: 500,
                     fontSize: 13,
@@ -704,7 +707,7 @@ export default function RepoBook() {
                   onClick={() => practiceOne(row)}
                 >
                   {row.name || '(无标题)'}
-                </a>
+                </LinkAction>
                 <span style={{ fontSize: 10, color: 'var(--bp-text-soft)', letterSpacing: '0.08em' }}>
                   {row.type === BOOK_TYPE_FAVORITE ? '收藏' : '错题'}
                   {' · 来源：'}
@@ -718,7 +721,7 @@ export default function RepoBook() {
             width: 56,
             align: 'center',
             render: (_: unknown, row) => (
-              <a
+              <LinkAction
                 title={isFocus(row) ? '取消重点' : '标为重点'}
                 onClick={() => void toggleFocus(row)}
                 style={{ fontSize: 15, lineHeight: 1 }}
@@ -728,7 +731,7 @@ export default function RepoBook() {
                 ) : (
                   <StarOutlined style={{ color: 'var(--bp-text-soft)' }} />
                 )}
-              </a>
+              </LinkAction>
             ),
           },
           {
@@ -773,7 +776,7 @@ export default function RepoBook() {
             width: 120,
             render: (_: unknown, row) => (
               <Space size={10} style={{ fontSize: 12 }}>
-                <a onClick={() => practiceOne(row)}>练这题</a>
+                <LinkAction onClick={() => practiceOne(row)}>练这题</LinkAction>
                 <Popconfirm
                   title="从错题本移除这条记录？"
                   description="题库里的题目不受影响。"
@@ -782,13 +785,14 @@ export default function RepoBook() {
                   okButtonProps={{ danger: true }}
                   onConfirm={() => void removeOne(row)}
                 >
-                  <a style={{ color: 'var(--bp-orange)' }}>移除</a>
+                  <LinkAction style={{ color: 'var(--bp-orange)' }}>移除</LinkAction>
                 </Popconfirm>
               </Space>
             ),
           },
         ]}
       />
+      </TableScrollRegion>
 
       <Modal
         title="编辑笔记"
