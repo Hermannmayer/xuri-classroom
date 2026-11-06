@@ -432,10 +432,41 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		List<User> users = list(Wrappers.<User>lambdaQuery().select(User::getId)
 				.in(StringUtils.hasText(request.getDeptId()), User::getDeptId, list)
 				.like(StringUtils.hasText(request.getName()), User::getName, request.getName()));
-		return Stream.concat(users.stream().map(user -> user.getId()), request.getSelected().stream())
+		List<UserInfo> result = Stream.concat(users.stream().map(user -> user.getId()), request.getSelected().stream())
 				.collect(Collectors.toSet()).stream()
-				.map(userId -> ContextHelper.getBean(UserService.class).loadUserById(userId).simpleMode())
+				.map(userId -> ContextHelper.getBean(UserService.class).loadUserById(userId))
 				.collect(Collectors.toList());
+		// 协作者候选：只留具备协作权限的账号（默认 project:create），学员会被过滤掉。
+		// 注意必须在 simpleMode() 之前判断——simpleMode 会剥掉 authorityList。
+		if (Boolean.TRUE.equals(request.getCollaboratorOnly())) {
+			String required = resolveCollaboratorAuthority();
+			result = result.stream().filter(user -> hasCollaboratorAuthority(user, required))
+					.collect(Collectors.toList());
+		}
+		return result.stream().map(UserInfo::simpleMode).collect(Collectors.toList());
+	}
+
+	/** 管理端可配置「谁可以当协作者」，没配时用 project:create 兜底 */
+	private String resolveCollaboratorAuthority() {
+		try {
+			SystemInfo info = systemService.getSystemInfo();
+			if (info != null && info.getSetting() != null
+					&& StringUtils.hasText(info.getSetting().getCollaboratorAuthority())) {
+				return info.getSetting().getCollaboratorAuthority().trim();
+			}
+		}
+		catch (Exception ignored) {
+			// 读系统设置失败不影响用户列表，退回默认值
+		}
+		return "project:create";
+	}
+
+	private boolean hasCollaboratorAuthority(UserInfo user, String required) {
+		List<String> authorities = user.getAuthorityList();
+		if (authorities == null || authorities.isEmpty()) {
+			return false;
+		}
+		return authorities.contains("ROLE_admin") || authorities.contains(required);
 	}
 
 	private void getTreeDeptId(String deptId, List<String> list) {

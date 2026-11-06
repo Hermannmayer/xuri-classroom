@@ -17,6 +17,14 @@ export interface SystemInfo {
   };
   setting?: {
     captchaEnabled?: boolean;
+    /** 内容保护（前端防复制）：缺省 true，只有显式 false 才关闭；老数据可能是 null */
+    copyProtected?: boolean | null;
+    /** 全站水印开关：缺省 true，只有显式 false 才关闭；老数据可能是 null */
+    watermarkEnabled?: boolean | null;
+    /** 水印内容：'name_phone' | 'name' | 'phone'，缺省 'name_phone'；老数据可能是 null */
+    watermarkMode?: string | null;
+    /** 可担任项目协作者的权限串，缺省 'project:create'；ROLE_admin 始终可以；老数据可能是 null */
+    collaboratorAuthority?: string | null;
     copyright?: string;
     recordNum?: string;
     favicon?: string;

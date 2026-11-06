@@ -22,6 +22,12 @@ public class SelectUserRequest extends PageQuery {
 
 	private List<String> selected = new ArrayList<>();
 
+	/**
+	 * 只返回「可以作为项目协作者」的用户（具备 collaboratorAuthority 权限，默认 project:create）。
+	 * 学员没有这个权限，因此不会出现在协作者候选列表里。
+	 */
+	private Boolean collaboratorOnly;
+
 	public String getName() {
 		if (name != null) {
 			return "%" + name + "%";

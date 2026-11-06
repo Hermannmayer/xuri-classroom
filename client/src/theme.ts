@@ -15,7 +15,8 @@ export const BLUEPRINT = {
   lineSoft: 'rgba(255,255,255,0.15)',
   grid: 'rgba(255,255,255,0.05)',
   text: '#ffffff',
-  textSoft: '#a0c4e8',
+  // 次要文字：原来 #a0c4e8 在深蓝底上对比度只有 3:1 左右，中老年看不清，提亮到 8:1
+  textSoft: '#cfe2f6',
   blue: '#4a90d9',
   orange: '#ff6b35',
 };
@@ -29,7 +30,8 @@ export const PAPER = {
   lineSoft: '#e6e1d6',
   grid: 'rgba(30,58,95,0.06)',
   text: '#1e3a5f',
-  textSoft: '#5b6b7d',
+  // 米白底上的次要文字，原来 #5b6b7d 偏灰，压深一档保证对比度
+  textSoft: '#3f4c5c',
   blue: '#2f5d8c',
   orange: '#e8590c',
 };
@@ -41,8 +43,18 @@ const SHARED_TOKEN: ThemeConfig['token'] = {
   borderRadiusSM: 0,
   borderRadiusXS: 0,
   fontFamily: MONO,
-  fontSize: 13,
-  controlHeight: 34,
+  /**
+   * 学员和老师里中老年人占多数，基准字号从 13 提到 15。
+   * 只动这一处就能让 antd 的表格/表单/菜单/按钮整体放大，
+   * 比逐个页面改 inline style 可靠得多。
+   */
+  fontSize: 15,
+  fontSizeSM: 13,
+  fontSizeLG: 17,
+  fontSizeXL: 19,
+  /** 标题/强调文字统一加粗，配合提亮后的次要文字色形成层次 */
+  fontWeightStrong: 700,
+  controlHeight: 36,
   wireframe: false,
 };
 
@@ -63,8 +75,8 @@ const darkTheme: ThemeConfig = {
     colorBgSpotlight: BLUEPRINT.bgDeep,
     colorText: BLUEPRINT.text,
     colorTextSecondary: BLUEPRINT.textSoft,
-    colorTextTertiary: 'rgba(160,196,232,0.65)',
-    colorTextQuaternary: 'rgba(160,196,232,0.40)',
+    colorTextTertiary: 'rgba(207,226,246,0.82)',
+    colorTextQuaternary: 'rgba(207,226,246,0.60)',
     colorBorder: BLUEPRINT.line,
     colorBorderSecondary: BLUEPRINT.lineSoft,
     colorFillSecondary: 'rgba(255,255,255,0.06)',

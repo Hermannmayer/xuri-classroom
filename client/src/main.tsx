@@ -6,6 +6,8 @@ import 'dayjs/locale/zh-cn';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { ThemeProvider } from './theme/ThemeProvider';
+import Watermark from './components/Watermark';
+import CopyGuard from './components/CopyGuard';
 import './renderer/registerAll';
 import './styles/global.css';
 import './styles/answer.css';
@@ -35,6 +37,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ThemeProvider>
       <AntApp>
         <RouterProvider router={router} />
+        {/* 内容保护：水印与防复制都挂在路由之外，覆盖全站（开关跟着系统设置走） */}
+        <Watermark />
+        <CopyGuard />
       </AntApp>
     </ThemeProvider>
   </ConfigProvider>,

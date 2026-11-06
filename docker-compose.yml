@@ -1,3 +1,5 @@
+# 三个容器：db（MySQL）+ app（后端，内部 7007）+ web（nginx，对外 80）
+# 用户只访问 web 的 80 端口；后端端口不对外暴露，换端口也不影响用户。
 services:
   db:
     image: mysql:8.0
@@ -24,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: app
     restart: unless-stopped
     environment:
       DB_HOST: db
@@ -32,14 +35,27 @@ services:
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:-123456}
       TZ: Asia/Shanghai
-    ports:
-      - '${APP_PORT:-80}:80'
+    # 只在 compose 内网可达，不 publish 到宿主机
+    expose:
+      - '7007'
     volumes:
       # 上传的图片/附件，备份时打包这个卷
       - app-files:/app/files
     depends_on:
       db:
         condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-final
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-80}:80'
+    depends_on:
+      app:
+        condition: service_started
 
 volumes:
   db-data:

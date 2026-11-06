@@ -8,6 +8,7 @@ import {
   Empty,
   Input,
   message,
+  Segmented,
   Space,
   Spin,
   Table,
@@ -367,11 +368,11 @@ export default function SurveyData() {
         /* 手机上工具条按钮要够 36px 才好点 */
         .sk-data-toolbar-mobile .ant-btn { height: 36px; }
       `}</style>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}/edit`)} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-            DATA / 答卷
+            DATA / 数据与分析
           </div>
           <div
             className="bp-title"
@@ -381,6 +382,17 @@ export default function SurveyData() {
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        {/* 「分析」不再是列表里独立按钮，入口收在这里，切到统计报表 */}
+        <Segmented
+          value="data"
+          options={[
+            { label: '数据', value: 'data' },
+            { label: '分析', value: 'report' },
+          ]}
+          onChange={(value) => {
+            if (value === 'report') navigate(`/survey/${id}/report`);
+          }}
+        />
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>
           刷新
         </Button>

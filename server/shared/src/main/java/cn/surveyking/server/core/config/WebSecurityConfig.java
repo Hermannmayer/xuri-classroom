@@ -1,6 +1,7 @@
 package cn.surveyking.server.core.config;
 
 import cn.surveyking.server.core.security.JwtTokenFilter;
+import cn.surveyking.server.core.security.RateLimitFilter;
 import cn.surveyking.server.core.security.RestAuthenticationEntryPoint;
 import cn.surveyking.server.service.UserService;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -43,11 +44,15 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 	private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
+	/** 题库类接口限流，防止脚本刷题/爬库 */
+	private final RateLimitFilter rateLimitFilter;
+
 	public WebSecurityConfig(JwtTokenFilter jwtTokenFilter, UserService userService,
-			RestAuthenticationEntryPoint authenticationEntryPoint) {
+			RestAuthenticationEntryPoint authenticationEntryPoint, RateLimitFilter rateLimitFilter) {
 		this.jwtTokenFilter = jwtTokenFilter;
 		this.userService = userService;
 		this.authenticationEntryPoint = authenticationEntryPoint;
+		this.rateLimitFilter = rateLimitFilter;
 		// 允许在 @Async 方法里面获取 SecurityContext
 		SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
 	}
@@ -72,6 +77,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 				.antMatchers("/captcha/get", "/captcha/check").permitAll().antMatchers("/api/**").authenticated()
 				.antMatchers("/").permitAll();
 		http.addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
+		// 限流放在 JWT 之后：要先知道是谁，才能按用户计数
+		http.addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 	}
 
 	@Bean

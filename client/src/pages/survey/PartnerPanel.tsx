@@ -16,6 +16,8 @@ interface SysUser {
   userId: string;
   name?: string;
   username?: string;
+  /** 所属组名，用于在协作者选择框里区分同名的人（后端 selectUser 会带回来） */
+  deptName?: string;
 }
 
 interface Dept {
@@ -72,8 +74,11 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
     setCollabOpen(true);
     setSelectedUsers([]);
     try {
-      const res = await getWithPagination<SysUser>('/api/system/user/list', { current: 1, pageSize: 200 });
-      setUsers(res.data);
+      // 改用 /api/project/selectUser 并带上 collaboratorOnly：
+      // 后端只返回「具备协作权限（默认 project:create）」的账号，学员不会再被列进来；
+      // 这个接口对老师也开放（/api/system/user/list 需要 system:user:list，老师没有）。
+      const list = await post<SysUser[]>('/api/project/selectUser', { collaboratorOnly: true });
+      setUsers(Array.isArray(list) ? list : []);
     } catch (e) {
       message.error((e as Error).message);
     }
@@ -193,8 +198,14 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
           value={selectedUsers}
           onChange={setSelectedUsers}
           optionFilterProp="label"
-          options={users.map((u) => ({ value: u.userId, label: u.name || u.username || u.userId }))}
+          options={users.map((u) => ({
+            value: u.userId,
+            label: `${u.name || u.username || u.userId}${u.deptName ? ` · ${u.deptName}` : ''}`,
+          }))}
         />
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+          只能添加管理员和老师作为协作者；学员没有协作权限，不会出现在这个列表里。
+        </div>
       </Modal>
 
       <Modal

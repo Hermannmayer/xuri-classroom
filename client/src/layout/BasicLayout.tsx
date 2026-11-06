@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Avatar, Button, Dropdown, Layout, Menu, Select, Spin } from 'antd';
+import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DatabaseOutlined,
@@ -17,6 +17,7 @@ import {
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
+import ZoomControl from '../components/ZoomControl';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
@@ -50,8 +51,9 @@ export default function BasicLayout() {
   const isMobile = useIsMobile();
   const authorities = user?.authorityList ?? [];
   const { mode, toggle } = useThemeMode();
-  // 页面缩放：整体放大，方便年长老师看清
-  const [zoom, setZoom] = useState<number>(() => Number(localStorage.getItem('sk-zoom')) || 1);
+  // 页面缩放：整体放大，方便年长老师看清。默认 1.1 而不是 1：基准字号已经提到 15，
+  // 再叠一档 110% 才是中老年学员实际能轻松读的尺寸，用户自己改过就尊重用户的值。
+  const [zoom, setZoom] = useState<number>(() => Number(localStorage.getItem('sk-zoom')) || 1.1);
   useEffect(() => {
     document.documentElement.style.zoom = String(zoom);
     localStorage.setItem('sk-zoom', String(zoom));
@@ -251,14 +253,7 @@ export default function BasicLayout() {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
-            <Select
-              size="small"
-              value={zoom}
-              onChange={setZoom}
-              style={{ width: 84 }}
-              title="页面缩放"
-              options={[0.9, 1, 1.1, 1.25, 1.5, 1.75].map((v) => ({ value: v, label: `${Math.round(v * 100)}%` }))}
-            />
+            <ZoomControl value={zoom} onChange={setZoom} hideLabel={isMobile} />
             <Button
               type="text"
               size="small"

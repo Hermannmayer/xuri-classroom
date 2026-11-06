@@ -38,7 +38,7 @@ client/
     theme/        ThemeProvider + buildTheme
     i18n/
     router.tsx
-  vite.config.ts  代理 /api → VITE_API_TARGET（默认 http://127.0.0.1:80）
+  vite.config.ts  代理 /api → VITE_API_TARGET（默认 http://127.0.0.1:7007）
 server/
   api/            REST 接口
   rdbms/          业务实现与数据访问
@@ -55,10 +55,13 @@ docs/             文档
 |---|---|---|
 | JDK 8 | `%LOCALAPPDATA%\jdk8\jdk8u504-b01` | Temurin 免安装版 |
 | MySQL 8.0.24 | `%LOCALAPPDATA%\mysql\mysql-8.0.24-winx64` | 便携版，3306，root/123456，库 `surveyking` |
-| 后端 | `server/api/build/libs/surveyking-v1.13.0.jar` | `gradlew :api:bootJar -x test` |
-| 前端 | `client/` → `npm run dev` | 5173，代理到后端 80 |
+| 后端 | `server/api/build/libs/surveyking-v1.13.0.jar` | `gradlew :api:bootJar -x test`，默认端口 7007（内部） |
+| 前端 | `client/` → `npm run dev` | **对外 80**，`/api` 代理到后端 7007 |
 
-启动顺序：`scripts/dev/start-mysql.ps1` → `scripts/dev/start-backend.ps1`（需要 UAC）→ `npm run dev`。
+启动顺序：`scripts/dev/start-mysql.ps1` → `scripts/dev/start-backend.ps1` → `npm run dev`（均在仓库根目录执行）。
+
+端口约定：**前端占 80，后端随便一个端口（默认 7007）**。后端不再需要管理员权限，也不对外暴露；
+接口走同源代理，JWT 的 HttpOnly cookie 才能正常工作。生产环境同构：nginx 80 + 后端 7007 内网。
 
 **改后端代码后必须重新构建并重启**，否则 `@Cacheable` 的缓存不会刷新（表现是改了库但页面没变）。
 

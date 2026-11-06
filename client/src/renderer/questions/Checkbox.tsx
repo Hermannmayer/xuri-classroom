@@ -1,12 +1,12 @@
 import type { QuestionComponentProps } from '../types';
-import { answersOf, selectedIds, toOptions } from './answers';
+import { answersOf, optionsOf, selectedIds } from './answers';
 import OptionList from './OptionList';
 import { QuestionFrame, useAnswerState } from './shared';
 
 /** 多选：answer = { 选中选项id: true, ... }，可多选 */
 export default function Checkbox(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
-  const options = toOptions(schema.dataSource);
+  const options = optionsOf(schema);
   const [answer, setAnswer] = useAnswerState(props);
   const locked = mode === 'edit' || Boolean(disabled);
   const picked = selectedIds(answer, options);

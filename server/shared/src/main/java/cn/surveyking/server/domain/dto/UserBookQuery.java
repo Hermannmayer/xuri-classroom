@@ -24,4 +24,14 @@ public class UserBookQuery extends PageQuery {
 
 	private String name;
 
+	/**
+	 * 出错次数下限（含）。用于「错过 2 次以上 / 3 次以上」的筛选。
+	 */
+	private Integer wrongTimesMin;
+
+	/**
+	 * 标记状态：1 已掌握（标记为简单），2 重点标记。为空表示不筛选。
+	 */
+	private Integer status;
+
 }

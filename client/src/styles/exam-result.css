@@ -1,0 +1,605 @@
+/**
+ * 成绩单 / 解析页（ExamResult）。
+ * 蓝图风格：直角、无渐变、颜色全部走 global.css 的 --bp-* 变量，
+ * 深色（默认）与米白两套主题自动跟随，页面里不出现任何字面量颜色。
+ *
+ * 标注约定：
+ * - 正确答案：蓝色描边 + 蓝色底（本项目 antd colorSuccess 也映射到 --bp-blue）
+ * - 我的选择：左侧橙色实条 + 橙色「我的选择」小标
+ * - 选错：橙色描边 + 橙色底 + 删除线
+ */
+
+.sk-result {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 32px 16px 56px;
+}
+
+.sk-result-inner {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.sk-result-loading {
+  padding: 96px 0;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- 成绩单头部 */
+
+.sk-result-head {
+  position: relative;
+  padding: 22px 24px 20px;
+  border: 1px solid var(--bp-line);
+  background: var(--bp-panel);
+}
+
+.sk-result-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: var(--bp-text-soft);
+}
+
+.sk-result-name {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--bp-text);
+  word-break: break-word;
+}
+
+.sk-result-figures {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 20px 28px;
+  margin-top: 16px;
+}
+
+.sk-result-score {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.sk-result-score-num {
+  font-size: 52px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--bp-orange);
+}
+
+.sk-result-score-unit {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--bp-text-soft);
+}
+
+.sk-result-score-none {
+  font-size: 15px;
+  color: var(--bp-text-soft);
+}
+
+.sk-result-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  margin: 0;
+  padding: 0 0 2px;
+  list-style: none;
+}
+
+.sk-result-stats > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 52px;
+  padding-left: 12px;
+  border-left: 1px dashed var(--bp-line);
+}
+
+.sk-stat-label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--bp-text-soft);
+}
+
+.sk-stat-value {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--bp-text);
+}
+
+.sk-stat-value.is-ok {
+  color: var(--bp-blue);
+}
+
+.sk-stat-value.is-bad {
+  color: var(--bp-orange);
+}
+
+.sk-result-rank {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--bp-text-soft);
+}
+
+/* ---------------------------------------------------------------- 工具条：只看错题 + 图例 */
+
+.sk-result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 16px 0 14px;
+  padding: 10px 14px;
+  border: 1px dashed var(--bp-line);
+  background: var(--bp-panel-soft);
+}
+
+.sk-result-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--bp-text);
+  cursor: pointer;
+}
+
+.sk-result-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--bp-text-soft);
+}
+
+.sk-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sk-legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--bp-line);
+  background: transparent;
+}
+
+.sk-legend-dot.is-correct {
+  border-color: var(--bp-blue);
+  background: var(--bp-blue-weak);
+}
+
+.sk-legend-dot.is-picked {
+  border-left: 3px solid var(--bp-orange);
+}
+
+.sk-legend-dot.is-wrong {
+  border-color: var(--bp-orange);
+  background: var(--bp-orange-weak);
+}
+
+/* antd Switch 默认是药丸形，这里压回直角并接上蓝图配色 */
+.sk-result .ant-switch {
+  border-radius: 0;
+  background: var(--bp-track);
+  border: 1px solid var(--bp-line);
+}
+
+.sk-result .ant-switch.ant-switch-checked {
+  background: var(--bp-orange-tint);
+  border-color: var(--bp-orange);
+}
+
+.sk-result .ant-switch .ant-switch-handle,
+.sk-result .ant-switch .ant-switch-handle::before {
+  border-radius: 0;
+}
+
+/* antd 的 handle 颜色由运行时注入的样式决定，这里必须 !important 才盖得住 */
+.sk-result .ant-switch .ant-switch-handle::before {
+  background: var(--bp-text-soft) !important;
+  border-radius: 0 !important;
+}
+
+.sk-result .ant-switch.ant-switch-checked .ant-switch-handle::before {
+  background: var(--bp-orange) !important;
+}
+
+.sk-result .ant-switch.ant-switch-disabled {
+  opacity: 0.4;
+}
+
+/* ---------------------------------------------------------------- 题卡 */
+
+.sk-result-card {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--bp-line);
+  background: var(--bp-panel);
+}
+
+.sk-result-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--bp-line);
+}
+
+.sk-q-no {
+  display: inline-block;
+  min-width: 30px;
+  padding: 1px 6px;
+  border: 1px solid var(--bp-orange);
+  color: var(--bp-orange);
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.sk-q-type {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--bp-text-soft);
+}
+
+.sk-q-status {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--bp-line);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.sk-q-status.is-correct {
+  color: var(--bp-blue);
+  border-color: var(--bp-blue);
+  background: var(--bp-blue-weak);
+}
+
+.sk-q-status.is-wrong {
+  color: var(--bp-orange);
+  border-color: var(--bp-orange);
+  background: var(--bp-orange-weak);
+}
+
+.sk-q-status.is-unanswered {
+  color: var(--bp-text-soft);
+  border-color: var(--bp-orange-line);
+  border-style: dashed;
+}
+
+.sk-q-title {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.75;
+  color: var(--bp-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------------------------------------------------------------- 选项 */
+
+.sk-opt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.sk-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--bp-line);
+  background: var(--bp-panel-soft);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--bp-text);
+}
+
+.sk-opt-key {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  line-height: 22px;
+  border: 1px solid var(--bp-line);
+  color: var(--bp-text-soft);
+  font-size: 13px;
+  text-align: center;
+}
+
+.sk-opt-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sk-opt-notes {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.sk-opt-note {
+  padding: 0 6px;
+  border: 1px solid var(--bp-line);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.sk-opt-note.is-picked {
+  color: var(--bp-orange);
+  border-color: var(--bp-orange-line);
+}
+
+.sk-opt-note.is-correct {
+  color: var(--bp-blue);
+  border-color: var(--bp-blue);
+}
+
+.sk-opt-note.is-wrong {
+  color: var(--bp-orange);
+  border-color: var(--bp-orange);
+}
+
+.sk-opt.is-correct {
+  border-color: var(--bp-blue);
+  background: var(--bp-blue-weak);
+}
+
+.sk-opt.is-correct .sk-opt-key {
+  border-color: var(--bp-blue);
+  color: var(--bp-blue);
+}
+
+.sk-opt.is-picked {
+  box-shadow: inset 3px 0 0 var(--bp-orange);
+}
+
+.sk-opt.is-wrong {
+  border-color: var(--bp-orange);
+  background: var(--bp-orange-weak);
+}
+
+.sk-opt.is-wrong .sk-opt-key {
+  border-color: var(--bp-orange);
+  color: var(--bp-orange);
+}
+
+.sk-opt.is-wrong .sk-opt-label {
+  text-decoration: line-through;
+  text-decoration-color: var(--bp-orange);
+}
+
+/* ---------------------------------------------------------------- 答案对照 */
+
+.sk-blank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sk-blank-item + .sk-blank-item {
+  padding-top: 10px;
+  border-top: 1px dashed var(--bp-line-soft);
+}
+
+.sk-blank-title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--bp-text-soft);
+}
+
+.sk-answer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sk-answer-cell {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--bp-line-soft);
+  background: var(--bp-fill-weak);
+}
+
+.sk-answer-cell.is-ok {
+  border-style: solid;
+  border-color: var(--bp-blue);
+  background: var(--bp-blue-weak);
+}
+
+.sk-answer-cell.is-bad {
+  border-style: solid;
+  border-color: var(--bp-orange);
+  background: var(--bp-orange-weak);
+}
+
+.sk-answer-cell.is-answer-cell {
+  border-style: solid;
+  border-color: var(--bp-blue);
+  background: var(--bp-blue-weak);
+}
+
+.sk-answer-cell-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--bp-text-soft);
+}
+
+.sk-answer-cell-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--bp-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sk-answer-rows {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.sk-answer-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--bp-line-soft);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.sk-answer-row:first-child {
+  border-top: 0;
+}
+
+.sk-answer-key {
+  flex: 0 0 72px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--bp-text-soft);
+}
+
+.sk-answer-val {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sk-answer-val.is-ok {
+  color: var(--bp-blue);
+}
+
+.sk-answer-val.is-bad {
+  color: var(--bp-orange);
+}
+
+/* ---------------------------------------------------------------- 解析 */
+
+.sk-analysis {
+  padding-top: 12px;
+  border-top: 1px solid var(--bp-line);
+}
+
+.sk-analysis-label {
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--bp-text-soft);
+}
+
+.sk-analysis-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--bp-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sk-analysis-text.is-empty {
+  color: var(--bp-hint);
+}
+
+/* ---------------------------------------------------------------- 空态 / 页脚 */
+
+.sk-result-note {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px dashed var(--bp-orange-line);
+  background: var(--bp-orange-weak);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--bp-text-soft);
+}
+
+.sk-result-empty {
+  padding: 32px 0;
+  border: 1px dashed var(--bp-line);
+  background: var(--bp-panel-soft);
+}
+
+.sk-result-foot {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--bp-text-soft);
+}
+
+/* ---------------------------------------------------------------- 手机宽度：不溢出 */
+
+@media (max-width: 560px) {
+  .sk-result {
+    padding: 16px 10px 36px;
+  }
+
+  .sk-result-head {
+    padding: 16px 14px 14px;
+  }
+
+  .sk-result-card {
+    padding: 14px 14px 12px;
+  }
+
+  .sk-result-name {
+    font-size: 18px;
+  }
+
+  .sk-result-score-num {
+    font-size: 40px;
+  }
+
+  .sk-result-figures {
+    gap: 14px 18px;
+  }
+
+  .sk-q-title {
+    font-size: 16px;
+  }
+
+  .sk-answer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sk-opt-notes {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .sk-answer-key {
+    flex-basis: 60px;
+  }
+
+  .sk-result-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

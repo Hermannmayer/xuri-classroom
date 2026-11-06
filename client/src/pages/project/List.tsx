@@ -162,11 +162,11 @@ export default function ProjectList() {
     }
   };
 
-  const toggleStatus = async (row: ProjectView) => {
-    const next = row.status === 1 ? 0 : 1;
+  /** 开启 / 关闭：POST /api/project/update { id, settingKey: 'status', settingValue } */
+  const setStatus = async (row: ProjectView, next: 0 | 1) => {
     try {
       await updateProject({ id: row.id, settingKey: 'status', settingValue: next });
-      message.success(next === 1 ? '已发布' : '已停止');
+      message.success(next === 1 ? '已开启' : '已关闭');
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -416,6 +416,32 @@ export default function ProjectList() {
                         <>
                           <Button
                             style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => navigate(`/survey/${row.id}/setting`)}
+                          >
+                            设置
+                          </Button>
+                          {row.status === 1 ? (
+                            <Popconfirm
+                              title="关闭后学员将无法打开答题链接"
+                              description="已收集的答卷不受影响，可随时重新开启。"
+                              okText="关闭"
+                              cancelText="取消"
+                              onConfirm={() => setStatus(row, 0)}
+                            >
+                              <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                                关闭
+                              </Button>
+                            </Popconfirm>
+                          ) : (
+                            <Button
+                              style={{ flex: 1, height: 38, paddingInline: 0 }}
+                              onClick={() => setStatus(row, 1)}
+                            >
+                              开启
+                            </Button>
+                          )}
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
                             onClick={() => navigate(`/survey/${row.id}/edit`)}
                           >
                             编辑
@@ -425,18 +451,6 @@ export default function ProjectList() {
                             onClick={() => navigate(`/survey/${row.id}/data`)}
                           >
                             数据
-                          </Button>
-                          <Button
-                            style={{ flex: 1, height: 38, paddingInline: 0 }}
-                            onClick={() => navigate(`/survey/${row.id}/report`)}
-                          >
-                            分析
-                          </Button>
-                          <Button
-                            style={{ flex: 1, height: 38, paddingInline: 0 }}
-                            onClick={() => navigate(`/survey/${row.id}/setting`)}
-                          >
-                            设置
                           </Button>
                         </>
                       )}
@@ -540,26 +554,32 @@ export default function ProjectList() {
           },
           {
             title: '操作',
-            width: 240,
+            width: 280,
             render: (_: unknown, row) => (
               <Space size={4}>
                 {row.mode !== 'folder' && (
                   <>
+                    {/* 顺序固定：设置 → 开启/关闭 → 编辑（题目）→ 数据；「分析」已并入数据页，不再单列 */}
+                    <a onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</a>
+                    {row.status === 1 ? (
+                      <Popconfirm
+                        title="关闭后学员将无法打开答题链接"
+                        description="已收集的答卷不受影响，可随时重新开启。"
+                        okText="关闭"
+                        cancelText="取消"
+                        onConfirm={() => setStatus(row, 0)}
+                      >
+                        <a style={{ color: 'var(--bp-orange)' }}>关闭</a>
+                      </Popconfirm>
+                    ) : (
+                      <a onClick={() => setStatus(row, 1)}>开启</a>
+                    )}
+                    <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
+                    <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
                     <a onClick={() => navigate(`/survey/${row.id}`)}>打开</a>
-                    <a onClick={() => toggleStatus(row)}>{row.status === 1 ? '停止' : '发布'}</a>
-              <a onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</a>
-              <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
-              <a onClick={() => navigate(`/survey/${row.id}/report`)}>分析</a>
                   </>
                 )}
-                <a
-                  onClick={() => {
-                    renameForm.setFieldsValue({ name: row.name || '' });
-                    setRenaming(row);
-                  }}
-                >
-                  重命名
-                </a>
+                <a onClick={() => openRename(row)}>重命名</a>
                 <Popconfirm
                   title={`删除「${row.name || ''}」？`}
                   description="删除后可在回收站找回（本页暂未接入回收站）。"

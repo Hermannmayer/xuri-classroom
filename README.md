@@ -73,13 +73,13 @@
 # 1. 启动 MySQL（脚本内路径按需修改）
 scripts/dev/start-mysql.ps1
 
-# 2. 构建并启动后端（默认 80 端口，需要管理员权限）
+# 2. 构建并启动后端（内部端口 7007，前端反向代理过去）
 cd server
 ./gradlew :api:bootJar -x test
 cd ..
-scripts/dev/start-backend.ps1
+scripts/dev/start-backend.ps1        # 也可 -Port 8080 换端口
 
-# 3. 启动前端（5173，代理到后端 80）
+# 3. 启动前端（对外 80，/api 代理到后端 7007）
 cd client
 npm install
 npm run dev
@@ -87,9 +87,13 @@ npm run dev
 
 访问方式：
 
-- 管理后台：`http://localhost:5173`
-- 答题链接：`http://<主机IP>:5173/s/<项目ID>`
+- 管理后台：`http://localhost`
+- 答题链接：`http://<主机IP>/s/<项目ID>`
 - 默认账号：`admin` / `123456`（首次登录后请修改）
+
+> 端口约定：**前端固定 80，后端随便一个端口（默认 7007）**。用户只需要记一个地址，
+> 后端不对外暴露；生产环境的 `docker-compose.yml` 同样是 nginx 80 + 后端 7007 内网。
+> 后端换端口时改 `scripts/dev/start-backend.ps1 -Port`，并让 `VITE_API_TARGET` 指过去。
 
 ## 目录结构
 
