@@ -47,7 +47,8 @@ subprojects {
         implementation 'org.springframework.boot:spring-boot-starter-undertow'
         implementation 'org.springframework.boot:spring-boot-starter-validation'
         implementation 'org.springframework.boot:spring-boot-starter-security'
-        implementation 'org.apache.commons:commons-lang3:3.0'
+        // 3.0 命中 CVE-2025-48924（不受控递归），升级到 3.18.0（API 兼容）
+	implementation 'org.apache.commons:commons-lang3:3.18.0'
         implementation 'com.anji-plus:spring-boot-starter-captcha:1.3.0'
 
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
