@@ -357,7 +357,7 @@ public class SurveyServiceImpl implements SurveyService {
 		// 提交也要校验问卷状态/截止时间：此前只有 loadProject 挡，拿到 projectId 直接 POST 就能绕过
 		validateSubmittable(project, !isNotBlank(request.getId()));
 		// 密码 / 需要登录 / 白名单 / 开始时间：同样要在提交路径再判一次
-		validateAnswerGate(project);
+		validateAnswerGate(project, !isNotBlank(request.getId()));
 		SurveyWechatIdentity wechatIdentity = requireWechatAccess(project);
 		applyWechatIdentity(project, request, wechatIdentity);
 		String answerId = request.getId();
@@ -1144,7 +1144,7 @@ public class SurveyServiceImpl implements SurveyService {
 	 * <p>此前密码 / 需要登录 / 白名单只在「打开问卷」时校验，直接 POST saveAnswer 就能绕过。
 	 * 这里把同一套条件在提交路径上再判一次；回收上限不在此列（会挡住正常修改答案）。
 	 */
-	private void validateAnswerGate(ProjectView project) {
+	private void validateAnswerGate(ProjectView project, boolean newAnswer) {
 		if (project == null || project.getSetting() == null || project.getSetting().getAnswerSetting() == null) {
 			return;
 		}
@@ -1166,6 +1166,16 @@ public class SurveyServiceImpl implements SurveyService {
 		Long startTime = examSetting == null ? null : examSetting.getStartTime();
 		if (startTime != null && System.currentTimeMillis() < startTime) {
 			throw new ErrorCodeException(ErrorCode.SurveySuspend);
+		}
+		// 每 IP / 每台设备限次：此前只在「打开问卷」时校验，直接 POST saveAnswer 可绕过；
+		// 只在新建答卷时校验，否则调用方自己的那份答卷会把额度算进去、导致改答案被拦。
+		if (Boolean.TRUE.equals(newAnswer)) {
+			if (answerSetting.getCookieLimit() != null) {
+				validateCookieLimit(project.getId(), project.getSetting());
+			}
+			if (answerSetting.getIpLimit() != null) {
+				validateIpLimit(project.getId(), project.getSetting());
+			}
 		}
 	}
 
