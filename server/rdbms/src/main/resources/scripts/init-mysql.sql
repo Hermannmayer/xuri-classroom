@@ -516,6 +516,31 @@ BEGIN;
 COMMIT;
 
 -- ----------------------------
+-- Table structure for t_user_dept（用户附加组，主组仍在 t_user.dept_id）
+-- ----------------------------
+DROP TABLE IF EXISTS `t_user_dept`;
+CREATE TABLE `t_user_dept` (
+  `id` varchar(64) NOT NULL COMMENT 'ID',
+  `user_id` varchar(64) NOT NULL COMMENT '用户ID',
+  `dept_id` varchar(64) NOT NULL COMMENT '用户组ID（附加组）',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_by` varchar(256) DEFAULT NULL,
+  `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `update_by` varchar(256) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_dept` (`user_id`,`dept_id`),
+  KEY `idx_user_dept_user` (`user_id`),
+  KEY `idx_user_dept_dept` (`dept_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户-用户组（附加组）';
+
+-- ----------------------------
+-- Records of t_user_dept
+-- ----------------------------
+BEGIN;
+COMMIT;
+
+-- ----------------------------
 -- Table structure for t_user_position
 -- ----------------------------
 DROP TABLE IF EXISTS `t_user_position`;
@@ -584,3 +609,20 @@ CREATE TABLE IF NOT EXISTS `t_audit_log` (
   KEY `idx_audit_action_time` (`action`, `create_at`),
   KEY `idx_audit_create_by` (`create_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='操作审计日志';
+
+-- ----------------------------
+-- Table structure for t_dept_role（用户组-角色绑定）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `t_dept_role` (
+  `id` varchar(64) NOT NULL COMMENT 'ID',
+  `dept_id` varchar(64) NOT NULL COMMENT '用户组ID',
+  `role_id` varchar(64) NOT NULL COMMENT '角色ID',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT '0',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `create_by` varchar(256) DEFAULT NULL,
+  `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `update_by` varchar(256) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dept_role` (`dept_id`,`role_id`),
+  KEY `idx_dept` (`dept_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户组-角色绑定';

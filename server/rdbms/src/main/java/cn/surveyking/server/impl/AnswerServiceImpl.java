@@ -1,6 +1,7 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.AttachmentNameVariableEnum;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.constant.ProjectPartnerTypeEnum;
@@ -229,9 +230,45 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 			// 使用 uuid 作为外部公开查询引用，防暴力破解
 			answer.setId(UUID.randomUUID().toString());
 			answer.setCreateAt(new Date());
+			// 新前端不再上传 metaInfo，「每 IP / 每台设备限次」会永远统计为 0：
+			// 这里在服务端补齐真实 IP 与限次 cookie 标识。
+			answer.setMetaInfo(enrichMetaInfo(answer.getMetaInfo()));
 			save(beforeSaveAnswer(answer));
 			return answerViewMapper.toView(answer);
 		}
+	}
+
+	/**
+	 * 补齐答卷的来源信息（IP / 设备 cookie），供「每 IP 限次」「每台设备限次」统计使用。
+	 * 已有值不覆盖；取不到请求上下文（如异步线程）时原样返回。
+	 */
+	private AnswerMetaInfo enrichMetaInfo(AnswerMetaInfo metaInfo) {
+		AnswerMetaInfo meta = metaInfo == null ? new AnswerMetaInfo() : metaInfo;
+		try {
+			javax.servlet.http.HttpServletRequest request = ContextHelper.getCurrentHttpRequest();
+			if (request == null) {
+				return meta;
+			}
+			AnswerMetaInfo.ClientInfo client = meta.getClientInfo();
+			if (client == null) {
+				client = new AnswerMetaInfo.ClientInfo();
+				meta.setClientInfo(client);
+			}
+			if (!org.springframework.util.StringUtils.hasText(client.getRemoteIp())) {
+				client.setRemoteIp(cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(request));
+			}
+			if (!org.springframework.util.StringUtils.hasText(client.getCookie())) {
+				javax.servlet.http.Cookie limitCookie = org.springframework.web.util.WebUtils.getCookie(request,
+						AppConsts.COOKIE_LIMIT_NAME);
+				if (limitCookie != null) {
+					client.setCookie(limitCookie.getValue());
+				}
+			}
+		}
+		catch (Exception ignored) {
+			// 补齐失败不影响提交
+		}
+		return meta;
 	}
 
 	@Override

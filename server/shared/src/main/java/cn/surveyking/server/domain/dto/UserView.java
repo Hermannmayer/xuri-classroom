@@ -34,6 +34,12 @@ public class UserView {
 
 	private String deptName;
 
+	/** 附加组 id 列表（主组仍用 deptId）；用户组编辑弹窗回显用 */
+	private List<String> deptIds;
+
+	/** 附加组名称，列表展示用 */
+	private List<String> deptNames;
+
 	private List<RoleView> roles;
 
 	/** 用户岗位 */

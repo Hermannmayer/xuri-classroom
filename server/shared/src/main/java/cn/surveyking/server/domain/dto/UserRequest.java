@@ -16,6 +16,12 @@ public class UserRequest {
 
 	private String deptId;
 
+	/**
+	 * 附加组 id 列表（主组仍用 deptId）。null 表示本次不改，空数组表示清空附加组。
+	 * 用户最终所属组 = 主组 ∪ 附加组，权限与有效期按并集计算。
+	 */
+	private List<String> deptIds;
+
 	private String name;
 
 	private String avatar;

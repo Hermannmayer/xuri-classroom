@@ -66,6 +66,10 @@ public class UserApi {
 					.header(HttpHeaders.AUTHORIZATION, token).build();
 		}
 		catch (Exception e) {
+			// 不要吞掉真实原因：登录失败常见于密码错、账号禁用、组有效期过期、鉴权链异常，
+			// 统一转 1024 会把这些问题藏起来，排查时无从下手。这里至少把栈打进日志。
+			org.slf4j.LoggerFactory.getLogger(UserApi.class).warn("登录失败 username={} ip={}", request.getUsername(),
+					clientAddress, e);
 			loginAttemptLimiter.recordFailure(request.getUsername(), clientAddress);
 			throw new ErrorCodeException(ErrorCode.UsernameOrPasswordError);
 		}

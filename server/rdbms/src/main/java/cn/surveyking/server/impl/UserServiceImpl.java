@@ -93,6 +93,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	private final UserPositionDtoMapper userPositionDtoMapper;
 
+	private final UserDeptMapper userDeptMapper;
+
 	private final MessageSource messageSource;
 
 	private final DeptMapper deptMapper;
@@ -129,34 +131,107 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	/**
 	 * 校验用户所属组链的有效期。
-	 * 组上的 valid_from / valid_to 为空表示不限制；任意一层过期即拒绝登录。
+	 * 用户可能是「主组 + 若干附加组」（一人多组），每个组各自沿祖先链校验；
+	 * 任意一个组（或它的祖先组）不在有效窗口内就拒绝登录，并说明是哪个组。
+	 * 组上的 valid_from / valid_to 为空表示不限制。
 	 */
 	private void assertDeptValid(String userId) {
 		if (!StringUtils.hasText(userId)) {
 			return;
 		}
 		User user = this.getById(userId);
-		if (user == null || !StringUtils.hasText(user.getDeptId())) {
+		if (user == null) {
+			return;
+		}
+		List<String> userDeptIds = resolveUserDeptIds(user);
+		if (CollectionUtils.isEmpty(userDeptIds)) {
 			return;
 		}
 		java.util.Date now = new java.util.Date();
-		String deptId = user.getDeptId();
+		// 同一条祖先链可能被多个组共享，用 visited 避免重复查库，也防止环
 		java.util.Set<String> visited = new java.util.HashSet<>();
-		while (StringUtils.hasText(deptId) && !ROOT_DEPT_PARENT_ID.equals(deptId) && visited.add(deptId)) {
-			Dept dept = deptMapper.selectById(deptId);
-			if (dept == null) {
-				break;
+		for (String userDeptId : userDeptIds) {
+			String deptId = userDeptId;
+			while (StringUtils.hasText(deptId) && !ROOT_DEPT_PARENT_ID.equals(deptId) && visited.add(deptId)) {
+				Dept dept = deptMapper.selectById(deptId);
+				if (dept == null) {
+					break;
+				}
+				if (dept.getValidFrom() != null && now.before(dept.getValidFrom())) {
+					throw new AccessDeniedException("所在用户组「" + dept.getName() + "」尚未到生效时间（"
+							+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidFrom())
+							+ " 起），请联系管理员");
+				}
+				if (dept.getValidTo() != null && now.after(dept.getValidTo())) {
+					throw new AccessDeniedException("所在用户组「" + dept.getName() + "」有效期已过（"
+							+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidTo())
+							+ " 截止），请联系管理员延期");
+				}
+				deptId = dept.getParentId();
 			}
-			if (dept.getValidFrom() != null && now.before(dept.getValidFrom())) {
-				throw new AccessDeniedException("所在班级「" + dept.getName() + "」尚未到生效时间（"
-						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidFrom()) + " 起），请联系管理员");
-			}
-			if (dept.getValidTo() != null && now.after(dept.getValidTo())) {
-				throw new AccessDeniedException("所在班级「" + dept.getName() + "」有效期已过（"
-						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidTo()) + " 截止），请联系管理员延期");
-			}
-			deptId = dept.getParentId();
 		}
+	}
+
+	/**
+	 * 用户所属的全部组：主组（t_user.dept_id）在前，附加组（t_user_dept）在后，去重。
+	 */
+	private List<String> resolveUserDeptIds(User user) {
+		if (user == null) {
+			return Collections.emptyList();
+		}
+		return mergeDeptIds(user.getDeptId(), listExtraDeptIds(user.getId()));
+	}
+
+	private List<String> mergeDeptIds(String mainDeptId, List<String> extraDeptIds) {
+		java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
+		if (StringUtils.hasText(mainDeptId)) {
+			merged.add(mainDeptId);
+		}
+		if (!CollectionUtils.isEmpty(extraDeptIds)) {
+			extraDeptIds.stream().filter(StringUtils::hasText).map(String::trim).forEach(merged::add);
+		}
+		return new ArrayList<>(merged);
+	}
+
+	/** 附加组 id（不含主组） */
+	private List<String> listExtraDeptIds(String userId) {
+		if (!StringUtils.hasText(userId)) {
+			return Collections.emptyList();
+		}
+		return userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getUserId, userId)).stream()
+				.map(UserDept::getDeptId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+	}
+
+	/** 组 id → 组名；查不到的组回落成 id，避免界面上出现空白标签 */
+	private List<String> resolveDeptNames(List<String> deptIds) {
+		if (CollectionUtils.isEmpty(deptIds)) {
+			return Collections.emptyList();
+		}
+		Map<String, String> nameById = deptMapper.selectBatchIds(deptIds).stream().filter(Objects::nonNull)
+				.collect(Collectors.toMap(Dept::getId,
+						dept -> isNotBlank(dept.getName()) ? dept.getName() : dept.getId(), (a, b) -> a));
+		return deptIds.stream().map(id -> nameById.getOrDefault(id, id)).collect(Collectors.toList());
+	}
+
+	/**
+	 * 重写用户的附加组：先物理删除再插入（唯一键 (user_id, dept_id) 不能和逻辑删除共存）。
+	 * 主组已经存在 t_user.dept_id，这里顺带把它从附加组里剔掉，避免同一个组出现两次。
+	 */
+	private void saveUserDepts(String userId, String mainDeptId, List<String> extraDeptIds) {
+		if (!StringUtils.hasText(userId)) {
+			return;
+		}
+		userDeptMapper.deleteByUserId(userId);
+		if (CollectionUtils.isEmpty(extraDeptIds)) {
+			return;
+		}
+		extraDeptIds.stream().filter(StringUtils::hasText).map(String::trim)
+				.filter(deptId -> !deptId.equals(mainDeptId)).distinct().forEach(deptId -> {
+					UserDept userDept = new UserDept();
+					userDept.setUserId(userId);
+					userDept.setDeptId(deptId);
+					userDeptMapper.insert(userDept);
+				});
 	}
 
 	@Override
@@ -179,16 +254,23 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				Arrays.stream(role.getAuthority().split(",")).filter(StringUtils::hasText).forEach(authorities::add);
 			}
 		});
-		Set<String> resolvedAuthorities = resolveDeptAuthorities(user.getDeptId(), authorities);
+		// 一人多组：主组 + 附加组，各自沿祖先链解析后再取并集
+		// TODO(下一轮)：t_dept_role（组绑角色）尚未接入这里；按 docs/permissions-ia.md 的最终形态，
+		// 角色也要按「直挂角色 ∪ 所属组(含祖先组)绑定的角色」取并集，并同时下线 t_dept.authority 的组级覆盖。
+		List<String> extraDeptIds = listExtraDeptIds(user.getId());
+		Set<String> resolvedAuthorities = resolveDeptAuthorities(mergeDeptIds(user.getDeptId(), extraDeptIds),
+				authorities);
 		userInfo.setAuthorities(resolvedAuthorities.stream()
 				.map(authority -> (GrantedAuthority) () -> authority).collect(Collectors.toSet()));
-		// 设置用户部门
-		if (user.getDeptId() != null) {
+		// 设置用户部门（deptName 仍然是主组名）
+		if (StringUtils.hasText(user.getDeptId())) {
 			Dept dept = deptMapper.selectById(user.getDeptId());
 			if (dept != null) {
 				userInfo.setDeptName(dept.getName());
 			}
 		}
+		userInfo.setDeptIds(extraDeptIds);
+		userInfo.setDeptNames(resolveDeptNames(extraDeptIds));
 
 		return userInfo;
 	}
@@ -196,8 +278,13 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	/**
 	 * 组权限只覆盖普通权限串，角色身份标记（ROLE_teacher/ROLE_student）始终保留。
 	 * 超级管理员角色不受组策略影响，保持全权限。
+	 *
+	 * <p>
+	 * 一人多组时，每个组各按自己的 INHERIT/APPEND/OVERRIDE 规则沿祖先链解析，再把结果取并集：
+	 * OVERRIDE 只作用于该组自己的继承链，不会把别的组带来的权限清掉——否则「最终权限」会依赖
+	 * 组的遍历顺序，两人配同样的组合却可能得到不同结果。
 	 */
-	private Set<String> resolveDeptAuthorities(String deptId, Set<String> roleAuthorities) {
+	private Set<String> resolveDeptAuthorities(List<String> deptIds, Set<String> roleAuthorities) {
 		if (roleAuthorities.contains("ROLE_admin")) {
 			return roleAuthorities;
 		}
@@ -205,7 +292,15 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				.collect(Collectors.toSet());
 		Set<String> rolePermissions = roleAuthorities.stream().filter(x -> !x.startsWith("ROLE_"))
 				.collect(Collectors.toSet());
-		Set<String> effective = resolveDeptPermissions(deptId, rolePermissions, new HashSet<String>());
+		Set<String> effective = new HashSet<>();
+		if (CollectionUtils.isEmpty(deptIds)) {
+			effective.addAll(rolePermissions);
+		}
+		else {
+			for (String deptId : deptIds) {
+				effective.addAll(resolveDeptPermissions(deptId, rolePermissions, new HashSet<String>()));
+			}
+		}
 		effective.addAll(roleMarkers);
 		return effective;
 	}
@@ -269,17 +364,45 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 								query.getNeRoleId())
 						.in(orgIds.size() > 0, User::getDeptId, orgIds).in(query.getIds() != null, User::getId,
 								Arrays.asList(query.getIds() != null ? query.getIds() : new String[0])));
-		return new PaginationResponse<>(userPage.getTotal(), userPage.getRecords().stream().map(x -> {
+		List<User> records = userPage.getRecords();
+		// 一人多组：整页一次性取出附加组与组名，避免每行再查库
+		List<String> userIds = records.stream().map(User::getId).filter(StringUtils::hasText)
+				.collect(Collectors.toList());
+		Map<String, List<String>> extraDeptIdsByUser = new HashMap<>();
+		if (!userIds.isEmpty()) {
+			userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getUserId, userIds))
+					.forEach(binding -> {
+						if (StringUtils.hasText(binding.getUserId()) && StringUtils.hasText(binding.getDeptId())) {
+							extraDeptIdsByUser.computeIfAbsent(binding.getUserId(), key -> new ArrayList<>())
+									.add(binding.getDeptId());
+						}
+					});
+		}
+		Set<String> deptIdsInPage = new HashSet<>();
+		records.forEach(user -> {
+			if (StringUtils.hasText(user.getDeptId())) {
+				deptIdsInPage.add(user.getDeptId());
+			}
+			deptIdsInPage.addAll(extraDeptIdsByUser.getOrDefault(user.getId(), Collections.emptyList()));
+		});
+		Map<String, String> deptNameById = deptIdsInPage.isEmpty() ? Collections.emptyMap()
+				: deptMapper.selectBatchIds(deptIdsInPage).stream().filter(Objects::nonNull)
+						.collect(Collectors.toMap(Dept::getId,
+								dept -> isNotBlank(dept.getName()) ? dept.getName() : dept.getId(), (a, b) -> a));
+		return new PaginationResponse<>(userPage.getTotal(), records.stream().map(x -> {
 			UserView userView = userViewMapper.toView(x);
 			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, x.getId())
 					.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
 			userView.setUsername(account.getAuthAccount());
 			userView.setStatus(account.getStatus());
-			// 设置用户部门
-			Dept dept = deptMapper.selectById(x.getDeptId());
-			if (dept != null) {
-				userView.setDeptName(dept.getName());
+			// 设置用户部门（deptName 仍是主组名；附加组单独给 deptIds/deptNames）
+			if (StringUtils.hasText(x.getDeptId())) {
+				userView.setDeptName(deptNameById.getOrDefault(x.getDeptId(), x.getDeptId()));
 			}
+			List<String> extraDeptIds = extraDeptIdsByUser.getOrDefault(x.getId(), Collections.emptyList());
+			userView.setDeptIds(extraDeptIds);
+			userView.setDeptNames(extraDeptIds.stream().map(deptId -> deptNameById.getOrDefault(deptId, deptId))
+					.collect(Collectors.toList()));
 			// 设置用户角色
 			userView.setRoles(
 					userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, x.getId()))
@@ -323,6 +446,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		addUserRoles(request);
 		// 添加用户岗位
 		addUserPositions(request);
+		// 添加附加组（主组已经在 t_user.dept_id 里）
+		saveUserDepts(user.getId(), user.getDeptId(), request.getDeptIds());
 	}
 
 	@Override
@@ -404,6 +529,15 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 					.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, request.getId()));
 			addUserPositions(request);
 		}
+		// 更新附加组（deptIds 为 null 表示本次不改；空数组表示只保留主组）
+		if (request.getDeptIds() != null) {
+			String mainDeptId = request.getDeptId();
+			if (!StringUtils.hasText(mainDeptId)) {
+				User existing = this.getById(request.getId());
+				mainDeptId = existing == null ? null : existing.getDeptId();
+			}
+			saveUserDepts(request.getId(), mainDeptId, request.getDeptIds());
+		}
 		evictUserAfterCommit(request.getId());
 	}
 
@@ -447,6 +581,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		removeById(id);
 		accountMapper.physicallyDeleteExternalByUserId(id);
 		accountMapper.delete(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, id));
+		// 用户没了，附加组绑定也一起清掉
+		userDeptMapper.deleteByUserId(id);
 		evictUserAfterCommit(id);
 	}
 
