@@ -25,6 +25,8 @@ export interface SystemInfo {
     watermarkMode?: string | null;
     /** 可担任项目协作者的权限串，缺省 'project:create'；ROLE_admin 始终可以；老数据可能是 null */
     collaboratorAuthority?: string | null;
+    /** 题库字段加密开关：缺省 false（明文存储）；老数据可能是 null */
+    fieldEncryptionEnabled?: boolean | null;
     copyright?: string;
     recordNum?: string;
     favicon?: string;
@@ -69,4 +71,38 @@ export interface UserInfo {
   status?: number;
   authorityList?: string[];
   correctTimes?: number;
+}
+
+/** 权限目录里的单个权限点（后端 PermissionEnum.PermissionItem） */
+export interface PermissionItem {
+  /** 权限串，例如 repo:create */
+  code: string;
+  /** 中文名 */
+  name: string;
+  /** 所属分组 */
+  group: string;
+  /** 一句话说明 */
+  description?: string;
+  /** 是否只是「建议新增」、尚未接入注解 */
+  suggested?: boolean;
+}
+
+/** 权限目录的一个分组（后端 PermissionGroupView） */
+export interface PermissionGroup {
+  group: string;
+  total: number;
+  permissions: PermissionItem[];
+}
+
+/** 角色（后端 RoleView） */
+export interface RoleView {
+  id: string;
+  name?: string;
+  /** admin / teacher / student */
+  code?: string;
+  remark?: string;
+  /** 该角色当前拥有的权限串 */
+  authorities?: string[];
+  status?: number;
+  createAt?: string;
 }

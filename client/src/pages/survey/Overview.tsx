@@ -117,9 +117,6 @@ export default function SurveyOverview() {
         <Link to={`/survey/${id}/data`}>
           <Button>数据</Button>
         </Link>
-        <Link to={`/survey/${id}/report`}>
-          <Button>报表</Button>
-        </Link>
         <Button type="primary" onClick={() => navigate('/project')}>
           项目列表
         </Button>

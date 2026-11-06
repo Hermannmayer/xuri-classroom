@@ -1,41 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, App, Button, Collapse, Drawer, Input, message, Slider, Spin } from 'antd';
+import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
 import { ArrowLeftOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, post } from '../../api';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import { QuestionMarkContext, type QuestionMarkApi } from '../../renderer/questions/shared';
 import { isEmptyAnswer } from '../../schema/empty';
-import { flattenSchema, type FlatQuestion } from '../../schema/flatten';
+import { flattenSchema } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
-import type { PublicAnswerView, PublicProjectView } from '../../schema/project';
+import type { PublicQuestionOutline, PublicAnswerView, PublicProjectView } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
+import { buildView, QuestionCard } from './ExamResult';
 import '../../styles/answer.css';
-
-const CHOICE_SET = new Set(['Radio', 'Checkbox', 'Select', 'Judge']);
 
 /** 后端 ErrorCode.AnswerChangeDisabled = 4020：发布方没开「允许修改答案」时拒绝修改已有答卷 */
 const ERROR_ANSWER_CHANGE_DISABLED = 4020;
-
-/** 把答案值转成可读文本（结果页看答案解析用） */
-function formatValue(q: FlatQuestion, value: AnswerValue): string {
-  if (value === null || value === undefined || value === '') return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (typeof value !== 'object') return String(value);
-  const record = value as Record<string, unknown>;
-  if (CHOICE_SET.has(q.type)) {
-    return Object.keys(record)
-      .map((id) => q.schema.dataSource?.find((o) => o.value === id)?.label ?? id)
-      .join('、');
-  }
-  return Object.values(record)
-    .map((v) => (v === true ? '是' : String(v)))
-    .join('，');
-}
-
 function formFieldIds(p?: PublicProjectView): string[] {
   return (p?.survey?.children ?? []).map((c) => c.id);
+}
+
+async function mapWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await worker(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
 }
 
 /** 字号范围：0.9（小）到 2.0（巨大），滑块直接拖 */
@@ -113,12 +106,116 @@ async function fetchLoggedIn(): Promise<boolean> {
   }
 }
 
+/** 练习模式判题涉及的选择题类型：答案值形如 { 选项id: true } */
+const PRACTICE_CHOICE_TYPES: ReadonlySet<string> = new Set(['Radio', 'Checkbox', 'Select', 'Judge']);
+
+/** 练习模式：已选中的选项 id（值形如 { 选项id: true }） */
+function pickedOptionIds(value: AnswerValue): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([, picked]) => picked === true || picked === 1 || (typeof picked === 'string' && picked !== ''))
+    .map(([optionId]) => optionId);
+}
+
+/** 练习模式：标准答案文本。选择题记在选项节点的 examCorrectAnswer 上（与题库编辑页/后端一致） */
+function practiceCorrectText(schema: SurveySchema): string {
+  if (PRACTICE_CHOICE_TYPES.has(schema.type)) {
+    return (schema.children ?? [])
+      .filter((child) => Boolean((child.attribute?.examCorrectAnswer ?? '').trim()))
+      .map(
+        (child) =>
+          schema.dataSource?.find((option) => option.value === child.id)?.label ?? child.title ?? child.id,
+      )
+      .join('、');
+  }
+  return (schema.attribute?.examCorrectAnswer ?? schema.children?.[0]?.attribute?.examCorrectAnswer ?? '').trim();
+}
+
+/**
+ * 练习模式即时判题：true=对 / false=错 / null=没作答或没有标准答案。
+ * 多空填空、矩阵这类结构复杂的题不在这里判，避免判错。
+ */
+function practiceVerdict(schema: SurveySchema, value: AnswerValue): boolean | null {
+  if (isEmptyAnswer(value)) return null;
+  if (PRACTICE_CHOICE_TYPES.has(schema.type)) {
+    const correct = (schema.children ?? [])
+      .filter((child) => Boolean((child.attribute?.examCorrectAnswer ?? '').trim()))
+      .map((child) => child.id);
+    if (!correct.length) return null;
+    const picked = pickedOptionIds(value);
+    if (!picked.length) return null;
+    const expected = new Set(correct);
+    return picked.length === correct.length && picked.every((id) => expected.has(id));
+  }
+  if (schema.type === 'FillBlank' || schema.type === 'Textarea') {
+    const expected = practiceCorrectText(schema);
+    if (!expected) return null;
+    const actual = typeof value === 'string' ? value.trim() : '';
+    if (!actual) return null;
+    const candidates = expected
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    return schema.attribute?.examMatchRule === 'contain'
+      ? candidates.some((item) => item.includes(actual))
+      : candidates.some((item) => item === actual);
+  }
+  return null;
+}
+
+/** 练习模式：题下即时判题反馈（✓/✕ + 正确答案 + 解析），只读，不写 answer */
+function PracticeFeedback({
+  schema,
+  value,
+  touched,
+}: {
+  schema: SurveySchema;
+  value: AnswerValue;
+  touched: boolean;
+}) {
+  // 填空/简答类要等失焦再判，否则打字过程中一路飘红
+  if (!PRACTICE_CHOICE_TYPES.has(schema.type) && !touched) return null;
+  const verdict = practiceVerdict(schema, value);
+  if (verdict === null) return null;
+  const correctText = practiceCorrectText(schema);
+  const analysis = (schema.attribute?.examAnalysis ?? '').trim();
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        marginBottom: 4,
+        padding: '8px 12px',
+        border: '1px solid var(--bp-line-soft)',
+        borderLeft: `3px solid ${verdict ? 'var(--bp-blue)' : 'var(--bp-orange)'}`,
+        background: verdict ? 'var(--bp-blue-weak)' : 'var(--bp-orange-tint)',
+        borderRadius: 0,
+        fontSize: 13,
+        lineHeight: 1.8,
+      }}
+    >
+      <div style={{ color: verdict ? 'var(--bp-blue)' : 'var(--bp-orange)', letterSpacing: '0.04em' }}>
+        {verdict ? '✓ 回答正确' : '✕ 回答错误'}
+      </div>
+      {!verdict && correctText && <div style={{ marginTop: 2 }}>正确答案：{correctText}</div>}
+      {analysis && <div style={{ marginTop: 2, fontSize: 12, color: 'var(--bp-text-soft)' }}>解析：{analysis}</div>}
+    </div>
+  );
+}
+
 export default function PublicAnswer() {
   const { id = '', answerId: routeAnswerId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  /** 「再考一次」= ?fresh=1：清掉本地凭证、从空答案开始，提交时让后端新建一条答卷，不覆盖历史成绩 */
+  const freshAttempt = searchParams.get('fresh') === '1';
   const { modal } = App.useApp();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<PublicProjectView>();
+  const [questionCache, setQuestionCache] = useState<Record<string, SurveySchema>>({});
+  const [questionLoading, setQuestionLoading] = useState<Record<string, boolean>>({});
+  const [questionErrors, setQuestionErrors] = useState<Record<string, boolean>>({});
+  const questionCacheRef = useRef<Record<string, SurveySchema>>({});
+  const questionPendingRef = useRef<Map<string, Promise<SurveySchema>>>(new Map());
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
   const [displays, setDisplays] = useState<Record<string, boolean>>({});
   const [needPassword, setNeedPassword] = useState(false);
@@ -127,6 +224,7 @@ export default function PublicAnswer() {
   const [fatal, setFatal] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<PublicAnswerView>();
+  const [resultSurvey, setResultSurvey] = useState<SurveySchema>();
   const [answerId, setAnswerId] = useState<string>();
   /** 题目标记（只存本地，见 marksKey 注释）：{ 题目 id: true } */
   const [marks, setMarks] = useState<Record<string, boolean>>(() => readMarks(id));
@@ -139,6 +237,8 @@ export default function PublicAnswer() {
   const [nearBottom, setNearBottom] = useState(false);
   const [remainMs, setRemainMs] = useState<number>();
   const [switchCount, setSwitchCount] = useState(0);
+  /** 练习模式：哪些题已经失焦过（填空类只在失焦后才判，避免打字过程中一路飘红） */
+  const [practiceTouched, setPracticeTouched] = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
   /** 只服务于「限时 / 切屏超限」自动交卷去重：同一次答题里自动交卷只能触发一次。手动提交不许被它挡 */
   const submittedRef = useRef(false);
@@ -160,12 +260,22 @@ export default function PublicAnswer() {
     setProject(data);
     setNeedPassword(false);
     setNeedLogin(false);
+    if (freshAttempt) {
+      // 新一轮作答：后端也可能回填上一份答卷/切屏次数，这里一律丢弃，从空答案开始
+      setAnswerId(undefined);
+      setValues({});
+      setSwitchCount(0);
+      return;
+    }
     if (data.answerId) {
       setAnswerId(data.answerId);
       localStorage.setItem(answerKey(id), data.answerId);
     }
     if (data.answer) setValues(data.answer as Record<string, AnswerValue>);
-  }, [id]);
+    // 切屏次数从后端 metaInfo 恢复：刷新页面不再清零（字段用局部断言，避免动共用的 schema 类型文件）
+    const meta = (data as PublicProjectView & { metaInfo?: { switchScreenTimes?: number } }).metaInfo;
+    setSwitchCount(meta?.switchScreenTimes ?? 0);
+  }, [id, freshAttempt]);
 
   const load = useCallback(async () => {
     // 重新拉问卷 = 重新开始一轮答题，把上一轮的提交标记全部复位
@@ -173,16 +283,29 @@ export default function PublicAnswer() {
     submittedOnceRef.current = false;
     setLoading(true);
     setFatal(undefined);
+    questionCacheRef.current = {};
+    questionPendingRef.current.clear();
+    setQuestionCache({});
+    setQuestionLoading({});
+    setQuestionErrors({});
+    setPracticeTouched({});
     try {
+      if (freshAttempt) {
+        // 「再考一次」：本地凭证与草稿都属于上一轮，先清掉，别把旧 answerId 发给后端
+        localStorage.removeItem(answerKey(id));
+        localStorage.removeItem(draftKey(id));
+      }
       // URL 里带 answerId（成绩单/回看链接）优先，其次用本地保存的匿名凭证
-      const savedId = routeAnswerId ?? localStorage.getItem(answerKey(id)) ?? undefined;
-      applyProject(await post<PublicProjectView>('/api/public/loadProject', { id, answerId: savedId }));
+      const savedId = freshAttempt
+        ? undefined
+        : (routeAnswerId ?? localStorage.getItem(answerKey(id)) ?? undefined);
+      applyProject(await post<PublicProjectView>('/api/public/projectOutline', { id, answerId: savedId }));
     } catch (e) {
       setFatal((e as Error).message || '加载失败');
     } finally {
       setLoading(false);
     }
-  }, [id, routeAnswerId, applyProject]);
+  }, [id, routeAnswerId, applyProject, freshAttempt]);
 
   /** 打开时如果本地有未提交草稿、且这次不是回看已提交答卷，就回填 */
   useEffect(() => {
@@ -286,7 +409,7 @@ export default function PublicAnswer() {
     setLoading(true);
     try {
       applyProject(
-        await post<PublicProjectView>('/api/public/validateProject', {
+        await post<PublicProjectView>('/api/public/validateProjectOutline', {
           id,
           answer: { extraPassword: { extraPassword: password } },
         }),
@@ -303,9 +426,68 @@ export default function PublicAnswer() {
   /** 这两项来自发布设置的「答题体验」，旧版是开关，默认都开 */
   const showProgress = project?.setting?.answerSetting?.progressBar !== false;
   const showSheet = project?.setting?.answerSetting?.answerSheetVisible !== false;
+  /** 练习模式：选完即判（后端在该模式下会下发 examCorrectAnswer / examAnalysis） */
+  const exerciseMode = project?.setting?.examSetting?.exerciseMode === true;
+  /** 填空/简答类在失焦后才判题 */
+  const markPracticeTouched = (qId: string) => {
+    setPracticeTouched((prev) => (prev[qId] ? prev : { ...prev, [qId]: true }));
+  };
   /** 已登录才给返回入口；null（查询中）按未登录处理，按钮不会闪 */
   const canGoBack = loggedIn === true;
-  const flatQuestions = useMemo(() => (project?.survey ? flattenSchema(project.survey) : []), [project]);
+  const flatQuestions = useMemo(() => {
+    if (project?.survey?.children?.length) return flattenSchema(project.survey);
+    return (project?.outline ?? []).map((item: PublicQuestionOutline, index) => {
+      const schema: SurveySchema =
+        questionCache[item.id] ?? {
+          id: item.id,
+          title: `第 ${item.number} 题`,
+          type: item.type,
+          attribute: { required: item.required },
+          children: [],
+        };
+      return {
+        id: item.id,
+        title: schema.title || `第 ${item.number} 题`,
+        type: item.type,
+        schema,
+        index,
+        number: item.number,
+      };
+    });
+  }, [project, questionCache]);
+
+  const loadQuestion = useCallback(
+    async (questionId: string): Promise<SurveySchema | undefined> => {
+      if (!project) return undefined;
+      const cached = questionCacheRef.current[questionId];
+      if (cached) return cached;
+      const pending = questionPendingRef.current.get(questionId);
+      if (pending) return pending;
+      setQuestionLoading((prev) => ({ ...prev, [questionId]: true }));
+      const request = post<SurveySchema>('/api/public/question', {
+        id,
+        answerId,
+        questionId,
+      });
+      questionPendingRef.current.set(questionId, request);
+      try {
+        const schema = await request;
+        questionCacheRef.current = { ...questionCacheRef.current, [questionId]: schema };
+        setQuestionCache(questionCacheRef.current);
+        setQuestionErrors((prev) => ({ ...prev, [questionId]: false }));
+        return schema;
+      } catch (error) {
+        setQuestionErrors((prev) => ({ ...prev, [questionId]: true }));
+        message.error((error as Error).message || '题目加载失败，请重试');
+        return undefined;
+      } finally {
+        questionPendingRef.current.delete(questionId);
+        setQuestionLoading((prev) => ({ ...prev, [questionId]: false }));
+      }
+    },
+    [id, answerId, project, message],
+  );
+
   const visibleQuestions = useMemo(
     () => flatQuestions.filter((q) => displays[q.id] !== false),
     [flatQuestions, displays],
@@ -313,6 +495,20 @@ export default function PublicAnswer() {
   const total = visibleQuestions.length;
   const currentIndex = Math.min(page, Math.max(total - 1, 0));
   const currentQuestion = visibleQuestions[currentIndex];
+
+  // 一页一题模式仅加载当前题并预取下一题；瀑布流是用户显式切换后才并发加载全部题目。
+  useEffect(() => {
+    if (!project || result || !visibleQuestions.length) return;
+    const targets = (onePage
+      ? [visibleQuestions[currentIndex]?.id, visibleQuestions[currentIndex + 1]?.id].filter(
+          (questionId): questionId is string => Boolean(questionId),
+        )
+      : visibleQuestions.map((question) => question.id))
+      .filter((questionId) => !questionCacheRef.current[questionId] && !questionErrors[questionId]);
+    void mapWithConcurrency(targets, onePage ? 2 : 6, async (questionId) => {
+      await loadQuestion(questionId);
+    });
+  }, [project, result, onePage, currentIndex, visibleQuestions, questionErrors, loadQuestion]);
 
   /** 标记数量只按当前可见题算：被规则隐藏的题不显示在答题卡上，也不该计数 */
   const markedCount = useMemo(
@@ -388,17 +584,36 @@ export default function PublicAnswer() {
     if (mode === 'auto') submittedRef.current = true;
     setSubmitting(true);
     try {
+      // 只有在用户提交后才补齐本轮题目 schema；首屏与逐题请求都不会一次性下发整卷。
+      const submittedQuestions: Array<SurveySchema | undefined> = new Array(flatQuestions.length);
+      await mapWithConcurrency(
+        flatQuestions.map((question, index) => ({ question, index })),
+        6,
+        async ({ question, index }) => {
+          submittedQuestions[index] = await loadQuestion(question.id);
+        },
+      );
+      if (submittedQuestions.some((question) => !question)) {
+        throw new Error('部分题目尚未加载成功，请检查网络后重试');
+      }
+      const submissionSurvey: SurveySchema = {
+        ...(project.survey ?? { id: project.id, title: project.name ?? '', type: 'Survey', attribute: {} }),
+        children: submittedQuestions as SurveySchema[],
+      };
       const res = await post<PublicAnswerView>('/api/public/saveAnswer', {
         projectId: id,
         id: answerId,
         answer: values,
-        survey: project.survey,
+        survey: submissionSurvey,
+        // 新一轮（再考一次）且还没有本轮答卷：要求后端新建记录，不要更新上一份
+        freshAttempt: freshAttempt && !answerId,
       });
       if (res?.answerId) {
         setAnswerId(res.answerId);
         localStorage.setItem(answerKey(id), res.answerId);
       }
       submittedOnceRef.current = true;
+      setResultSurvey(submissionSurvey);
       setResult(res);
       localStorage.removeItem(draftKey(id));
       // 标记是答题过程中的自查工具，交卷后连同本地存储一起清空
@@ -444,27 +659,47 @@ export default function PublicAnswer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.setting?.examSetting?.maxSubmitMinutes]);
 
-  /** 切屏检测：超过允许次数直接交卷 */
+  /** 切屏检测：计数落库（刷新不丢），超过允许次数直接交卷 */
   useEffect(() => {
     const limit = project?.setting?.examSetting?.maxSwitchScreenTimes;
     if (limit === undefined || limit === null) return;
     const onVisibility = () => {
       if (!document.hidden || submittedRef.current) return;
-      setSwitchCount((prev) => {
-        const next = prev + 1;
-        if (next > limit) {
+      void (async () => {
+        let times = 0;
+        try {
+          const counted = await post<number>('/api/public/exam/switch-screen', { projectId: id, answerId });
+          times = typeof counted === 'number' && counted > 0 ? counted : 0;
+        } catch {
+          times = 0;
+        }
+        if (!times) {
+          // 后端还没有可挂钩的答卷（未暂存/未提交）或网络失败：本次作答内先本地兜底，超限照样自动交卷
+          setSwitchCount((prev) => {
+            const next = prev + 1;
+            if (next > limit) {
+              message.error('切屏次数超限，已自动交卷');
+              void doSubmit('auto');
+            } else {
+              message.warning(`已切屏 ${next}/${limit} 次，超过将自动交卷`);
+            }
+            return next;
+          });
+          return;
+        }
+        setSwitchCount(times);
+        if (times > limit) {
           message.error('切屏次数超限，已自动交卷');
           void doSubmit('auto');
         } else {
-          message.warning(`已切屏 ${next}/${limit} 次，超过将自动交卷`);
+          message.warning(`已切屏 ${times}/${limit} 次，超过将自动交卷`);
         }
-        return next;
-      });
+      })();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.setting?.examSetting?.maxSwitchScreenTimes]);
+  }, [project?.setting?.examSetting?.maxSwitchScreenTimes, id, answerId]);
 
   /** 跳到指定题：一页一题切页，滚动模式滚到题目 */
   const goToQuestion = (qId: string) => {
@@ -510,6 +745,7 @@ export default function PublicAnswer() {
   /** 「修改答案」回到答题态：必须复位自动交卷标记，否则第二轮提交被静默挡掉 */
   const modifyAnswer = () => {
     submittedRef.current = false;
+    setResultSurvey(undefined);
     setResult(undefined);
   };
 
@@ -608,18 +844,16 @@ export default function PublicAnswer() {
   if (result) {
     const html = project.submittedHtml || project.setting?.submittedSetting?.contentHtml;
     const showAnalysis = Boolean(project.setting?.submittedSetting?.answerAnalysis);
-    const explanations = showAnalysis && project.survey
-      ? flattenSchema(project.survey).map((q) => ({
-          id: q.id,
-          title: q.title || q.type,
-          mine: formatValue(q, values[q.id]),
-          correct: q.schema.attribute?.examCorrectAnswer,
-          analysis: q.schema.attribute?.examAnalysis,
-        }))
-      : [];
+    // 复用成绩单页的解析卡片：选项、正确答案、我的答案、对错标记、解析，一套 UI 两处使用，
+    // 避免这里再维护一份「折叠 + 只有题干和我的答案」的旧样式。
+    const analysisSurvey = resultSurvey ?? project.survey;
+    const analysisViews =
+      showAnalysis && analysisSurvey
+        ? flattenSchema(analysisSurvey).map((q) => buildView(q, values[q.id]))
+        : [];
 
     return (
-      <div style={{ maxWidth: 640, margin: '60px auto', padding: 16 }}>
+      <div style={{ maxWidth: 780, margin: '48px auto', padding: 16 }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 40, color: 'var(--bp-orange)' }}>✓</div>
           <div className="bp-title" style={{ fontSize: 18, margin: '12px 0' }}>
@@ -642,40 +876,35 @@ export default function PublicAnswer() {
           )}
         </div>
 
-        {explanations.length > 0 && (
+        {analysisViews.length > 0 && (
           <div style={{ marginTop: 24 }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+            <div
+              className="bp-title"
+              style={{ fontSize: 12, marginBottom: 10, letterSpacing: '0.16em' }}
+            >
               ANALYSIS / 答案解析
             </div>
-            <Collapse
-              size="small"
-              items={explanations.map((row) => ({
-                key: row.id,
-                label: <span style={{ fontSize: 12 }}>{row.title}</span>,
-                children: (
-                  <div style={{ fontSize: 12, lineHeight: 1.9 }}>
-                    <div>你的答案：{row.mine || '—'}</div>
-                    {row.correct && <div style={{ color: 'var(--bp-orange)' }}>正确答案：{row.correct}</div>}
-                    {row.analysis && <div style={{ color: 'var(--bp-text-soft)' }}>解析：{row.analysis}</div>}
-                  </div>
-                ),
-              }))}
-            />
+            {analysisViews.map((view) => (
+              <QuestionCard key={view.q.id} view={view} />
+            ))}
           </div>
         )}
       </div>
     );
   }
 
-  const schemaForCanvas: SurveySchema = onePage
-    ? {
-        id: 'page',
-        title: '',
-        type: 'Survey',
-        attribute: {},
-        children: currentQuestion ? [currentQuestion.schema] : [],
-      }
-    : project.survey ?? { id: 'root', title: '', type: 'Survey', attribute: {}, children: [] };
+  const loadedVisibleSchemas = visibleQuestions
+    .map((question) => questionCache[question.id])
+    .filter((schema): schema is SurveySchema => Boolean(schema));
+  const currentSchema = currentQuestion ? questionCache[currentQuestion.id] : undefined;
+  const schemaForCanvas: SurveySchema = {
+    ...(project.survey ?? { id: project.id, title: project.name ?? '', type: 'Survey', attribute: {} }),
+    children: onePage ? (currentSchema ? [currentSchema] : []) : loadedVisibleSchemas,
+  };
+  const loadedCount = visibleQuestions.filter((question) => Boolean(questionCache[question.id])).length;
+  const missingVisibleQuestions = visibleQuestions.filter((question) => !questionCache[question.id]);
+  const loadingVisibleQuestions = missingVisibleQuestions.filter((question) => questionLoading[question.id]);
+  const failedVisibleQuestions = missingVisibleQuestions.filter((question) => questionErrors[question.id]);
 
   const showSubmit = onePage ? currentIndex >= total - 1 : nearBottom;
 
@@ -801,17 +1030,78 @@ export default function PublicAnswer() {
               第 {currentIndex + 1} / {total} 题
             </div>
           )}
-          {/* 一页一题：标记按钮在底部操作条；滚动模式：每张题卡右上角（QuestionFrame 读 context） */}
-          <QuestionMarkContext.Provider value={onePage ? null : markApi}>
-            <SchemaRenderer
-              schema={schemaForCanvas}
-              values={values}
-              onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
-              mode="answer"
-              displays={displays}
-              numberOffset={onePage ? currentIndex : 0}
-            />
-          </QuestionMarkContext.Provider>
+          {/* 一页一题仅显示当前已取到的 schema；瀑布流在切换后逐题并发加载。 */}
+          {(onePage ? !currentSchema : missingVisibleQuestions.length > 0) ? (
+            <div style={{ minHeight: 220, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', color: 'var(--bp-text-soft)' }}>
+              {(onePage
+                ? Boolean(currentQuestion && questionLoading[currentQuestion.id])
+                : loadingVisibleQuestions.length > 0) ? (
+                <>
+                  <Spin />
+                  <span>{onePage ? '正在加载题目…' : `正在加载题目 ${loadedCount} / ${total}`}</span>
+                </>
+              ) : (
+                <>
+                  <span>题目加载失败，请检查网络后重试。</span>
+                  <Button
+                    onClick={() => {
+                      const retryIds = (onePage && currentQuestion
+                        ? [currentQuestion.id]
+                        : failedVisibleQuestions.map((question) => question.id));
+                      setQuestionErrors((prev) => {
+                        const next = { ...prev };
+                        retryIds.forEach((questionId) => delete next[questionId]);
+                        return next;
+                      });
+                      void Promise.all(retryIds.map((questionId) => loadQuestion(questionId)));
+                    }}
+                  >
+                    重试
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : exerciseMode ? (
+            /* 练习模式：一题一块渲染，题下紧跟即时判题反馈；失焦用于填空类延后判定 */
+            <QuestionMarkContext.Provider value={onePage ? null : markApi}>
+              {(onePage ? (currentSchema ? [currentSchema] : []) : loadedVisibleSchemas).map((schema, index) => {
+                const questionIndex = onePage
+                  ? currentIndex
+                  : visibleQuestions.findIndex((question) => question.id === schema.id);
+                return (
+                  <div key={schema.id} onBlur={() => markPracticeTouched(schema.id)}>
+                    <SchemaRenderer
+                      schema={{
+                        ...(project.survey ?? { id: project.id, title: project.name ?? '', type: 'Survey', attribute: {} }),
+                        children: [schema],
+                      }}
+                      values={values}
+                      onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+                      mode="answer"
+                      displays={displays}
+                      numberOffset={questionIndex < 0 ? index : questionIndex}
+                    />
+                    <PracticeFeedback
+                      schema={schema}
+                      value={values[schema.id]}
+                      touched={Boolean(practiceTouched[schema.id])}
+                    />
+                  </div>
+                );
+              })}
+            </QuestionMarkContext.Provider>
+          ) : (
+            <QuestionMarkContext.Provider value={onePage ? null : markApi}>
+              <SchemaRenderer
+                schema={schemaForCanvas}
+                values={values}
+                onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+                mode="answer"
+                displays={displays}
+                numberOffset={onePage ? currentIndex : 0}
+              />
+            </QuestionMarkContext.Provider>
+          )}
           {onePage && (
             <div
               style={{

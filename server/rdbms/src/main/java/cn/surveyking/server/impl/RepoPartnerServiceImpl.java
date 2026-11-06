@@ -6,6 +6,7 @@ import cn.surveyking.server.domain.dto.RepoPartnerQuery;
 import cn.surveyking.server.domain.dto.RepoPartnerRequest;
 import cn.surveyking.server.domain.dto.RepoPartnerView;
 import cn.surveyking.server.domain.mapper.RepoPartnerViewMapper;
+import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.Repo;
 import cn.surveyking.server.domain.model.RepoPartner;
 import cn.surveyking.server.mapper.RepoMapper;
@@ -36,6 +37,8 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 
 	private final RepoPartnerViewMapper repoPartnerViewMapper;
 
+	private final cn.surveyking.server.mapper.DeptMapper deptMapper;
+
 	@Override
 	public PaginationResponse<RepoPartnerView> listRepoPartner(RepoPartnerQuery query) {
 		assertManagePermission(query.getRepoId());
@@ -50,6 +53,13 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		result.getList().forEach(view -> {
 			if (view.getUserId() != null) {
 				view.setUser(userService.loadUserById(view.getUserId()));
+			}
+			// 按组授权的记录 userId 为空，这里补组名，否则前端列表只能显示空白
+			if (StringUtils.hasText(view.getDeptId())) {
+				Dept dept = deptMapper.selectById(view.getDeptId());
+				if (dept != null) {
+					view.setDeptName(dept.getName());
+				}
 			}
 		});
 		return result;

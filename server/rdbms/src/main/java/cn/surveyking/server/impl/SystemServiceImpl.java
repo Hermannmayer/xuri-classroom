@@ -3,7 +3,7 @@ package cn.surveyking.server.impl;
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.CacheConsts;
-import cn.surveyking.server.core.security.PreAuthorizeAnnotationExtractor;
+import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.RSAUtils;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
@@ -73,6 +73,12 @@ public class SystemServiceImpl implements SystemService {
 				systemInfo.setAiEnabled(info.getAiSetting().getEnabled());
 			}
 			systemInfo.setOauthProviders(toAvailability(info.getOauthSetting()));
+			// 每次读系统信息时同步一次加密开关，避免重启后与库里的设置不一致
+			if (systemInfo.getSetting() != null
+					&& systemInfo.getSetting().getFieldEncryptionEnabled() != null) {
+				cn.surveyking.server.core.uitls.CryptoUtils
+						.setSwitch(systemInfo.getSetting().getFieldEncryptionEnabled());
+			}
 		}
 		if (systemInfo.getOauthProviders() == null) {
 			systemInfo.setOauthProviders(new OAuthProviderAvailability());
@@ -121,6 +127,7 @@ public class SystemServiceImpl implements SystemService {
 			throw new AccessDeniedException("角色不存在");
 		}
 		assertRoleMutationAllowed(role, request);
+		assertBuiltinAdminAuthorityKept(role, request);
 		if (!CollectionUtils.isEmpty(request.getUserIds())) {
 			// 批量添加角色用户
 			for (String userId : request.getUserIds()) {
@@ -138,7 +145,13 @@ public class SystemServiceImpl implements SystemService {
 			evictUsers(request.getEvictUserIds());
 		}
 		else {
-			roleService.updateById(roleViewMapper.fromRequest(request));
+			Role updates = roleViewMapper.fromRequest(request);
+			// 权限矩阵里「全部取消勾选」提交的是空列表，MapStruct 的 AfterMapping 会跳过空集合，
+			// 于是 authority 为 null、被 updateById 忽略，旧权限会留在库里。这里显式写空串表示「收回全部权限」。
+			if (request.getAuthorities() != null && request.getAuthorities().isEmpty()) {
+				updates.setAuthority("");
+			}
+			roleService.updateById(updates);
 			evictCache(request.getId());
 		}
 	}
@@ -230,10 +243,44 @@ public class SystemServiceImpl implements SystemService {
 		}
 	}
 
+	/**
+	 * 内置超级管理员（<code>t_role.code = admin</code> 或名称「超级管理员」）始终拥有全部权限：
+	 * 权限矩阵页对它的勾选框是全禁用的，这里再兜一层，防止绕过前端直接调接口把 authority 改坏。
+	 * 只拦权限串，给管理员角色增删用户不受影响。
+	 */
+	private void assertBuiltinAdminAuthorityKept(Role role, RoleRequest request) {
+		if (!isBuiltinAdminRole(role) || request.getAuthorities() == null) {
+			return;
+		}
+		if (!toAuthoritySet(request.getAuthorities()).equals(toAuthoritySet(role.getAuthority()))) {
+			throw new AccessDeniedException("超级管理员始终拥有全部权限，不允许修改其权限");
+		}
+	}
+
+	private boolean isBuiltinAdminRole(Role role) {
+		return role != null && ("admin".equals(role.getCode()) || "超级管理员".equals(role.getName()));
+	}
+
+	private Set<String> toAuthoritySet(Collection<String> authorities) {
+		if (CollectionUtils.isEmpty(authorities)) {
+			return Collections.emptySet();
+		}
+		return authorities.stream().filter(org.springframework.util.StringUtils::hasText).map(String::trim)
+				.collect(Collectors.toSet());
+	}
+
+	private Set<String> toAuthoritySet(String authority) {
+		if (!isNotBlank(authority)) {
+			return Collections.emptySet();
+		}
+		return toAuthoritySet(Arrays.asList(authority.split(",")));
+	}
+
 	@Override
-	public List<PermissionView> getPermissions() {
-		return PreAuthorizeAnnotationExtractor.extractAllApiPermissions().stream().map(x -> new PermissionView(x))
-				.collect(Collectors.toList());
+	public List<PermissionEnum.PermissionGroupView> getPermissionCatalog() {
+		// 权限目录以 PermissionEnum 为准：注解扫描只能拿到已接入的权限串，且会混进
+		// system:role 这类层级前缀，无法给出中文名与分组，做不了权限矩阵。
+		return PermissionEnum.grouped();
 	}
 
 	@Override
@@ -484,6 +531,11 @@ public class SystemServiceImpl implements SystemService {
 			// 谁可以当项目协作者（权限串），默认 project:create
 			if (isNotBlank(source.getCollaboratorAuthority())) {
 				setting.setCollaboratorAuthority(source.getCollaboratorAuthority().trim());
+			}
+			// 题库字段加密开关（可选功能，默认关闭）
+			if (source.getFieldEncryptionEnabled() != null) {
+				setting.setFieldEncryptionEnabled(source.getFieldEncryptionEnabled());
+				cn.surveyking.server.core.uitls.CryptoUtils.setSwitch(source.getFieldEncryptionEnabled());
 			}
 		}
 		if (request.getAiSetting() != null) {

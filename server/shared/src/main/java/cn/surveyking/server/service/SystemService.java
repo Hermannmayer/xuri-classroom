@@ -2,6 +2,7 @@ package cn.surveyking.server.service;
 
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.CacheConsts;
+import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.domain.dto.*;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -30,7 +31,12 @@ public interface SystemService {
 
 	void deleteRole(RoleRequest request);
 
-	List<PermissionView> getPermissions();
+	/**
+	 * 权限目录：按分组返回可配置的权限点，供「角色权限矩阵」页面渲染。
+	 * 数据来源是 {@link PermissionEnum}，不是注解扫描，因此包含尚未接入注解的建议新增项。
+	 * @return 按分组排列的权限目录
+	 */
+	List<PermissionEnum.PermissionGroupView> getPermissionCatalog();
 
 	void extractCodeDiffDbPermissions();
 

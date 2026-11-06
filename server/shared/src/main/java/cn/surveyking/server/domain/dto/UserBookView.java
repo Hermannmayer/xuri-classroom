@@ -45,6 +45,11 @@ public class UserBookView {
 	 */
 	private Integer type;
 
+	/**
+	 * 来源考试 id（题库练习 / 历史数据为空）
+	 */
+	private String projectId;
+
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm")
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm")
 	private Date createAt;

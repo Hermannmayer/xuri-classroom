@@ -1,31 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Table } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Card, DatePicker, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import dayjs, { type Dayjs } from 'dayjs';
 import { get, post } from '../../api';
 
 interface Dept {
   id: string;
   name: string;
   parentId?: string;
+  roleIds?: string[];
+  roleNames?: string[];
+  validFrom?: string;
+  validTo?: string;
   children?: Dept[];
 }
 
+interface Role {
+  id: string;
+  name?: string;
+  code?: string;
+}
+
 /**
- * 用户组（班级）管理：复用后端的组织机构表 t_dept。
- * 题库授权时按这里的分组批量把组员加入 t_repo_partner。
+ * 用户组（班级）管理。
+ *
+ * 设计要点（见 docs/permissions-ia.md）：
+ * - 组只负责「是哪批人 + 拥有哪些角色 + 有效期」，**不直接挂权限串**；
+ *   权限点挂在角色上，在「权限配置」页维护。
+ * - 有效期为空表示永久；过期后组员无法登录（后端在鉴权链路校验）。
+ * - 组树默认全部展开，避免层数一多就找不到班级。
  */
-/** 后端 /api/system/dept/list 返回扁平列表，这里按 parentId 组装成树 */
 function buildTree(list: Dept[]): Dept[] {
   const map = new Map<string, Dept & { children: Dept[] }>();
   list.forEach((d) => map.set(d.id, { ...d, children: [] }));
   const roots: Dept[] = [];
   map.forEach((node) => {
     const parent = node.parentId ? map.get(node.parentId) : undefined;
-    if (parent && parent.id !== node.id) {
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
+    if (parent && parent.id !== node.id) parent.children.push(node);
+    else roots.push(node);
   });
   return roots;
 }
@@ -34,13 +46,45 @@ function flattenDepts(list: Dept[], depth = 0): { id: string; name: string; dept
   return list.flatMap((d) => [{ id: d.id, name: d.name, depth }, ...flattenDepts(d.children ?? [], depth + 1)]);
 }
 
+function collectIds(list: Dept[]): string[] {
+  return list.flatMap((d) => [d.id, ...collectIds(d.children ?? [])]);
+}
+
+/** 有效期展示：空=永久；只填开始=从某时起永久；只填结束=截止到某时 */
+function validityText(from?: string, to?: string): string {
+  const fmt = (v?: string) => (v ? dayjs(v).format('YYYY-MM-DD') : '');
+  if (!from && !to) return '永久有效';
+  if (from && !to) return `${fmt(from)} 起 · 永久`;
+  if (!from && to) return `截至 ${fmt(to)}`;
+  return `${fmt(from)} ~ ${fmt(to)}`;
+}
+
+function isExpired(to?: string): boolean {
+  return Boolean(to && dayjs(to).endOf('day').isBefore(dayjs()));
+}
+
+/** 角色选中是否真的变了：只有用户动过选择才提交 roleIds，避免把「没读到」当成「清空」 */
+function sameIds(a: string[] = [], b: string[] = []): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
+}
+
 export default function SystemGroup() {
   const [tree, setTree] = useState<Dept[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Dept | null>(null);
+  // 打开编辑弹窗时该组已有的角色，用于判断用户是否真的改动了角色选择
+  const [originalRoleIds, setOriginalRoleIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm<{ name: string; parentId?: string }>();
+  const [form] = Form.useForm<{
+    name: string;
+    parentId?: string;
+    roleIds?: string[];
+    validity?: [Dayjs, Dayjs] | undefined;
+  }>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,10 +100,17 @@ export default function SystemGroup() {
 
   useEffect(() => {
     void load();
+    get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 })
+      .then((res) => setRoles(res?.list ?? []))
+      .catch(() => setRoles([]));
   }, [load]);
+
+  /** 默认展开全部：组树不应折叠，否则多层班级找不到 */
+  const allKeys = useMemo(() => collectIds(tree), [tree]);
 
   const openCreate = (parent?: Dept) => {
     setEditing(null);
+    setOriginalRoleIds([]);
     form.resetFields();
     if (parent) form.setFieldsValue({ parentId: parent.id });
     setOpen(true);
@@ -67,19 +118,42 @@ export default function SystemGroup() {
 
   const openEdit = (row: Dept) => {
     setEditing(row);
-    form.setFieldsValue({ name: row.name, parentId: row.parentId });
+    setOriginalRoleIds(row.roleIds ?? []);
+    form.setFieldsValue({
+      name: row.name,
+      parentId: row.parentId,
+      roleIds: row.roleIds ?? [],
+      validity:
+        row.validFrom || row.validTo
+          ? [row.validFrom ? dayjs(row.validFrom) : dayjs(0), row.validTo ? dayjs(row.validTo) : dayjs('2099-12-31')]
+          : undefined,
+    });
     setOpen(true);
   };
 
   const submit = async () => {
     const values = await form.validateFields();
+    const [from, to] = values.validity ?? [];
+    const nextRoleIds = values.roleIds ?? [];
+    /**
+     * roleIds 只在用户真的改过勾选时才提交（后端约定：不传=不动角色，传空数组=清空）。
+     * 这样即使列表因缓存/并发读到了旧值，改个名字也不会顺手把组绑定的角色清掉。
+     */
+    const roleIdsUnchanged = Boolean(editing) && sameIds(nextRoleIds, originalRoleIds);
+    const payload = {
+      name: values.name,
+      parentId: values.parentId,
+      ...(roleIdsUnchanged ? {} : { roleIds: nextRoleIds }),
+      validFrom: from ? from.startOf('day').toISOString() : null,
+      validTo: to ? to.endOf('day').toISOString() : null,
+    };
     setSaving(true);
     try {
       if (editing) {
-        await post('/api/system/dept/update', { id: editing.id, ...values });
-        message.success('已保存');
+        await post('/api/system/dept/update', { id: editing.id, ...payload });
+        message.success('已保存；组内成员下次登录时按新配置生效');
       } else {
-        await post('/api/system/dept/create', values);
+        await post('/api/system/dept/create', payload);
         message.success('已创建');
       }
       setOpen(false);
@@ -109,6 +183,9 @@ export default function SystemGroup() {
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
             班级与分组
           </div>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+            组决定「哪些人 + 拥有哪些角色 + 有效期」；具体权限在「权限配置」里按角色维护。
+          </div>
         </div>
         <div style={{ flex: 1 }} />
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
@@ -124,9 +201,46 @@ export default function SystemGroup() {
           loading={loading}
           dataSource={tree}
           pagination={false}
-          defaultExpandAllRows
+          expandable={{ defaultExpandAllRows: true, expandedRowKeys: allKeys, indentSize: 18 }}
           columns={[
-            { title: '名称', dataIndex: 'name', render: (v: string) => v || '—' },
+            {
+              title: '名称',
+              dataIndex: 'name',
+              render: (v: string) => <span style={{ fontSize: 13 }}>{v || '—'}</span>,
+            },
+            {
+              title: '角色',
+              dataIndex: 'roleNames',
+              width: 260,
+              render: (names?: string[]) =>
+                names && names.length ? (
+                  <Space size={4} wrap>
+                    {names.map((n) => (
+                      <Tag key={n} color="blue">
+                        {n}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>未分配角色</span>
+                ),
+            },
+            {
+              title: '有效期',
+              key: 'validity',
+              width: 210,
+              render: (_, row) => (
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: isExpired(row.validTo) ? 'var(--bp-orange)' : 'var(--bp-text-soft)',
+                  }}
+                >
+                  {validityText(row.validFrom, row.validTo)}
+                  {isExpired(row.validTo) && ' （已过期）'}
+                </span>
+              ),
+            },
             {
               title: '操作',
               key: 'ops',
@@ -134,7 +248,7 @@ export default function SystemGroup() {
               render: (_, row) => (
                 <Space size={12}>
                   <a onClick={() => openCreate(row)}>加子组</a>
-                  <a onClick={() => openEdit(row)}>重命名</a>
+                  <a onClick={() => openEdit(row)}>编辑</a>
                   <Popconfirm
                     title={`删除「${row.name}」？`}
                     okText="删除"
@@ -152,7 +266,8 @@ export default function SystemGroup() {
       </Card>
 
       <Modal
-        title={editing ? '重命名分组' : '新建分组'}
+        width={640}
+        title={editing ? '编辑分组' : '新建分组'}
         open={open}
         onCancel={() => setOpen(false)}
         onOk={submit}
@@ -165,14 +280,26 @@ export default function SystemGroup() {
           <Form.Item name="name" label="分组名称" rules={[{ required: true, message: '请输入名称' }]}>
             <Input placeholder="例如：育婴五级 2026 春季班" />
           </Form.Item>
-<Form.Item name="parentId" label="上级分组" extra="留空表示顶层">
+          <Form.Item name="parentId" label="上级分组" extra="留空表示顶层">
             <Select
               allowClear
               placeholder="顶层（不选）"
               options={flattenDepts(tree)
                 .filter((d) => d.id !== editing?.id)
-                .map((d) => ({ value: d.id, label: `${"　".repeat(d.depth)}${d.name}` }))}
+                .map((d) => ({ value: d.id, label: `${'　'.repeat(d.depth)}${d.name}` }))}
             />
+          </Form.Item>
+          <Form.Item name="roleIds" label="本组角色" extra="组内成员自动获得这些角色的权限；权限点请在「权限配置」里维护">
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="选择角色（可多选）"
+              optionFilterProp="label"
+              options={roles.map((r) => ({ value: r.id, label: r.name ?? r.code ?? r.id }))}
+            />
+          </Form.Item>
+          <Form.Item name="validity" label="有效期" extra="留空=永久有效；过期后组内成员无法登录">
+            <DatePicker.RangePicker style={{ width: '100%' }} allowEmpty={[true, true]} />
           </Form.Item>
         </Form>
       </Modal>

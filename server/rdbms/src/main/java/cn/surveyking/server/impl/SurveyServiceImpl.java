@@ -192,6 +192,8 @@ public class SurveyServiceImpl implements SurveyService {
 			// 直接根据答案加载出 schema
 			AnswerView answerView = getAnswerForProject(project.getId(), query.getAnswerId());
 			if (answerView != null) {
+				projectView.setAnswerId(answerView.getId());
+				projectView.setMetaInfo(answerView.getMetaInfo());
 				projectView.setAnswer(answerView.getAnswer());
 				if (answerView.getSurvey() != null) {
 					// 随机问题
@@ -215,6 +217,98 @@ public class SurveyServiceImpl implements SurveyService {
 		}
 		projectView.setIsAuthenticated(SecurityContextUtils.isAuthenticated());
 		return projectView;
+	}
+
+	/** 首屏只返回必要的大纲元数据，不返回任何题干、选项或题目属性。 */
+	@Override
+	public PublicProjectView loadProjectOutline(ProjectQuery query) {
+		return toOutlineView(loadProject(query));
+	}
+
+	@Override
+	public PublicProjectView validateProjectOutline(ProjectQuery query) {
+		return toOutlineView(validateProject(query));
+	}
+
+	private PublicProjectView toOutlineView(PublicProjectView view) {
+		// 登录表单本身不是考试题目，保留它以支持原有用户名/白名单交互。
+		if (view == null || view.getSurvey() == null || Boolean.TRUE.equals(view.getLoginRequired())) {
+			return view;
+		}
+		SurveySchema survey = view.getSurvey();
+		List<PublicQuestionOutline> outline = new ArrayList<>();
+		List<SurveySchema> questions = SchemaHelper.flatSurveySchema(survey);
+		int number = 0;
+		for (SurveySchema question : questions) {
+			PublicQuestionOutline item = new PublicQuestionOutline();
+			item.setId(question.getId());
+			item.setType(question.getType());
+			item.setNumber(++number);
+			item.setRequired(question.getAttribute() != null && Boolean.TRUE.equals(question.getAttribute().getRequired()));
+			outline.add(item);
+		}
+		view.setOutline(outline);
+		SurveySchema shell = new SurveySchema();
+		shell.setId(survey.getId());
+		shell.setTitle(survey.getTitle());
+		shell.setType(survey.getType());
+		shell.setAttribute(survey.getAttribute());
+		shell.setChildren(new ArrayList<SurveySchema>());
+		view.setSurvey(shell);
+		return view;
+	}
+
+	/**
+	 * 按题目 id 下发单题。先走与首屏相同的 loadProject 校验，确保 questionId 存在于当前项目或
+	 * 当前答卷的随机卷快照中；不会相信客户端给出的任意题目 id，也不使用无校验的 answerId 查询。
+	 */
+	@Override
+	public SurveySchema loadPublicQuestion(PublicQuestionRequest request) {
+		if (request == null || StringUtils.isBlank(request.getId()) || StringUtils.isBlank(request.getQuestionId())) {
+			throw new IllegalArgumentException("缺少问卷或题目标识");
+		}
+		ProjectQuery query = new ProjectQuery();
+		query.setId(request.getId());
+		query.setAnswerId(request.getAnswerId());
+		PublicProjectView view = loadProject(query);
+		if (view.getSurvey() == null) {
+			throw new AccessDeniedException("当前问卷尚未完成访问验证");
+		}
+		SurveySchema match = findSchemaNode(view.getSurvey(), request.getQuestionId());
+		if (match == null || !SchemaHelper.flatSurveySchema(view.getSurvey()).stream()
+				.anyMatch(question -> request.getQuestionId().equals(question.getId()))) {
+			throw new AccessDeniedException("题目不属于当前问卷");
+		}
+		SurveySchema question = match.deepCopy();
+		// 练习模式（选完即判）：下发标准答案与解析给前端即时判题；分值仍然不下发。
+		// 其它模式一律剥离答案与解析，避免考前泄题。
+		boolean exerciseMode = view.getSetting() != null && view.getSetting().getExamSetting() != null
+				&& Boolean.TRUE.equals(view.getSetting().getExamSetting().getExerciseMode());
+		if (exerciseMode) {
+			SchemaHelper.ignoreAttributes(question, "examScore", "examMatchRule");
+		}
+		else {
+			SchemaHelper.ignoreAttributes(question, "examCorrectAnswer", "examScore", "examMatchRule", "examAnalysis");
+		}
+		return question;
+	}
+
+	private SurveySchema findSchemaNode(SurveySchema root, String questionId) {
+		if (root == null) {
+			return null;
+		}
+		if (questionId.equals(root.getId())) {
+			return root;
+		}
+		if (root.getChildren() != null) {
+			for (SurveySchema child : root.getChildren()) {
+				SurveySchema match = findSchemaNode(child, questionId);
+				if (match != null) {
+					return match;
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -255,6 +349,8 @@ public class SurveyServiceImpl implements SurveyService {
 		String projectId = request.getProjectId();
 		PublicAnswerView result = new PublicAnswerView();
 		ProjectView project = projectService.getProject(projectId);
+		// 提交也要校验问卷状态/截止时间：此前只有 loadProject 挡，拿到 projectId 直接 POST 就能绕过
+		validateSubmittable(project, !isNotBlank(request.getId()));
 		SurveyWechatIdentity wechatIdentity = requireWechatAccess(project);
 		applyWechatIdentity(project, request, wechatIdentity);
 		String answerId = request.getId();
@@ -281,10 +377,18 @@ public class SurveyServiceImpl implements SurveyService {
 			}
 		}
 		else {
-			// 问卷允许修改答案 开关修改答案
-			AnswerView latestAnswer = validateAndGetLatestAnswer(project, request);
-			if (latestAnswer != null) {
-				answerId = latestAnswer.getId();
+			// 「再考一次」= 新一轮作答：跳过「取本用户最近一份再 updateById」的复用逻辑，直接新建一条答卷，
+			// 历史成绩保留；校验逻辑与原来一致（问卷是否可交、答案是否合法）。
+			if (Boolean.TRUE.equals(request.getFreshAttempt())) {
+				validateProject(project);
+				validateAnswer(project, request);
+			}
+			else {
+				// 问卷允许修改答案 开关修改答案
+				AnswerView latestAnswer = validateAndGetLatestAnswer(project, request);
+				if (latestAnswer != null) {
+					answerId = latestAnswer.getId();
+				}
 			}
 		}
 
@@ -297,10 +401,12 @@ public class SurveyServiceImpl implements SurveyService {
 				&& !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)) {
 			result.setExamScore(answerView.getExamScore());
 			result.setQuestionScore(answerView.getExamInfo().getQuestionScore());
-			// 计算错题
+			// 计算错题：带上本次答案与 schema，才能排除「未作答」并按考试维度归档
 			AnswerExamInfo answerExamInfo = answerView.getExamInfo();
 			LinkedHashMap<String, Double> questionScore = answerExamInfo.getQuestionScore();
-			userBookService.saveWrongQuestion(questionScore);
+			userBookService.saveWrongQuestion(questionScore, answerView.getAnswer(),
+					answerView.getSurvey() != null ? answerView.getSurvey() : project.getSurvey(), project.getId(),
+					null);
 		}
 		// 白名单更新答题信息
 		request.setId(answerView.getId());
@@ -312,6 +418,65 @@ public class SurveyServiceImpl implements SurveyService {
 			ContextHelper.getCurrentHttpResponse().addCookie(cookie);
 		}
 		return result;
+	}
+
+	/**
+	 * 切屏计数落库：累加到答卷 metaInfo.switchScreenTimes。
+	 * 优先用前端传的 answerId（校验问卷归属）；没有答卷 id 时退回「本用户在这份问卷上最近一条记录」，
+	 * 这样刷新页面后还能从 projectOutline 的 metaInfo 恢复计数。匿名且没有 answerId 时返回 0。
+	 */
+	@Override
+	public Integer recordSwitchScreen(PublicSwitchScreenRequest request) {
+		if (request == null || isBlank(request.getProjectId())) {
+			throw new IllegalArgumentException("缺少问卷标识");
+		}
+		ProjectView project = projectService.getProject(request.getProjectId());
+		if (project == null) {
+			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
+		}
+		Answer answer = null;
+		if (isNotBlank(request.getAnswerId())) {
+			answer = answerService.getById(request.getAnswerId());
+			if (answer == null || !Objects.equals(request.getProjectId(), answer.getProjectId())) {
+				throw new AccessDeniedException("无权限访问该答案");
+			}
+		}
+		else if (SecurityContextUtils.getUserId() != null) {
+			answer = answerService.getOne(Wrappers.<Answer>lambdaQuery()
+					.eq(Answer::getProjectId, request.getProjectId())
+					.eq(Answer::getCreateBy, SecurityContextUtils.getUserId()).orderByDesc(Answer::getCreateAt)
+					.last("limit 1"));
+		}
+		if (answer == null) {
+			return 0;
+		}
+		AnswerMetaInfo metaInfo = answer.getMetaInfo() == null ? new AnswerMetaInfo() : answer.getMetaInfo();
+		int times = metaInfo.getSwitchScreenTimes() == null ? 0 : metaInfo.getSwitchScreenTimes();
+		times += 1;
+		metaInfo.setSwitchScreenTimes(times);
+		answer.setMetaInfo(metaInfo);
+		answerService.updateById(answer);
+		return times;
+	}
+
+	/** 当前登录用户在这份试卷/问卷上的历次已提交答卷（按时间倒序），供「再考一次」的成绩列表使用 */
+	@Override
+	public List<PublicAttemptView> listPublicAttempts(PublicAttemptRequest request) {
+		String userId = SecurityContextUtils.getUserId();
+		if (request == null || isBlank(request.getProjectId()) || isBlank(userId)) {
+			return Collections.emptyList();
+		}
+		return answerService
+				.list(Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, request.getProjectId())
+						.eq(Answer::getCreateBy, userId).eq(Answer::getTempSave, 1).isNotNull(Answer::getAnswer)
+						.orderByDesc(Answer::getCreateAt))
+				.stream().map(answer -> {
+					PublicAttemptView view = new PublicAttemptView();
+					view.setAnswerId(answer.getId());
+					view.setExamScore(answer.getExamScore());
+					view.setCreateAt(answer.getCreateAt() == null ? null : answer.getCreateAt().getTime());
+					return view;
+				}).collect(Collectors.toList());
 	}
 
 	/**
@@ -615,6 +780,40 @@ public class SurveyServiceImpl implements SurveyService {
 	}
 
 	/**
+	 * 提交阶段的校验：只做「还能不能交」相关的判断，不做登录/cookie/ip 限次
+	 * （那些是"能不能开始答"的约束，修改已有答卷时不该再拦一次）。
+	 *
+	 * @param project 项目
+	 * @param isNewAnswer true=新建答卷，才校验回收上限；false=修改已有答卷
+	 */
+	private void validateSubmittable(ProjectView project, boolean isNewAnswer) {
+		if (project == null) {
+			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
+		}
+		ProjectSetting setting = project.getSetting();
+		if (setting == null || setting.getAnswerSetting() == null) {
+			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
+		}
+		if (setting.getStatus() != null && setting.getStatus() == 0) {
+			throw new ErrorCodeException(ErrorCode.SurveySuspend);
+		}
+		Long endTime = setting.getAnswerSetting().getEndTime();
+		if (endTime != null && System.currentTimeMillis() > endTime) {
+			throw new ErrorCodeException(ErrorCode.ExceededEndTime);
+		}
+		if (isNewAnswer) {
+			Long maxAnswers = setting.getAnswerSetting().getMaxAnswers();
+			if (maxAnswers != null) {
+				AnswerQuery answerQuery = new AnswerQuery();
+				answerQuery.setProjectId(project.getId());
+				if (answerService.count(answerQuery) >= maxAnswers) {
+					throw new ErrorCodeException(ErrorCode.ExceededMaxAnswers);
+				}
+			}
+		}
+	}
+
+	/**
 	 * 根据问卷设置校验问卷
 	 * @param project
 	 * @return
@@ -812,7 +1011,14 @@ public class SurveyServiceImpl implements SurveyService {
 		}
 		// 通过白名单或者答卷人来获取最近一次的答卷记录
 		if (SecurityContextUtils.isAuthenticated() || answerQuery.getCreateBy() != null) {
-			return Optional.ofNullable(answerService.getAnswer(answerQuery)).map(x -> x.getAnswer()).orElse(null);
+			AnswerView latest = answerService.getAnswer(answerQuery);
+			if (latest == null) {
+				return null;
+			}
+			// 把这份答卷的 id / metaInfo 一并带给前端：刷新后恢复切屏计数，也能精确指向这份成绩
+			projectView.setAnswerId(latest.getId());
+			projectView.setMetaInfo(latest.getMetaInfo());
+			return latest.getAnswer();
 		}
 		return null;
 	}

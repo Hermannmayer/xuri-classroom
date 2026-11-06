@@ -269,6 +269,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 						.ge(query.getWrongTimesMin() != null, UserBook::getWrongTimes, query.getWrongTimesMin())
 						// 标记状态：1 已掌握 / 2 重点标记
 						.eq(query.getStatus() != null, UserBook::getStatus, query.getStatus())
+						// 来源考试：只看某一场考试产生的错题（不传则不限）
+						.eq(isNotBlank(query.getProjectId()), UserBook::getProjectId, query.getProjectId())
 						.eq(UserBook::getCreateBy, SecurityContextUtils.getUserId()));
 		PaginationResponse<UserBookView> result = new PaginationResponse<>(page.getTotal(),
 				userBookViewMapper.toView(page.getRecords()));

@@ -150,6 +150,8 @@ CREATE TABLE `t_dept` (
   `property_json` varchar(256) DEFAULT NULL COMMENT '扩展字段',
   `status` varchar(20) DEFAULT NULL COMMENT '扩展字段',
   `remark` varchar(256) DEFAULT NULL COMMENT '扩展字段',
+  `authority_mode` varchar(16) NOT NULL DEFAULT 'INHERIT' COMMENT '组权限模式：INHERIT/APPEND/OVERRIDE',
+  `authority` text DEFAULT NULL COMMENT '组权限串，逗号分隔',
   `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `create_by` varchar(256) DEFAULT NULL,
@@ -501,8 +503,10 @@ CREATE TABLE `t_user_book` (
   `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '来源考试ID（错题本按考试分开记）',
   `is_marked` tinyint DEFAULT NULL,
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_user_book_project` (`create_by`,`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='错题本';
 
 -- ----------------------------

@@ -17,6 +17,7 @@ import {
   bookListParams,
   bookNeedsClientFilter,
   bookRowMatches,
+  loadProjectOptions,
   type BookFilter,
   type UserBookView,
 } from './Book';
@@ -223,6 +224,32 @@ export default function BookPractice() {
   const [search] = useSearchParams();
   const searchKey = search.toString();
   const filter = useMemo(() => bookFilterFromParams(new URLSearchParams(searchKey)), [searchKey]);
+  /** scope=project 表示「只练本场考试的错题」，只在标题/标签上做区分，取数逻辑完全一致 */
+  const scope = search.get('scope') || 'filter';
+  const projectNameParam = search.get('projectName') || '';
+  const [projectNames, setProjectNames] = useState<Record<string, string>>({});
+
+  // 练习页可能被外部链接直接打开（只带 projectId），名字没带就查一次列表补上
+  useEffect(() => {
+    if (!filter.projectId || projectNameParam) return;
+    let alive = true;
+    void loadProjectOptions().then((list) => {
+      if (!alive) return;
+      const map: Record<string, string> = {};
+      for (const project of list) map[project.id] = project.name;
+      setProjectNames(map);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [filter.projectId, projectNameParam]);
+
+  const projectLabel = (id?: string) => {
+    if (!id) return '';
+    if (projectNames[id]) return projectNames[id];
+    if (projectNameParam) return projectNameParam;
+    return `考试 ${id.slice(0, 6)}`;
+  };
 
   const [items, setItems] = useState<Array<{ row: UserBookView; schema: SurveySchema }>>([]);
   const [skipped, setSkipped] = useState(0);
@@ -524,7 +551,12 @@ export default function BookPractice() {
     );
   }
 
-  const chips = filterChips(filter);
+  // 「来源考试」排在最前面：本场考试错题练习时一眼能看出练的是哪一场
+  const chips = [
+    ...(filter.projectId ? [`来源考试：${projectLabel(filter.projectId)}`] : []),
+    ...filterChips(filter),
+  ];
+  const scopeLabel = scope === 'project' ? '本场考试错题' : '错题本';
   const restoredNote = skipped > 0 ? `有 ${skipped} 道题读取失败或题型不支持，已跳过` : '';
   const truncatedNote = truncated > 0 ? `错题较多，本次只练前 ${MAX_QUESTIONS} 题（另有 ${truncated} 题未取）` : '';
 
@@ -557,7 +589,7 @@ export default function BookPractice() {
               flexWrap: 'wrap',
             }}
           >
-            <Tag color="orange">{phase === 'result' ? '练习结果' : '错题本'}</Tag>
+            <Tag color="orange">{phase === 'result' ? '练习结果' : scopeLabel}</Tag>
             {chips.length ? (
               chips.map((chip) => (
                 <span key={chip} style={{ border: '1px solid var(--bp-line-soft)', padding: '0 6px', lineHeight: '16px' }}>

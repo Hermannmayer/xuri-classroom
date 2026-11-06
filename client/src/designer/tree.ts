@@ -89,6 +89,19 @@ export interface OutlineItem {
   node: SurveySchema;
 }
 
+/**
+ * 大纲里应该出现哪些节点。
+ *
+ * - 数据题（DATA_TYPES）：是题目，进大纲
+ * - 题组（QuestionSet）：是容器，本身也要进大纲并展开子题，否则题组里的题在设计器里根本看不到
+ * - 其余（Option 选项、填空空位、Pagination 等结构节点）：不是题目，跳过
+ */
+function isOutlineNode(node: SurveySchema): boolean {
+  if (!node?.type) return false;
+  if (node.type === 'Option') return false;
+  return DATA_TYPES.has(node.type) || node.type === 'QuestionSet';
+}
+
 /** 大纲是扁平列表（带 parentId/depth），拖拽排序按同级数组重排；折叠的节点不下钻子项 */
 export function flattenOutline(
   root: SurveySchema,
@@ -98,8 +111,7 @@ export function flattenOutline(
 ): OutlineItem[] {
   const out: OutlineItem[] = [];
   for (const child of root.children ?? []) {
-    // 选项/填空空位节点不是题目，不进大纲
-    if (!DATA_TYPES.has(child.type)) continue;
+    if (!isOutlineNode(child)) continue;
     out.push({ id: child.id, parentId, depth, node: child });
     if (collapsed?.has(child.id)) continue;
     out.push(...flattenOutline(child, collapsed, child.id, depth + 1));

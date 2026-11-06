@@ -14,6 +14,7 @@ import SurveyReport from './pages/survey/Report';
 import SystemUser from './pages/system/User';
 import SystemGroup from './pages/system/Group';
 import SystemSetting from './pages/system/Setting';
+import SystemPermissions from './pages/system/Permissions';
 import AccountSettings from './pages/account/Settings';
 import RepoList from './pages/repo/List';
 import RepoQuestions from './pages/repo/Questions';
@@ -64,6 +65,8 @@ export const router = createBrowserRouter([
       { path: 'system/user', element: guard('system:user:list', <SystemUser />) },
       { path: 'system/group', element: guard('system:dept:list', <SystemGroup />) },
       { path: 'system/setting', element: guard('system:role:list', <SystemSetting />) },
+      // 权限目录与角色矩阵：按任务要求用 system:user:update 守卫
+      { path: 'system/permissions', element: guard('system:role:list', <SystemPermissions />) },
     ],
   },
   // 公开答题侧不需要登录与侧栏

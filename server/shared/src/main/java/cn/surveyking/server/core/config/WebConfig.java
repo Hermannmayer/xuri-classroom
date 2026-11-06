@@ -34,27 +34,7 @@ public class WebConfig implements WebMvcConfigurer {
 		converters.add(0, new MappingJackson2HttpMessageConverter(objectMapper));
 	}
 
-	@Value("classpath:/static/index.html")
-	private Resource indexHtml;
-
-	// 匹配类型的静态资源都会被 ResourceHandler 来处理
-	public static final String[] STATIC_RESOURCES = { "/**/*.css", "/**/*.js", "/**/*.jpg", "/**/*.png", "/**/*.svg", "/**/*.webp", // 图片
-			"/**/*.eot", "/**/*.ttf", "/**/*.woff", "/**/favicon.ico" };
-
-	@Override
-	public void addResourceHandlers(ResourceHandlerRegistry registry) {
-		registry.setOrder(-1) // 设置静态资源映射优先级高于下面配置的 @GetMapping
-				.addResourceHandler(STATIC_RESOURCES).addResourceLocations("classpath:/static/")
-				.setCachePeriod(3600 * 24);
-	}
-
-	/**
-	 * SPA 入口：直接写响应流，避免 Resource 被 Jackson 序列化
-	 */
-	@GetMapping
-	public void index(HttpServletResponse response) throws IOException {
-		response.setContentType("text/html;charset=UTF-8");
-		StreamUtils.copy(indexHtml.getInputStream(), response.getOutputStream());
-	}
+	// 前端由独立的 nginx / vite 提供，jar 内不再包含 SPA 静态资源，
+	// 因此这里不再注册 index.html 入口与 classpath:/static/ 资源映射。
 
 }

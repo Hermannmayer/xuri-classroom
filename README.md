@@ -95,6 +95,11 @@ npm run dev
 > 生产态（Docker）容器内 nginx 仍监听 80，但**宿主机默认发布到 9527**（四位数，避开服务器上常见的 80/8080/3000），
 > 改 `.env` 的 `APP_PORT` 即可。后端任何情况下都不对外暴露。
 > 后端换端口时改 `scripts/dev/start-backend.ps1 -Port`，并让 `VITE_API_TARGET` 指过去。
+>
+> Docker 首次部署前，必须在 `.env` 中设置 `SK_CRYPTO_KEY`（Base64 编码的 32 字节随机密钥）。
+> 可运行 `scripts/dev/add-dept-authority.sql` 为已有数据库增加组权限列；新库已包含该结构。
+> 启动后以管理员登录，调用 `GET /api/system/crypto/status` 检查 `templatesPlain/projectsPlain/answerSnapshotsPlain`，
+> 并通过 `POST /api/system/crypto/migrate` 加密所有历史题目、项目 schema 和答卷随机卷快照。**密钥丢失会导致数据无法解密，必须离线备份，不能提交到 Git。**
 
 ## 目录结构
 

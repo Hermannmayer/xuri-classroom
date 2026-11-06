@@ -25,7 +25,7 @@ import {
   StarOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
 import { pager, TABLE_COMPONENTS } from './table';
 
@@ -40,6 +40,8 @@ export interface UserBookView {
   note?: string;
   status?: number;
   type?: number;
+  /** 来源考试 id（题库练习 / 历史数据为空） */
+  projectId?: string;
   createAt?: string;
   /** 后端只在记录被更新时刷新，近似「最近一次错误时间」 */
   updateAt?: string;
@@ -70,6 +72,8 @@ export interface BookFilter {
   endDate?: string;
   /** 姓名以外的笔记内容过滤：后端 UserBookQuery 还没有 note 字段，只能前端过滤 */
   note?: string;
+  /** 来源考试 id：只看某一场考试产生的错题（后端 UserBookQuery.projectId） */
+  projectId?: string;
 }
 
 /** 列表接口参数（未设置的项交给 request 的 qs 丢弃） */
@@ -81,22 +85,30 @@ export function bookListParams(filter: BookFilter): Record<string, unknown> {
     endDate: filter.endDate,
     wrongTimesMin: filter.wrongTimesMin,
     status: filter.status,
+    projectId: filter.projectId || undefined,
   };
 }
 
 /**
- * wrongTimesMin / status / note 三个条件是「新加的」，
+ * 这几个条件是「新加的」：wrongTimesMin / status / projectId / note。
  * 后端可能还没上线（Query DTO 里没有字段时 Spring 会静默忽略），
  * 所以只要用到它们就改成拉全量再前端过滤，两种后端都能得到正确结果。
+ * 错题本量级是「个人错题」，拉全量可以接受。
  */
 export function bookNeedsClientFilter(filter: BookFilter): boolean {
-  return filter.wrongTimesMin != null || filter.status != null || Boolean(filter.note);
+  return (
+    filter.wrongTimesMin != null ||
+    filter.status != null ||
+    Boolean(filter.note) ||
+    Boolean(filter.projectId)
+  );
 }
 
-/** 前端兜底过滤：与后端 SQL 的 ge(wrongTimes) / eq(status) / like(note) 语义一致 */
+/** 前端兜底过滤：与后端 SQL 的 ge(wrongTimes) / eq(status) / eq(projectId) / like(note) 语义一致 */
 export function bookRowMatches(row: UserBookView, filter: BookFilter): boolean {
   if (filter.wrongTimesMin != null && (row.wrongTimes ?? 0) < filter.wrongTimesMin) return false;
   if (filter.status != null && (row.status ?? 0) !== filter.status) return false;
+  if (filter.projectId && (row.projectId ?? '') !== filter.projectId) return false;
   const needle = filter.note?.trim().toLowerCase();
   if (needle && !(row.note ?? '').toLowerCase().includes(needle)) return false;
   return true;
@@ -118,11 +130,15 @@ export function bookFilterFromParams(params: URLSearchParams): BookFilter {
     note: params.get('note') || undefined,
     startDate: params.get('startDate') || undefined,
     endDate: params.get('endDate') || undefined,
+    projectId: params.get('projectId') || undefined,
   };
 }
 
-/** 筛选条件 → 练习页查询串；scope=all 表示不带上筛选，整本错题都练 */
-export function bookQueryString(filter: BookFilter, scope: 'filter' | 'all' = 'filter'): string {
+/**
+ * 筛选条件 → 练习页查询串。
+ * scope=all 表示不带上筛选（整本错题都练）；scope=project 表示只练某一场考试的错题。
+ */
+export function bookQueryString(filter: BookFilter, scope: 'filter' | 'all' | 'project' = 'filter'): string {
   const params = new URLSearchParams();
   params.set('scope', scope);
   if (scope === 'all') return params.toString();
@@ -133,7 +149,33 @@ export function bookQueryString(filter: BookFilter, scope: 'filter' | 'all' = 'f
   if (filter.note) params.set('note', filter.note);
   if (filter.startDate) params.set('startDate', filter.startDate);
   if (filter.endDate) params.set('endDate', filter.endDate);
+  if (filter.projectId) params.set('projectId', filter.projectId);
   return params.toString();
+}
+
+/**
+ * 学员可见的考试列表（错题本的「来源考试」筛选与列展示都要用）。
+ * 后端 UserBookView 只带 projectId 不带名字（避免为展示再给 RepoServiceImpl 加依赖），
+ * 这里用学员本来就能访问的 /api/project/list 建一份映射；拿不到就退化显示 id 前缀。
+ */
+export interface ProjectOption {
+  id: string;
+  name: string;
+  mode?: string;
+}
+
+export async function loadProjectOptions(): Promise<ProjectOption[]> {
+  try {
+    const res = await getWithPagination<{ id: string; name?: string; mode?: string }>('/api/project/list', {
+      current: 1,
+      pageSize: 200,
+    });
+    return res.data
+      .filter((project) => Boolean(project.name))
+      .map((project) => ({ id: project.id, name: project.name as string, mode: project.mode }));
+  } catch {
+    return [];
+  }
 }
 
 type TypeFilter = 'all' | 'wrong' | 'favorite';
@@ -169,6 +211,37 @@ export default function RepoBook() {
   const [nameKeyword, setNameKeyword] = useState('');
   const [noteKeyword, setNoteKeyword] = useState('');
 
+  // 来源考试：可以由外部链接带进来（?projectId=xxx&projectName=xxx，例如交卷页的「练本场错题」）
+  const [searchParams] = useSearchParams();
+  const projectParam = searchParams.get('projectId') || '';
+  const nameParam = searchParams.get('projectName') || '';
+  const [projectId, setProjectId] = useState<string | undefined>(projectParam || undefined);
+  const [projectName, setProjectName] = useState<string | undefined>(nameParam || undefined);
+  /** 学员可见的考试（来源考试筛选的下拉项 + 名称展示） */
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const projectNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const project of projects) map[project.id] = project.name;
+    return map;
+  }, [projects]);
+
+  // 同一路由内换 projectId（SPA 跳转）时同步，别停留在上一场的筛选上
+  useEffect(() => {
+    setProjectId(projectParam || undefined);
+    setProjectName(nameParam || undefined);
+  }, [projectParam, nameParam]);
+
+  // 「来源考试」下拉与列展示要考试名；拿不到就退化显示 id 前缀
+  useEffect(() => {
+    let alive = true;
+    void loadProjectOptions().then((list) => {
+      if (alive && list.length) setProjects(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // 多选
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
 
@@ -191,9 +264,10 @@ export default function RepoBook() {
       status: focusOnly ? BOOK_STATUS_FOCUS : undefined,
       name: nameKeyword.trim() || undefined,
       note: noteKeyword.trim() || undefined,
+      projectId,
       ...(custom ?? presetRange(rangePreset)),
     };
-  }, [typeFilter, timesMin, focusOnly, nameKeyword, noteKeyword, rangePreset, customRange]);
+  }, [typeFilter, timesMin, focusOnly, nameKeyword, noteKeyword, rangePreset, customRange, projectId]);
 
   // 改筛选会先按旧页码发一次请求、再按第 1 页发一次；用序号丢弃过期响应，避免旧数据盖掉新数据
   const requestSeq = useRef(0);
@@ -325,9 +399,30 @@ export default function RepoBook() {
     }
   };
 
-  const startPractice = (scope: 'filter' | 'all') => navigate(`/repo/book/practice?${bookQueryString(filter, scope)}`);
+  const startPractice = (scope: 'filter' | 'all') => {
+    // 只看某一场考试时用 scope=project，练习页据此显示「本场考试错题」
+    const practiceScope = scope === 'all' ? 'all' : projectId ? 'project' : 'filter';
+    const query = bookQueryString(filter, practiceScope);
+    // 带上考试名，练习页顶部就能直接显示「来源考试：xxx」，不必再查一次
+    const extra =
+      practiceScope !== 'all' && projectId && projectName ? `&projectName=${encodeURIComponent(projectName)}` : '';
+    navigate(`/repo/book/practice?${query}${extra}`);
+  };
   const practiceOne = (row: UserBookView) =>
     navigate(`/repo/book/practice?scope=filter&ids=${encodeURIComponent(row.id)}`);
+
+  /** 来源考试显示名：考试名 → id 前缀；历史/题库练习产生的错题显示「题库/历史」 */
+  const projectLabel = (id?: string) => {
+    if (!id) return '题库/历史';
+    if (projectNames[id]) return projectNames[id];
+    if (projectName && id === projectId) return projectName;
+    return `考试 ${id.slice(0, 6)}`;
+  };
+
+  const clearProject = () => {
+    setProjectId(undefined);
+    setProjectName(undefined);
+  };
 
   const hasFilter = Boolean(
     filter.type != null ||
@@ -336,7 +431,8 @@ export default function RepoBook() {
       filter.name ||
       filter.note ||
       filter.startDate ||
-      filter.endDate,
+      filter.endDate ||
+      filter.projectId,
   );
 
   const isFocus = (row: UserBookView) => (row.status ?? 0) === BOOK_STATUS_FOCUS;
@@ -366,6 +462,7 @@ export default function RepoBook() {
           </h2>
           <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
             练习时做错的题会收进这里；可以直接开练，也可以标重点、写笔记。
+            {projectId ? '当前只看某一场考试的错题。' : ''}
           </div>
         </div>
         <Space size={8} wrap>
@@ -375,7 +472,7 @@ export default function RepoBook() {
             disabled={loading || total === 0}
             onClick={() => startPractice('filter')}
           >
-            继续练习
+            {projectId ? '练本场错题' : '继续练习'}
           </Button>
           <Button icon={<PlayCircleOutlined />} disabled={loading} onClick={() => startPractice('all')}>
             全部练习
@@ -404,6 +501,23 @@ export default function RepoBook() {
             { label: '全部', value: 'all' },
             { label: '错题', value: 'wrong' },
             { label: '收藏', value: 'favorite' },
+          ]}
+        />
+        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>来源考试</span>
+        <Select<string>
+          value={projectId || ''}
+          style={{ width: 176 }}
+          showSearch
+          optionFilterProp="label"
+          onChange={(value) => {
+            setProjectId(value || undefined);
+            setProjectName(undefined);
+          }}
+          options={[
+            { label: '全部', value: '' },
+            ...projects
+              .filter((project) => project.mode !== 'survey')
+              .map((project) => ({ label: project.name, value: project.id })),
           ]}
         />
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>错误次数</span>
@@ -492,6 +606,23 @@ export default function RepoBook() {
         }}
       >
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 条记录</span>
+        {projectId && (
+          <span
+            style={{
+              fontSize: 11,
+              color: 'var(--bp-orange)',
+              border: '1px solid var(--bp-orange-line)',
+              padding: '0 6px',
+              lineHeight: '18px',
+            }}
+            title={projectId}
+          >
+            来源考试：{projectLabel(projectId)}
+            <a style={{ marginLeft: 8 }} onClick={clearProject}>
+              清除
+            </a>
+          </span>
+        )}
         <div style={{ flex: 1, minWidth: 12 }} />
         <Input.Search
           allowClear
@@ -565,6 +696,8 @@ export default function RepoBook() {
                 </a>
                 <span style={{ fontSize: 10, color: 'var(--bp-text-soft)', letterSpacing: '0.08em' }}>
                   {row.type === BOOK_TYPE_FAVORITE ? '收藏' : '错题'}
+                  {' · 来源：'}
+                  <span title={row.projectId || ''}>{projectLabel(row.projectId)}</span>
                 </span>
               </div>
             ),

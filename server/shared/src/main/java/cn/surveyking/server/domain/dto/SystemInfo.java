@@ -133,6 +133,12 @@ public class SystemInfo {
 		 */
 		private String collaboratorAuthority;
 
+		/**
+		 * 题库字段加密开关。默认 false（明文存储）。
+		 * 打开时必须先在系统设置里下载并备份密钥，否则数据无法恢复。
+		 */
+		private Boolean fieldEncryptionEnabled;
+
 	}
 
 	@Data
