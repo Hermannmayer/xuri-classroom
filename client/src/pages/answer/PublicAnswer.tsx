@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
 import { ArrowLeftOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -243,6 +243,16 @@ export default function PublicAnswer() {
   const [clock, setClock] = useState(() => Date.now());
   /** 触发规则锁定（切屏超限自动交卷）后禁止继续作答 */
   const [examLocked, setExamLocked] = useState(false);
+  /** 闯关模式：本题剩余毫秒（顶部倒计时） */
+  const [passRemainMs, setPassRemainMs] = useState(0);
+  /** 闯关模式：每题用时（秒），questionId → seconds；交卷时随 metaInfo 上报，由服务端裁决 */
+  const passTimesRef = useRef<Record<string, number>>({});
+  /** 闯关模式：被判超时的题目 id（交卷时上报） */
+  const passTimeoutsRef = useRef<string[]>([]);
+  /** 闯关模式：当前题截止时刻（毫秒时间戳） */
+  const passDeadlineRef = useRef(0);
+  /** 闯关模式：当前题是否已结算（答题完成/超时），避免重复推进 */
+  const passSettledRef = useRef<string | null>(null);
   /** 练习模式：哪些题已经失焦过（填空类只在失焦后才判，避免打字过程中一路飘红） */
   const [practiceTouched, setPracticeTouched] = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
@@ -298,6 +308,10 @@ export default function PublicAnswer() {
     setQuestionLoading({});
     setQuestionErrors({});
     setPracticeTouched({});
+    // 闯关模式：新一轮的清零，避免把上一轮的用时/超时带到本次
+    passTimesRef.current = {};
+    passTimeoutsRef.current = [];
+    passSettledRef.current = null;
     try {
       if (freshAttempt) {
         // 「再考一次」：本地凭证与草稿都属于上一轮，先清掉，别把旧 answerId 发给后端
@@ -431,12 +445,16 @@ export default function PublicAnswer() {
     }
   };
 
-  const onePage = Boolean(project?.setting?.answerSetting?.onePageOneQuestion);
+  /** 练习模式：选完即判（后端在该模式下会下发 examCorrectAnswer / examAnalysis） */
+  const exerciseMode = project?.setting?.examSetting?.exerciseMode === true;
   /** 这两项来自发布设置的「答题体验」，旧版是开关，默认都开 */
   const showProgress = project?.setting?.answerSetting?.progressBar !== false;
   const showSheet = project?.setting?.answerSetting?.answerSheetVisible !== false;
-  /** 练习模式：选完即判（后端在该模式下会下发 examCorrectAnswer / examAnalysis） */
-  const exerciseMode = project?.setting?.examSetting?.exerciseMode === true;
+  /** 闯关模式：每题限时 + 不可回头；超时由服务端在交卷时按每题用时裁决并计 0 分 */
+  const passMode = project?.setting?.examSetting?.passMode === true;
+  const passModePerSeconds = project?.setting?.examSetting?.passModePerSeconds;
+  /** 闯关模式天然是一页一题（只能看到当前题，也回不了头），这里强制按一页一题渲染 */
+  const onePage = Boolean(project?.setting?.answerSetting?.onePageOneQuestion) || passMode;
   /** 填空/简答类在失焦后才判题 */
   const markPracticeTouched = (qId: string) => {
     setPracticeTouched((prev) => (prev[qId] ? prev : { ...prev, [qId]: true }));
@@ -609,6 +627,14 @@ export default function PublicAnswer() {
         ...(project.survey ?? { id: project.id, title: project.name ?? '', type: 'Survey', attribute: {} }),
         children: submittedQuestions as SurveySchema[],
       };
+      // 闯关模式：交卷前补记当前题用时（手动交卷时还没走 finishPassQuestion）
+      if (passMode && currentQuestion && passModePerSeconds && passTimesRef.current[currentQuestion.id] === undefined) {
+        const left = Math.max(0, passDeadlineRef.current - Date.now());
+        passTimesRef.current[currentQuestion.id] = Math.max(
+          0,
+          Math.min(passModePerSeconds, Math.round((passModePerSeconds * 1000 - left) / 1000)),
+        );
+      }
       const res = await post<PublicAnswerView>('/api/public/saveAnswer', {
         projectId: id,
         id: answerId,
@@ -616,6 +642,10 @@ export default function PublicAnswer() {
         survey: submissionSurvey,
         // 新一轮（再考一次）且还没有本轮答卷：要求后端新建记录，不要更新上一份
         freshAttempt: freshAttempt && !answerId,
+        // 闯关模式：每题用时 + 超时清单，交卷时由服务端裁决超时题（计 0 分）
+        metaInfo: passMode
+          ? { passModeTimes: passTimesRef.current, passModeTimeouts: passTimeoutsRef.current }
+          : undefined,
       });
       if (res?.answerId) {
         setAnswerId(res.answerId);
@@ -659,9 +689,6 @@ export default function PublicAnswer() {
   const minSubmitMinutes = project?.setting?.examSetting?.minSubmitMinutes;
   /** 允许的切屏次数上限（仅用于顶部展示，触发逻辑在下面的 effect 里） */
   const switchLimit = project?.setting?.examSetting?.maxSwitchScreenTimes;
-  /** 闯关模式：后端未实现，前端只做说明文案 */
-  const passMode = project?.setting?.examSetting?.passMode === true;
-  const passModePerSeconds = project?.setting?.examSetting?.passModePerSeconds;
   const minWaitLeft = () => {
     if (!minSubmitMinutes || !startedAt) return 0;
     return Math.max(0, startedAt + minSubmitMinutes * 60_000 - Date.now());
@@ -822,10 +849,89 @@ export default function PublicAnswer() {
   };
 
   const jumpTo = (index: number) => {
+    // 闯关模式：只能停在当前题，不许跳题/回头（避免绕开每题限时）
+    if (passMode && index !== currentIndex) return;
     setPage(index);
     setSheetOpen(false);
     contentRef.current?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /**
+   * 闯关模式：结算当前题（答完 / 超时）→ 记录用时 → 前进；已经是最后一题则自动交卷。
+   * 每道题只结算一次（passSettledRef），避免「答题自动前进」和「到点超时」打架。
+   */
+  const finishPassQuestion = (timedOut: boolean) => {
+    if (!passMode || !currentQuestion) return;
+    const questionId = currentQuestion.id;
+    if (passSettledRef.current === questionId) return;
+    passSettledRef.current = questionId;
+    const limit = passModePerSeconds ?? 0;
+    const left = Math.max(0, passDeadlineRef.current - Date.now());
+    // 答完的题按实际用时（向下取整，最大 limit-1）；超时题直接记满限时
+    const spent =
+      timedOut || !limit
+        ? limit
+        : Math.max(0, Math.min(limit - 1, Math.floor((limit * 1000 - left) / 1000)));
+    if (limit > 0) passTimesRef.current[questionId] = spent;
+    if (timedOut) {
+      passTimeoutsRef.current = [...passTimeoutsRef.current, questionId];
+      message.warning(
+        currentIndex >= total - 1 ? '本题作答时间到，已自动交卷' : '本题作答时间到，已锁定并跳到下一题',
+      );
+    }
+    if (currentIndex >= total - 1) {
+      // 最后一题：答完或超时都自动交卷（闯关模式没有「再检查一下」这一步）
+      void doSubmitRef.current('auto');
+      return;
+    }
+    setPage(currentIndex + 1);
+    setSheetOpen(false);
+    contentRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /** 闯关模式：给当前题开本题倒计时，到点自动结算并进入下一题 */
+  useEffect(() => {
+    if (!passMode || !passModePerSeconds || !currentQuestion) return;
+    const limitMs = passModePerSeconds * 1000;
+    passDeadlineRef.current = Date.now() + limitMs;
+    passSettledRef.current = null;
+    setPassRemainMs(limitMs);
+    const timer = window.setInterval(() => {
+      const left = passDeadlineRef.current - Date.now();
+      setPassRemainMs(Math.max(0, left));
+      if (left <= 0) {
+        window.clearInterval(timer);
+        finishPassQuestion(true);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passMode, passModePerSeconds, currentQuestion?.id]);
+
+  /**
+   * 答题写入。闯关模式下单选/判断/下拉选完即代表这题完成：记时并自动进下一题；
+   * 多选/矩阵/填空交给用户点「下一题」，避免选到一半就被推进下一题。
+   */
+  const handleChange = (qId: string, v: AnswerValue) => {
+    setValues((prev) => ({ ...prev, [qId]: v }));
+    if (!passMode) return;
+    const type = currentQuestion?.type;
+    const singleChoice = type === 'Radio' || type === 'Judge' || type === 'Select';
+    if (qId === currentQuestion?.id && singleChoice && !isEmptyAnswer(v)) {
+      window.setTimeout(() => finishPassQuestion(false), 350);
+    }
+  };
+
+  /** 闯关模式：填空题失焦时，最后一题也自动交卷（非最后一题等用户点「下一题」） */
+  const handlePassBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!passMode || !currentQuestion) return;
+    const target = event.target as HTMLElement | null;
+    const qid = target?.closest('[data-qid]')?.getAttribute('data-qid');
+    if (qid !== currentQuestion.id || currentIndex < total - 1) return;
+    if (isEmptyAnswer(values[currentQuestion.id])) return;
+    finishPassQuestion(false);
   };
 
   const Sheet = (
@@ -840,7 +946,13 @@ export default function PublicAnswer() {
           .filter(Boolean)
           .join(' ');
         return (
-          <button key={q.id} className={cls} onClick={() => jumpTo(i)} title={q.title}>
+          <button
+            key={q.id}
+            className={cls}
+            onClick={() => jumpTo(i)}
+            disabled={passMode && i !== currentIndex}
+            title={passMode && i !== currentIndex ? `${q.title}（闯关模式不能跳题）` : q.title}
+          >
             {i + 1}
             {marks[q.id] && <span className="sk-sheet-mark" aria-hidden="true" />}
           </button>
@@ -1048,6 +1160,23 @@ export default function PublicAnswer() {
             })()}
           </span>
         )}
+        {passMode && passModePerSeconds ? (
+          <span
+            title="本题剩余作答时间（到点自动锁题并进入下一题）"
+            style={{
+              fontSize: 13,
+              fontVariantNumeric: 'tabular-nums',
+              color: passRemainMs <= 10_000 ? 'var(--bp-orange)' : 'var(--bp-text-soft)',
+              letterSpacing: '0.05em',
+            }}
+          >
+            本题{' '}
+            {(() => {
+              const total = Math.max(0, Math.ceil(passRemainMs / 1000));
+              return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+            })()}
+          </span>
+        ) : null}
         <div className="sk-font-ctl">
           <Button size="small" className="sk-font-btn" onClick={() => bumpFont(-0.15)}>
             A-
@@ -1087,7 +1216,7 @@ export default function PublicAnswer() {
         </div>
       )}
 
-      {/* 闯关模式：后端尚未实现，这里只写说明，避免误以为已经生效 */}
+      {/* 闯关模式：每题限时、不可回头；超时题交卷时由服务端计 0 分 */}
       {passMode && (
         <div style={{ maxWidth: 1080, margin: '12px auto 0', padding: '0 16px' }}>
           <div
@@ -1101,7 +1230,7 @@ export default function PublicAnswer() {
             }}
           >
             闯关模式：每题限时{passModePerSeconds ? ` ${passModePerSeconds} 秒` : ''}
-            （该功能后端尚未完全生效，仅作提示）
+            ，到点自动锁题并进入下一题；超时题交卷时按 0 分计，已答过的题不能回头修改。
           </div>
         </div>
       )}
@@ -1194,7 +1323,7 @@ export default function PublicAnswer() {
                         children: [schema],
                       }}
                       values={values}
-                      onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+                      onChange={handleChange}
                       mode="answer"
                       displays={displays}
                       numberOffset={questionIndex < 0 ? index : questionIndex}
@@ -1210,14 +1339,16 @@ export default function PublicAnswer() {
             </QuestionMarkContext.Provider>
           ) : (
             <QuestionMarkContext.Provider value={onePage ? null : markApi}>
-              <SchemaRenderer
-                schema={schemaForCanvas}
-                values={values}
-                onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
-                mode="answer"
-                displays={displays}
-                numberOffset={onePage ? currentIndex : 0}
-              />
+              <div onBlur={passMode ? handlePassBlur : undefined}>
+                <SchemaRenderer
+                  schema={schemaForCanvas}
+                  values={values}
+                  onChange={handleChange}
+                  mode="answer"
+                  displays={displays}
+                  numberOffset={onePage ? currentIndex : 0}
+                />
+              </div>
             </QuestionMarkContext.Provider>
           )}
           {onePage && (
@@ -1231,7 +1362,12 @@ export default function PublicAnswer() {
                 borderTop: '1px dashed var(--bp-line)',
               }}
             >
-              <Button size="large" disabled={currentIndex <= 0} onClick={() => jumpTo(currentIndex - 1)}>
+              <Button
+                size="large"
+                disabled={passMode || currentIndex <= 0}
+                onClick={() => jumpTo(currentIndex - 1)}
+                title={passMode ? '闯关模式不能回头修改已答过的题' : undefined}
+              >
                 上一题
               </Button>
               {currentQuestion && (
@@ -1252,7 +1388,11 @@ export default function PublicAnswer() {
                   提交答卷
                 </Button>
               ) : (
-                <Button type="primary" size="large" onClick={() => jumpTo(currentIndex + 1)}>
+                <Button
+                  type="primary"
+                  size="large"
+                  onClick={() => (passMode ? finishPassQuestion(false) : jumpTo(currentIndex + 1))}
+                >
                   下一题
                 </Button>
               )}

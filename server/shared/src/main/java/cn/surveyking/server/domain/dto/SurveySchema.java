@@ -44,6 +44,11 @@ public class SurveySchema implements Serializable {
 	 */
 	private List<String> tags;
 
+	/**
+	 * 闯关模式下本题限时（秒）；非闯关模式为空。由 /api/public/question 下发，前端据此倒计时。
+	 */
+	private Integer timeLimitSeconds;
+
 	public enum QuestionType {
 
 		FillBlank, Textarea, MultipleBlank, Signature, Score, Radio, Checkbox, Select, Cascader, Upload, MatrixAuto,

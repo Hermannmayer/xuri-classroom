@@ -290,6 +290,11 @@ public class SurveyServiceImpl implements SurveyService {
 		else {
 			SchemaHelper.ignoreAttributes(question, "examCorrectAnswer", "examScore", "examMatchRule", "examAnalysis");
 		}
+		// 闯关模式：把「本题限时秒数」下发，前端据此倒计时；超时判分在交卷时由服务端裁决
+		if (view.getSetting() != null && view.getSetting().getExamSetting() != null
+				&& Boolean.TRUE.equals(view.getSetting().getExamSetting().getPassMode())) {
+			question.setTimeLimitSeconds(view.getSetting().getExamSetting().getPassModePerSeconds());
+		}
 		return question;
 	}
 
@@ -396,6 +401,8 @@ public class SurveyServiceImpl implements SurveyService {
 		request.setId(answerId);
 		AnswerView answerView = answerService.saveAnswer(request);
 		result.setAnswerId(answerView.getId());
+		// 闯关模式：服务端裁决超时题（计 0 分，并把每题用时/超时清单落到 metaInfo）
+		applyPassModePenalty(project, request, answerView);
 		// 考试模式，计算分值传给前端
 		if (ProjectModeEnum.exam.equals(project.getMode())
 				&& !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)) {
@@ -477,6 +484,67 @@ public class SurveyServiceImpl implements SurveyService {
 					view.setCreateAt(answer.getCreateAt() == null ? null : answer.getCreateAt().getTime());
 					return view;
 				}).collect(Collectors.toList());
+	}
+
+	/**
+	 * 闯关模式（passMode）超时裁决。
+	 *
+	 * 时间基准：逐题用时由前端计时（开始答题 → 答题/单题超时），随交卷放在
+	 * {@link AnswerMetaInfo#getPassModeTimes()} 上报；**裁决与判分在服务端**：只要某题用时
+	 * &gt;= passModePerSeconds（或前端明确标记了超时），就按超时处理。
+	 *
+	 * 判分口径：超时题在 examInfo.questionScore 里记 0 分，总分按各题分数重新求和；
+	 * 非考试模式没有分值体系，只记录耗时与超时清单，不影响答案本身。
+	 *
+	 * @param project 项目
+	 * @param request 提交请求（含前端上报的 metaInfo）
+	 * @param answerView 已保存的答卷视图（方法内就地修正分数）
+	 */
+	private void applyPassModePenalty(ProjectView project, AnswerRequest request, AnswerView answerView) {
+		ProjectSetting setting = project.getSetting();
+		ProjectSetting.ExamSetting examSetting = setting == null ? null : setting.getExamSetting();
+		AnswerMetaInfo metaInfo = request.getMetaInfo();
+		if (examSetting == null || !Boolean.TRUE.equals(examSetting.getPassMode()) || metaInfo == null
+				|| (CollectionUtils.isEmpty(metaInfo.getPassModeTimes())
+						&& CollectionUtils.isEmpty(metaInfo.getPassModeTimeouts()))) {
+			return;
+		}
+		Integer limit = examSetting.getPassModePerSeconds();
+		Set<String> timeouts = new LinkedHashSet<>();
+		if (metaInfo.getPassModeTimeouts() != null) {
+			timeouts.addAll(metaInfo.getPassModeTimeouts());
+		}
+		if (limit != null && limit > 0 && metaInfo.getPassModeTimes() != null) {
+			metaInfo.getPassModeTimes().forEach((questionId, spent) -> {
+				if (spent != null && spent >= limit) {
+					timeouts.add(questionId);
+				}
+			});
+		}
+		// 考试模式：超时题计 0 分，总分重新求和（答案本身保留，成绩单里仍能看到作答内容）
+		if (ProjectModeEnum.exam.equals(project.getMode()) && answerView.getExamInfo() != null) {
+			LinkedHashMap<String, Double> questionScore = answerView.getExamInfo().getQuestionScore();
+			if (questionScore != null) {
+				timeouts.forEach(questionId -> questionScore.put(questionId, 0.0D));
+				double total = questionScore.values().stream().filter(Objects::nonNull)
+						.mapToDouble(Double::doubleValue).sum();
+				answerView.setExamScore(total);
+			}
+		}
+		// 把耗时 / 超时清单落到答卷 metaInfo，便于成绩单与数据页追溯
+		Answer saved = answerService.getById(answerView.getId());
+		if (saved == null) {
+			return;
+		}
+		AnswerMetaInfo savedMeta = saved.getMetaInfo() == null ? new AnswerMetaInfo() : saved.getMetaInfo();
+		savedMeta.setPassModeTimes(metaInfo.getPassModeTimes());
+		savedMeta.setPassModeTimeouts(new ArrayList<>(timeouts));
+		saved.setMetaInfo(savedMeta);
+		if (ProjectModeEnum.exam.equals(project.getMode())) {
+			saved.setExamScore(answerView.getExamScore());
+			saved.setExamInfo(answerView.getExamInfo());
+		}
+		answerService.updateById(saved);
 	}
 
 	/**

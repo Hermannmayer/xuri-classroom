@@ -35,6 +35,12 @@ public class UserInfo implements UserDetails, Serializable {
 
 	private String deptName;
 
+	/** 附加组 id 列表（主组见 deptId）；用户最终所属组 = 主组 ∪ 附加组 */
+	private List<String> deptIds;
+
+	/** 附加组名称 */
+	private List<String> deptNames;
+
 	private String gender;
 
 	private String phone;

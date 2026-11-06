@@ -498,6 +498,30 @@ BEGIN;
 COMMIT;
 
 -- ----------------------------
+-- Table structure for t_user_dept（用户附加组，主组仍在 t_user.dept_id）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS t_user_dept (
+  id varchar(64) NOT NULL COMMENT 'ID',
+  user_id varchar(64) NOT NULL COMMENT '用户ID',
+  dept_id varchar(64) NOT NULL COMMENT '用户组ID（附加组）',
+  is_deleted tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除',
+  create_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  create_by varchar(256) DEFAULT NULL,
+  update_at timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  update_by varchar(256) DEFAULT NULL,
+  PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_dept ON t_user_dept (user_id, dept_id);
+CREATE INDEX IF NOT EXISTS idx_user_dept_user ON t_user_dept (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_dept_dept ON t_user_dept (dept_id);
+
+-- ----------------------------
+-- Records of t_user_dept
+-- ----------------------------
+BEGIN;
+COMMIT;
+
+-- ----------------------------
 -- Table structure for t_user_position
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS t_user_position (

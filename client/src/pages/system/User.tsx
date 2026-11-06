@@ -31,6 +31,9 @@ interface SysUser {
   status?: number;
   deptId?: string;
   deptName?: string;
+  /** 附加组：一人多组，主组仍用 deptId */
+  deptIds?: string[];
+  deptNames?: string[];
   roleNames?: string[];
   roles?: { id: string; name?: string; code?: string }[];
   createAt?: string;
@@ -100,6 +103,8 @@ export default function SystemUser() {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [form] = Form.useForm();
+  /** 主组不能同时出现在附加组里，选项里直接把它过滤掉 */
+  const mainDeptId = Form.useWatch<string | undefined>('deptId', form);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,6 +200,7 @@ export default function SystemUser() {
     form.setFieldsValue({
       name: row.name,
       deptId: row.deptId,
+      deptIds: row.deptIds ?? [],
       roles: (row.roles ?? []).map((r) => r.id),
       username: row.username,
       phone: row.phone,
@@ -385,6 +391,10 @@ export default function SystemUser() {
                     >
                       <span>账号：{row.username || '—'}</span>
                       <span>手机：{row.phone || '—'}</span>
+                      <span>
+                        组：{row.deptName || '—'}
+                        {row.deptNames?.length ? `（+${row.deptNames.length}）` : ''}
+                      </span>
                     </div>
 
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -449,7 +459,25 @@ export default function SystemUser() {
           columns={[
             { title: '姓名', dataIndex: 'name', width: 140, render: (v) => v || '—' },
             { title: '账号', dataIndex: 'username', width: 160 },
-            { title: '用户组', dataIndex: 'deptName', width: 140, render: (v) => v || '—' },
+            {
+              title: '用户组',
+              dataIndex: 'deptName',
+              width: 200,
+              render: (v: string | undefined, row) => (
+                <span>
+                  {v || '—'}
+                  {row.deptNames?.length ? (
+                    <Tag
+                      color="blue"
+                      style={{ marginLeft: 6 }}
+                      title={`附加组：${row.deptNames.join('、')}`}
+                    >
+                      +{row.deptNames.length} 组
+                    </Tag>
+                  ) : null}
+                </span>
+              ),
+            },
             { title: '手机', dataIndex: 'phone', width: 140, render: (v) => v || '—' },
             { title: '邮箱', dataIndex: 'email', render: (v) => v || '—' },
             {
@@ -511,11 +539,30 @@ export default function SystemUser() {
           >
             <Input.Password placeholder={editing ? '留空表示不修改' : '默认 12345678'} autoComplete="new-password" />
           </Form.Item>
-          <Form.Item name="deptId" label="用户组 / 班级" extra="决定能看到哪些题库和考试">
+          <Form.Item
+            name="deptId"
+            label="主组 / 班级"
+            extra="决定能看到哪些题库和考试（数据可见范围按主组算）"
+          >
             <Select
               allowClear
               placeholder="不选则不属于任何组"
               options={deptFlat.map((d) => ({ value: d.id, label: d.name || d.id }))}
+            />
+          </Form.Item>
+          <Form.Item
+            name="deptIds"
+            label="附加组"
+            extra="用于权限/角色继承与组有效期校验，可多选；主组不用再选一次"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="可多选（不选表示只有主组）"
+              optionFilterProp="label"
+              options={deptFlat
+                .filter((d) => d.id !== mainDeptId)
+                .map((d) => ({ value: d.id, label: d.name || d.id }))}
             />
           </Form.Item>
           <Form.Item name="roles" label="角色" extra="不分配角色等于没有后台权限；学员不需要分配">
