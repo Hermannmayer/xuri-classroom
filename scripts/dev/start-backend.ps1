@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $java = "$env:LOCALAPPDATA\jdk8\jdk8u504-b01\bin\java.exe"
-$jar = "$root\server\api\build\libs\surveyking-v1.13.0.jar"
+$jar = "$root\server\api\build\libs\xuri-classroom-v1.13.0.jar"
 $logDir = "$root\server"
 $outLog = "$logDir\backend.log"
 $errLog = "$logDir\backend.err.log"
