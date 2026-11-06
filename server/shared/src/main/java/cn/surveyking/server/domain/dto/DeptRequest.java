@@ -36,10 +36,4 @@ public class DeptRequest {
 	/** 该组绑定的角色 id 列表；用户组只挂角色，不直接挂权限串 */
 	private java.util.List<String> roleIds;
 
-	/** INHERIT / APPEND / OVERRIDE；省略时保留原值或默认 INHERIT */
-	private String authorityMode;
-
-	/** 逗号分隔的权限串 */
-	private String authority;
-
 }

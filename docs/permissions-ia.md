@@ -37,9 +37,9 @@
 | `t_user_role` | 用户→角色（已有） | `user_id`、`role_id` |
 | `t_repo_partner` / `t_project_partner` | 数据授权 | `user_id` 或 `dept_id` |
 
-**已下线**：`t_dept.authority` 与 `t_dept.authority_mode`（INHERIT/APPEND/OVERRIDE 那套组级权限覆盖）。
-字段保留在库里（`Dept` 实体上已标 `@Deprecated`）以免数据库迁移风险，但**不再参与任何权限计算**，
-确认无人写入后可以直接删列。
+**已删除**：`t_dept.authority` 与 `t_dept.authority_mode`（INHERIT/APPEND/OVERRIDE 那套组级权限覆盖）。
+列已由 `scripts/dev/drop-dept-authority.sql` 删除，`init-mysql.sql` / `init-h2.sql` 同步去掉了列定义，
+实体 / DTO / 前端字段一并清理。**权限 = 角色，组只负责「成员 + 有效期」**，`t_role.authority` 保留不动。
 
 ### 生效规则（唯一事实来源，已实现）
 
@@ -103,7 +103,7 @@
 | 2 | 用户管理页展示「主组 + 附加组」；建 `t_user_dept` | ✅ 已完成 |
 | 3 | 组有效期：字段 + 登录校验（遍历主组 + 附加组 + 祖先链） | ✅ 已完成 |
 | 4 | **组绑角色接入鉴权**：最终权限 = 直挂角色 ∪ 组链角色；下线 INHERIT/APPEND/OVERRIDE | ✅ 已完成（本轮） |
-| 5 | 删除 `t_dept.authority_mode` / `authority` 两个字段 | ⏳ 未做（字段已标 `@Deprecated`，确认无人写入后再删） |
+| 5 | 删除 `t_dept.authority_mode` / `authority` 两个字段 | ✅ 已完成（`scripts/dev/drop-dept-authority.sql` 幂等删除；init 脚本、实体、DTO、前端同步清理） |
 
 ## 6. 与现有实现的关系
 

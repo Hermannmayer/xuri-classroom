@@ -163,22 +163,29 @@ function practiceVerdict(schema: SurveySchema, value: AnswerValue): boolean | nu
   return null;
 }
 
-/** 练习模式：题下即时判题反馈（✓/✕ + 正确答案 + 解析），只读，不写 answer */
+/**
+ * 练习模式：题下即时判题反馈（✓/✕ + 正确答案 + 解析），只读，不写 answer。
+ * timedOut=true 时是「练习 × 闯关」组合下本题到点被锁定的展示：即使没作答也把正确答案与解析给出来。
+ */
 function PracticeFeedback({
   schema,
   value,
   touched,
+  timedOut = false,
 }: {
   schema: SurveySchema;
   value: AnswerValue;
   touched: boolean;
+  timedOut?: boolean;
 }) {
-  // 填空/简答类要等失焦再判，否则打字过程中一路飘红
-  if (!PRACTICE_CHOICE_TYPES.has(schema.type) && !touched) return null;
+  // 填空/简答类要等失焦再判，否则打字过程中一路飘红；超时锁定则直接展示
+  if (!timedOut && !PRACTICE_CHOICE_TYPES.has(schema.type) && !touched) return null;
   const verdict = practiceVerdict(schema, value);
-  if (verdict === null) return null;
+  if (verdict === null && !timedOut) return null;
   const correctText = practiceCorrectText(schema);
   const analysis = (schema.attribute?.examAnalysis ?? '').trim();
+  const ok = verdict === true;
+  const header = timedOut ? '✕ 本题超时（按 0 分计）' : ok ? '✓ 回答正确' : '✕ 回答错误';
   return (
     <div
       style={{
@@ -186,17 +193,15 @@ function PracticeFeedback({
         marginBottom: 4,
         padding: '8px 12px',
         border: '1px solid var(--bp-line-soft)',
-        borderLeft: `3px solid ${verdict ? 'var(--bp-blue)' : 'var(--bp-orange)'}`,
-        background: verdict ? 'var(--bp-blue-weak)' : 'var(--bp-orange-tint)',
+        borderLeft: `3px solid ${ok ? 'var(--bp-blue)' : 'var(--bp-orange)'}`,
+        background: ok ? 'var(--bp-blue-weak)' : 'var(--bp-orange-tint)',
         borderRadius: 0,
         fontSize: 13,
         lineHeight: 1.8,
       }}
     >
-      <div style={{ color: verdict ? 'var(--bp-blue)' : 'var(--bp-orange)', letterSpacing: '0.04em' }}>
-        {verdict ? '✓ 回答正确' : '✕ 回答错误'}
-      </div>
-      {!verdict && correctText && <div style={{ marginTop: 2 }}>正确答案：{correctText}</div>}
+      <div style={{ color: ok ? 'var(--bp-blue)' : 'var(--bp-orange)', letterSpacing: '0.04em' }}>{header}</div>
+      {!ok && correctText && <div style={{ marginTop: 2 }}>正确答案：{correctText}</div>}
       {analysis && <div style={{ marginTop: 2, fontSize: 12, color: 'var(--bp-text-soft)' }}>解析：{analysis}</div>}
     </div>
   );
@@ -245,6 +250,8 @@ export default function PublicAnswer() {
   const [examLocked, setExamLocked] = useState(false);
   /** 闯关模式：本题剩余毫秒（顶部倒计时） */
   const [passRemainMs, setPassRemainMs] = useState(0);
+  /** 练习 × 闯关组合：本题已超时并按 0 分锁定（先给判题/答案/解析 1.6s，再强制进入下一题） */
+  const [passLockedQuestion, setPassLockedQuestion] = useState<string | null>(null);
   /** 闯关模式：每题用时（秒），questionId → seconds；交卷时随 metaInfo 上报，由服务端裁决 */
   const passTimesRef = useRef<Record<string, number>>({});
   /** 闯关模式：被判超时的题目 id（交卷时上报） */
@@ -253,6 +260,11 @@ export default function PublicAnswer() {
   const passDeadlineRef = useRef(0);
   /** 闯关模式：当前题是否已结算（答题完成/超时），避免重复推进 */
   const passSettledRef = useRef<string | null>(null);
+  /** 最新答案快照：倒计时回调里读 values 会是旧闭包，必须用 ref 判断「到点时是否其实已作答」 */
+  const valuesRef = useRef(values);
+  useEffect(() => {
+    valuesRef.current = values;
+  });
   /** 练习模式：哪些题已经失焦过（填空类只在失焦后才判，避免打字过程中一路飘红） */
   const [practiceTouched, setPracticeTouched] = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
@@ -312,6 +324,7 @@ export default function PublicAnswer() {
     passTimesRef.current = {};
     passTimeoutsRef.current = [];
     passSettledRef.current = null;
+    setPassLockedQuestion(null);
     try {
       if (freshAttempt) {
         // 「再考一次」：本地凭证与草稿都属于上一轮，先清掉，别把旧 answerId 发给后端
@@ -860,6 +873,10 @@ export default function PublicAnswer() {
   /**
    * 闯关模式：结算当前题（答完 / 超时）→ 记录用时 → 前进；已经是最后一题则自动交卷。
    * 每道题只结算一次（passSettledRef），避免「答题自动前进」和「到点超时」打架。
+   *
+   * 练习 × 闯关组合（优先级：闯关的时间约束 > 练习的即时反馈）：
+   * 到点不立刻跳走，而是先把本题锁成只读、显示「本题超时（按 0 分计）」+ 正确答案 + 解析，
+   * 1.6s 后再强制进入下一题（最后一题则自动交卷）——既满足闯关的强制推进，也保留练习的反馈。
    */
   const finishPassQuestion = (timedOut: boolean) => {
     if (!passMode || !currentQuestion) return;
@@ -868,17 +885,36 @@ export default function PublicAnswer() {
     passSettledRef.current = questionId;
     const limit = passModePerSeconds ?? 0;
     const left = Math.max(0, passDeadlineRef.current - Date.now());
+    // 到点时如果其实已经作答（只是自动推进被延迟到 1.2s），按“答完”处理，不能误判超时
+    const answeredNow = !isEmptyAnswer(valuesRef.current[questionId]);
+    const isTimeout = timedOut && !answeredNow;
     // 答完的题按实际用时（向下取整，最大 limit-1）；超时题直接记满限时
     const spent =
-      timedOut || !limit
+      isTimeout || !limit
         ? limit
         : Math.max(0, Math.min(limit - 1, Math.floor((limit * 1000 - left) / 1000)));
     if (limit > 0) passTimesRef.current[questionId] = spent;
-    if (timedOut) {
+    if (isTimeout) {
       passTimeoutsRef.current = [...passTimeoutsRef.current, questionId];
       message.warning(
         currentIndex >= total - 1 ? '本题作答时间到，已自动交卷' : '本题作答时间到，已锁定并跳到下一题',
       );
+      if (exerciseMode) {
+        // 组合模式：先锁定展示（判题块 + 超时标记），1.6s 后再强制推进
+        setPassLockedQuestion(questionId);
+        window.setTimeout(() => {
+          setPassLockedQuestion(null);
+          if (currentIndex >= total - 1) {
+            void doSubmitRef.current('auto');
+            return;
+          }
+          setPage(currentIndex + 1);
+          setSheetOpen(false);
+          contentRef.current?.scrollTo({ top: 0 });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 1600);
+        return;
+      }
     }
     if (currentIndex >= total - 1) {
       // 最后一题：答完或超时都自动交卷（闯关模式没有「再检查一下」这一步）
@@ -913,6 +949,7 @@ export default function PublicAnswer() {
   /**
    * 答题写入。闯关模式下单选/判断/下拉选完即代表这题完成：记时并自动进下一题；
    * 多选/矩阵/填空交给用户点「下一题」，避免选到一半就被推进下一题。
+   * 练习 × 闯关组合下把自动推进延后到 1.2s，先让学员看到 ✓/✕ 与解析（闯关的时间约束仍然优先）。
    */
   const handleChange = (qId: string, v: AnswerValue) => {
     setValues((prev) => ({ ...prev, [qId]: v }));
@@ -920,7 +957,7 @@ export default function PublicAnswer() {
     const type = currentQuestion?.type;
     const singleChoice = type === 'Radio' || type === 'Judge' || type === 'Select';
     if (qId === currentQuestion?.id && singleChoice && !isEmptyAnswer(v)) {
-      window.setTimeout(() => finishPassQuestion(false), 350);
+      window.setTimeout(() => finishPassQuestion(false), exerciseMode ? 1200 : 350);
     }
   };
 
@@ -1315,8 +1352,17 @@ export default function PublicAnswer() {
                 const questionIndex = onePage
                   ? currentIndex
                   : visibleQuestions.findIndex((question) => question.id === schema.id);
+                const locked = passLockedQuestion === schema.id;
                 return (
-                  <div key={schema.id} onBlur={() => markPracticeTouched(schema.id)}>
+                  <div
+                    key={schema.id}
+                    onBlur={(event) => {
+                      markPracticeTouched(schema.id);
+                      // 练习 × 闯关：最后一题失焦也走闯关的结算（最后一题自动交卷）
+                      if (passMode) handlePassBlur(event);
+                    }}
+                    style={locked ? { pointerEvents: 'none', opacity: 0.7 } : undefined}
+                  >
                     <SchemaRenderer
                       schema={{
                         ...(project.survey ?? { id: project.id, title: project.name ?? '', type: 'Survey', attribute: {} }),
@@ -1332,6 +1378,7 @@ export default function PublicAnswer() {
                       schema={schema}
                       value={values[schema.id]}
                       touched={Boolean(practiceTouched[schema.id])}
+                      timedOut={locked}
                     />
                   </div>
                 );
