@@ -27,6 +27,9 @@ public class RepoApi {
 
 	private final RepoPartnerService repoPartnerService;
 
+	/** 导出密码校验 + 审计记录 */
+	private final cn.surveyking.server.service.ExportGuardService exportGuardService;
+
 	/**
 	 * @param query
 	 * @return
@@ -106,10 +109,12 @@ public class RepoApi {
 	}
 
 	@PostMapping("/import")
-	@PreAuthorize("hasAuthority('repo:update')")
+	@PreAuthorize("hasAuthority('repo:import')")
 	public void importFromTemplate(RepoTemplateRequest request) {
 		try {
 			repoService.importFromTemplate(request);
+			exportGuardService.record(cn.surveyking.server.service.ExportGuardService.IMPORT_REPO, request.getRepoId(),
+					null, "导入题库");
 		}
 		catch (ErrorCodeException ex) {
 			throw ex;
@@ -165,9 +170,14 @@ public class RepoApi {
 	 * @param request
 	 */
 	@GetMapping("/export")
-	@PreAuthorize("hasAuthority('repo:detail')")
-	public void exportRepoQuestions(RepoRequest request) {
+	@PreAuthorize("hasAuthority('repo:export')")
+	public void exportRepoQuestions(RepoRequest request,
+			@RequestParam(value = "exportPassword", required = false) String exportPassword) {
+		// 导出题库是最容易带走资产的动作：先验密码，成功后留审计
+		exportGuardService.assertExportAllowed(exportPassword);
 		repoService.exportRepoQuestions(request);
+		exportGuardService.record(cn.surveyking.server.service.ExportGuardService.EXPORT_REPO, request.getId(),
+				request.getName(), "导出题库题目");
 	}
 
 }

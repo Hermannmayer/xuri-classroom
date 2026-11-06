@@ -237,6 +237,12 @@ export default function PublicAnswer() {
   const [nearBottom, setNearBottom] = useState(false);
   const [remainMs, setRemainMs] = useState<number>();
   const [switchCount, setSwitchCount] = useState(0);
+  /** 本次作答开始时刻（用于「最短交卷时间」倒计时） */
+  const [startedAt, setStartedAt] = useState<number>();
+  /** 每秒滴答：驱动「最早交卷」倒计时显示 */
+  const [clock, setClock] = useState(() => Date.now());
+  /** 触发规则锁定（切屏超限自动交卷）后禁止继续作答 */
+  const [examLocked, setExamLocked] = useState(false);
   /** 练习模式：哪些题已经失焦过（填空类只在失焦后才判，避免打字过程中一路飘红） */
   const [practiceTouched, setPracticeTouched] = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
@@ -260,6 +266,9 @@ export default function PublicAnswer() {
     setProject(data);
     setNeedPassword(false);
     setNeedLogin(false);
+    // 新一轮作答从这一刻开始计「最短交卷时间」；重新加载问卷视为重新开始
+    setStartedAt(Date.now());
+    setExamLocked(false);
     if (freshAttempt) {
       // 新一轮作答：后端也可能回填上一份答卷/切屏次数，这里一律丢弃，从空答案开始
       setAnswerId(undefined);
@@ -637,6 +646,35 @@ export default function PublicAnswer() {
     }
   };
 
+  /**
+   * 定时器 / 切屏回调里必须用「最新」的 doSubmit：这些 effect 的依赖只有设置项，
+   * 闭包里捕获的 values 可能还是空的，自动交卷会交出一份空白卷。用 ref 指向每次渲染的最新版本。
+   */
+  const doSubmitRef = useRef(doSubmit);
+  useEffect(() => {
+    doSubmitRef.current = doSubmit;
+  });
+
+  /** 最短交卷时间：距离「最早可交卷」还剩多少毫秒（按当前时间实算，不依赖滴答 state） */
+  const minSubmitMinutes = project?.setting?.examSetting?.minSubmitMinutes;
+  /** 允许的切屏次数上限（仅用于顶部展示，触发逻辑在下面的 effect 里） */
+  const switchLimit = project?.setting?.examSetting?.maxSwitchScreenTimes;
+  /** 闯关模式：后端未实现，前端只做说明文案 */
+  const passMode = project?.setting?.examSetting?.passMode === true;
+  const passModePerSeconds = project?.setting?.examSetting?.passModePerSeconds;
+  const minWaitLeft = () => {
+    if (!minSubmitMinutes || !startedAt) return 0;
+    return Math.max(0, startedAt + minSubmitMinutes * 60_000 - Date.now());
+  };
+  /** 同一份剩余时间，供顶部倒计时展示（随 clock 每秒刷新） */
+  const minWaitMs =
+    minSubmitMinutes && startedAt ? Math.max(0, startedAt + minSubmitMinutes * 60_000 - clock) : 0;
+  useEffect(() => {
+    if (!minSubmitMinutes) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [minSubmitMinutes]);
+
   /** 考试限时：到点自动交卷 */
   useEffect(() => {
     const minutes = project?.setting?.examSetting?.maxSubmitMinutes;
@@ -649,7 +687,7 @@ export default function PublicAnswer() {
         window.clearInterval(timer);
         if (!submittedRef.current) {
           message.warning('答题时间到，已自动交卷');
-          void doSubmit('auto');
+          void doSubmitRef.current('auto');
         }
       }
     };
@@ -659,10 +697,25 @@ export default function PublicAnswer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.setting?.examSetting?.maxSubmitMinutes]);
 
-  /** 切屏检测：计数落库（刷新不丢），超过允许次数直接交卷 */
+  /**
+   * 切屏检测：计数落库（刷新不丢）。累计次数**达到** maxSwitchScreenTimes 即自动交卷并锁定作答。
+   * 触发条件：后端返回（或本地兜底）的累计次数 >= maxSwitchScreenTimes，例如设 3 次 → 第 3 次切屏触发。
+   */
   useEffect(() => {
     const limit = project?.setting?.examSetting?.maxSwitchScreenTimes;
     if (limit === undefined || limit === null) return;
+
+    /** 达到上限：明确提示第几次切屏 → 自动交卷 → 锁定，后续 visibilitychange 不再重复触发 */
+    const hitLimit = (times: number) => {
+      setSwitchCount(times);
+      setExamLocked(true);
+      message.error({
+        content: `第 ${times} 次切屏，已达「最多允许切屏 ${limit} 次」的限制，已按规则自动交卷。`,
+        duration: 6,
+      });
+      void doSubmitRef.current('auto');
+    };
+
     const onVisibility = () => {
       if (!document.hidden || submittedRef.current) return;
       void (async () => {
@@ -674,26 +727,21 @@ export default function PublicAnswer() {
           times = 0;
         }
         if (!times) {
-          // 后端还没有可挂钩的答卷（未暂存/未提交）或网络失败：本次作答内先本地兜底，超限照样自动交卷
+          // 后端还没有可挂钩的答卷（未暂存/未提交）或网络失败：本次作答内先本地兜底
           setSwitchCount((prev) => {
             const next = prev + 1;
-            if (next > limit) {
-              message.error('切屏次数超限，已自动交卷');
-              void doSubmit('auto');
-            } else {
-              message.warning(`已切屏 ${next}/${limit} 次，超过将自动交卷`);
-            }
+            if (next >= limit) hitLimit(next);
+            else message.warning(`已切屏 ${next}/${limit} 次，达到将自动交卷`);
             return next;
           });
           return;
         }
-        setSwitchCount(times);
-        if (times > limit) {
-          message.error('切屏次数超限，已自动交卷');
-          void doSubmit('auto');
-        } else {
-          message.warning(`已切屏 ${times}/${limit} 次，超过将自动交卷`);
+        if (times >= limit) {
+          hitLimit(times);
+          return;
         }
+        setSwitchCount(times);
+        message.warning(`已切屏 ${times}/${limit} 次，达到将自动交卷`);
       })();
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -715,6 +763,23 @@ export default function PublicAnswer() {
 
   /** 提交：必填没填直接拦下并跳过去；填全了才出二次确认 */
   const confirmSubmit = () => {
+    // 切屏超限已自动交卷：锁定后不再接受手动提交
+    if (examLocked) {
+      message.error('本次作答已按规则自动交卷，不能再修改或重新提交');
+      return;
+    }
+    // 最短交卷时间：未答满时只提示还剩多久，到点后这里自然放行（不伪造时间，按真实时钟算）
+    const waitMs = minWaitLeft();
+    if (waitMs > 0 && minSubmitMinutes) {
+      const totalSec = Math.ceil(waitMs / 1000);
+      const mm = Math.floor(totalSec / 60);
+      const ss = totalSec % 60;
+      message.warning({
+        content: `需答满 ${minSubmitMinutes} 分钟才能交卷，还剩 ${mm} 分 ${String(ss).padStart(2, '0')} 秒`,
+        duration: 4,
+      });
+      return;
+    }
     // 只有「本次会话里确实交成功过」且发布方没开「允许修改答案」才提前拦。
     // 不能拿 answerId 判断：匿名续答的草稿也会拿到 answerId，那样会把首次提交误拦掉；
     // 刷新页面后 submittedOnceRef 是 false，交给后端判定，4020 由 doSubmit 给出明确提示。
@@ -963,6 +1028,24 @@ export default function PublicAnswer() {
         {switchCount > 0 && (
           <span style={{ fontSize: 11, color: 'var(--bp-orange)' }} title="已切屏次数">
             切屏 {switchCount}
+            {switchLimit !== undefined && switchLimit !== null ? ` / ${switchLimit}` : ''}
+          </span>
+        )}
+        {minWaitMs > 0 && (
+          <span
+            title={`需答满 ${minSubmitMinutes} 分钟才能交卷`}
+            style={{
+              fontSize: 11,
+              color: 'var(--bp-text-soft)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '0.03em',
+            }}
+          >
+            最早交卷{' '}
+            {(() => {
+              const total = Math.ceil(minWaitMs / 1000);
+              return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+            })()}
           </span>
         )}
         <div className="sk-font-ctl">
@@ -1004,7 +1087,42 @@ export default function PublicAnswer() {
         </div>
       )}
 
-      <div className="sk-answer-layout" ref={contentRef}>
+      {/* 闯关模式：后端尚未实现，这里只写说明，避免误以为已经生效 */}
+      {passMode && (
+        <div style={{ maxWidth: 1080, margin: '12px auto 0', padding: '0 16px' }}>
+          <div
+            style={{
+              border: '1px dashed var(--bp-orange-line)',
+              borderRadius: 0,
+              padding: '6px 10px',
+              fontSize: 12,
+              lineHeight: 1.7,
+              color: 'var(--bp-text-soft)',
+            }}
+          >
+            闯关模式：每题限时{passModePerSeconds ? ` ${passModePerSeconds} 秒` : ''}
+            （该功能后端尚未完全生效，仅作提示）
+          </div>
+        </div>
+      )}
+
+      {/* 切屏超限已自动交卷：锁定作答区，不能再改答案 */}
+      {examLocked && (
+        <div style={{ maxWidth: 1080, margin: '12px auto 0', padding: '0 16px' }}>
+          <Alert
+            type="error"
+            showIcon
+            message="切屏次数已达上限，已自动交卷"
+            description="本次作答已按考试规则自动提交，不能再修改答案。如需重考，请联系发布方。"
+          />
+        </div>
+      )}
+
+      <div
+        className="sk-answer-layout"
+        ref={contentRef}
+        style={examLocked ? { pointerEvents: 'none', opacity: 0.55 } : undefined}
+      >
         {/* 桌面端常驻答题卡 */}
         {showSheet && (
           <aside className="sk-answer-sheet-side">
@@ -1165,14 +1283,18 @@ export default function PublicAnswer() {
 
       {/* 底部操作栏：只在一屏滚动模式下出现。一页一题的导航按钮在题目下方 */}
       {!onePage && (
-        <div className="sk-answer-bar">
+        <div className="sk-answer-bar" style={examLocked ? { pointerEvents: 'none', opacity: 0.55 } : undefined}>
           <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center' }}>
             <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
               共 {total} 题 · 已答 {Object.values(answered).filter(Boolean).length}
               {unansweredRequired.length ? ` · 必填未答 ${unansweredRequired.length}` : ''}
             </span>
             <div style={{ flex: 1 }} />
-            {showSubmit ? (
+            {examLocked ? (
+              <Button size="large" disabled>
+                已自动交卷
+              </Button>
+            ) : showSubmit ? (
               <Button type="primary" size="large" loading={submitting} onClick={confirmSubmit}>
                 提交
               </Button>

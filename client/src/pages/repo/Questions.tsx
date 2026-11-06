@@ -22,8 +22,8 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { download, getWithPagination, post } from '../../api';
-import { loadAuthorities } from '../../auth/permissions';
+import { getWithPagination, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 
@@ -65,6 +65,54 @@ const TYPE_COLOR: Record<string, string> = {
   FillBlank: 'purple',
   Textarea: 'green',
 };
+
+/**
+ * 带导出密码的下载。
+ *
+ * 现有 download() 只看 HTTP 状态：后端按项目惯例用「HTTP 200 + body.code=403」返回「导出密码错误」时，
+ * 它会一路把错误 JSON 存成 .xlsx。这里先看 content-type：JSON 说明是后端返回的错误，抛中文提示；
+ * 否则按普通文件保存（文件名优先取 content-disposition）。
+ */
+async function downloadWithPassword(
+  url: string,
+  params: Record<string, unknown>,
+  fallbackName: string,
+) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    search.append(key, String(value));
+  });
+  const res = await fetch(`${url}?${search.toString()}`, { credentials: 'include' });
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const body = (await res.json().catch(() => undefined)) as { message?: string } | undefined;
+    throw new Error(body?.message || '导出失败');
+  }
+  if (!res.ok) throw new Error(`导出失败（HTTP ${res.status}）`);
+  const blob = await res.blob();
+  const disposition = res.headers.get('content-disposition') || '';
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition);
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  let name = fallbackName;
+  const raw = star?.[1] ?? plain?.[1];
+  if (raw) {
+    try {
+      name = decodeURIComponent(raw);
+    } catch {
+      name = raw;
+    }
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // 立刻 revoke 在部分浏览器会打断下载，延后释放
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
 
 interface OptionDraft {
   id: string;
@@ -131,22 +179,20 @@ export default function RepoQuestions() {
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [authorities, setAuthorities] = useState<string[]>([]);
+  // 导出密码弹窗（管理员没配密码时留空即可）
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportPwd, setExportPwd] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  // permissions.ts 的 can() 按域前缀放行，学员的 template:list 会被当成 template:*；
-  // 这里只认精确权限 / 域通配符 / ROLE_admin。
-  const hasPermission = (permission: string) =>
-    authorities.includes('ROLE_admin') ||
-    authorities.includes(permission) ||
-    authorities.includes(`${permission.split(':')[0]}:*`);
-
-  const canImport = hasPermission('template:create');
-  const canExport = hasPermission('template:update');
-  const canEdit = hasPermission('template:update');
-  const canDelete = hasPermission('template:delete');
+  // 权限细分：导入要 repo:import，导出要 repo:export（后端注解同步改了）
+  const canImport = can(authorities, 'repo:import');
+  const canExport = can(authorities, 'repo:export');
+  const canEdit = can(authorities, 'template:update');
+  const canDelete = can(authorities, 'template:delete');
   const [editing, setEditing] = useState<TemplateView | null>(null);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
@@ -260,16 +306,32 @@ export default function RepoQuestions() {
     }
   };
 
-  const onExport = async () => {
+  /** 导出题目：先弹密码框（系统设置没配密码时留空即可），密码随 GET 下载走 query 参数 */
+  const openExport = () => {
     // ponytail: 空题库导出后端会 500（fastexcel 不允许 0 个 sheet），先在前端挡掉
     if (!loading && total === 0 && !hasFilter) {
       message.warning('题库还没有题目，先导入再导出');
       return;
     }
+    setExportPwd('');
+    setExportOpen(true);
+  };
+
+  const submitExport = async () => {
+    setExporting(true);
     try {
-      await download('/api/repo/export', { id: repoId }, `${repoName || '题库'}题目.xlsx`);
+      await downloadWithPassword(
+        '/api/repo/export',
+        { id: repoId, exportPassword: exportPwd.trim() || undefined },
+        `${repoName || '题库'}题目.xlsx`,
+      );
+      setExportOpen(false);
+      setExportPwd('');
+      message.success('导出已开始');
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -484,7 +546,7 @@ export default function RepoQuestions() {
             </Upload>
           )}
           {canExport && (
-            <Button icon={<DownloadOutlined />} onClick={() => void onExport()}>
+            <Button icon={<DownloadOutlined />} onClick={openExport}>
               导出
             </Button>
           )}
@@ -781,6 +843,29 @@ export default function RepoQuestions() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 导出密码：系统设置里没配密码时留空直接导出 */}
+      <Modal
+        title="导出题目"
+        open={exportOpen}
+        onCancel={() => setExportOpen(false)}
+        onOk={() => void submitExport()}
+        okText="导出"
+        cancelText="取消"
+        confirmLoading={exporting}
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.7, marginBottom: 10 }}>
+          管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
+        </div>
+        <Input.Password
+          value={exportPwd}
+          onChange={(e) => setExportPwd(e.target.value)}
+          onPressEnter={() => void submitExport()}
+          placeholder="导出密码"
+          autoComplete="off"
+        />
       </Modal>
     </>
   );

@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Button, Empty, Input, Spin, Table, Tabs, Tag, Tree } from 'antd';
+import { App, Button, Empty, Form, Input, Modal, Popconfirm, Spin, Table, Tabs, Tag, Tree } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import { get, getWithPagination, post, type PermissionGroup, type PermissionItem, type RoleView } from '../../api';
+
+/** 内置角色不可删除、不可改 code；其余都算自定义角色 */
+const BUILTIN_CODES = new Set(['admin', 'teacher', 'student']);
+const isBuiltin = (role: RoleView) => BUILTIN_CODES.has(role.code ?? '');
 
 /**
  * 系统管理 → 权限配置
@@ -69,6 +73,64 @@ export default function SystemPermissions() {
   /** roleId -> 勾选的权限串集合（本地草稿，保存时才落库） */
   const [draft, setDraft] = useState<Record<string, Set<string>>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
+  /** 角色管理（新建 / 重命名 / 删除自定义角色） */
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleView | null>(null);
+  const [savingRole, setSavingRole] = useState(false);
+  const [roleForm] = Form.useForm<{ name: string; code: string; remark?: string }>();
+
+  const openCreateRole = () => {
+    setEditingRole(null);
+    roleForm.resetFields();
+    setRoleModalOpen(true);
+  };
+
+  const openEditRole = (role: RoleView) => {
+    setEditingRole(role);
+    roleForm.setFieldsValue({ name: role.name ?? '', code: role.code ?? '', remark: role.remark });
+    setRoleModalOpen(true);
+  };
+
+  const submitRole = async () => {
+    const values = await roleForm.validateFields();
+    setSavingRole(true);
+    try {
+      if (editingRole) {
+        await post('/api/system/role/update', {
+          id: editingRole.id,
+          name: values.name,
+          code: values.code,
+          remark: values.remark,
+          // 不传 authorities = 不动已有权限
+        });
+        message.success('角色已更新');
+      } else {
+        await post('/api/system/role/create', {
+          name: values.name,
+          code: values.code,
+          remark: values.remark,
+          authorities: [],
+        });
+        message.success('角色已创建，可以在下面的矩阵里给它勾选权限，也可以去用户组里绑定它');
+      }
+      setRoleModalOpen(false);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  const removeRole = async (role: RoleView) => {
+    try {
+      await post('/api/system/role/delete', { id: role.id });
+      message.success('角色已删除');
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -205,6 +267,25 @@ export default function SystemPermissions() {
                 全权限
               </Tag>
             )}
+            {!isAdminRole && (
+              <span style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
+                <a style={{ fontSize: 11 }} onClick={() => openEditRole(role)}>
+                  改名
+                </a>
+                {!isBuiltin(role) && (
+                  <Popconfirm
+                    title={`删除角色「${role.name ?? role.code}」？`}
+                    description="已绑定该角色的用户会失去对应权限，请先确认。"
+                    okText="删除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={() => void removeRole(role)}
+                  >
+                    <a style={{ fontSize: 11, marginLeft: 6, color: 'var(--bp-orange)' }}>删除</a>
+                  </Popconfirm>
+                )}
+              </span>
+            )}
           </span>
         ),
         key: `role:${role.id}`,
@@ -281,6 +362,7 @@ export default function SystemPermissions() {
             {adminRole ? '；超级管理员始终拥有全部权限，不可修改' : ''}
           </div>
         </div>
+        <Button onClick={openCreateRole}>新建角色</Button>
         <Button type="primary" loading={saving} onClick={() => void save()} disabled={dirty.size === 0}>
           保存改动{dirty.size ? `（${dirty.size} 个角色）` : ''}
         </Button>
@@ -395,6 +477,41 @@ export default function SystemPermissions() {
           },
         ]}
       />
+
+      <Modal
+        title={editingRole ? `编辑角色：${editingRole.name ?? editingRole.code}` : '新建角色'}
+        open={roleModalOpen}
+        onCancel={() => setRoleModalOpen(false)}
+        onOk={submitRole}
+        confirmLoading={savingRole}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form form={roleForm} layout="vertical" size="small" requiredMark={false}>
+          <Form.Item
+            name="name"
+            label="角色名称"
+            rules={[{ required: true, message: '请输入角色名称，例如：教研组长' }]}
+          >
+            <Input placeholder="例如：教研组长 / 校区负责人" />
+          </Form.Item>
+          <Form.Item
+            name="code"
+            label="角色编码"
+            rules={[
+              { required: true, message: '请输入编码' },
+              { pattern: /^[a-z][a-z0-9_-]{1,31}$/, message: '小写字母开头，可含数字、下划线、短横线' },
+            ]}
+            extra="用于程序内部识别，建好后不建议改；内置角色 admin/teacher/student 不可删除"
+          >
+            <Input placeholder="例如：research_lead" disabled={Boolean(editingRole && isBuiltin(editingRole))} />
+          </Form.Item>
+          <Form.Item name="remark" label="说明">
+            <Input.TextArea rows={2} placeholder="这个角色是干什么的（可选）" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

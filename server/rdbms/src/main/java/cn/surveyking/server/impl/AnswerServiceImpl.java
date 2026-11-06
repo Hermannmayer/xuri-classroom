@@ -751,12 +751,24 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 			return;
 		}
 		Integer maxMinutes = project.getSetting().getExamSetting().getMaxSubmitMinutes();
-		if (maxMinutes == null || maxMinutes <= 0 || previousAnswer == null || previousAnswer.getCreateAt() == null) {
+		Integer minMinutes = project.getSetting().getExamSetting().getMinSubmitMinutes();
+		if (previousAnswer == null || previousAnswer.getCreateAt() == null) {
 			return;
 		}
-		long deadline = previousAnswer.getCreateAt().getTime() + maxMinutes * 60_000L + 60_000L;
-		if (System.currentTimeMillis() > deadline) {
+		long startAt = previousAnswer.getCreateAt().getTime();
+		long now = System.currentTimeMillis();
+		if (maxMinutes != null && maxMinutes > 0 && now > startAt + maxMinutes * 60_000L + 60_000L) {
 			throw new AccessDeniedException("本次考试已超过最长答题时间（" + maxMinutes + " 分钟），无法再提交");
+		}
+		// 最短交卷：只对「正式提交」生效，暂存草稿不受限；时间到点自动交卷也不该被挡，所以只判 tempSave=1
+		boolean finalSubmit = Integer.valueOf(1).equals(answer.getTempSave());
+		if (finalSubmit && minMinutes != null && minMinutes > 0) {
+			long earliest = startAt + minMinutes * 60_000L;
+			if (now < earliest) {
+				long leftSec = Math.max(0, (earliest - now) / 1000);
+				throw new AccessDeniedException(
+						"需答满 " + minMinutes + " 分钟才能交卷，还剩 " + (leftSec / 60) + " 分 " + (leftSec % 60) + " 秒");
+			}
 		}
 	}
 

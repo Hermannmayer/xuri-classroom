@@ -6,7 +6,6 @@ import cn.surveyking.server.domain.dto.SurveySchema;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import cn.surveyking.server.core.handler.EncryptedSurveyTypeHandler;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -46,7 +45,7 @@ public class Template extends BaseModel {
 	/**
 	 * 问题模板
 	 */
-	@TableField(typeHandler = EncryptedSurveyTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
+	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
 	private SurveySchema template;
 
 	/**

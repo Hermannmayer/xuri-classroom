@@ -25,8 +25,9 @@ export interface SystemInfo {
     watermarkMode?: string | null;
     /** 可担任项目协作者的权限串，缺省 'project:create'；ROLE_admin 始终可以；老数据可能是 null */
     collaboratorAuthority?: string | null;
-    /** 题库字段加密开关：缺省 false（明文存储）；老数据可能是 null */
-    fieldEncryptionEnabled?: boolean | null;
+    /** 导出密码：导出题库/答卷前需要输入，空串或 null 表示不启用；服务端不回显明文 */
+    /** 是否已设置导出密码（后端只回显布尔值，绝不回显密码明文） */
+    exportPasswordEnabled?: boolean | null;
     copyright?: string;
     recordNum?: string;
     favicon?: string;

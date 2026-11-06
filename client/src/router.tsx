@@ -15,6 +15,7 @@ import SystemUser from './pages/system/User';
 import SystemGroup from './pages/system/Group';
 import SystemSetting from './pages/system/Setting';
 import SystemPermissions from './pages/system/Permissions';
+import SystemAudit from './pages/system/Audit';
 import AccountSettings from './pages/account/Settings';
 import RepoList from './pages/repo/List';
 import RepoQuestions from './pages/repo/Questions';
@@ -58,7 +59,8 @@ export const router = createBrowserRouter([
       { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: guard('project:detail', <SurveyOverview />) },
       { path: 'survey/:id/edit', element: guard('project:update', <SurveyEditor />) },
-      { path: 'survey/:id/setting', element: guard('project:update', <SurveySetting />) },
+      // 发布设置已并入概述页：旧链接保留，只做重定向（权限由 /survey/:id 的 project:detail 校验）
+      { path: 'survey/:id/setting', element: <SurveySetting /> },
       { path: 'survey/:id/data', element: guard('answer:list', <SurveyData />) },
       { path: 'survey/:id/report', element: guard('answer:list', <SurveyReport />) },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
@@ -67,6 +69,7 @@ export const router = createBrowserRouter([
       { path: 'system/setting', element: guard('system:role:list', <SystemSetting />) },
       // 权限目录与角色矩阵：按任务要求用 system:user:update 守卫
       { path: 'system/permissions', element: guard('system:role:list', <SystemPermissions />) },
+      { path: 'system/audit', element: guard('system:log:list', <SystemAudit />) },
     ],
   },
   // 公开答题侧不需要登录与侧栏

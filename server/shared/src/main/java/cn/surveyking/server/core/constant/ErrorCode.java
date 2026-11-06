@@ -51,6 +51,10 @@ public enum ErrorCode {
 	 */
 	AnswerChangeDisabled(4020, "答案不允许修改"),
 	/**
+	 * 导出密码错误（题库/答卷导出受导出密码保护）
+	 */
+	ExportPasswordError(4030, "导出密码错误，请向管理员索取导出密码"),
+	/**
 	 * 附件不存在
 	 */
 	FileNotExists(4040, "附件不存在"),
