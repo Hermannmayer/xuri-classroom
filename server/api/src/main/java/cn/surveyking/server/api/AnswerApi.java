@@ -126,9 +126,15 @@ public class AnswerApi {
 	@PreAuthorize("hasAuthority('answer:export')")
 	@EnableDataPerm(key = "#query.projectId")
 	public ResponseEntity<Resource> download(DownloadQuery query,
+			@RequestParam(value = "exportToken", required = false) String exportToken,
 			@RequestParam(value = "exportPassword", required = false) String exportPassword) {
-		// 答卷含学员姓名/成绩，属于个人数据：先验导出密码，成功后留审计
-		exportGuardService.assertExportAllowed(exportPassword);
+		// 答卷含学员姓名/成绩，属于个人数据：优先一次性 token，保留密码参数兼容旧调用
+		if (exportToken != null && !exportToken.isEmpty()) {
+			exportGuardService.assertTokenAllowed(exportToken);
+		}
+		else {
+			exportGuardService.assertExportAllowed(exportPassword);
+		}
 		Locale previous = LocaleContextHolder.getLocale();
 		setLocale(query.getLocale());
 		try {

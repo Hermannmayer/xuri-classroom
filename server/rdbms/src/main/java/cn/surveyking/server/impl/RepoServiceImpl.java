@@ -18,6 +18,7 @@ import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.RepoService;
+import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -60,6 +61,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private final RepoPartnerMapper repoPartnerMapper;
 
+	private final UserDeptScopeService userDeptScopeService;
+
 	@Override
 	public PaginationResponse<RepoView> listRepo(RepoQuery query) {
 		String currentUserId = SecurityContextUtils.getUserId();
@@ -67,9 +70,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				Wrappers.<Repo>lambdaQuery().like(isNotBlank(query.getName()), Repo::getName, query.getName())
 						.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory()).and(x -> {
 							if (Boolean.TRUE.equals(query.getMemberOnly())) {
-								// 自己创建的、或被逐个授权、或所在用户组被授权（组员自动继承）
+								// 自己创建的、或被逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
 								x.eq(Repo::getCreateBy, currentUserId).or().apply(
-										"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN (SELECT id FROM (WITH RECURSIVE dept_anc AS (SELECT id, parent_id FROM t_dept WHERE id = (SELECT dept_id FROM t_user WHERE id = {0}) UNION ALL SELECT d.id, d.parent_id FROM t_dept d JOIN dept_anc a ON d.id = a.parent_id) SELECT id FROM dept_anc) anc))))",
+										"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
+												+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
 										currentUserId);
 							}
 							else {
@@ -1009,11 +1013,19 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String userId = SecurityContextUtils.getUserId();
 		// 管理员全放行；其他人只能读自己创建的、被逐个授权的、或所在用户组被授权的
 		// （去掉 shared 全放行，否则知道 id 就能绕过「按组授权」的可见性）
-		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
-				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
-						.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
-								"dept_id IS NOT NULL AND dept_id IN (SELECT id FROM (WITH RECURSIVE dept_anc AS (SELECT id, parent_id FROM t_dept WHERE id = (SELECT dept_id FROM t_user WHERE id = {0}) UNION ALL SELECT d.id, d.parent_id FROM t_dept d JOIN dept_anc a ON d.id = a.parent_id) SELECT id FROM dept_anc) anc)",
-								userId))) > 0) {
+		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)) {
+			return;
+		}
+		// 可见组 = 主组 + 附加组 + 祖先链（一次解析，不在循环里查）
+		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
+		long authorized = repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery()
+				.eq(RepoPartner::getRepoId, repoId).and(w -> {
+					w.eq(RepoPartner::getUserId, userId);
+					if (!deptScope.isEmpty()) {
+						w.or(q -> q.isNotNull(RepoPartner::getDeptId).in(RepoPartner::getDeptId, deptScope));
+					}
+				}));
+		if (authorized > 0) {
 			return;
 		}
 		throw new AccessDeniedException("无权限访问该题库");

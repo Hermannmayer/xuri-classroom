@@ -387,11 +387,14 @@ export default function SurveyData() {
       startTime: from ? from.startOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
       endTime: to ? to.endOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
       ids: selected.length ? selected.join(',') : undefined,
-      // 后端约定：下载走 GET，导出密码放 query
-      exportPassword: exportPwd.trim() || undefined,
     };
     setExporting(true);
     try {
+      // 密码只走 POST body 换一次性 token，避免密码出现在下载 URL（服务器日志/浏览器历史）
+      const tokenRes = await post<{ exportToken?: string }>('/api/repo/export/token', {
+        exportPassword: exportPwd.trim() || undefined,
+      });
+      if (tokenRes?.exportToken) params.exportToken = tokenRes.exportToken;
       await downloadWithPassword('/api/answer/download', params, `${project?.name || '答卷'}.xlsx`);
       setExportOpen(false);
       setExportPwd('');

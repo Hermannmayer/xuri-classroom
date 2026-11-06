@@ -16,6 +16,7 @@ import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.TemplateService;
+import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -241,12 +242,12 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	private boolean isReadableRepo(String repoId) {
 		Repo repo = repoMapper.selectById(repoId);
 		String userId = SecurityContextUtils.getUserId();
-		// 与 RepoServiceImpl#assertReadableRepo 保持一致：管理员 / 创建者 / 逐个授权 / 所在用户组（含父组）授权
+		// 与 RepoServiceImpl#assertReadableRepo 保持一致：管理员 / 创建者 / 逐个授权 / 所在用户组（主组 + 附加组，含祖先链）授权
 		return repo != null && (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())
 				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
 						.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
-								"dept_id IS NOT NULL AND dept_id IN (SELECT id FROM (WITH RECURSIVE dept_anc AS (SELECT id, parent_id FROM t_dept WHERE id = (SELECT dept_id FROM t_user WHERE id = {0}) UNION ALL SELECT d.id, d.parent_id FROM t_dept d JOIN dept_anc a ON d.id = a.parent_id) SELECT id FROM dept_anc) anc)",
+								"dept_id IS NOT NULL AND dept_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",
 								userId))) > 0);
 	}
 

@@ -172,12 +172,27 @@ public class RepoApi {
 	@GetMapping("/export")
 	@PreAuthorize("hasAuthority('repo:export')")
 	public void exportRepoQuestions(RepoRequest request,
+			@RequestParam(value = "exportToken", required = false) String exportToken,
 			@RequestParam(value = "exportPassword", required = false) String exportPassword) {
-		// 导出题库是最容易带走资产的动作：先验密码，成功后留审计
-		exportGuardService.assertExportAllowed(exportPassword);
+		// 导出题库是最容易带走资产的动作：优先用一次性 token（密码不出现在 URL），
+		// 仍保留 exportPassword 兼容旧调用
+		if (exportToken != null && !exportToken.isEmpty()) {
+			exportGuardService.assertTokenAllowed(exportToken);
+		}
+		else {
+			exportGuardService.assertExportAllowed(exportPassword);
+		}
 		repoService.exportRepoQuestions(request);
 		exportGuardService.record(cn.surveyking.server.service.ExportGuardService.EXPORT_REPO, request.getId(),
 				request.getName(), "导出题库题目");
 	}
+
+	/** 用导出密码换一次性导出令牌（密码只走请求体，不落日志/历史） */
+	@PostMapping("/export/token")
+	@PreAuthorize("hasAuthority('repo:export') or hasAuthority('answer:export')")
+	public java.util.Map<String, Object> exportToken(@RequestBody(required = false) java.util.Map<String, String> body) {
+		return exportGuardService.issueToken(body == null ? null : body.get("exportPassword"));
+	}
+
 
 }

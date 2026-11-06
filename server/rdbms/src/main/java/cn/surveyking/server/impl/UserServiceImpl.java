@@ -95,6 +95,9 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	private final UserDeptMapper userDeptMapper;
 
+	/** 组绑角色（t_dept_role）；用 Mapper 而不是 DeptService，避免 UserService ↔ DeptService 循环依赖 */
+	private final DeptRoleMapper deptRoleMapper;
+
 	private final MessageSource messageSource;
 
 	private final DeptMapper deptMapper;
@@ -143,31 +146,24 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (user == null) {
 			return;
 		}
-		List<String> userDeptIds = resolveUserDeptIds(user);
-		if (CollectionUtils.isEmpty(userDeptIds)) {
+		List<String> rootDeptIds = resolveUserDeptIds(user);
+		if (CollectionUtils.isEmpty(rootDeptIds)) {
 			return;
 		}
+		Map<String, Dept> deptMap = loadDeptMap();
 		java.util.Date now = new java.util.Date();
-		// 同一条祖先链可能被多个组共享，用 visited 避免重复查库，也防止环
-		java.util.Set<String> visited = new java.util.HashSet<>();
-		for (String userDeptId : userDeptIds) {
-			String deptId = userDeptId;
-			while (StringUtils.hasText(deptId) && !ROOT_DEPT_PARENT_ID.equals(deptId) && visited.add(deptId)) {
-				Dept dept = deptMapper.selectById(deptId);
-				if (dept == null) {
-					break;
-				}
-				if (dept.getValidFrom() != null && now.before(dept.getValidFrom())) {
-					throw new AccessDeniedException("所在用户组「" + dept.getName() + "」尚未到生效时间（"
-							+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidFrom())
-							+ " 起），请联系管理员");
-				}
-				if (dept.getValidTo() != null && now.after(dept.getValidTo())) {
-					throw new AccessDeniedException("所在用户组「" + dept.getName() + "」有效期已过（"
-							+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidTo())
-							+ " 截止），请联系管理员延期");
-				}
-				deptId = dept.getParentId();
+		for (String deptId : resolveDeptChainIds(rootDeptIds, deptMap)) {
+			Dept dept = deptMap.get(deptId);
+			if (dept == null) {
+				continue;
+			}
+			if (dept.getValidFrom() != null && now.before(dept.getValidFrom())) {
+				throw new AccessDeniedException("所在用户组「" + dept.getName() + "」尚未到生效时间（"
+						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidFrom()) + " 起），请联系管理员");
+			}
+			if (dept.getValidTo() != null && now.after(dept.getValidTo())) {
+				throw new AccessDeniedException("所在用户组「" + dept.getName() + "」有效期已过（"
+						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidTo()) + " 截止），请联系管理员延期");
 			}
 		}
 	}
@@ -202,17 +198,6 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				.map(UserDept::getDeptId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
 	}
 
-	/** 组 id → 组名；查不到的组回落成 id，避免界面上出现空白标签 */
-	private List<String> resolveDeptNames(List<String> deptIds) {
-		if (CollectionUtils.isEmpty(deptIds)) {
-			return Collections.emptyList();
-		}
-		Map<String, String> nameById = deptMapper.selectBatchIds(deptIds).stream().filter(Objects::nonNull)
-				.collect(Collectors.toMap(Dept::getId,
-						dept -> isNotBlank(dept.getName()) ? dept.getName() : dept.getId(), (a, b) -> a));
-		return deptIds.stream().map(id -> nameById.getOrDefault(id, id)).collect(Collectors.toList());
-	}
-
 	/**
 	 * 重写用户的附加组：先物理删除再插入（唯一键 (user_id, dept_id) 不能和逻辑删除共存）。
 	 * 主组已经存在 t_user.dept_id，这里顺带把它从附加组里剔掉，避免同一个组出现两次。
@@ -242,128 +227,105 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			return null;
 		}
 		UserInfo userInfo = userViewMapper.toUserInfo(user);
-		List<Role> roles = userRoleMapper
-				.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, user.getId())).stream()
-				.map(ur -> roleService.getById(ur.getRoleId()))
-				.filter(role -> role != null && Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID))
-				.collect(Collectors.toList());
-		Set<String> authorities = new HashSet<>();
-		roles.forEach(role -> {
-			authorities.add("ROLE_" + role.getCode());
-			if (isNotBlank(role.getAuthority())) {
-				Arrays.stream(role.getAuthority().split(",")).filter(StringUtils::hasText).forEach(authorities::add);
-			}
-		});
-		// 一人多组：主组 + 附加组，各自沿祖先链解析后再取并集
-		// TODO(下一轮)：t_dept_role（组绑角色）尚未接入这里；按 docs/permissions-ia.md 的最终形态，
-		// 角色也要按「直挂角色 ∪ 所属组(含祖先组)绑定的角色」取并集，并同时下线 t_dept.authority 的组级覆盖。
+		// 一人多组：主组 + 附加组，各自沿祖先链展开（组表整表取一次，避免逐层查库）
 		List<String> extraDeptIds = listExtraDeptIds(user.getId());
-		Set<String> resolvedAuthorities = resolveDeptAuthorities(mergeDeptIds(user.getDeptId(), extraDeptIds),
-				authorities);
-		userInfo.setAuthorities(resolvedAuthorities.stream()
+		Map<String, Dept> deptMap = loadDeptMap();
+		List<String> deptChainIds = resolveDeptChainIds(mergeDeptIds(user.getDeptId(), extraDeptIds), deptMap);
+
+		// 最终权限 = 用户直挂角色 ∪ 所属组（主组 + 附加组，含祖先链）绑定的角色 ∪ ROLE_* 标记。
+		// 超级管理员靠 ROLE_admin 放行，这里照常把它的角色标记并进来，不做任何裁剪。
+		Set<String> authorities = resolveUserAuthorities(user.getId(), deptChainIds);
+		userInfo.setAuthorities(authorities.stream()
 				.map(authority -> (GrantedAuthority) () -> authority).collect(Collectors.toSet()));
+
 		// 设置用户部门（deptName 仍然是主组名）
 		if (StringUtils.hasText(user.getDeptId())) {
-			Dept dept = deptMapper.selectById(user.getDeptId());
+			Dept dept = deptMap.get(user.getDeptId());
 			if (dept != null) {
 				userInfo.setDeptName(dept.getName());
 			}
 		}
 		userInfo.setDeptIds(extraDeptIds);
-		userInfo.setDeptNames(resolveDeptNames(extraDeptIds));
+		userInfo.setDeptNames(extraDeptIds.stream().map(deptId -> deptNameOf(deptMap, deptId))
+				.collect(Collectors.toList()));
 
 		return userInfo;
 	}
 
+	/** 一次取出全部用户组（组表很小），供祖先链解析与组名回显复用 */
+	private Map<String, Dept> loadDeptMap() {
+		return deptMapper.selectList(null).stream().filter(Objects::nonNull)
+				.collect(Collectors.toMap(Dept::getId, dept -> dept, (a, b) -> a));
+	}
+
+	/** 组 → 名称；查不到回落成 id，避免界面上出现空白标签 */
+	private String deptNameOf(Map<String, Dept> deptMap, String deptId) {
+		Dept dept = deptMap.get(deptId);
+		return dept != null && isNotBlank(dept.getName()) ? dept.getName() : deptId;
+	}
+
 	/**
-	 * 组权限只覆盖普通权限串，角色身份标记（ROLE_teacher/ROLE_student）始终保留。
-	 * 超级管理员角色不受组策略影响，保持全权限。
-	 *
-	 * <p>
-	 * 一人多组时，每个组各按自己的 INHERIT/APPEND/OVERRIDE 规则沿祖先链解析，再把结果取并集：
-	 * OVERRIDE 只作用于该组自己的继承链，不会把别的组带来的权限清掉——否则「最终权限」会依赖
-	 * 组的遍历顺序，两人配同样的组合却可能得到不同结果。
+	 * 用户所属组 + 各自祖先链展开后的组 id（去重，主组及其祖先排在最前）。
 	 */
-	private Set<String> resolveDeptAuthorities(List<String> deptIds, Set<String> roleAuthorities) {
-		if (roleAuthorities.contains("ROLE_admin")) {
-			return roleAuthorities;
+	private List<String> resolveDeptChainIds(List<String> rootDeptIds, Map<String, Dept> deptMap) {
+		LinkedHashSet<String> chain = new LinkedHashSet<>();
+		if (CollectionUtils.isEmpty(rootDeptIds)) {
+			return new ArrayList<>(chain);
 		}
-		Set<String> roleMarkers = roleAuthorities.stream().filter(x -> x.startsWith("ROLE_"))
-				.collect(Collectors.toSet());
-		Set<String> rolePermissions = roleAuthorities.stream().filter(x -> !x.startsWith("ROLE_"))
-				.collect(Collectors.toSet());
-		Set<String> effective = new HashSet<>();
-		if (CollectionUtils.isEmpty(deptIds)) {
-			effective.addAll(rolePermissions);
-		}
-		else {
-			for (String deptId : deptIds) {
-				effective.addAll(resolveDeptPermissions(deptId, rolePermissions, new HashSet<String>()));
+		Set<String> visited = new HashSet<>();
+		for (String rootDeptId : rootDeptIds) {
+			String deptId = rootDeptId;
+			while (StringUtils.hasText(deptId) && !ROOT_DEPT_PARENT_ID.equals(deptId) && visited.add(deptId)) {
+				chain.add(deptId);
+				Dept dept = deptMap.get(deptId);
+				if (dept == null) {
+					break;
+				}
+				deptId = dept.getParentId();
 			}
 		}
-		effective.addAll(roleMarkers);
-		return effective;
+		return new ArrayList<>(chain);
 	}
 
 	/**
-	 * INHERIT：继承父组最终权限；根组回到角色权限。
-	 * APPEND：在继承结果上追加本组权限。
-	 * OVERRIDE：只保留本组配置权限，忽略角色与父组功能权限。
+	 * 最终权限集合：t_user_role（直挂角色）∪ t_dept_role（组链上绑定的角色）。
+	 *
+	 * <p>
+	 * 只查两次关联表：一次 user_role、一次 dept_role（按整条组链 in），角色再按 id 批量取一次，
+	 * 不做「按角色逐条 getById」的 N+1。已停用的角色与直挂角色一样被忽略。
 	 */
-	private Set<String> resolveDeptPermissions(String deptId, Set<String> rolePermissions, Set<String> path) {
-		if (!StringUtils.hasText(deptId) || ROOT_DEPT_PARENT_ID.equals(deptId) || !path.add(deptId)) {
-			return new HashSet<>(rolePermissions);
+	private Set<String> resolveUserAuthorities(String userId, List<String> deptChainIds) {
+		Set<String> roleIds = new LinkedHashSet<>();
+		userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId)).stream()
+				.map(UserRole::getRoleId).filter(StringUtils::hasText).forEach(roleIds::add);
+		if (!CollectionUtils.isEmpty(deptChainIds)) {
+			deptRoleMapper.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, deptChainIds)).stream()
+					.map(DeptRole::getRoleId).filter(StringUtils::hasText).forEach(roleIds::add);
 		}
-		Dept dept = deptMapper.selectById(deptId);
-		if (dept == null) {
-			path.remove(deptId);
-			return new HashSet<>(rolePermissions);
-		}
-		Set<String> inherited = resolveDeptPermissions(dept.getParentId(), rolePermissions, path);
-		String mode = StringUtils.hasText(dept.getAuthorityMode())
-				? dept.getAuthorityMode().trim().toUpperCase(Locale.ROOT)
-				: "INHERIT";
-		Set<String> own = parseDeptAuthorities(dept.getAuthority());
-		Set<String> result;
-		switch (mode) {
-			case "OVERRIDE":
-				result = own;
-				break;
-			case "APPEND":
-				result = inherited;
-				result.addAll(own);
-				break;
-			case "INHERIT":
-			default:
-				result = inherited;
-				break;
-		}
-		path.remove(deptId);
-		return result;
-	}
-
-	private Set<String> parseDeptAuthorities(String authority) {
-		if (!StringUtils.hasText(authority)) {
+		if (roleIds.isEmpty()) {
 			return new HashSet<>();
 		}
-		return Arrays.stream(authority.split(",")).map(String::trim)
-				.filter(StringUtils::hasText).filter(x -> !x.startsWith("ROLE_"))
-				.collect(Collectors.toCollection(HashSet::new));
+		return roleService.listByIds(roleIds).stream()
+				.filter(role -> role != null && Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID))
+				.flatMap(role -> toAuthorityNames(role).stream()).collect(Collectors.toCollection(HashSet::new));
 	}
 
 	@Override
 	public PaginationResponse<UserView> getUsers(UserQuery query) {
 		List<String> orgIds = getChildOrgIds(query.getDeptId());
-		Page<User> userPage = pageByQuery(query,
-				Wrappers.<User>lambdaQuery().like(isNotBlank(query.getName()), User::getName, query.getName())
-						.exists(isNotBlank(query.getRoleId()),
-								"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
-								query.getRoleId())
-						.notExists(isNotBlank(query.getNeRoleId()),
-								"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
-								query.getNeRoleId())
-						.in(orgIds.size() > 0, User::getDeptId, orgIds).in(query.getIds() != null, User::getId,
-								Arrays.asList(query.getIds() != null ? query.getIds() : new String[0])));
+		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery()
+				.like(isNotBlank(query.getName()), User::getName, query.getName())
+				.exists(isNotBlank(query.getRoleId()),
+						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
+						query.getRoleId())
+				.notExists(isNotBlank(query.getNeRoleId()),
+						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
+						query.getNeRoleId())
+				.in(query.getIds() != null, User::getId,
+						Arrays.asList(query.getIds() != null ? query.getIds() : new String[0]));
+		// 一人多组：按组筛选时主组或附加组命中都算，否则加进附加组的人在这个列表里「搜不到」
+		applyUserDeptScope(userQuery, orgIds);
+		Page<User> userPage = pageByQuery(query, userQuery);
 		List<User> records = userPage.getRecords();
 		// 一人多组：整页一次性取出附加组与组名，避免每行再查库
 		List<String> userIds = records.stream().map(User::getId).filter(StringUtils::hasText)
@@ -425,6 +387,29 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			result.addAll(getChildOrgIds(dept.getId()));
 		});
 		return result;
+	}
+
+	/**
+	 * 「用户属于这些组」的查询条件：主组（t_user.dept_id）命中，或者附加组（t_user_dept）命中。
+	 *
+	 * <p>
+	 * 附加组先转成 user_id 集合再 OR，不把组 id 拼进 SQL 字符串——组 id 来自请求参数，
+	 * 直接拼接会有注入风险；这里的组人数是几十到几百量级，IN 列表可以接受。
+	 * 组 id 集合为空（没按组筛选）时什么都不加，保持「查全部」的原语义。
+	 */
+	private void applyUserDeptScope(LambdaQueryWrapper<User> wrapper, List<String> deptIds) {
+		if (CollectionUtils.isEmpty(deptIds)) {
+			return;
+		}
+		List<String> extraDeptUserIds = userDeptMapper
+				.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptIds)).stream()
+				.map(UserDept::getUserId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+		wrapper.and(w -> {
+			w.in(User::getDeptId, deptIds);
+			if (!extraDeptUserIds.isEmpty()) {
+				w.or().in(User::getId, extraDeptUserIds);
+			}
+		});
 	}
 
 	@Override
@@ -663,9 +648,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			list.add(request.getDeptId());
 			this.getTreeDeptId(request.getDeptId(), list);
 		}
-		List<User> users = list(Wrappers.<User>lambdaQuery().select(User::getId)
-				.in(StringUtils.hasText(request.getDeptId()), User::getDeptId, list)
-				.like(StringUtils.hasText(request.getName()), User::getName, request.getName()));
+		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery().select(User::getId)
+				.like(StringUtils.hasText(request.getName()), User::getName, request.getName());
+		// 一人多组：协作者候选按组筛选时，附加组命中的用户也要出现
+		applyUserDeptScope(userQuery, StringUtils.hasText(request.getDeptId()) ? list : Collections.emptyList());
+		List<User> users = list(userQuery);
 		List<UserInfo> result = Stream.concat(users.stream().map(user -> user.getId()), request.getSelected().stream())
 				.collect(Collectors.toSet()).stream()
 				.map(userId -> ContextHelper.getBean(UserService.class).loadUserById(userId))
