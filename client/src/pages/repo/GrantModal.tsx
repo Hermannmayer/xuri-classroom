@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, App, Button, Empty, Modal, Popconfirm, Segmented, Select, Spin, Table, Tag } from 'antd';
 import { get, getWithPagination, post } from '../../api';
+import LinkAction from '../../components/LinkAction';
 
 interface Dept {
   id: string;
@@ -227,9 +228,9 @@ export default function GrantModal({
                 cancelText="再想想"
                 onConfirm={() => revoke(row)}
               >
-                <a style={{ color: 'var(--bp-orange)' }}>
+                <LinkAction style={{ color: 'var(--bp-orange)' }}>
                   {removingId === row.id ? '取消中…' : '取消授权'}
-                </a>
+                </LinkAction>
               </Popconfirm>
             ),
           },

@@ -1322,6 +1322,7 @@ export default function PublicAnswer() {
             value={fontScale}
             onChange={changeFont}
             className="sk-font-slider"
+            ariaLabelForHandle="字号"
             tooltip={{ formatter: (v) => `${Number(v).toFixed(2)}×` }}
           />
           <Button size="small" className="sk-font-btn" onClick={() => bumpFont(0.15)}>
