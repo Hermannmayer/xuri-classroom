@@ -84,6 +84,9 @@ export default function ProjectList() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeName, setComposeName] = useState('');
   const [renaming, setRenaming] = useState<ProjectView | null>(null);
+  // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
+  const [creating, setCreating] = useState(false);
+  const [renameSaving, setRenameSaving] = useState(false);
   const [createForm] = Form.useForm<{
     name: string;
     mode: 'survey' | 'exam';
@@ -125,13 +128,20 @@ export default function ProjectList() {
   };
 
   const submitCreate = async () => {
-    const v = await createForm.validateFields();
+    if (creating) return;
+    let v: { name: string; mode: 'survey' | 'exam'; source?: 'blank' | 'compose' };
+    try {
+      v = await createForm.validateFields();
+    } catch {
+      return; // 校验提示已经在字段上
+    }
     if (v.mode === 'exam' && v.source === 'compose') {
       setCreateOpen(false);
       setComposeName(v.name.trim());
       setComposeOpen(true);
       return;
     }
+    setCreating(true);
     try {
       const created = await createProject({
         name: v.name,
@@ -146,12 +156,21 @@ export default function ProjectList() {
       navigate(`/survey/${created.id}/edit`);
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setCreating(false);
     }
   };
 
   const submitRename = async () => {
-    if (!renaming) return;
-    const { name } = await renameForm.validateFields();
+    if (!renaming || renameSaving) return;
+    let name: string;
+    try {
+      const values = await renameForm.validateFields();
+      name = values.name;
+    } catch {
+      return; // 校验提示已经在字段上
+    }
+    setRenameSaving(true);
     try {
       await updateProject({ id: renaming.id, name });
       message.success('已重命名');
@@ -159,6 +178,8 @@ export default function ProjectList() {
       await load();
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setRenameSaving(false);
     }
   };
 
@@ -601,6 +622,7 @@ export default function ProjectList() {
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         onOk={submitCreate}
+        confirmLoading={creating}
         okText={createMode === 'exam' && createSource === 'compose' ? '下一步' : '创建'}
         cancelText="取消"
         destroyOnClose
@@ -656,6 +678,7 @@ export default function ProjectList() {
         open={!!renaming}
         onCancel={() => setRenaming(null)}
         onOk={submitRename}
+        confirmLoading={renameSaving}
         okText="确定"
         cancelText="取消"
         destroyOnClose

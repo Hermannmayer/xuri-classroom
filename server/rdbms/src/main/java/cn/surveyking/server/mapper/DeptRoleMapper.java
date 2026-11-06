@@ -24,4 +24,12 @@ public interface DeptRoleMapper extends BaseMapper<DeptRole> {
 	@Delete("DELETE FROM t_dept_role WHERE dept_id = #{deptId}")
 	int deleteByDeptId(@Param("deptId") String deptId);
 
+	/**
+	 * 物理删除某个角色的全部组绑定（删除角色时清理孤儿绑定用）。
+	 * @param roleId 角色 id
+	 * @return 受影响行数
+	 */
+	@Delete("DELETE FROM t_dept_role WHERE role_id = #{roleId}")
+	int deleteByRoleId(@Param("roleId") String roleId);
+
 }

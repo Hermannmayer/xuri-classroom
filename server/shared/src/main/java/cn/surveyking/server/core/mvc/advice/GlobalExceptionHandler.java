@@ -75,7 +75,12 @@ public class GlobalExceptionHandler {
 			AccessDeniedException ex) {
 		log.error("handleAccessDeniedException {}\n", request.getRequestURI());
 
-		return ResponseEntity.ok().body(new ApiResponse<>(ResponseCode.FORBIDDEN.code, "Authentication failed"));
+		// 业务代码里抛的 403 通常带着可读的中文原因（「无权访问该答卷」「不能把用户放进该用户组」等），
+		// 一律改写成 "Authentication failed" 会让前端只能显示英文，既不好排查也帮不到用户。
+		// Spring Security 自身抛的异常 message 一般是短英文，直接透出也不含内部细节。
+		String message = org.springframework.util.StringUtils.hasText(ex.getMessage()) ? ex.getMessage()
+				: "Authentication failed";
+		return ResponseEntity.ok().body(new ApiResponse<>(ResponseCode.FORBIDDEN.code, message));
 	}
 
 	@ExceptionHandler(ErrorCodeException.class)

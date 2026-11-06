@@ -7,19 +7,25 @@
  *   question.children[] 里 attribute.examCorrectAnswer 非空的就是正确项，值等于选项自己的 id。
  * - 填空/简答（FillBlank/Textarea/MultipleBlank）：children[i].attribute.examCorrectAnswer，
  *   兜底 question.attribute.examCorrectAnswer。
- * 对错判定：
- * - 选择题：用户所选集合 == 正确选项集合（少选、多选、选错都算错）。
- * - 填空/简答：按 attribute.examMatchRule 逐空比对，正确答案可以用换行分隔多个可接受写法。
+ * 对错判定：统一走 `client/src/utils/scoring.ts`（与 backend-data / business-logic 审计的修复项对应）。
+ * **逐题对错只是前端预览，最终得分以服务端 exam_score 为准**；`manual` 模式后端没有 evaluator，
+ * 这里明确标注「待人工评分」，不假装已经判过分。
  * 题库里多数题目没有 examAnalysis，解析为空时显示「暂无解析」。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Empty, Spin, Switch, message } from 'antd';
 import { useParams } from 'react-router-dom';
 import { post } from '../../api';
-import type { ExamMatchRule, QuestionType, SurveySchema } from '../../schema/types';
+import type { QuestionType, SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
 import type { FlatQuestion } from '../../schema/flatten';
 import type { AnswerValue } from '../../renderer/types';
+import {
+  formatRank,
+  formatScore,
+  isManualGraded,
+  matchFreeText,
+} from '../../utils/scoring';
 import '../../styles/exam-result.css';
 
 interface PublicExamResult {
@@ -28,6 +34,11 @@ interface PublicExamResult {
   examScore?: number;
   rank?: number;
   answer?: Record<string, AnswerValue>;
+  /**
+   * 答卷状态：0=草稿、1=已提交。后端当前还没下发这个字段（前向兼容），
+   * 拿到就按它判断草稿；拿不到时下面用「没有作答内容 + 没有分数」兜底。
+   */
+  tempSave?: number;
 }
 
 const CHOICE = new Set<QuestionType>(['Radio', 'Checkbox', 'Select', 'Judge']);
@@ -71,7 +82,7 @@ const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /** correct / wrong / unanswered = 判分结果；unknown = 这类题不参与判分 */
-type Status = 'correct' | 'wrong' | 'unanswered' | 'unknown';
+type Status = 'correct' | 'wrong' | 'unanswered' | 'unknown' | 'manual';
 
 interface OptionView {
   id: string;
@@ -164,19 +175,6 @@ function prettyCorrect(raw: string): string {
     .join(' / ');
 }
 
-function normalize(text: string): string {
-  return text.trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-/** 与后端 AnswerScoreEvaluator 的 matchRule 语义一致：completeSame = 全等，contain = 标准答案包含作答 */
-function textMatches(mine: string, correctRaw: string, rule?: ExamMatchRule): boolean {
-  const value = normalize(mine);
-  if (!value) return false;
-  const accepted = correctRaw.split('\n').map(normalize).filter(Boolean);
-  if (accepted.length === 0) return false;
-  return accepted.some((line) => (rule === 'contain' ? line.includes(value) : line === value));
-}
-
 /* ---------------------------------------------------------------- 选项 / 填空 / 矩阵 */
 
 /** 选择题选项：children 是选项节点（带 examCorrectAnswer），dataSource 只补 label */
@@ -233,7 +231,7 @@ function buildBlanks(q: FlatQuestion, value: AnswerValue): BlankPair[] {
         label: blank?.title || '第 1 空',
         mine,
         correct,
-        ok: correct ? textMatches(mine, correct, rule) : undefined,
+        ok: correct ? matchFreeText(mine, correct, { rule }) : undefined,
       },
     ];
   }
@@ -251,7 +249,7 @@ function buildBlanks(q: FlatQuestion, value: AnswerValue): BlankPair[] {
       label: blank.title || `第 ${index + 1} 空`,
       mine,
       correct,
-      ok: correct ? textMatches(mine, correct, rule) : undefined,
+      ok: correct ? matchFreeText(mine, correct, { rule }) : undefined,
     };
   });
 }
@@ -314,7 +312,9 @@ export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
     answered = answerLines.length > 0 || mine !== '';
     correctText = prettyCorrect(trimmed(q.schema.attribute?.examCorrectAnswer));
     answerLines = answerLines.length ? answerLines : mine ? [mine] : [];
-    status = answered ? 'unknown' : 'unanswered';
+    // 主观题（manual 模式）后端没有 evaluator，恒 0 分：这里明确标成待人工评分，
+    // 避免学员把「没判」误解成「答错了」。
+    status = !answered ? 'unanswered' : isManualGraded(q.schema.attribute) ? 'manual' : 'unknown';
   }
 
   return { q, options, blanks, answerLines, correctText, analysis, answered, judgeable, status };
@@ -535,7 +535,7 @@ export default function ExamResult() {
             <div className="sk-result-score">
               {typeof data.examScore === 'number' ? (
                 <>
-                  <span className="sk-result-score-num">{data.examScore}</span>
+                  <span className="sk-result-score-num">{formatScore(data.examScore)}</span>
                   <span className="sk-result-score-unit">分</span>
                 </>
               ) : (
@@ -573,7 +573,7 @@ export default function ExamResult() {
             </ul>
           </div>
 
-          {typeof data.rank === 'number' && <div className="sk-result-rank">排名第 {data.rank} 位</div>}
+          {typeof data.rank === 'number' && <div className="sk-result-rank">排名第 {formatRank(data.rank)} 位</div>}
         </header>
 
         {views.length > 0 && (

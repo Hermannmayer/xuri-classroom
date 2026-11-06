@@ -82,6 +82,9 @@ export default function RepoList() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<RepoView | null>(null);
+  // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个题库/重复保存
+  const [creating, setCreating] = useState(false);
+  const [renameSaving, setRenameSaving] = useState(false);
   const [granting, setGranting] = useState<RepoView | null>(null);
   const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
   const [groupsOpen, setGroupsOpen] = useState(false);
@@ -175,7 +178,14 @@ export default function RepoList() {
   };
 
   const submitCreate = async () => {
-    const v = await createForm.validateFields();
+    if (creating) return;
+    let v: { name: string; category: string; mode: 'exam' | 'survey'; description?: string };
+    try {
+      v = await createForm.validateFields();
+    } catch {
+      return; // 校验提示已经在字段上
+    }
+    setCreating(true);
     try {
       await post<void>('/api/repo/create', {
         name: v.name.trim(),
@@ -188,12 +198,21 @@ export default function RepoList() {
       await load();
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setCreating(false);
     }
   };
 
   const submitRename = async () => {
-    if (!renaming) return;
-    const { name, category, tag, description } = await renameForm.validateFields();
+    if (!renaming || renameSaving) return;
+    let values: { name: string; category?: string; tag?: string; description?: string };
+    try {
+      values = await renameForm.validateFields();
+    } catch {
+      return; // 校验提示已经在字段上
+    }
+    const { name, category, tag, description } = values;
+    setRenameSaving(true);
     try {
       // updateRepo 会先删光旧标签再按 tag 重建，只传 id+name 会把题库标签清空
       await post<void>('/api/repo/update', {
@@ -213,6 +232,8 @@ export default function RepoList() {
       await load();
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setRenameSaving(false);
     }
   };
 
@@ -609,6 +630,7 @@ export default function RepoList() {
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         onOk={submitCreate}
+        confirmLoading={creating}
         okText="创建"
         cancelText="取消"
         destroyOnClose
@@ -648,6 +670,7 @@ export default function RepoList() {
         open={!!renaming}
         onCancel={() => setRenaming(null)}
         onOk={submitRename}
+        confirmLoading={renameSaving}
         okText="确定"
         cancelText="取消"
         destroyOnClose

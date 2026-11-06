@@ -21,6 +21,9 @@ public class AppConsts {
 	 */
 	public static final String COOKIE_RANDOM_PROJECT_PREFIX = "rd_answer_id_";
 
+	/** 已通过「问卷密码」的标记 cookie 前缀（值存哈希，不存明文） */
+	public static final String COOKIE_PWD_PREFIX = "sk_pwd_";
+
 	/**
 	 * 支持的图片类型
 	 */

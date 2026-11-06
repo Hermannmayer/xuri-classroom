@@ -17,6 +17,7 @@ import {
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
+import { notifyAuthChanged } from '../auth/permissions';
 import ZoomControl from '../components/ZoomControl';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
@@ -274,6 +275,8 @@ export default function BasicLayout() {
                 onClick: async ({ key }) => {
                   if (key === 'logout') {
                     await logout().catch(() => undefined);
+                    // 清掉权限缓存并广播给其它标签页，避免下一位登录者继承当前账号的菜单/按钮
+                    notifyAuthChanged();
                     navigate('/user/login', { replace: true });
                   } else {
                     navigate('/account/settings');

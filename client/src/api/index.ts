@@ -2,7 +2,15 @@ import { get, getWithPagination, post } from './request';
 import type { ProjectView, SystemInfo, UserInfo } from './types';
 
 export * from './types';
-export { ApiError, get, post, getWithPagination, download, setUnauthorizedHandler } from './request';
+export {
+  ApiError,
+  get,
+  post,
+  getWithPagination,
+  download,
+  humanizeApiError,
+  setUnauthorizedHandler,
+} from './request';
 
 export const getSystem = () => get<SystemInfo>('/api/system');
 

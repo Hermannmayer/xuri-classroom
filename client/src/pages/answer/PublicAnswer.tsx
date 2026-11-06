@@ -3,6 +3,7 @@ import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
 import { ArrowLeftOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, post } from '../../api';
+import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import { QuestionMarkContext, type QuestionMarkApi } from '../../renderer/questions/shared';
@@ -11,6 +12,16 @@ import { flattenSchema } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
 import type { PublicQuestionOutline, PublicAnswerView, PublicProjectView } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
+import {
+  readAnswerId,
+  readDraft,
+  readMarks,
+  removeAnswerId,
+  removeDraft,
+  writeAnswerId,
+  writeDraft,
+  writeMarks,
+} from '../../utils/answerStorage';
 import { buildView, QuestionCard } from './ExamResult';
 import '../../styles/answer.css';
 
@@ -46,48 +57,14 @@ export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema |
   return undefined;
 }
 
-/** 匿名答题者没有账号，用本地保存的 answerId 当凭证：下次打开同一问卷可以续答或回看 */
-const answerKey = (projectId: string) => `sk-answer-${projectId}`;
-
 /**
- * 未提交草稿：后端 tempSaveAnswer 要求「已登录 + 随机卷 cookie」才生效，
- * 匿名场景靠本地草稿续答（发布设置 autoSave 关掉时不存）。
+ * 答题本地存储（草稿 / 匿名 answerId / 标记）统一放在 utils/answerStorage：
+ * - 登出时调用 `clearAnswerStorage()` 一键清干净（公用电脑隐私，前端 A 审计 A-DATA-1）；
+ * - 草稿带 projectId 归属校验 + 7 天有效期，读不到就按没有处理；
+ * - 所有读写都做异常兜底，隐私模式/配额满不影响答题。
  */
-const draftKey = (projectId: string) => `sk-draft-${projectId}`;
 
-/**
- * 题目标记：学员自查用，只存本地、按项目隔离。
- * 不参与必填校验、不参与判分、不写进提交的 answer；提交成功后清空。
- */
-const marksKey = (projectId: string) => `sk-marks-${projectId}`;
-
-function readMarks(projectId: string): Record<string, boolean> {
-  try {
-    const raw = localStorage.getItem(marksKey(projectId));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const out: Record<string, boolean> = {};
-    for (const [qId, marked] of Object.entries(parsed)) {
-      if (marked === true) out[qId] = true;
-    }
-    return out;
-  } catch {
-    localStorage.removeItem(marksKey(projectId));
-    return {};
-  }
-}
-
-function writeMarks(projectId: string, marks: Record<string, boolean>) {
-  try {
-    if (Object.keys(marks).length === 0) localStorage.removeItem(marksKey(projectId));
-    else localStorage.setItem(marksKey(projectId), JSON.stringify(marks));
-  } catch {
-    // 隐私模式 / 配额写不进去也不影响答题，标记退化成只在本次作答里有效
-  }
-}
-
-/**
- * 探测登录态（决定要不要显示「返回上一级」）。
+/** 探测登录态（决定要不要显示「返回上一级」）。
  * 不能用 auth/permissions 的 loadAuthorities()：它内部走 http()，未登录的 401 会触发全局
  * onUnauthorized，直接把匿名答题者跳到 /user/login，等于毁了匿名答题入口。
  * 这里自己 fetch，401 / 非 JSON / 网络错误一律按匿名处理，静默不打扰。
@@ -252,6 +229,8 @@ export default function PublicAnswer() {
   const [passRemainMs, setPassRemainMs] = useState(0);
   /** 练习 × 闯关组合：本题已超时并按 0 分锁定（先给判题/答案/解析 1.6s，再强制进入下一题） */
   const [passLockedQuestion, setPassLockedQuestion] = useState<string | null>(null);
+  /** 「完成跳转」倒计时剩余秒数；null = 不跳转（未设置 / 已点「留在本页」） */
+  const [redirectLeft, setRedirectLeft] = useState<number | null>(null);
   /** 闯关模式：每题用时（秒），questionId → seconds；交卷时随 metaInfo 上报，由服务端裁决 */
   const passTimesRef = useRef<Record<string, number>>({});
   /** 闯关模式：被判超时的题目 id（交卷时上报） */
@@ -300,7 +279,7 @@ export default function PublicAnswer() {
     }
     if (data.answerId) {
       setAnswerId(data.answerId);
-      localStorage.setItem(answerKey(id), data.answerId);
+      writeAnswerId(id, data.answerId);
     }
     if (data.answer) setValues(data.answer as Record<string, AnswerValue>);
     // 切屏次数从后端 metaInfo 恢复：刷新页面不再清零（字段用局部断言，避免动共用的 schema 类型文件）
@@ -328,13 +307,11 @@ export default function PublicAnswer() {
     try {
       if (freshAttempt) {
         // 「再考一次」：本地凭证与草稿都属于上一轮，先清掉，别把旧 answerId 发给后端
-        localStorage.removeItem(answerKey(id));
-        localStorage.removeItem(draftKey(id));
+        removeAnswerId(id);
+        removeDraft(id);
       }
       // URL 里带 answerId（成绩单/回看链接）优先，其次用本地保存的匿名凭证
-      const savedId = freshAttempt
-        ? undefined
-        : (routeAnswerId ?? localStorage.getItem(answerKey(id)) ?? undefined);
+      const savedId = freshAttempt ? undefined : (routeAnswerId ?? readAnswerId(id) ?? undefined);
       applyProject(await post<PublicProjectView>('/api/public/projectOutline', { id, answerId: savedId }));
     } catch (e) {
       setFatal((e as Error).message || '加载失败');
@@ -347,16 +324,12 @@ export default function PublicAnswer() {
   useEffect(() => {
     if (!project || result) return;
     if (project.answer) return;
-    const raw = localStorage.getItem(draftKey(id));
-    if (!raw) return;
-    try {
-      const draft = JSON.parse(raw) as { values?: Record<string, AnswerValue> };
-      if (draft.values && Object.keys(draft.values).length > 0) {
-        setValues(draft.values);
-        message.info('已恢复上次未提交的答案');
-      }
-    } catch {
-      localStorage.removeItem(draftKey(id));
+    // 归属（projectId）+ 有效期（7 天）都在 utils 里校验过；不匹配会被删掉、这里拿到 undefined
+    const draft = readDraft(id);
+    const draftValues = draft?.values as Record<string, AnswerValue> | undefined;
+    if (draftValues && Object.keys(draftValues).length > 0) {
+      setValues(draftValues);
+      message.info('已恢复上次未提交的答案');
     }
   }, [project, id, result]);
 
@@ -366,7 +339,7 @@ export default function PublicAnswer() {
     if (project.setting?.answerSetting?.autoSave === false) return;
     if (Object.keys(values).length === 0) return;
     const timer = window.setTimeout(() => {
-      localStorage.setItem(draftKey(id), JSON.stringify({ values, at: Date.now() }));
+      writeDraft(id, values);
     }, 600);
     return () => window.clearTimeout(timer);
   }, [values, project, result, id]);
@@ -468,6 +441,68 @@ export default function PublicAnswer() {
   const passModePerSeconds = project?.setting?.examSetting?.passModePerSeconds;
   /** 闯关模式天然是一页一题（只能看到当前题，也回不了头），这里强制按一页一题渲染 */
   const onePage = Boolean(project?.setting?.answerSetting?.onePageOneQuestion) || passMode;
+  /** 发布设置「显示题目序号」（answerSetting.questionNumber，默认开）：关闭时答题页不渲染题号徽标 */
+  const showQuestionNumber = project?.setting?.answerSetting?.questionNumber !== false;
+  /** 发布设置「允许复制题目」（answerSetting.copyEnabled，默认开）：关闭时联动全局 CopyGuard */
+  const copyEnabled = project?.setting?.answerSetting?.copyEnabled !== false;
+  /** 发布设置「完成跳转」（submittedSetting.redirectUrl）：只接受 http/https，避免 javascript: 注入 */
+  const redirectUrl = project?.setting?.submittedSetting?.redirectUrl?.trim() || '';
+  const safeRedirectUrl = useMemo(() => {
+    if (!redirectUrl) return undefined;
+    try {
+      const url = new URL(redirectUrl, location.origin);
+      return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [redirectUrl]);
+  /** 发布设置「错题练习」（examSetting.randomSurveyWrong）：交卷页给「练本场错题」入口 */
+  const wrongPracticeEnabled = project?.setting?.examSetting?.randomSurveyWrong === true;
+
+  /**
+   * 「允许复制题目」关闭时：借用全局 CopyGuard（components/CopyGuard.tsx 暴露的 COPY_PROTECT_EVENT）
+   * 打开本页的复制保护，离开页面时按系统级设置恢复 —— 不在答题页重复实现一套拦截逻辑。
+   */
+  useEffect(() => {
+    if (!project || copyEnabled) return;
+    let systemValue: boolean | undefined;
+    window.dispatchEvent(new CustomEvent(COPY_PROTECT_EVENT, { detail: { copyProtected: true } }));
+    void fetch('/api/system', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((body: { data?: { setting?: { copyProtected?: boolean } } }) => {
+        systemValue = body?.data?.setting?.copyProtected !== false;
+      })
+      .catch(() => {
+        // 查不到系统设置就按「开启」恢复（宁可多保护，不要意外放开）
+        systemValue = true;
+      });
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent(COPY_PROTECT_EVENT, { detail: { copyProtected: systemValue ?? true } }),
+      );
+    };
+  }, [project, copyEnabled]);
+
+  /** 「完成跳转」：交卷成功后倒计时 3 秒自动前往发布方设置的地址，可取消或立即前往 */
+  useEffect(() => {
+    if (!result || !safeRedirectUrl) {
+      setRedirectLeft(null);
+      return;
+    }
+    setRedirectLeft(3);
+    const timer = window.setInterval(() => {
+      setRedirectLeft((prev) => {
+        if (prev === null) return null; // 用户点了「留在本页」
+        if (prev <= 1) {
+          window.clearInterval(timer);
+          window.location.href = safeRedirectUrl;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [result, safeRedirectUrl]);
   /** 填空/简答类在失焦后才判题 */
   const markPracticeTouched = (qId: string) => {
     setPracticeTouched((prev) => (prev[qId] ? prev : { ...prev, [qId]: true }));
@@ -611,6 +646,36 @@ export default function PublicAnswer() {
   };
 
   /**
+   * 交卷用的整卷 schema。
+   *
+   * 原来每道题发一次 `/api/public/question`（100 题 = 100 个请求，任一失败整单交不上）。
+   * 现在优先用 `/api/public/loadProject` **一次**拿回整棵题树（该接口返回的就是完整 survey），
+   * 失败时退回本地已缓存的题目，**不阻塞交卷**：判分与校验都在服务端用自己的 project schema
+   * 做（见 SurveyServiceImpl.saveAnswer），前端传的 survey 只作为「本次作答的题目快照」。
+   */
+  const resolveSubmissionSurvey = useCallback(async (): Promise<SurveySchema> => {
+    const shell: SurveySchema = project?.survey ?? {
+      id: project?.id ?? id,
+      title: project?.name ?? '',
+      type: 'Survey',
+      attribute: {},
+    };
+    const cached = flatQuestions
+      .map((question) => questionCacheRef.current[question.id])
+      .filter((schema): schema is SurveySchema => Boolean(schema));
+    if (cached.length === flatQuestions.length && cached.length > 0) {
+      return { ...shell, children: cached };
+    }
+    try {
+      const full = await post<PublicProjectView>('/api/public/loadProject', { id, answerId });
+      if (full?.survey?.children?.length) return full.survey;
+    } catch {
+      // 拿不到整卷就退回缓存，交卷本身不受影响
+    }
+    return { ...shell, children: cached };
+  }, [answerId, flatQuestions, id, project]);
+
+  /**
    * 提交答卷。
    * - manual：用户点「提交」。回过一次答题态（点过「修改答案」）后必须还能再交，所以绝不能被
    *   submittedRef 静默挡住，只靠 submittingRef 防连点。
@@ -624,22 +689,8 @@ export default function PublicAnswer() {
     if (mode === 'auto') submittedRef.current = true;
     setSubmitting(true);
     try {
-      // 只有在用户提交后才补齐本轮题目 schema；首屏与逐题请求都不会一次性下发整卷。
-      const submittedQuestions: Array<SurveySchema | undefined> = new Array(flatQuestions.length);
-      await mapWithConcurrency(
-        flatQuestions.map((question, index) => ({ question, index })),
-        6,
-        async ({ question, index }) => {
-          submittedQuestions[index] = await loadQuestion(question.id);
-        },
-      );
-      if (submittedQuestions.some((question) => !question)) {
-        throw new Error('部分题目尚未加载成功，请检查网络后重试');
-      }
-      const submissionSurvey: SurveySchema = {
-        ...(project.survey ?? { id: project.id, title: project.name ?? '', type: 'Survey', attribute: {} }),
-        children: submittedQuestions as SurveySchema[],
-      };
+      // 一次拿整卷（见 resolveSubmissionSurvey 注释）；拿不到也不阻塞交卷
+      const submissionSurvey = await resolveSubmissionSurvey();
       // 闯关模式：交卷前补记当前题用时（手动交卷时还没走 finishPassQuestion）
       if (passMode && currentQuestion && passModePerSeconds && passTimesRef.current[currentQuestion.id] === undefined) {
         const left = Math.max(0, passDeadlineRef.current - Date.now());
@@ -662,12 +713,12 @@ export default function PublicAnswer() {
       });
       if (res?.answerId) {
         setAnswerId(res.answerId);
-        localStorage.setItem(answerKey(id), res.answerId);
+        writeAnswerId(id, res.answerId);
       }
       submittedOnceRef.current = true;
       setResultSurvey(submissionSurvey);
       setResult(res);
-      localStorage.removeItem(draftKey(id));
+      removeDraft(id);
       // 标记是答题过程中的自查工具，交卷后连同本地存储一起清空
       setMarks({});
       writeMarks(id, {});
@@ -1084,9 +1135,44 @@ export default function PublicAnswer() {
             </div>
           )}
           {project.setting?.submittedSetting?.enableUpdate && (
-            <Button style={{ marginTop: 16 }} onClick={modifyAnswer}>
+            <Button style={{ marginTop: 16, marginRight: 8 }} onClick={modifyAnswer}>
               修改答案
             </Button>
+          )}
+          {/* 错题练习（examSetting.randomSurveyWrong）：交卷后给「练本场错题」入口，练习页由 repo/book/practice 负责 */}
+          {wrongPracticeEnabled && (
+            <Button
+              style={{ marginTop: 16 }}
+              onClick={() =>
+                navigate(
+                  `/repo/book/practice?scope=project&projectId=${encodeURIComponent(id)}&projectName=${encodeURIComponent(project.name ?? '')}`,
+                )
+              }
+            >
+              练本场错题
+            </Button>
+          )}
+          {/* 完成跳转（submittedSetting.redirectUrl）：倒计时 3 秒自动前往，可取消或立即前往 */}
+          {safeRedirectUrl && redirectLeft !== null && (
+            <div style={{ marginTop: 16, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              <div>
+                {redirectLeft > 0 ? `${redirectLeft} 秒后自动前往发布方设置的页面…` : '正在跳转…'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+                <Button
+                  size="small"
+                  type="primary"
+                  onClick={() => {
+                    window.location.href = safeRedirectUrl;
+                  }}
+                >
+                  立即前往
+                </Button>
+                <Button size="small" onClick={() => setRedirectLeft(null)}>
+                  留在本页
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 
@@ -1135,6 +1221,9 @@ export default function PublicAnswer() {
         backgroundPosition: 'center',
       }}
     >
+      {/* 发布设置「显示题目序号」（answerSetting.questionNumber）关闭：答题页隐藏题号徽标。
+          徽标由共用组件 QuestionFrame 渲染（.bp-tag），这里用页面级样式隐藏，不影响设计器/预览。 */}
+      {!showQuestionNumber && <style>{'.sk-answer .bp-tag{display:none!important}'}</style>}
       {/* 顶部：返回（仅登录用户）+ 标题 + 字号 + 答题卡入口 */}
       <div className="sk-answer-top">
         {canGoBack && (
