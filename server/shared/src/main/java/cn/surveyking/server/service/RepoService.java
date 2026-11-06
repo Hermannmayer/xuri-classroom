@@ -65,7 +65,13 @@ public interface RepoService {
 
 	PaginationResponse<UserBookView> listUserBook(UserBookQuery query);
 
-	SurveySchema getUserBookQuestion(String id);
+	/**
+	 * 取错题本里某道题。
+	 * @param id 错题记录 id
+	 * @param withAnswer 是否带正确答案与解析；默认 false（纯做题不该看到答案），
+	 *                   错题本练习的结果页需要判分时传 true，且只能取到本人错题本里的题。
+	 */
+	SurveySchema getUserBookQuestion(String id, Boolean withAnswer);
 
 	void createUserBook(UserBookRequest request);
 

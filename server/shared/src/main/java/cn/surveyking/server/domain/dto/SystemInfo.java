@@ -110,6 +110,29 @@ public class SystemInfo {
 		 */
 		private String amapSecurityJsCode;
 
+		/**
+		 * 是否开启内容保护（前端防复制：禁用右键/复制/开发者工具快捷键）。
+		 * 缺省视为开启；管理员可在系统设置里关闭。粘贴不受影响，学员仍可往输入框里粘答案。
+		 */
+		private Boolean copyProtected;
+
+		/**
+		 * 是否显示全站水印。缺省视为开启，用于截图外流后的溯源。
+		 */
+		private Boolean watermarkEnabled;
+
+		/**
+		 * 水印内容，取值 name_phone（姓名+手机号，默认） / name（只显示姓名） / phone（只显示手机号）。
+		 */
+		private String watermarkMode;
+
+		/**
+		 * 可作为「项目协作者」的权限串，默认 project:create。
+		 * 只有具备该权限的账号才会出现在协作者候选列表里（超级管理员始终可以）。
+		 * 学员默认没有 project:create，因此不会被误加成协作者。
+		 */
+		private String collaboratorAuthority;
+
 	}
 
 	@Data

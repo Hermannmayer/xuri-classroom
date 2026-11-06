@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Segmented, Slider, Spin, Tag } from 'antd';
+import { Button, Empty, message, Segmented, Spin, Tag } from 'antd';
 import { ArrowLeftOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getWithPagination, post } from '../../api';
+import ZoomControl from '../../components/ZoomControl';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import { isEmptyAnswer } from '../../schema/empty';
@@ -267,17 +268,7 @@ export default function Practice() {
             { label: '瀑布流', value: 'scroll' },
           ]}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--bp-text-soft)' }}>
-          <span>字号</span>
-          <Slider
-            min={0.9}
-            max={2}
-            step={0.05}
-            value={fontScale}
-            onChange={setFont}
-            style={{ width: 100, margin: 0 }}
-          />
-        </div>
+        <ZoomControl value={fontScale} onChange={setFont} hideLabel />
       </div>
 
       <div

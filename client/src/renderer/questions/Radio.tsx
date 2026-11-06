@@ -1,12 +1,12 @@
 import type { QuestionComponentProps } from '../types';
-import { optionAnswer, selectedIds, toOptions } from './answers';
+import { optionAnswer, optionsOf, selectedIds } from './answers';
 import OptionList from './OptionList';
 import { QuestionFrame, useAnswerState } from './shared';
 
 /** 单选：answer = { 选中选项id: true } */
 export default function Radio(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
-  const options = toOptions(schema.dataSource);
+  const options = optionsOf(schema);
   const [answer, setAnswer] = useAnswerState(props);
   const locked = mode === 'edit' || Boolean(disabled);
   const picked = selectedIds(answer, options);

@@ -265,6 +265,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 						.eq(query.getType() != null, UserBook::getType, query.getType())
 						.ge(query.getStartDate() != null, UserBook::getCreateAt, query.getStartDate())
 						.le(query.getEndDate() != null, UserBook::getCreateAt, query.getEndDate())
+						// 出错次数下限：错题本里「错过 2 次以上」这类筛选
+						.ge(query.getWrongTimesMin() != null, UserBook::getWrongTimes, query.getWrongTimesMin())
+						// 标记状态：1 已掌握 / 2 重点标记
+						.eq(query.getStatus() != null, UserBook::getStatus, query.getStatus())
 						.eq(UserBook::getCreateBy, SecurityContextUtils.getUserId()));
 		PaginationResponse<UserBookView> result = new PaginationResponse<>(page.getTotal(),
 				userBookViewMapper.toView(page.getRecords()));
@@ -272,7 +276,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	}
 
 	@Override
-	public SurveySchema getUserBookQuestion(String id) {
+	public SurveySchema getUserBookQuestion(String id, Boolean withAnswer) {
 		UserBook userBook = userBookService.getOne(Wrappers.<UserBook>lambdaQuery().eq(UserBook::getId, id)
 				.eq(UserBook::getCreateBy, SecurityContextUtils.getUserId()));
 		if (userBook == null) {
@@ -281,7 +285,12 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		Template template = templateService.getReadableTemplate(userBook.getTemplateId());
 		SurveySchema schema = template.getTemplate().deepCopy();
 		schema.setId(template.getId());
-		SchemaHelper.ignoreAttributes(schema, "examCorrectAnswer", "examScore", "examMatchRule", "examAnalysis");
+		// 默认剥掉答案：做题时不该看到正确答案。
+		// 错题本练习的结果页需要判分，此时前端传 withAnswer=1；
+		// 能取到的只有「本人错题本里的题」，不会因此泄漏整个题库。
+		if (!Boolean.TRUE.equals(withAnswer)) {
+			SchemaHelper.ignoreAttributes(schema, "examCorrectAnswer", "examScore", "examMatchRule", "examAnalysis");
+		}
 		return schema;
 	}
 

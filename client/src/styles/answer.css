@@ -1,5 +1,9 @@
 .sk-answer {
   /* 字体档位由外层 zoom 控制，这里只放结构样式 */
+  /* 题干与选项的视觉尺度：QuestionFrame 读这两个变量，默认值（14px / 10px）留给设计器和预览页。
+     答题页把题干放大、题干与选项之间拉开，字号滑块仍然只叠一次 zoom，不会双倍放大。 */
+  --sk-stem-size: 16px;
+  --sk-stem-gap: 16px;
 }
 
 /* 答题卡 */
@@ -35,6 +39,61 @@
   border-style: dashed;
   border-color: var(--bp-orange-line);
 }
+/* 已标记：右上角小三角角标。和已答（蓝底）/ 当前（橙边）/ 必填未答（虚线）叠加都能看清 */
+.sk-sheet button {
+  position: relative;
+}
+.sk-sheet-mark {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-top: 8px solid var(--bp-orange);
+  border-left: 8px solid transparent;
+  pointer-events: none;
+}
+.sk-sheet-marked-count {
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+  color: var(--bp-orange);
+}
+
+/* 题卡右上角的标记按钮（瀑布流模式）：方形描边，已标记转橙色 */
+.sk-mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--bp-line-soft);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bp-text-soft);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 100ms, color 100ms, background 100ms;
+}
+.sk-mark:hover {
+  border-color: var(--bp-line);
+  color: var(--bp-text);
+}
+.sk-mark.marked {
+  border-color: var(--bp-orange-line);
+  background: var(--bp-orange-tint);
+  color: var(--bp-orange);
+}
+
+/* 一页一题：底部操作条里的标记按钮（antd Button，需压过默认描边色） */
+.sk-mark-btn.marked {
+  border-color: var(--bp-orange) !important;
+  color: var(--bp-orange) !important;
+  background: var(--bp-orange-tint) !important;
+}
 
 /* 顶部工具条 */
 .sk-answer-top {
@@ -47,6 +106,30 @@
   padding: 8px 16px;
   background: var(--bp-nav-solid);
   border-bottom: 1px solid var(--bp-line-soft);
+}
+
+/* 返回上一级：只给已登录用户渲染（匿名答题者没有上一级），蓝图风方形描边按钮 */
+.sk-answer-top .sk-answer-back {
+  flex: 0 0 auto;
+  border-radius: 0;
+  border: 1px solid var(--bp-line-soft);
+  background: transparent;
+  color: var(--bp-text-soft);
+  padding: 0 8px;
+}
+.sk-answer-top .sk-answer-back:not(:disabled):hover {
+  border-color: var(--bp-line) !important;
+  color: var(--bp-text) !important;
+  background: var(--bp-fill-soft) !important;
+}
+@media (max-width: 520px) {
+  /* 窄屏只留向左箭头，把标题宽度让出来 */
+  .sk-answer-back-label {
+    display: none;
+  }
+  .sk-answer-top .sk-answer-back {
+    padding: 0 6px;
+  }
 }
 
 /* 底部操作栏 */

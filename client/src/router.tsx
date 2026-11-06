@@ -18,6 +18,7 @@ import AccountSettings from './pages/account/Settings';
 import RepoList from './pages/repo/List';
 import RepoQuestions from './pages/repo/Questions';
 import RepoBook from './pages/repo/Book';
+import BookPractice from './pages/repo/BookPractice';
 import ExerciseList from './pages/exercise/List';
 import Practice from './pages/exercise/Practice';
 import PublicAnswer from './pages/answer/PublicAnswer';
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
       { path: 'repo/index', element: guard('repo:list', <RepoList />) },
       { path: 'repo/book', element: guard('repo:list', <RepoBook />) },
+      { path: 'repo/book/practice', element: guard('repo:list', <BookPractice />) },
       { path: 'repo/:repoId/questions/:mode', element: guard('repo:list', <RepoQuestions />) },
       { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: guard('project:detail', <SurveyOverview />) },

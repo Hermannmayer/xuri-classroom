@@ -11,7 +11,8 @@
   --bp-line-soft: rgba(255, 255, 255, 0.15);
   --bp-grid: rgba(255, 255, 255, 0.05);
   --bp-text: #ffffff;
-  --bp-text-soft: #a0c4e8;
+  /* 次要文字提亮：原来的 #a0c4e8 在深蓝底上对比度约 3:1，中老年学员读不清 */
+  --bp-text-soft: #cfe2f6;
   --bp-blue: #4a90d9;
   --bp-orange: #ff6b35;
 
@@ -19,6 +20,8 @@
   --bp-panel: rgba(30, 58, 95, 0.55);
   --bp-panel-soft: rgba(30, 58, 95, 0.35);
   --bp-panel-strong: rgba(21, 42, 68, 0.7);
+  /* 弹层（Modal / message / Popover）用不透明底色，避免叠在内容上看不清 */
+  --bp-modal-bg: #1b3352;
   --bp-toolbar: rgba(21, 42, 68, 0.85);
   --bp-nav: rgba(21, 42, 68, 0.92);
   --bp-nav-solid: rgba(21, 42, 68, 0.96);
@@ -51,7 +54,7 @@
   /* 填充 / 轨道 / 滚动条 / 选中 */
   --bp-fill-weak: rgba(255, 255, 255, 0.03);
   --bp-fill-soft: rgba(255, 255, 255, 0.06);
-  --bp-hint: rgba(160, 196, 232, 0.6);
+  --bp-hint: rgba(207, 226, 246, 0.8);
   --bp-track: rgba(255, 255, 255, 0.1);
   --bp-option-hover: rgba(74, 144, 217, 0.14);
   --bp-matrix-inner: rgba(21, 42, 68, 0.9);
@@ -70,14 +73,15 @@
   --bp-line-soft: #e6e1d6;
   --bp-grid: rgba(30, 58, 95, 0.06);
   --bp-text: #1e3a5f;
-  --bp-text-soft: #5b6b7d;
+  --bp-text-soft: #3f4c5c;
   --bp-blue: #2f5d8c;
   --bp-orange: #e8590c;
 
-  /* 米白面板：卡片纯色，次级面板略深一档；导航/底栏与卡片同色 */
+  /* 米白面板：卡片纯色，次级面板略深一档；导航/底栏与卡片同色；弹层用不透明纯色 */
   --bp-panel: #fffdf8;
   --bp-panel-soft: #f4f1e8;
   --bp-panel-strong: #f2efe6;
+  --bp-modal-bg: #fffdf8;
   --bp-toolbar: #f4f1e8;
   --bp-nav: #fffdf8;
   --bp-nav-solid: #fffdf8;
@@ -108,7 +112,7 @@
 
   --bp-fill-weak: rgba(30, 58, 95, 0.03);
   --bp-fill-soft: rgba(30, 58, 95, 0.06);
-  --bp-hint: rgba(91, 107, 125, 0.75);
+  --bp-hint: rgba(63, 76, 92, 0.82);
   --bp-track: rgba(30, 58, 95, 0.1);
   --bp-option-hover: rgba(232, 89, 12, 0.06);
   --bp-matrix-inner: #fffdf8;
@@ -467,3 +471,149 @@ body {
     gap: 8px !important;
   }
 }
+
+/* ------------------------------------------------------------ 缩放档位控件
+ * 原来是下拉框，老师根本找不到入口；改成档位平铺，所有档位一眼可见、点一下即切换。
+ * 主界面、答题页、练习页共用同一组件（client/src/components/ZoomControl.tsx）。
+ */
+.sk-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sk-zoom-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--bp-text-soft);
+  white-space: nowrap;
+}
+.sk-zoom-track {
+  display: inline-flex;
+  border: 1px solid var(--bp-line);
+}
+.sk-zoom-step {
+  appearance: none;
+  background: transparent;
+  color: var(--bp-text-soft);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 8px;
+  border: 0;
+  border-right: 1px solid var(--bp-line);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s, color 0.12s;
+}
+.sk-zoom-step:last-child {
+  border-right: 0;
+}
+.sk-zoom-step:hover {
+  background: var(--bp-fill-soft);
+  color: var(--bp-text);
+}
+.sk-zoom-step.is-active {
+  background: var(--bp-blue-weak);
+  color: var(--bp-text);
+  font-weight: 700;
+}
+@media (max-width: 767.98px) {
+  .sk-zoom-label {
+    display: none;
+  }
+  .sk-zoom-step {
+    padding: 5px 6px;
+    font-size: 11px;
+  }
+}
+
+/* ------------------------------------------------------------------ 可读性
+ * 学员和老师以中老年为主：小号等宽字在低对比背景上会发虚。
+ * 字号基准走 theme.ts 的 antd token（13 → 15），对比度走上面的 --bp-text-soft / --bp-hint，
+ * 这里补字重：表头、表单标签、按钮用 600~700，正文保持常规字重（长文本整段加粗反而更难读）。
+ */
+.ant-table {
+  font-size: 14px;
+}
+.ant-table-thead > tr > th {
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+}
+.ant-form-item-label > label {
+  font-weight: 600;
+}
+.ant-descriptions-item-label {
+  font-weight: 600;
+}
+.ant-btn {
+  font-weight: 600;
+}
+.ant-tag {
+  font-weight: 500;
+}
+.bp-dim {
+  font-weight: 500;
+}
+/* 说明性小字不再允许掉到 10px 以下 */
+.bp-small,
+.bp-hint {
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------- 静态弹层主题
+ * antd 的 message.xxx / Modal.confirm / notification 是「静态方法」，
+ * 渲染在 ConfigProvider 之外，拿不到我们的 buildTheme token，
+ * 深色主题下会变成白底浅字（截图里那个白色对话框就是）。
+ *
+ * 这里用主题变量统一兜住：只要挂在 body 上的弹层，无论从哪个上下文弹出都跟随主题。
+ * 用 !important 是因为 antd 的样式是运行时注入的，注入顺序晚于本文件。
+ */
+.ant-modal-content,
+.ant-modal-header,
+.ant-modal-body,
+.ant-modal-footer {
+  background: var(--bp-modal-bg) !important;
+  color: var(--bp-text) !important;
+}
+.ant-modal-title,
+.ant-modal-confirm-title {
+  color: var(--bp-text) !important;
+  font-weight: 700;
+}
+.ant-modal-confirm-content,
+.ant-modal-confirm-paragraph {
+  color: var(--bp-text-soft) !important;
+}
+.ant-modal-close {
+  color: var(--bp-text-soft) !important;
+}
+.ant-modal-mask {
+  background: var(--bp-mask) !important;
+}
+.ant-modal .ant-btn-default {
+  background: transparent !important;
+  border-color: var(--bp-control-border) !important;
+  color: var(--bp-text) !important;
+}
+.ant-modal .ant-btn-primary {
+  background: var(--bp-primary-bg) !important;
+  border-color: var(--bp-primary-border) !important;
+  color: var(--bp-primary-text) !important;
+}
+.ant-message-notice-content,
+.ant-notification-notice {
+  background: var(--bp-modal-bg) !important;
+  color: var(--bp-text) !important;
+  border: 1px solid var(--bp-line) !important;
+}
+.ant-popover-inner {
+  background: var(--bp-modal-bg) !important;
+  color: var(--bp-text) !important;
+}
+.ant-popover-inner-content,
+.ant-popconfirm-title,
+.ant-popconfirm-description {
+  color: var(--bp-text) !important;
+}
+
+

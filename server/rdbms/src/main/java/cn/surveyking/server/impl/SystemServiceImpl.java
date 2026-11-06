@@ -470,6 +470,21 @@ public class SystemServiceImpl implements SystemService {
 			if (isNotBlank(source.getAmapSecurityJsCode())) {
 				setting.setAmapSecurityJsCode(source.getAmapSecurityJsCode());
 			}
+			// 内容保护开关：允许显式关闭（false），所以要按 != null 判断而不是 isNotBlank
+			if (source.getCopyProtected() != null) {
+				setting.setCopyProtected(source.getCopyProtected());
+			}
+			// 水印开关与内容（隐私相关，统一在系统设置里改）
+			if (source.getWatermarkEnabled() != null) {
+				setting.setWatermarkEnabled(source.getWatermarkEnabled());
+			}
+			if (isNotBlank(source.getWatermarkMode())) {
+				setting.setWatermarkMode(source.getWatermarkMode());
+			}
+			// 谁可以当项目协作者（权限串），默认 project:create
+			if (isNotBlank(source.getCollaboratorAuthority())) {
+				setting.setCollaboratorAuthority(source.getCollaboratorAuthority().trim());
+			}
 		}
 		if (request.getAiSetting() != null) {
 			SystemInfo.AiSetting source = request.getAiSetting();

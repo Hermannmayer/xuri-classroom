@@ -792,7 +792,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	 */
 	private void updateLinkSurveyAnswer(Answer answer, ProjectView project) {
 		SchemaHelper.flatSurveySchema(project.getSurvey()).stream()
-				.filter(qSchema -> !CollectionUtils.isEmpty(qSchema.getChildren().get(0).getLinkSurveys()))
+				// children 为空的题（填空/多行文本/评分/NPS/多空等）没有选项，取 get(0) 会越界，
+				// 导致「任何含填空题的问卷提交直接 500」，这里必须先判空
+				.filter(qSchema -> !CollectionUtils.isEmpty(qSchema.getChildren())
+						&& !CollectionUtils.isEmpty(qSchema.getChildren().get(0).getLinkSurveys()))
 				.forEach(qSchemaHasLinkSurvey -> {
 					Map<String, Object> qValue = (Map<String, Object>) answer.getAnswer()
 							.get(qSchemaHasLinkSurvey.getId());

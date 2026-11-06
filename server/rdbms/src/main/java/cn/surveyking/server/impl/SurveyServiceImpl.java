@@ -403,12 +403,39 @@ public class SurveyServiceImpl implements SurveyService {
 		if (Boolean.TRUE.equals(submittedSetting.getRankVisible())) {
 			result.setRank(answerView.getRank());
 		}
-		// 随机问题
+		// 随机问题：每个人拿到的题不同，必须用答卷上的快照
 		if (answerView.getSurvey() != null) {
-			result.setSchema(answerView.getSurvey());
+			// 但历史快照在保存时把 examCorrectAnswer 剥掉了（实测 378 个正确选项 → 0），
+			// 用它会让解析页永远显示「未设置正确答案」。这种情况下回退到项目 schema，
+			// 保证老答卷也能看到正确答案；只有快照里确实还带着答案时才优先用快照。
+			if (containsCorrectAnswer(answerView.getSurvey())) {
+				result.setSchema(answerView.getSurvey());
+			}
 		}
 		result.setMetaInfo(answerView.getMetaInfo());
 		return result;
+	}
+
+	/**
+	 * 递归检查一份 schema 里是否还带着正确答案。
+	 *
+	 * <p>用途：判断答卷上那份 survey 快照能不能用来做答案解析。
+	 * 历史快照在保存时被 {@code ignoreAttributes} 剥掉过 examCorrectAnswer，
+	 * 这类快照不能用来渲染成绩单。
+	 */
+	private boolean containsCorrectAnswer(SurveySchema schema) {
+		if (schema == null || schema.getChildren() == null) {
+			return false;
+		}
+		for (SurveySchema child : schema.getChildren()) {
+			if (child.getAttribute() != null && child.getAttribute().getExamCorrectAnswer() != null) {
+				return true;
+			}
+			if (containsCorrectAnswer(child)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override

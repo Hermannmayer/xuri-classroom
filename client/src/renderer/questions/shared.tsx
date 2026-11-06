@@ -1,10 +1,26 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { FlagFilled, FlagOutlined } from '@ant-design/icons';
 import type { SurveySchema } from '../../schema/types';
 import type { AnswerValue, QuestionComponentProps } from '../types';
 
 /**
+ * 题目标记（只给答题页用）：答题页用 Provider 注入，设计器 / 预览页没有 Provider，
+ * QuestionFrame 就不渲染标记按钮 —— 共用组件的默认行为完全不变。
+ * 标记状态本身存在答题页（localStorage），这里只负责渲染与回调。
+ */
+export interface QuestionMarkApi {
+  isMarked: (questionId: string) => boolean;
+  toggle: (questionId: string) => void;
+}
+
+export const QuestionMarkContext = createContext<QuestionMarkApi | null>(null);
+
+/**
  * 题目外壳：题号 + 标题 + 必填标记 + description。
  * 题型组件自带外壳，渲染层（SchemaRenderer）只负责布局与显隐，避免重复渲染标题。
+ *
+ * 题干字号 / 题干与选项的间距走 CSS 变量，默认值 = 设计器与预览页原有的视觉；
+ * 答题页在 styles/answer.css 的 .sk-answer 作用域里把它们调大，互不影响。
  */
 export function QuestionFrame({
   schema,
@@ -16,16 +32,30 @@ export function QuestionFrame({
   children: ReactNode;
 }) {
   const indent = number === undefined ? 0 : 34;
+  const markApi = useContext(QuestionMarkContext);
+  const marked = markApi?.isMarked(schema.id) ?? false;
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {number !== undefined && <span className="bp-tag">{String(number).padStart(2, '0')}</span>}
-        <span style={{ fontSize: 14, letterSpacing: '0.02em' }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--sk-stem-size, 14px)', letterSpacing: '0.02em' }}>
           {schema.attribute?.required && (
             <span style={{ color: 'var(--bp-orange)', marginRight: 4 }}>*</span>
           )}
           {schema.title || <span style={{ color: 'rgba(160,196,232,0.45)' }}>未命名题目</span>}
         </span>
+        {markApi && (
+          <button
+            type="button"
+            className={marked ? 'sk-mark marked' : 'sk-mark'}
+            onClick={() => markApi.toggle(schema.id)}
+            aria-pressed={marked}
+            title={marked ? '取消标记' : '标记这道题，最后回来看'}
+          >
+            {marked ? <FlagFilled /> : <FlagOutlined />}
+            <span className="sk-mark-text">{marked ? '已标记' : '标记'}</span>
+          </button>
+        )}
       </div>
       {schema.description && (
         <div
@@ -40,7 +70,7 @@ export function QuestionFrame({
           {schema.description}
         </div>
       )}
-      <div style={{ marginTop: 10, paddingLeft: indent }}>{children}</div>
+      <div style={{ marginTop: 'var(--sk-stem-gap, 10px)', paddingLeft: indent }}>{children}</div>
     </div>
   );
 }

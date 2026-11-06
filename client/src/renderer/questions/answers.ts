@@ -17,6 +17,20 @@ export function toOptions(dataSource?: DataSource[]): Option[] {
   return (dataSource ?? []).map(({ label, value }) => ({ label, value }));
 }
 
+/**
+ * 取一道题的选项，带兜底：
+ * - 设计器新建的题把选项放在 dataSource 里；
+ * - **Excel 导入的题没有 dataSource**，选项只写在 children 里（且这些 Option 子节点连 type 都没有），
+ *   不兜底的话渲染层会整题显示「未配置选项」——这是存量题库里大量存在的问题。
+ */
+export function optionsOf(schema: SurveySchema): Option[] {
+  const fromDataSource = toOptions(schema.dataSource);
+  if (fromDataSource.length) return fromDataSource;
+  return (schema.children ?? [])
+    .filter((child) => Boolean(child.id) && String(child.title ?? '').trim() !== '')
+    .map((child) => ({ label: child.title ?? '', value: child.id }));
+}
+
 /** 已选的 optionId（key 存在即选中，不看值真假） */
 export function selectedIds(answer: AnswerValue, options: Option[]): string[] {
   return options.filter((o) => isOptionSelected(answer, o.value)).map((o) => o.value);

@@ -1,6 +1,8 @@
-import { Empty, Table, Tag } from 'antd';
+import { useEffect, useState } from 'react';
+import { Empty, message, Popconfirm, Table, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
+import { updateProject } from '../../api';
 import type { ProjectView } from '../../api';
 
 /** 后端 MyTaskView：答题记录。时间是毫秒时间戳，空值 Jackson 不返回 */
@@ -40,14 +42,36 @@ export function ProjectTable({
   canManage?: boolean;
 }) {
   const navigate = useNavigate();
+  // 父组件只在整页刷新时重新拉数据，这里留一份本地副本让「开启 / 关闭」即时生效；
+  // 父组件换了 rows 引用（点「刷新」）时会重新同步，不会长期偏离后端状态。
+  const [data, setData] = useState(rows);
+  const [togglingId, setTogglingId] = useState<string>();
+
+  useEffect(() => setData(rows), [rows]);
+
+  /** 切换发布状态：POST /api/project/update { id, settingKey: 'status', settingValue } */
+  const toggleStatus = async (row: ProjectView) => {
+    const next = row.status === 1 ? 0 : 1;
+    setTogglingId(row.id);
+    try {
+      await updateProject({ id: row.id, settingKey: 'status', settingValue: next });
+      message.success(next === 1 ? '已开启' : '已关闭');
+      setData((prev) => prev.map((item) => (item.id === row.id ? { ...item, status: next } : item)));
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setTogglingId(undefined);
+    }
+  };
+
   return (
     <Table<ProjectView>
       rowKey="id"
       size="middle"
       loading={loading}
-      dataSource={rows}
+      dataSource={data}
       scroll={{ x: 640 }}
-      pagination={smallPager(rows)}
+      pagination={smallPager(data)}
       locale={{
         emptyText: (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`还没有${label}，去「我的项目」新建`} />
@@ -64,21 +88,48 @@ export function ProjectTable({
             </>
           ),
         },
-        { title: '创建时间', dataIndex: 'createAt', width: 170, render: (v?: string) => fmtTime(v) },
+        {
+          title: '创建时间',
+          dataIndex: 'createAt',
+          width: 158,
+          // 基准字号提到 15 之后日期会换行，强制单行显示
+          render: (v?: string) => <span style={{ whiteSpace: 'nowrap' }}>{fmtTime(v)}</span>,
+        },
         {
           title: '状态',
           dataIndex: 'status',
-          width: 100,
+          width: 84,
           render: (v?: number) => (
             <Tag color={v === 1 ? 'success' : 'default'}>{v === 1 ? '已发布' : '未发布'}</Tag>
           ),
         },
         {
           title: '操作',
-          width: 140,
+          width: 190,
           render: (_: unknown, row) =>
             canManage ? (
-              <div style={{ display: 'flex', gap: 12 }}>
+              // 管理 / 老师视角：设置 → 开启·关闭 → 编辑（题目）→ 数据
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <a onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</a>
+                {row.status === 1 ? (
+                  <Popconfirm
+                    title="关闭后学员将无法打开答题链接"
+                    description="已收集的答卷不受影响，可随时重新开启。"
+                    okText="关闭"
+                    cancelText="取消"
+                    onConfirm={() => toggleStatus(row)}
+                  >
+                    <a style={{ color: 'var(--bp-orange)' }}>
+                      {togglingId === row.id ? '关闭中' : '关闭'}
+                    </a>
+                  </Popconfirm>
+                ) : (
+                  <a
+                    onClick={() => (togglingId === row.id ? undefined : void toggleStatus(row))}
+                  >
+                    {togglingId === row.id ? '开启中' : '开启'}
+                  </a>
+                )}
                 <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
                 <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
               </div>

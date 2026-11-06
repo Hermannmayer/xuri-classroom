@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, message, Select, Spin, Switch, Tabs, Upload } from 'antd';
+import type { ReactNode } from 'react';
+import { Alert, AutoComplete, Button, Card, Form, Input, message, Segmented, Select, Spin, Switch, Tabs, Upload } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { get, getSystem, post } from '../../api';
+import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
+import { WATERMARK_EVENT } from '../../components/Watermark';
+import type { WatermarkMode } from '../../components/Watermark';
 
 /** 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏） */
 interface AiSetting {
@@ -20,6 +24,33 @@ interface Role {
   code?: string;
 }
 
+/** 内容与隐私保护：三项都是即时保存，缺省全部开启（与后端契约一致） */
+interface ProtectionSetting {
+  watermarkEnabled: boolean;
+  watermarkMode: WatermarkMode;
+  copyProtected: boolean;
+}
+
+const DEFAULT_PROTECTION: ProtectionSetting = {
+  watermarkEnabled: true,
+  watermarkMode: 'name_phone',
+  copyProtected: true,
+};
+
+/** 可担任项目协作者的默认权限串：有 project:create 的账号（管理员 + 老师）；ROLE_admin 始终可以 */
+const DEFAULT_COLLABORATOR_AUTHORITY = 'project:create';
+
+/** 下拉里的两个快捷选项，也允许直接输入别的权限串 */
+const COLLABORATOR_AUTHORITY_OPTIONS = [
+  { value: 'project:create', label: 'project:create（管理员 + 老师，推荐）' },
+  { value: 'system:user:update', label: 'system:user:update（仅管理员）' },
+];
+
+/** 后端 watermarkMode 是 string；老数据 / 脏值（含 null）一律回落到默认的「姓名+手机号」 */
+function normalizeMode(value?: string | null): WatermarkMode {
+  return value === 'name' || value === 'phone' ? value : 'name_phone';
+}
+
 type TabKey = 'basic' | 'access' | 'ai';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
@@ -29,13 +60,16 @@ const TAB_FIELDS: Record<TabKey, string[]> = {
 };
 
 /**
- * 系统设置：品牌信息 / 登录与验证码 / AI 设置。
+ * 系统设置：品牌信息 / 登录与验证码 / AI 设置 +「内容与隐私保护」「协作与权限」两块即时保存的卡片。
  * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
  * setting.copyright、setting.recordNum。
  * favicon 后端没有字段（SystemSetting 是强类型，塞 setting JSON 会被 mergeSysInfo 丢掉），
  * 需要后端加 SystemSetting.favicon 并同步写入后，这里再加输入框。
  * 上传走 POST /api/file/create（multipart，publicRead=true），返回文件 id，
  * 前端存公开预览地址 /api/public/preview/<id> 到 avatar，登录页未登录也能加载。
+ * 内容与隐私保护（水印 / 防复制）和协作与权限都不进 Form，改完直接 POST /api/system/update
+ * 的 setting 增量字段（后端 merge 式更新）；水印 / 防复制保存成功后广播 window 事件，
+ * 让 main.tsx 里挂的全局组件立即生效，不用刷新整页。
  */
 export default function SystemSetting() {
   const [form] = Form.useForm();
@@ -48,6 +82,13 @@ export default function SystemSetting() {
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
   const [depts, setDepts] = useState<{ id: string; name: string }[]>([]);
   const roles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
+  // 内容与隐私保护三项都是「改完即存」，所以不进 Form，避免和上面的「保存」按钮抢状态
+  const [protection, setProtection] = useState<ProtectionSetting>(DEFAULT_PROTECTION);
+  const [savingProtection, setSavingProtection] = useState(false);
+  // 协作者权限串是自由文本：草稿（输入框里的值）+ 已保存值（失败回滚用）
+  const [authorityDraft, setAuthorityDraft] = useState(DEFAULT_COLLABORATOR_AUTHORITY);
+  const [savedAuthority, setSavedAuthority] = useState(DEFAULT_COLLABORATOR_AUTHORITY);
+  const [savingAuthority, setSavingAuthority] = useState(false);
 
   const load = useCallback(async () => {
     const [sys, ai, deptRes, roleRes] = await Promise.all([
@@ -79,6 +120,16 @@ export default function SystemSetting() {
       defaultModel: ai?.defaultModel,
       prompt: ai?.prompt,
     });
+    // 三项缺省都开启：后端没返回这些字段（旧版本）时也按「开着 + 姓名+手机号」显示
+    setProtection({
+      watermarkEnabled: sys?.setting?.watermarkEnabled !== false,
+      watermarkMode: normalizeMode(sys?.setting?.watermarkMode),
+      copyProtected: sys?.setting?.copyProtected !== false,
+    });
+    // 协作者权限串：老数据可能是 null / 空串，回落默认的 project:create
+    const authority = sys?.setting?.collaboratorAuthority || DEFAULT_COLLABORATOR_AUTHORITY;
+    setAuthorityDraft(authority);
+    setSavedAuthority(authority);
   }, [form]);
 
   useEffect(() => {
@@ -106,6 +157,59 @@ export default function SystemSetting() {
       message.error((e as Error).message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  /**
+   * 内容与隐私保护：单项改完立即保存，只提交改动的那一个字段（后端是 merge 式更新）。
+   * 先乐观更新界面，失败回滚到改动前并给出错误提示。
+   */
+  const saveProtection = async (patch: Partial<ProtectionSetting>) => {
+    const prev = protection;
+    const next = { ...prev, ...patch };
+    setProtection(next);
+    setSavingProtection(true);
+    try {
+      await post('/api/system/update', { setting: patch });
+      message.success('已保存');
+      // 广播给全局的水印 / 防复制组件，立即按新设置生效，不用刷新整页
+      window.dispatchEvent(
+        new CustomEvent(COPY_PROTECT_EVENT, { detail: { copyProtected: next.copyProtected } }),
+      );
+      window.dispatchEvent(
+        new CustomEvent(WATERMARK_EVENT, {
+          detail: { watermarkEnabled: next.watermarkEnabled, watermarkMode: next.watermarkMode },
+        }),
+      );
+    } catch (e) {
+      setProtection(prev); // 失败回滚，避免界面显示成「已生效」而后端没存上
+      message.error((e as Error).message);
+    } finally {
+      setSavingProtection(false);
+    }
+  };
+
+  /**
+   * 协作者权限串：点「保存」或选中下拉里的快捷值时提交（自由文本，不做成改一个字就存）。
+   * 失败回滚到上一次保存成功的值并提示。
+   */
+  const saveAuthority = async (value?: string) => {
+    const authority = String(value ?? authorityDraft).trim();
+    if (!authority) {
+      message.warning('请填写权限串，例如 project:create');
+      return;
+    }
+    setAuthorityDraft(authority);
+    setSavingAuthority(true);
+    try {
+      await post('/api/system/update', { setting: { collaboratorAuthority: authority } });
+      setSavedAuthority(authority);
+      message.success('已保存');
+    } catch (e) {
+      setAuthorityDraft(savedAuthority); // 回滚，避免界面显示成已生效
+      message.error((e as Error).message);
+    } finally {
+      setSavingAuthority(false);
     }
   };
 
@@ -341,6 +445,88 @@ export default function SystemSetting() {
           />
         </Form>
       </Card>
+
+      {/* 内容与隐私保护：三项都是改完即存，不走上方的「保存」按钮 */}
+      <Card
+        className="bp-corners"
+        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)', marginTop: 14 }}
+        title={<span className="bp-title" style={{ fontSize: 12 }}>CONTENT & PRIVACY / 内容与隐私保护</span>}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <ProtectionRow
+            label="全站水印"
+            hint="登录后每页平铺淡色水印；登录、注册、公开答题等匿名页面不显示"
+          >
+            <Switch
+              checked={protection.watermarkEnabled}
+              loading={savingProtection}
+              checkedChildren="开启"
+              unCheckedChildren="关闭"
+              onChange={(checked) => void saveProtection({ watermarkEnabled: checked })}
+            />
+          </ProtectionRow>
+          <ProtectionRow label="水印内容" hint="手机号默认中间四位打码，避免完整号码随截图流出">
+            <Segmented
+              value={protection.watermarkMode}
+              onChange={(value) => void saveProtection({ watermarkMode: value as WatermarkMode })}
+              options={[
+                { label: '姓名+手机号', value: 'name_phone' },
+                { label: '仅姓名', value: 'name' },
+                { label: '仅手机号', value: 'phone' },
+              ]}
+            />
+          </ProtectionRow>
+          <ProtectionRow
+            label="防复制"
+            hint="拦截右键、复制、剪切与开发者工具快捷键；粘贴和输入框编辑不受影响"
+          >
+            <Switch
+              checked={protection.copyProtected}
+              loading={savingProtection}
+              checkedChildren="开启"
+              unCheckedChildren="关闭"
+              onChange={(checked) => void saveProtection({ copyProtected: checked })}
+            />
+          </ProtectionRow>
+        </div>
+      </Card>
+
+      {/* 协作与权限：协作者候选的过滤在后端完成，这里只配置「具备哪种权限的人能当协作者」 */}
+      <Card
+        className="bp-corners"
+        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)', marginTop: 14 }}
+        title={<span className="bp-title" style={{ fontSize: 12 }}>COLLABORATION / 协作与权限</span>}
+      >
+        <ProtectionRow
+          label="可担任协作者"
+          hint="填写权限串，默认 project:create；具备该权限的账号（以及超级管理员）才能被加为协作者，改完点右侧保存"
+        >
+          <AutoComplete
+            value={authorityDraft}
+            onChange={setAuthorityDraft}
+            onSelect={(value) => void saveAuthority(value)}
+            options={COLLABORATOR_AUTHORITY_OPTIONS}
+            placeholder={DEFAULT_COLLABORATOR_AUTHORITY}
+            style={{ width: 320 }}
+          />
+          <Button size="small" type="primary" loading={savingAuthority} onClick={() => void saveAuthority()}>
+            保存
+          </Button>
+        </ProtectionRow>
+      </Card>
+    </div>
+  );
+}
+
+/** 内容与隐私保护的一行：左侧固定宽度标签 + 控件，下面一行灰色说明 */
+function ProtectionRow({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ width: 88, flex: '0 0 auto', fontSize: 13 }}>{label}</span>
+        {children}
+      </div>
+      <div style={{ marginTop: 4, paddingLeft: 100, fontSize: 11, color: 'var(--bp-text-soft)' }}>{hint}</div>
     </div>
   );
 }

@@ -132,8 +132,9 @@ public class RepoApi {
 
 	@GetMapping("/book/question")
 	@PreAuthorize("hasAuthority('repo:book')")
-	public SurveySchema getUserBookQuestion(@RequestParam String id) {
-		return repoService.getUserBookQuestion(id);
+	public SurveySchema getUserBookQuestion(@RequestParam String id,
+			@RequestParam(required = false) Boolean withAnswer) {
+		return repoService.getUserBookQuestion(id, withAnswer);
 	}
 
 	@PostMapping("/book/create")
