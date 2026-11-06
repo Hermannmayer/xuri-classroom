@@ -90,7 +90,13 @@ public class AnswerScoreEvaluator {
 		public Double eval(SurveySchema qSchema) {
 			String qId = qSchema.getId();
 			Double qScore = qSchema.getAttribute().getExamScore();
-			Map qValue = (Map) answer.get(qId);
+			Object raw = answer.get(qId);
+			// 防御：onlyOne 是「选项类」判分方式，如果题目被误配成填空题（答案是字符串），
+			// 直接强转会抛 ClassCastException，导致整份答卷提交 500。这里判不过就按 0 分处理。
+			if (!(raw instanceof Map)) {
+				return .0;
+			}
+			Map qValue = (Map) raw;
 			for (SurveySchema option : qSchema.getChildren()) {
 				// 只有一个正确答案
 				if (option.getAttribute().getExamCorrectAnswer() != null && qValue.containsKey(option.getId())
