@@ -36,10 +36,19 @@ public class Dept extends BaseModel {
 
 	private String remark;
 
-	/** 组级权限模式：INHERIT、APPEND、OVERRIDE；旧数据/空值按 INHERIT 处理 */
+	/**
+	 * 组级权限模式：INHERIT、APPEND、OVERRIDE。
+	 * @deprecated 已下线：权限点只挂角色，组通过 t_dept_role 授权（见 docs/permissions-ia.md）。
+	 * 字段保留仅为兼容旧库与旧客户端，不再参与任何权限计算，确认无人写入后可删除。
+	 */
+	@Deprecated
 	private String authorityMode;
 
-	/** 组级权限串，逗号分隔 */
+	/**
+	 * 组级权限串，逗号分隔。
+	 * @deprecated 已下线：同上，改用 t_dept_role。保留字段仅避免数据库迁移风险。
+	 */
+	@Deprecated
 	private String authority;
 
 	/**

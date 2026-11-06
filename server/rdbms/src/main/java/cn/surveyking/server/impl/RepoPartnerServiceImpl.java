@@ -13,6 +13,7 @@ import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.RepoPartnerService;
+import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -24,6 +25,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +40,8 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 	private final RepoPartnerViewMapper repoPartnerViewMapper;
 
 	private final cn.surveyking.server.mapper.DeptMapper deptMapper;
+
+	private final UserDeptScopeService userDeptScopeService;
 
 	@Override
 	public PaginationResponse<RepoPartnerView> listRepoPartner(RepoPartnerQuery query) {
@@ -68,7 +72,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 	@Override
 	public void addRepoPartner(RepoPartnerRequest request) {
 		assertManagePermission(request.getRepoId());
-		// 按用户组授权：只存一条 dept 记录，组员靠 t_user.dept_id 自动继承，新增组员不用重新授权
+		// 按用户组授权：只存一条 dept 记录，组员靠「主组 + 附加组 + 祖先链」自动继承，新增组员不用重新授权
 		if (StringUtils.hasText(request.getDeptId())) {
 			boolean exists = count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, request.getRepoId())
 					.eq(RepoPartner::getDeptId, request.getDeptId())) > 0;
@@ -118,9 +122,14 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (Objects.equals(repo.getCreateBy(), userId)) {
 			return true;
 		}
-		return count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
-				.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
-						"dept_id IS NOT NULL AND dept_id IN (SELECT id FROM (WITH RECURSIVE dept_anc AS (SELECT id, parent_id FROM t_dept WHERE id = (SELECT dept_id FROM t_user WHERE id = {0}) UNION ALL SELECT d.id, d.parent_id FROM t_dept d JOIN dept_anc a ON d.id = a.parent_id) SELECT id FROM dept_anc) anc)", userId))) > 0;
+		// 可见组 = 主组 + 附加组 + 祖先链（一次解析；原来只认 t_user.dept_id）
+		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
+		return count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId).and(w -> {
+			w.eq(RepoPartner::getUserId, userId);
+			if (!deptScope.isEmpty()) {
+				w.or(q -> q.isNotNull(RepoPartner::getDeptId).in(RepoPartner::getDeptId, deptScope));
+			}
+		})) > 0;
 	}
 
 	private void assertManagePermission(String repoId) {

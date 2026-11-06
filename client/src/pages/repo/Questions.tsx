@@ -320,9 +320,13 @@ export default function RepoQuestions() {
   const submitExport = async () => {
     setExporting(true);
     try {
+      // 密码只走 POST body 换一次性 token，避免出现在下载 URL 与服务器日志里
+      const tokenRes = await post<{ exportToken?: string }>('/api/repo/export/token', {
+        exportPassword: exportPwd.trim() || undefined,
+      });
       await downloadWithPassword(
         '/api/repo/export',
-        { id: repoId, exportPassword: exportPwd.trim() || undefined },
+        { id: repoId, exportToken: tokenRes?.exportToken },
         `${repoName || '题库'}题目.xlsx`,
       );
       setExportOpen(false);

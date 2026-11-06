@@ -184,7 +184,8 @@ export default function SystemGroup() {
             班级与分组
           </div>
           <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            组决定「哪些人 + 拥有哪些角色 + 有效期」；具体权限在「权限配置」里按角色维护。
+            组决定「哪些人 + 拥有哪些角色 + 有效期」；组内成员的最终权限 = 直挂角色 ∪ 组链上绑定的角色，
+            具体权限点在「权限配置」里按角色维护（旧的组级权限串机制已下线）。
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -289,7 +290,7 @@ export default function SystemGroup() {
                 .map((d) => ({ value: d.id, label: `${'　'.repeat(d.depth)}${d.name}` }))}
             />
           </Form.Item>
-          <Form.Item name="roleIds" label="本组角色" extra="组内成员自动获得这些角色的权限；权限点请在「权限配置」里维护">
+          <Form.Item name="roleIds" label="本组角色" extra="组内成员（含子组）自动获得这些角色的权限；权限点请在「权限配置」里维护">
             <Select
               mode="multiple"
               allowClear

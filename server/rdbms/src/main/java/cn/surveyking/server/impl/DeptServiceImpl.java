@@ -1,6 +1,8 @@
 package cn.surveyking.server.impl;
 
+import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.CacheConsts;
+import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.DeptSortRequest;
 import cn.surveyking.server.domain.dto.DeptView;
@@ -20,13 +22,23 @@ import cn.surveyking.server.service.UserService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -49,6 +61,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	private final DeptRoleMapper deptRoleMapper;
 
 	private final RoleMapper roleMapper;
+
+	private final CacheManager cacheManager;
 
 	@Override
 	public List<DeptView> listDept(SelectDeptRequest request) {
@@ -126,23 +140,96 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		}
 	}
 
-	/** 组→角色绑定：先删后插，保证与界面勾选一致；用物理删除，避免软删行撞 (dept_id, role_id) 唯一键 */
+	/**
+	 * 组→角色绑定：先删后插，保证与界面勾选一致；用物理删除，避免软删行撞 (dept_id, role_id) 唯一键。
+	 *
+	 * <p>
+	 * 组绑定的角色现在直接决定组内成员的最终权限（见 UserServiceImpl#loadUserById），所以写完必须
+	 * 让 userCache 失效——否则改完角色，组内用户最长 1 小时（userCache TTL）都拿旧权限。
+	 * 事务内统一注册 afterCommit 清理，避免并发的 loadUserById 把旧结果重新塞回缓存。
+	 */
 	private void saveDeptRoles(String deptId, List<String> roleIds) {
 		if (!isNotBlank(deptId)) {
 			return;
 		}
+		assertGrantableDeptRoles(roleIds);
 		deptRoleMapper.deleteByDeptId(deptId);
+		if (!CollectionUtils.isEmpty(roleIds)) {
+			roleIds.stream().filter(StringUtils::isNotBlank).distinct().forEach(roleId -> {
+				DeptRole binding = new DeptRole();
+				binding.setDeptId(deptId);
+				binding.setRoleId(roleId);
+				deptRoleMapper.insert(binding);
+			});
+		}
+		evictAllUserCache();
+	}
+
+	/**
+	 * 组绑角色等于「一次性给组内所有人加角色」，不能让人借编辑用户组提权：
+	 * 调用者必须拥有待绑定角色的全部权限串，且不能把超级管理员角色绑到组上。
+	 * 管理员（ROLE_admin）不受此限，规则与「给用户直挂角色」保持一致。
+	 */
+	private void assertGrantableDeptRoles(List<String> roleIds) {
 		if (CollectionUtils.isEmpty(roleIds)) {
 			return;
 		}
-		roleIds.stream().filter(StringUtils::isNotBlank).distinct().forEach(roleId -> {
-			DeptRole binding = new DeptRole();
-			binding.setDeptId(deptId);
-			binding.setRoleId(roleId);
-			deptRoleMapper.insert(binding);
-		});
+		List<String> normalized = roleIds.stream().filter(StringUtils::isNotBlank).map(String::trim).distinct()
+				.collect(Collectors.toList());
+		if (normalized.isEmpty()) {
+			return;
+		}
+		List<Role> roles = roleMapper.selectBatchIds(normalized);
+		if (roles.size() != normalized.size()
+				|| roles.stream().anyMatch(role -> !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID))) {
+			throw new AccessDeniedException("不能绑定不存在或已停用的角色");
+		}
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		Set<String> callerAuthorities = SecurityContextUtils.getUser().getAuthorities().stream()
+				.map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+		for (Role role : roles) {
+			Set<String> roleAuthorities = new HashSet<>();
+			if (isNotBlank(role.getCode())) {
+				roleAuthorities.add("ROLE_" + role.getCode());
+			}
+			if (isNotBlank(role.getAuthority())) {
+				Arrays.stream(role.getAuthority().split(",")).map(String::trim).filter(StringUtils::isNotBlank)
+						.forEach(roleAuthorities::add);
+			}
+			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN) || !callerAuthorities.containsAll(roleAuthorities)) {
+				throw new AccessDeniedException("不能绑定权限高于当前用户的角色");
+			}
+		}
 	}
 
+	/** 组角色变更后清空用户权限缓存（userCache 是内存 ConcurrentMap，clear 足够便宜） */
+	private void evictAllUserCache() {
+		Cache userCache = cacheManager.getCache(CacheConsts.userCacheName);
+		if (userCache == null) {
+			return;
+		}
+		Runnable clear = userCache::clear;
+		if (TransactionSynchronizationManager.isActualTransactionActive()
+				&& TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					clear.run();
+				}
+			});
+		}
+		else {
+			clear.run();
+		}
+	}
+
+	/**
+	 * 组级权限串（authority / authority_mode，INHERIT/APPEND/OVERRIDE）已废弃：
+	 * 权限点只挂角色，组通过 t_dept_role 授权（见 UserServiceImpl#loadUserById）。
+	 * 这里仅对旧客户端传来的字段做格式校验，字段本身不再参与权限计算，等确认无人写入后即可删除。
+	 */
 	private void validateAuthorityPolicy(DeptRequest request) {
 		if (request == null) {
 			return;
