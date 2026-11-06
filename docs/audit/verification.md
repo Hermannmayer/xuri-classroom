@@ -147,3 +147,23 @@ node scripts/dev/verify-load.js
 - 渗透只覆盖任务点名的几项，未做全量接口枚举；P4 因后端重建未取得有效结论。
 - CVE 为人工检索，**不等同于漏洞扫描结果**；建议补 `trivy` / `npm audit`。
 - 压测为单机回环，不代表生产容量；`/api/public/question` 的 QPS 数字是限流后的假象，已按真实吞吐解释。
+
+---
+
+## 7. a11y 修复记录（2026-11-06）
+
+按 4.3 建议修复了键盘/读屏可达性问题；改动范围限定在 `client/src` 中含 `<a onClick>` 的文件，**未改** `pages/answer/PublicAnswer.tsx`、`pages/answer/ExamResult.tsx`。
+
+| 类别 | 处数 | 修法 |
+| --- | --- | --- |
+| `<a onClick>` / 无 `href` 的链接式操作 | **63 处**（17 个文件；52 处带 `onClick`，11 处是 Popconfirm 子元素） | 统一替换为新组件 `components/LinkAction.tsx`：渲染仍是 `<a>`（保持字重/颜色/间距零视觉回归），补 `role="button"` + `tabIndex={0}`；`onKeyDown` 在 Enter/空格时 `preventDefault()` 并触发一次原生 `click()`，Popconfirm 等依赖 click 的包装组件同样能用键盘打开。未用 antd `<Button type="link">` 的原因：本项目 `.ant-btn` 有 `text-transform: uppercase`、`font-weight: 600`，替换后表格操作列会变粗、行高变化 |
+| 纯图标按钮无可访问名 | **3 处**（/home 2 处 + 1 处顺带） | `layout/BasicLayout.tsx` 侧栏折叠按钮补 `aria-label` / `title`（展开侧栏菜单 / 收起侧栏菜单）；`pages/Home.tsx` 的 Tabs 溢出「更多」按钮通过 `more={{ icon: <EllipsisOutlined aria-label="更多标签页" /> }}` 补可访问名；主题切换按钮原本已有 `aria-label`，未重复改 |
+| 表格横向滚动区键盘不可聚焦 | **9 个表格** | 新增 `components/TableScrollRegion.tsx`：包在 antd Table 外层，在 effect 里给 rc-table 生成的 `.ant-table-content` / `.ant-table-body` 补 `tabIndex=0` + `role="region"` + `aria-label`。覆盖：首页「我的考试 / 我的问卷」两个表、练习列表、题库列表、题目列表、错题本、答卷数据、回收站、权限矩阵 |
+| 字号滑块无可访问名 | **1 处** | `pages/repo/BookPractice.tsx` 的字号 Slider 补 `ariaLabelForHandle="字号"`。答题页 `/s/:id` 的字号滑块在 `PublicAnswer.tsx` 内，按要求未改（属于排除文件） |
+
+验证方式（本次实际执行）：
+- `/home` DOM 检查：`.ant-table-content` 已是 `tabindex=0` / `role=region` / `aria-label="考试列表（可横向滚动）"`；页面上「无 aria-label 的纯图标按钮」数量 = 0（折叠按钮为「收起侧栏菜单」，Tabs 更多为「更多标签页」）。
+- 键盘实测：聚焦首页表格里的 LinkAction「全部项目 →」按 Enter → 路由从 `/home` 跳到 `/project`；在 `/system/user` 聚焦「编辑」按 Enter → 编辑弹窗打开；聚焦「删除」（Popconfirm 子元素）按空格 → 确认气泡打开（均未提交数据）。
+- `cd client; npx tsc --noEmit` → 0 错误。
+
+未处理（不在本次文件范围）：`pages/repo/GrantModal.tsx`、`pages/survey/PartnerPanel.tsx` 里各还有 1 处 Popconfirm 子 `<a>`（这两个文件没有 `<a onClick>`，未纳入范围），同样存在不可聚焦问题，下一轮可用 `LinkAction` 一并替换。4.3 中的 h1/main 地标与菜单对比度属于样式/结构改动，不在本次「a11y 修复」范围内，保持原状。

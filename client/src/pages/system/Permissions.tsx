@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Button, Empty, Form, Input, Modal, Popconfirm, Spin, Table, Tabs, Tag, Tree } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { get, getWithPagination, post, type PermissionGroup, type PermissionItem, type RoleView } from '../../api';
 
 /** 内置角色不可删除、不可改 code；其余都算自定义角色 */
@@ -269,9 +271,9 @@ export default function SystemPermissions() {
             )}
             {!isAdminRole && (
               <span style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
-                <a style={{ fontSize: 11 }} onClick={() => openEditRole(role)}>
+                <LinkAction style={{ fontSize: 11 }} onClick={() => openEditRole(role)}>
                   改名
-                </a>
+                </LinkAction>
                 {!isBuiltin(role) && (
                   <Popconfirm
                     title={`删除角色「${role.name ?? role.code}」？`}
@@ -281,7 +283,7 @@ export default function SystemPermissions() {
                     cancelText="取消"
                     onConfirm={() => void removeRole(role)}
                   >
-                    <a style={{ fontSize: 11, marginLeft: 6, color: 'var(--bp-orange)' }}>删除</a>
+                    <LinkAction style={{ fontSize: 11, marginLeft: 6, color: 'var(--bp-orange)' }}>删除</LinkAction>
                   </Popconfirm>
                 )}
               </span>
@@ -463,6 +465,7 @@ export default function SystemPermissions() {
             label: '角色权限矩阵',
             children: (
               <div className="bp-card" style={{ padding: 0 }}>
+                <TableScrollRegion label="角色权限矩阵（可横向滚动）">
                 <Table<PermissionItem>
                   rowKey="code"
                   size="small"
@@ -472,6 +475,7 @@ export default function SystemPermissions() {
                   scroll={{ x: 760 }}
                   locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="权限目录为空" /> }}
                 />
+                </TableScrollRegion>
               </div>
             ),
           },

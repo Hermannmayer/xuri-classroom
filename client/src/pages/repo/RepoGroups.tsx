@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Button, Collapse, Drawer, Empty, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
 
 export interface RepoRow {
   id: string;
@@ -67,15 +68,15 @@ export default function RepoGroups({
                     style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <a style={{ fontSize: 13 }} onClick={() => navigate(`/repo/${repo.id}/questions/normal`)}>
+                      <LinkAction style={{ fontSize: 13 }} onClick={() => navigate(`/repo/${repo.id}/questions/normal`)}>
                         {repo.name || '(未命名题库)'}
-                      </a>
+                      </LinkAction>
                       <Tag>{repo.mode === 'survey' ? '问卷' : '考试'}</Tag>
                       <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>{repo.total ?? 0} 题</span>
                     </div>
                     <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-                      <a onClick={() => navigate(`/repo/${repo.id}/questions/normal`)}>题目</a>
-                      <a onClick={() => onEdit(repo)}>编辑</a>
+                      <LinkAction onClick={() => navigate(`/repo/${repo.id}/questions/normal`)}>题目</LinkAction>
+                      <LinkAction onClick={() => onEdit(repo)}>编辑</LinkAction>
                     </div>
                   </div>
                 ))}

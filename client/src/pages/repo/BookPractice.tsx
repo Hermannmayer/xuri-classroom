@@ -3,6 +3,7 @@ import { Button, Empty, message, Modal, Segmented, Slider, Spin, Tag } from 'ant
 import { ArrowLeftOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
 import { get, getWithPagination, post } from '../../api';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
 import type { AnswerValue } from '../../renderer/types';
@@ -629,6 +630,8 @@ export default function BookPractice() {
                 step={0.05}
                 value={fontScale}
                 onChange={setFont}
+                // 滑块 handle 需要有可访问名（axe: aria-input-field-name）
+                ariaLabelForHandle="字号"
                 style={{ width: 100, margin: 0 }}
               />
             </div>
@@ -788,15 +791,15 @@ export default function BookPractice() {
                   </div>
                   <Tag color={VERDICT_COLOR[verdict]}>{VERDICT_LABEL[verdict]}</Tag>
                   <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
-                    {canMark && <a onClick={() => void markMastered(item.row.id)}>标记已掌握</a>}
-                    <a
+                    {canMark && <LinkAction onClick={() => void markMastered(item.row.id)}>标记已掌握</LinkAction>}
+                    <LinkAction
                       onClick={() => {
                         setIndex(Math.min(questions[0]?.index ?? i, Math.max(flat.length - 1, 0)));
                         setPhase('answer');
                       }}
                     >
                       回到这题
-                    </a>
+                    </LinkAction>
                   </div>
                 </div>
               );

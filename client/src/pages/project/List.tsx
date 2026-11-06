@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
 import { createProject, deleteProject, listProjects, updateProject } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import type { ProjectSetting } from '../../schema/project';
@@ -284,12 +285,12 @@ export default function ProjectList() {
           items={[
             {
               title: (
-                <a onClick={() => {
+                <LinkAction onClick={() => {
                   setCrumbs([]);
                   setPage(1);
                 }}>
                   全部
-                </a>
+                </LinkAction>
               ),
             },
             ...crumbs.map((c, i) => ({
@@ -297,12 +298,12 @@ export default function ProjectList() {
                 i === crumbs.length - 1 ? (
                   c.name
                 ) : (
-                  <a onClick={() => {
+                  <LinkAction onClick={() => {
                     setCrumbs(crumbs.slice(0, i + 1));
                     setPage(1);
                   }}>
                     {c.name}
-                  </a>
+                  </LinkAction>
                 ),
             })),
           ]}
@@ -371,7 +372,7 @@ export default function ProjectList() {
                           onChange={(e) => toggleSelected(row.id, e.target.checked)}
                         />
                       )}
-                      <a
+                      <LinkAction
                         style={{
                           flex: 1,
                           minWidth: 0,
@@ -385,7 +386,7 @@ export default function ProjectList() {
                         }
                       >
                         {row.name || '(未命名)'}
-                      </a>
+                      </LinkAction>
                       <Tag color={row.mode ? MODE_COLOR[row.mode] ?? 'default' : 'default'}>
                         {row.mode ? MODE_LABEL[row.mode] ?? row.mode : '—'}
                       </Tag>
@@ -540,7 +541,7 @@ export default function ProjectList() {
                   <span>{row.name}</span>
                 </Space>
               ) : (
-                <a onClick={() => navigate(`/survey/${row.id}/edit`)}>{row.name || '(未命名)'}</a>
+                <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>{row.name || '(未命名)'}</LinkAction>
               ),
           },
           {
@@ -582,7 +583,7 @@ export default function ProjectList() {
                   <>
                     {/* 「设置」作为唯一入口，进入概述页（含分享链接/打开答题页/发布设置）；
                         原来单独的「打开」按钮已删除，避免两个按钮功能重叠 */}
-                    <a onClick={() => navigate(`/survey/${row.id}`)}>设置</a>
+                    <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>设置</LinkAction>
                     {row.status === 1 ? (
                       <Popconfirm
                         title="关闭后学员将无法打开答题链接"
@@ -591,16 +592,16 @@ export default function ProjectList() {
                         cancelText="取消"
                         onConfirm={() => setStatus(row, 0)}
                       >
-                        <a style={{ color: 'var(--bp-orange)' }}>关闭</a>
+                        <LinkAction style={{ color: 'var(--bp-orange)' }}>关闭</LinkAction>
                       </Popconfirm>
                     ) : (
-                      <a onClick={() => setStatus(row, 1)}>开启</a>
+                      <LinkAction onClick={() => setStatus(row, 1)}>开启</LinkAction>
                     )}
-                    <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
-                    <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
+                    <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
+                    <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
                   </>
                 )}
-                <a onClick={() => openRename(row)}>重命名</a>
+                <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>
                 <Popconfirm
                   title={`删除「${row.name || ''}」？`}
                   description="删除后可在回收站找回（本页暂未接入回收站）。"
@@ -608,7 +609,7 @@ export default function ProjectList() {
                   cancelText="取消"
                   onConfirm={() => remove(row)}
                 >
-                  <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                  <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
                 </Popconfirm>
               </Space>
             ),

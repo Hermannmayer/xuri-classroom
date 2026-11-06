@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Empty, message, Popconfirm, Space, Table, Tag } from 'antd';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
 import { get, post } from '../../api';
 import type { Project } from '../../schema/project';
 import { TABLE_COMPONENTS } from '../repo/table';
@@ -109,7 +110,7 @@ export default function ProjectTrash() {
               width: 180,
               render: (_, row) => (
                 <Space size={12}>
-                  <a onClick={() => restore(row)}>恢复</a>
+                  <LinkAction onClick={() => restore(row)}>恢复</LinkAction>
                   <Popconfirm
                     title="彻底删除后无法恢复，确认？"
                     okText="彻底删除"
@@ -117,7 +118,7 @@ export default function ProjectTrash() {
                     cancelText="取消"
                     onConfirm={() => destroy(row)}
                   >
-                    <a style={{ color: 'var(--bp-orange)' }}>彻底删除</a>
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>彻底删除</LinkAction>
                   </Popconfirm>
                 </Space>
               ),

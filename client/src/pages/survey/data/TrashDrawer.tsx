@@ -3,6 +3,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Drawer, Empty, message, Space, Table } from 'antd';
+import LinkAction from '../../../components/LinkAction';
+import TableScrollRegion from '../../../components/TableScrollRegion';
 import { get, post } from '../../../api';
 import type { Answer } from '../../../schema/project';
 import { TABLE_COMPONENTS } from '../../repo/table';
@@ -88,6 +90,7 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>已选中 {selected.length} 条</span>
       </Space>
 
+      <TableScrollRegion label="回收站列表（可横向滚动）">
       <Table<Answer>
         rowKey="id"
         size="small"
@@ -120,15 +123,16 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
             width: 130,
             render: (_, row) => (
               <Space size={8}>
-                <a onClick={() => void run('restore', [row.id])}>恢复</a>
-                <a style={{ color: 'var(--bp-orange)' }} onClick={() => confirmDestroy([row.id])}>
+                <LinkAction onClick={() => void run('restore', [row.id])}>恢复</LinkAction>
+                <LinkAction style={{ color: 'var(--bp-orange)' }} onClick={() => confirmDestroy([row.id])}>
                   彻底删除
-                </a>
+                </LinkAction>
               </Space>
             ),
           },
         ]}
       />
+      </TableScrollRegion>
     </Drawer>
   );
 }

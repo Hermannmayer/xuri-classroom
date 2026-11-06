@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Avatar, Button, Card, Col, message, Row, Statistic, Tabs } from 'antd';
-import { EditOutlined, FormOutlined } from '@ant-design/icons';
+import { EditOutlined, EllipsisOutlined, FormOutlined } from '@ant-design/icons';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 
+import LinkAction from '../components/LinkAction';
 import { getWithPagination, listProjects } from '../api';
 import { can } from '../auth/permissions';
 import type { ProjectView, SystemInfo, UserInfo } from '../api';
@@ -169,11 +170,13 @@ export default function Home() {
             <Tabs
               items={items}
               tabBarGutter={20}
+              // 标签溢出时 antd 会渲染一个纯图标的「更多」按钮，补可访问名，读屏不会只念 ellipsis
+              more={{ icon: <EllipsisOutlined aria-label="更多标签页" /> }}
               tabBarExtraContent={{
                 right: (
                   <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-                    <a onClick={() => void load()}>刷新</a>
-                    <a onClick={() => navigate('/project')}>全部项目 →</a>
+                    <LinkAction onClick={() => void load()}>刷新</LinkAction>
+                    <LinkAction onClick={() => navigate('/project')}>全部项目 →</LinkAction>
                   </div>
                 ),
               }}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Form, Input, message } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import LinkAction from '../../components/LinkAction';
 import { getCurrentUser, getSystem, login } from '../../api';
 import type { SystemInfo } from '../../api';
 import { notifyAuthChanged } from '../../auth/permissions';
@@ -161,9 +162,9 @@ export default function Login() {
             {system?.registerInfo?.registerEnabled && (
               <div style={{ marginTop: 12, textAlign: 'center', fontSize: 12 }}>
                 还没有账号？
-                <a onClick={() => navigate('/user/register')} style={{ marginLeft: 4 }}>
+                <LinkAction onClick={() => navigate('/user/register')} style={{ marginLeft: 4 }}>
                   注册
-                </a>
+                </LinkAction>
               </div>
             )}
           </Form>

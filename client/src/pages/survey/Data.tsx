@@ -29,6 +29,8 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
+import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
 import { download, get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { Answer, Project } from '../../schema/project';
@@ -260,7 +262,7 @@ export default function SurveyData() {
         key: 'ops',
         width: 64,
         fixed: 'right',
-        render: (_: unknown, row: Answer) => <a onClick={() => setDetail(row)}>详情</a>,
+        render: (_: unknown, row: Answer) => <LinkAction onClick={() => setDetail(row)}>详情</LinkAction>,
       },
     ];
 
@@ -524,6 +526,7 @@ export default function SurveyData() {
           </>
         ) : (
           <div className="sk-data-grid">
+            <TableScrollRegion label="答卷列表（可横向滚动）">
             <Table<Answer>
               rowKey="id"
               size="small"
@@ -552,6 +555,7 @@ export default function SurveyData() {
                 },
               }}
             />
+            </TableScrollRegion>
           </div>
         )}
       </Card>

@@ -18,6 +18,7 @@ import {
   Upload,
 } from 'antd';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import LinkAction from '../../components/LinkAction';
 import { download, get, getWithPagination, post } from '../../api';
 import { pager } from '../repo/table';
 
@@ -492,14 +493,14 @@ export default function SystemUser() {
               width: 130,
               render: (_, row) => (
                 <Space size={10}>
-                  <a onClick={() => openEdit(row)}>编辑</a>
+                  <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>
                   <Popconfirm
                     title={`删除「${row.name || row.username}」？`}
                     okText="删除"
                     cancelText="取消"
                     onConfirm={() => remove(row)}
                   >
-                    <a style={{ color: 'var(--bp-orange)' }}>删除</a>
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
                   </Popconfirm>
                 </Space>
               ),
