@@ -2,6 +2,36 @@
 
 面向职业技能培训场景的一体化考评系统：出卷、组卷、答题、判分、数据分析，以及题库管理与练习。
 
+蓝图/工程制图风格界面，圆角 0、无渐变，支持深浅两套主题与 90%～175% 六档字号缩放（照顾年长学员）。
+
+---
+
+## 界面预览
+
+**考试与试卷管理** —— 一条主线看清「谁在考、考了多少、还差什么」：
+
+![考试与试卷管理](docs/screenshots/01-project.png)
+
+**在线答题** —— 一页一题 / 瀑布流自动切换，答题卡、标记、字号调节、倒计时与切屏限制齐备：
+
+![在线答题](docs/screenshots/02-answer.png)
+
+**可视化出卷** —— 拖拽式题型面板，题干与选项直接编辑，支持题组、规则跳转与批量设置：
+
+![可视化出卷](docs/screenshots/03-designer.png)
+
+**答卷数据与统计** —— 逐份查看、导出 Excel、批量评分，分析并入同一页面：
+
+![答卷数据](docs/screenshots/04-data.png)
+
+**发布设置** —— 显示、考试控制、回收限制、投放分享集中在一页，不用来回跳：
+
+![发布设置](docs/screenshots/05-settings.png)
+
+**权限配置** —— 权限点按功能分组，按角色勾选，超级管理员只读保护：
+
+![权限配置](docs/screenshots/06-permissions.png)
+
 ---
 
 ## 功能
@@ -62,7 +92,7 @@
 | 层 | 技术 |
 |---|---|
 | 前端 | React 18 + TypeScript + Ant Design 5 + Vite，自行开发 |
-| 后端 | Spring Boot 2.7 + MyBatis-Plus + MySQL 8，基于开源项目 [SurveyKing](https://github.com/javahuang/SurveyKing)（MIT 协议）二次开发 |
+| 后端 | Spring Boot 2.7 + MyBatis-Plus + MySQL 8 + Undertow |
 | 部署 | 前端静态资源 + 后端单体服务，支持 nginx 反向代理 |
 
 ## 快速开始
@@ -118,4 +148,4 @@ scripts/dev/       本地启动、数据导入、SQL 脚本
 
 ## 许可
 
-后端沿用上游项目的 MIT 协议；前端代码由本项目团队维护。
+本项目采用 MIT 协议，详见 [LICENSE](LICENSE)。
