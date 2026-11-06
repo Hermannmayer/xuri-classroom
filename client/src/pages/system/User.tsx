@@ -243,7 +243,7 @@ export default function SystemUser() {
 
   const downloadTemplate = async () => {
     try {
-      await download('/api/file/downloadTemplate', { name: '卷王用户导入模板' }, '卷王用户导入模板.xlsx');
+      await download('/api/file/downloadTemplate', { name: '用户导入模板' }, '用户导入模板.xlsx');
     } catch (e) {
       message.error((e as Error).message);
     }
