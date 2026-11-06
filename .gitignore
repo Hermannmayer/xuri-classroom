@@ -68,3 +68,55 @@ server/backend.log
 server/backend.err.log
 server/application.properties
 
+### ---------------------------------------------------------------- 追加（本地维护）
+# 日志与 JVM 崩溃转储
+*.log
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# 环境变量与密钥：只保留模板，真实值一律不入库
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# 编辑器与操作系统
+.vscode/
+.history/
+Thumbs.db
+desktop.ini
+
+# 通用临时文件
+*.tmp
+*.bak
+*.orig
+*.rej
+*.swp
+
+# 前端构建产物与缓存
+client/dist/
+client/.vite/
+client/*.tsbuildinfo
+client/test-results/
+*.har
+
+# 反向工程中间产物：可从 frontend-recon/web 的原始 bundle 重新解出，
+# 体积大（modules3 约 4.7MB / 1086 个文件，web 约 14MB），不入库。
+# extract/ 是分析结论、体积小，保留。
+frontend-recon/web/
+frontend-recon/modules3/
+
+# 后端构建产物
+server/.gradle/
+server/build/
+server/**/build/
+
+# 数据库转储与导入中间文件
+*.sql.gz
+scripts/dev/*.bak
+
+

@@ -1,1 +1,0 @@
-(self["webpackChunksurvey_king"]=self["webpackChunksurvey_king"]||[]).push([[602],{39089:function(e,r,u){"use strict";u.r(r);var s=u(48216),n=u(83978),t=u(80639),a=u(4637),i=function(){var e=(0,n.UO)(),r=e.repoId,u=e.mode;return(0,a.jsx)(s._z,{title:!1,children:(0,a.jsx)(t.Template,{repoId:r,mode:"survey"===u?"survey":"exam"})})};r["default"]=i}}]);

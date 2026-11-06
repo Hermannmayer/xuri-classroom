@@ -1,9 +1,0 @@
-// webpack module 6565 — body from webcrack
-module.exports = function (module, exports, require) {
-var n = require("./56024.js");
-n("Uint16", function (e) {
-  return function (t, r, n) {
-    return e(this, t, r, n);
-  };
-});
-};
