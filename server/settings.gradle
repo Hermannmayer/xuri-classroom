@@ -6,7 +6,7 @@ pluginManagement {
 	}
 }
 
-rootProject.name = 'survey-server'
+rootProject.name = 'xuri-classroom'
 include 'api'
 include 'ai'
 include 'shared'

@@ -60,7 +60,7 @@ docker run --rm -v xuri-classroom_app-files:/files -v "$PWD":/out alpine tar czf
 cd server && ./gradlew :api:bootJar -x test
 # 2. 把 client/dist 拷进 jar 前需要重新打包：见下方「打包带前端的 jar」
 # 3. 安装
-sudo bash scripts/deploy/linux/install.sh server/api/build/libs/surveyking-v1.13.0.jar \
+sudo bash scripts/deploy/linux/install.sh server/api/build/libs/xuri-classroom-v1.13.0.jar \
   --install-dir /opt/xuri-classroom --port 80
 ```
 
@@ -74,7 +74,7 @@ sudo bash scripts/deploy/linux/install.sh server/api/build/libs/surveyking-v1.13
 
 ```powershell
 # 以管理员身份运行
-.\scripts\deploy\windows\install.ps1 -JarPath .\server\api\build\libs\surveyking-v1.13.0.jar `
+.\scripts\deploy\windows\install.ps1 -JarPath .\server\api\build\libs\xuri-classroom-v1.13.0.jar `
   -InstallDir C:\xuri-classroom -Port 80
 ```
 

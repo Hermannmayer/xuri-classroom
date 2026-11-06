@@ -2,7 +2,7 @@ plugins {
     id 'maven-publish'
 }
 
-project.archivesBaseName = 'surveyking'
+project.archivesBaseName = 'xuri-classroom'
 
 ext {
     isProd = project.hasProperty("pro")
