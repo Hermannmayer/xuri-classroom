@@ -576,3 +576,53 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_user_role ON t_user_role(user_id, role_id);
 BEGIN;
 INSERT INTO t_user_role (id, user_type, user_id, role_id, create_at, create_by, update_at, update_by) VALUES ('1488542015867121666', 'SysUser', '1457995481966747649', '1457995481928998914', '2022-02-01 23:57:27', '1457995481966747649', NULL, NULL);
 COMMIT;
+
+-- ----------------------------
+-- 索引补齐（与 init-mysql.sql 保持一致）
+-- H2 仅用于本地演示/测试；生产统一用 MySQL
+-- ----------------------------
+CREATE INDEX IF NOT EXISTS idx_template_repo ON t_template(repo_id);
+CREATE INDEX IF NOT EXISTS idx_project_create_by ON t_project(create_by);
+CREATE INDEX IF NOT EXISTS idx_pp_project ON t_project_partner(project_id);
+CREATE INDEX IF NOT EXISTS idx_pp_user ON t_project_partner(user_id);
+CREATE INDEX IF NOT EXISTS idx_pp_group ON t_project_partner(group_id);
+CREATE INDEX IF NOT EXISTS idx_user_dept ON t_user(dept_id);
+
+-- ----------------------------
+-- Table structure for t_audit_log（操作审计）
+-- 注意：这张表曾经只在 MySQL 初始化脚本里，H2 模式调审计接口会报表不存在
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS t_audit_log (
+  id varchar(64) NOT NULL COMMENT 'ID',
+  action varchar(64) NOT NULL COMMENT '动作：EXPORT_REPO/EXPORT_ANSWER/IMPORT_REPO',
+  target_id varchar(64) DEFAULT NULL COMMENT '目标 id',
+  target_name varchar(256) DEFAULT NULL COMMENT '目标名称',
+  detail varchar(512) DEFAULT NULL COMMENT '附加说明',
+  ip varchar(64) DEFAULT NULL COMMENT '操作人 IP',
+  is_deleted tinyint(1) NOT NULL DEFAULT '0',
+  create_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  create_by varchar(256) DEFAULT NULL,
+  update_at timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  update_by varchar(256) DEFAULT NULL,
+  PRIMARY KEY (id)
+);
+CREATE INDEX IF NOT EXISTS idx_audit_action_time ON t_audit_log(action, create_at);
+CREATE INDEX IF NOT EXISTS idx_audit_create_by ON t_audit_log(create_by);
+
+-- ----------------------------
+-- Table structure for t_dept_role（用户组-角色绑定）
+-- 同上：曾经只有 MySQL 版，H2 模式下「组绑定角色」不可用
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS t_dept_role (
+  id varchar(64) NOT NULL COMMENT 'ID',
+  dept_id varchar(64) NOT NULL COMMENT '用户组ID',
+  role_id varchar(64) NOT NULL COMMENT '角色ID',
+  is_deleted tinyint(1) NOT NULL DEFAULT '0',
+  create_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  create_by varchar(256) DEFAULT NULL,
+  update_at timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  update_by varchar(256) DEFAULT NULL,
+  PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_dept_role ON t_dept_role(dept_id, role_id);
+CREATE INDEX IF NOT EXISTS idx_dept ON t_dept_role(dept_id);
