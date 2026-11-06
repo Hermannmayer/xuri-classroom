@@ -8,6 +8,7 @@ import {
   Empty,
   Input,
   message,
+  Modal,
   Segmented,
   Space,
   Spin,
@@ -28,7 +29,8 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
-import { download, get, getWithPagination, post } from '../../api';
+import { get, getWithPagination, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import type { Answer, Project } from '../../schema/project';
 import { flattenSchema } from '../../schema/flatten';
 import type { AnswerValue } from '../../renderer/types';
@@ -63,6 +65,54 @@ function useIsMobile() {
   return mobile;
 }
 
+/**
+ * 带导出密码的下载。
+ *
+ * 现有 download() 只看 HTTP 状态：后端按项目惯例用「HTTP 200 + body.code=403」返回「导出密码错误」时，
+ * 它会一路把错误 JSON 存成 .xlsx。这里先看 content-type：JSON 说明是后端返回的错误，抛中文提示；
+ * 否则按普通文件保存（文件名优先取 content-disposition）。
+ */
+async function downloadWithPassword(
+  url: string,
+  params: Record<string, unknown>,
+  fallbackName: string,
+) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    search.append(key, String(value));
+  });
+  const res = await fetch(`${url}?${search.toString()}`, { credentials: 'include' });
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const body = (await res.json().catch(() => undefined)) as { message?: string } | undefined;
+    throw new Error(body?.message || '导出失败');
+  }
+  if (!res.ok) throw new Error(`导出失败（HTTP ${res.status}）`);
+  const blob = await res.blob();
+  const disposition = res.headers.get('content-disposition') || '';
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition);
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  let name = fallbackName;
+  const raw = star?.[1] ?? plain?.[1];
+  if (raw) {
+    try {
+      name = decodeURIComponent(raw);
+    } catch {
+      name = raw;
+    }
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // 立刻 revoke 在部分浏览器会打断下载，延后释放
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
 type EditorState = { mode: 'create' } | { mode: 'edit'; row: Answer };
 
 /**
@@ -92,6 +142,18 @@ export default function SurveyData() {
   const [importing, setImporting] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 导出权限细分：没有 answer:export 就不渲染导出按钮
+  const [authorities, setAuthorities] = useState<string[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportPwd, setExportPwd] = useState('');
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  const canExport = can(authorities, 'answer:export');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -309,7 +371,13 @@ export default function SurveyData() {
 
   const removeSelected = () => removeRows(selected);
 
-  const exportXlsx = () => {
+  /** 答卷导出：先弹密码框（系统设置没配密码时留空即可），密码随 GET 下载走 query 参数 */
+  const openExport = () => {
+    setExportPwd('');
+    setExportOpen(true);
+  };
+
+  const submitExport = async () => {
     const [from, to] = range ?? [];
     const params: Record<string, unknown> = {
       projectId: id,
@@ -319,10 +387,20 @@ export default function SurveyData() {
       startTime: from ? from.startOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
       endTime: to ? to.endOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
       ids: selected.length ? selected.join(',') : undefined,
+      // 后端约定：下载走 GET，导出密码放 query
+      exportPassword: exportPwd.trim() || undefined,
     };
-    download('/api/answer/download', params, `${project?.name || '答卷'}.xlsx`).catch((e: Error) =>
-      message.error(e.message),
-    );
+    setExporting(true);
+    try {
+      await downloadWithPassword('/api/answer/download', params, `${project?.name || '答卷'}.xlsx`);
+      setExportOpen(false);
+      setExportPwd('');
+      message.success('导出已开始');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const importFile = async (file: File) => {
@@ -415,9 +493,11 @@ export default function SurveyData() {
           <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileRef.current?.click()}>
             导入数据
           </Button>
-          <Button icon={<DownloadOutlined />} disabled={rows.length === 0} onClick={exportXlsx}>
-            导出数据
-          </Button>
+          {canExport && (
+            <Button icon={<DownloadOutlined />} disabled={rows.length === 0} onClick={openExport}>
+              导出数据
+            </Button>
+          )}
           <Button icon={<RestOutlined />} onClick={() => setTrashOpen(true)}>
             回收站
           </Button>
@@ -547,6 +627,29 @@ export default function SurveyData() {
         onClose={() => setTrashOpen(false)}
         onChanged={() => void load()}
       />
+
+      {/* 导出密码：系统设置里没配密码时留空直接导出 */}
+      <Modal
+        title="导出答卷"
+        open={exportOpen}
+        onCancel={() => setExportOpen(false)}
+        onOk={() => void submitExport()}
+        okText="导出"
+        cancelText="取消"
+        confirmLoading={exporting}
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.7, marginBottom: 10 }}>
+          管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
+        </div>
+        <Input.Password
+          value={exportPwd}
+          onChange={(e) => setExportPwd(e.target.value)}
+          onPressEnter={() => void submitExport()}
+          placeholder="导出密码"
+          autoComplete="off"
+        />
+      </Modal>
 
       <Drawer
         title="答卷详情"

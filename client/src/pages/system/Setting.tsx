@@ -51,47 +51,9 @@ const DEFAULT_PROTECTION: ProtectionSetting = {
   copyProtected: true,
 };
 
-/** GET /api/system/crypto/generate-key 的返回：密钥只返回这一次，服务器不落库 */
-interface CryptoKeyInfo {
-  key: string;
-  fileName?: string;
-  notice?: string;
-}
-
-const KEY_FILE_FALLBACK = 'surveyking-crypto-key.txt';
-
 /** 后端 watermarkMode 是 string；老数据 / 脏值（含 null）一律回落到默认的「姓名+手机号」 */
 function normalizeMode(value?: string | null): WatermarkMode {
   return value === 'name' || value === 'phone' ? value : 'name_phone';
-}
-
-/**
- * 触发浏览器下载密钥文件（Blob + <a download>，不引第三方依赖）。
- * 文件内容除了密钥本身，还写清楚「丢失后题库无法解密」和配置方式，避免管理员随手关掉弹窗。
- */
-function downloadKeyFile(info: CryptoKeyInfo) {
-  const lines = [
-    'SurveyKing 题库字段加密密钥',
-    '========================================',
-    '',
-    `密钥（Base64，32 字节）：${info.key}`,
-    '',
-    info.notice ||
-      '请立即下载并离线备份该密钥。它不会再次显示，也不会写入数据库；一旦丢失，已加密的题库将永久无法解密。',
-    '',
-    '配置方式：把上面的密钥写入后端环境变量 SK_CRYPTO_KEY（或 JVM 参数 -Dsurveyking.crypto.key），然后重启后端。',
-    `导出时间：${new Date().toLocaleString('zh-CN')}`,
-  ];
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = info.fileName || KEY_FILE_FALLBACK;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  // 立刻 revoke 在部分浏览器会打断下载，延后释放
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 type TabKey = 'basic' | 'access' | 'ai';
@@ -132,9 +94,10 @@ export default function SystemSetting() {
   // 内容与隐私三项不进 Form，改完即存
   const [protection, setProtection] = useState<ProtectionSetting>(DEFAULT_PROTECTION);
   const [savingProtection, setSavingProtection] = useState(false);
-  // 题库字段加密：迁移 / 解密期间置 busy，开关显示 loading 且不可再点
-  const [encryption, setEncryption] = useState(false);
-  const [cryptoBusy, setCryptoBusy] = useState(false);
+  // 导出密码只写不读：GET /api/system 不回显明文，hasExportPassword 仅用于提示「已设置」
+  const [exportPassword, setExportPassword] = useState('');
+  const [hasExportPassword, setHasExportPassword] = useState(false);
+  const [savingExportPassword, setSavingExportPassword] = useState(false);
 
   const load = useCallback(async () => {
     const [sys, ai, deptRes, roleRes] = await Promise.all([
@@ -172,8 +135,9 @@ export default function SystemSetting() {
       watermarkMode: normalizeMode(sys?.setting?.watermarkMode),
       copyProtected: sys?.setting?.copyProtected !== false,
     });
-    // 加密缺省关闭：只有显式 true 才算开启
-    setEncryption(Boolean(sys?.setting?.fieldEncryptionEnabled));
+    // 导出密码：后端只回显 exportPasswordEnabled（不回显明文），据此提示「是否已设置」
+    setHasExportPassword(Boolean(sys?.setting?.exportPasswordEnabled));
+    setExportPassword('');
   }, [form]);
 
   useEffect(() => {
@@ -233,88 +197,36 @@ export default function SystemSetting() {
     }
   };
 
-  /** 落库加密开关（只提交这一个增量字段） */
-  const saveEncryptionFlag = (enabled: boolean) =>
-    post('/api/system/update', { setting: { fieldEncryptionEnabled: enabled } });
-
   /**
-   * 开启加密：下载密钥 → 迁移存量 → 开关置 true。
-   *
-   * 注意顺序：后端 CryptoUtils.enabled() = 运行时开关 && 已配置密钥，而 /crypto/migrate 在未 enabled 时
-   * 会直接报「未配置 SK_CRYPTO_KEY」。所以迁移前必须先把开关写进库（后端 updateSystemInfo 会同步运行时开关），
-   * 迁移一旦失败立刻把开关回滚成 false，避免出现「设置里显示已加密、库里却还是明文」。
+   * 导出密码：只写不读（后端不回显明文），输入框留空 + 点保存 = 清除密码、关闭保护。
+   * 清除前二次确认，避免管理员误点把保护关掉。
    */
-  const confirmEnableEncryption = () => {
-    Modal.confirm({
-      title: '开启题库字段加密？',
-      content: (
-        <div style={{ fontSize: 12, lineHeight: 1.9 }}>
-          将按以下顺序执行：
-          <br />
-          1. 下载密钥文件（只显示这一次，请立即离线备份）；
-          <br />
-          2. 把题库里已有的题目与答卷快照加密；
-          <br />
-          3. 打开加密开关。
-          <br />
-          <span style={{ color: 'var(--bp-orange)' }}>密钥丢失后，已加密的题库将永久无法解密。</span>
-        </div>
-      ),
-      okText: '下载密钥并加密',
-      cancelText: '取消',
-      onOk: async () => {
-        setCryptoBusy(true);
-        try {
-          const info = await get<CryptoKeyInfo>('/api/system/crypto/generate-key');
-          if (!info?.key) throw new Error('后端未返回加密密钥，已中止');
-          downloadKeyFile(info);
-          await saveEncryptionFlag(true); // 先开运行时开关，migrate 才不会报未配置密钥
-          await post('/api/system/crypto/migrate');
-          setEncryption(true);
-          message.success('已开启题库字段加密，请妥善保存刚下载的密钥文件');
-        } catch (e) {
-          await saveEncryptionFlag(false).catch(() => undefined); // 任一步失败：回滚成关闭
-          setEncryption(false);
-          message.error(`开启加密失败：${(e as Error).message}`);
-        } finally {
-          setCryptoBusy(false);
-        }
-      },
-    });
-  };
-
-  /**
-   * 关闭加密：先把存量密文解密还原成明文，再落开关 false。
-   * 解密失败时开关保持开启（数据仍是密文），避免开关关了但库里还是密文读不出来。
-   */
-  const confirmDisableEncryption = () => {
-    Modal.confirm({
-      title: '关闭题库字段加密？',
-      content: (
-        <div style={{ fontSize: 12, lineHeight: 1.9 }}>
-          会先把题库中的密文解密还原为明文，再关闭开关。解密期间请不要关闭页面。
-          <br />
-          关闭后数据库备份里不再有加密保护。
-        </div>
-      ),
-      okText: '解密并关闭',
-      cancelText: '取消',
-      onOk: async () => {
-        setCryptoBusy(true);
-        try {
-          await post('/api/system/crypto/decrypt');
-          await saveEncryptionFlag(false);
-          setEncryption(false);
-          message.success('已关闭题库字段加密，题库字段已还原为明文');
-        } catch (e) {
-          await saveEncryptionFlag(true).catch(() => undefined); // 回滚成开启
-          setEncryption(true);
-          message.error(`关闭加密失败：${(e as Error).message}`);
-        } finally {
-          setCryptoBusy(false);
-        }
-      },
-    });
+  const saveExportPassword = async () => {
+    const value = exportPassword.trim();
+    if (!value && hasExportPassword) {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Modal.confirm({
+          title: '清空导出密码？',
+          content: '清空后导出题库与答卷不再需要密码，任何人都能直接导出。',
+          okText: '清空并关闭保护',
+          cancelText: '取消',
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      });
+      if (!confirmed) return;
+    }
+    setSavingExportPassword(true);
+    try {
+      await post('/api/system/update', { setting: { exportPassword: value } });
+      setHasExportPassword(Boolean(value));
+      setExportPassword(''); // 输入框回到空白，不保留明文
+      message.success(value ? '导出密码已保存' : '已关闭导出密码保护');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSavingExportPassword(false);
+    }
   };
 
   const save = async (key: TabKey) => {
@@ -511,7 +423,7 @@ export default function SystemSetting() {
                 children: (
                   <>
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
-                      以下设置改完即时保存。水印与防复制作用于全站；题库字段加密是可选功能，密钥由你保管。
+                      以下设置改完即时保存。水印与防复制作用于全站；导出密码用于导出题库/答卷前的二次确认。
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <ProtectionRow
@@ -551,24 +463,25 @@ export default function SystemSetting() {
                       </ProtectionRow>
                       <hr className="bp-dim" style={{ margin: '2px 0' }} />
                       <ProtectionRow
-                        label="题库字段加密"
-                        hint="开启后题库题目与答卷快照以密文存储：打开时先下载密钥再加密存量，关闭时先解密还原明文"
+                        label="导出密码"
+                        hint="设置后，导出题库或答卷都需要输入此密码；留空表示不启用。密码只保存不回显，重新输入并保存即可修改"
                       >
-                        <Switch
-                          checked={encryption}
-                          loading={cryptoBusy}
-                          checkedChildren="开启"
-                          unCheckedChildren="关闭"
-                          onChange={(checked) =>
-                            checked ? confirmEnableEncryption() : confirmDisableEncryption()
-                          }
+                        <Input.Password
+                          value={exportPassword}
+                          onChange={(e) => setExportPassword(e.target.value)}
+                          placeholder={hasExportPassword ? '已设置，输入新密码可修改' : '留空表示不启用'}
+                          autoComplete="new-password"
+                          style={{ width: 200 }}
                         />
+                        <Button
+                          size="small"
+                          type="primary"
+                          loading={savingExportPassword}
+                          onClick={() => void saveExportPassword()}
+                        >
+                          保存
+                        </Button>
                       </ProtectionRow>
-                      {encryption && (
-                        <div style={{ fontSize: 11, color: 'var(--bp-orange)', lineHeight: 1.7 }}>
-                          已开启：请确认密钥文件已离线备份；密钥丢失后题库将无法解密。
-                        </div>
-                      )}
                     </div>
                   </>
                 ),

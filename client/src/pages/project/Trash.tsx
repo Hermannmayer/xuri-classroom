@@ -2,11 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Empty, message, Popconfirm, Space, Table, Tag } from 'antd';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getWithPagination, post } from '../../api';
+import { get, post } from '../../api';
 import type { Project } from '../../schema/project';
 import { TABLE_COMPONENTS } from '../repo/table';
 
-/** 项目回收站：软删除的试卷/问卷在这里，可恢复或彻底删除 */
+/**
+ * 项目回收站：软删除的试卷/问卷在这里，可恢复或彻底删除。
+ *
+ * 注意：后端 `/api/project/trash` 返回的是**数组**（不是分页对象），
+ * 之前用 getWithPagination 解析导致 rows 永远是 []，回收站看起来像“没用”。
+ * 这里改成直接取数组，分页在前端做。
+ */
 export default function ProjectTrash() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<Project[]>([]);
@@ -18,15 +24,16 @@ export default function ProjectTrash() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getWithPagination<Project>('/api/project/trash', { current: page, pageSize });
-      setRows(res.data);
-      setTotal(res.total);
+      const res = await get<Project[]>('/api/project/trash');
+      const list = Array.isArray(res) ? res : [];
+      setRows(list);
+      setTotal(list.length);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, []);
 
   useEffect(() => {
     void load();

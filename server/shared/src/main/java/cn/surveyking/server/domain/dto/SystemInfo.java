@@ -134,10 +134,16 @@ public class SystemInfo {
 		private String collaboratorAuthority;
 
 		/**
-		 * 题库字段加密开关。默认 false（明文存储）。
-		 * 打开时必须先在系统设置里下载并备份密钥，否则数据无法恢复。
+		 * 导出密码：非空时，导出题库/答卷必须提供该密码。
+		 * 留空表示不启用（仍受 repo:export / answer:export 权限约束）。
+		 *
+		 * <p>**只在写入时使用**：读取系统信息时该字段一律被置空，避免通过公开的
+		 * {@code GET /api/system} 把密码泄露给任何人。前端改用 {@link #exportPasswordEnabled} 判断是否已设置。
 		 */
-		private Boolean fieldEncryptionEnabled;
+		private String exportPassword;
+
+		/** 是否已设置导出密码（只读派生字段，不回显密码本身） */
+		private Boolean exportPasswordEnabled;
 
 	}
 

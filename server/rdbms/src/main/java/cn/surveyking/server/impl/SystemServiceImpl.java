@@ -73,15 +73,16 @@ public class SystemServiceImpl implements SystemService {
 				systemInfo.setAiEnabled(info.getAiSetting().getEnabled());
 			}
 			systemInfo.setOauthProviders(toAvailability(info.getOauthSetting()));
-			// 每次读系统信息时同步一次加密开关，避免重启后与库里的设置不一致
-			if (systemInfo.getSetting() != null
-					&& systemInfo.getSetting().getFieldEncryptionEnabled() != null) {
-				cn.surveyking.server.core.uitls.CryptoUtils
-						.setSwitch(systemInfo.getSetting().getFieldEncryptionEnabled());
-			}
 		}
 		if (systemInfo.getOauthProviders() == null) {
 			systemInfo.setOauthProviders(new OAuthProviderAvailability());
+		}
+		// 安全：GET /api/system 是公开接口，绝不能回显导出密码明文。
+		// 只告诉前端「是否已设置」，密码本身只在写入时使用。
+		if (systemInfo.getSetting() != null) {
+			systemInfo.getSetting()
+					.setExportPasswordEnabled(org.springframework.util.StringUtils.hasText(systemInfo.getSetting().getExportPassword()));
+			systemInfo.getSetting().setExportPassword(null);
 		}
 		return systemInfo;
 	}
@@ -113,6 +114,10 @@ public class SystemServiceImpl implements SystemService {
 
 	@Override
 	public void createRole(RoleRequest request) {
+		// 自定义角色只允许管理员创建：老师即使有 system:role:create 也不能凭空造角色
+		if (!SecurityContextUtils.isAdmin()) {
+			throw new AccessDeniedException("只有管理员可以创建自定义角色");
+		}
 		assertRoleMutationAllowed(null, request);
 		if (request.getStatus() == null) {
 			request.setStatus(AppConsts.USER_STATUS.VALID);
@@ -532,10 +537,9 @@ public class SystemServiceImpl implements SystemService {
 			if (isNotBlank(source.getCollaboratorAuthority())) {
 				setting.setCollaboratorAuthority(source.getCollaboratorAuthority().trim());
 			}
-			// 题库字段加密开关（可选功能，默认关闭）
-			if (source.getFieldEncryptionEnabled() != null) {
-				setting.setFieldEncryptionEnabled(source.getFieldEncryptionEnabled());
-				cn.surveyking.server.core.uitls.CryptoUtils.setSwitch(source.getFieldEncryptionEnabled());
+			// 导出密码：留空表示清空（不启用）
+			if (source.getExportPassword() != null) {
+				setting.setExportPassword(source.getExportPassword().trim());
 			}
 		}
 		if (request.getAiSetting() != null) {

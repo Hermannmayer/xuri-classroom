@@ -27,6 +27,9 @@ public class AnswerApi {
 
 	private final AnswerService answerService;
 
+	/** 导出密码校验 + 审计记录 */
+	private final cn.surveyking.server.service.ExportGuardService exportGuardService;
+
 	/**
 	 * 获取答案列表。
 	 * @param query 查询参数。
@@ -122,11 +125,17 @@ public class AnswerApi {
 	@GetMapping("/download")
 	@PreAuthorize("hasAuthority('answer:export')")
 	@EnableDataPerm(key = "#query.projectId")
-	public ResponseEntity<Resource> download(DownloadQuery query) {
+	public ResponseEntity<Resource> download(DownloadQuery query,
+			@RequestParam(value = "exportPassword", required = false) String exportPassword) {
+		// 答卷含学员姓名/成绩，属于个人数据：先验导出密码，成功后留审计
+		exportGuardService.assertExportAllowed(exportPassword);
 		Locale previous = LocaleContextHolder.getLocale();
 		setLocale(query.getLocale());
 		try {
-			return answerService.download(query);
+			ResponseEntity<Resource> response = answerService.download(query);
+			exportGuardService.record(cn.surveyking.server.service.ExportGuardService.EXPORT_ANSWER,
+					query.getProjectId(), null, "导出答卷");
+			return response;
 		}
 		finally {
 			LocaleContextHolder.setLocale(previous);

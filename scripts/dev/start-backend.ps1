@@ -21,16 +21,6 @@ $errLog = "$logDir\backend.err.log"
 if (-not (Test-Path $java)) { throw "java not found: $java" }
 if (-not (Test-Path $jar)) { throw "jar not found: $jar (run server\gradlew.bat :api:bootJar first)" }
 
-# 题库字段加密密钥：存在 server\crypto.key 就注入 SK_CRYPTO_KEY。
-# 这个文件被 .gitignore 的 *.key 挡住，不会进仓库；丢了它，已加密的题库将无法解密。
-$keyFile = Join-Path $root 'server\crypto.key'
-if (Test-Path $keyFile) {
-  $env:SK_CRYPTO_KEY = (Get-Content $keyFile -Raw).Trim()
-  Write-Host 'Crypto key loaded from server\crypto.key (题库字段将以密文存储)'
-} else {
-  Write-Host 'No server\crypto.key - 题库字段保持明文（开发环境可接受，生产必须配置）'
-}
-
 # 只清理自己占用的那个端口，别误杀别的 80/7007 进程
 $busy = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
 if ($busy) {
