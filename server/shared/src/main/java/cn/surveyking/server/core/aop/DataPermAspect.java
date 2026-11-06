@@ -52,11 +52,11 @@ public class DataPermAspect {
 		}
 		String value = spelParser.parseExpression(dataPerm.key()).getValue(ctx).toString();
 		if (!StringUtils.hasText(value)) {
-			throw new InternalServerError("未找到对应的问卷");
+			throw new org.springframework.security.access.AccessDeniedException("未找到对应的问卷");
 		}
 		List<String> projectPerms = projectPartnerService.getProjectPerms();
 		if (!projectPerms.contains(value)) {
-			throw new InternalServerError("没有权限访问本问卷");
+			throw new org.springframework.security.access.AccessDeniedException("没有权限访问本问卷");
 		}
 	}
 

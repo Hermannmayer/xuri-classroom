@@ -29,8 +29,26 @@ public class JwtTokenUtil {
 
 	private final ObjectMapper objectMapper;
 
-	// 每次重启，所有客户端的 token 将失效
-	private final String jwtSecret = generateSecurityKey();
+	/**
+	 * 从配置读取（sk.security.jwt.secret / 环境变量 SK_JWT_SECRET）；为空则随机生成。
+	 * 随机生成的后果是「每次重启所有客户端 token 失效」，多实例之间也无法互认，
+	 * 所以生产环境必须配置，启动时会打 WARN。
+	 */
+	@Value("${sk.security.jwt.secret:}")
+	private String configuredJwtSecret;
+
+	private String jwtSecret;
+
+	@javax.annotation.PostConstruct
+	void initJwtSecret() {
+		if (configuredJwtSecret != null && !configuredJwtSecret.trim().isEmpty()) {
+			jwtSecret = configuredJwtSecret.trim();
+			return;
+		}
+		jwtSecret = generateSecurityKey();
+		org.slf4j.LoggerFactory.getLogger(JwtTokenUtil.class).warn(
+				"未配置 sk.security.jwt.secret（环境变量 SK_JWT_SECRET），已随机生成 JWT 密钥：重启后所有登录态将失效，多实例之间无法互认。");
+	}
 
 	@Value("${sk.security.jwt.expiration-seconds:28800}")
 	private long jwtExpirationSeconds;
