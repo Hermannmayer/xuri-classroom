@@ -11,5 +11,20 @@ include 'api'
 include 'ai'
 include 'shared'
 include 'rdbms'
-include 'flow'
-include 'exam'
+
+// ---------------------------------------------------------------------------
+// 以下两个模块目前没有任何模块依赖，属于历史遗留（死模块），默认不参与构建：
+//   - flow：SurveyKing 的流程编排 / 工作流（依赖 Flowable）。产品上已决定不做流程编排，
+//            api 只依赖 shared/rdbms/ai，`grep -r "project(':flow')" server --include=*.gradle`
+//            为 0，因此排除它不会影响编译与运行。
+//   - exam：早期考试模块，功能已并入 rdbms。
+//
+// 为什么用注释而不是删目录：代码仍有参考价值，且用户以后可能要做流程编排。
+//
+// 恢复方法：把下面两行的注释符号去掉，然后带上对应模块重新构建即可
+//   - 恢复 flow：需要同时确认 Flowable 相关依赖可下载（见 flow/build.gradle）
+//   - 恢复 exam：历史模块，不一定能直接编译
+//
+// include 'flow'
+// include 'exam'
+// ---------------------------------------------------------------------------

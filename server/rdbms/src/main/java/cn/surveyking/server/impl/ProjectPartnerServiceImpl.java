@@ -110,6 +110,8 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 				partner.setType(ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType());
 				save(partner);
 			}
+			// 组授权的变化在行上看不出影响哪些用户，直接清全量（见 evictProjectPermissions 注释）
+			evictAllProjectPermissions();
 			return;
 		}
 		// 添加答题人
@@ -196,27 +198,58 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		}
 	}
 
+	/**
+	 * 成员变更后失效「我可见的项目」缓存（projectPermissionCache）。
+	 *
+	 * <p>
+	 * 这个缓存的 key 是<b>用户 id</b>（`getProjectPerms()` 的 @Cacheable），不是项目 id，
+	 * 所以没法「按 projectId 精确 evict」，只能按受影响的用户 evict；组授权（groupId）在
+	 * 行上看不出成员是谁，直接清全量——重算只是一条轻量 SQL，代价远小于「撤销后仍能访问」。
+	 */
 	private void evictProjectPermissions(Collection<ProjectPartner> partners) {
-		Cache permissionCache = cacheManager.getCache(CacheConsts.projectPermissionCacheName);
-		if (permissionCache == null || partners == null) {
+		if (CollectionUtils.isEmpty(partners)) {
 			return;
 		}
-		Set<String> affectedUserIds = partners.stream()
-				.filter(partner -> Objects.equals(partner.getType(), ProjectPartnerTypeEnum.OWNER.getType())
-						|| Objects.equals(partner.getType(), ProjectPartnerTypeEnum.COLLABORATOR.getType()))
-				.map(ProjectPartner::getUserId).filter(Objects::nonNull).collect(Collectors.toSet());
-		Runnable evict = () -> affectedUserIds.forEach(permissionCache::evictIfPresent);
+		if (partners.stream().anyMatch(partner -> partner.getGroupId() != null)) {
+			evictAllProjectPermissions();
+			return;
+		}
+		// 不按 type 过滤：OWNER/COLLABORATOR 直接决定可见项目，答卷人（3/4）顺手清掉也不会错
+		Set<String> affectedUserIds = partners.stream().map(ProjectPartner::getUserId).filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+		evictProjectPermissionsForUsers(affectedUserIds);
+	}
+
+	private void evictProjectPermissionsForUsers(Collection<String> userIds) {
+		Cache permissionCache = cacheManager.getCache(CacheConsts.projectPermissionCacheName);
+		if (permissionCache == null || CollectionUtils.isEmpty(userIds)) {
+			return;
+		}
+		runAfterCommit(() -> userIds.forEach(permissionCache::evictIfPresent));
+	}
+
+	/** 清空全量「我可见的项目」缓存（组授权变更、批量删除时用） */
+	private void evictAllProjectPermissions() {
+		Cache permissionCache = cacheManager.getCache(CacheConsts.projectPermissionCacheName);
+		if (permissionCache == null) {
+			return;
+		}
+		runAfterCommit(permissionCache::clear);
+	}
+
+	/** 事务内注册 afterCommit 清理，避免并发的读请求把旧结果重新塞回缓存 */
+	private void runAfterCommit(Runnable action) {
 		if (TransactionSynchronizationManager.isActualTransactionActive()
 				&& TransactionSynchronizationManager.isSynchronizationActive()) {
 			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 				@Override
 				public void afterCommit() {
-					evict.run();
+					action.run();
 				}
 			});
 		}
 		else {
-			evict.run();
+			action.run();
 		}
 	}
 

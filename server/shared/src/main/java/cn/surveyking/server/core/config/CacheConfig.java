@@ -28,6 +28,12 @@ import java.util.stream.Collectors;
 @ConfigurationProperties("custom-cache")
 public class CacheConfig extends CachingConfigurerSupport {
 
+	/**
+	 * 没在 custom-cache.entries 里配置的缓存名回落到这个 TTL。
+	 * 之前是 entries.get(name).toNanos()，名字没配就会 NPE（整个请求 500）；顺带把兜底值定成 10 分钟。
+	 */
+	private static final Duration DEFAULT_TTL = Duration.ofMinutes(10);
+
 	private Map<String, Duration> entries;
 
 	@Bean
@@ -40,7 +46,8 @@ public class CacheConfig extends CachingConfigurerSupport {
 				return new ConcurrentMapCache(name, Caffeine.newBuilder().expireAfter(new Expiry<Object, Object>() {
 					@Override
 					public long expireAfterCreate(Object key, Object value, long currentTime) {
-						return entries.get(name).toNanos();
+						Duration ttl = entries == null ? null : entries.get(name);
+						return (ttl == null ? DEFAULT_TTL : ttl).toNanos();
 					}
 
 					@Override

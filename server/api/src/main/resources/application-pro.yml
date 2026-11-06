@@ -15,6 +15,6 @@ custom-cache:
     fileCache: 1h
     userCache: 1d
     deptCache: 1d
-    projectPermissionCache: 1d
+    projectPermissionCache: 10m
     commonCache: 30d
     oauthFlowCache: 10m
