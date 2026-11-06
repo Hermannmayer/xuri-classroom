@@ -8,7 +8,15 @@ import type { UserInfo } from '../api';
  * - 学生：exercise:list + repo:list/detail + user:update（练习、看题库、改自己资料）
  *
  * can() 规则：ROLE_admin 直接放行；否则要求权限串命中（精确或同域前缀）。
+ *
+ * 缓存生命周期（2026-11 修复）：
+ * - 模块级缓存只在同一个登录态内复用；
+ * - 登录成功 / 登出都必须调用 notifyAuthChanged() 清掉，否则「管理员登出 → 学员登录」
+ *   这种同标签页切换会继续用上一个人的 authorityList（RequirePerm / can() 都会误放行）；
+ * - 其它标签页通过 storage 事件同步失效（localStorage 写入不会在写的那一页触发事件）。
  */
+export const AUTH_CHANGED_KEY = 'sk-auth-changed';
+
 let cache: Promise<string[]> | null = null;
 
 export function loadAuthorities(force = false): Promise<string[]> {
@@ -22,6 +30,23 @@ export function loadAuthorities(force = false): Promise<string[]> {
 
 export function clearAuthorities() {
   cache = null;
+}
+
+/** 登录成功 / 登出时调用：清本页缓存，并广播给其它标签页（它们下一次 can()/RequirePerm 会重新拉） */
+export function notifyAuthChanged() {
+  cache = null;
+  try {
+    localStorage.setItem(AUTH_CHANGED_KEY, String(Date.now()));
+  } catch {
+    // localStorage 被禁用（隐私模式）：本页缓存已清，跨标签页失效可忽略
+  }
+}
+
+// 其它标签页登录/登出：清掉本页缓存，下次 RequirePerm / 页面里的 can() 重新请求
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === AUTH_CHANGED_KEY) cache = null;
+  });
 }
 
 export function isAdmin(authorities: string[]) {

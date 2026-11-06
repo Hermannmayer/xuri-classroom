@@ -22,7 +22,7 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { getWithPagination, post } from '../../api';
+import { download, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
@@ -65,54 +65,6 @@ const TYPE_COLOR: Record<string, string> = {
   FillBlank: 'purple',
   Textarea: 'green',
 };
-
-/**
- * 带导出密码的下载。
- *
- * 现有 download() 只看 HTTP 状态：后端按项目惯例用「HTTP 200 + body.code=403」返回「导出密码错误」时，
- * 它会一路把错误 JSON 存成 .xlsx。这里先看 content-type：JSON 说明是后端返回的错误，抛中文提示；
- * 否则按普通文件保存（文件名优先取 content-disposition）。
- */
-async function downloadWithPassword(
-  url: string,
-  params: Record<string, unknown>,
-  fallbackName: string,
-) {
-  const search = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
-    search.append(key, String(value));
-  });
-  const res = await fetch(`${url}?${search.toString()}`, { credentials: 'include' });
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const body = (await res.json().catch(() => undefined)) as { message?: string } | undefined;
-    throw new Error(body?.message || '导出失败');
-  }
-  if (!res.ok) throw new Error(`导出失败（HTTP ${res.status}）`);
-  const blob = await res.blob();
-  const disposition = res.headers.get('content-disposition') || '';
-  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition);
-  const plain = /filename="?([^";]+)"?/i.exec(disposition);
-  let name = fallbackName;
-  const raw = star?.[1] ?? plain?.[1];
-  if (raw) {
-    try {
-      name = decodeURIComponent(raw);
-    } catch {
-      name = raw;
-    }
-  }
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = objectUrl;
-  link.download = name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  // 立刻 revoke 在部分浏览器会打断下载，延后释放
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-}
 
 interface OptionDraft {
   id: string;
@@ -306,7 +258,7 @@ export default function RepoQuestions() {
     }
   };
 
-  /** 导出题目：先弹密码框（系统设置没配密码时留空即可），密码随 GET 下载走 query 参数 */
+  /** 导出题目：先弹密码框（系统设置没配密码时留空即可），密码换一次性 token 后随下载 query 传递 */
   const openExport = () => {
     // ponytail: 空题库导出后端会 500（fastexcel 不允许 0 个 sheet），先在前端挡掉
     if (!loading && total === 0 && !hasFilter) {
@@ -324,7 +276,8 @@ export default function RepoQuestions() {
       const tokenRes = await post<{ exportToken?: string }>('/api/repo/export/token', {
         exportPassword: exportPwd.trim() || undefined,
       });
-      await downloadWithPassword(
+      // 公共 download()：content-type 为 JSON 时按后端错误抛中文，不再把错误存成 .xlsx
+      await download(
         '/api/repo/export',
         { id: repoId, exportToken: tokenRes?.exportToken },
         `${repoName || '题库'}题目.xlsx`,

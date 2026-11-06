@@ -246,6 +246,8 @@ export default function RepoBook() {
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
 
   const [editing, setEditing] = useState<UserBookView | null>(null);
+  // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击重复保存笔记
+  const [noteSaving, setNoteSaving] = useState(false);
   const [editForm] = Form.useForm<{ note?: string }>();
 
   const filter = useMemo<BookFilter>(() => {
@@ -317,8 +319,15 @@ export default function RepoBook() {
   }, [editing, editForm]);
 
   const submitEdit = async () => {
-    if (!editing) return;
-    const { note } = await editForm.validateFields();
+    if (!editing || noteSaving) return;
+    let note: string | undefined;
+    try {
+      const values = await editForm.validateFields();
+      note = values.note;
+    } catch {
+      return; // 校验提示已经在字段上
+    }
+    setNoteSaving(true);
     try {
       await post('/api/repo/book/update', { id: editing.id, note: note ?? '' });
       message.success('笔记已保存');
@@ -326,6 +335,8 @@ export default function RepoBook() {
       await load();
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setNoteSaving(false);
     }
   };
 
@@ -784,6 +795,7 @@ export default function RepoBook() {
         open={!!editing}
         onCancel={() => setEditing(null)}
         onOk={submitEdit}
+        confirmLoading={noteSaving}
         okText="保存"
         cancelText="取消"
         destroyOnClose

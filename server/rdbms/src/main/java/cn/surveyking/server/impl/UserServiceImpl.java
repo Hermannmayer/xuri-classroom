@@ -414,6 +414,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	@Override
 	public void createUser(UserRequest request) {
+		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
+		assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
 		User user = userViewMapper.fromRequest(request);
 		this.save(user);
 
@@ -472,6 +474,10 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		assertManageableUser(request.getId());
 		assertGrantableRoles(request.getRoles());
+		User current = this.getById(request.getId());
+		// 组变更同样会改变「有效权限」：目标组链上绑定的角色必须都是自己能授予的，否则等于借改组提权
+		assertDeptAssignmentAllowed(request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
+				request.getDeptIds() != null ? request.getDeptIds() : listExtraDeptIds(request.getId()));
 		if (isNotBlank(request.getPassword())) {
 			validateStrongPassword(request.getPassword(), null);
 		}
@@ -518,8 +524,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (request.getDeptIds() != null) {
 			String mainDeptId = request.getDeptId();
 			if (!StringUtils.hasText(mainDeptId)) {
-				User existing = this.getById(request.getId());
-				mainDeptId = existing == null ? null : existing.getDeptId();
+				mainDeptId = current == null ? null : current.getDeptId();
 			}
 			saveUserDepts(request.getId(), mainDeptId, request.getDeptIds());
 		}
@@ -880,7 +885,48 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		Set<String> callerAuthorities = currentAuthorityNames();
 		if (!callerAuthorities.containsAll(loadAuthorityNames(userId))) {
-			throw new AccessDeniedException("不能管理权限高于当前用户的账号");
+			throw new AccessDeniedException("不能管理权限高于当前用户的账号（含用户组继承来的权限）");
+		}
+	}
+
+	/**
+	 * 「把用户放进某个组」会连带把该组（含祖先链）绑定的角色授予他，因此非管理员改 deptId / deptIds 时，
+	 * 必须确认目标组链上绑定的角色自己都能授予——否则光有 system:user:update 就能把人塞进绑了
+	 * admin/teacher 的组，等于绕开 assertGrantableRoles 发角色。
+	 *
+	 * <p>
+	 * 两条豁免：① 管理员；② 匿名调用（注册）：那条路径的组与角色都来自系统设置，不由请求方指定。
+	 * 孤儿绑定（角色已被删）不授予任何权限，直接跳过，避免脏数据阻断正常的用户管理。
+	 */
+	private void assertDeptAssignmentAllowed(String mainDeptId, List<String> extraDeptIds) {
+		if (!SecurityContextUtils.isAuthenticated() || SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		List<String> roots = mergeDeptIds(mainDeptId, extraDeptIds);
+		if (CollectionUtils.isEmpty(roots)) {
+			return;
+		}
+		List<String> chain = resolveDeptChainIds(roots, loadDeptMap());
+		if (CollectionUtils.isEmpty(chain)) {
+			return;
+		}
+		List<String> roleIds = deptRoleMapper
+				.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, chain)).stream()
+				.map(DeptRole::getRoleId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+		if (roleIds.isEmpty()) {
+			return;
+		}
+		Set<String> callerAuthorities = currentAuthorityNames();
+		for (Role role : roleService.listByIds(roleIds)) {
+			if (role == null || !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID)) {
+				continue;
+			}
+			Set<String> roleAuthorities = toAuthorityNames(role);
+			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN)
+					|| !callerAuthorities.containsAll(roleAuthorities)) {
+				throw new AccessDeniedException("不能把用户放进该用户组：它（或其上级组）绑定的角色「"
+						+ role.getName() + "」权限高于当前用户");
+			}
 		}
 	}
 
@@ -907,13 +953,20 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 	}
 
+	/**
+	 * 目标用户的有效权限：直挂角色 ∪ 组链绑定角色（与 loadUserById 同一套口径）。
+	 *
+	 * <p>
+	 * 只查 t_user_role 会把「没有任何直挂角色、但所在组绑了 teacher」的老师误判成低权限，
+	 * 从而允许别人重置他的密码/删除他（账号接管）。这里直接用 loadUserById 的并集结果。
+	 * 注意：内部自调用不走缓存代理，拿到的一定是实时结果。
+	 */
 	private Set<String> loadAuthorityNames(String userId) {
-		Set<String> authorities = new HashSet<>();
-		userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId)).stream()
-				.map(userRole -> roleService.getById(userRole.getRoleId()))
-				.filter(role -> role != null && Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID))
-				.forEach(role -> authorities.addAll(toAuthorityNames(role)));
-		return authorities;
+		UserInfo userInfo = loadUserById(userId);
+		if (userInfo == null || userInfo.getAuthorityList() == null) {
+			return Collections.emptySet();
+		}
+		return new HashSet<>(userInfo.getAuthorityList());
 	}
 
 	private Set<String> currentAuthorityNames() {

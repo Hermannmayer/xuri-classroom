@@ -11,6 +11,7 @@ import cn.surveyking.server.domain.mapper.RoleViewMapper;
 import cn.surveyking.server.domain.model.Role;
 import cn.surveyking.server.domain.model.SysInfo;
 import cn.surveyking.server.domain.model.UserRole;
+import cn.surveyking.server.mapper.DeptRoleMapper;
 import cn.surveyking.server.mapper.SysInfoMapper;
 import cn.surveyking.server.mapper.UserRoleMapper;
 import cn.surveyking.server.service.SystemService;
@@ -59,6 +60,8 @@ public class SystemServiceImpl implements SystemService {
 	private final UserRoleMapper userRoleMapper;
 
 	private final SysInfoMapper sysInfoMapper;
+
+	private final DeptRoleMapper deptRoleMapper;
 
 	@Override
 	public SystemInfo getSystemInfo() {
@@ -157,7 +160,12 @@ public class SystemServiceImpl implements SystemService {
 				updates.setAuthority("");
 			}
 			roleService.updateById(updates);
-			evictCache(request.getId());
+			// 角色的权限变了，但受影响的人不只是 t_user_role 里的：组绑了该角色的话，
+			// 组内所有成员（含子组）的有效权限都跟着变。这里直接清全量 userCache，
+			// 否则「撤销权限」最长 1 小时（userCache TTL）不生效。
+			evictAllUserCache();
+			// 角色名/权限变化后，用户组列表里回显的「绑定角色」也要跟着刷新（deptCache 里存着 roleNames）
+			evictDeptCache();
 		}
 	}
 
@@ -171,23 +179,51 @@ public class SystemServiceImpl implements SystemService {
 			throw new AccessDeniedException("不能删除系统管理员角色");
 		}
 		assertRoleMutationAllowed(role, request);
-		List<String> affectedUserIds = getRoleUserIds(request.getId());
 		roleService.removeById(request.getId());
 		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getRoleId, request.getId()));
-		evictUsers(affectedUserIds);
+		// 组上可能还绑着这个角色：物理删掉，否则 t_dept_role 留下指向已删角色的孤儿绑定
+		deptRoleMapper.deleteByRoleId(request.getId());
+		evictAllUserCache();
+		// 组列表缓存里还带着这个角色的名字，必须一起失效，否则界面上仍显示已删角色
+		evictDeptCache();
 	}
 
 	/**
-	 * 角色信息变化时，清除对应的 cache 缓存
-	 * @param roleId
+	 * 清空组织架构缓存（{@code GET /api/system/dept/list} 会把 roleNames 一起缓存）。
+	 * 角色改名 / 删除角色后必须失效，否则组列表里还显示旧角色名或已删角色。
 	 */
-	private void evictCache(String roleId) {
-		evictUsers(getRoleUserIds(roleId));
+	private void evictDeptCache() {
+		affectedCacheEvict(CacheConsts.deptCacheName);
 	}
 
-	private List<String> getRoleUserIds(String roleId) {
-		return userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getRoleId, roleId)).stream()
-				.map(UserRole::getUserId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+	/**
+	 * 清空全量用户权限缓存（userCache 是内存 ConcurrentMap，clear 足够便宜）。
+	 * 角色权限变化会影响「组绑定该角色的成员」，精确反查成本高且容易漏，直接全清最稳。
+	 * 事务内注册 afterCommit，避免并发的 loadUserById 把旧结果重新塞回缓存。
+	 */
+	private void evictAllUserCache() {
+		affectedCacheEvict(CacheConsts.userCacheName);
+	}
+
+	/** 事务内注册 afterCommit 清理，避免并发的读请求把旧结果重新塞回缓存 */
+	private void affectedCacheEvict(String cacheName) {
+		Cache cache = cacheManager.getCache(cacheName);
+		if (cache == null) {
+			return;
+		}
+		Runnable clear = cache::clear;
+		if (TransactionSynchronizationManager.isActualTransactionActive()
+				&& TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					clear.run();
+				}
+			});
+		}
+		else {
+			clear.run();
+		}
 	}
 
 	private void evictUsers(Collection<String> userIds) {
@@ -241,6 +277,16 @@ public class SystemServiceImpl implements SystemService {
 		Set<String> effectiveAuthorities = new HashSet<>(authorities);
 		if (existingRole != null && request.getAuthorities() == null && isNotBlank(existingRole.getAuthority())) {
 			effectiveAuthorities.addAll(Arrays.asList(existingRole.getAuthority().split(",")));
+		}
+		// 「空数组 = 收回全部权限」是破坏性操作：非管理员只能对「原权限自己都有」的角色做，
+		// 否则 containsAll(空集) 恒真，等于谁有 system:role:update 谁就能把 teacher 这类高权限角色清空。
+		if (existingRole != null && request.getAuthorities() != null && authorities.isEmpty()
+				&& isNotBlank(existingRole.getAuthority())) {
+			Set<String> currentAuthorities = Arrays.stream(existingRole.getAuthority().split(",")).map(String::trim)
+					.filter(org.springframework.util.StringUtils::hasText).collect(Collectors.toSet());
+			if (!callerAuthorities.containsAll(currentAuthorities)) {
+				throw new AccessDeniedException("不能清空权限高于当前用户的角色");
+			}
 		}
 		if ("admin".equals(requestedCode) || effectiveAuthorities.contains(AppConsts.ROLE_ADMIN)
 				|| !callerAuthorities.containsAll(effectiveAuthorities)) {

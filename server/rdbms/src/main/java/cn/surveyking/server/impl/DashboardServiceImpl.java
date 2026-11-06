@@ -23,11 +23,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DashboardServiceImpl extends BaseService<DashboardMapper, Dashboard> implements DashboardService {
 
-	private DashboardViewMapper dashboardViewMapper;
+	/**
+	 * 注意：必须是 final，否则 Lombok 的 @RequiredArgsConstructor 不会注入它，
+	 * 调用时直接 NPE（这就是 /api/dashboard/list 长期 500 的原因）。
+	 */
+	private final DashboardViewMapper dashboardViewMapper;
 
 	@Override
 	public List<DashboardView> listDashboard(DashboardQuery query) {
-		List<Dashboard> dashboardList = list(Wrappers.<Dashboard>lambdaQuery().eq(Dashboard::getType, query.getType())
+		List<Dashboard> dashboardList = list(Wrappers.<Dashboard>lambdaQuery()
+				.eq(Dashboard::getType, query.getType())
 				.eq(query.getProjectId() != null, Dashboard::getProjectId, query.getProjectId()));
 		return dashboardViewMapper.toView(dashboardList);
 	}

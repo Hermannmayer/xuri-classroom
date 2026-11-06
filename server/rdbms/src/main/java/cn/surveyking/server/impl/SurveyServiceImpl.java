@@ -356,6 +356,8 @@ public class SurveyServiceImpl implements SurveyService {
 		ProjectView project = projectService.getProject(projectId);
 		// 提交也要校验问卷状态/截止时间：此前只有 loadProject 挡，拿到 projectId 直接 POST 就能绕过
 		validateSubmittable(project, !isNotBlank(request.getId()));
+		// 密码 / 需要登录 / 白名单 / 开始时间：同样要在提交路径再判一次
+		validateAnswerGate(project);
 		SurveyWechatIdentity wechatIdentity = requireWechatAccess(project);
 		applyWechatIdentity(project, request, wechatIdentity);
 		String answerId = request.getId();
@@ -427,6 +429,9 @@ public class SurveyServiceImpl implements SurveyService {
 		return result;
 	}
 
+	/** 切屏计数的按键锁：同一份答卷的读-改-写串行化，避免并发丢更新 */
+	private final java.util.concurrent.ConcurrentMap<String, Object> switchScreenLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
 	/**
 	 * 切屏计数落库：累加到答卷 metaInfo.switchScreenTimes。
 	 * 优先用前端传的 answerId（校验问卷归属）；没有答卷 id 时退回「本用户在这份问卷上最近一条记录」，
@@ -457,13 +462,22 @@ public class SurveyServiceImpl implements SurveyService {
 		if (answer == null) {
 			return 0;
 		}
-		AnswerMetaInfo metaInfo = answer.getMetaInfo() == null ? new AnswerMetaInfo() : answer.getMetaInfo();
-		int times = metaInfo.getSwitchScreenTimes() == null ? 0 : metaInfo.getSwitchScreenTimes();
-		times += 1;
-		metaInfo.setSwitchScreenTimes(times);
-		answer.setMetaInfo(metaInfo);
-		answerService.updateById(answer);
-		return times;
+		// 读-改-写必须串行：并发实测里 10 次切屏只记到 1 次（10 个线程都读到 0 再各自 +1 覆盖）。
+		// 这里按答卷 id 加 JVM 内锁。单实例部署下足够；将来多实例要改成 DB 原子自增
+		// （MySQL 可用 JSON_SET，但 H2 不支持，所以没走 SQL 方案）。
+		synchronized (switchScreenLocks.computeIfAbsent(answer.getId(), k -> new Object())) {
+			Answer latest = answerService.getById(answer.getId());
+			if (latest == null) {
+				return 0;
+			}
+			AnswerMetaInfo metaInfo = latest.getMetaInfo() == null ? new AnswerMetaInfo() : latest.getMetaInfo();
+			int times = metaInfo.getSwitchScreenTimes() == null ? 0 : metaInfo.getSwitchScreenTimes();
+			times += 1;
+			metaInfo.setSwitchScreenTimes(times);
+			latest.setMetaInfo(metaInfo);
+			answerService.updateById(latest);
+			return times;
+		}
 	}
 
 	/** 当前登录用户在这份试卷/问卷上的历次已提交答卷（按时间倒序），供「再考一次」的成绩列表使用 */
@@ -1124,6 +1138,78 @@ public class SurveyServiceImpl implements SurveyService {
 		}
 	}
 
+	/**
+	 * 提交阶段的「能不能作答」闸门。
+	 *
+	 * <p>此前密码 / 需要登录 / 白名单只在「打开问卷」时校验，直接 POST saveAnswer 就能绕过。
+	 * 这里把同一套条件在提交路径上再判一次；回收上限不在此列（会挡住正常修改答案）。
+	 */
+	private void validateAnswerGate(ProjectView project) {
+		if (project == null || project.getSetting() == null || project.getSetting().getAnswerSetting() == null) {
+			return;
+		}
+		ProjectSetting.AnswerSetting answerSetting = project.getSetting().getAnswerSetting();
+		// 需要登录
+		if (Boolean.TRUE.equals(answerSetting.getLoginRequired()) && !SecurityContextUtils.isAuthenticated()) {
+			throw new AccessDeniedException("该问卷需要登录后才能作答");
+		}
+		// 需要密码：必须已通过密码校验（见 markPasswordPassed）
+		if (answerSetting.getPassword() != null && !isPasswordPassed(project.getId(), answerSetting.getPassword())) {
+			throw new AccessDeniedException("该问卷需要密码，请先在答题页输入正确密码");
+		}
+		// 白名单
+		if (answerSetting.getWhitelistType() != null) {
+			validateWhitelistLimit(project.getId(), project.getSetting());
+		}
+		// 开始时间（配置在考试设置里）
+		ProjectSetting.ExamSetting examSetting = project.getSetting().getExamSetting();
+		Long startTime = examSetting == null ? null : examSetting.getStartTime();
+		if (startTime != null && System.currentTimeMillis() < startTime) {
+			throw new ErrorCodeException(ErrorCode.SurveySuspend);
+		}
+	}
+
+	/** 记录「本机已通过某问卷的密码」：cookie 存哈希，不存明文，2 小时有效 */
+	private void markPasswordPassed(String projectId, String password) {
+		try {
+			String value = sha256(projectId + "|" + password);
+			Cookie cookie = new Cookie(AppConsts.COOKIE_PWD_PREFIX + projectId, value);
+			cookie.setPath("/");
+			cookie.setMaxAge(2 * 3600);
+			cookie.setHttpOnly(true);
+			ContextHelper.getCurrentHttpResponse().addCookie(cookie);
+		}
+		catch (Exception e) {
+			log.warn("写入问卷密码通过标记失败: projectId={}", projectId, e);
+		}
+	}
+
+	private boolean isPasswordPassed(String projectId, String password) {
+		try {
+			String expected = sha256(projectId + "|" + password);
+			String actual = ContextHelper.getCookie(AppConsts.COOKIE_PWD_PREFIX + projectId);
+			return expected.equals(actual);
+		}
+		catch (Exception e) {
+			return false;
+		}
+	}
+
+	private static String sha256(String text) {
+		try {
+			java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			StringBuilder sb = new StringBuilder(hash.length * 2);
+			for (byte b : hash) {
+				sb.append(String.format("%02x", b));
+			}
+			return sb.toString();
+		}
+		catch (Exception e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
 	private AnswerView getAnswerForProject(String projectId, String answerId) {
 		return getAnswerForProject(projectId, answerId, false);
 	}
@@ -1138,11 +1224,41 @@ public class SurveyServiceImpl implements SurveyService {
 		if (answerView == null || !Objects.equals(projectId, answerView.getProjectId())) {
 			throw new AccessDeniedException("无权限访问该答案");
 		}
+		// 归属校验：只校验「属于该项目」是不够的——answerId 会出现在成绩单 URL 里，
+		// 拿到别人的 answerId 就能读/改别人的答卷（公开接口是 permitAll）。
+		assertAnswerOwnership(answerView);
 		if (rankEnabled) {
 			answerQuery.setRankEnabled(true);
 			return answerService.getAnswer(answerQuery);
 		}
 		return answerView;
+	}
+
+	/**
+	 * 答卷归属校验。
+	 *
+	 * <p>合法持有者只有两种：
+	 * <ol>
+	 * <li>登录用户本人（答卷 createBy 等于当前用户；白名单导入的答卷 createBy 是 partner id，
+	 * 靠 {@link #validateWhitelistLimit} 的同一套 createBy 语义判断）；</li>
+	 * <li>匿名用户本机：浏览器里存着这份答卷的 id（答题时的随机卷 cookie
+	 * {@code rd_answer_id_<projectId>}，或前端 localStorage 走后端暂存时下发的同名 cookie）。</li>
+	 * </ol>
+	 * 两者都不成立一律拒绝，避免「知道 UUID 就能看别人答案」。
+	 */
+	private void assertAnswerOwnership(AnswerView answerView) {
+		String userId = SecurityContextUtils.getUserId();
+		if (isNotBlank(userId) && Objects.equals(userId, answerView.getCreateBy())) {
+			return;
+		}
+		String cookieAnswerId = ContextHelper
+				.getCookie(AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + answerView.getProjectId());
+		if (isNotBlank(cookieAnswerId) && Objects.equals(cookieAnswerId, answerView.getId())) {
+			return;
+		}
+		// 白名单场景：答卷 createBy 是 partner 记录 id，由访问白名单的 cookie 关联，这里不做额外放行，
+		// 登录态用户也不会命中（userId != partner id），故统一走拒绝。
+		throw new AccessDeniedException("无权访问该答卷");
 	}
 
 	private void validateLoginLimit(String projectId, ProjectSetting setting) {
@@ -1472,6 +1588,9 @@ public class SurveyServiceImpl implements SurveyService {
 							SchemaHelper.getLoginFormAnswer(answer, SchemaHelper.LoginFormFieldEnum.extraPassword))) {
 						throw new ErrorCodeException(ErrorCode.ValidationError);
 					}
+					// 密码校验通过：下发一个短期 cookie，作为「本次会话已通过密码」的凭据。
+					// 否则直接 POST saveAnswer 就能绕开密码（提交路径不携带密码字段）。
+					markPasswordPassed(project.getId(), answerSetting.getPassword());
 				}
 			}
 			// 白名单为系统用户

@@ -8,6 +8,7 @@ import { router } from './router';
 import { ThemeProvider } from './theme/ThemeProvider';
 import Watermark from './components/Watermark';
 import CopyGuard from './components/CopyGuard';
+import ErrorBoundary from './components/ErrorBoundary';
 import './renderer/registerAll';
 import './styles/global.css';
 import './styles/answer.css';
@@ -36,7 +37,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <ConfigProvider locale={zhCN}>
     <ThemeProvider>
       <AntApp>
-        <RouterProvider router={router} />
+        {/* 渲染异常兜底：任何页面抛错都显示中文错误页，而不是整页白屏 */}
+        <ErrorBoundary>
+          <RouterProvider router={router} />
+        </ErrorBoundary>
         {/* 内容保护：水印与防复制都挂在路由之外，覆盖全站（开关跟着系统设置走） */}
         <Watermark />
         <CopyGuard />

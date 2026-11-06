@@ -22,6 +22,7 @@ public class DashboardApi {
 	private final DashboardService dashboardService;
 
 	@GetMapping("/list")
+	@org.springframework.security.access.prepost.PreAuthorize("hasAuthority('project:detail')")
 	public List<DashboardView> listDashboard(DashboardQuery query) {
 		return dashboardService.listDashboard(query);
 	}

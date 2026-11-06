@@ -141,6 +141,8 @@ CREATE TABLE IF NOT EXISTS t_dept (
   short_name varchar(64) NOT NULL COMMENT '简称',
   code varchar(64) DEFAULT NULL COMMENT '数据权限类型',
   manager_id varchar(64) DEFAULT NULL COMMENT '扩展字段',
+  valid_from timestamp NULL DEFAULT NULL COMMENT '组有效期开始',
+  valid_to timestamp NULL DEFAULT NULL COMMENT '组有效期结束',
   sort_code int DEFAULT NULL,
   property_json varchar(256) DEFAULT NULL COMMENT '扩展字段',
   status varchar(20) DEFAULT NULL COMMENT '扩展字段',
@@ -152,6 +154,7 @@ CREATE TABLE IF NOT EXISTS t_dept (
   update_by varchar(256) DEFAULT NULL,
   PRIMARY KEY (id)
 );
+CREATE INDEX IF NOT EXISTS idx_dept_parent ON t_dept(parent_id);
 
 -- ----------------------------
 -- Records of t_dept
@@ -302,12 +305,16 @@ CREATE TABLE IF NOT EXISTS t_repo_partner (
   id varchar(64) NOT NULL,
   repo_id varchar(64) DEFAULT NULL COMMENT '题库id',
   user_id varchar(64) DEFAULT NULL COMMENT '成员id',
+  dept_id varchar(64) DEFAULT NULL COMMENT '部门/用户组id（授权给整组时使用）',
   create_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   create_by varchar(256) DEFAULT NULL,
   update_at timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   update_by varchar(256) DEFAULT NULL,
   PRIMARY KEY (id)
 );
+CREATE INDEX IF NOT EXISTS idx_repo_partner_repo ON t_repo_partner(repo_id);
+CREATE INDEX IF NOT EXISTS idx_repo_partner_user ON t_repo_partner(user_id);
+CREATE INDEX IF NOT EXISTS idx_repo_partner_dept ON t_repo_partner(dept_id);
 
 -- ----------------------------
 -- Records of t_repo_partner
@@ -356,6 +363,10 @@ CREATE TABLE IF NOT EXISTS t_role (
 -- ----------------------------
 BEGIN;
 INSERT INTO t_role (id, name, code, remark, authority, status, is_deleted, create_at, create_by, update_at, update_by) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,file,file:detail,file:list,file:import,file:delete,project,project:list,project:detail,project:create,project:update,project:delete,project:report,system,system:role,system:role:list,system:user,system:user:list,system:role:create,system:role:update,system:role:delete,system:user:create,system:user:update,system:user:updatePosition,system:user:delete,position,position:list,position:create,system:position,system:position:update,system:position:delete,system:org,system:org:list,system:org:create,system:org:update,system:org:delete,template,template:list,template:create,template:update,template:delete,system:position:list,system:position:create,system:dept,system:dept:list,system:dept:create,system:dept:update,system:dept:delete,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,user,user:update,answer:upload,system:dict,system:dict:update,system:dict:delete,system:dictItem,system:dictItem:list,system:dictItem:create,system:dictItem:import,system:dictItem:delete,system:dict:list,system:dict:create,exercise,exercise:list,repo:book,system:dictItem:update,home', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
+-- 老师 / 学员：与 MySQL 初始化脚本保持一致（学员必须含 repo:book，否则错题本 403）
+INSERT INTO t_role (id, name, code, remark, authority, status, is_deleted, create_at, create_by, update_at, update_by) VALUES
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:book,template,template:list,template:create,template:update,template:delete,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,home', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('student', '学员', 'student', '答题、练习、看题库，无后台管理权限', 'exercise:list,repo:list,repo:detail,user:update,repo:book', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
 -- ----------------------------
@@ -384,7 +395,7 @@ CREATE TABLE IF NOT EXISTS t_sys_info (
 -- Records of t_sys_info
 -- ----------------------------
 BEGIN;
-INSERT INTO t_sys_info (id, name, description, avatar, locale, version, setting, ai_setting, oauth_setting, register_info, is_default, create_at, create_by, update_at, update_by) VALUES ('1', '卷王问卷考试系统', '做更好的调查问卷系统', NULL, 'zh-CN', '{}', NULL, NULL, NULL, NULL, 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
+INSERT INTO t_sys_info (id, name, description, avatar, locale, version, setting, ai_setting, oauth_setting, register_info, is_default, create_at, create_by, update_at, update_by) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '1.13.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":false,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
 COMMIT;
 
 -- ----------------------------
@@ -557,6 +568,7 @@ CREATE TABLE IF NOT EXISTS t_user_role (
   PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS idx_t_user_role ON t_user_role(user_type,user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_role ON t_user_role(user_id, role_id);
 
 -- ----------------------------
 -- Records of t_user_role

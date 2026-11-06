@@ -61,8 +61,8 @@ public enum PermissionEnum {
 	REPO_UPDATE("repo:update", "编辑题库", Group.REPO, "改题库、改题目、导入题目"),
 	REPO_DELETE("repo:delete", "删除题库", Group.REPO, "删题库/删题目；代价高，建议改为归档"),
 	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本、收藏与练习入口，属于学员功能"),
-	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭", true),
-	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志", true),
+	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭"),
+	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志"),
 	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", true),
 
 	/* ---------------------------------------------------------------- 题目 */
@@ -120,7 +120,7 @@ public enum PermissionEnum {
 	SYSTEM_DICT_ITEM_IMPORT("system:dictItem:import", "导入字典项", Group.SYSTEM, "批量导入字典项"),
 	SYSTEM_DICT_ITEM_DELETE("system:dictItem:delete", "删除字典项", Group.SYSTEM, "删除字典项"),
 	SYSTEM_SETTING_UPDATE("system:setting:update", "修改系统设置", Group.SYSTEM, "水印、防复制、协作者策略都在这里；现在靠查看角色兜底，必须独立", true),
-	SYSTEM_LOG_LIST("system:log:list", "查看操作日志", Group.SYSTEM, "审计能力的前提：谁导出了什么、谁改了谁的权限", true),
+	SYSTEM_LOG_LIST("system:log:list", "查看操作日志", Group.SYSTEM, "审计能力的前提：谁导出了什么、谁改了谁的权限"),
 	SYSTEM_LOG_EXPORT("system:log:export", "导出操作日志", Group.SYSTEM, "出事时的取证能力", true),
 	SYSTEM_BACKUP("system:backup", "备份系统", Group.SYSTEM, "部署脚本已有备份能力，界面还没有", true),
 	SYSTEM_RESTORE("system:restore", "恢复备份", Group.SYSTEM, "恢复备份会覆盖现有数据，必须独立授权", true),

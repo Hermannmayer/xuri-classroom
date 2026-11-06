@@ -34,9 +34,11 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,6 +53,9 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
 public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements DeptService {
+
+	/** 组织树的根 parent_id（t_dept 里顶层节点的 parent_id 是 "0"） */
+	private static final String ROOT_DEPT_PARENT_ID = "0";
 
 	private final DeptDtoMapper deptDtoMapper;
 
@@ -128,11 +133,102 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void updateDept(DeptRequest request) {
+		assertParentPlacementAllowed(request.getId(), request.getParentId());
 		updateById(deptDtoMapper.fromRequest(request));
 		// roleIds 为 null 表示本次不改角色（只改名字/上级）；传空数组表示清空
 		if (request.getRoleIds() != null) {
 			saveDeptRoles(request.getId(), request.getRoleIds());
 		}
+	}
+
+	/**
+	 * 改「上级组」会把整棵子树挪到新的祖先链下，组内成员因此继承新祖先绑定的角色——
+	 * 这是一条绕过 {@link #assertGrantableDeptRoles(List)} 的提权路径（自己绑不了 teacher，
+	 * 但把自己所在的组挂到「绑了 teacher 的组」下面就行）。所以这里做两件事：
+	 * <ol>
+	 * <li>禁止成环：上级不能是自己，也不能是自己的子孙；</li>
+	 * <li>非管理员：新祖先链上绑定的角色必须都是他能授予的。</li>
+	 * </ol>
+	 */
+	private void assertParentPlacementAllowed(String deptId, String parentId) {
+		if (!isNotBlank(deptId) || !isNotBlank(parentId) || ROOT_DEPT_PARENT_ID.equals(parentId)) {
+			// 没指定上级，或者移到根：没有新的祖先链，无需校验
+			return;
+		}
+		Map<String, Dept> deptMap = loadDeptMap();
+		if (parentId.equals(deptId)) {
+			throw new IllegalArgumentException("上级用户组不能是自己");
+		}
+		// 从新上级往上找：撞到自己说明要挂到自己的子孙下面（成环）
+		Set<String> visited = new HashSet<>();
+		String cursor = parentId;
+		while (isNotBlank(cursor) && !ROOT_DEPT_PARENT_ID.equals(cursor) && visited.add(cursor)) {
+			if (cursor.equals(deptId)) {
+				throw new IllegalArgumentException("不能把用户组移动到自己的子组下面");
+			}
+			Dept dept = deptMap.get(cursor);
+			cursor = dept == null ? null : dept.getParentId();
+		}
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		Set<String> roleIds = boundRoleIds(ancestorChain(parentId, deptMap));
+		if (roleIds.isEmpty()) {
+			return;
+		}
+		Set<String> callerAuthorities = SecurityContextUtils.getUser().getAuthorities().stream()
+				.map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+		for (Role role : roleMapper.selectBatchIds(roleIds)) {
+			// 孤儿绑定（角色已被删）不授予任何权限，忽略
+			if (role == null || !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID)) {
+				continue;
+			}
+			Set<String> roleAuthorities = toRoleAuthorities(role);
+			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN) || !callerAuthorities.containsAll(roleAuthorities)) {
+				throw new AccessDeniedException(
+						"不能把用户组挂到这个上级组下：上级链上绑定的角色「" + role.getName() + "」权限高于当前用户");
+			}
+		}
+	}
+
+	/** 一次取出全部用户组（组表很小），供祖先链解析复用 */
+	private Map<String, Dept> loadDeptMap() {
+		return list(null).stream().filter(Objects::nonNull)
+				.collect(Collectors.toMap(Dept::getId, dept -> dept, (a, b) -> a));
+	}
+
+	/** 从 startId 开始向上收集组 id（含 startId 本身），到根为止 */
+	private List<String> ancestorChain(String startId, Map<String, Dept> deptMap) {
+		List<String> chain = new ArrayList<>();
+		Set<String> visited = new HashSet<>();
+		String cursor = startId;
+		while (isNotBlank(cursor) && !ROOT_DEPT_PARENT_ID.equals(cursor) && visited.add(cursor)) {
+			chain.add(cursor);
+			Dept dept = deptMap.get(cursor);
+			cursor = dept == null ? null : dept.getParentId();
+		}
+		return chain;
+	}
+
+	private Set<String> boundRoleIds(List<String> deptIds) {
+		if (CollectionUtils.isEmpty(deptIds)) {
+			return new HashSet<>();
+		}
+		return deptRoleMapper.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, deptIds)).stream()
+				.map(DeptRole::getRoleId).filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+	}
+
+	/** 角色带来的权限串集合（ROLE_code + authority 拆分），与 UserServiceImpl#toAuthorityNames 口径一致 */
+	private Set<String> toRoleAuthorities(Role role) {
+		Set<String> authorities = new HashSet<>();
+		if (role != null && isNotBlank(role.getCode())) {
+			authorities.add("ROLE_" + role.getCode());
+		}
+		if (role != null && isNotBlank(role.getAuthority())) {
+			Arrays.stream(role.getAuthority().split(",")).map(String::trim).filter(StringUtils::isNotBlank)
+					.forEach(authorities::add);
+		}
+		return authorities;
 	}
 
 	/**
@@ -185,14 +281,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		Set<String> callerAuthorities = SecurityContextUtils.getUser().getAuthorities().stream()
 				.map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 		for (Role role : roles) {
-			Set<String> roleAuthorities = new HashSet<>();
-			if (isNotBlank(role.getCode())) {
-				roleAuthorities.add("ROLE_" + role.getCode());
-			}
-			if (isNotBlank(role.getAuthority())) {
-				Arrays.stream(role.getAuthority().split(",")).map(String::trim).filter(StringUtils::isNotBlank)
-						.forEach(roleAuthorities::add);
-			}
+			Set<String> roleAuthorities = toRoleAuthorities(role);
 			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN) || !callerAuthorities.containsAll(roleAuthorities)) {
 				throw new AccessDeniedException("不能绑定权限高于当前用户的角色");
 			}

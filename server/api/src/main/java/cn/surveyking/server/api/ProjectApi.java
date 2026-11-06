@@ -204,6 +204,7 @@ public class ProjectApi {
 	 * @return
 	 */
 	@PostMapping("/selectUser")
+	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<UserInfo> selectUser(@RequestBody SelectUserRequest request) {
 		return userService.selectUsers(request);
 	}
@@ -214,6 +215,7 @@ public class ProjectApi {
 	 * @return
 	 */
 	@PostMapping("/selectDept")
+	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<DeptView> selectDept(@RequestBody SelectDeptRequest request) {
 		return deptService.listDept(request);
 	}
@@ -224,6 +226,7 @@ public class ProjectApi {
 	 * @return
 	 */
 	@PostMapping("/selectRole")
+	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<RoleView> selectRole(@RequestBody SelectRoleRequest request) {
 		return roleService.selectRoles(request);
 	}
@@ -234,6 +237,7 @@ public class ProjectApi {
 	 * @return
 	 */
 	@PostMapping("/selectPosition")
+	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<PositionView> selectPosition(@RequestBody SelectPositionRequest request) {
 		return positionService.selectPositions(request);
 	}
@@ -243,6 +247,7 @@ public class ProjectApi {
 	 * @return
 	 */
 	@PostMapping("/selectDict")
+	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<CommDictView> selectDict() {
 		return dictService.selectDict();
 	}

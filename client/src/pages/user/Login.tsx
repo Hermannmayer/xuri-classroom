@@ -4,6 +4,7 @@ import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, login } from '../../api';
 import type { SystemInfo } from '../../api';
+import { notifyAuthChanged } from '../../auth/permissions';
 import { encryptPassword } from '../../utils/crypto';
 import { t } from '../../i18n';
 import LoginCaptcha from '../../components/LoginCaptcha';
@@ -44,6 +45,8 @@ export default function Login() {
         captchaVerification: captchaEnabled ? captchaVerification : undefined,
       });
       await getCurrentUser();
+      // 同标签页换账号：清掉上一个账号的权限缓存，RequirePerm / can() 必须重新拉
+      notifyAuthChanged();
       navigate('/home', { replace: true });
     } catch (e) {
       if (captchaEnabled) {

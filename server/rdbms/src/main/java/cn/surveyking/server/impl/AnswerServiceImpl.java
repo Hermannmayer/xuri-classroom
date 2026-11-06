@@ -35,10 +35,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.WebUtils;
 
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -51,7 +56,7 @@ import java.util.zip.ZipOutputStream;
  * @date 2021/8/3
  */
 @Service
-@Transactional
+@Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
 public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> implements AnswerService {
 
@@ -68,6 +73,27 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private final ProjectService projectService;
 
 	private final ProjectPartnerMapper projectPartnerMapper;
+
+	/** 客户端上报「本轮开始时间」时允许的最大跨度：超过 24 小时的声称一律不认 */
+	private static final long MAX_ATTEMPT_SPAN_MS = 24 * 60 * 60 * 1000L;
+
+	/** 允许的时钟偏差：客户端时间晚于服务器时最多容忍 1 分钟 */
+	private static final long CLOCK_SKEW_MS = 60 * 1000L;
+
+	/** 交卷宽限：到点后留 60 秒给网络延迟与自动交卷，避免边界误杀 */
+	private static final long SUBMIT_GRACE_MS = 60 * 1000L;
+
+	/** 提交幂等窗口：同一（项目 + 答题人 + 答案指纹）在窗口内重复新建，直接回放第一次的答卷 */
+	private static final long SUBMIT_IDEMPOTENCY_WINDOW_MS = 15 * 1000L;
+
+	/** 幂等表容量上限，超过就清一次过期项（单实例内存表，防止长跑进程膨胀） */
+	private static final int SUBMIT_IDEMPOTENCY_MAX_ENTRIES = 2000;
+
+	/** 幂等键 → 提交锁：双击/重试的第二枪会等第一枪跑完再走回放分支 */
+	private final ConcurrentMap<String, Object> submitLocks = new ConcurrentHashMap<>();
+
+	/** 幂等键 → 最近一次成功新建的答卷（用于回放，不依赖数据库是否已经可见） */
+	private final ConcurrentMap<String, RecentSubmit> recentSubmits = new ConcurrentHashMap<>();
 
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
@@ -225,16 +251,135 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		if (StringUtils.hasText(request.getId())) {
 			return updateAnswer(request);
 		}
-		else {
-			Answer answer = answerViewMapper.fromRequest(request);
-			// 使用 uuid 作为外部公开查询引用，防暴力破解
-			answer.setId(UUID.randomUUID().toString());
-			answer.setCreateAt(new Date());
-			// 新前端不再上传 metaInfo，「每 IP / 每台设备限次」会永远统计为 0：
-			// 这里在服务端补齐真实 IP 与限次 cookie 标识。
-			answer.setMetaInfo(enrichMetaInfo(answer.getMetaInfo()));
-			save(beforeSaveAnswer(answer));
-			return answerViewMapper.toView(answer);
+		// 新建答卷：先过一层应用级幂等，双击/网络重试不会再产生两条记录
+		String idempotencyKey = buildSubmitIdempotencyKey(request);
+		if (idempotencyKey == null) {
+			return createAnswer(request);
+		}
+		Object lock = submitLocks.computeIfAbsent(idempotencyKey, key -> new Object());
+		synchronized (lock) {
+			try {
+				AnswerView replayed = replayRecentSubmit(idempotencyKey);
+				if (replayed != null) {
+					return replayed;
+				}
+				AnswerView created = createAnswer(request);
+				rememberSubmit(idempotencyKey, created);
+				return created;
+			}
+			finally {
+				submitLocks.remove(idempotencyKey, lock);
+			}
+		}
+	}
+
+	private AnswerView createAnswer(AnswerRequest request) {
+		Answer answer = answerViewMapper.fromRequest(request);
+		// 使用 uuid 作为外部公开查询引用，防暴力破解
+		answer.setId(UUID.randomUUID().toString());
+		answer.setCreateAt(new Date());
+		// 新前端不再上传 metaInfo，「每 IP / 每台设备限次」会永远统计为 0：
+		// 这里在服务端补齐真实 IP 与限次 cookie 标识。
+		answer.setMetaInfo(enrichMetaInfo(answer.getMetaInfo()));
+		save(beforeSaveAnswer(answer));
+		return answerViewMapper.toView(answer);
+	}
+
+	/**
+	 * 提交幂等键 = 项目 + 答题人 + 答案指纹。
+	 *
+	 * <p>
+	 * 刻意不加数据库唯一键：存量库里本来就可能有重复答卷（历史 bug 已经产生过），唯一索引会让
+	 * 迁移直接失败；而且「网络重试」和「用户真的想再交一次」在库里无法区分。所以这里只做应用层的
+	 * 15 秒窗口合并 —— 防的是双击与重试这类误操作，不是强一致保证（服务重启/多实例即失效）。
+	 *
+	 * <p>
+	 * 返回 null 表示本次不做幂等：显式「再考一次」、题库练习、以及拿不到可信答题人身份的情况。
+	 */
+	private String buildSubmitIdempotencyKey(AnswerRequest request) {
+		// 「再考一次」是用户显式要一条新答卷，必须绕过幂等
+		if (Boolean.TRUE.equals(request.getFreshAttempt())) {
+			return null;
+		}
+		String projectId = request.getProjectId();
+		if (!StringUtils.hasText(projectId) || ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)) {
+			return null;
+		}
+		String actor = resolveSubmitActor(projectId);
+		if (!StringUtils.hasText(actor)) {
+			// 既没登录、也没有设备 cookie：无法安全区分「同一个人的两次提交」和「两个人的相同答案」，
+			// 宁可放弃合并，也不能把别人的答卷回放给你。
+			return null;
+		}
+		// 答案内容必须一致才合并：用户真改了答案立刻再交，仍然要产生新答卷
+		int fingerprint = Objects.hash(request.getAnswer(), request.getTempSave());
+		return projectId + "|" + actor + "|" + fingerprint;
+	}
+
+	/**
+	 * 提交幂等用的「答题人」标识：登录用户 → 设备限次 cookie → 考试模式退化为 IP+UA。
+	 *
+	 * <p>
+	 * 匿名且没有设备 cookie 时只有考试模式才用 IP+UA 兜底：考试重复交卷的代价更高；
+	 * 问卷模式不合并，否则同一个教室 NAT 下两个答案相同的受访者会被吞掉一份。
+	 */
+	private String resolveSubmitActor(String projectId) {
+		String userId = SecurityContextUtils.getUserId();
+		if (StringUtils.hasText(userId)) {
+			return "u:" + userId;
+		}
+		HttpServletRequest httpRequest = currentRequestQuietly();
+		if (httpRequest == null) {
+			return null;
+		}
+		Cookie limitCookie = WebUtils.getCookie(httpRequest, AppConsts.COOKIE_LIMIT_NAME);
+		if (limitCookie != null && StringUtils.hasText(limitCookie.getValue())) {
+			return "c:" + limitCookie.getValue();
+		}
+		ProjectView project = projectService.getProject(projectId);
+		if (project != null && ProjectModeEnum.exam.equals(project.getMode())
+				&& !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)) {
+			String ip = IPUtils.getClientIpAddress(httpRequest);
+			if (StringUtils.hasText(ip)) {
+				String agent = httpRequest.getHeader("User-Agent");
+				return "ip:" + ip + "|" + (agent == null ? "" : Integer.toHexString(agent.hashCode()));
+			}
+		}
+		return null;
+	}
+
+	private HttpServletRequest currentRequestQuietly() {
+		try {
+			return ContextHelper.getCurrentHttpRequest();
+		}
+		catch (Exception e) {
+			return null;
+		}
+	}
+
+	/** 窗口内重复提交：直接回放第一次的应答（连 examScore 一起回放，前端拿到的结果一致） */
+	private AnswerView replayRecentSubmit(String idempotencyKey) {
+		RecentSubmit recent = recentSubmits.get(idempotencyKey);
+		if (recent == null) {
+			return null;
+		}
+		if (System.currentTimeMillis() - recent.at > SUBMIT_IDEMPOTENCY_WINDOW_MS) {
+			recentSubmits.remove(idempotencyKey, recent);
+			return null;
+		}
+		AnswerView view = new AnswerView();
+		view.setId(recent.answerId);
+		view.setExamScore(recent.examScore);
+		view.setExamInfo(recent.examInfo);
+		return view;
+	}
+
+	private void rememberSubmit(String idempotencyKey, AnswerView created) {
+		long now = System.currentTimeMillis();
+		recentSubmits.put(idempotencyKey,
+				new RecentSubmit(created.getId(), created.getExamScore(), created.getExamInfo(), now));
+		if (recentSubmits.size() > SUBMIT_IDEMPOTENCY_MAX_ENTRIES) {
+			recentSubmits.entrySet().removeIf(entry -> now - entry.getValue().at > SUBMIT_IDEMPOTENCY_WINDOW_MS);
 		}
 	}
 
@@ -765,42 +910,169 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private Answer beforeSaveAnswer(Answer answer) {
 		ProjectView project = projectService.getProject(answer.getProjectId());
 		Answer previousAnswer = StringUtils.hasText(answer.getId()) ? getById(answer.getId()) : null;
-		assertWithinTimeLimit(answer, project, previousAnswer);
+		// 考试模式下客户端递交的 schema 一律不落库（可伪造 examCorrectAnswer 刷分）
+		dropClientSnapshotForExam(answer, project);
+		AttemptStart attemptStart = resolveAttemptStart(answer, project, previousAnswer);
+		assertWithinTimeLimit(answer, project, attemptStart);
+		stampAttemptTime(answer, previousAnswer, attemptStart);
 		SurveySchema answerSurvey = answer.getSurvey() != null ? answer.getSurvey()
 				: previousAnswer != null && previousAnswer.getSurvey() != null ? previousAnswer.getSurvey()
 						: project.getSurvey();
 		fileService.validateAndBindAnswerFiles(answer.getProjectId(), answer.getId(), answerSurvey, answer.getAnswer(),
 				previousAnswer == null ? null : previousAnswer.getAnswer());
-		computeExamScore(answer, project);
+		computeExamScore(answer, project, previousAnswer);
 		updateLinkSurveyAnswer(answer, project);
 		return answer;
 	}
 
 	/**
-	 * 服务端裁决最长答题时间。
+	 * 考试模式下丢掉请求体里的 survey。
 	 *
-	 * <p>此前 maxSubmitMinutes 只有前端倒计时，刷新页面就会从头算，等于没有限制。
-	 * 这里以答卷的创建时间（create_at）为起点，在服务端再判一次，超时直接拒绝保存。
-	 * 允许 60 秒宽限，覆盖网络延迟与自动交卷的边界。
+	 * <p>
+	 * 这一列会被 {@link #computeExamScore} 当作判分依据，而请求体是客户端可控的：伪造
+	 * {@code examCorrectAnswer} 后第一次提交把它存进库里，之后每次改答案都按伪造 schema 计分 → 满分。
+	 * 现在改成：
+	 * <ul>
+	 * <li>新建答卷：survey 留空，判分回退到项目 schema（服务端真值）；</li>
+	 * <li>更新答卷：留空，不覆盖库里已有的快照（随机卷快照是 loadProject 时由服务端写入的）。</li>
+	 * </ul>
+	 * 非考试模式（普通问卷、题库练习）里 survey 只用于展示与练习记录，不参与计分，保留客户端内容。
 	 */
-	private void assertWithinTimeLimit(Answer answer, ProjectView project, Answer previousAnswer) {
+	private static void dropClientSnapshotForExam(Answer answer, ProjectView project) {
+		if (answer == null || project == null) {
+			return;
+		}
+		if (!ProjectModeEnum.exam.equals(project.getMode())) {
+			return;
+		}
+		// 题库练习的答卷快照要用来算「做了几题」，不能丢（且练习不判分）
+		if (ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
+			return;
+		}
+		answer.setSurvey(null);
+	}
+
+	/**
+	 * 解析「本轮作答开始时间」。优先级：
+	 * <ol>
+	 * <li>库里已有答卷 → 服务端记录的 startTime，其次 create_at（都是服务端写的，可信）；</li>
+	 * <li>首次提交 → 客户端上报的 {@code metaInfo.answerInfo.startTime}，但要过合理性校验；</li>
+	 * <li>都没有 → 以「现在」为本轮起点，并标记为估算值。</li>
+	 * </ol>
+	 */
+	private static AttemptStart resolveAttemptStart(Answer answer, ProjectView project, Answer previousAnswer) {
+		long now = System.currentTimeMillis();
+		if (previousAnswer != null) {
+			Long storedStart = answerStartOf(previousAnswer);
+			if (storedStart != null) {
+				return new AttemptStart(storedStart, "stored", false);
+			}
+			if (previousAnswer.getCreateAt() != null) {
+				return new AttemptStart(previousAnswer.getCreateAt().getTime(), "answer.createAt", false);
+			}
+		}
+		Long clientStart = clientStartedAt(answer, project, now);
+		if (clientStart != null) {
+			return new AttemptStart(clientStart, "client", false);
+		}
+		// 既没有库里的答卷、客户端也没给开始时间：服务端无法证明考生是什么时候开始的。
+		// 用「现在」当起点——最长交卷不会因此误判，最短交卷在这种情况只能记录不能拦截（见 assertWithinTimeLimit）。
+		return new AttemptStart(now, "estimated", true);
+	}
+
+	private static Long answerStartOf(Answer answer) {
+		if (answer == null || answer.getMetaInfo() == null || answer.getMetaInfo().getAnswerInfo() == null) {
+			return null;
+		}
+		long startedAt = answer.getMetaInfo().getAnswerInfo().getStartTime();
+		return startedAt > 0 ? startedAt : null;
+	}
+
+	/**
+	 * 客户端上报的开始时间（防篡改）：
+	 * <ul>
+	 * <li>不能晚于服务器时间（允许 1 分钟时钟偏差）；</li>
+	 * <li>不能早于 24 小时；</li>
+	 * <li>项目设置了考试开始时间时，不能早于开考时间。</li>
+	 * </ul>
+	 * 注意：客户端仍可以「谎称更早开始」来让最短交卷提前满足，这是没有服务端计时器时的固有上限；
+	 * 谎称越早，最长交卷越容易被自己触发，属于自伤方向。
+	 */
+	private static Long clientStartedAt(Answer answer, ProjectView project, long now) {
+		if (answer == null || answer.getMetaInfo() == null || answer.getMetaInfo().getAnswerInfo() == null) {
+			return null;
+		}
+		long startedAt = answer.getMetaInfo().getAnswerInfo().getStartTime();
+		if (startedAt <= 0 || startedAt > now + CLOCK_SKEW_MS) {
+			return null;
+		}
+		if (startedAt < now - MAX_ATTEMPT_SPAN_MS) {
+			return null;
+		}
+		ProjectSetting setting = project == null ? null : project.getSetting();
+		Long examStart = setting == null || setting.getExamSetting() == null ? null
+				: setting.getExamSetting().getStartTime();
+		if (examStart != null && startedAt < examStart - CLOCK_SKEW_MS) {
+			return null;
+		}
+		return startedAt;
+	}
+
+	/**
+	 * 把本轮起止时间写进 metaInfo.answer_info。
+	 *
+	 * <p>
+	 * 一是给后续提交留一个服务端可信的起点（不再依赖 create_at），二是让导出里的「填写时长」有数据。
+	 * 合并时保留库里已有的 clientInfo / passMode 信息，避免整列覆盖把别人的数据冲掉。
+	 */
+	private static void stampAttemptTime(Answer answer, Answer previousAnswer, AttemptStart attemptStart) {
+		if (answer == null || attemptStart == null) {
+			return;
+		}
+		AnswerMetaInfo meta = answer.getMetaInfo();
+		if (meta == null && previousAnswer != null) {
+			meta = previousAnswer.getMetaInfo();
+		}
+		if (meta == null) {
+			meta = new AnswerMetaInfo();
+		}
+		if (meta.getClientInfo() == null && previousAnswer != null && previousAnswer.getMetaInfo() != null) {
+			meta.setClientInfo(previousAnswer.getMetaInfo().getClientInfo());
+		}
+		AnswerMetaInfo.AnswerInfo answerInfo = meta.getAnswerInfo() == null ? new AnswerMetaInfo.AnswerInfo()
+				: meta.getAnswerInfo();
+		answerInfo.setStartTime(attemptStart.at);
+		answerInfo.setEndTime(System.currentTimeMillis());
+		meta.setAnswerInfo(answerInfo);
+		answer.setMetaInfo(meta);
+	}
+
+	/**
+	 * 服务端裁决最长/最短答题时间。
+	 *
+	 * <p>
+	 * 起点不再只认「库里的答卷」：首次提交也会拿到一个起点（客户端上报或估算），所以首次提交同样参与判定。
+	 * 例外是 {@code estimated}（既没库里的答卷、客户端也没给开始时间）：这时硬判最短交卷会把每一次
+	 * 首次提交都拒掉（耗时恒为 0），因此这种情况只记录不拦截。
+	 */
+	private static void assertWithinTimeLimit(Answer answer, ProjectView project, AttemptStart attemptStart) {
 		if (project == null || project.getSetting() == null || project.getSetting().getExamSetting() == null) {
+			return;
+		}
+		if (attemptStart == null) {
 			return;
 		}
 		Integer maxMinutes = project.getSetting().getExamSetting().getMaxSubmitMinutes();
 		Integer minMinutes = project.getSetting().getExamSetting().getMinSubmitMinutes();
-		if (previousAnswer == null || previousAnswer.getCreateAt() == null) {
-			return;
-		}
-		long startAt = previousAnswer.getCreateAt().getTime();
 		long now = System.currentTimeMillis();
-		if (maxMinutes != null && maxMinutes > 0 && now > startAt + maxMinutes * 60_000L + 60_000L) {
+		if (maxMinutes != null && maxMinutes > 0
+				&& now > attemptStart.at + maxMinutes * 60_000L + SUBMIT_GRACE_MS) {
 			throw new AccessDeniedException("本次考试已超过最长答题时间（" + maxMinutes + " 分钟），无法再提交");
 		}
 		// 最短交卷：只对「正式提交」生效，暂存草稿不受限；时间到点自动交卷也不该被挡，所以只判 tempSave=1
 		boolean finalSubmit = Integer.valueOf(1).equals(answer.getTempSave());
-		if (finalSubmit && minMinutes != null && minMinutes > 0) {
-			long earliest = startAt + minMinutes * 60_000L;
+		if (finalSubmit && minMinutes != null && minMinutes > 0 && !attemptStart.estimated) {
+			long earliest = attemptStart.at + minMinutes * 60_000L;
 			if (now < earliest) {
 				long leftSec = Math.max(0, (earliest - now) / 1000);
 				throw new AccessDeniedException(
@@ -837,16 +1109,23 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		}
 	}
 
-	private void computeExamScore(Answer answer, ProjectView project) {
+	/**
+	 * 计算考试分值。
+	 *
+	 * <p>
+	 * 判分用的 schema **只能来自服务端**：库里已存的快照（随机卷由 loadProject 时的服务端逻辑写入）
+	 * → 项目 schema。绝不使用请求体/请求映射出来的 {@code answer.getSurvey()}，否则客户端伪造
+	 * {@code examCorrectAnswer} 就能刷满分。
+	 *
+	 * <p>
+	 * 历史答卷快照缺失时仍然回退到项目 schema（保持原有兼容行为）。
+	 */
+	private void computeExamScore(Answer answer, ProjectView project, Answer previousAnswer) {
 		if (project != null && ProjectModeEnum.exam.equals(project.getMode()) && answer != null
 				&& answer.getAnswer() != null && !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
-			SurveySchema srcSchema = project.getSurvey();
-			// 随机抽题需要根据答案获取 schema
-			if (answer.getId() != null) {
-				Answer existAnswer = getById(answer.getId());
-				if (existAnswer != null && existAnswer.getSurvey() != null) {
-					srcSchema = existAnswer.getSurvey();
-				}
+			SurveySchema srcSchema = trustedScoreSchema(project, previousAnswer);
+			if (srcSchema == null) {
+				return;
 			}
 			AnswerScoreEvaluator evaluator = new AnswerScoreEvaluator(srcSchema, answer.getAnswer());
 			answer.setExamScore(evaluator.eval());
@@ -854,6 +1133,19 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 			examInfo.setQuestionScore(evaluator.getQuestionScore());
 			answer.setExamInfo(examInfo);
 		}
+	}
+
+	/**
+	 * 判分 schema 的唯一出口：服务端快照优先（随机卷），否则项目 schema。
+	 *
+	 * @param project 服务端项目视图
+	 * @param previousAnswer 库里已存的答卷（可能带随机卷快照），可空
+	 */
+	private static SurveySchema trustedScoreSchema(ProjectView project, Answer previousAnswer) {
+		if (previousAnswer != null && previousAnswer.getSurvey() != null) {
+			return previousAnswer.getSurvey();
+		}
+		return project == null ? null : project.getSurvey();
 	}
 
 	/**
@@ -972,6 +1264,43 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		}
 		answer.setAnswer(answerMap);
 		return answer;
+	}
+
+	/** 本轮作答的开始时间：at=服务端认定的起点，estimated=是否为「拿不到开始时间」时的估算值 */
+	private static final class AttemptStart {
+
+		private final long at;
+
+		private final String source;
+
+		private final boolean estimated;
+
+		private AttemptStart(long at, String source, boolean estimated) {
+			this.at = at;
+			this.source = source;
+			this.estimated = estimated;
+		}
+
+	}
+
+	/** 幂等回放需要的最小应答快照（此刻数据库可能还没提交完成，读不到行） */
+	private static final class RecentSubmit {
+
+		private final String answerId;
+
+		private final Double examScore;
+
+		private final AnswerExamInfo examInfo;
+
+		private final long at;
+
+		private RecentSubmit(String answerId, Double examScore, AnswerExamInfo examInfo, long at) {
+			this.answerId = answerId;
+			this.examScore = examScore;
+			this.examInfo = examInfo;
+			this.at = at;
+		}
+
 	}
 
 }
