@@ -38,7 +38,11 @@ public class Dashboard implements Serializable {
 	/**
 	 * 仪表盘分类
 	 */
-	@TableField(value = "category")
+	/**
+	 * 仪表盘分类。数据库列名是 {@code type}（见 init-mysql.sql 的 t_dashboard），
+	 * 之前错映射成 {@code category}，SELECT 直接报 Unknown column。
+	 */
+	@TableField(value = "`type`")
 	private Integer type;
 
 	/**
