@@ -160,7 +160,7 @@ CREATE INDEX IF NOT EXISTS idx_dept_parent ON t_dept(parent_id);
 -- Records of t_dept
 -- ----------------------------
 BEGIN;
-INSERT INTO t_dept (id, parent_id, name, short_name, code, manager_id, sort_code, property_json, status, remark, is_deleted, create_at, create_by, update_at, update_by) VALUES ('1', '0', '卷王问卷', 'surveyking', 'surveyking', '1457995481966747649', NULL, NULL, NULL, NULL, 0, '2021-11-21 14:12:08', NULL, '2021-11-21 14:22:58', '1457995481966747649');
+INSERT INTO t_dept (id, parent_id, name, short_name, code, manager_id, sort_code, property_json, status, remark, is_deleted, create_at, create_by, update_at, update_by) VALUES ('1', '0', '旭日云课堂', 'surveyking', 'surveyking', '1457995481966747649', NULL, NULL, NULL, NULL, 0, '2021-11-21 14:12:08', NULL, '2021-11-21 14:22:58', '1457995481966747649');
 COMMIT;
 
 -- ----------------------------
