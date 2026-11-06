@@ -66,6 +66,24 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * 第三方登录（Google / 微信）实现。
+ *
+ * <p><b>默认不启用</b>：本类由 Spring 无条件装配，但不会在启动时探测或初始化任何 provider，
+ * 也没有 {@code @PostConstruct}——只有真正调用 {@code /api/oauth/**} 相关接口时才会读取配置。
+ * 因此「后台没有配置第三方登录」时：
+ * <ul>
+ *   <li>启动不受影响，不会因为缺少 clientId/secret 而失败；</li>
+ *   <li>不会周期性打 warning 日志（本类没有任何 warn/error 日志输出）；</li>
+ *   <li>登录页只在 {@code GET /api/system} 返回的 {@code oauthProviders} 有可用项时才展示入口。</li>
+ * </ul>
+ *
+ * <p><b>启用方式</b>：在后台「系统设置 → 第三方登录」写入 {@code t_sys_info.oauth_setting}
+ * （结构见 {@link cn.surveyking.server.domain.dto.OAuthSetting}），配置 Google / 微信任一渠道的
+ * clientId、clientSecret 与回调地址后即时生效，无需改代码或重启配置项。
+ *
+ * <p>之所以保留这份实现而不是删除：用户后续可能需要微信登录（学员用微信扫码答题）。
+ */
 @Service
 @Transactional(rollbackFor = Exception.class)
 public class OAuthServiceImpl implements OAuthService {

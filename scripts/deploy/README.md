@@ -39,9 +39,19 @@ docker compose up -d app
 **备份**：
 
 ```bash
-docker compose exec db mysqldump -u root -p"$DB_PASSWORD" surveyking > backup.sql
+# 推荐：用脚本（数据库进容器 mysqldump + 附件打包 + 脱敏 .env + 自动清理旧备份）
+bash scripts/deploy/backup.sh --output /var/backups --retention 14
+```
+
+手动最小版本（仅供排查）：
+
+```bash
+docker compose exec db mysqldump -u root -p"$DB_PASSWORD" --no-tablespaces surveyking > backup.sql
 docker run --rm -v xuri-classroom_app-files:/files -v "$PWD":/out alpine tar czf /out/files.tar.gz -C /files .
 ```
+
+> 为什么必须 `docker compose exec`：MySQL 端口没有发布到宿主机（只在 compose 内网），
+> 宿主机上的 `mysqldump` 连不进去。
 
 ## 二、Linux（systemd）
 
@@ -87,12 +97,29 @@ Docker 构建里已经自动做了这一步（见 `Dockerfile`）。
 
 ## 备份与恢复
 
-| 平台 | 备份 | 恢复 |
+| 形态 | 备份 | 恢复 |
 |---|---|---|
-| Windows | `.\scripts\deploy\backup.ps1 -InstallDir C:\xuri-classroom -OutputDir D:\backups -Retention 7` | `.\scripts\deploy\restore.ps1 -BackupPath D:\backups\backup_xxx.zip` |
-| Linux | `bash scripts/deploy/backup.sh --install-dir /opt/xuri-classroom --output /var/backups --retention 7` | `bash scripts/deploy/restore.sh /var/backups/backup_xxx.tar.gz` |
+| **Docker Compose（推荐）** | `bash scripts/deploy/backup.sh --output /var/backups --retention 14` | 见下方说明 |
+| Windows 服务 / systemd（宿主机安装） | `.\scripts\deploy\backup.ps1 -InstallDir C:\xuri-classroom -OutputDir D:\backups -Retention 7`，或 `bash scripts/deploy/backup.sh`（旧参数形态） | `restore.ps1` / `restore.sh` |
 
-备份内容：`mysqldump` 全库 + `files/` 上传目录 + 脱敏的 `app.env` + manifest。恢复前会停服务，恢复后自动拉起。
+**Docker 形态下 `backup.sh` 做了什么**：
+
+1. 前置检查：`docker`、`docker compose`、`docker-compose.yml`、`.env`、db 服务是否在运行，任一缺失给中文错误；
+2. `docker compose exec -T db mysqldump ...`（带 `--single-transaction --quick --routines --events --triggers --no-tablespaces`）；
+3. `docker compose exec -T app tar ... -C /app files` 打包上传目录（应用容器没跑时记录 `files.missing`）；
+4. 生成 `.env` 的脱敏副本（`DB_PASSWORD` / `SK_CRYPTO_KEY` / `JWT_SECRET` 打码）；
+5. 打成 `backup_<时间戳>.tar.gz`，按 `--retention` 清理旧备份。
+
+> ⚠️ 目前 `restore.sh` 仍是「宿主机安装」形态（读 `app.env`、在本机执行 mysql）。
+> Docker 形态的恢复请手动执行：
+> ```bash
+> docker compose down
+> docker compose up -d db
+> docker compose exec -T db mysql -uroot -p"$DB_PASSWORD" < db.sql
+> tar xzf files.tar.gz && docker cp files app:/app/
+> docker compose up -d
+> ```
+> 把 `restore.sh` 也改成 compose 形态已列入待办。
 
 ## 环境变量
 
@@ -106,8 +133,11 @@ Docker 构建里已经自动做了这一步（见 `Dockerfile`）。
 | `DB_USER` | `root` | 用户 |
 | `DB_PASSWORD` | `123456` | 密码 |
 | `SERVER_PORT` | 见 `application-dev.yml`（7007） | 后端端口；Docker 里固定 80 |
+| `SK_CRYPTO_KEY` | 无（未配置则题库明文存储） | 题库字段加密密钥，Base64 的 32 字节；**Docker 部署必填**，丢失后已加密数据无法解密 |
+| `JWT_SECRET` | 空（每次启动随机） | JWT 签名密钥，`openssl rand -base64 48` 生成。不配则重启后所有人要重新登录、多实例无法共享会话 |
 
 > 生产环境务必改掉 `DB_PASSWORD`，并修改默认管理员密码。
+> `SK_CRYPTO_KEY` 与 `JWT_SECRET` 都要**备份到密码管理器**，不能只放在服务器上。
 
 ## 常见问题
 

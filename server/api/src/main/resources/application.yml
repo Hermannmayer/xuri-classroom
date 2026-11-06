@@ -38,6 +38,10 @@ sk:
     url-token-authentication:
       enabled: false # 默认关闭 url token 认证，避免令牌出现在 URL、日志或 Referer 中
     jwt:
+      # 签 token 用的密钥。留空 = 每次启动随机生成（重启后所有人掉线、多实例之间互不认）。
+      # 生产必须配置：Base64 编码的 32 字节以上随机串，例如 openssl rand -base64 48。
+      # 环境变量名：SK_JWT_SECRET（docker-compose 里用 .env 的 JWT_SECRET 注入）
+      secret: ${SK_JWT_SECRET:}
       expiration-seconds: 28800
     cors:
       allowed-origin-patterns: []
