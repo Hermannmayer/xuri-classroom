@@ -13,6 +13,7 @@ import { evaluateVisible } from '../../schema/rules/engine';
 import type { PublicQuestionOutline, PublicAnswerView, PublicProjectView } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
 import {
+  installAnswerStorageCleanup,
   readAnswerId,
   readDraft,
   readMarks,
@@ -376,6 +377,13 @@ export default function PublicAnswer() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * 登出清理：注册一次性监听，BasicLayout 登出时 `dispatchEvent(new Event('sk:logout'))`
+   * （或直接调用 utils 里的 `clearAnswerStorage()`）就会清掉草稿/answerId/标记，
+   * 避免公用电脑下一位用户看到上一位的答案（前端 A 审计 A-DATA-1）。
+   */
+  useEffect(() => installAnswerStorageCleanup(), []);
 
   /**
    * 「返回上一级」只给已登录用户：匿名答题者是从分享链接直接进来的，没有可回的上一级。
