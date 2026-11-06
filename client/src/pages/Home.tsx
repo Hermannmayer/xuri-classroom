@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Avatar, Button, Card, Col, message, Row, Statistic, Tabs } from 'antd';
 import { EditOutlined, FormOutlined } from '@ant-design/icons';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+
 import { getWithPagination, listProjects } from '../api';
+import { can } from '../auth/permissions';
 import type { ProjectView, SystemInfo, UserInfo } from '../api';
 import { t } from '../i18n';
 import { ProjectTable, RecordTable } from './home/tables';
@@ -36,6 +38,8 @@ function greeting() {
 
 export default function Home() {
   const { user, system } = useOutletContext<{ user?: UserInfo; system?: SystemInfo }>();
+  /** 有 project:create 的是管理视角（编辑/数据），否则是学员视角（去答题） */
+  const canManage = can(user?.authorityList ?? [], 'project:create');
   const navigate = useNavigate();
 
   const [projects, setProjects] = useState<{ exam: ProjectView[]; survey: ProjectView[] }>({
@@ -78,12 +82,12 @@ export default function Home() {
     {
       key: 'exam',
       label: t('pages.home.todo.tab.myExams', '我的考试'),
-      children: <ProjectTable rows={projects.exam} loading={loading} label="考试" />,
+      children: <ProjectTable rows={projects.exam} loading={loading} label="考试" canManage={canManage} />,
     },
     {
       key: 'survey',
       label: t('pages.home.todo.tab.mySurveys', '我的问卷'),
-      children: <ProjectTable rows={projects.survey} loading={loading} label="问卷" />,
+      children: <ProjectTable rows={projects.survey} loading={loading} label="问卷" canManage={canManage} />,
     },
     {
       key: 'surveyHistory',
@@ -177,7 +181,7 @@ export default function Home() {
           </Card>
         </Col>
 
-        <Col xs={24} xl={8}>
+        {can(user?.authorityList ?? [], 'project:create') && (<Col xs={24} xl={8}>
           <Card
             className="bp-corners"
             style={CARD_STYLE}
@@ -199,7 +203,7 @@ export default function Home() {
               新建后在「我的考试」里编辑题目、发布并查看数据。
             </div>
           </Card>
-        </Col>
+        </Col>)}
       </Row>
     </>
   );

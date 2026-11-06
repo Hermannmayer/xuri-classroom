@@ -31,10 +31,13 @@ export function ProjectTable({
   rows,
   loading,
   label,
+  canManage = true,
 }: {
   rows: ProjectView[];
   loading: boolean;
   label: '考试' | '问卷';
+  /** 有 project:create 的是管理视角（编辑/数据），否则是学员视角（去答题） */
+  canManage?: boolean;
 }) {
   const navigate = useNavigate();
   return (
@@ -73,12 +76,15 @@ export function ProjectTable({
         {
           title: '操作',
           width: 140,
-          render: (_: unknown, row) => (
-            <div style={{ display: 'flex', gap: 12 }}>
-              <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
-              <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
-            </div>
-          ),
+          render: (_: unknown, row) =>
+            canManage ? (
+              <div style={{ display: 'flex', gap: 12 }}>
+                <a onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</a>
+                <a onClick={() => navigate(`/survey/${row.id}/data`)}>数据</a>
+              </div>
+            ) : (
+              <a onClick={() => navigate(`/s/${row.id}`)}>去答题</a>
+            ),
         },
       ]}
     />
