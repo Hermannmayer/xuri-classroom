@@ -53,7 +53,7 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => under(p, '/teaching'),
     });
   }
-  if (can(authorities, 'portal:student')) {
+  if (!can(authorities, 'portal:teacher') && !can(authorities, 'portal:admin') && can(authorities, 'portal:student')) {
     tabs.push({
       key: 'tasks',
       path: '/tasks',

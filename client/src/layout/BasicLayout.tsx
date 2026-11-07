@@ -117,7 +117,9 @@ export default function BasicLayout() {
       menu.push({ key: '/project', icon: <ProjectOutlined />, label: '教学管理' });
       menu.push({ key: '/teaching', icon: <BarChartOutlined />, label: '班级学情' });
     }
-    if (allow('portal:student')) {
+    // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
+    // 不再显示「我的任务」——管理员和老师不做题。
+    if (!canTeach && !isAdmin && allow('portal:student')) {
       menu.push({ key: '/tasks', icon: <ProjectOutlined />, label: '我的任务' });
     }
 

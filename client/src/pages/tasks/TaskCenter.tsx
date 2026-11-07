@@ -28,7 +28,7 @@ export default function TaskCenter() {
   }, []);
 
   // 老师/管理员走「教学管理 + 班级学情」，这个页面只属于学员视角
-  if (!can(authorities, 'portal:student') && can(authorities, 'portal:teacher')) {
+  if (can(authorities, 'portal:teacher') || can(authorities, 'portal:admin')) {
     return <Navigate to="/project" replace />;
   }
   const canExam = can(authorities, 'project:list');
