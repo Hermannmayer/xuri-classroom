@@ -76,6 +76,24 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				// 汉字顺序会看起来莫名其妙；转成 GBK 再排，GBK 的编码顺序基本等于拼音顺序。
 				wrapper.last("ORDER BY CONVERT(name USING gbk) " + (desc ? "DESC" : "ASC"));
 				break;
+			case "category":
+				// 分类同样是汉字，走 GBK 拼音序
+				wrapper.last("ORDER BY CONVERT(COALESCE(category, '') USING gbk) " + (desc ? "DESC" : "ASC"));
+				break;
+			case "mode":
+				// 类型是 exam / practice 这类英文枚举，直接排
+				wrapper.last("ORDER BY mode " + (desc ? "DESC" : "ASC"));
+				break;
+			case "tag":
+				// 标签是 varchar（逗号/JSON 串），按原串排；不做 GBK 转换，
+				// 避免标签里出现 GBK 不支持的字符时直接 500
+				wrapper.last("ORDER BY COALESCE(tag, '') " + (desc ? "DESC" : "ASC"));
+				break;
+			case "total":
+				// 题量不是 t_repo 的列，是每行实时统计出来的，排序用子查询才能跨页正确
+				wrapper.last("ORDER BY (SELECT COUNT(*) FROM t_template tt WHERE tt.repo_id = t_repo.id AND tt.is_deleted = 0) "
+						+ (desc ? "DESC" : "ASC"));
+				break;
 			case "updateAt":
 				wrapper.orderBy(true, !desc, Repo::getUpdateAt);
 				break;

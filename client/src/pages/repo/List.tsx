@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Empty,
@@ -120,29 +120,6 @@ export default function RepoList() {
   const [sortDesc, setSortDesc] = useState(false);
   const sortOrderOf = (key: string) => (sortKey === key ? (sortDesc ? 'descend' : 'ascend') : null);
 
-  /**
-   * 非「名称」列的排序在本地做：这些字段后端没有排序参数。
-   * 汉字统一用 localeCompare('zh-CN') 走拼音序，和名称列（后端 GBK 排序）保持一致。
-   */
-  const sortedRows = useMemo(() => {
-    if (!sortKey || sortKey === 'name') return rows;
-    const arr = [...rows];
-    arr.sort((a, b) => {
-      switch (sortKey) {
-        case 'category':
-          return (a.category || '').localeCompare(b.category || '', 'zh-CN');
-        case 'mode':
-          return (a.mode || '').localeCompare(b.mode || '', 'zh-CN');
-        case 'total':
-          return (a.total ?? 0) - (b.total ?? 0);
-        case 'tag':
-          return (a.tag || []).join(',').localeCompare((b.tag || []).join(','), 'zh-CN');
-        default:
-          return 0;
-      }
-    });
-    return sortDesc ? arr.reverse() : arr;
-  }, [rows, sortKey, sortDesc]);
   const canCreate = hasPermission('repo:create');
   // 批量授权走 repo:grant；兼容老数据：有 repo:update 的也能看到入口
   const canGrant = hasPermission('repo:grant') || hasPermission('repo:update');
@@ -194,8 +171,9 @@ export default function RepoList() {
         name: keyword,
         // 学员没有 repo:create 时只看「自己/被授权/共享」的题库；否则后端会返回 0 条
         memberOnly: canCreate ? undefined : true,
-        sortBy: sortKey === 'name' ? 'name' : undefined,
-        sortDesc: sortKey === 'name' ? sortDesc : undefined,
+        // 五列全部走服务端排序，跨页才正确
+        sortBy: sortKey || undefined,
+        sortDesc: sortKey ? sortDesc : undefined,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -534,7 +512,7 @@ export default function RepoList() {
         size="middle"
         components={TABLE_COMPONENTS}
         loading={loading}
-        dataSource={sortedRows}
+        dataSource={rows}
         scroll={{ x: 860 }}
         locale={{
           emptyText: (
