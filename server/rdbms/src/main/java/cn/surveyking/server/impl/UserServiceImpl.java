@@ -3,6 +3,7 @@ package cn.surveyking.server.impl;
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.CacheConsts;
+import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.constant.ProjectPartnerTypeEnum;
@@ -981,6 +982,14 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		if (isNotBlank(role.getAuthority())) {
 			Arrays.stream(role.getAuthority().split(",")).filter(StringUtils::hasText).forEach(authorities::add);
+		}
+		// 超级管理员天然拥有全部权限：把权限目录里的所有串直接注进来。
+		// 之前只认 t_role.authority 里存的串，结果目录新增权限（如 system:log:list）后，
+		// 管理员在页面显示「全勾选」，实际调接口却被 403 挡住（/api/system/audit/list 就是例子）。
+		if ("admin".equals(role.getCode())) {
+			for (PermissionEnum permission : PermissionEnum.values()) {
+				authorities.add(permission.getCode());
+			}
 		}
 		return authorities;
 	}

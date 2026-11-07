@@ -195,15 +195,8 @@ export default function SystemPermissions() {
     return !sameMembers(draft, new Set(activeAuthorities));
   }, [draft, activeAuthorities, editorLocked]);
 
-  /** 默认展开「已经有勾选」的组；一个都没勾（新角色）时只展开第一组 */
-  const defaultOpenKeys = useMemo(() => {
-    if (editorLocked) return groups.map((group) => group.group);
-    const withChecked = groups
-      .filter((group) => (group.permissions ?? []).some((item) => draft.has(item.code)))
-      .map((group) => group.group);
-    if (withChecked.length) return withChecked;
-    return groups.length ? [groups[0].group] : [];
-  }, [groups, draft, editorLocked]);
+  /** 默认全部展开：权限项多，折叠起来容易被误以为「系统里没有这个权限」 */
+  const defaultOpenKeys = useMemo(() => groups.map((group) => group.group), [groups]);
 
   const togglePermission = (code: string, checked: boolean) => {
     commitDraft((prev) => {

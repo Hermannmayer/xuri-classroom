@@ -124,7 +124,6 @@ public enum PermissionEnum {
 
 	/* ---------------------------------------------------------------- 其它 */
 
-	HOME("home", "首页", Group.OTHER, "登录后的默认页；本质是默认页而不是权限点，保留以兼容现有接口");
 
 	private final String code;
 

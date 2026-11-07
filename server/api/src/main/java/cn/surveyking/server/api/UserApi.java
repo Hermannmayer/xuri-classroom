@@ -127,7 +127,7 @@ public class UserApi {
 	 * @return
 	 */
 	@GetMapping("/listUserTask")
-	@PreAuthorize("hasAuthority('home')")
+	@PreAuthorize("isAuthenticated()")
 	public PaginationResponse<MyTaskView> myTask(MyTaskQuery query) {
 		return userService.queryTask(query);
 	}

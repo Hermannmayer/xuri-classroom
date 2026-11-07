@@ -353,7 +353,7 @@ export default function RepoList() {
                           whiteSpace: 'nowrap',
                           fontSize: 14,
                         }}
-                        onClick={() => enter(row)}
+                        onClick={() => { if (canDetail) enter(row); }}
                       >
                         {row.name || '(未命名题库)'}
                       </LinkAction>
@@ -499,7 +499,7 @@ export default function RepoList() {
               <div>
                 <Space size={6}>
                   <DatabaseOutlined style={{ color: 'var(--bp-text-soft)' }} />
-                  <LinkAction onClick={() => enter(row)}>{row.name || '(未命名题库)'}</LinkAction>
+                  <LinkAction onClick={() => { if (canDetail) enter(row); }}>{row.name || '(未命名题库)'}</LinkAction>
                 </Space>
                 {row.description && (
                   <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.65)', marginTop: 2 }}>
