@@ -46,10 +46,13 @@ function Die($msg)  { Write-Host "`n❌ $msg`n" -ForegroundColor Red; exit 1 }
 # 把一段 bash 脚本通过 stdin 送给 NAS 执行（避免 PowerShell 引号地狱）
 function Invoke-NasScript {
     param([Parameter(Mandatory)][string]$Body, [switch]$AllowFail)
-    $out = $Body | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" 'bash -s' 2>&1
+    # 用 bash -s 从 stdin 读脚本。注意两点：
+    #   · 结尾必须留一个换行：bash 读到 EOF 时可能没执行最后一行，会以 exit 128 收场
+    #   · 2>&1 会把 stderr 混进输出，判断成败只能看 $LASTEXITCODE
+    $out = (($Body.TrimEnd() + "`n")) | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" 'bash -s' 2>&1
     $code = $LASTEXITCODE
     if ($code -ne 0 -and -not $AllowFail) {
-        Write-Host $out
+        Write-Host ($out -join "`n")
         Die "NAS 上的命令失败（退出码 $code）。上面是远端输出。"
     }
     return @{ Output = ($out -join "`n"); Code = $code }
