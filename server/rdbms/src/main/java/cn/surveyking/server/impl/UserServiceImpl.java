@@ -672,6 +672,19 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	}
 
 	@Override
+	public void updateUiTheme(UserRequest request) {
+		if (request == null || request.getUiTheme() == null) {
+			return;
+		}
+		// 白名单：只接受 light / dark，其它值忽略，避免脏数据影响全站主题
+		String theme = "light".equals(request.getUiTheme()) ? "light" : "dark";
+		User update = new User();
+		update.setId(SecurityContextUtils.getUserId());
+		update.setUiTheme(theme);
+		this.updateById(update);
+	}
+
+	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#id")
 	public void deleteUser(String id) {
 		assertManageableUser(id);

@@ -40,6 +40,9 @@ public class UserView {
 	/** 界面缩放，前端登录后直接套用 */
 	private Double uiZoom;
 
+	/** 主题：light / dark */
+	private String uiTheme;
+
 	/** 附加组名称，列表展示用 */
 	private List<String> deptNames;
 

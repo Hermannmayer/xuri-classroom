@@ -53,11 +53,17 @@ export default function BasicLayout() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const authorities = user?.authorityList ?? [];
-  const { mode, toggle } = useThemeMode();
+  const { mode, setMode, toggle } = useThemeMode();
   // 页面缩放：整体放大，方便年长老师看清。默认 1.1 而不是 1：基准字号已经提到 15，
   // 再叠一档 110% 才是中老年学员实际能轻松读的尺寸，用户自己改过就尊重用户的值。
   const [zoom, setZoom] = useState<number>(() => readZoom());
   // 缩放跟着账号走：登录后优先用账号里存的档位，没有才用本机上次的值
+  const changeTheme = () => {
+    const next = mode === 'dark' ? 'light' : 'dark';
+    toggle();
+    void post('/api/user/ui-theme', { uiTheme: next }).catch(() => undefined);
+  };
+
   const changeZoom = (value: number) => {
     const snapped = snapZoom(value);
     setZoom(snapped);
@@ -74,6 +80,10 @@ export default function BasicLayout() {
         setSystem(s);
         if (typeof u?.uiZoom === 'number' && Number.isFinite(u.uiZoom)) {
           setZoom(snapZoom(u.uiZoom));
+        }
+        // 主题也跟着账号：账号里存过就用账号的，否则用本机上次的
+        if (u?.uiTheme === 'light' || u?.uiTheme === 'dark') {
+          setMode(u.uiTheme);
         }
         document.title = s?.name || '旭日云课堂';
       })
@@ -283,7 +293,7 @@ export default function BasicLayout() {
               aria-label={mode === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
               title={mode === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
               icon={mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
-              onClick={toggle}
+              onClick={changeTheme}
             />
             <Dropdown
               menu={{

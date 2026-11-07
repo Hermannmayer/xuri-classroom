@@ -136,10 +136,19 @@ public class UserApi {
 	/**
 	 * 保存当前账号的界面缩放，换设备登录后也一致。
 	 */
-	@PostMapping("/ui-zoom")
+	@PostMapping("/user/ui-zoom")
 	@PreAuthorize("isAuthenticated()")
 	public void updateUiZoom(@RequestBody UserRequest request) {
 		userService.updateUiZoom(request);
+	}
+
+	/**
+	 * 保存当前账号的主题（light / dark），换设备登录后也一致。
+	 */
+	@PostMapping("/user/ui-theme")
+	@PreAuthorize("isAuthenticated()")
+	public void updateUiTheme(@RequestBody UserRequest request) {
+		userService.updateUiTheme(request);
 	}
 
 	@GetMapping("/listUserTask")

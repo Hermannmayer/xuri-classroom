@@ -59,4 +59,7 @@ public class UserRequest {
 	/** 界面缩放（0.9 / 1 / 1.15 / 1.3），跟着账号走 */
 	private Double uiZoom;
 
+	/** 主题：light / dark */
+	private String uiTheme;
+
 }

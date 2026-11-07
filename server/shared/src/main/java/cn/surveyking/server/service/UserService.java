@@ -30,6 +30,11 @@ public interface UserService extends UserDetailsService {
 	 */
 	void updateUiZoom(UserRequest request);
 
+	/**
+	 * 保存当前账号的主题（light / dark）。
+	 */
+	void updateUiTheme(UserRequest request);
+
 	void deleteUser(String id);
 
 	boolean checkUsernameExist(String username);

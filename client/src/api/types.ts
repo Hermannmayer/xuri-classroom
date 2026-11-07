@@ -73,6 +73,8 @@ export interface UserInfo {
   authorityList?: string[];
   /** 界面缩放（0.9 / 1 / 1.15 / 1.3），跟着账号走 */
   uiZoom?: number;
+  /** 主题 light/dark（跟着账号走） */
+  uiTheme?: 'light' | 'dark';
   correctTimes?: number;
 }
 
