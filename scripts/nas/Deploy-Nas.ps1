@@ -44,6 +44,19 @@ function Warn($msg) { Write-Host "  ⚠️  $msg" -ForegroundColor Yellow }
 function Die($msg)  { Write-Host "`n❌ $msg`n" -ForegroundColor Red; exit 1 }
 
 # 把一段 bash 脚本通过 stdin 送给 NAS 执行（避免 PowerShell 引号地狱）
+#
+# 为什么走 base64 而不是直接发文本：Windows 下这一段无论如何都会被塞进 \r。
+# 实测 here-string、单引号多行串、拼接字符串都会带上 CR，PowerShell 传给原生
+# 进程时按 UTF-8 编码，\r 原样抵达，远端 bash 就报
+#   bash: line 10: $'\r': command not found
+# 只替换 "`r`n" 治不干净。改成先把脚本转成 base64（纯 ASCII、不含任何控制字符），
+# 远端 `base64 -d | bash` 解回来，一次性根治。
+function Base64FromLF([string]$Body) {
+    $lf = (($Body -replace "`r", "").TrimEnd()) + "`n"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($lf)
+    return ("base64 -d <<'__B64__'" + "`n" + [Convert]::ToBase64String($bytes) + "`n__B64__" + "`n")
+}
+
 function Invoke-NasScript {
     param([Parameter(Mandatory)][string]$Body, [switch]$AllowFail)
     # 用 bash -s 从 stdin 读脚本。三条经验：
@@ -51,7 +64,7 @@ function Invoke-NasScript {
     #   · 要先把 CRLF 归一成 LF：here-string 是 CRLF，外层的 `` 续行会被解析成
     #     "bash: line 9: $'\r': command not found"
     #   · 2>&1 把 stderr 混进输出，成败只看 $LASTEXITCODE
-    $payload = (($Body -replace "`r`n", "`n").TrimEnd() + "`n")
+    $payload = Base64FromLF $Body
     $out = $payload | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" 'bash -s' 2>&1
     $code = $LASTEXITCODE
     if ($code -ne 0 -and -not $AllowFail) {
