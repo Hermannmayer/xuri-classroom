@@ -78,8 +78,8 @@ export default function BasicLayout() {
       .then(([u, s]) => {
         setUser(u);
         setSystem(s);
-        if (typeof u?.uiZoom === 'number' && Number.isFinite(u.uiZoom)) {
-          setZoom(snapZoom(u.uiZoom));
+        if (u?.uiZoom != null && Number.isFinite(Number(u.uiZoom))) {
+          setZoom(snapZoom(Number(u.uiZoom)));
         }
         // 主题也跟着账号：账号里存过就用账号的，否则用本机上次的
         if (u?.uiTheme === 'light' || u?.uiTheme === 'dark') {

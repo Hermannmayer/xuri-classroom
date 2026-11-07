@@ -38,7 +38,7 @@ public class UserView {
 	private List<String> deptIds;
 
 	/** 界面缩放，前端登录后直接套用 */
-	private Double uiZoom;
+	private String uiZoom;
 
 	/** 主题：light / dark */
 	private String uiTheme;

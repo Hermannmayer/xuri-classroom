@@ -42,8 +42,8 @@ public class User extends BaseModel {
 	 */
 	private Integer correctTimes;
 
-	/** 界面缩放（0.9 / 1 / 1.15 / 1.3），跟着账号走，换设备也一致 */
-	private Double uiZoom;
+	/** 界面缩放（0.9 / 1 / 1.15 / 1.3），跟着账号走，换设备也一致；存字符串，避免 decimal→Double 读回 null */
+	private String uiZoom;
 
 	/** 主题：light / dark，跟着账号走 */
 	private String uiTheme;

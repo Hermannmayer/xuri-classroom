@@ -661,7 +661,13 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		// 只允许 0.9 / 1 / 1.15 / 1.3 四个档位：越界值夹到区间内，
 		// 避免有人手工把 ui_zoom 改成 10 倍把界面撑爆
-		double zoom = request.getUiZoom();
+		double zoom;
+		try {
+			zoom = Double.parseDouble(String.valueOf(request.getUiZoom()));
+		}
+		catch (NumberFormatException ex) {
+			return;
+		}
 		if (zoom < 0.9) {
 			zoom = 0.9;
 		}
@@ -670,7 +676,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		User update = new User();
 		update.setId(SecurityContextUtils.getUserId());
-		update.setUiZoom(zoom);
+		update.setUiZoom(String.valueOf(zoom));
 		this.updateById(update);
 		// currentUser 走 userCache，改完必须清掉，否则刷新还是旧档位
 		evictUserAfterCommit(SecurityContextUtils.getUserId());
