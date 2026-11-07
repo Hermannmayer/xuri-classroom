@@ -51,13 +51,14 @@ say "产物：${BUILD_DIR}/app.jar"
 
 say "开始编译（gradle 7.6 / JDK8，与生产 Dockerfile 对齐）"
 docker run --rm -u 0:0 \
+  --entrypoint sh \
   -v "${SRC}/server:/src" \
   -v "${BUILD_DIR}:/out" \
   -v "${GRADLE_CACHE_VOLUME}:/cache" \
   -e GRADLE_USER_HOME=/cache \
   -w /src \
   "${GRADLE_IMAGE}" \
-  sh -c '
+  -c '
     set -e
     gradle :api:bootJar -x test --no-daemon --console=plain
     JAR=$(ls -1 api/build/libs/*.jar | grep -v -- "-plain" | head -1)

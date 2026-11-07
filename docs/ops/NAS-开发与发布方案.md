@@ -351,6 +351,56 @@ ss -lntp | grep -E ':(201|202|19080|17007|13306|13307)\b'
 ### 还没做、但必须做的事
 
 1. **恢复演练**：拿一份真实备份，解包 → `sha256sum -c` → 起 `h2-drill` 容器（端口 1201）→ 登录 → 人工抽查题库/答卷/附件数量。没演练过的备份不算备份。
-2. **H2 → MySQL 迁移方案定稿并全量演练**：见 §5，先用副本跑通，用「表清单 + 关键表行数 + 附件数量/字节数」对账。
-3. **回填 `.gitattributes`**：仓库现在没有 `*.sh text eol=lf` 规则，建议补一条，避免以后在 Windows 上编辑脚本时引入 CRLF。
+2. **回填 `.gitattributes`**：仓库现在没有 `*.sh text eol=lf` 规则，建议补一条，避免以后在 Windows 上编辑脚本时引入 CRLF。
+
+---
+
+## 11. 实际迁移记录（2026-11-07 已完成）
+
+> 这一节是**真做过**的记录，不是方案。以后再迁移/重装，照着它走。
+
+### 11.1 结果
+
+| 项 | 状态 |
+|---|---|
+| 旧容器 `surveyking`（上游 v1.13.2 + H2） | **已 stop，未删除**（回滚用：`docker start surveyking`，但要先停 `xuri-live-web` 让出 201） |
+| 新栈 `xuri-live`（定制分支 + MySQL） | 已上线，监听 **201**（+1201 直连调试） |
+| 数据 | 21 张表 / 60,000 行搬完：试卷 44（其中 21 条有效）、题库 9、模板 29,946、标签 29,946、用户 1、答卷 4、附件 4 个文件 |
+| 登录 | `admin / 123456` 可用（密码是 **RSA 加密**提交的，curl 发明文一定失败） |
+| 反向代理 | **Lucky 自己监听 200**，转发到 201；所以新栈接 201，反代零改动 |
+
+### 11.2 现场踩到的坑（都已在脚本里修掉）
+
+| 坑 | 现象 | 处理 |
+|---|---|---|
+| H2 口令 | `-user sa -password ""` 报 `Wrong user name or password` | 实测是 **sa/sa** |
+| 镜像里没有 `jar`/`unzip` | 没法在容器内拆 jar | 宿主机 `docker cp` 出 jar + 宿主机 `unzip`，再用镜像的 `java -cp` 跑 H2 工具 |
+| H2 的 CSV 不区分 NULL 和空串 | `t_dept.short_name` NOT NULL 导入报错 | 导出时加 `null=##NULL##` 标记，导入器分别处理 |
+| MySQL 目录属主 | 容器起不来：`data directory is unusable` | bind 目录必须 `chown 999:999`（镜像里 mysql 的 uid） |
+| Docker Hub 不通 | `mysql:8.0` 拉不下来 | 走 `docker.m.daocloud.io/library/...` 拉完再 `docker tag`，不动 daemon.json |
+| JDK8 ↔ MySQL 8.0.46 的 TLS | 后端 500：`SSLHandshakeException: handshake_failure` | 用 `SPRING_DATASOURCE_URL` 覆盖，加 `useSSL=false&allowPublicKeyRetrieval=true` |
+| 前端构建 OOM | web-watch 容器 `FatalProcessOutOfMemory` | `mem_limit: 2g` + `NODE_OPTIONS=--max-old-space-size=1536` |
+| 代码 bug：`t_project_partner.is_deleted` | 项目列表 500：`Unknown column 't.is_deleted'` | 表里没这列（实体把 `deleted` 标成 `exist=false`，走物理删除），SQL 里那半句删掉 |
+
+### 11.3 日常怎么用
+
+```bash
+# 改前端：保存即可（watch），进度看日志
+docker logs -f xuri-live-web-watch
+#   实测：touch 后 ~9 秒出 built in xxx ms，刷新页面即生效
+
+# 改后端：一条命令（增量编译 19 秒 + 重启到就绪 10 秒）
+bash /vol2/1000/xuri/src/work/scripts/nas/live-reload.sh
+
+# 看状态 / 日志
+cd /vol2/1000/xuri/src/work/deploy/nas/live && docker compose ps
+docker compose logs --tail=80 app
+```
+
+### 11.4 代码怎么同步（这台机器上只有一份代码）
+
+- Windows 上：`git push nas main`（远端已配好 `ssh://Home@192.168.0.2/vol2/1000/xuri/src/repo.git`）
+- NAS 上：`cd /vol2/1000/xuri/src/work && git pull`
+- **不要**在两边各改一份：NAS 上的 `/vol2/1000/xuri/src/work` 是运行中的工作副本，Windows 那份只当编辑源。
+
 

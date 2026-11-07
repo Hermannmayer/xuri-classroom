@@ -64,12 +64,13 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 						c -> c.isNull(Project::getParentId).or().eq(Project::getParentId, "0"))
 				.eq(query.getMode() != null, Project::getMode, query.getMode())
 				// 可见性：本人被授权(type 1/2/3)，或所在用户组被授权（group_id 存 dept id；主组 + 附加组，含祖先链）
-				// is_deleted = 0 必须显式写：这是原生 EXISTS 子查询，MyBatis-Plus 的 @TableLogic 不会自动补，
-				// 否则「移除成员」只是软删，被移除的人仍能在列表里看到项目（审计 P0-1）
+				// 注意：不能加 t.is_deleted = 0 —— t_project_partner 没有这列（ProjectPartner 把
+				// BaseModel.deleted 覆盖成了 @TableField(exist = false)，删除走的是物理 DELETE）。
+				// 加了会直接 500：Unknown column 't.is_deleted' in 'IN/ALL/ANY subquery'。
 				.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
 						+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
 						+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
-						+ " AND t.type IN (1, 2, 3) AND t.is_deleted = 0",
+						+ " AND t.type IN (1, 2, 3)",
 						SecurityContextUtils.getUserId())
 				// 文件夹排在前面，然后按创建时间从近到远排序
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));

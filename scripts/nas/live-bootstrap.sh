@@ -24,8 +24,8 @@ SRC="${XURI_SRC:-${REPO_ROOT}}"
 DATA_DIR="${XURI_DATA_DIR:-/vol2/1000/xuri/live}"
 BUILD_DIR="${XURI_BUILD_DIR:-${DATA_DIR}/build}"
 RUNTIME_IMAGE="${XURI_RUNTIME_IMAGE:-xuri-runtime:8}"
-APP_PORT="${APP_PORT:-200}"
-APP_PORT_ALT="${APP_PORT_ALT:-201}"
+APP_PORT="${APP_PORT:-201}"
+APP_EXTRA_PORT="${APP_EXTRA_PORT:-1201}"
 
 say() { printf '\n──── %s ────\n' "$*"; }
 die() { printf '\n❌ %s\n\n' "$*" >&2; exit 1; }
@@ -78,8 +78,8 @@ docker compose up -d
 
 say "5/5 等待就绪"
 for i in $(seq 1 90); do
-  if curl -fsS -o /dev/null "http://127.0.0.1:${APP_PORT_ALT}/api/system" 2>/dev/null \
-     || curl -fsS -o /dev/null "http://127.0.0.1:${APP_PORT}/api/system" 2>/dev/null; then
+  if curl -fsS -o /dev/null "http://127.0.0.1:${APP_PORT}/api/system" 2>/dev/null \
+     || curl -fsS -o /dev/null "http://127.0.0.1:${APP_EXTRA_PORT}/api/system" 2>/dev/null; then
     echo "  · 已就绪（约 $((i*2)) 秒）"
     break
   fi
@@ -92,7 +92,7 @@ cat <<EOF
 ================================================================================
 ✅ live 环境已启动
 ================================================================================
-  访问：http://${LAN_IP:-<NAS_IP>}:${APP_PORT}   （同时也在 ${APP_PORT_ALT} 上监听）
+  访问：http://${LAN_IP:-<NAS_IP>}:${APP_PORT}   （直连调试口 ${APP_EXTRA_PORT}）
   容器：xuri-live-db / xuri-live-app / xuri-live-web / xuri-live-web-watch
 
   改前端：改完保存 → web-watch 1~2 秒构建完 → 刷新页面即见
