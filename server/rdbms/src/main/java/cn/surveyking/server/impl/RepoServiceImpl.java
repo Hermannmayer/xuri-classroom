@@ -63,6 +63,26 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private final UserDeptScopeService userDeptScopeService;
 
+	/**
+	 * 题库列表排序：只接受白名单字段，避免前端传任意列造成 SQL 注入式排序。
+	 */
+	private void applyRepoOrder(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper,
+			RepoQuery query) {
+		boolean desc = Boolean.TRUE.equals(query.getSortDesc());
+		String sortBy = query.getSortBy() == null ? "" : query.getSortBy();
+		switch (sortBy) {
+			case "name":
+				wrapper.orderBy(true, desc, Repo::getName);
+				break;
+			case "updateAt":
+				wrapper.orderBy(true, desc, Repo::getUpdateAt);
+				break;
+			default:
+				wrapper.orderBy(true, desc, Repo::getCreateAt);
+				break;
+		}
+	}
+
 	@Override
 	public PaginationResponse<RepoView> listRepo(RepoQuery query) {
 		String currentUserId = SecurityContextUtils.getUserId();
