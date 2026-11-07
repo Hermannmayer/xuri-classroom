@@ -1,0 +1,173 @@
+# =============================================================================
+# 旭日云课堂 · 飞牛 NAS「开发环境」Compose 文件
+#
+# 为什么单独一份 compose、单独一个项目名：NAS 上生产考试系统正在跑
+# （容器名 surveyking、宿主机 201、H2 库、数据在 /vol2/1000/surveyking/）。
+# 本文件创建的所有资源都带 xuri-dev 前缀，端口全部落在 1xxxx 段，
+# 并且**绝不碰宿主机 80**（飞牛 Web 管理界面占着 80）。
+#
+# 用法（在 NAS 上、本目录内执行）：
+#   cp .env.example .env      # 按需改端口 / 源码路径
+#   bash bootstrap.sh         # 幂等引导：检查 → 构建 → 起容器（推荐）
+# 也可以直接：
+#   docker compose -f deploy/nas/dev/docker-compose.yml up -d --build
+#
+# 需要 Docker Compose v2（`docker compose version` 能打印版本）；v1 已停止维护，不支持本文件。
+# =============================================================================
+
+name: xuri-dev
+
+services:
+  # ---------------------------------------------------------------------------
+  # devbox：开发容器。JDK8 + Node20 + Gradle7.6 全在镜像里，宿主机零安装。
+  # 它不跑任何常驻业务进程，只是 sleep infinity 等你从 VS Code attach 进来。
+  # ---------------------------------------------------------------------------
+  devbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: xuri-devbox:dev
+    # 显式容器名，避免和生产的 surveyking* 混淆；VS Code 里看到的也是这个名字
+    container_name: xuri-devbox
+    # 让 tini 当 1 号进程：VS Code server、gradle daemon 会 fork 很多进程，
+    # 有人正经收尸，避免僵尸进程堆在容器里
+    init: true
+    working_dir: /workspace
+    environment:
+      TZ: Asia/Shanghai
+      # 后端 Spring Boot 的 application-dev.yml 读这几个变量：
+      #   rdbms/src/main/resources/config/application-dev.yml
+      #   jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:surveyking}
+      # 容器内直连 db 服务，不走宿主机端口，所以这里写服务名 db。
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DEV_DB_NAME:-surveyking}
+      DB_USER: root
+      DB_PASSWORD: ${DEV_DB_PASSWORD:-dev-only-change-me}
+      # 注意：不要设 VITE_API_TARGET。前端 dev server 默认把 /api 代理到
+      # http://127.0.0.1:7007（client/vite.config.ts），后端也跑在本容器里，
+      # 127.0.0.1 就是它自己，天然同源、不用配 CORS。
+    # 容器内进程以 dev（uid 1000，非 root）身份跑，而 Linux 默认不允许非 root 绑定 <1024 的端口，
+    # 偏偏 client/vite.config.ts 把端口写死成 80。Docker 20.10+ 其实默认就把这个 sysctl 设成 0，
+    # 这里显式再写一遍：老版本 Docker / 换运行时时行为一致，也让「为什么非 root 能绑 80」一眼可见。
+    # 如果某个受限环境拒绝这个 sysctl（up 时报 "sysctl is not allowed"），
+    # 就退到 README「常见故障 · 容器内 80 端口」里的方案 B（容器内改 5173）。
+    sysctls:
+      - net.ipv4.ip_unprivileged_port_start=80
+    ports:
+      # 宿主机 19080 → 容器 80。
+      # 容器内的 Vite 固定监听 80 且 strictPort（client/vite.config.ts），
+      # 所以只能改宿主机这一侧的端口，容器侧永远是 80。
+      - "${DEV_WEB_PORT:-19080}:80"
+      # 宿主机 17007 → 容器 7007，方便在 Windows 上用 curl / Postman 直连后端。
+      # 浏览器访问页面不需要它（Vite 走同源代理）。
+      - "${DEV_BACKEND_PORT:-17007}:7007"
+    volumes:
+      # 源码：宿主机目录直接挂进来，两边改文件彼此立即可见。
+      # 默认放在数据盘 /vol2，不占 128GB 系统盘。
+      - "${DEV_SRC:-/vol2/1000/xuri/src}:/workspace"
+      # Gradle 依赖缓存 + wrapper 发行包。用命名卷而不是宿主机目录：
+      # 重建容器不丢缓存，省下每次几十分钟的依赖下载。
+      - gradle-cache:/home/dev/.gradle
+      # node_modules 用命名卷（而不是落在源码目录里）有两个原因：
+      #   1) 几十万个小文件放在 NAS 文件系统上会把 Vite 的冷启动拖到几十秒；
+      #   2) 源码目录可能在 Windows 上也 checkout 过，那里的 node_modules 是
+      #      Windows 版二进制，直接进 Linux 容器会报 "Cannot find module"。
+      - node-modules:/workspace/client/node_modules
+    # 保护这台 8GB 内存的生产机：编译 + Vite + JVM 给 2 核 3G 足够，超了就 OOM，
+    # 让内核去杀容器里的进程，而不是去杀 NAS 上的其他服务。
+    cpus: "2.0"
+    mem_limit: 3g
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - dev-net
+
+  # ---------------------------------------------------------------------------
+  # db：开发用 MySQL 8。独立数据卷，和生产的 H2 / 生产 MySQL 完全无关。
+  # ---------------------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: xuri-dev-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DEV_DB_PASSWORD:-dev-only-change-me}
+      MYSQL_DATABASE: ${DEV_DB_NAME:-surveyking}
+      TZ: Asia/Shanghai
+    # 字符集必须在服务端就定死 utf8mb4：初始化脚本里全是中文题干，
+    # 用默认的 latin1/utf8mb3 会存成问号，而且事后很难救。
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 512m 内存上限下的省内存组合（8GB 机器还要养着生产考试系统）：
+      #   · buffer pool 钉在 256M（MySQL 8 默认 128M，256M 对开发库足够且可预期）
+      #   · 关掉 performance_schema —— 它默认开启要多吃 100-200MB，开发环境根本用不上
+      # 这两项是 512m 能稳住的前提，别单独去掉。
+      - --innodb-buffer-pool-size=256M
+      - --performance-schema=OFF
+    ports:
+      # 只发布这一个端口，故意用 13306：避开常见的 3306（怕和别的服务撞），
+      # 也不用 201（那是生产考试系统的端口）。
+      # 想只允许 NAS 本机连接（更安全），把下面这行改成：
+      #   - "127.0.0.1:${DEV_DB_PORT:-13306}:3306"
+      - "${DEV_DB_PORT:-13306}:3306"
+    volumes:
+      - dev-db:/var/lib/mysql
+      # 首次启动（数据卷为空）时自动建表 + 写入 admin 账号，只在这一次执行。
+      # 用 long syntax + create_host_path: false 是故意的：
+      # 短语法下源文件不存在时 Docker 会悄悄创建一个同名**目录**，MySQL 只打一行
+      # 警告就跳过初始化，结果你拿到一个空库，半天查不出原因。
+      # 这样配置则会直接报错退出，报错信息写明哪个路径不存在。
+      - type: bind
+        source: ${DEV_SRC:-/vol2/1000/xuri/src}/server/rdbms/src/main/resources/scripts/init-mysql.sql
+        target: /docker-entrypoint-initdb.d/init.sql
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      # 注意 $$：compose 会把单个 $ 当变量插值，$${...} 才是留给容器内的 shell 展开
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # 512m：8GB 机器上留给开发库的余量有限（devbox 已经占了 3g 上限）。
+    # 配合上面的 buffer-pool 256M + performance_schema=OFF，静态估算常驻约 300-400MB。
+    # 这个数字没在真机上量过：上 NAS 后用 docker stats 看一眼；若 db 反复重启（OOM），
+    # 说明还是紧了，把它调到 768m/1g 并同步改 README 的内存表。
+    cpus: "1.0"
+    mem_limit: 512m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - dev-net
+
+# -----------------------------------------------------------------------------
+# 命名卷：全部显式命名，这样即使你改了目录名，缓存/数据也不会跟着换一套。
+# 想彻底清空开发数据（会丢库）：docker compose down -v
+# -----------------------------------------------------------------------------
+volumes:
+  dev-db:
+    name: xuri-dev-db-data
+  gradle-cache:
+    name: xuri-dev-gradle-cache
+  node-modules:
+    name: xuri-dev-node-modules
+
+# -----------------------------------------------------------------------------
+# 独立网络（不 external）：和生产容器不在同一个网络里，互相解析不到，天然隔离。
+# -----------------------------------------------------------------------------
+networks:
+  dev-net:
+    name: xuri-dev-net
+    driver: bridge

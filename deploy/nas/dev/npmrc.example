@@ -1,0 +1,29 @@
+# =============================================================================
+# npm 国内镜像配置示例（可选，不需要就整个文件忽略）
+#
+# 为什么做成「示例」而不是直接给 client/.npmrc：
+#   仓库里已经有 client/package-lock.json，lock 文件里的 resolved 字段指向
+#   registry.npmjs.org。写成仓库内的 .npmrc 会让所有人的行为都变，
+#   而且换个镜像还可能有 integrity 校验差异，属于「不该由一个脚手架替用户决定」的事。
+#
+# 推荐做法（不改仓库任何文件）：
+#
+#   A. 单次生效 —— 在 devbox 里：
+#        cd /workspace/client
+#        npm ci --registry=https://registry.npmmirror.com
+#
+#   B. 写进容器内用户级配置（容器重建后失效，但不进 git）：
+#        npm config set registry https://registry.npmmirror.com
+#        # 校验：npm config get registry
+#
+#   C. 环境变量（可以塞进 compose 的 environment 里，团队统一）：
+#        npm_config_registry=https://registry.npmmirror.com
+#
+#   D. 真想让全仓库生效：把下面的内容存成 client/.npmrc **并提交**，
+#      但请先在团队里说一声（它会改变所有人的依赖来源）。
+#
+# 下面两行就是 .npmrc 的等价内容：
+#
+# registry=https://registry.npmmirror.com
+# # 二进制类依赖（本项目目前没用到，留着备忘）
+# # ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/

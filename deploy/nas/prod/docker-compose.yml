@@ -1,0 +1,139 @@
+# =============================================================================
+# 旭日云课堂 · NAS 生产「目标态」compose（飞牛 fnOS / 192.168.0.2）
+#
+# ⚠️⚠️ 当前生产不是这一份 ⚠️⚠️
+#   现在线上跑的是「手工 docker run」的容器 surveyking：
+#       · 上游镜像 surveyking/surveyking:latest（v1.13.2）
+#       · PROFILE=h2、SERVER_PORT=1991、宿主机端口 201
+#       · H2 单文件数据在 /vol2/1000/surveyking/db，附件在 /vol2/1000/surveyking/files
+#       · 不属于任何 compose 项目，`docker compose ls` 里看不到它
+#   本文件是「定制分支（旭日云课堂：Spring Boot 2.7.7 + JDK8 + MySQL 8）」要切过去的目标态。
+#   **切换前必须先迁移数据（H2 → MySQL）并完成演练**，完整步骤见同目录 README.md。
+#   在没走完迁移演练之前，不要在这台机器上 `docker compose up -d` 本文件——
+#   它会在 201 端口和旧容器抢端口，并且用空的 MySQL 库面对一个有数据的生产。
+#
+# 设计要点（都是为了这台 8GB / 4 核的飞牛 NAS）：
+#   1. 所有数据都用 bind mount，不用命名卷 —— 飞牛的「文件夹备份 / 快照」才能覆盖到；
+#   2. 对外端口沿用学校现在的 201（容器内 nginx 仍是 80），换端口要重新通知全校，没必要；
+#   3. 内存上限：app 1g（JVM -Xmx768m）、db 512m、web 128m —— 旧 H2 进程还占着约 1.4GB；
+#   4. 日志一律 json-file 10m × 3，避免再出现日志把 /vol2 写满；
+#   5. **刻意不挂 init-mysql.sql**：那个脚本里有 22 处 DROP TABLE IF EXISTS，
+#      对着有数据的库执行 = 清库；首次建库用 README 里的受控步骤，不要靠挂载自动执行。
+#
+# 用法（在本目录）：
+#   cp .env.example .env && vi .env      # 至少填 DB_PASSWORD、SK_CRYPTO_KEY
+#   docker compose config >/dev/null     # 只校验语法与变量，不启动
+#   docker compose up -d                 # 确认数据已迁移、端口已腾出后再执行
+# =============================================================================
+
+name: xuri-prod
+
+services:
+  # ---------------------------------------------------------------- 数据库
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-surveyking}
+      TZ: Asia/Shanghai
+    volumes:
+      # 数据落在宿主机目录里（不是命名卷），便于飞牛文件夹备份 / 快照覆盖
+      - ${XURI_DATA_DIR:-/vol2/1000/xuri/prod}/mysql:/var/lib/mysql
+      # 注意：这里刻意 **不** 挂 server/rdbms/.../init-mysql.sql。
+      # 那个文件含 22 处 DROP TABLE IF EXISTS，一旦数据目录非空被重复执行就是清库。
+    mem_limit: 512m
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ---------------------------------------------------------------- 后端
+  app:
+    image: ${XURI_APP_IMAGE:-xuri-classroom:latest}
+    # 想在 NAS 上本地构建（不推荐：4 核 8GB 上跑 gradle + node 构建很慢，容易把内存打满）
+    # 就把下面四行取消注释；正常流程是在开发机构建后 docker save/load 或推私有仓库。
+    # build:
+    #   context: ../../..
+    #   dockerfile: Dockerfile
+    #   target: app
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-surveyking}
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      # 必填：题库字段加密密钥（Base64 的 32 字节）。丢了 = 已加密的题库全部解不开。
+      SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?请在 .env 里设置 SK_CRYPTO_KEY（Base64 的 32 字节，务必备份到密码管理器）}
+      # 不填则每次重启随机生成 → 所有人被踢下线
+      SK_JWT_SECRET: ${JWT_SECRET:-}
+      TZ: Asia/Shanghai
+      # JVM 内存上限：这台机器还要留出旧 H2 进程（约 1.4GB）和系统本身
+      # 说明：仓库 Dockerfile 的 ENTRYPOINT 是 ["java","-jar",...]，不会展开 JAVA_OPTS；
+      #      真正生效的是 JVM 自动读取的 JAVA_TOOL_OPTIONS。两行都写，兼容改造过的镜像。
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx768m}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
+    expose:
+      # 只在 compose 内网可达，不发布到宿主机
+      - '7007'
+    volumes:
+      # 上传的图片 / 附件（容器内 /app/files，由 file-storage.local.root-path: ./files 决定）
+      - ${XURI_DATA_DIR:-/vol2/1000/xuri/prod}/files:/app/files
+      # 想直接在 NAS 文件管理器里看应用日志时打开下面一行（先 mkdir -p 对应目录）
+      # - ${XURI_DATA_DIR:-/vol2/1000/xuri/prod}/logs:/app/logs
+    mem_limit: 1g
+    stop_grace_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # 沿用仓库 Dockerfile 的探测方式：/api/system 能通才算起来
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:7007/api/system >/dev/null || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ---------------------------------------------------------------- 前端 / 入口
+  web:
+    image: ${XURI_WEB_IMAGE:-xuri-classroom-web:latest}
+    # build:
+    #   context: ../../..
+    #   dockerfile: Dockerfile
+    #   target: web-final
+    restart: unless-stopped
+    ports:
+      # 沿用学校现在的访问端口 201：换端口意味着要重新通知全校，没必要
+      - '${APP_PORT:-201}:80'
+    depends_on:
+      app:
+        condition: service_healthy
+    mem_limit: 128m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

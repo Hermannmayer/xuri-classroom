@@ -1,0 +1,54 @@
+// =============================================================================
+// Gradle 初始化脚本：把依赖仓库优先指向国内镜像（可选启用，默认不生效）
+//
+// 背景：仓库 server/settings.gradle 里写死了 repo.spring.io/snapshot + mavenCentral，
+// 国内直连经常卡在 "Downloading https://repo.maven.apache.org/..." 十几分钟甚至超时。
+// 这个文件**不改仓库任何文件**，只是在构建时把阿里云镜像插到仓库列表前面。
+//
+// 三种启用方式，任选一种：
+//
+//   1) 传参（临时、最干净，脚本不存在也不会影响任何人）：
+//        cd /workspace/server
+//        gradle --init-script /workspace/deploy/nas/dev/gradle-init.gradle \
+//               :api:bootJar -x test
+//
+//   2) 拷进用户目录（持久，落在 gradle-cache 命名卷上，重建容器不丢）：
+//        docker compose -f deploy/nas/dev/docker-compose.yml cp \
+//            deploy/nas/dev/gradle-init.gradle \
+//            devbox:/home/dev/.gradle/init.gradle
+//      之后所有 `gradle` 构建自动生效；想取消就删掉那个文件。
+//
+//   3) 拷到宿主机 ~/.gradle/init.gradle（如果你在宿主机上也有 gradle）
+//
+// 代价：阿里云镜像有时候比官方慢、或者某个小众包没同步。
+// 遇到 "Could not find xxx" 就临时改回官方源再试一次，别怀疑自己的代码。
+// =============================================================================
+
+// 插件解析（buildscript / plugins {} 那一类）走镜像
+settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            gradlePluginPortal()
+            mavenCentral()
+        }
+    }
+}
+
+// 项目依赖解析走镜像。init 脚本在工程脚本之前执行，所以这里加的仓库排在列表前面。
+allprojects {
+    buildscript {
+        repositories {
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            mavenCentral()
+        }
+    }
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/spring' }
+        maven { url 'https://maven.aliyun.com/repository/spring-plugin' }
+        mavenCentral()
+    }
+}
