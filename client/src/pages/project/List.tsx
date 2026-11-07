@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import { createProject, deleteProject, listProjects, updateProject } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
@@ -65,7 +66,216 @@ function useIsMobile() {
   return isMobile;
 }
 
-export default function ProjectList() {
+/** 学员视图一次取多少条：见 load 里的说明 */
+const STUDENT_PAGE_SIZE = 200;
+/** 兜底上限，避免授权项目异常多时无限翻页 */
+const STUDENT_MAX_PAGES = 10;
+
+/**
+ * 学员视图：只有 project:list / project:detail、没有 project:update 的账号（学生 / 只读协作者）。
+ *
+ * 管理端那一套（新建、回收站、编辑、设置、数据、删除、授权、批量操作）一个都不渲染，
+ * 唯一动作是「开始答题」——直接跳公开答题页 /s/:id，这条路不需要任何管理权限，学员不会 403。
+ */
+function StudentProjectList() {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  const [rows, setRows] = useState<ProjectView[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [keyword, setKeyword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  /**
+   * 列表接口只能在服务端按名称/父级/类型过滤，没法排除文件夹；而且后端把文件夹排在
+   * 最前面。所以不能用「服务端分页 + 前端丢掉文件夹」：一页 20 条可能全是文件夹，
+   * 学员会看到空白页、页码也对不上。这里按 200 条一页把授权范围内的项目取全，
+   * 再在前端过滤文件夹、自行分页（练习中心「我的任务」也是这个套路）。
+   */
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const all: ProjectView[] = [];
+      for (let current = 1; current <= STUDENT_MAX_PAGES; current += 1) {
+        const res = await listProjects({ current, pageSize: STUDENT_PAGE_SIZE });
+        all.push(...res.data);
+        // 本页不满 200 条、或已拿到 total 条，都说明没有下一页了
+        if (res.data.length < STUDENT_PAGE_SIZE || all.length >= res.total) break;
+      }
+      setRows(all.filter((row) => row.mode !== 'folder'));
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filtered = keyword
+    ? rows.filter((row) => (row.name || '').toLowerCase().includes(keyword.toLowerCase()))
+    : rows;
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  /** 公开答题页：/api/public/projectOutline 用项目 id 就能取题，不需要 project:detail */
+  const start = (row: ProjectView) => navigate(`/s/${row.id}`);
+
+  const statusTag = (row: ProjectView) => (
+    <Tag color={row.status === 1 ? 'success' : 'default'}>{row.status === 1 ? '已发布' : '未发布'}</Tag>
+  );
+
+  const emptyNode = (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span>{keyword ? '没有匹配的结果' : '还没有分配给你的考试'}</span>
+          {!keyword && (
+            <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              请联系老师把你的用户组加入考试协作者
+            </span>
+          )}
+        </div>
+      }
+    />
+  );
+
+  return (
+    <>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+          EXAMS / 我的考试
+        </div>
+        <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
+          我的考试
+        </h2>
+        <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+          这里是被分配给你参加的考试；点「开始答题」直接进入答题页。
+        </div>
+      </div>
+
+      <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {filtered.length} 项</span>
+        <div style={{ flex: 1 }} />
+        <Input.Search
+          allowClear
+          placeholder="搜索名称"
+          style={{ width: isMobile ? '100%' : 220 }}
+          onSearch={(v) => {
+            setKeyword(v.trim());
+            setPage(1);
+          }}
+        />
+      </div>
+
+      {isMobile ? (
+        <>
+          <Spin spinning={loading}>
+            {paged.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {paged.map((row) => (
+                  <div
+                    key={row.id}
+                    className="bp-card"
+                    style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: 14,
+                        }}
+                      >
+                        {row.name || '(未命名)'}
+                      </span>
+                      {statusTag(row)}
+                    </div>
+                    {row.createAt && (
+                      <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                        创建于 {row.createAt}
+                      </div>
+                    )}
+                    <Button
+                      type="primary"
+                      style={{ height: 38, paddingInline: 0 }}
+                      onClick={() => start(row)}
+                    >
+                      开始答题
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              emptyNode
+            )}
+          </Spin>
+          {filtered.length > pageSize && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <Pagination
+                simple
+                current={page}
+                pageSize={pageSize}
+                total={filtered.length}
+                onChange={(p, s) => {
+                  setPage(p);
+                  setPageSize(s);
+                }}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <Table<ProjectView>
+          rowKey="id"
+          size="middle"
+          loading={loading}
+          dataSource={paged}
+          locale={{ emptyText: emptyNode }}
+          pagination={pager(page, pageSize, filtered.length, setPage, setPageSize, (n) => `共 ${n} 项`)}
+          columns={[
+            {
+              title: '名称',
+              dataIndex: 'name',
+              render: (_: unknown, row) => row.name || '(未命名)',
+            },
+            {
+              title: '状态',
+              dataIndex: 'status',
+              width: 100,
+              render: (_: unknown, row) => statusTag(row),
+            },
+            {
+              title: '创建时间',
+              dataIndex: 'createAt',
+              width: 170,
+            },
+            {
+              title: '操作',
+              width: 140,
+              render: (_: unknown, row) => (
+                <Button type="primary" size="small" onClick={() => start(row)}>
+                  开始答题
+                </Button>
+              ),
+            },
+          ]}
+        />
+      )}
+    </>
+  );
+}
+
+/** 管理端 / 老师视图：与改造前完全一致（增删改、批量、回收站、文件夹都还在这里） */
+function ManagerProjectList() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -692,4 +902,37 @@ export default function ProjectList() {
       </Modal>
     </>
   );
+}
+
+/**
+ * 「我的考试」入口：按权限分成两种视图，权限判断统一走 auth/permissions 的 can()。
+ *
+ * - 有 project:update（老师 / 管理员）：管理视图，行为与改造前一行不差；
+ * - 没有 project:update、但有 project:list（学员 / 只读协作者）：学员视图，
+ *   只有「开始答题」，不出现任何管理入口，避免每点一次都是 403。
+ */
+export default function ProjectList() {
+  const [authorities, setAuthorities] = useState<string[]>();
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  // 权限没回来之前先给骨架，避免管理视图闪一下再被替换成学员视图
+  if (!authorities) {
+    return (
+      <div style={{ padding: 60, textAlign: 'center' }}>
+        <Spin />
+      </div>
+    );
+  }
+
+  const isManager = can(authorities, 'project:update');
+  const canList = can(authorities, 'project:list');
+
+  if (!isManager && canList) {
+    return <StudentProjectList />;
+  }
+
+  return <ManagerProjectList />;
 }
