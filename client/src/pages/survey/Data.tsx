@@ -107,7 +107,15 @@ export default function SurveyData() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
+  // 按钮级权限闸门：没有权限的写操作按钮直接不渲染，避免「看得见、点了 403」
   const canExport = can(authorities, 'answer:export');
+  const canCreate = can(authorities, 'answer:create');
+  const canUpdate = can(authorities, 'answer:update');
+  const canDelete = can(authorities, 'answer:delete');
+  const canUpload = can(authorities, 'answer:upload');
+  const canRestore = can(authorities, 'answer:restore');
+  /** 恢复和彻底删除都没有权限时，回收站入口本身也没东西可做，不渲染 */
+  const canOpenTrash = canRestore || canDelete;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,7 +189,11 @@ export default function SurveyData() {
     () => (mobile ? filtered.slice((page - 1) * pageSize, page * pageSize) : []),
     [mobile, filtered, page, pageSize],
   );
-  const emptyText = rows.length ? '当前筛选没有匹配的答卷' : '还没有答卷，点「添加数据」补录一份';
+  const emptyText = rows.length
+    ? '当前筛选没有匹配的答卷'
+    : canCreate
+      ? '还没有答卷，点「添加数据」补录一份'
+      : '还没有答卷';
 
   const columns = useMemo<ColumnsType<Answer>>(() => {
     const fixedColumns: ColumnsType<Answer> = [
@@ -383,11 +395,11 @@ export default function SurveyData() {
     [detail],
   );
 
-  const deleteButton = (
+  const deleteButton = canDelete ? (
     <Button danger icon={<DeleteOutlined />} disabled={selected.length === 0} onClick={removeSelected}>
       删除数据
     </Button>
-  );
+  ) : null;
 
   return (
     <div>
@@ -439,26 +451,32 @@ export default function SurveyData() {
           className={mobile ? 'sk-data-toolbar-mobile' : undefined}
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}
         >
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor({ mode: 'create' })}>
-            添加数据
-          </Button>
-          {!mobile && (
+          {canCreate && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditor({ mode: 'create' })}>
+              添加数据
+            </Button>
+          )}
+          {!mobile && canUpdate && (
             <Button icon={<EditOutlined />} disabled={selected.length !== 1} onClick={editSelected}>
               编辑数据
             </Button>
           )}
           {!mobile && deleteButton}
-          <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileRef.current?.click()}>
-            导入数据
-          </Button>
+          {canUpload && (
+            <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileRef.current?.click()}>
+              导入数据
+            </Button>
+          )}
           {canExport && (
             <Button icon={<DownloadOutlined />} disabled={rows.length === 0} onClick={openExport}>
               导出数据
             </Button>
           )}
-          <Button icon={<RestOutlined />} onClick={() => setTrashOpen(true)}>
-            回收站
-          </Button>
+          {canOpenTrash && (
+            <Button icon={<RestOutlined />} onClick={() => setTrashOpen(true)}>
+              回收站
+            </Button>
+          )}
           {mobile && deleteButton}
           {!mobile && <div style={{ flex: 1 }} />}
           <RangePicker
@@ -499,6 +517,8 @@ export default function SurveyData() {
                   onDetail={setDetail}
                   onEdit={(row) => setEditor({ mode: 'edit', row })}
                   onDelete={(row) => removeRows([row.id])}
+                  canEdit={canUpdate}
+                  canDelete={canDelete}
                 />
               )}
             </Spin>
@@ -560,16 +580,18 @@ export default function SurveyData() {
         )}
       </Card>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".xlsx"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void importFile(file);
-        }}
-      />
+      {canUpload && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void importFile(file);
+          }}
+        />
+      )}
 
       <AnswerEditorModal
         open={Boolean(editor)}

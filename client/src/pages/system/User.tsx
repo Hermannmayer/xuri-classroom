@@ -17,9 +17,11 @@ import {
   Tree,
   Upload,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import LinkAction from '../../components/LinkAction';
 import { download, get, getWithPagination, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import { pager } from '../repo/table';
 
 interface SysUser {
@@ -106,6 +108,23 @@ export default function SystemUser() {
   const [form] = Form.useForm();
   /** 主组不能同时出现在附加组里，选项里直接把它过滤掉 */
   const mainDeptId = Form.useWatch<string | undefined>('deptId', form);
+
+  /**
+   * 按钮级权限：列表本身由路由/后端 system:user:list 守卫，这里只管写操作。
+   * 没权限的按钮直接不渲染，避免「看得见、点了 403」。
+   */
+  const [authorities, setAuthorities] = useState<string[]>([]);
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  const canCreate = can(authorities, 'system:user:create');
+  const canUpdate = can(authorities, 'system:user:update');
+  const canDelete = can(authorities, 'system:user:delete');
+  // 批量导入：注解是 hasAnyAuthority('user:import','system:user:create')（UserApi.java:119）
+  const canImportUser = can(authorities, 'user:import') || can(authorities, 'system:user:create');
+  // 下载导入模板：后端要 file:import（FileApi.java:75）
+  const canDownloadTemplate = can(authorities, 'file:import');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -272,6 +291,28 @@ export default function SystemUser() {
     />
   );
 
+  /** 桌面端「操作」列：编辑/删除都没权限时整列不渲染，避免留一列空白 */
+  const opsColumn: ColumnsType<SysUser>[number] = {
+    title: '操作',
+    key: 'ops',
+    width: 130,
+    render: (_, row) => (
+      <Space size={10}>
+        {canUpdate && <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>}
+        {canDelete && (
+          <Popconfirm
+            title={`删除「${row.name || row.username}」？`}
+            okText="删除"
+            cancelText="取消"
+            onConfirm={() => remove(row)}
+          >
+            <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+          </Popconfirm>
+        )}
+      </Space>
+    ),
+  };
+
   return (
     <div>
       <div
@@ -308,24 +349,30 @@ export default function SystemUser() {
           }}
         />
         <Button icon={<ReloadOutlined />} onClick={() => void load()} loading={loading} />
-        <Upload
-          accept=".xlsx"
-          showUploadList={false}
-          beforeUpload={(file) => {
-            void doImport(file);
-            return false;
-          }}
-        >
-          <Button icon={<UploadOutlined />} loading={importing}>
-            批量导入
+        {canImportUser && (
+          <Upload
+            accept=".xlsx"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              void doImport(file);
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />} loading={importing}>
+              批量导入
+            </Button>
+          </Upload>
+        )}
+        {canDownloadTemplate && (
+          <Button icon={<DownloadOutlined />} onClick={() => void downloadTemplate()}>
+            下载模板
           </Button>
-        </Upload>
-        <Button icon={<DownloadOutlined />} onClick={() => void downloadTemplate()}>
-          下载模板
-        </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          新建用户
-        </Button>
+        )}
+        {canCreate && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            新建用户
+          </Button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -398,24 +445,30 @@ export default function SystemUser() {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Button
-                        style={{ flex: 1, height: 38, paddingInline: 0 }}
-                        onClick={() => openEdit(row)}
-                      >
-                        编辑
-                      </Button>
-                      <Popconfirm
-                        title={`删除「${row.name || row.username}」？`}
-                        okText="删除"
-                        cancelText="取消"
-                        onConfirm={() => remove(row)}
-                      >
-                        <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
-                          删除
-                        </Button>
-                      </Popconfirm>
-                    </div>
+                    {(canUpdate || canDelete) && (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {canUpdate && (
+                          <Button
+                            style={{ flex: 1, height: 38, paddingInline: 0 }}
+                            onClick={() => openEdit(row)}
+                          >
+                            编辑
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Popconfirm
+                            title={`删除「${row.name || row.username}」？`}
+                            okText="删除"
+                            cancelText="取消"
+                            onConfirm={() => remove(row)}
+                          >
+                            <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                              删除
+                            </Button>
+                          </Popconfirm>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -487,24 +540,7 @@ export default function SystemUser() {
               width: 90,
               render: (v?: number) => (v === 0 ? <Tag color="warning">待审核</Tag> : <Tag color="success">正常</Tag>),
             },
-            {
-              title: '操作',
-              key: 'ops',
-              width: 130,
-              render: (_, row) => (
-                <Space size={10}>
-                  <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>
-                  <Popconfirm
-                    title={`删除「${row.name || row.username}」？`}
-                    okText="删除"
-                    cancelText="取消"
-                    onConfirm={() => remove(row)}
-                  >
-                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
-                  </Popconfirm>
-                </Space>
-              ),
-            },
+            ...(canUpdate || canDelete ? [opsColumn] : []),
           ]}
         />
       </Card>

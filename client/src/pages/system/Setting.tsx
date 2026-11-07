@@ -17,6 +17,7 @@ import {
 } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { get, getSystem, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
 import { WATERMARK_EVENT } from '../../components/Watermark';
 import type { WatermarkMode } from '../../components/Watermark';
@@ -98,6 +99,19 @@ export default function SystemSetting() {
   const [exportPassword, setExportPassword] = useState('');
   const [hasExportPassword, setHasExportPassword] = useState(false);
   const [savingExportPassword, setSavingExportPassword] = useState(false);
+
+  /**
+   * 路由守卫只要求 system:role:list，所以「能进页面」不等于「能保存」。
+   * 保存动作统一要 system:setting:update（SystemApi.java:100），没有就当只读页。
+   */
+  const [authorities, setAuthorities] = useState<string[]>([]);
+  const canUpdate = can(authorities, 'system:setting:update');
+  // Logo 上传走 /api/file/create，后端要的是 file:import（FileApi.java:54），和改设置的权限点分开
+  const canUploadLogo = can(authorities, 'file:import');
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
 
   const load = useCallback(async () => {
     const [sys, ai, deptRes, roleRes] = await Promise.all([
@@ -298,8 +312,17 @@ export default function SystemSetting() {
         </div>
       </div>
 
+      {!canUpdate && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 14 }}
+          message="你没有修改系统设置的权限"
+        />
+      )}
+
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
-        <Form form={form} layout="vertical" size="small" requiredMark={false}>
+        <Form form={form} layout="vertical" size="small" requiredMark={false} disabled={!canUpdate}>
           <Tabs
             items={[
               {
@@ -322,18 +345,20 @@ export default function SystemSetting() {
                       <Input placeholder="https://… 或 /api/public/preview/<id>" allowClear />
                     </Form.Item>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -10, marginBottom: 18 }}>
-                      <Upload
-                        accept="image/*"
-                        showUploadList={false}
-                        beforeUpload={(file) => {
-                          void uploadLogo(file);
-                          return false;
-                        }}
-                      >
-                        <Button size="small" icon={<UploadOutlined />} loading={uploading}>
-                          上传图片
-                        </Button>
-                      </Upload>
+                      {canUpdate && canUploadLogo && (
+                        <Upload
+                          accept="image/*"
+                          showUploadList={false}
+                          beforeUpload={(file) => {
+                            void uploadLogo(file);
+                            return false;
+                          }}
+                        >
+                          <Button size="small" icon={<UploadOutlined />} loading={uploading}>
+                            上传图片
+                          </Button>
+                        </Upload>
+                      )}
                       {logo ? (
                         <img
                           src={logo}
@@ -353,7 +378,9 @@ export default function SystemSetting() {
                     <Form.Item name="favicon" label="Favicon" extra="浏览器标签页图标 URL，留空则用 Logo">
                       <Input placeholder="https://…/favicon.ico" allowClear />
                     </Form.Item>
-                    <SaveBar loading={saving === 'basic'} onSave={() => void save('basic')} />
+                    {canUpdate && (
+                      <SaveBar loading={saving === 'basic'} onSave={() => void save('basic')} />
+                    )}
                   </>
                 ),
               },
@@ -412,7 +439,9 @@ export default function SystemSetting() {
                         description="注册用户登录后将看不到任何菜单，请在下面选择至少一个默认角色。"
                       />
                     )}
-                    <SaveBar loading={saving === 'access'} onSave={() => void save('access')} />
+                    {canUpdate && (
+                      <SaveBar loading={saving === 'access'} onSave={() => void save('access')} />
+                    )}
                   </>
                 ),
               },
@@ -433,6 +462,7 @@ export default function SystemSetting() {
                         <Switch
                           checked={protection.watermarkEnabled}
                           loading={savingProtection}
+                          disabled={!canUpdate}
                           checkedChildren="开启"
                           unCheckedChildren="关闭"
                           onChange={(checked) => void saveProtection({ watermarkEnabled: checked })}
@@ -441,6 +471,7 @@ export default function SystemSetting() {
                       <ProtectionRow label="水印内容" hint="手机号默认中间四位打码，避免完整号码随截图流出">
                         <Segmented
                           value={protection.watermarkMode}
+                          disabled={!canUpdate}
                           onChange={(value) => void saveProtection({ watermarkMode: value as WatermarkMode })}
                           options={[
                             { label: '姓名+手机号', value: 'name_phone' },
@@ -456,6 +487,7 @@ export default function SystemSetting() {
                         <Switch
                           checked={protection.copyProtected}
                           loading={savingProtection}
+                          disabled={!canUpdate}
                           checkedChildren="开启"
                           unCheckedChildren="关闭"
                           onChange={(checked) => void saveProtection({ copyProtected: checked })}
@@ -469,18 +501,21 @@ export default function SystemSetting() {
                         <Input.Password
                           value={exportPassword}
                           onChange={(e) => setExportPassword(e.target.value)}
+                          disabled={!canUpdate}
                           placeholder={hasExportPassword ? '已设置，输入新密码可修改' : '留空表示不启用'}
                           autoComplete="new-password"
                           style={{ width: 200 }}
                         />
-                        <Button
-                          size="small"
-                          type="primary"
-                          loading={savingExportPassword}
-                          onClick={() => void saveExportPassword()}
-                        >
-                          保存
-                        </Button>
+                        {canUpdate && (
+                          <Button
+                            size="small"
+                            type="primary"
+                            loading={savingExportPassword}
+                            onClick={() => void saveExportPassword()}
+                          >
+                            保存
+                          </Button>
+                        )}
                       </ProtectionRow>
                     </div>
                   </>
@@ -523,7 +558,9 @@ export default function SystemSetting() {
                     <Form.Item name="prompt" label="系统提示词" extra="作为 AI 对话的系统角色内容，选填">
                       <Input.TextArea autoSize={{ minRows: 3, maxRows: 8 }} placeholder="选填" />
                     </Form.Item>
-                    <SaveBar loading={saving === 'ai'} onSave={() => void save('ai')} />
+                    {canUpdate && (
+                      <SaveBar loading={saving === 'ai'} onSave={() => void save('ai')} />
+                    )}
                   </>
                 ),
               },

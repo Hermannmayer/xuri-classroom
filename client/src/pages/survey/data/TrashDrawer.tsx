@@ -3,9 +3,11 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Drawer, Empty, message, Space, Table } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import LinkAction from '../../../components/LinkAction';
 import TableScrollRegion from '../../../components/TableScrollRegion';
 import { get, post } from '../../../api';
+import { can, loadAuthorities } from '../../../auth/permissions';
 import type { Answer } from '../../../schema/project';
 import { TABLE_COMPONENTS } from '../../repo/table';
 
@@ -22,6 +24,16 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
   const [rows, setRows] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [authorities, setAuthorities] = useState<string[]>([]);
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  // 按钮级权限：恢复要 answer:restore，彻底删除要 answer:delete；没有权限的动作不渲染
+  const canRestore = can(authorities, 'answer:restore');
+  const canDelete = can(authorities, 'answer:delete');
+  const canOperate = canRestore || canDelete;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,6 +84,22 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
     });
   };
 
+  const actionColumn: ColumnsType<Answer>[number] = {
+    title: '',
+    key: 'ops',
+    width: 130,
+    render: (_, row) => (
+      <Space size={8}>
+        {canRestore && <LinkAction onClick={() => void run('restore', [row.id])}>恢复</LinkAction>}
+        {canDelete && (
+          <LinkAction style={{ color: 'var(--bp-orange)' }} onClick={() => confirmDestroy([row.id])}>
+            彻底删除
+          </LinkAction>
+        )}
+      </Space>
+    ),
+  };
+
   return (
     <Drawer
       title={`回收站 · 共 ${rows.length} 份`}
@@ -80,15 +108,25 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
       open={open}
       onClose={onClose}
     >
-      <Space style={{ marginBottom: 12 }} wrap>
-        <Button disabled={selected.length === 0} onClick={() => void run('restore', selected)}>
-          恢复选中
-        </Button>
-        <Button danger disabled={selected.length === 0} onClick={() => confirmDestroy(selected)}>
-          彻底删除选中
-        </Button>
-        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>已选中 {selected.length} 条</span>
-      </Space>
+      {canOperate ? (
+        <Space style={{ marginBottom: 12 }} wrap>
+          {canRestore && (
+            <Button disabled={selected.length === 0} onClick={() => void run('restore', selected)}>
+              恢复选中
+            </Button>
+          )}
+          {canDelete && (
+            <Button danger disabled={selected.length === 0} onClick={() => confirmDestroy(selected)}>
+              彻底删除选中
+            </Button>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>已选中 {selected.length} 条</span>
+        </Space>
+      ) : (
+        <div style={{ marginBottom: 12, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+          你没有恢复答卷或彻底删除答卷的权限，只能查看回收站。
+        </div>
+      )}
 
       <TableScrollRegion label="回收站列表（可横向滚动）">
       <Table<Answer>
@@ -98,10 +136,14 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
         dataSource={rows}
         components={TABLE_COMPONENTS}
         locale={{ emptyText: <Empty description="回收站是空的" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
-        rowSelection={{
-          selectedRowKeys: selected,
-          onChange: (keys) => setSelected(keys as string[]),
-        }}
+        rowSelection={
+          canOperate
+            ? {
+                selectedRowKeys: selected,
+                onChange: (keys) => setSelected(keys as string[]),
+              }
+            : undefined
+        }
         pagination={false}
         scroll={{ x: 460 }}
         columns={[
@@ -117,19 +159,7 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
             width: 110,
             render: (v: string, row) => <span style={{ fontSize: 12 }}>{v || row.createBy?.slice(0, 8) || '匿名'}</span>,
           },
-          {
-            title: '',
-            key: 'ops',
-            width: 130,
-            render: (_, row) => (
-              <Space size={8}>
-                <LinkAction onClick={() => void run('restore', [row.id])}>恢复</LinkAction>
-                <LinkAction style={{ color: 'var(--bp-orange)' }} onClick={() => confirmDestroy([row.id])}>
-                  彻底删除
-                </LinkAction>
-              </Space>
-            ),
-          },
+          ...(canOperate ? [actionColumn] : []),
         ]}
       />
       </TableScrollRegion>

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, DatePicker, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
 import { get, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 
 interface Dept {
   id: string;
@@ -86,6 +88,16 @@ export default function SystemGroup() {
     roleIds?: string[];
     validity?: [Dayjs, Dayjs] | undefined;
   }>();
+
+  /** 按钮级权限：列表由 system:dept:list 守卫，这里管新建/编辑/删除 */
+  const [authorities, setAuthorities] = useState<string[]>([]);
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  const canCreate = can(authorities, 'system:dept:create');
+  const canUpdate = can(authorities, 'system:dept:update');
+  const canDelete = can(authorities, 'system:dept:delete');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -176,6 +188,30 @@ export default function SystemGroup() {
     }
   };
 
+  /** 桌面端「操作」列：三个动作都没权限时整列不渲染 */
+  const opsColumn: ColumnsType<Dept>[number] = {
+    title: '操作',
+    key: 'ops',
+    width: 200,
+    render: (_, row) => (
+      <Space size={12}>
+        {canCreate && <LinkAction onClick={() => openCreate(row)}>加子组</LinkAction>}
+        {canUpdate && <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>}
+        {canDelete && (
+          <Popconfirm
+            title={`删除「${row.name}」？`}
+            okText="删除"
+            okButtonProps={{ danger: true }}
+            cancelText="取消"
+            onConfirm={() => remove(row)}
+          >
+            <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+          </Popconfirm>
+        )}
+      </Space>
+    ),
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -191,9 +227,11 @@ export default function SystemGroup() {
         </div>
         <div style={{ flex: 1 }} />
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
-          新建分组
-        </Button>
+        {canCreate && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
+            新建分组
+          </Button>
+        )}
       </div>
 
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)' }}>
@@ -243,26 +281,7 @@ export default function SystemGroup() {
                 </span>
               ),
             },
-            {
-              title: '操作',
-              key: 'ops',
-              width: 200,
-              render: (_, row) => (
-                <Space size={12}>
-                  <LinkAction onClick={() => openCreate(row)}>加子组</LinkAction>
-                  <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>
-                  <Popconfirm
-                    title={`删除「${row.name}」？`}
-                    okText="删除"
-                    okButtonProps={{ danger: true }}
-                    cancelText="取消"
-                    onConfirm={() => remove(row)}
-                  >
-                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
-                  </Popconfirm>
-                </Space>
-              ),
-            },
+            ...(canCreate || canUpdate || canDelete ? [opsColumn] : []),
           ]}
         />
       </Card>

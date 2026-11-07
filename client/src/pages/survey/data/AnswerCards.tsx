@@ -17,6 +17,9 @@ export interface AnswerCardsProps {
   onDetail: (row: Answer) => void;
   onEdit: (row: Answer) => void;
   onDelete: (row: Answer) => void;
+  /** 按钮级权限：没有对应权限时不渲染「编辑」/「删除」，默认 true 保持原行为 */
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 const CARD_STYLE = {
@@ -41,6 +44,8 @@ export default function AnswerCards({
   onDetail,
   onEdit,
   onDelete,
+  canEdit = true,
+  canDelete = true,
 }: AnswerCardsProps) {
   return (
     <div>
@@ -102,12 +107,16 @@ export default function AnswerCards({
               <Button style={{ height: 36, flex: 1 }} onClick={() => onDetail(row)}>
                 详情
               </Button>
-              <Button style={{ height: 36, flex: 1 }} onClick={() => onEdit(row)}>
-                编辑
-              </Button>
-              <Button danger style={{ height: 36, flex: 1 }} onClick={() => onDelete(row)}>
-                删除
-              </Button>
+              {canEdit && (
+                <Button style={{ height: 36, flex: 1 }} onClick={() => onEdit(row)}>
+                  编辑
+                </Button>
+              )}
+              {canDelete && (
+                <Button danger style={{ height: 36, flex: 1 }} onClick={() => onDelete(row)}>
+                  删除
+                </Button>
+              )}
             </div>
           </div>
         );
