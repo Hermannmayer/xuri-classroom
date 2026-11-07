@@ -105,6 +105,8 @@
 
 原则：**能造成数据外流或不可逆损失的动作，都必须单独一个权限点**，别混在 `xxx:update` 里。
 
+> **2026-11-07 更新**：下表里 `answer:audit`、`template:export`、`exercise:manage`、`user:export`、`system:log:export`、`system:backup`、`system:restore` 这 7 项前后端均未实现，已从权限目录（`PermissionEnum`）删除，功能落地后再加回。`project:partner`、`repo:grant`、`answer:restore`、`user:import`、`system:setting:update` 已接线生效。
+
 | 建议权限串 | 中文名 | 建议默认授予 | 理由 |
 |---|---|---|---|
 | `repo:export` | 导出题库 | 仅管理员 | 题库是最核心资产，导出必须可单独关闭 |

@@ -126,7 +126,7 @@ const BASIC_CODES = new Set(['home', 'user:update']);
 
 /**
  * 按权限串最后一段判断「看 / 改」。
- * 两端都不命中的（如 system:backup、content:protect、exercise:manage）归入「基础」，不强行归边。
+ * 两端都不命中的（如 content:protect、updatePosition、system:dictItem:import）归入「基础」，不强行归边。
  * updatePosition 这类复合动作按动词前缀兜底，避免把写操作显示成「基础」。
  */
 export function permissionKind(code: string): PermissionKind {

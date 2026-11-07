@@ -50,7 +50,6 @@ public enum PermissionEnum {
 	ANSWER_DELETE("answer:delete", "删除答卷", Group.ANSWER, "把答卷移入回收站"),
 	ANSWER_EXPORT("answer:export", "导出答卷", Group.ANSWER, "导出 Excel，含作答人信息，可单独关闭"),
 	ANSWER_UPLOAD("answer:upload", "上传答卷附件", Group.ANSWER, "为答卷补充附件材料"),
-	ANSWER_AUDIT("answer:audit", "人工改分/审核", Group.ANSWER, "改主观题得分；与「修改答卷内容」区分，便于追溯", true),
 	ANSWER_RESTORE("answer:restore", "恢复答卷", Group.ANSWER, "从回收站恢复答卷，与删除答卷对称", false),
 
 	/* ---------------------------------------------------------------- 题库 */
@@ -71,12 +70,10 @@ public enum PermissionEnum {
 	TEMPLATE_CREATE("template:create", "新增题目", Group.TEMPLATE, "新建题目并入库"),
 	TEMPLATE_UPDATE("template:update", "修改题目", Group.TEMPLATE, "修改题干、选项与属性"),
 	TEMPLATE_DELETE("template:delete", "删除题目", Group.TEMPLATE, "删除题库中的题目，不可恢复"),
-	TEMPLATE_EXPORT("template:export", "导出题目", Group.TEMPLATE, "题目级导出，和题库导出一样危险", true),
 
 	/* ---------------------------------------------------------------- 练习 */
 
 	EXERCISE_LIST("exercise:list", "练习记录与练习页", Group.EXERCISE, "我的练习、练习作答；同时给考试列表兜底"),
-	EXERCISE_MANAGE("exercise:manage", "管理他人练习记录", Group.EXERCISE, "删除他人练习记录；现在管理员也删不了别人的", true),
 
 	/* ---------------------------------------------------------------- 文件 */
 
@@ -89,7 +86,6 @@ public enum PermissionEnum {
 
 	USER_UPDATE("user:update", "修改本人资料", Group.USER, "改自己的资料与密码，三个角色都应具备"),
 	USER_IMPORT("user:import", "批量导入用户", Group.USER, "目前隐含在新建用户里，单独拆出来便于审计", false),
-	USER_EXPORT("user:export", "导出用户", Group.USER, "导出用户名单与联系方式，属于数据外流动作", true),
 
 	/* ---------------------------------------------------------------- 系统 */
 
@@ -121,9 +117,6 @@ public enum PermissionEnum {
 	SYSTEM_DICT_ITEM_DELETE("system:dictItem:delete", "删除字典项", Group.SYSTEM, "删除字典项"),
 	SYSTEM_SETTING_UPDATE("system:setting:update", "修改系统设置", Group.SYSTEM, "水印、防复制、协作者策略都在这里；现在靠查看角色兜底，必须独立", false),
 	SYSTEM_LOG_LIST("system:log:list", "查看操作日志", Group.SYSTEM, "审计能力的前提：谁导出了什么、谁改了谁的权限"),
-	SYSTEM_LOG_EXPORT("system:log:export", "导出操作日志", Group.SYSTEM, "出事时的取证能力", true),
-	SYSTEM_BACKUP("system:backup", "备份系统", Group.SYSTEM, "部署脚本已有备份能力，界面还没有", true),
-	SYSTEM_RESTORE("system:restore", "恢复备份", Group.SYSTEM, "恢复备份会覆盖现有数据，必须独立授权", true),
 
 	/* ---------------------------------------------------------------- 内容保护 */
 
