@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Empty,
@@ -113,9 +113,36 @@ export default function RepoList() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchGrantIds, setBatchGrantIds] = useState<string[]>([]);
-  // 题库列表是服务端分页，排序必须交给后端，否则只排当前页
-  const [sortBy, setSortBy] = useState<string>();
+  // 排序统一受控：antd 只要有一列给了 sortOrder，整张表就按受控处理，
+  // 所以 5 个可排序列必须都由同一个状态驱动，否则没给 sortOrder 的列点了没反应。
+  // name 走服务端（跨页正确、按拼音排）；其余四列在前端对当前页排序。
+  const [sortKey, setSortKey] = useState<string>();
   const [sortDesc, setSortDesc] = useState(false);
+  const sortOrderOf = (key: string) => (sortKey === key ? (sortDesc ? 'descend' : 'ascend') : null);
+
+  /**
+   * 非「名称」列的排序在本地做：这些字段后端没有排序参数。
+   * 汉字统一用 localeCompare('zh-CN') 走拼音序，和名称列（后端 GBK 排序）保持一致。
+   */
+  const sortedRows = useMemo(() => {
+    if (!sortKey || sortKey === 'name') return rows;
+    const arr = [...rows];
+    arr.sort((a, b) => {
+      switch (sortKey) {
+        case 'category':
+          return (a.category || '').localeCompare(b.category || '', 'zh-CN');
+        case 'mode':
+          return (a.mode || '').localeCompare(b.mode || '', 'zh-CN');
+        case 'total':
+          return (a.total ?? 0) - (b.total ?? 0);
+        case 'tag':
+          return (a.tag || []).join(',').localeCompare((b.tag || []).join(','), 'zh-CN');
+        default:
+          return 0;
+      }
+    });
+    return sortDesc ? arr.reverse() : arr;
+  }, [rows, sortKey, sortDesc]);
   const canCreate = hasPermission('repo:create');
   // 批量授权走 repo:grant；兼容老数据：有 repo:update 的也能看到入口
   const canGrant = hasPermission('repo:grant') || hasPermission('repo:update');
@@ -167,8 +194,8 @@ export default function RepoList() {
         name: keyword,
         // 学员没有 repo:create 时只看「自己/被授权/共享」的题库；否则后端会返回 0 条
         memberOnly: canCreate ? undefined : true,
-        sortBy: sortBy || undefined,
-        sortDesc: sortBy ? sortDesc : undefined,
+        sortBy: sortKey === 'name' ? 'name' : undefined,
+        sortDesc: sortKey === 'name' ? sortDesc : undefined,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -177,7 +204,7 @@ export default function RepoList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword, categoryFilter, canCreate, sortBy, sortDesc]);
+  }, [page, pageSize, keyword, categoryFilter, canCreate, sortKey, sortDesc]);
 
   useEffect(() => {
     void load();
@@ -494,15 +521,12 @@ export default function RepoList() {
         rowSelection={canGrant ? { selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) } : undefined}
         onChange={(_pagination, _filters, sorter) => {
           const single = Array.isArray(sorter) ? sorter[0] : sorter;
-          const field = single && single.field ? String(single.field) : '';
-          // 只有「名称」走服务端排序（跨页正确）；分类/类型/题量/标签由 antd 在本页内排序，
-          // 这几种列触发 onChange 时不要再发请求，否则会把刚排好的本页顺序覆盖回创建时间。
-          if (field && field !== 'name') return;
-          if (!single || !single.order) {
-            setSortBy(undefined);
+          const key = single && (single.field || single.columnKey) ? String(single.field ?? single.columnKey) : '';
+          if (!single || !single.order || !key) {
+            setSortKey(undefined);
             setSortDesc(false);
           } else {
-            setSortBy('name');
+            setSortKey(key);
             setSortDesc(single.order === 'descend');
           }
           setPage(1);
@@ -510,7 +534,7 @@ export default function RepoList() {
         size="middle"
         components={TABLE_COMPONENTS}
         loading={loading}
-        dataSource={rows}
+        dataSource={sortedRows}
         scroll={{ x: 860 }}
         locale={{
           emptyText: (
@@ -526,7 +550,7 @@ export default function RepoList() {
             title: '名称',
             dataIndex: 'name',
             sorter: true,
-            sortOrder: sortBy === 'name' ? (sortDesc ? 'descend' : 'ascend') : null,
+            sortOrder: sortOrderOf('name'),
             render: (_: unknown, row) => (
               <div>
                 <Space size={6}>
@@ -545,14 +569,16 @@ export default function RepoList() {
             title: '分类',
             dataIndex: 'category',
             width: 140,
-            sorter: (a, b) => (a.category || '').localeCompare(b.category || '', 'zh-CN'),
+            sorter: true,
+            sortOrder: sortOrderOf('category'),
             render: (v) => v || '—',
           },
           {
             title: '类型',
             dataIndex: 'mode',
             width: 170,
-            sorter: (a, b) => (a.mode || '').localeCompare(b.mode || ''),
+            sorter: true,
+            sortOrder: sortOrderOf('mode'),
             render: (mode, row) => (
               <Space size={4} wrap>
                 <Tag color={mode === 'exam' ? 'orange' : 'blue'}>
@@ -567,14 +593,16 @@ export default function RepoList() {
             title: '题量',
             dataIndex: 'total',
             width: 90,
-            sorter: (a, b) => (a.total ?? 0) - (b.total ?? 0),
+            sorter: true,
+            sortOrder: sortOrderOf('total'),
             render: (v) => `${v ?? 0} 题`,
           },
           {
             title: '标签',
             dataIndex: 'tag',
             width: 180,
-            sorter: (a, b) => (a.tag || []).join(',').localeCompare((b.tag || []).join(','), 'zh-CN'),
+            sorter: true,
+            sortOrder: sortOrderOf('tag'),
             render: (_: unknown, row) =>
               row.tag?.length ? (
                 <Space size={4} wrap>

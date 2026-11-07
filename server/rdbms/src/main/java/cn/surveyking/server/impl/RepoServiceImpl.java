@@ -72,7 +72,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String sortBy = query.getSortBy() == null ? "" : query.getSortBy();
 		switch (sortBy) {
 			case "name":
-				wrapper.orderBy(true, !desc, Repo::getName);
+				// 名称按「拼音」排：直接 ORDER BY name 用的是列排序规则（UCA 字根笔画序），
+				// 汉字顺序会看起来莫名其妙；转成 GBK 再排，GBK 的编码顺序基本等于拼音顺序。
+				wrapper.last("ORDER BY CONVERT(name USING gbk) " + (desc ? "DESC" : "ASC"));
 				break;
 			case "updateAt":
 				wrapper.orderBy(true, !desc, Repo::getUpdateAt);

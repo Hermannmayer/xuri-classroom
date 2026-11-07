@@ -626,3 +626,14 @@ body {
 .ant-table-tbody > tr.ant-table-row:hover > td.ant-table-column-sort {
   background: transparent !important;
 }
+
+
+/* 排序列底色归零（加强版）：antd 在暗色主题下给排序列的 td 上了 rgb(5,5,5)、
+   th 上了 rgb(15,15,15)，看起来就是整列/整行发黑。这里用最宽的选择器压掉，
+   不依赖 thead/tbody 层级，避免 antd 换结构后失效。 */
+.ant-table-column-sort,
+.ant-table-thead > tr > th.ant-table-column-sort,
+.ant-table-tbody > tr > td.ant-table-column-sort,
+.ant-table-tbody > tr.ant-table-row:hover > td.ant-table-column-sort {
+  background: transparent !important;
+}
