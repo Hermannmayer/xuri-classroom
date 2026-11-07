@@ -102,18 +102,23 @@ if (-not $ReloadOnly) {
 
 # ---------------------------------------------------------------- 3. NAS 同步 + 判断
 Say '3/6 NAS 工作副本同步'
-$syncScript = @'
-cd "@REPO@" || exit 1
-BEFORE=$(git rev-parse HEAD)
-git fetch -q origin || { echo "FETCH_FAILED"; exit 1; }
-git reset --hard -q origin/main || { echo "RESET_FAILED"; exit 1; }
-AFTER=$(git rev-parse HEAD)
-echo "__BEFORE__${BEFORE}"
-echo "__AFTER__${AFTER}"
-git diff --name-only "${BEFORE}" "${AFTER}"
-'@.Replace('@REPO@', $RemoteRepo)
+function Get-SyncScript([string]$RepoDir) {
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('set -e')
+    [void]$sb.AppendLine("cd '$RepoDir'")
+    [void]$sb.AppendLine('BEFORE=$(git rev-parse HEAD)')
+    [void]$sb.AppendLine('git fetch -q origin')
+    [void]$sb.AppendLine('git reset --hard -q origin/main')
+    [void]$sb.AppendLine('AFTER=$(git rev-parse HEAD)')
+    [void]$sb.AppendLine('echo "__BEFORE__${BEFORE}"')
+    [void]$sb.AppendLine('echo "__AFTER__${AFTER}"')
+    [void]$sb.AppendLine('git diff --name-only "${BEFORE}" "${AFTER}" || true')
+    return $sb.ToString()
+}
 
-$sync = Invoke-NasScript -Body $syncScript
+# 直接给一个函数，而不是 here-string 再 Replace：here-string 里的行是 CRLF 开头，
+# PowerShell 的 `` 续行会让某些行丢掉前导空格，远端 bash 就报 "$'\r': command not found"。
+$sync = Invoke-NasScript -Body (Get-SyncScript -RepoDir $RemoteRepo)
 # 注意：远端输出里有 Windows 的 \r，不清掉会导致 "075382d...？ unknown revision"
 $lines = ($sync.Output -split "`n") | ForEach-Object { $_.TrimEnd("`r") }
 $before = (($lines | Where-Object { $_ -like '__BEFORE__*' }) -replace '__BEFORE__', '').Trim()
