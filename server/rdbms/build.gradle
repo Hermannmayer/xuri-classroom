@@ -11,6 +11,8 @@ repositories {
 dependencies {
     implementation project(':shared')
     implementation 'com.baomidou:mybatis-plus-boot-starter:3.5.0'
+    // 审计切面需要 AspectJ：shared 里是 implementation，不会传递到本模块
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.security:spring-security-oauth2-jose'
     implementation 'org.dhatim:fastexcel:0.12.13'
