@@ -218,11 +218,25 @@ export default function SystemPermissions() {
     });
   };
 
+  /**
+   * 预设不再写死在代码里：直接取内置角色（teacher/student）当前的权限配置。
+   * 这样管理员改完老师角色的权限后，「套用预设：老师」立刻跟着变，不会再出现两套数据。
+   */
+  const presetCodesOf = (key: PresetKey): string[] => {
+    const role = roles.find((r) => r.code === key);
+    return (role?.authorities ?? []).filter((code) => catalogCodes.has(code));
+  };
+
   const applyPreset = (key: PresetKey) => {
     const preset = PRESET_META[key];
+    const codes = presetCodesOf(key);
+    if (!codes.length) {
+      message.warning(`内置「${preset.label}」角色不存在或没有任何权限，无法套用`);
+      return;
+    }
     // 保留不在目录里的历史权限串，其余整体替换成预设
     const next = new Set([...draft].filter((code) => !catalogCodes.has(code)));
-    preset.codes.forEach((code) => next.add(code));
+    codes.forEach((code) => next.add(code));
     if (sameMembers(next, draft)) {
       message.info(`当前已经是${preset.label}预设`);
       return;
@@ -311,7 +325,7 @@ export default function SystemPermissions() {
           name: values.name,
           code: values.code,
           remark: values.remark,
-          authorities: preset ? [...preset.codes] : [],
+          authorities: preset ? presetCodesOf(values.preset as PresetKey) : [],
         });
         message.success(preset ? `角色已创建，已套用${preset.label}预设` : '角色已创建，接下来勾选权限');
       }
