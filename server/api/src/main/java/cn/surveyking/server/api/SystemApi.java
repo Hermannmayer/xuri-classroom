@@ -209,7 +209,7 @@ public class SystemApi {
 	 * @param request
 	 */
 	@PostMapping("/user/updatePosition")
-	@PreAuthorize("hasAuthority('system:user:updatePosition')")
+	@PreAuthorize("hasRole('admin')")
 	public void updateUserPosition(@RequestBody @Valid UserRequest request) {
 		userService.updateUserPosition(request);
 	}
@@ -259,7 +259,7 @@ public class SystemApi {
 	 * @return
 	 */
 	@GetMapping("/position/list")
-	@PreAuthorize("hasAuthority('system:position:list')")
+	@PreAuthorize("hasRole('admin')")
 	public PaginationResponse<PositionView> listPosition(PositionQuery query) {
 		return positionService.listPosition(query);
 	}
@@ -269,7 +269,7 @@ public class SystemApi {
 	 * @param request
 	 */
 	@PostMapping("/position/create")
-	@PreAuthorize("hasAuthority('system:position:create')")
+	@PreAuthorize("hasRole('admin')")
 	public void addPosition(@RequestBody PositionRequest request) {
 		positionService.addPosition(request);
 	}
@@ -279,7 +279,7 @@ public class SystemApi {
 	 * @param request
 	 */
 	@PostMapping("/position/update")
-	@PreAuthorize("hasAuthority('system:position:update')")
+	@PreAuthorize("hasRole('admin')")
 	public void updatePosition(@RequestBody PositionRequest request) {
 		positionService.updatePosition(request);
 	}
@@ -289,7 +289,7 @@ public class SystemApi {
 	 * @param request
 	 */
 	@PostMapping("/position/delete")
-	@PreAuthorize("hasAuthority('system:position:delete')")
+	@PreAuthorize("hasRole('admin')")
 	public void deletePosition(@RequestBody PositionRequest request) {
 		positionService.deletePosition(request.getId());
 	}

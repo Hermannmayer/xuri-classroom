@@ -54,5 +54,6 @@ export const createProject = (data: CreateProjectRequest) => post<ProjectView>('
 
 /** 全量更新；只传 id+name 就是改名，带 settingKey/settingValue 就是改单项设置 */
 export const updateProject = (data: Record<string, unknown>) => post<void>('/api/project/update', data);
+export const updateProjectStatus = (data: { id: string; status: number }) => post<void>('/api/project/status', data);
 
 export const deleteProject = (id: string) => post<void>('/api/project/delete', { id });

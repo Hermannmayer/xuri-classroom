@@ -27,6 +27,11 @@ public interface ProjectService {
 	@CacheEvict(value = CacheConsts.projectCache, key = "#request.id")
 	void updateProject(ProjectRequest request);
 
+	/**
+	 * 只更新发布状态（开启/关闭收集），由 project:publish 权限控制
+	 */
+	void updateProjectStatus(ProjectStatusRequest request);
+
 	@CacheEvict(value = CacheConsts.projectCache, key = "#request.id")
 	void deleteProject(ProjectRequest id);
 

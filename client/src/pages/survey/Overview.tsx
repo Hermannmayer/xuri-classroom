@@ -25,7 +25,7 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import QRCode from 'qrcode';
-import { get, getWithPagination, updateProject } from '../../api';
+import { get, getWithPagination, updateProject, updateProjectStatus } from '../../api';
 import type {
   Answer,
   AnswerSetting,
@@ -246,7 +246,7 @@ export default function SurveyOverview() {
       // 否则页头标签与项目列表里的状态会一直显示旧值。
       const nextStatus = v.status ? 1 : 0;
       if ((current.status ?? 0) !== nextStatus) {
-        await updateProject({ id, settingKey: 'status', settingValue: nextStatus });
+        await updateProjectStatus({ id, status: nextStatus });
       }
       setCurrent(setting);
       message.success('已保存');

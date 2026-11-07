@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
-import { updateProject } from '../../api';
+import { updateProjectStatus } from '../../api';
 import type { ProjectView } from '../../api';
 
 /** 后端 MyTaskView：答题记录。时间是毫秒时间戳，空值 Jackson 不返回 */
@@ -56,7 +56,7 @@ export function ProjectTable({
     const next = row.status === 1 ? 0 : 1;
     setTogglingId(row.id);
     try {
-      await updateProject({ id: row.id, settingKey: 'status', settingValue: next });
+      await updateProjectStatus({ id: row.id, status: next });
       message.success(next === 1 ? '已开启' : '已关闭');
       setData((prev) => prev.map((item) => (item.id === row.id ? { ...item, status: next } : item)));
     } catch (e) {

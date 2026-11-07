@@ -99,6 +99,17 @@ public class ProjectApi {
 	}
 
 	/**
+	 * 只改发布状态（开启/关闭收集）。独立端点 + 独立权限，老师可以「只发不编」。
+	 * @param request id + status
+	 */
+	@PostMapping("/status")
+	@PreAuthorize("hasAuthority('project:publish') or hasRole('admin')")
+	@EnableDataPerm(key = "#request.id")
+	public void updateProjectStatus(@RequestBody ProjectStatusRequest request) {
+		projectService.updateProjectStatus(request);
+	}
+
+	/**
 	 * 删除项目
 	 * @param project
 	 */

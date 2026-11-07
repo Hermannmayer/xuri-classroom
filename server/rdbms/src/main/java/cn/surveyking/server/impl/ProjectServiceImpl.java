@@ -176,6 +176,35 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		return projectId;
 	}
 
+	/**
+	 * 单独更新发布状态（开启/关闭收集）。
+	 * 拆出来是为了让 project:publish 这个权限真正生效：改整包设置仍走 updateProject（project:update），
+	 * 只有这个开关走 project:publish，老师可以「只发不编」。
+	 */
+	@Override
+	public void updateProjectStatus(ProjectStatusRequest request) {
+		if (request == null || isBlank(request.getId())) {
+			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
+		}
+		// 非 1 一律按「关闭」处理，避免脏值写库
+		Integer status = request.getStatus() != null && request.getStatus() == 1 ? 1 : 0;
+		synchronized (request.getId().intern()) {
+			Project project = new Project();
+			project.setId(request.getId());
+			project.setStatus(status);
+			Project existing = getById(request.getId());
+			if (existing == null) {
+				throw new ErrorCodeException(ErrorCode.ProjectNotFound);
+			}
+			ProjectSetting setting = completeSetting(existing.getSetting());
+			setting.setStatus(status);
+			// 发布开关同时影响 setting.status 与 t_project.status，两个都要写，
+			// 否则列表页（读列）和答题页（读 setting）会出现一个开一个关。
+			project.setSetting(setting);
+			updateById(project);
+		}
+	}
+
 	@Override
 	@SneakyThrows
 	public void updateProject(ProjectRequest request) {
