@@ -5,6 +5,7 @@ import cn.surveyking.server.core.constant.CacheConsts;
 import cn.surveyking.server.domain.dto.ProjectQuery;
 import cn.surveyking.server.domain.dto.ProjectRequest;
 import cn.surveyking.server.domain.dto.ProjectSetting;
+import cn.surveyking.server.domain.dto.ProjectStatusRequest;
 import cn.surveyking.server.domain.dto.ProjectView;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
