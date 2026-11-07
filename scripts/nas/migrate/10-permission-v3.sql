@@ -17,14 +17,14 @@ SET NAMES utf8mb4;
 
 -- 老师
 UPDATE t_role
-SET authority = CONCAT(authority, ',answer:attach,file:upload,template:import,system:user:create:student'),
+SET authority = CONCAT(authority, ',file:upload,template:import,system:user:create:student'),
     update_at = NOW()
 WHERE code = 'teacher' AND is_deleted = 0
   AND authority NOT LIKE '%system:user:create:student%';
 
 -- 学员：只加答题附件
 UPDATE t_role
-SET authority = CONCAT(authority, ',answer:attach'),
+SET authority = CONCAT(authority, ''),
     update_at = NOW()
 WHERE code IN ('xueyuan', 'student') AND is_deleted = 0
   AND authority NOT LIKE '%answer:attach%';

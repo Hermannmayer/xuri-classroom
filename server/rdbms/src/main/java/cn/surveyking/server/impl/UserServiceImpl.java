@@ -444,7 +444,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			return;
 		}
 		// 主组 + 附加组 → 各自祖先链（组表整表取一次，与 loadUserById 同一套解析）
-		List<String> deptChainIds = resolveDeptChainIds(resolveUserDeptIds(this.getById(currentUserId)), loadDeptMap());
+		Map<String, Dept> deptMap = loadDeptMap();
+		List<String> deptChainIds = resolveDeptChainIds(resolveUserDeptIds(this.getById(currentUserId)), deptMap);
+		// 再向下扩展到子树：年级主任挂在「年级组」，也要能看到下属班级的学生。
+		// 只按祖先链会漏掉子组，这是 2026-11-07 评审时确认要补的语义。
+		deptChainIds = expandWithDescendants(deptChainIds, deptMap);
 		List<String> extraDeptUserIds = deptChainIds.isEmpty() ? Collections.emptyList()
 				: userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptChainIds))
 						.stream().map(UserDept::getUserId).filter(StringUtils::hasText).distinct()
@@ -461,6 +465,33 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			}
 			scope.or().eq(User::getCreateBy, currentUserId);
 		});
+	}
+
+	/**
+	 * 把「自己的组 + 祖先链」扩展成「再加上所有子孙组」。
+	 *
+	 * <p>没有子孙会漏掉「年级主任挂着年级组、看不到下属班级学生」这种结构；
+	 * 组表很小（全量取一次），这里用迭代向上找父的方式展开，避免拼递归 SQL。
+	 */
+	private List<String> expandWithDescendants(List<String> chainIds, Map<String, Dept> deptMap) {
+		if (chainIds == null || chainIds.isEmpty() || deptMap == null || deptMap.isEmpty()) {
+			return chainIds == null ? Collections.emptyList() : chainIds;
+		}
+		Set<String> scope = new LinkedHashSet<>(chainIds);
+		boolean changed = true;
+		while (changed) {
+			changed = false;
+			for (Dept dept : deptMap.values()) {
+				if (dept.getId() == null || scope.contains(dept.getId()) || dept.getParentId() == null) {
+					continue;
+				}
+				if (scope.contains(dept.getParentId())) {
+					scope.add(dept.getId());
+					changed = true;
+				}
+			}
+		}
+		return new ArrayList<>(scope);
 	}
 
 	@Override

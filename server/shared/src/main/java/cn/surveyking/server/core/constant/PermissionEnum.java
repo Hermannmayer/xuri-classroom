@@ -115,7 +115,6 @@ public enum PermissionEnum {
 
 	/* ---------------------------------------------------------------- 内容保护 */
 
-	ANSWER_ATTACH("answer:attach", "答题附件上传", Group.ANSWER, "学员在答题页上传附件；与后台补录附件、题库导入分开", false),
 	FILE_UPLOAD("file:upload", "通用文件上传", Group.FILE, "系统 Logo 等通用上传；与「导入模板/题库文件」分开", false),
 	TEMPLATE_IMPORT("template:import", "批量导入题目", Group.TEMPLATE, "从 Excel/题库文件导入题目；与 repo:import 区分：这里只进题目", false),
 	SYSTEM_USER_CREATE_STUDENT("system:user:create:student", "新建学员", Group.SYSTEM, "只能创建「不含任何 system:* 权限」的角色（学员）", false),
