@@ -84,6 +84,9 @@ function StudentProjectList() {
   const [rows, setRows] = useState<ProjectView[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  // 学员视图一次性拉全量后前端分页，所以排序也放前端（服务端分页会跨页错序）
+  const [sortKey, setSortKey] = useState<'name' | 'status' | 'createAt'>();
+  const [sortDesc, setSortDesc] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -118,7 +121,19 @@ function StudentProjectList() {
   const filtered = keyword
     ? rows.filter((row) => (row.name || '').toLowerCase().includes(keyword.toLowerCase()))
     : rows;
-  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const sorted = (() => {
+    if (!sortKey) return filtered;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'name') cmp = (a.name || '').localeCompare(b.name || '', 'zh-CN');
+      else if (sortKey === 'status') cmp = (a.status ?? 0) - (b.status ?? 0);
+      else cmp = String(a.createAt || '').localeCompare(String(b.createAt || ''));
+      return sortDesc ? -cmp : cmp;
+    });
+    return arr;
+  })();
+  const paged = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   /** 公开答题页：/api/public/projectOutline 用项目 id 就能取题，不需要 project:detail */
   const start = (row: ProjectView) => navigate(`/s/${row.id}`);
@@ -241,22 +256,39 @@ function StudentProjectList() {
           dataSource={paged}
           locale={{ emptyText: emptyNode }}
           pagination={pager(page, pageSize, filtered.length, setPage, setPageSize, (n) => `共 ${n} 项`)}
+          onChange={(_pagination, _filters, sorter) => {
+            const single = Array.isArray(sorter) ? sorter[0] : sorter;
+            if (!single || !single.order) {
+              setSortKey(undefined);
+              setSortDesc(false);
+            } else {
+              setSortKey(single.field as 'name' | 'status' | 'createAt');
+              setSortDesc(single.order === 'descend');
+            }
+            setPage(1);
+          }}
           columns={[
             {
               title: '名称',
               dataIndex: 'name',
+              sorter: true,
+              sortOrder: sortKey === 'name' ? (sortDesc ? 'descend' : 'ascend') : null,
               render: (_: unknown, row) => row.name || '(未命名)',
             },
             {
               title: '状态',
               dataIndex: 'status',
               width: 100,
+              sorter: true,
+              sortOrder: sortKey === 'status' ? (sortDesc ? 'descend' : 'ascend') : null,
               render: (_: unknown, row) => statusTag(row),
             },
             {
               title: '创建时间',
               dataIndex: 'createAt',
               width: 170,
+              sorter: true,
+              sortOrder: sortKey === 'createAt' ? (sortDesc ? 'descend' : 'ascend') : null,
             },
             {
               title: '操作',

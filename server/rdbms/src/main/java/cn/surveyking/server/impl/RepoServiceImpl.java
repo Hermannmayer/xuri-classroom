@@ -66,8 +66,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@Override
 	public PaginationResponse<RepoView> listRepo(RepoQuery query) {
 		String currentUserId = SecurityContextUtils.getUserId();
-		Page<Repo> page = pageByQuery(query,
-				Wrappers.<Repo>lambdaQuery().like(isNotBlank(query.getName()), Repo::getName, query.getName())
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper = Wrappers.<Repo>lambdaQuery()
+				.like(isNotBlank(query.getName()), Repo::getName, query.getName())
 						.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory()).and(x -> {
 							if (Boolean.TRUE.equals(query.getMemberOnly())) {
 								// 自己创建的、或被逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
@@ -80,7 +80,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 								x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true));
 							}
 						}).eq(query.getIsPractice() != null, Repo::getIsPractice, query.getIsPractice())
-						.eq(query.getMode() != null, Repo::getMode, query.getMode()).orderByAsc(Repo::getCreateAt));
+						.eq(query.getMode() != null, Repo::getMode, query.getMode());
+		applyRepoOrder(wrapper, query);
+		Page<Repo> page = pageByQuery(query, wrapper);
 		PaginationResponse<RepoView> result = new PaginationResponse<>(page.getTotal(),
 				repoViewMapper.toView(page.getRecords()));
 		result.getList().forEach(repoView -> {

@@ -113,6 +113,9 @@ export default function RepoList() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchGrantIds, setBatchGrantIds] = useState<string[]>([]);
+  // 题库列表是服务端分页，排序必须交给后端，否则只排当前页
+  const [sortBy, setSortBy] = useState<string>();
+  const [sortDesc, setSortDesc] = useState(false);
   const canCreate = hasPermission('repo:create');
   // 批量授权走 repo:grant；兼容老数据：有 repo:update 的也能看到入口
   const canGrant = hasPermission('repo:grant') || hasPermission('repo:update');
@@ -164,6 +167,8 @@ export default function RepoList() {
         name: keyword,
         // 学员没有 repo:create 时只看「自己/被授权/共享」的题库；否则后端会返回 0 条
         memberOnly: canCreate ? undefined : true,
+        sortBy: sortBy || undefined,
+        sortDesc: sortBy ? sortDesc : undefined,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -172,7 +177,7 @@ export default function RepoList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword, categoryFilter, canCreate]);
+  }, [page, pageSize, keyword, categoryFilter, canCreate, sortBy, sortDesc]);
 
   useEffect(() => {
     void load();
@@ -487,6 +492,17 @@ export default function RepoList() {
       <Table<RepoView>
         rowKey="id"
         rowSelection={canGrant ? { selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) } : undefined}
+        onChange={(_pagination, _filters, sorter) => {
+          const single = Array.isArray(sorter) ? sorter[0] : sorter;
+          if (!single || !single.order) {
+            setSortBy(undefined);
+            setSortDesc(false);
+          } else {
+            setSortBy(String(single.field ?? 'createAt'));
+            setSortDesc(single.order === 'descend');
+          }
+          setPage(1);
+        }}
         size="middle"
         components={TABLE_COMPONENTS}
         loading={loading}
@@ -505,6 +521,8 @@ export default function RepoList() {
           {
             title: '名称',
             dataIndex: 'name',
+            sorter: true,
+            sortOrder: sortBy === 'name' ? (sortDesc ? 'descend' : 'ascend') : null,
             render: (_: unknown, row) => (
               <div>
                 <Space size={6}>
