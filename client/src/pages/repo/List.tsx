@@ -124,6 +124,10 @@ export default function RepoList() {
   // 批量授权走 repo:grant；兼容老数据：有 repo:update 的也能看到入口
   const canGrant = hasPermission('repo:grant') || hasPermission('repo:update');
   const canDetail = hasPermission('repo:detail');
+  // 能不能进题库看题：detail 之外，能导入/改/删/看题目列表的人都应该有入口。
+  // 之前只判 repo:detail，会话里权限串没刷新时点击会静默无反应（老师就踩过）。
+  const canOpen =
+    canDetail || hasPermission('repo:import') || hasPermission('template:list') || hasPermission('repo:update');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
   // 练习入口的权限：repo:book（题库练习）或 exercise:list（练习记录）
@@ -595,14 +599,14 @@ export default function RepoList() {
                 '—'
               ),
           },
-          ...(canDetail || canPractice || canUpdate || canDelete
+          ...(canOpen || canPractice || canUpdate || canDelete
             ? [
                 {
                   title: '操作',
                   width: canUpdate || canDelete ? 200 : 280,
                   render: (_: unknown, row: RepoView) => (
                     <Space size={4}>
-                      {canDetail && <LinkAction onClick={() => enter(row)}>题目</LinkAction>}
+                      {canOpen && <LinkAction onClick={() => enter(row)}>题目</LinkAction>}
                       {canPractice && <LinkAction onClick={() => startPractice(row, 'full')}>开始练习</LinkAction>}
                       {canPractice && <LinkAction onClick={() => openRandom(row)}>随机练习</LinkAction>}
                       {canPractice && hasPracticeProgress(row.id) && (

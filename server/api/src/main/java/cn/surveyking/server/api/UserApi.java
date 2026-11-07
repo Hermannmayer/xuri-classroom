@@ -133,6 +133,15 @@ public class UserApi {
 	 * @param query
 	 * @return
 	 */
+	/**
+	 * 保存当前账号的界面缩放，换设备登录后也一致。
+	 */
+	@PostMapping("/ui-zoom")
+	@PreAuthorize("isAuthenticated()")
+	public void updateUiZoom(@RequestBody UserRequest request) {
+		userService.updateUiZoom(request);
+	}
+
 	@GetMapping("/listUserTask")
 	@PreAuthorize("isAuthenticated()")
 	public PaginationResponse<MyTaskView> myTask(MyTaskQuery query) {

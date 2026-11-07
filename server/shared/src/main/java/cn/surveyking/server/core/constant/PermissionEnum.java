@@ -119,6 +119,9 @@ public enum PermissionEnum {
 	TEMPLATE_IMPORT("template:import", "批量导入题目", Group.TEMPLATE, "从 Excel/题库文件导入题目；与 repo:import 区分：这里只进题目", false),
 	SYSTEM_USER_CREATE_STUDENT("system:user:create:student", "新建学员", Group.SYSTEM, "只能创建「不含任何 system:* 权限」的角色（学员）", false),
 	SYSTEM_USER_CREATE_TEACHER("system:user:create:teacher", "新建老师/职工", Group.SYSTEM, "可创建带 system:* 权限的角色；比新建学员高一档", false),
+	PORTAL_STUDENT("portal:student", "学员视角", Group.PORTAL, "显示「我的任务」：考试安排 / 练习记录 / 我的成绩", false),
+	PORTAL_TEACHER("portal:teacher", "教师视角", Group.PORTAL, "显示「教学管理」与「班级学情」", false),
+	PORTAL_ADMIN("portal:admin", "管理视角", Group.PORTAL, "显示系统管理（用户 / 用户组 / 系统设置 / 权限 / 日志）", false),
 	CONTENT_PROTECT("content:protect", "水印与防复制策略", Group.CONTENT, "全站水印与防复制开关；文档里标注可与修改系统设置二选一", true);
 
 	/* ---------------------------------------------------------------- 其它 */
@@ -156,7 +159,7 @@ public enum PermissionEnum {
 	@Getter
 	public enum Group {
 
-		EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), FILE("文件"), USER("用户"),
+		PORTAL("视角"), EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), FILE("文件"), USER("用户"),
 		SYSTEM("系统"), CONTENT("内容保护"), OTHER("其它");
 
 		private final String label;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Empty, Tabs } from 'antd';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import ProjectList from '../project/List';
 import ExerciseList from '../exercise/List';
@@ -27,6 +27,10 @@ export default function TaskCenter() {
     });
   }, []);
 
+  // 老师/管理员走「教学管理 + 班级学情」，这个页面只属于学员视角
+  if (!can(authorities, 'portal:student') && can(authorities, 'portal:teacher')) {
+    return <Navigate to="/project" replace />;
+  }
   const canExam = can(authorities, 'project:list');
   const canPractice = can(authorities, 'exercise:list');
   const canReport = can(authorities, 'project:report');

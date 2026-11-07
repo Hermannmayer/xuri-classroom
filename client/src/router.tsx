@@ -6,6 +6,7 @@ import Register from './pages/user/Register';
 import Home from './pages/Home';
 import ProjectList from './pages/project/List';
 import TaskCenter from './pages/tasks/TaskCenter';
+import TeachingWorkbench from './pages/teaching/Workbench';
 import ProjectTrash from './pages/project/Trash';
 import SurveyEditor from './pages/survey/Editor';
 import SurveySetting from './pages/survey/Setting';
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
+      { path: 'teaching', element: guard('portal:teacher', <TeachingWorkbench />) },
       { path: 'tasks', element: <TaskCenter /> },
       { path: 'project', element: guard('project:list', <ProjectList />) },
       { path: 'project/trash', element: guard('project:list', <ProjectTrash />) },

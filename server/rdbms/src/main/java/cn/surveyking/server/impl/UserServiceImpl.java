@@ -652,6 +652,26 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	}
 
 	@Override
+	public void updateUiZoom(UserRequest request) {
+		if (request == null || request.getUiZoom() == null) {
+			return;
+		}
+		// 只允许 0.9 / 1 / 1.15 / 1.3 四个档位：越界值夹到区间内，
+		// 避免有人手工把 ui_zoom 改成 10 倍把界面撑爆
+		double zoom = request.getUiZoom();
+		if (zoom < 0.9) {
+			zoom = 0.9;
+		}
+		if (zoom > 1.3) {
+			zoom = 1.3;
+		}
+		User update = new User();
+		update.setId(SecurityContextUtils.getUserId());
+		update.setUiZoom(zoom);
+		this.updateById(update);
+	}
+
+	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#id")
 	public void deleteUser(String id) {
 		assertManageableUser(id);

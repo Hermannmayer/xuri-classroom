@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  BarChartOutlined,
   DatabaseOutlined,
   HomeOutlined,
   ProjectOutlined,
@@ -33,8 +34,26 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => p === '/home' || p === '/',
     },
   ];
-  // 桌面端把「我的考试 + 我的练习」合并成「我的任务」，移动端保持一致
-  if (can(authorities, 'project:list') || can(authorities, 'exercise:list')) {
+  // 三个视角和桌面端一致：
+  // - 老师/管理员：教学管理 + 班级学情
+  // - 学员：我的任务（考试安排 / 练习记录 / 我的成绩）
+  if (can(authorities, 'portal:teacher')) {
+    tabs.push({
+      key: 'project',
+      path: '/project',
+      label: '教学',
+      icon: <ProjectOutlined />,
+      active: (p) => under(p, '/project') || under(p, '/survey'),
+    });
+    tabs.push({
+      key: 'teaching',
+      path: '/teaching',
+      label: '学情',
+      icon: <BarChartOutlined />,
+      active: (p) => under(p, '/teaching'),
+    });
+  }
+  if (can(authorities, 'portal:student')) {
     tabs.push({
       key: 'tasks',
       path: '/tasks',

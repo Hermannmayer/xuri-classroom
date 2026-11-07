@@ -37,6 +37,9 @@ public class UserView {
 	/** 附加组 id 列表（主组仍用 deptId）；用户组编辑弹窗回显用 */
 	private List<String> deptIds;
 
+	/** 界面缩放，前端登录后直接套用 */
+	private Double uiZoom;
+
 	/** 附加组名称，列表展示用 */
 	private List<String> deptNames;
 

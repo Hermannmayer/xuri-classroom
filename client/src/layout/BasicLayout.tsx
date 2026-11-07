@@ -8,6 +8,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MoonOutlined,
+  BarChartOutlined,
   ProjectOutlined,
   SettingOutlined,
   SunOutlined,
@@ -18,6 +19,8 @@ import { getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
 import { can, notifyAuthChanged } from '../auth/permissions';
 import ZoomControl from '../components/ZoomControl';
+import { applyZoom, readZoom, snapZoom } from '../utils/uiZoom';
+import { post } from '../api';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
@@ -53,10 +56,15 @@ export default function BasicLayout() {
   const { mode, toggle } = useThemeMode();
   // 页面缩放：整体放大，方便年长老师看清。默认 1.1 而不是 1：基准字号已经提到 15，
   // 再叠一档 110% 才是中老年学员实际能轻松读的尺寸，用户自己改过就尊重用户的值。
-  const [zoom, setZoom] = useState<number>(() => Number(localStorage.getItem('sk-zoom')) || 1.1);
+  const [zoom, setZoom] = useState<number>(() => readZoom());
+  // 缩放跟着账号走：登录后优先用账号里存的档位，没有才用本机上次的值
+  const changeZoom = (value: number) => {
+    const snapped = snapZoom(value);
+    setZoom(snapped);
+    void post('/api/user/ui-zoom', { uiZoom: snapped }).catch(() => undefined);
+  };
   useEffect(() => {
-    document.documentElement.style.zoom = String(zoom);
-    localStorage.setItem('sk-zoom', String(zoom));
+    applyZoom(zoom);
   }, [zoom]);
 
   useEffect(() => {
@@ -64,6 +72,9 @@ export default function BasicLayout() {
       .then(([u, s]) => {
         setUser(u);
         setSystem(s);
+        if (typeof u?.uiZoom === 'number' && Number.isFinite(u.uiZoom)) {
+          setZoom(snapZoom(u.uiZoom));
+        }
         document.title = s?.name || '旭日云课堂';
       })
       .catch(() => navigate('/user/login', { replace: true }))
@@ -86,9 +97,17 @@ export default function BasicLayout() {
 
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
-    // 考试与练习合并成「我的任务」：左边只留一个入口，里面两个 Tab
-    // （考试安排 / 练习记录）。管理员不做题，所以只有考试时也显示。
-    if (allow('project:list') || (!isAdmin && allow('exercise:list'))) {
+    // 三个视角分开：
+    // - 老师/管理员（有 project:update）：教学管理 + 班级学情；不做题，所以没有「我的任务」
+    // - 学员：只有「我的任务」（考试安排 / 练习记录 / 我的成绩）
+    // 视角完全由门户权限决定：勾了 portal:teacher 就有教学视角，
+    // 勾了 portal:student 就有学员视角，两个都勾就都有（管理员通常两个都没有，走系统管理）。
+    const canTeach = allow('portal:teacher');
+    if (canTeach) {
+      menu.push({ key: '/project', icon: <ProjectOutlined />, label: '教学管理' });
+      menu.push({ key: '/teaching', icon: <BarChartOutlined />, label: '班级学情' });
+    }
+    if (allow('portal:student')) {
       menu.push({ key: '/tasks', icon: <ProjectOutlined />, label: '我的任务' });
     }
 
@@ -257,7 +276,7 @@ export default function BasicLayout() {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
-            <ZoomControl value={zoom} onChange={setZoom} hideLabel={isMobile} />
+            <ZoomControl value={zoom} onChange={changeZoom} hideLabel={isMobile} />
             <Button
               type="text"
               size="small"

@@ -22,7 +22,7 @@ SET NAMES utf8mb4;
 INSERT INTO t_role (id, name, code, remark, authority, status, is_deleted, create_at)
 VALUES (
   'teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据',
-  'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:import,repo:grant,repo:book,template,template:list,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,file:upload,template:import,system:user:create:student',
+  'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:import,repo:grant,repo:book,template,template:list,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,file:upload,template:import,system:user:create:student,portal:teacher',
   1, 0, NOW()
 )
 ON DUPLICATE KEY UPDATE

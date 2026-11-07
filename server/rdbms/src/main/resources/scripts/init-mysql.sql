@@ -384,7 +384,7 @@ INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is
 -- 学员：答题、练习、错题本、看题库；没有 project:*，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:grant,repo:book,template,template:list,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,file:upload,template:import,system:user:create:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:grant,repo:book,template,template:list,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,file:upload,template:import,system:user:create:student,portal:teacher', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
 ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'home,exercise:list,repo:list,repo:detail,repo:book,project:list,project:detail,answer:list,answer:detail,answer:upload,user:update', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
@@ -484,6 +484,7 @@ CREATE TABLE `t_user` (
   `email` varchar(50) DEFAULT NULL COMMENT 'Email',
   `avatar` varchar(200) DEFAULT NULL COMMENT '头像地址',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '用户状态',
+  `ui_zoom` decimal(4,2) DEFAULT '1.00' COMMENT '界面缩放',
   `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `create_by` varchar(256) DEFAULT NULL,

@@ -25,6 +25,11 @@ public interface UserService extends UserDetailsService {
 
 	void updateUserProfile(String userId, UserProfileRequest request);
 
+	/**
+	 * 保存当前账号的界面缩放（只改 ui_zoom 一个字段）。
+	 */
+	void updateUiZoom(UserRequest request);
+
 	void deleteUser(String id);
 
 	boolean checkUsernameExist(String username);

@@ -1,30 +1,12 @@
 /**
  * 界面缩放档位控件
  *
- * 旧做法是下拉框（90%/100%/…），老师根本找不到入口；改成档位平铺后一眼可见，
- * 点一下就切换，不需要展开菜单。主界面、答题页、练习页共用同一个组件和同一套档位。
+ * 档位、吸附、持久化统一在 utils/uiZoom 里，全站一套（首页、系统页、答题页都一致）。
+ * 这里只负责渲染，不再自己维护档位表。
  */
+import { ZOOM_PRESETS, snapZoom } from '../utils/uiZoom';
 
-/** 档位值（CSS zoom 倍数），顺序即界面上的排列顺序 */
-export const ZOOM_PRESETS = [0.9, 1, 1.1, 1.25, 1.5, 1.75] as const;
-
-export const ZOOM_MIN = ZOOM_PRESETS[0];
-export const ZOOM_MAX = ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
-
-/** 把任意倍数吸附到最接近的档位，保证界面上总有一个档位是高亮的 */
-export function snapZoom(value: number): number {
-  if (!Number.isFinite(value)) return 1;
-  let best: number = ZOOM_PRESETS[1];
-  let min = Number.POSITIVE_INFINITY;
-  for (const preset of ZOOM_PRESETS) {
-    const diff = Math.abs(preset - value);
-    if (diff < min) {
-      min = diff;
-      best = preset;
-    }
-  }
-  return best;
-}
+export { ZOOM_PRESETS, ZOOM_MIN, ZOOM_MAX, snapZoom } from '../utils/uiZoom';
 
 export interface ZoomControlProps {
   value: number;
@@ -35,7 +17,7 @@ export interface ZoomControlProps {
   label?: string;
 }
 
-/** 档位平铺的缩放控件：所有档位直接可见，点哪个高亮哪个 */
+/** 档位平铺的缩放控件：4 档直接可见，点哪个高亮哪个 */
 export default function ZoomControl({ value, onChange, hideLabel, label = '界面缩放' }: ZoomControlProps) {
   const active = snapZoom(value);
   return (

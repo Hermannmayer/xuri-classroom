@@ -12,8 +12,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 import './renderer/registerAll';
 import './styles/global.css';
 import './styles/answer.css';
+import { applyStoredZoom } from './utils/uiZoom';
 
 dayjs.locale('zh-cn');
+
+// 统一界面缩放：开机就按用户上次选的档位作用到 <html>
+applyStoredZoom();
 
 // 用系统配置的 logo 当 favicon（机构换 logo 后标签页跟着换）
 void fetch('/api/system')

@@ -71,6 +71,8 @@ export interface UserInfo {
   positionList?: { id: string; name: string }[];
   status?: number;
   authorityList?: string[];
+  /** 界面缩放（0.9 / 1 / 1.15 / 1.3），跟着账号走 */
+  uiZoom?: number;
   correctTimes?: number;
 }
 
