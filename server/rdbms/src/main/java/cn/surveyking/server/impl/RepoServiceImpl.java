@@ -72,13 +72,13 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String sortBy = query.getSortBy() == null ? "" : query.getSortBy();
 		switch (sortBy) {
 			case "name":
-				wrapper.orderBy(true, desc, Repo::getName);
+				wrapper.orderBy(true, !desc, Repo::getName);
 				break;
 			case "updateAt":
-				wrapper.orderBy(true, desc, Repo::getUpdateAt);
+				wrapper.orderBy(true, !desc, Repo::getUpdateAt);
 				break;
 			default:
-				wrapper.orderBy(true, desc, Repo::getCreateAt);
+				wrapper.orderBy(true, !desc, Repo::getCreateAt);
 				break;
 		}
 	}
