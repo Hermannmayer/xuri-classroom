@@ -302,9 +302,15 @@ export default function Practice() {
           if (!alive) return;
           // 旧进度没有 total/paged：按「已经全部加载」恢复，不再去翻页
           const savedTotal = Math.max(saved.total ?? items.length, items.length);
-          applyQuestions(items, savedTotal, Boolean(saved.paged) && savedTotal > items.length);
+          // 上次进度可能来自题数更多的题库（题目被删过），此时 saved.index 会超出当前题数，
+          // 表现为「第 55 题加载失败，请重试」但页面只有 11 题。
+          // 规则：分页进度才信 savedTotal，否则总数就是已加载的题数；下标一律夹在有效范围内。
+          const resumedPaged = Boolean(saved.paged) && savedTotal > items.length;
+          const displayTotal = resumedPaged ? savedTotal : items.length;
+          const safeIndex = Math.min(Math.max(saved.index ?? 0, 0), items.length - 1);
+          applyQuestions(items, displayTotal, resumedPaged);
           setValues(saved.values ?? {});
-          setIndex(Math.min(saved.index ?? 0, savedTotal - 1));
+          setIndex(safeIndex);
           setLayout(saved.layout === 'scroll' ? 'scroll' : 'single');
           return;
         }

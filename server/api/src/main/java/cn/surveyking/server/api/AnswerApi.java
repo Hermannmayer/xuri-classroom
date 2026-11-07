@@ -111,7 +111,7 @@ public class AnswerApi {
 	 * 从回收站里面恢复答案
 	 * @param request
 	 */
-	@PreAuthorize("hasAuthority('answer:update')")
+	@PreAuthorize("hasAuthority('answer:restore') or hasRole('admin')")
 	@PostMapping("/restore")
 	public void restoreAnswer(@RequestBody AnswerRequest request) {
 		answerService.restoreAnswer(request);

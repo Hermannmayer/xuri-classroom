@@ -39,7 +39,7 @@ public enum PermissionEnum {
 	PROJECT_DELETE("project:delete", "删除考试", Group.EXAM, "移入回收站；回收站内的项目不会被物理删除"),
 	PROJECT_REPORT("project:report", "查看考试报表", Group.EXAM, "按题目统计的图表报表"),
 	PROJECT_PUBLISH("project:publish", "开启/关闭收集", Group.EXAM, "关闭后学员打不开问卷，属于高风险操作", true),
-	PROJECT_PARTNER("project:partner", "协作者与班级授权", Group.EXAM, "把考试授权给协作者或班级，目前混在编辑考试里", true),
+	PROJECT_PARTNER("project:partner", "协作者与班级授权", Group.EXAM, "把考试授权给协作者或班级，目前混在编辑考试里", false),
 
 	/* ---------------------------------------------------------------- 答卷 */
 
@@ -51,7 +51,7 @@ public enum PermissionEnum {
 	ANSWER_EXPORT("answer:export", "导出答卷", Group.ANSWER, "导出 Excel，含作答人信息，可单独关闭"),
 	ANSWER_UPLOAD("answer:upload", "上传答卷附件", Group.ANSWER, "为答卷补充附件材料"),
 	ANSWER_AUDIT("answer:audit", "人工改分/审核", Group.ANSWER, "改主观题得分；与「修改答卷内容」区分，便于追溯", true),
-	ANSWER_RESTORE("answer:restore", "恢复答卷", Group.ANSWER, "从回收站恢复答卷，与删除答卷对称", true),
+	ANSWER_RESTORE("answer:restore", "恢复答卷", Group.ANSWER, "从回收站恢复答卷，与删除答卷对称", false),
 
 	/* ---------------------------------------------------------------- 题库 */
 
@@ -63,7 +63,7 @@ public enum PermissionEnum {
 	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本、收藏与练习入口，属于学员功能"),
 	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭"),
 	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志"),
-	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", true),
+	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", false),
 
 	/* ---------------------------------------------------------------- 题目 */
 
@@ -88,7 +88,7 @@ public enum PermissionEnum {
 	/* ---------------------------------------------------------------- 用户 */
 
 	USER_UPDATE("user:update", "修改本人资料", Group.USER, "改自己的资料与密码，三个角色都应具备"),
-	USER_IMPORT("user:import", "批量导入用户", Group.USER, "目前隐含在新建用户里，单独拆出来便于审计", true),
+	USER_IMPORT("user:import", "批量导入用户", Group.USER, "目前隐含在新建用户里，单独拆出来便于审计", false),
 	USER_EXPORT("user:export", "导出用户", Group.USER, "导出用户名单与联系方式，属于数据外流动作", true),
 
 	/* ---------------------------------------------------------------- 系统 */
@@ -119,7 +119,7 @@ public enum PermissionEnum {
 	SYSTEM_DICT_ITEM_UPDATE("system:dictItem:update", "修改字典项", Group.SYSTEM, "改字典项"),
 	SYSTEM_DICT_ITEM_IMPORT("system:dictItem:import", "导入字典项", Group.SYSTEM, "批量导入字典项"),
 	SYSTEM_DICT_ITEM_DELETE("system:dictItem:delete", "删除字典项", Group.SYSTEM, "删除字典项"),
-	SYSTEM_SETTING_UPDATE("system:setting:update", "修改系统设置", Group.SYSTEM, "水印、防复制、协作者策略都在这里；现在靠查看角色兜底，必须独立", true),
+	SYSTEM_SETTING_UPDATE("system:setting:update", "修改系统设置", Group.SYSTEM, "水印、防复制、协作者策略都在这里；现在靠查看角色兜底，必须独立", false),
 	SYSTEM_LOG_LIST("system:log:list", "查看操作日志", Group.SYSTEM, "审计能力的前提：谁导出了什么、谁改了谁的权限"),
 	SYSTEM_LOG_EXPORT("system:log:export", "导出操作日志", Group.SYSTEM, "出事时的取证能力", true),
 	SYSTEM_BACKUP("system:backup", "备份系统", Group.SYSTEM, "部署脚本已有备份能力，界面还没有", true),

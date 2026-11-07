@@ -74,13 +74,13 @@ public class RepoApi {
 	}
 
 	@PostMapping("/partner/create")
-	@PreAuthorize("hasAuthority('repo:update')")
+	@PreAuthorize("hasAuthority('repo:grant') or hasRole('admin')")
 	public void addRepoPartner(@RequestBody RepoPartnerRequest request) {
 		repoPartnerService.addRepoPartner(request);
 	}
 
 	@PostMapping("/partner/delete")
-	@PreAuthorize("hasAuthority('repo:update')")
+	@PreAuthorize("hasAuthority('repo:grant') or hasRole('admin')")
 	public void deleteRepoPartner(@RequestBody RepoPartnerRequest request) {
 		repoPartnerService.deleteRepoPartner(request);
 	}

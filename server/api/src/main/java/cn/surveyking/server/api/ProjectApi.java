@@ -126,7 +126,7 @@ public class ProjectApi {
 	 * @param request
 	 */
 	@PostMapping("/partner/create")
-	@PreAuthorize("hasAuthority('project:update')")
+	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void addProjectPartner(@RequestBody ProjectPartnerRequest request) {
 		projectPartnerService.assertProjectOwner(request.getProjectId());
@@ -138,7 +138,7 @@ public class ProjectApi {
 	 * @param request
 	 */
 	@PostMapping("/partner/delete")
-	@PreAuthorize("hasAuthority('project:update')")
+	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void deleteProjectPartner(@RequestBody ProjectPartnerRequest request) {
 		projectPartnerService.assertProjectOwner(request.getProjectId());
@@ -161,7 +161,7 @@ public class ProjectApi {
 	 * @param request
 	 */
 	@PostMapping("/partner/import")
-	@PreAuthorize("hasAuthority('project:update')")
+	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void importPartner(WhiteListRequest request) {
 		projectPartnerService.importPartner(request);

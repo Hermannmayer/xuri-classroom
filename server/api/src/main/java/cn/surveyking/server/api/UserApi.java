@@ -116,7 +116,7 @@ public class UserApi {
 	 * @param request
 	 */
 	@PostMapping("/importUser")
-	@PreAuthorize("hasAuthority('system:user:create')")
+	@PreAuthorize("hasAnyAuthority('user:import','system:user:create') or hasRole('admin')")
 	public void importUser(UserRequest request) {
 		userService.importUser(request);
 	}

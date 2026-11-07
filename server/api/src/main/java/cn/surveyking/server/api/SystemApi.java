@@ -97,7 +97,7 @@ public class SystemApi {
 	 * @param request 更新请求
 	 */
 	@PostMapping("/update")
-	@PreAuthorize("hasRole('admin')")
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public void updateSystemInfo(@RequestBody SystemInfoRequest request) {
 		systemService.updateSystemInfo(request);
 	}
