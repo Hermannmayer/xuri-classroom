@@ -46,10 +46,13 @@ function Die($msg)  { Write-Host "`n❌ $msg`n" -ForegroundColor Red; exit 1 }
 # 把一段 bash 脚本通过 stdin 送给 NAS 执行（避免 PowerShell 引号地狱）
 function Invoke-NasScript {
     param([Parameter(Mandatory)][string]$Body, [switch]$AllowFail)
-    # 用 bash -s 从 stdin 读脚本。注意两点：
-    #   · 结尾必须留一个换行：bash 读到 EOF 时可能没执行最后一行，会以 exit 128 收场
-    #   · 2>&1 会把 stderr 混进输出，判断成败只能看 $LASTEXITCODE
-    $out = (($Body.TrimEnd() + "`n")) | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" 'bash -s' 2>&1
+    # 用 bash -s 从 stdin 读脚本。三条经验：
+    #   · 结尾必须留换行：bash 读到 EOF 时可能没执行最后一行，会以 exit 128 收场
+    #   · 要先把 CRLF 归一成 LF：here-string 是 CRLF，外层的 `` 续行会被解析成
+    #     "bash: line 9: $'\r': command not found"
+    #   · 2>&1 把 stderr 混进输出，成败只看 $LASTEXITCODE
+    $payload = (($Body -replace "`r`n", "`n").TrimEnd() + "`n")
+    $out = $payload | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" 'bash -s' 2>&1
     $code = $LASTEXITCODE
     if ($code -ne 0 -and -not $AllowFail) {
         Write-Host ($out -join "`n")
