@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, message, Modal, Popconfirm, Select, Table, Tag } from 'antd';
+import { Button, Empty, message, Modal, Popconfirm, Select, Table, Tag, TreeSelect } from 'antd';
 import { PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import LinkAction from '../../components/LinkAction';
 import { get, getWithPagination, post } from '../../api';
@@ -24,6 +24,8 @@ interface SysUser {
 interface Dept {
   id: string;
   name: string;
+  /** 后端 /api/system/dept/list 返回的是树，这里补上子节点 */
+  children?: Dept[];
 }
 
 /**
@@ -222,12 +224,17 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
           授权后，该班级的学员登录后能在「我的考试」里看到这份卷子；未注册的人仍可通过公开链接作答。
         </div>
-        <Select
+        <TreeSelect
           style={{ width: '100%' }}
           placeholder="选择班级 / 用户组"
           value={grantDept}
           onChange={setGrantDept}
-          options={depts.map((d) => ({ value: d.id, label: d.name }))}
+          treeData={depts.map((d) => ({ value: d.id, title: d.name, children: d.children?.map((c) => ({ value: c.id, title: c.name })) }))}
+          showSearch
+          treeNodeFilterProp="title"
+          treeDefaultExpandAll
+          allowClear
+          dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
         />
       </Modal>
     </div>

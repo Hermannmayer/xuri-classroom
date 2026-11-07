@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Empty, Modal, Popconfirm, Segmented, Select, Spin, Table, Tag } from 'antd';
+import { Alert, App, Button, Empty, Modal, Popconfirm, Segmented, Select, Spin, Table, Tag, TreeSelect } from 'antd';
 import { get, getWithPagination, post } from '../../api';
 import LinkAction from '../../components/LinkAction';
 
@@ -111,14 +111,16 @@ export default function GrantModal({
       ...flattenDepts(dept.children ?? [], depth + 1),
     ]);
 
-  const deptOptions = useMemo(
-    () =>
-      flattenDepts(depts).map((dept) => ({
+  /** 树形数据：保留层级，group 多的时候靠树 + 搜索定位，不再靠缩进空格硬凑 */
+  const deptTree = useMemo(() => {
+    const toTree = (list: Dept[]): { value: string; title: string; children?: any[] }[] =>
+      list.map((dept) => ({
         value: dept.id,
-        label: `${'　'.repeat(dept.depth)}${dept.name}`,
-      })),
-    [depts],
-  );
+        title: dept.name,
+        children: dept.children && dept.children.length ? toTree(dept.children) : undefined,
+      }));
+    return toTree(depts);
+  }, [depts]);
 
   const grant = async () => {
     if (targets.length === 0) return;
@@ -273,14 +275,17 @@ export default function GrantModal({
 
       {mode === 'dept' ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Select
+          <TreeSelect
             style={{ flex: '1 1 260px', minWidth: 220 }}
             placeholder="选择用户组 / 班级"
             value={deptId}
             onChange={setDeptId}
+            treeData={deptTree}
             showSearch
-            optionFilterProp="label"
-            options={deptOptions}
+            treeNodeFilterProp="title"
+            treeDefaultExpandAll
+            allowClear
+            dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
           />
           <Button type="primary" loading={saving} onClick={() => void grant()}>
             授权该用户组
