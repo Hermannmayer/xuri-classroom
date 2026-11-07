@@ -43,30 +43,31 @@ function Ok($msg)   { Write-Host "  ✅ $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "  ⚠️  $msg" -ForegroundColor Yellow }
 function Die($msg)  { Write-Host "`n❌ $msg`n" -ForegroundColor Red; exit 1 }
 
-# 把一段 bash 脚本通过 stdin 送给 NAS 执行（避免 PowerShell 引号地狱）
+# 把一段 bash 脚本送到 NAS 执行。
 #
-# 为什么走 base64 而不是直接发文本：Windows 下这一段无论如何都会被塞进 \r。
-# 实测 here-string、单引号多行串、拼接字符串都会带上 CR，PowerShell 传给原生
-# 进程时按 UTF-8 编码，\r 原样抵达，远端 bash 就报
-#   bash: line 10: $'\r': command not found
-# 只替换 "`r`n" 治不干净。改成先把脚本转成 base64（纯 ASCII、不含任何控制字符），
-# 远端 `base64 -d | bash` 解回来，一次性根治。
-function Base64FromLF([string]$Body) {
-    $lf = (($Body -replace "`r", "").TrimEnd()) + "`n"
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($lf)
-    return ("base64 -d <<'__B64__'" + "`n" + [Convert]::ToBase64String($bytes) + "`n__B64__" + "`n")
-}
-
+# 为什么是「写临时文件 → scp → 远端 bash 执行」，而不是 pipe 给 bash -s：
+#   Windows 的 PowerShell 把字符串管道给原生进程（ssh.exe）时，会在末尾**自动追加
+#   一个 \r\n**（实测 `"A`nB`n" | ssh ... 'od -c'` 收到的是 A \n B \n \r \n）。
+#   于是远端最后一行变成孤零零的 "\r"，bash 报
+#       bash: line 10: $'\r': command not found
+#   并且返回 127。试过 here-string、单引号多行串、-replace CR、base64 内联，全都被
+#   这个尾部的 \r 绕过。落盘成文件再 scp，走的是二进制通道，一个字节都不会变。
 function Invoke-NasScript {
     param([Parameter(Mandatory)][string]$Body, [switch]$AllowFail)
-    # 用 bash -s 从 stdin 读脚本。三条经验：
-    #   · 结尾必须留换行：bash 读到 EOF 时可能没执行最后一行，会以 exit 128 收场
-    #   · 要先把 CRLF 归一成 LF：here-string 是 CRLF，外层的 `` 续行会被解析成
-    #     "bash: line 9: $'\r': command not found"
-    #   · 2>&1 把 stderr 混进输出，成败只看 $LASTEXITCODE
-    $payload = Base64FromLF $Body
-    $out = $payload | ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" 'bash -s' 2>&1
-    $code = $LASTEXITCODE
+    $lf = ((($Body -replace "`r", "").TrimEnd()) + "`n")
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("xuri-deploy-" + [guid]::NewGuid().ToString('N') + ".sh")
+    [System.IO.File]::WriteAllText($tmp, $lf, (New-Object System.Text.UTF8Encoding($false)))
+    $remote = "/tmp/xuri-deploy-" + [guid]::NewGuid().ToString('N').Substring(0, 8) + ".sh"
+    try {
+        scp -o BatchMode=yes -q $tmp "${NasUser}@${NasHost}:$remote" 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Die "scp 上传脚本失败（目标 $remote）" }
+        $cmd = "bash $remote; ec=`$?; rm -f $remote; exit `$ec"
+        $out = @(ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" $cmd 2>&1)
+        $code = $LASTEXITCODE
+    }
+    finally {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
     if ($code -ne 0 -and -not $AllowFail) {
         Write-Host ($out -join "`n")
         Die "NAS 上的命令失败（退出码 $code）。上面是远端输出。"
