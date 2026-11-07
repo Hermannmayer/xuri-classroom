@@ -617,3 +617,12 @@ body {
 }
 
 
+
+
+/* 排序后的列：antd 默认给这些单元格加一层底色，在蓝图暗色主题下会显示成整行发黑。
+   排序只是交互状态，不需要视觉底色。 */
+.ant-table-thead > tr > th.ant-table-column-sort,
+.ant-table-tbody > tr > td.ant-table-column-sort,
+.ant-table-tbody > tr.ant-table-row:hover > td.ant-table-column-sort {
+  background: transparent !important;
+}

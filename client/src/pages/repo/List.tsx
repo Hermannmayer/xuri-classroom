@@ -494,11 +494,15 @@ export default function RepoList() {
         rowSelection={canGrant ? { selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) } : undefined}
         onChange={(_pagination, _filters, sorter) => {
           const single = Array.isArray(sorter) ? sorter[0] : sorter;
+          const field = single && single.field ? String(single.field) : '';
+          // 只有「名称」走服务端排序（跨页正确）；分类/类型/题量/标签由 antd 在本页内排序，
+          // 这几种列触发 onChange 时不要再发请求，否则会把刚排好的本页顺序覆盖回创建时间。
+          if (field && field !== 'name') return;
           if (!single || !single.order) {
             setSortBy(undefined);
             setSortDesc(false);
           } else {
-            setSortBy(String(single.field ?? 'createAt'));
+            setSortBy('name');
             setSortDesc(single.order === 'descend');
           }
           setPage(1);
@@ -541,12 +545,14 @@ export default function RepoList() {
             title: '分类',
             dataIndex: 'category',
             width: 140,
+            sorter: (a, b) => (a.category || '').localeCompare(b.category || '', 'zh-CN'),
             render: (v) => v || '—',
           },
           {
             title: '类型',
             dataIndex: 'mode',
             width: 170,
+            sorter: (a, b) => (a.mode || '').localeCompare(b.mode || ''),
             render: (mode, row) => (
               <Space size={4} wrap>
                 <Tag color={mode === 'exam' ? 'orange' : 'blue'}>
@@ -561,12 +567,14 @@ export default function RepoList() {
             title: '题量',
             dataIndex: 'total',
             width: 90,
+            sorter: (a, b) => (a.total ?? 0) - (b.total ?? 0),
             render: (v) => `${v ?? 0} 题`,
           },
           {
             title: '标签',
             dataIndex: 'tag',
             width: 180,
+            sorter: (a, b) => (a.tag || []).join(',').localeCompare((b.tag || []).join(','), 'zh-CN'),
             render: (_: unknown, row) =>
               row.tag?.length ? (
                 <Space size={4} wrap>
