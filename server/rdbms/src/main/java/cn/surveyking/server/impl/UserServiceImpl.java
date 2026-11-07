@@ -445,10 +445,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		// 主组 + 附加组 → 各自祖先链（组表整表取一次，与 loadUserById 同一套解析）
 		Map<String, Dept> deptMap = loadDeptMap();
-		List<String> deptChainIds = resolveDeptChainIds(resolveUserDeptIds(this.getById(currentUserId)), deptMap);
+		List<String> ancestorChainIds = resolveDeptChainIds(resolveUserDeptIds(this.getById(currentUserId)), deptMap);
 		// 再向下扩展到子树：年级主任挂在「年级组」，也要能看到下属班级的学生。
 		// 只按祖先链会漏掉子组，这是 2026-11-07 评审时确认要补的语义。
-		deptChainIds = expandWithDescendants(deptChainIds, deptMap);
+		// 用 final 变量给下面的 lambda 捕获（Java 8 要求 effectively final）
+		final List<String> deptChainIds = expandWithDescendants(ancestorChainIds, deptMap);
 		List<String> extraDeptUserIds = deptChainIds.isEmpty() ? Collections.emptyList()
 				: userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptChainIds))
 						.stream().map(UserDept::getUserId).filter(StringUtils::hasText).distinct()
