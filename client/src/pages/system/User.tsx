@@ -46,6 +46,8 @@ interface Role {
   id: string;
   name?: string;
   code?: string;
+  /** 后端 RoleView.authorities：角色绑定的权限串（t_role.authority 按逗号拆开） */
+  authorities?: string[];
 }
 
 interface Dept {
@@ -121,7 +123,18 @@ export default function SystemUser() {
   const canCreate = can(authorities, 'system:user:create');
   const canUpdate = can(authorities, 'system:user:update');
   const canDelete = can(authorities, 'system:user:delete');
-  // 批量导入：注解是 hasAnyAuthority('user:import','system:user:create')（UserApi.java:119）
+
+  /**
+   * 角色下拉按「建用户分权」过滤（与后端 UserServiceImpl.assertRoleGrantScope 同一规则）：
+   * - 目标角色含任一 system:* 权限 = 能进系统管理 → 必须持 system:user:create:teacher（admin 由 can() 直接放行）；
+   * - 没有 teacher 档能力的人只能看到「不含任何 system:*」的角色（学员类）。
+   * code=admin 的角色由后端 toAuthorityNames 注入全部权限目录，即便库里没存 system:* 也按 teacher 档算。
+   */
+  const canGrantSystemRole = can(authorities, 'system:user:create:teacher');
+  const roleTouchesSystem = (role: Role) =>
+    role.code === 'admin' || (role.authorities ?? []).some((a) => typeof a === 'string' && a.startsWith('system:'));
+  const assignableRoles = canGrantSystemRole ? roles : roles.filter((role) => !roleTouchesSystem(role));
+  // 批量导入：注解是 hasAnyAuthority('user:import','system:user:create')（UserApi.java:126）
   const canImportUser = can(authorities, 'user:import') || can(authorities, 'system:user:create');
   // 下载导入模板：后端要 file:import（FileApi.java:75）
   const canDownloadTemplate = can(authorities, 'file:import');
@@ -602,12 +615,20 @@ export default function SystemUser() {
                 .map((d) => ({ value: d.id, label: d.name || d.id }))}
             />
           </Form.Item>
-          <Form.Item name="roles" label="角色" extra="不分配角色等于没有后台权限；学员不需要分配">
+          <Form.Item
+            name="roles"
+            label="角色"
+            extra={
+              canGrantSystemRole
+                ? '不分配角色等于没有后台权限；学员不需要分配'
+                : '只能分配不含系统管理权限的角色（学员类）；带 system:* 的角色需要「新建老师」权限'
+            }
+          >
             <Select
               mode="multiple"
               allowClear
               placeholder="默认不分配"
-              options={roles.map((r) => ({ value: r.id, label: r.name || r.code }))}
+              options={assignableRoles.map((r) => ({ value: r.id, label: r.name || r.code }))}
             />
           </Form.Item>
           <Form.Item name="phone" label="手机">

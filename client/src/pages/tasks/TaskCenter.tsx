@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import ProjectList from '../project/List';
 import ExerciseList from '../exercise/List';
+import MyReport from './MyReport';
 
 /**
  * 我的任务：把原来左侧「我的考试」和「我的练习」两个入口合并成一个。
@@ -28,6 +29,7 @@ export default function TaskCenter() {
 
   const canExam = can(authorities, 'project:list');
   const canPractice = can(authorities, 'exercise:list');
+  const canReport = can(authorities, 'project:report');
 
   const items = useMemo(() => {
     const tabs: { key: string; label: string; children: JSX.Element }[] = [];
@@ -37,8 +39,12 @@ export default function TaskCenter() {
     if (canPractice) {
       tabs.push({ key: 'practice', label: '练习记录', children: <ExerciseList /> });
     }
+    // 我的成绩：只能看自己交过的卷子（后端按 createBy 过滤）
+    if (canReport) {
+      tabs.push({ key: 'report', label: '我的成绩', children: <MyReport /> });
+    }
     return tabs;
-  }, [canExam, canPractice]);
+  }, [canExam, canPractice, canReport]);
 
   if (!ready) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--bp-text-soft)' }}>加载中…</div>;

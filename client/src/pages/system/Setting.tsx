@@ -72,14 +72,20 @@ const TAB_FIELDS: Record<TabKey, string[]> = {
  * 看起来就像每个 Tab 都重复了一遍；现在它有自己的 Tab，页面里只有一份。
  *
  * 保存方式分两种：
- * - 基本 / 登录与注册 / AI 走 Form + 各自底部的「保存」按钮（save）；
- * - 内容与隐私是「改完即存」，直接 POST /api/system/update 的 setting 增量字段（后端 merge 式更新），
+ * - 基本 / 登录与注册 / AI 走 Form + 各自底部的「保存」按钮（save），接口是 POST /api/system/update，
+ *   权限 system:setting:update；
+ * - 内容与隐私是「改完即存」，走独立接口 POST /api/system/protection（只写 copyProtected /
+ *   watermarkEnabled / watermarkMode 三个字段，其它字段后端一律忽略），权限 content:protect，
  *   保存成功后广播 window 事件，让 main.tsx 里挂的水印 / 防复制组件立即生效。
+ *   划重点：只有 content:protect 的角色能改这一页，但改不了「基本 / 登录与注册 / AI」；
+ *   反之只有 system:setting:update 的角色看这一页是只读（新接口不认那个权限），
+ *   但「导出密码」那一行仍然走 /api/system/update，只受 system:setting:update 控制。
  *
  * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
  * setting.copyright、setting.recordNum、setting.favicon。
  * 上传走 POST /api/file/create（multipart，publicRead=true），返回文件 id，
  * 前端存公开预览地址 /api/public/preview/<id> 到 avatar，登录页未登录也能加载。
+ * 该接口的权限是 file:upload 或 file:import（老角色兼容），与「能不能改系统设置」无关。
  */
 export default function SystemSetting() {
   const [form] = Form.useForm();
@@ -106,8 +112,16 @@ export default function SystemSetting() {
    */
   const [authorities, setAuthorities] = useState<string[]>([]);
   const canUpdate = can(authorities, 'system:setting:update');
-  // Logo 上传走 /api/file/create，后端要的是 file:import（FileApi.java:54），和改设置的权限点分开
-  const canUploadLogo = can(authorities, 'file:import');
+  /**
+   * 「内容与隐私」是独立权限点：content:protect（SystemProtectionApi.java 的 @PreAuthorize）。
+   * can() 对 ROLE_admin 直接放行，所以这里等价于「content:protect || 管理员」。
+   * 注意这里**不能**再并上 canUpdate：新接口只认 content:protect / admin，只有
+   * system:setting:update 的角色点了保存会 403，不如直接置灰。
+   * 反过来，只有 content:protect 的角色本页其它页签仍是只读（canUpdate 为 false）。
+   */
+  const canProtect = can(authorities, 'content:protect');
+  // Logo 上传走 /api/file/create，后端认 file:upload 或 file:import（FileApi.java 的 /create），与改系统设置分开
+  const canUploadLogo = can(authorities, 'file:upload') || can(authorities, 'file:import');
 
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
@@ -183,7 +197,10 @@ export default function SystemSetting() {
   };
 
   /**
-   * 内容与隐私：单项改完立即保存，只提交改动的那一个字段（后端是 merge 式更新）。
+   * 内容与隐私：单项改完立即保存，只提交改动的那一个字段。
+   * 走独立接口 POST /api/system/protection（只认 content:protect / admin）：后端只接受
+   * setting.copyProtected / setting.watermarkEnabled / setting.watermarkMode 三个字段，
+   * 其余字段一律忽略，所以这里也只发这三项。
    * 先乐观更新界面，失败回滚到改动前并给出错误提示。
    */
   const saveProtection = async (patch: Partial<ProtectionSetting>) => {
@@ -192,7 +209,7 @@ export default function SystemSetting() {
     setProtection(next);
     setSavingProtection(true);
     try {
-      await post('/api/system/update', { setting: patch });
+      await post('/api/system/protection', { setting: patch });
       message.success('已保存');
       // 广播给全局的水印 / 防复制组件，立即按新设置生效，不用刷新整页
       window.dispatchEvent(
@@ -317,7 +334,11 @@ export default function SystemSetting() {
           type="info"
           showIcon
           style={{ marginBottom: 14 }}
-          message="你没有修改系统设置的权限"
+          message={
+            canProtect
+              ? '你没有修改系统设置的权限，但可以修改「内容与隐私」里的水印 / 防复制'
+              : '你没有修改系统设置的权限'
+          }
         />
       )}
 
@@ -345,7 +366,9 @@ export default function SystemSetting() {
                       <Input placeholder="https://… 或 /api/public/preview/<id>" allowClear />
                     </Form.Item>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -10, marginBottom: 18 }}>
-                      {canUpdate && canUploadLogo && (
+                      {/* 上传只认文件权限（file:upload / file:import），不再要求 system:setting:update；
+                          没有改设置权限时按钮仍会显示但置灰（antd Form disabled 会把按钮一起禁用） */}
+                      {canUploadLogo && (
                         <Upload
                           accept="image/*"
                           showUploadList={false}
@@ -452,8 +475,18 @@ export default function SystemSetting() {
                 children: (
                   <>
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
-                      以下设置改完即时保存。水印与防复制作用于全站；导出密码用于导出题库/答卷前的二次确认。
+                      以下设置改完即时保存。水印与防复制作用于全站，走独立接口（权限 content:protect）；
+                      导出密码用于导出题库/答卷前的二次确认，仍属于「修改系统设置」（权限 system:setting:update）。
                     </div>
+                    {!canProtect && (
+                      <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="你没有修改水印 / 防复制策略的权限"
+                        description="需要 content:protect 权限（管理员默认拥有）。"
+                      />
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <ProtectionRow
                         label="全站水印"
@@ -462,7 +495,7 @@ export default function SystemSetting() {
                         <Switch
                           checked={protection.watermarkEnabled}
                           loading={savingProtection}
-                          disabled={!canUpdate}
+                          disabled={!canProtect}
                           checkedChildren="开启"
                           unCheckedChildren="关闭"
                           onChange={(checked) => void saveProtection({ watermarkEnabled: checked })}
@@ -471,7 +504,7 @@ export default function SystemSetting() {
                       <ProtectionRow label="水印内容" hint="手机号默认中间四位打码，避免完整号码随截图流出">
                         <Segmented
                           value={protection.watermarkMode}
-                          disabled={!canUpdate}
+                          disabled={!canProtect}
                           onChange={(value) => void saveProtection({ watermarkMode: value as WatermarkMode })}
                           options={[
                             { label: '姓名+手机号', value: 'name_phone' },
@@ -487,7 +520,7 @@ export default function SystemSetting() {
                         <Switch
                           checked={protection.copyProtected}
                           loading={savingProtection}
-                          disabled={!canUpdate}
+                          disabled={!canProtect}
                           checkedChildren="开启"
                           unCheckedChildren="关闭"
                           onChange={(checked) => void saveProtection({ copyProtected: checked })}
@@ -496,7 +529,7 @@ export default function SystemSetting() {
                       <hr className="bp-dim" style={{ margin: '2px 0' }} />
                       <ProtectionRow
                         label="导出密码"
-                        hint="设置后，导出题库或答卷都需要输入此密码；留空表示不启用。密码只保存不回显，重新输入并保存即可修改"
+                        hint="设置后，导出题库或答卷都需要输入此密码；留空表示不启用。密码只保存不回显，重新输入并保存即可修改。该项仍属于「修改系统设置」，需要 system:setting:update"
                       >
                         <Input.Password
                           value={exportPassword}

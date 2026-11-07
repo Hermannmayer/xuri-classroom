@@ -78,6 +78,9 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	private static final Pattern STRONG_PASSWORD_PATTERN = Pattern.compile("^.{8,32}$");
 
+	/** 后台系统管理权限前缀：带这类权限的角色属于「老师/职工」档，只能由持 system:user:create:teacher 的人授予 */
+	private static final String SYSTEM_AUTHORITY_PREFIX = "system:";
+
 	private final AccountMapper accountMapper;
 
 	private final PasswordEncoder passwordEncoder;
@@ -326,6 +329,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 						Arrays.asList(query.getIds() != null ? query.getIds() : new String[0]));
 		// 一人多组：按组筛选时主组或附加组命中都算，否则加进附加组的人在这个列表里「搜不到」
 		applyUserDeptScope(userQuery, orgIds);
+		// 数据范围：非管理员只看自己组链下的用户 + 自己建的账号（管理员全量）
+		applyCurrentUserDataScope(userQuery);
 		Page<User> userPage = pageByQuery(query, userQuery);
 		List<User> records = userPage.getRecords();
 		// 一人多组：整页一次性取出附加组与组名，避免每行再查库
@@ -413,6 +418,51 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		});
 	}
 
+	/**
+	 * 用户列表的数据范围（非管理员），与题库/考试的组范围同一口径：
+	 * <ul>
+	 * <li>自己所在用户组（主组 + 附加组）及其祖先链下的用户 —— 组链解析复用
+	 * {@link #resolveDeptChainIds}，与 {@code UserDeptScopeService.DEPT_SCOPE_SQL} 的祖先链语义一致；</li>
+	 * <li>或 {@code create_by = 自己}：自己建的学员就算后来被调到别的组，也仍然留在自己的列表里。</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * 管理员保持全量。这里只「收窄范围」，不改变按组筛选的语义：它与 {@link #applyUserDeptScope}
+	 * 在查询条件里是同层 AND，所以 (主组命中 OR 附加组命中) 依然生效。
+	 *
+	 * <p>
+	 * 子查询都走 Mapper / IN 列表，不把用户输入拼进 SQL；附加组同样是先转成 user_id 集合再 OR。
+	 */
+	private void applyCurrentUserDataScope(LambdaQueryWrapper<User> wrapper) {
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		String currentUserId = SecurityContextUtils.getUserId();
+		if (!StringUtils.hasText(currentUserId) || AppConsts.ANONYMOUS_USER_ID.equals(currentUserId)) {
+			// 用户列表接口本身要求登录；万一走到这里也绝不放成全量
+			wrapper.eq(User::getId, AppConsts.ANONYMOUS_USER_ID);
+			return;
+		}
+		// 主组 + 附加组 → 各自祖先链（组表整表取一次，与 loadUserById 同一套解析）
+		List<String> deptChainIds = resolveDeptChainIds(resolveUserDeptIds(this.getById(currentUserId)), loadDeptMap());
+		List<String> extraDeptUserIds = deptChainIds.isEmpty() ? Collections.emptyList()
+				: userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptChainIds))
+						.stream().map(UserDept::getUserId).filter(StringUtils::hasText).distinct()
+						.collect(Collectors.toList());
+		wrapper.and(scope -> {
+			if (deptChainIds.isEmpty()) {
+				// 没有任何组的人只剩「自己建的账号」这一条范围
+				scope.eq(User::getCreateBy, currentUserId);
+				return;
+			}
+			scope.in(User::getDeptId, deptChainIds);
+			if (!extraDeptUserIds.isEmpty()) {
+				scope.or().in(User::getId, extraDeptUserIds);
+			}
+			scope.or().eq(User::getCreateBy, currentUserId);
+		});
+	}
+
 	@Override
 	public void createUser(UserRequest request) {
 		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
@@ -442,6 +492,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	public void createSystemUser(UserRequest request) {
 		validateStrongPassword(request.getPassword(), null);
 		assertGrantableRoles(request.getRoles());
+		// 入口注解只认 system:user:create（能不能建用户），这里再按角色分「学员档 / 老师档」
+		assertRoleGrantScope(request.getRoles());
 		createUser(request);
 	}
 
@@ -475,6 +527,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		}
 		assertManageableUser(request.getId());
 		assertGrantableRoles(request.getRoles());
+		// 改角色和建用户同档：把学员改成老师也是「授予 system:* 角色」，必须持 teacher 档权限
+		assertRoleGrantScope(request.getRoles());
 		User current = this.getById(request.getId());
 		// 组变更同样会改变「有效权限」：目标组链上绑定的角色必须都是自己能授予的，否则等于借改组提权
 		assertDeptAssignmentAllowed(request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
@@ -862,6 +916,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 							List<String> roleIds = roleNames.stream().map(roleName2Id::get).distinct()
 									.collect(Collectors.toList());
 							assertGrantableRoles(roleIds);
+							// 导入是「批量建用户」的入口：每行角色同样要过学员/老师两档校验
+							assertRoleGrantScope(roleIds);
 							userRequest.setRoles(roleIds);
 						}
 						createUser(userRequest);
@@ -870,6 +926,14 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				catch (Exception e) {
 					if (e instanceof InternalServerError) {
 						throw (InternalServerError) e;
+					}
+					// 权限类异常不能被改写成「第 N 行解析失败」：否则学员档账号导入老师角色时，
+					// 看到的是文件格式错误，根本不知道是权限不足。原样抛给上层（会回滚整批）。
+					if (e instanceof AccessDeniedException) {
+						throw (AccessDeniedException) e;
+					}
+					if (e instanceof ErrorCodeException) {
+						throw (ErrorCodeException) e;
 					}
 					if (e instanceof DuplicateKeyException) {
 						throw new InternalServerError(i18n("user.import.userExists", rowNum[0]), e);
@@ -951,6 +1015,58 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN) || !callerAuthorities.containsAll(roleAuthorities)) {
 				throw new AccessDeniedException("不能分配权限高于当前用户的角色");
 			}
+		}
+	}
+
+	/**
+	 * 「建用户按角色分权」的服务层二次校验。
+	 *
+	 * <p>
+	 * 入口上的 @PreAuthorize 只回答「能不能进入建/改用户这个动作」，同一个人可能只该建学员、
+	 * 不该建老师；这个区分只能看请求里的 roles，所以在服务层拦：
+	 * <ul>
+	 * <li>目标角色里<b>任一</b>权限串以 {@code system:} 开头（即能进系统管理）→ 调用方必须是管理员，
+	 * 或持有 {@code system:user:create:teacher}；</li>
+	 * <li>否则（纯学员类角色，不含任何 system:*）→ 调用方持有
+	 * {@code system:user:create:student} 或 {@code system:user:create} 即可。</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * 与 {@link #assertGrantableRoles} 分工：那个管「不能授予比自己高的角色」，这个管「学员/老师两档
+	 * 委派」，两者都过才允许写库。角色 id 不存在/已停用由 assertGrantableRoles 先拦，这里只做分档。
+	 * {@code roleIds} 为 null 表示本次不改角色（更新场景），直接跳过。
+	 */
+	private void assertRoleGrantScope(List<String> roleIds) {
+		if (CollectionUtils.isEmpty(roleIds)) {
+			return;
+		}
+		List<String> normalizedIds = roleIds.stream().filter(StringUtils::hasText).distinct()
+				.collect(Collectors.toList());
+		if (normalizedIds.isEmpty() || SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		// 有效权限与 toAuthorityNames 同口径：code=admin 的角色会被注入全部权限目录，天然落进 system: 档。
+		// 另外把 code=teacher 显式算作「老师档」：老师角色没有 system:* 权限（进不了系统管理），
+		// 但能管考试/题库，属于高权角色，只有 system:user:create:teacher 的人才能授予，
+		// 否则只有 create:student 的人也能把学员改成老师，等于越权提权。
+		boolean assignsSystemRole = roleService.listByIds(normalizedIds).stream().filter(Objects::nonNull).anyMatch(role -> {
+			if ("admin".equals(role.getCode()) || "teacher".equals(role.getCode())) {
+				return true;
+			}
+			return toAuthorityNames(role).stream().anyMatch(authority -> authority.startsWith(SYSTEM_AUTHORITY_PREFIX));
+		});
+		Set<String> callerAuthorities = currentAuthorityNames();
+		if (assignsSystemRole) {
+			if (!callerAuthorities.contains(PermissionEnum.SYSTEM_USER_CREATE_TEACHER.getCode())) {
+				throw new ErrorCodeException(ErrorCode.PermVerifyFailed,
+						"没有权限创建/修改为带系统管理权限的角色（需要 system:user:create:teacher）");
+			}
+			return;
+		}
+		if (!callerAuthorities.contains(PermissionEnum.SYSTEM_USER_CREATE_STUDENT.getCode())
+				&& !callerAuthorities.contains(PermissionEnum.SYSTEM_USER_CREATE.getCode())) {
+			throw new ErrorCodeException(ErrorCode.PermVerifyFailed,
+					"没有权限创建/分配学员角色（需要 system:user:create:student 或 system:user:create）");
 		}
 	}
 

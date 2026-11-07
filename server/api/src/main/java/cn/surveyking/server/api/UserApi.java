@@ -112,7 +112,14 @@ public class UserApi {
 	}
 
 	/**
-	 * 导入用户
+	 * 导入用户。
+	 *
+	 * <p>
+	 * 「建用户按角色分权」无法在这一层判断：一行 Excel 里可以带任意角色，而 @PreAuthorize 只看调用方
+	 * 有没有进入导入动作的权限（system:user:create / user:import / admin）。因此这里只守入口，
+	 * 逐行角色分档交给服务层 {@code UserServiceImpl#importUser}：目标角色含 system:* 权限时要求
+	 * {@code system:user:create:teacher}，纯学员类角色只要求 {@code system:user:create:student}
+	 * 或 {@code system:user:create}；管理员不受限。校验不过整批回滚。
 	 * @param request
 	 */
 	@PostMapping("/importUser")

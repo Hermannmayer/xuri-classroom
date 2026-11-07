@@ -74,6 +74,10 @@ services:
       SK_JWT_SECRET: ${JWT_SECRET:-}
       # JVM 上限：机器还要跑 MySQL、watch 构建和飞牛自己
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
+      # 并发调参（2026-11-07）：默认 Hikari 10 个连接是开考瞬间的瓶颈，
+      # Undertow 默认 8×核数=32 个 worker；这台 4 核机器按实测抬到 20/64。
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: '20'
+      SERVER_UNDERTOW_THREADS_WORKER: '64'
       TZ: Asia/Shanghai
     expose:
       - '7007'

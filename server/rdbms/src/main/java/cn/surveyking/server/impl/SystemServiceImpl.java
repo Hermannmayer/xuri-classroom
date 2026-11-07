@@ -107,6 +107,58 @@ public class SystemServiceImpl implements SystemService {
 		}
 	}
 
+	/**
+	 * 只更新「内容保护」三项：防复制、水印开关、水印内容（{@code POST /api/system/protection}，权限
+	 * {@code content:protect}）。
+	 *
+	 * <p>
+	 * 与 {@link #updateSystemInfo(SystemInfoRequest)} 的区别：那是管理员的整页保存，能写系统名称、
+	 * 注册信息、AI、导出密码等；本方法只服务「有 content:protect、但没有 system:setting:update」
+	 * 的角色，所以**只接受这三个字段**。实现方式是先把请求裁剪成只含这三项的 DTO，再交给
+	 * {@link #mergeSysInfo(SysInfo, SystemInfoRequest)} —— 写入规则与整页保存完全一致（按非空字段
+	 * merge），但请求里其它字段在进 merge 之前就被丢掉了，即使调用方在 JSON 里塞 name / aiSetting /
+	 * exportPassword 也写不进去。
+	 * @param request 请求体，只读 setting.copyProtected / setting.watermarkEnabled /
+	 * setting.watermarkMode
+	 */
+	public void updateProtection(SystemInfoRequest request) {
+		SystemInfo.SystemSetting source = request == null ? null : request.getSetting();
+		if (source == null) {
+			// 没带 setting 就没什么可改的：直接返回，避免凭空插入一条空配置记录
+			return;
+		}
+		if (source.getCopyProtected() == null && source.getWatermarkEnabled() == null
+				&& !isNotBlank(source.getWatermarkMode())) {
+			// 三项都没给，视为无效请求（空对象/只带被忽略的字段），不做任何写入
+			return;
+		}
+		// 白名单：只保留这三项，其余（captchaEnabled / collaboratorAuthority / exportPassword …）全部丢弃
+		SystemInfo.SystemSetting whitelisted = new SystemInfo.SystemSetting();
+		whitelisted.setCopyProtected(source.getCopyProtected());
+		whitelisted.setWatermarkEnabled(source.getWatermarkEnabled());
+		whitelisted.setWatermarkMode(source.getWatermarkMode());
+		SystemInfoRequest sanitized = new SystemInfoRequest();
+		sanitized.setSetting(whitelisted);
+
+		SysInfo sysInfo = sysInfoMapper.selectById("1");
+		boolean exists = sysInfo != null;
+		if (!exists) {
+			sysInfo = new SysInfo();
+			sysInfo.setId("1");
+		}
+		mergeSysInfo(sysInfo, sanitized);
+		if (exists) {
+			sysInfoMapper.updateById(sysInfo);
+		}
+		else {
+			sysInfoMapper.insert(sysInfo);
+		}
+		// getSystemInfo() 把结果缓存在 commonCache 的 'systemInfo' 键里。本方法不在 SystemService
+		// 接口上，拿不到接口方法那套 @CacheEvict，必须手动失效；否则水印/防复制改完最长要等缓存
+		// TTL 才生效（前端改完就广播事件，会让界面显示成「已生效」而后端还是旧值）。
+		affectedCacheEvict(CacheConsts.commonCacheName);
+	}
+
 	@Override
 	public PaginationResponse<RoleView> getRoles(RoleQuery query) {
 		Page<Role> rolePage = roleService.pageByQuery(query,

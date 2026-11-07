@@ -157,9 +157,19 @@ public class AnswerApi {
 	}
 
 	/**
-	 * 修改答案上传附件
-	 * @param request 附件
-	 * @return 项目 schema
+	 * 后台补录答卷：从 Excel 导入整份答卷数据（前端「数据与分析 → 导入数据」调的就是这里）。
+	 *
+	 * <p>
+	 * 权限区分（本次细分，两个权限点不要混用）：
+	 * <ul>
+	 * <li>{@code answer:upload}：后台补录/导入答卷，属于管理侧写操作，所以这里保持只认它，不放开给学员；</li>
+	 * <li>{@code answer:attach}：学员在答题页上传附件。答题页走的是公开接口
+	 * {@code POST /api/public/upload}（{@code SurveyApi}，无需权限）；将来如果出现「需要登录态的
+	 * 答题附件接口」，注解应写成 {@code hasAnyAuthority('answer:attach','answer:upload')}，
+	 * 用 answer:upload 兜住老角色，别直接把老权限删掉。</li>
+	 * </ul>
+	 * @param request 上传的 Excel 文件与 projectId
+	 * @return 导入结果（projectId + schema）
 	 */
 	@PostMapping("/upload")
 	@PreAuthorize("hasAuthority('answer:upload')")

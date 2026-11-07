@@ -384,8 +384,8 @@ INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is
 -- 学员：答题、练习、错题本、看题库；没有 project:*，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:grant,repo:book,template,template:list,template:create,template:update,template:delete,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
-('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'home,exercise:list,repo:list,repo:detail,repo:book,project:list,project:detail,answer:list,answer:detail,answer:upload,user:update', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:grant,repo:book,template,template:list,template:create,template:update,template:delete,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,answer:attach,file:upload,template:import,system:user:create:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'home,exercise:list,repo:list,repo:detail,repo:book,project:list,project:detail,answer:list,answer:detail,answer:upload,answer:attach,user:update', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
 -- ----------------------------
