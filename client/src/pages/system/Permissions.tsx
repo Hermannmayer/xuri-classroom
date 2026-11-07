@@ -4,8 +4,6 @@ import {
   Alert,
   App,
   Button,
-  Checkbox,
-  Collapse,
   Empty,
   Form,
   Input,
@@ -13,12 +11,22 @@ import {
   Popconfirm,
   Radio,
   Spin,
+  Switch,
   Tag,
+  Tree,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import type { TreeDataNode, TreeProps } from 'antd';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import LinkAction from '../../components/LinkAction';
 import { loadAuthorities } from '../../auth/permissions';
-import { get, getWithPagination, post, type PermissionGroup, type RoleView } from '../../api';
+import {
+  get,
+  getWithPagination,
+  post,
+  type PermissionGroup,
+  type PermissionItem,
+  type RoleView,
+} from '../../api';
 import {
   GROUP_DESCRIPTIONS,
   KIND_HINT,
@@ -34,23 +42,26 @@ import {
 /**
  * 系统管理 → 权限配置。
  *
- * 页面只做三件事：
+ * 页面结构：
  * 1. 选角色：一行角色卡，内置的 admin/teacher/student 标「预设」；
- * 2. 勾权限：按后端分组渲染成可折叠卡片，每组一个全选，权限点标「看/改/基础」；
+ * 2. 左右两栏：左边是全部权限树（可勾选、可搜索、可只看已选），
+ *    右边是当前角色已有的权限（按分组列出，可逐条移除、可清空）；
  * 3. 保存：只提交当前角色的 authorities，保存后相关用户需重新登录才生效。
  *
  * 数据来源：
- * - 权限目录 GET /api/system/permission/list（后端 PermissionEnum 的 73 个权限点，按组返回）
+ * - 权限目录 GET /api/system/permission/list（后端 PermissionEnum 的权限点，按组返回）
  * - 角色列表 GET /api/system/role/list
  * - 新建角色 POST /api/system/role/create
  * - 保存角色 POST /api/system/role/update（body 只带 { id, authorities }）
  * - 删除角色 POST /api/system/role/delete
  *
  * 约定：
- * - admin 角色只读：永远显示「全部勾选 + 禁用」，后端也会拦截对它的权限修改；
+ * - admin 角色只读：左树永远显示「全部勾选 + 禁用」，后端也会拦截对它的权限修改；
+ * - 勾选只改本地草稿：左树、右栏、底部保存条读的是同一份 draft，点保存才落库；
  * - t_role.authority 里还有 `system:role`、`position` 这类不在目录里的历史前缀串，
  *   它们不在页面上显示，但草稿里会原样保留，保存时不会误删；
- * - 「套用预设」只改本地草稿，点保存才落库。
+ * - 「套用预设」只改本地草稿：从 roles 里取 code=teacher/student 的当前 authorities，
+ *   不写死常量，这样管理员改完内置角色后预设会跟着变。
  */
 
 const BUILTIN_CODES = new Set(['admin', 'teacher', 'student']);
@@ -87,6 +98,68 @@ const KIND_TAG_STYLE: CSSProperties = {
   padding: '0 5px',
 };
 
+/** 左右两栏等高：面板自己滚动，页面不至于被 60+ 条权限拉得很长 */
+const PANEL_STYLE: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  height: 'clamp(320px, calc(100vh - 500px), 760px)',
+  overflow: 'hidden',
+};
+
+const PANEL_HEAD_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexWrap: 'wrap',
+  padding: '9px 12px',
+  borderBottom: '1px dashed var(--bp-line)',
+};
+
+const PANEL_TOOLBAR_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexWrap: 'wrap',
+  padding: '8px 12px',
+  borderBottom: '1px dashed var(--bp-line-soft)',
+};
+
+const PANEL_BODY_STYLE: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  overflow: 'auto',
+  padding: '6px 10px 12px',
+};
+
+const GROUP_TITLE_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexWrap: 'wrap',
+  width: '100%',
+  padding: '2px 0',
+};
+
+const LEAF_TITLE_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexWrap: 'wrap',
+  width: '100%',
+  padding: '2px 0',
+};
+
+const MUTED_STYLE: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--bp-text-soft)',
+};
+
+const HINT_STYLE: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--bp-hint)',
+};
+
 /** 「看 / 改 / 基础」标签：颜色与 tooltip 都来自 permissionPresets 的静态规则 */
 function KindTag({ kind }: { kind: PermissionKind }) {
   const meta = KIND_META[kind];
@@ -95,6 +168,19 @@ function KindTag({ kind }: { kind: PermissionKind }) {
       {meta.label}
     </Tag>
   );
+}
+
+/** 悬停提示：保留原页面里的权限说明与菜单入口，只是不再占版面 */
+function permissionTip(item: PermissionItem): string | undefined {
+  const menu = PERMISSION_MENU[item.code];
+  const parts = [item.description, menu ? `入口：${menu}` : ''].filter(Boolean);
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+/** 搜索按「中文名 / 权限串」匹配，大小写不敏感（中文不受影响） */
+function matchesKeyword(item: PermissionItem, keyword: string) {
+  if (!keyword) return true;
+  return item.name.toLowerCase().includes(keyword) || item.code.toLowerCase().includes(keyword);
 }
 
 type RoleFormValues = {
@@ -110,6 +196,11 @@ type DraftState = {
   codes: Set<string>;
 };
 
+type VisibleGroup = {
+  group: PermissionGroup;
+  items: PermissionItem[];
+};
+
 export default function SystemPermissions() {
   const { message, modal } = App.useApp();
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
@@ -118,8 +209,11 @@ export default function SystemPermissions() {
   const [saving, setSaving] = useState(false);
   const [activeRoleId, setActiveRoleId] = useState<string>();
   const [draftState, setDraftState] = useState<DraftState>({ codes: new Set<string>() });
-  /** 套用预设后重建 Collapse，让新勾选的组自动展开（defaultActiveKey 只在挂载时生效） */
-  const [presetVersion, setPresetVersion] = useState(0);
+  /** 左树搜索：中文名 / 权限串；只影响左树的展示，不改草稿 */
+  const [keyword, setKeyword] = useState('');
+  /** 左树「只看已选」：便于在一个分组里确认已经拿了哪些 */
+  const [onlyChecked, setOnlyChecked] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 
   // 只有管理员能新建角色（后端 system/role/create 是 hasRole('admin')），非管理员不显示入口
   const [isAdmin, setIsAdmin] = useState(false);
@@ -195,8 +289,127 @@ export default function SystemPermissions() {
     return !sameMembers(draft, new Set(activeAuthorities));
   }, [draft, activeAuthorities, editorLocked]);
 
-  /** 默认全部展开：权限项多，折叠起来容易被误以为「系统里没有这个权限」 */
-  const defaultOpenKeys = useMemo(() => groups.map((group) => group.group), [groups]);
+  const keywordNorm = keyword.trim().toLowerCase();
+
+  /**
+   * 左树数据源：按目录分组顺序，过滤掉不命中的权限点。
+   * 搜索只保留命中节点及其父节点；「只看已选」再叠一层已勾选条件。
+   */
+  const visibleGroups = useMemo<VisibleGroup[]>(() => {
+    const result: VisibleGroup[] = [];
+    for (const group of groups) {
+      const items = (group.permissions ?? []).filter((item) => {
+        if (onlyChecked && !(editorLocked || draft.has(item.code))) return false;
+        return matchesKeyword(item, keywordNorm);
+      });
+      if (items.length > 0) result.push({ group, items });
+    }
+    return result;
+  }, [groups, onlyChecked, editorLocked, draft, keywordNorm]);
+
+  /** 右栏数据源：只按目录分组顺序列已勾选的权限，和左树的分组顺序天然一致 */
+  const selectedGroups = useMemo<VisibleGroup[]>(
+    () =>
+      groups
+        .map((group) => ({
+          group,
+          items: (group.permissions ?? []).filter((item) => editorLocked || draft.has(item.code)),
+        }))
+        .filter((entry) => entry.items.length > 0),
+    [groups, editorLocked, draft],
+  );
+
+  /** 左树勾选态：只传叶子权限串，父节点的全选 / 半选交给 antd 的级联推导 */
+  const treeCheckedKeys = useMemo(
+    () =>
+      editorLocked
+        ? allItems.map((item) => item.code)
+        : allItems.filter((item) => draft.has(item.code)).map((item) => item.code),
+    [allItems, draft, editorLocked],
+  );
+
+  /**
+   * 左树的两级结构：分组 → 权限点。
+   * 分组标题右侧显示「已选 / 总数」，权限点显示中文名 + 灰字权限串 + 看/改 Tag。
+   */
+  const treeData = useMemo<TreeDataNode[]>(
+    () =>
+      visibleGroups.map(({ group, items }) => {
+        const total = (group.permissions ?? []).length;
+        const picked = editorLocked
+          ? total
+          : (group.permissions ?? []).filter((item) => draft.has(item.code)).length;
+        return {
+          key: group.group,
+          // 分组标题只负责展开/收起：整组勾选交给左侧勾选框，避免点组名误加一整组权限
+          title: (
+            <div
+              style={{ ...GROUP_TITLE_STYLE, cursor: 'pointer' }}
+              title={GROUP_DESCRIPTIONS[group.group]}
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpandedKeys((prev) =>
+                  prev.includes(group.group)
+                    ? prev.filter((key) => key !== group.group)
+                    : [...prev, group.group],
+                );
+              }}
+            >
+              <span className="bp-title" style={{ fontSize: 13 }}>
+                {group.group}
+              </span>
+              <span style={MUTED_STYLE}>
+                已选 {picked} / {total}
+              </span>
+            </div>
+          ),
+          children: items.map((item) => ({
+            key: item.code,
+            title: (
+              <div style={LEAF_TITLE_STYLE} title={permissionTip(item)}>
+                <span style={{ fontSize: 13 }}>{item.name}</span>
+                <span style={MUTED_STYLE}>{item.code}</span>
+                <KindTag kind={permissionKind(item.code)} />
+              </div>
+            ),
+          })),
+        };
+      }),
+    [visibleGroups, draft, editorLocked],
+  );
+
+  /**
+   * 切角色 / 目录加载完成后：默认展开「已经有勾选」的分组；
+   * 一个都没勾的新角色展开第一组，避免左树看起来是空的。
+   */
+  useEffect(() => {
+    if (groups.length === 0) return;
+    const role = roles.find((item) => item.id === activeRoleId);
+    const codes = new Set(authoritiesOf(role));
+    const withSelection = groups.filter((group) =>
+      (group.permissions ?? []).some((item) => codes.has(item.code)),
+    );
+    const initial = withSelection.length > 0 ? withSelection : groups.slice(0, 1);
+    setExpandedKeys(initial.map((group) => group.group));
+  }, [groups, roles, activeRoleId]);
+
+  /**
+   * 搜索 / 只看已选打开时，自动展开所有可见分组，否则命中项藏在折叠节点里；
+   * 清空搜索后回到「展开有勾选的分组」，不至于把人留在只剩一个分组展开的状态。
+   * 只依赖两个筛选条件：勾选动作也会重算 visibleGroups，但不该把用户手动收起的分组再展开。
+   */
+  useEffect(() => {
+    if (!keywordNorm && !onlyChecked) {
+      setExpandedKeys(
+        groups
+          .filter((group) => (group.permissions ?? []).some((item) => editorLocked || draft.has(item.code)))
+          .map((group) => group.group),
+      );
+      return;
+    }
+    setExpandedKeys(visibleGroups.map((entry) => entry.group.group));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在筛选条件变化时重置展开态
+  }, [keywordNorm, onlyChecked]);
 
   const togglePermission = (code: string, checked: boolean) => {
     commitDraft((prev) => {
@@ -217,6 +430,24 @@ export default function SystemPermissions() {
       return next;
     });
   };
+
+  /**
+   * 勾选框的委托：勾选分组 = 整组加入 / 整组移除（搜索过滤时也按整组算，语义不随视图变化）；
+   * 勾选权限点 = 单项切换。半选态由 antd 根据叶子勾选推导。
+   */
+  const handleTreeCheck: TreeProps['onCheck'] = (_checkedKeys, info) => {
+    if (editorLocked) return;
+    const key = String(info.node.key);
+    const target = groups.find((group) => group.group === key);
+    if (target) {
+      toggleGroup(target, info.checked);
+    } else {
+      togglePermission(key, info.checked);
+    }
+  };
+
+  const expandAll = () => setExpandedKeys(visibleGroups.map((entry) => entry.group.group));
+  const collapseAll = () => setExpandedKeys([]);
 
   /**
    * 预设不再写死在代码里：直接取内置角色（teacher/student）当前的权限配置。
@@ -242,7 +473,12 @@ export default function SystemPermissions() {
       return;
     }
     setDraftState({ roleId: activeRoleId, codes: next });
-    setPresetVersion((version) => version + 1);
+    // 套用后把有权限的分组展开，方便直接核对
+    setExpandedKeys(
+      groups
+        .filter((group) => (group.permissions ?? []).some((item) => next.has(item.code)))
+        .map((group) => group.group),
+    );
     message.info(`已套用${preset.label}预设，保存后才生效`);
   };
 
@@ -255,7 +491,14 @@ export default function SystemPermissions() {
     setDraftState({ roleId: activeRoleId, codes: new Set(kept) });
   };
 
-  const resetDraft = () => setDraftState({ roleId: activeRoleId, codes: new Set(activeAuthorities) });
+  const resetDraft = () => {
+    setDraftState({ roleId: activeRoleId, codes: new Set(activeAuthorities) });
+    setExpandedKeys(
+      groups
+        .filter((group) => (group.permissions ?? []).some((item) => activeAuthorities.includes(item.code)))
+        .map((group) => group.group),
+    );
+  };
 
   const save = async () => {
     if (!activeRole || editorLocked) return;
@@ -360,6 +603,15 @@ export default function SystemPermissions() {
     );
   }
 
+  const treeEmptyText =
+    allItems.length === 0
+      ? '权限目录为空，请检查后端接口'
+      : keywordNorm
+        ? `没有匹配「${keyword.trim()}」的权限`
+        : onlyChecked
+          ? '当前角色还没有勾选任何权限'
+          : '没有可显示的权限';
+
   return (
     <div>
       <div style={{ marginBottom: 14 }}>
@@ -370,14 +622,14 @@ export default function SystemPermissions() {
           角色与权限
         </div>
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-          共 {allItems.length} 个权限点、{roles.length} 个角色。先选角色，再勾权限；新角色可以从老师或学员预设起步。
+          共 {allItems.length} 个权限点、{roles.length} 个角色。左边勾选、右边核对；新角色可以从老师或学员预设起步。
         </div>
       </div>
 
       {/* 1. 角色选择 */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, letterSpacing: '0.18em', color: 'var(--bp-text-soft)' }}>角色</span>
-        <span style={{ fontSize: 11, color: 'var(--bp-hint)' }}>内置角色带「预设」标签，选中后在下方微调</span>
+        <span style={HINT_STYLE}>内置角色带「预设」标签，选中后在下方左右两栏里调整</span>
       </div>
 
       <div
@@ -482,9 +734,16 @@ export default function SystemPermissions() {
                     只读
                   </Tag>
                 )}
+                {dirty && (
+                  <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+                    未保存
+                  </Tag>
+                )}
               </div>
               <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 3 }}>
-                {editorLocked ? `共 ${allItems.length} 个权限点` : `已勾选 ${checkedCount} / ${allItems.length} 项`}
+                {editorLocked
+                  ? `共 ${allItems.length} 个权限点，全部已勾选`
+                  : `已勾选 ${checkedCount} / ${allItems.length} 项 · 左树勾选即加入，右栏可逐条移除`}
               </div>
             </div>
             {!editorLocked && (
@@ -494,9 +753,6 @@ export default function SystemPermissions() {
                     套用预设：{PRESET_META[key].label}
                   </Button>
                 ))}
-                <Button size="small" onClick={clearDraft}>
-                  清空
-                </Button>
               </div>
             )}
           </div>
@@ -509,12 +765,6 @@ export default function SystemPermissions() {
               message="超级管理员拥有全部权限，不可修改"
               description="下面仅供查看。需要调整权限时，请改用老师、学员或自定义角色。"
             />
-          )}
-
-          {!editorLocked && legacyCodes.length > 0 && (
-            <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--bp-hint)' }}>
-              另有 {legacyCodes.length} 个历史权限串不在目录中（如 {legacyCodes.slice(0, 3).join('、')}），保存时会原样保留。
-            </div>
           )}
 
           <div
@@ -543,127 +793,158 @@ export default function SystemPermissions() {
             </span>
           </div>
 
-          {groups.length === 0 ? (
-            <div className="bp-card" style={{ padding: 40 }}>
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="权限目录为空，请检查后端接口" />
+          {/* 2:3 = 40% : 60%（gap 的一半从各自宽度里扣，另留 2px 余量防亚像素换行）；窄屏自动上下堆叠 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
+            {/* 左栏：全部权限树 */}
+            <div className="bp-card" style={{ ...PANEL_STYLE, flex: '2 1 calc(40% - 8px)', minWidth: 260 }}>
+              <div style={PANEL_HEAD_STYLE}>
+                <span className="bp-title" style={{ fontSize: 13 }}>
+                  全部权限
+                </span>
+                <span style={MUTED_STYLE}>{allItems.length} 个权限点</span>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <LinkAction style={{ fontSize: 11 }} onClick={expandAll}>
+                    展开全部
+                  </LinkAction>
+                  <LinkAction style={{ fontSize: 11 }} onClick={collapseAll}>
+                    收起全部
+                  </LinkAction>
+                </div>
+              </div>
+              <div style={PANEL_TOOLBAR_STYLE}>
+                <Input
+                  allowClear
+                  size="small"
+                  aria-label="搜索权限"
+                  placeholder="搜索中文名或权限串"
+                  prefix={<SearchOutlined style={{ color: 'var(--bp-text-soft)' }} />}
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  style={{ flex: '1 1 160px', minWidth: 140 }}
+                />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <Switch
+                    size="small"
+                    checked={onlyChecked}
+                    onChange={setOnlyChecked}
+                    disabled={allItems.length === 0}
+                  />
+                  <span style={HINT_STYLE}>只看已选</span>
+                </span>
+              </div>
+              <div style={PANEL_BODY_STYLE}>
+                {visibleGroups.length === 0 ? (
+                  <div style={{ padding: '32px 8px' }}>
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description={<span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>{treeEmptyText}</span>}
+                    />
+                  </div>
+                ) : (
+                  <Tree
+                    blockNode
+                    checkable
+                    selectable={false}
+                    disabled={editorLocked}
+                    style={{ background: 'transparent', fontSize: 13 }}
+                    treeData={treeData}
+                    checkedKeys={treeCheckedKeys}
+                    expandedKeys={expandedKeys}
+                    onExpand={(keys) => setExpandedKeys(keys.map(String))}
+                    onCheck={handleTreeCheck}
+                  />
+                )}
+              </div>
             </div>
-          ) : (
-            <Collapse
-              key={`${activeRole.id}-${presetVersion}`}
-              ghost
-              defaultActiveKey={defaultOpenKeys}
-              items={groups.map((group) => {
-                const items = group.permissions ?? [];
-                const picked = editorLocked ? items.length : items.filter((item) => draft.has(item.code)).length;
-                const allChecked = items.length > 0 && picked === items.length;
-                const someChecked = picked > 0 && !allChecked;
-                return {
-                  key: group.group,
-                  className: 'bp-card',
-                  style: { marginBottom: 10 },
-                  label: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span className="bp-title" style={{ fontSize: 13 }}>
+
+            {/* 右栏：当前角色已有的权限 */}
+            <div className="bp-card" style={{ ...PANEL_STYLE, flex: '3 1 calc(60% - 8px)', minWidth: 340 }}>
+              <div style={PANEL_HEAD_STYLE}>
+                <span className="bp-title" style={{ fontSize: 13 }}>
+                  当前角色权限
+                </span>
+                <span style={MUTED_STYLE}>
+                  已勾选 {checkedCount} / 全部 {allItems.length}
+                </span>
+                <div style={{ marginLeft: 'auto' }}>
+                  <Button size="small" onClick={clearDraft} disabled={editorLocked || checkedCount === 0}>
+                    清空
+                  </Button>
+                </div>
+              </div>
+              <div style={PANEL_BODY_STYLE}>
+                {selectedGroups.length === 0 ? (
+                  <div style={{ padding: '36px 12px' }}>
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description={
+                        <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                          {allItems.length === 0
+                            ? '权限目录为空，请检查后端接口'
+                            : '这个角色还没有任何权限，从左边勾选，或套用预设'}
+                        </span>
+                      }
+                    />
+                  </div>
+                ) : (
+                  selectedGroups.map(({ group, items }) => (
+                    <div key={group.group} style={{ marginBottom: 10 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '5px 4px',
+                          borderBottom: '1px solid var(--bp-line-soft)',
+                        }}
+                        title={GROUP_DESCRIPTIONS[group.group]}
+                      >
+                        <span className="bp-title" style={{ fontSize: 12 }}>
                           {group.group}
                         </span>
-                        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
-                          已选 {picked} / {items.length}
-                        </span>
-                      </span>
-                      {GROUP_DESCRIPTIONS[group.group] && (
-                        <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--bp-hint)' }}>
-                          {GROUP_DESCRIPTIONS[group.group]}
-                        </span>
-                      )}
-                    </div>
-                  ),
-                  extra: (
-                    <span
-                      onClick={(event) => event.stopPropagation()}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <Checkbox
-                        checked={allChecked}
-                        indeterminate={someChecked}
-                        disabled={editorLocked}
-                        aria-label={`全选${group.group}权限`}
-                        onChange={(event) => toggleGroup(group, event.target.checked)}
-                      >
-                        <span style={{ fontSize: 11 }}>全选</span>
-                      </Checkbox>
-                    </span>
-                  ),
-                  children: (
-                    <div>
-                      {items.map((item) => {
-                        const checked = editorLocked || draft.has(item.code);
-                        const kind = permissionKind(item.code);
-                        const menu = PERMISSION_MENU[item.code];
-                        const inputId = `perm-${activeRole.id}-${item.code}`;
-                        return (
+                        <span style={HINT_STYLE}>{items.length} 项</span>
+                      </div>
+                      {items.map((item) => (
+                        <div
+                          key={item.code}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            padding: '7px 4px',
+                            borderBottom: '1px dashed var(--bp-line-soft)',
+                          }}
+                        >
                           <div
-                            key={item.code}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              gap: 10,
-                              padding: '8px 0',
-                              borderBottom: '1px dashed var(--bp-line-soft)',
-                            }}
+                            title={permissionTip(item)}
+                            style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
                           >
-                            <Checkbox
-                              id={inputId}
-                              checked={checked}
-                              disabled={editorLocked}
-                              onChange={(event) => togglePermission(item.code, event.target.checked)}
-                              style={{ marginTop: 2 }}
-                            />
-                            <label
-                              htmlFor={inputId}
-                              style={{
-                                flex: 1,
-                                minWidth: 0,
-                                display: 'flex',
-                                gap: 12,
-                                justifyContent: 'space-between',
-                                alignItems: 'flex-start',
-                                cursor: editorLocked ? 'default' : 'pointer',
-                              }}
-                            >
-                              <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: 13 }}>{item.name}</span>
-                                  <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>{item.code}</span>
-                                  <KindTag kind={kind} />
-                                </span>
-                                {item.description && (
-                                  <span style={{ fontSize: 12, color: 'var(--bp-hint)' }}>{item.description}</span>
-                                )}
-                              </span>
-                              {menu && (
-                                <span
-                                  style={{
-                                    flexShrink: 0,
-                                    maxWidth: 180,
-                                    fontSize: 11,
-                                    lineHeight: 1.5,
-                                    color: 'var(--bp-text-soft)',
-                                    textAlign: 'right',
-                                  }}
-                                >
-                                  入口：{menu}
-                                </span>
-                              )}
-                            </label>
+                            <span style={{ fontSize: 13 }}>{item.name}</span>
+                            <span style={MUTED_STYLE}>{item.code}</span>
+                            <KindTag kind={permissionKind(item.code)} />
                           </div>
-                        );
-                      })}
+                          {!editorLocked && (
+                            <LinkAction
+                              style={{ fontSize: 11, flexShrink: 0, color: 'var(--bp-orange)' }}
+                              aria-label={`移除权限 ${item.name}`}
+                              onClick={() => togglePermission(item.code, false)}
+                            >
+                              移除
+                            </LinkAction>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ),
-                };
-              })}
-            />
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!editorLocked && legacyCodes.length > 0 && (
+            <div style={{ marginTop: 8, ...HINT_STYLE }}>
+              另有 {legacyCodes.length} 个历史权限串不在目录中（如 {legacyCodes.slice(0, 3).join('、')}），保存时会原样保留。
+            </div>
           )}
 
           {!editorLocked && (
