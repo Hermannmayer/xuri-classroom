@@ -17,7 +17,7 @@ import {
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
-import { notifyAuthChanged } from '../auth/permissions';
+import { can, notifyAuthChanged } from '../auth/permissions';
 import ZoomControl from '../components/ZoomControl';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
@@ -80,47 +80,49 @@ export default function BasicLayout() {
   const items = useMemo(() => {
     const authorities = user?.authorityList ?? [];
     const isAdmin = authorities.includes('ROLE_admin');
-    const has = (prefix: string) => isAdmin || authorities.some((a) => a.startsWith(prefix));
+    // 用和路由守卫完全一致的 can() 判定（精确权限或显式 domain:*），
+    // 不再用 startsWith 前缀——否则有 system:log:list 的人会看到「用户管理」，
+    // 点进去被 router 的精确守卫拦成 403。
+    const allow = (perm: string) => can(authorities, perm);
 
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
-    if (has('project:')) {
+    if (allow('project:list')) {
       menu.push({ key: '/project', icon: <ProjectOutlined />, label: t('menu.project', '我的考试') });
     }
     // 管理员不做题，练习入口只给老师/学员
-    if (has('exercise:') && !isAdmin) {
+    if (!isAdmin && allow('exercise:list')) {
       menu.push({ key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') });
-    }
-    if (has('repo:')) {
-      menu.push({
-        key: '/repo',
-        icon: <DatabaseOutlined />,
-        label: t('menu.repo', '题库中心'),
-        children: [
-          { key: '/repo/index', label: t('menu.repo.list', '题库列表') },
-          ...(isAdmin ? [] : [{ key: '/repo/book', label: t('menu.repo.book', '练习册') }]),
-        ],
-      });
-    }
-    if (has('system:')) {
-      menu.push({
-        key: '/system',
-        icon: <SettingOutlined />,
-        label: t('menu.system', '系统管理'),
-        children: [
-          { key: '/system/user', label: t('menu.system.user', '用户管理') },
-          { key: '/system/group', label: t('menu.system.group', '用户组') },
-          { key: '/system/setting', label: t('menu.system.setting', '系统设置') },
-          { key: '/system/permissions', label: t('menu.system.permissions', '权限配置') },
-          { key: '/system/audit', label: t('menu.system.audit', '操作日志') },
-        ],
-      });
     }
 
-    // 学员账号（无任何角色）至少能看到「我的练习」，否则登录后是一片空白
-    if (!isAdmin && !menu.some((m) => m?.key === '/exercise')) {
-      menu.push({ key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') });
+    // 题库中心：父项只有在至少有一个子项可见时才出现
+    const repoChildren: NonNullable<MenuProps['items']> = [];
+    if (allow('repo:list')) {
+      repoChildren.push({ key: '/repo/index', label: t('menu.repo.list', '题库列表') });
     }
+    if (!isAdmin && allow('repo:book')) {
+      repoChildren.push({ key: '/repo/book', label: t('menu.repo.book', '练习册') });
+    }
+    if (repoChildren.length > 0) {
+      menu.push({ key: '/repo', icon: <DatabaseOutlined />, label: t('menu.repo', '题库中心'), children: repoChildren });
+    }
+
+    // 系统管理：逐个判权，和 router.tsx 的 guard 一一对应
+    const systemChildren: NonNullable<MenuProps['items']> = [];
+    if (allow('system:user:list')) systemChildren.push({ key: '/system/user', label: t('menu.system.user', '用户管理') });
+    if (allow('system:dept:list')) systemChildren.push({ key: '/system/group', label: t('menu.system.group', '用户组') });
+    if (allow('system:role:list')) {
+      systemChildren.push({ key: '/system/setting', label: t('menu.system.setting', '系统设置') });
+      systemChildren.push({ key: '/system/permissions', label: t('menu.system.permissions', '权限配置') });
+    }
+    if (allow('system:log:list')) systemChildren.push({ key: '/system/audit', label: t('menu.system.audit', '操作日志') });
+    if (systemChildren.length > 0) {
+      menu.push({ key: '/system', icon: <SettingOutlined />, label: t('menu.system', '系统管理'), children: systemChildren });
+    }
+
+    // 注意：这里**不再**给「没有角色的用户」强塞「我的练习」。
+    // 之前那段兜底会和 router.tsx 的 exercise:list 守卫打架：菜单能点、进去 403。
+    // 真正的兜底是：给用户配一个角色（学员预设），而不是在界面上假装他有权限。
     return menu;
   }, [user]);
 

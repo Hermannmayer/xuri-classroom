@@ -62,10 +62,9 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => under(p, '/repo'),
     });
   }
-  // 与桌面端一致：没有任何角色的学员至少能看到「我的练习」
-  if (!authorities.includes('ROLE_admin') && !tabs.some((tab) => tab.key === 'exercise')) {
-    tabs.push(exerciseTab);
-  }
+  // 与桌面端一致：不再给「没有任何角色」的用户强塞「我的练习」。
+  // 菜单能点但路由守卫（exercise:list）会 403，属于自欺欺人；
+  // 正确做法是给用户配一个角色（学员预设），见 /system/permissions。
   tabs.push({
     key: 'account',
     path: '/account/settings',
