@@ -18,6 +18,8 @@
 #   .\scripts\nas\Deploy-Nas.ps1                              # 只发布已提交的内容
 #   .\scripts\nas\Deploy-Nas.ps1 -SkipSmoke                   # 不发冒烟
 #   .\scripts\nas\Deploy-Nas.ps1 -ReloadOnly                  # 不推代码，只重载后端
+#   .\scripts\nas\Deploy-Nas.ps1 -DiscardNasChanges           # NAS 上有人直接改过，丢弃那些改动
+#                                                             #（默认会中止并提示，防误删）
 #
 # 前提：本机 ~/.ssh 里有能免密登 NAS 的私钥（已配好）；NAS 上远端名 nas 指向
 #       ssh://Home@192.168.0.2/vol2/1000/xuri/src/repo.git
@@ -27,6 +29,7 @@ param(
     [string]$Message,
     [switch]$SkipSmoke,
     [switch]$ReloadOnly,
+    [switch]$DiscardNasChanges,   # NAS 上有未提交改动时，强制丢弃（默认中止）
     [string]$NasHost = '192.168.0.2',
     [string]$NasUser = 'Home',
     [string]$RemoteRepo = '/vol2/1000/xuri/src/work',
@@ -136,6 +139,15 @@ if (-not $ReloadOnly) {
 
 # ---------------------------------------------------------------- 3. NAS 同步 + 判断
 Say '3/6 NAS 工作副本同步'
+function Get-StatusScript([string]$RepoDir) {
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine("cd '$RepoDir'")
+    [void]$sb.AppendLine('echo "__DIRTY_BEGIN__"')
+    [void]$sb.AppendLine('git status --porcelain || true')
+    [void]$sb.AppendLine('echo "__DIRTY_END__"')
+    return $sb.ToString()
+}
+
 function Get-SyncScript([string]$RepoDir) {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('set -e')
@@ -150,10 +162,34 @@ function Get-SyncScript([string]$RepoDir) {
     return $sb.ToString()
 }
 
-# 直接给一个函数，而不是 here-string 再 Replace：here-string 里的行是 CRLF 开头，
-# PowerShell 的 `` 续行会让某些行丢掉前导空格，远端 bash 就报 "$'\r': command not found"。
+# 3a. 先看 NAS 工作副本干不干净。有人直接在 NAS 上改过的话，下面的 reset 会冲掉，
+#     所以先拦一道——这既是保护，也说明「直接改 NAS」是可用的，只要先把改动提交掉。
+$status = Invoke-NasScript -Body (Get-StatusScript -RepoDir $RemoteRepo)
+$inDirty = $false
+$dirtyLines = @()
+foreach ($l in ($status.Output -split "`n")) {
+    $t = $l.TrimEnd("`r")
+    if ($t -eq '__DIRTY_BEGIN__') { $inDirty = $true; continue }
+    if ($t -eq '__DIRTY_END__') { $inDirty = $false; continue }
+    if ($inDirty -and $t.Trim()) { $dirtyLines += $t.Trim() }
+}
+if ($dirtyLines.Count -gt 0) {
+    if (-not $DiscardNasChanges) {
+        Write-Host "`nNAS 运行副本上有 $($dirtyLines.Count) 个未提交改动：" -ForegroundColor Yellow
+        $dirtyLines | Select-Object -First 10 | ForEach-Object { "     $_" }
+        Die @"
+会被接下来的 reset --hard 冲掉，所以先停在这里。二选一：
+  · 想保留：SSH 上 NAS，cd $RemoteRepo 后 git add -A && git commit && git push origin main，
+            然后在本地 git pull nas main
+  · 想丢弃：重跑并加 -DiscardNasChanges
+"@
+    }
+    Warn "NAS 上有 $($dirtyLines.Count) 个未提交改动，按 -DiscardNasChanges 丢弃"
+}
+
+# 3b. 同步到裸仓库最新
 $sync = Invoke-NasScript -Body (Get-SyncScript -RepoDir $RemoteRepo)
-# 注意：远端输出里有 Windows 的 \r，不清掉会导致 "075382d...？ unknown revision"
+# 注意：远端输出里可能带 \r，不清掉会导致 "075382d...？ unknown revision"
 $lines = ($sync.Output -split "`n") | ForEach-Object { $_.TrimEnd("`r") }
 $before = (($lines | Where-Object { $_ -like '__BEFORE__*' }) -replace '__BEFORE__', '').Trim()
 $after  = (($lines | Where-Object { $_ -like '__AFTER__*' })  -replace '__AFTER__', '').Trim()

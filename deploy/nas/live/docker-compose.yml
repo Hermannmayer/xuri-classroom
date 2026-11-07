@@ -168,6 +168,46 @@ services:
         max-size: '10m'
         max-file: '3'
 
+  # ---------------------------------------------------------------- 备份
+  # 为什么不挂飞牛的系统计划任务：OTA 升级会替换系统分区，/etc/cron.d 有丢失风险。
+  # 放进 compose 后备份跟着容器走，升级不影响，重启自动恢复。
+  backup:
+    # 直接用 mysql:8.0：它自带 mysqldump / gzip / tar / sha256sum，不用自建镜像
+    image: mysql:8.0
+    container_name: xuri-live-backup
+    entrypoint: ["/bin/sh", "-c"]
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: ${DB_NAME:-surveyking}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      BACKUP_DIR: /backup
+      FILES_DIR: /data/files
+      RETENTION: ${BACKUP_RETENTION:-28}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${XURI_DATA_DIR:-/vol2/1000/xuri/live}/files:/data/files:ro
+      - ${XURI_BACKUP_DIR:-/vol2/1000/xuri/backup}:/backup
+      - ../../../scripts/nas/backup-live.sh:/opt/backup/backup-live.sh:ro
+    # 每 6 小时一份；28 份 ≈ 7 天。比"每天一次"更抗意外，代价只是多占几百 MB。
+    # entrypoint 已经是 /bin/sh -c，所以 command 只给一整段脚本文本。
+    command:
+      - |
+        while true; do
+          sh /opt/backup/backup-live.sh || echo "[backup] 本次失败，6 小时后重试"
+          sleep 21600
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
 volumes:
   web-dist:
     name: xuri-live-web-dist

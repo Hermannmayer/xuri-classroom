@@ -10,3 +10,15 @@ frontend-recon/** text=auto eol=lf
 # 压缩产物不要试图 diff
 frontend-recon/web/*.js  -diff
 frontend-recon/web/*.css -diff
+
+# 要在 Linux（NAS）上直接执行的脚本/配置：强制 LF。
+# 起因：在 Windows 上编辑过 .sh 后，CRLF 会让远端 bash 报
+#   bash: line N: $'\r': command not found
+# 这条能兜住，不需要每次手工 sed。
+*.sh        text eol=lf
+*.py        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.sql       text eol=lf
+Dockerfile* text eol=lf
+.gitattributes text eol=lf

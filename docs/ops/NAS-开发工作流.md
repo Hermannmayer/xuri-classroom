@@ -102,7 +102,50 @@ python scripts/nas/smoke-test.py --base https://ks.1618030.xyz:200  # 连公网�
 
 ---
 
-## 5. 回滚
+## 5. 两种编辑模式（都可以，别混用）
+
+这不是技术限制，是**一致性约定**：`Deploy-Nas.ps1` 会对 NAS 工作副本做 `reset --hard`，
+所以 NAS 上如果有没提交的改动，一定会在下次发布时被冲掉。
+
+| 模式 | 适合谁 | 怎么做 |
+|---|---|---|
+| **A. 本地编辑（默认）** | 主力在这台 Windows 上改 | 改 → `Deploy-Nas.ps1 -Message "..."` |
+| **B. 直接改 NAS** | 想省掉"推送"这一步、或临时在别的机器上改 | VS Code Remote-SSH → `/vol2/1000/xuri/src/work` 直接改 → **commit + push 回裸仓库** |
+
+模式 B 的完整回路：
+
+```bash
+cd /vol2/1000/xuri/src/work
+git add -A && git commit -m "改了什么" && git push origin main
+bash scripts/nas/live-reload.sh     # 只有后端改动需要；前端 web-watch 自动重建
+```
+
+```powershell
+# Windows 上同步回来（否则本地就落后了）
+git pull nas main
+```
+
+脚本的保护：`Deploy-Nas.ps1` 在 reset 前先检查 NAS 工作副本，脏就**中止并列出文件**；
+只有显式 `-DiscardNasChanges` 才会丢弃。所以模式 B 下忘了提交也不会瞬间丢代码，但别指望它当备份。
+
+## 6. 备份
+
+| 项 | 值 |
+|---|---|
+| 谁在跑 | 容器 `xuri-live-backup`（compose 里的 `backup` 服务，`restart: unless-stopped`） |
+| 频率 | 每 6 小时一次 |
+| 保留 | 最近 28 份（≈7 天） |
+| 落盘 | `/vol2/1000/xuri/backup/db_*.sql.gz`、`files_*.tar.gz`、`manifest_*.txt` |
+| 内容 | `mysqldump --single-transaction`（不锁表）+ 附件 tar + sha256 + manifest（表数/大小/哈希） |
+| 手动跑 | `docker exec xuri-live-backup sh /opt/backup/backup-live.sh` |
+| 恢复 | `gunzip < db_*.sql.gz \| docker compose exec -T db mysql -uroot -p"$DB_PASSWORD" surveyking` |
+
+**为什么不挂飞牛的系统计划任务**：OTA 升级替换系统分区，`/etc/cron.d` 有丢失风险；
+放进 compose 后备份跟着容器走，升级、重启都不影响。
+
+恢复演练每学期一次：解包 → `sha256sum -c` → 起一个临时库导入 → 数一下 `t_project` 行数对不对。
+
+## 7. 回滚
 
 ```bash
 # 只回滚代码（最常用）
