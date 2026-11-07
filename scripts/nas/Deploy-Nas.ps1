@@ -102,9 +102,9 @@ BEFORE=$(git rev-parse HEAD)
 git fetch -q origin || { echo "FETCH_FAILED"; exit 1; }
 git reset --hard -q origin/main || { echo "RESET_FAILED"; exit 1; }
 AFTER=$(git rev-parse HEAD)
-echo "__BEFORE__$BEFORE"
-echo "__AFTER__$AFTER"
-git diff --name-only "$BEFORE" "$AFTER"
+echo "__BEFORE__${BEFORE}"
+echo "__AFTER__${AFTER}"
+git diff --name-only "${BEFORE}" "${AFTER}"
 '@.Replace('@REPO@', $RemoteRepo)
 
 $sync = Invoke-NasScript -Body $syncScript
@@ -112,7 +112,7 @@ $sync = Invoke-NasScript -Body $syncScript
 $lines = ($sync.Output -split "`n") | ForEach-Object { $_.TrimEnd("`r") }
 $before = (($lines | Where-Object { $_ -like '__BEFORE__*' }) -replace '__BEFORE__', '').Trim()
 $after  = (($lines | Where-Object { $_ -like '__AFTER__*' })  -replace '__AFTER__', '').Trim()
-$changed = $lines | Where-Object { $_ -and $_ -notlike '__*' } | ForEach-Object { $_.Trim() }
+$changed = $lines | Where-Object { $_ -and $_ -notlike '__*' } | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9a-f]{40}$|^[^ ]' }
 
 if ($before -eq $after) {
     Ok "代码已是最新（$($after.Substring(0,7))），没有文件变化"
