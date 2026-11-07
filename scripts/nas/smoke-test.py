@@ -26,6 +26,13 @@ import sys
 import urllib.error
 import urllib.request
 
+# Windows 控制台默认 GBK，打印 ✅/❌ 会 UnicodeEncodeError。强制 UTF-8（失败就算了）。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:  # noqa: BLE001
+        pass
+
 
 def http(url, data=None, cookie=None, timeout=15):
     headers = {'Content-Type': 'application/json'}

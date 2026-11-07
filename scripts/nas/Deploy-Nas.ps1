@@ -81,6 +81,7 @@ function Test-Smoke {
     $py = Get-Command python -ErrorAction SilentlyContinue
     if (-not $py) { $py = Get-Command py -ErrorAction SilentlyContinue }
     if (-not $py) { Warn '本机找不到 python，跳过冒烟（可以手动跑 scripts/nas/smoke-test.py）'; return }
+    $env:PYTHONIOENCODING = 'utf-8'
     & $py.Source (Join-Path $repoRoot 'scripts/nas/smoke-test.py') --base $BaseUrl
     if ($LASTEXITCODE -ne 0) { Die '冒烟测试没通过——线上可能已经被这次改动影响，先看输出再决定回滚。' }
 }
