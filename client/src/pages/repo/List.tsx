@@ -16,7 +16,7 @@ import {
   Table,
   Tag,
 } from 'antd';
-import { AppstoreOutlined, DatabaseOutlined, PlusOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, DatabaseOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
@@ -111,7 +111,11 @@ export default function RepoList() {
     authorities.includes(permission) ||
     authorities.includes(`${permission.split(':')[0]}:*`);
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchGrantIds, setBatchGrantIds] = useState<string[]>([]);
   const canCreate = hasPermission('repo:create');
+  // 批量授权走 repo:grant；兼容老数据：有 repo:update 的也能看到入口
+  const canGrant = hasPermission('repo:grant') || hasPermission('repo:update');
   const canDetail = hasPermission('repo:detail');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
@@ -298,6 +302,11 @@ export default function RepoList() {
         <Button icon={<AppstoreOutlined />} onClick={() => setGroupsOpen(true)}>
           按分类浏览
         </Button>
+        {canGrant && selectedIds.length > 0 && (
+          <Button icon={<TeamOutlined />} onClick={() => setBatchGrantIds(selectedIds)}>
+            批量授权（{selectedIds.length}）
+          </Button>
+        )}
         {canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建题库
@@ -477,6 +486,7 @@ export default function RepoList() {
       <TableScrollRegion label="题库列表（可横向滚动）">
       <Table<RepoView>
         rowKey="id"
+        rowSelection={canGrant ? { selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) } : undefined}
         size="middle"
         components={TABLE_COMPONENTS}
         loading={loading}
@@ -710,6 +720,16 @@ export default function RepoList() {
             description: (repo as RepoView).description,
           });
           setRenaming(repo as RepoView);
+        }}
+      />
+      <GrantModal
+        repoIds={batchGrantIds}
+        open={batchGrantIds.length > 0}
+        onClose={() => setBatchGrantIds([])}
+        onChanged={() => {
+          setBatchGrantIds([]);
+          setSelectedIds([]);
+          void load();
         }}
       />
       <GrantModal

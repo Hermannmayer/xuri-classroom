@@ -36,12 +36,15 @@ type GrantMode = 'dept' | 'user';
  */
 export default function GrantModal({
   repoId,
+  repoIds,
   repoName,
   open,
   onClose,
   onChanged,
 }: {
   repoId?: string;
+  /** 批量授权：传多个题库 id 时，只做新增授权，不展示单个题库的授权名单 */
+  repoIds?: string[];
   repoName?: string;
   open: boolean;
   onClose: () => void;
@@ -49,6 +52,9 @@ export default function GrantModal({
   onChanged?: () => void;
 }) {
   const { message } = App.useApp();
+  /** 批量模式：对选中的每个题库依次授权 */
+  const targets = repoIds && repoIds.length > 0 ? repoIds : repoId ? [repoId] : [];
+  const isBatch = targets.length > 1;
   const [loading, setLoading] = useState(false);
   const [partners, setPartners] = useState<RepoPartnerView[]>([]);
   const [mode, setMode] = useState<GrantMode>('dept');
@@ -61,7 +67,7 @@ export default function GrantModal({
   const [removingId, setRemovingId] = useState<string>();
 
   const loadPartners = useCallback(async () => {
-    if (!repoId) return;
+    if (!repoId || isBatch) return;
     setLoading(true);
     try {
       const res = await getWithPagination<RepoPartnerView>('/api/repo/partner/list', {
@@ -115,7 +121,7 @@ export default function GrantModal({
   );
 
   const grant = async () => {
-    if (!repoId) return;
+    if (targets.length === 0) return;
     if (mode === 'dept' && !deptId) {
       message.warning('先选一个用户组');
       return;
@@ -125,20 +131,35 @@ export default function GrantModal({
       return;
     }
     setSaving(true);
+    let ok = 0;
+    const failed: string[] = [];
     try {
-      if (mode === 'dept') {
-        await post('/api/repo/partner/create', { repoId, deptId });
-        message.success('已授权该用户组，组内成员自动可见');
-        setDeptId(undefined);
-      } else {
-        await post('/api/repo/partner/create', { repoId, userIds });
-        message.success(`已授权 ${userIds.length} 位用户`);
-        setUserIds([]);
+      // 逐个题库授权：后端 /partner/create 一次只收一个 repoId，
+      // 这里串行调用，失败不影响其它题库，最后汇总结果。
+      for (const target of targets) {
+        try {
+          await post('/api/repo/partner/create', mode === 'dept' ? { repoId: target, deptId } : { repoId: target, userIds });
+          ok += 1;
+        } catch (e) {
+          failed.push((e as Error).message);
+        }
       }
+      if (ok > 0) {
+        message.success(
+          isBatch
+            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? '该用户组' : ` ${userIds.length} 位用户`}`
+            : mode === 'dept'
+              ? '已授权该用户组，组内成员自动可见'
+              : `已授权 ${userIds.length} 位用户`,
+        );
+      }
+      if (failed.length > 0) {
+        message.error(`${failed.length} 个题库授权失败：${failed[0]}`);
+      }
+      if (mode === 'user') setUserIds([]);
+      else setDeptId(undefined);
       await loadPartners();
       onChanged?.();
-    } catch (e) {
-      message.error((e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -164,7 +185,7 @@ export default function GrantModal({
 
   return (
     <Modal
-      title={`授权管理${repoName ? `：${repoName}` : ''}`}
+      title={isBatch ? `批量授权 ${targets.length} 个题库` : `授权管理${repoName ? `：${repoName}` : ''}`}
       open={open}
       onCancel={onClose}
       footer={[
