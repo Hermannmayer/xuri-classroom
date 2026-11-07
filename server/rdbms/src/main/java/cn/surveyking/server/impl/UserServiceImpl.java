@@ -231,9 +231,14 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			return null;
 		}
 		UserInfo userInfo = userViewMapper.toUserInfo(user);
-		// MapStruct 的 UserInfo 映射没带上这两个字段，这里显式补一次（缩放/主题跟着账号走）
-		userInfo.setUiZoom(user.getUiZoom());
-		userInfo.setUiTheme(user.getUiTheme());
+		// 界面偏好（缩放 / 主题）用显式 SQL 读，实体映射在不同列类型下不可靠
+		java.util.Map<String, Object> prefs = getBaseMapper().selectUiPrefs(userId);
+		if (prefs != null) {
+			Object zoom = prefs.get("uiZoom");
+			Object theme = prefs.get("uiTheme");
+			userInfo.setUiZoom(zoom == null ? null : String.valueOf(zoom));
+			userInfo.setUiTheme(theme == null ? null : String.valueOf(theme));
+		}
 		// 一人多组：主组 + 附加组，各自沿祖先链展开（组表整表取一次，避免逐层查库）
 		List<String> extraDeptIds = listExtraDeptIds(user.getId());
 		Map<String, Dept> deptMap = loadDeptMap();
