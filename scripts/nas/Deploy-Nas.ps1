@@ -108,9 +108,10 @@ git diff --name-only "$BEFORE" "$AFTER"
 '@.Replace('@REPO@', $RemoteRepo)
 
 $sync = Invoke-NasScript -Body $syncScript
-$lines = $sync.Output -split "`n"
-$before = ($lines | Where-Object { $_ -like '__BEFORE__*' }) -replace '__BEFORE__', ''
-$after  = ($lines | Where-Object { $_ -like '__AFTER__*' })  -replace '__AFTER__', ''
+# 注意：远端输出里有 Windows 的 \r，不清掉会导致 "075382d...？ unknown revision"
+$lines = ($sync.Output -split "`n") | ForEach-Object { $_.TrimEnd("`r") }
+$before = (($lines | Where-Object { $_ -like '__BEFORE__*' }) -replace '__BEFORE__', '').Trim()
+$after  = (($lines | Where-Object { $_ -like '__AFTER__*' })  -replace '__AFTER__', '').Trim()
 $changed = $lines | Where-Object { $_ -and $_ -notlike '__*' } | ForEach-Object { $_.Trim() }
 
 if ($before -eq $after) {
