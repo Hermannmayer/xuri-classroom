@@ -669,6 +669,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		update.setId(SecurityContextUtils.getUserId());
 		update.setUiZoom(zoom);
 		this.updateById(update);
+		// currentUser 走 userCache，改完必须清掉，否则刷新还是旧档位
+		evictUserAfterCommit(SecurityContextUtils.getUserId());
 	}
 
 	@Override
@@ -682,6 +684,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		update.setId(SecurityContextUtils.getUserId());
 		update.setUiTheme(theme);
 		this.updateById(update);
+		evictUserAfterCommit(SecurityContextUtils.getUserId());
 	}
 
 	@Override
