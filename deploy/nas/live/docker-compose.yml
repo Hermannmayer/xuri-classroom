@@ -146,11 +146,11 @@ services:
       - sh
       - -c
       - |
-        LOCK_HASH=$(md5sum package-lock.json 2>/dev/null | cut -d' ' -f1)
-        if [ ! -d node_modules/vite ] || [ "$(cat node_modules/.lock-hash 2>/dev/null)" != "$LOCK_HASH" ]; then
+        LOCK_HASH=$$(md5sum package-lock.json 2>/dev/null | cut -d' ' -f1)
+        if [ ! -d node_modules/vite ] || [ "$$(cat node_modules/.lock-hash 2>/dev/null)" != "$$LOCK_HASH" ]; then
           echo "[web-watch] 安装/更新依赖（首次约 1-3 分钟）"
           npm ci --no-audit --no-fund
-          echo "$LOCK_HASH" > node_modules/.lock-hash
+          echo "$$LOCK_HASH" > node_modules/.lock-hash
         fi
         echo "[web-watch] 开始 watch 构建，保存即产物；日志里看到 built in xxx ms 就刷页面"
         npx vite build --watch --logLevel info

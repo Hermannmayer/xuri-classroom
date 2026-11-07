@@ -209,7 +209,7 @@ docker compose restart web-watch
     (Invoke-NasScript -Body $restart).Output | Write-Host
 }
 
-if ($clientChanged -or $serverChanged) {
+if ($clientChanged) {
     Say '等待 web-watch 出一次新构建'
     $wait = @'
 START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
