@@ -75,14 +75,33 @@ function Invoke-NasScript {
     return @{ Output = ($out -join "`n"); Code = $code }
 }
 
+function Resolve-SmokePython {
+    # 冒烟测试要 RSA 加密密码，得挑一个装了 cryptography 的解释器。
+    # 优先 PATH 上的 python/python3/py -3，最后兜底到 DSH 自带的 python。
+    $cands = @()
+    foreach ($n in 'python', 'python3') {
+        $c = Get-Command $n -ErrorAction SilentlyContinue
+        if ($c) { $cands += @{ Exe = $c.Source; Args = @() } }
+    }
+    $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
+    if ($pyLauncher) { $cands += @{ Exe = $pyLauncher.Source; Args = @('-3') } }
+    $bundled = Get-ChildItem "$env:USERPROFILE\.dsh\dsh-runtimes" -Recurse -Filter python.exe -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($bundled) { $cands += @{ Exe = $bundled.FullName; Args = @() } }
+    foreach ($c in $cands) {
+        & $c.Exe @($c.Args) -c 'import cryptography' 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $c }
+    }
+    return $null
+}
+
 function Test-Smoke {
     if ($SkipSmoke) { Warn '按 -SkipSmoke 跳过冒烟'; return }
     Say '冒烟测试'
-    $py = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $py) { $py = Get-Command py -ErrorAction SilentlyContinue }
-    if (-not $py) { Warn '本机找不到 python，跳过冒烟（可以手动跑 scripts/nas/smoke-test.py）'; return }
+    $py = Resolve-SmokePython
+    if (-not $py) { Warn '找不到装了 cryptography 的 python，跳过冒烟（可手动跑 scripts/nas/smoke-test.py）'; return }
     $env:PYTHONIOENCODING = 'utf-8'
-    & $py.Source (Join-Path $repoRoot 'scripts/nas/smoke-test.py') --base $BaseUrl
+    & $py.Exe @($py.Args) (Join-Path $repoRoot 'scripts/nas/smoke-test.py') --base $BaseUrl
     if ($LASTEXITCODE -ne 0) { Die '冒烟测试没通过——线上可能已经被这次改动影响，先看输出再决定回滚。' }
 }
 
