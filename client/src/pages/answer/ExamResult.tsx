@@ -13,9 +13,11 @@
  * 题库里多数题目没有 examAnalysis，解析为空时显示「暂无解析」。
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Empty, Spin, Switch, message } from 'antd';
-import { useParams } from 'react-router-dom';
+import { Button, Empty, Spin, Switch, message } from 'antd';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeftOutlined } from '@ant-design/icons';
 import { post } from '../../api';
+import { loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
 import type { FlatQuestion } from '../../schema/flatten';
@@ -459,6 +461,12 @@ export function QuestionCard({ view }: { view: QuestionView }) {
 /* ---------------------------------------------------------------- 页面 */
 
 export default function ExamResult() {
+  const navigate = useNavigate();
+  // 匿名答卷（公开链接）没有登录态，按约定不给返回入口；登录用户才显示
+  const [loggedIn, setLoggedIn] = useState(false);
+  useEffect(() => {
+    void loadAuthorities().then((list) => setLoggedIn((list ?? []).length > 0));
+  }, []);
   const { id = '', answerId = '' } = useParams();
   const [data, setData] = useState<PublicExamResult>();
   const [loading, setLoading] = useState(true);
@@ -519,6 +527,11 @@ export default function ExamResult() {
       <div className="sk-result">
         <div className="sk-result-loading">
           <Empty description="没有找到这份答卷，或发布方未开放成绩单" />
+          {loggedIn && (
+            <Button style={{ marginTop: 16 }} onClick={() => navigate('/tasks')}>
+              返回我的任务
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -527,6 +540,16 @@ export default function ExamResult() {
   return (
     <div className="sk-result">
       <div className="sk-result-inner">
+        {loggedIn && (
+          <div className="sk-result-nav" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Button type="text" size="small" icon={<ArrowLeftOutlined />} onClick={() => navigate('/tasks')}>
+              我的任务
+            </Button>
+            <Button type="text" size="small" onClick={() => navigate('/')}>
+              返回首页
+            </Button>
+          </div>
+        )}
         <header className="sk-result-head bp-corners">
           <div className="sk-result-eyebrow">RESULT / 成绩单</div>
           <h1 className="sk-result-name">{data.name || '答卷'}</h1>

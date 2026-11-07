@@ -103,7 +103,8 @@ public class RepoApi {
 	 * @return
 	 */
 	@PostMapping("/pick")
-	@PreAuthorize("hasAuthority('repo:detail')")
+	// 随机练习从题库抽题：学员只有 repo:book，也要能抽题，否则练习页直接 403
+	@PreAuthorize("hasAnyAuthority('repo:detail','repo:book') or hasRole('admin')")
 	public List<SurveySchema> pickQuestionFromRepo(@RequestBody List<ProjectSetting.RandomSurveyCondition> repos) {
 		return repoService.pickQuestionFromRepo(repos);
 	}

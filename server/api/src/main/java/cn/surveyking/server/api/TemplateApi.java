@@ -23,7 +23,8 @@ public class TemplateApi {
 	private final TemplateService templateService;
 
 	@GetMapping("/list")
-	@PreAuthorize("hasAuthority('template:list') or hasAuthority('repo:detail')")
+	// 学员只有 repo:book（开始答题/练习）：练习页要读题目，所以把 book 也算作可读题目
+	@PreAuthorize("hasAnyAuthority('template:list','repo:detail','repo:book') or hasRole('admin')")
 	public PaginationResponse<TemplateView> listQuestionTemplate(TemplateQuery query) {
 		return templateService.listTemplate(query);
 	}

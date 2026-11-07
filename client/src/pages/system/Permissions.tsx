@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
-  Alert,
   App,
   Button,
   Empty,
@@ -279,11 +278,6 @@ export default function SystemPermissions() {
   }, [allItems, draft, editorLocked]);
 
   /** 目录之外的旧权限串：页面不显示，但保存时保留，避免误删历史数据 */
-  const legacyCodes = useMemo(
-    () => activeAuthorities.filter((code) => !catalogCodes.has(code)),
-    [activeAuthorities, catalogCodes],
-  );
-
   const dirty = useMemo(() => {
     if (editorLocked) return false;
     return !sameMembers(draft, new Set(activeAuthorities));
@@ -757,15 +751,6 @@ export default function SystemPermissions() {
             )}
           </div>
 
-          {editorLocked && (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 10 }}
-              message="超级管理员拥有全部权限，不可修改"
-              description="下面仅供查看。需要调整权限时，请改用老师、学员或自定义角色。"
-            />
-          )}
 
           <div
             style={{
@@ -941,11 +926,6 @@ export default function SystemPermissions() {
             </div>
           </div>
 
-          {!editorLocked && legacyCodes.length > 0 && (
-            <div style={{ marginTop: 8, ...HINT_STYLE }}>
-              另有 {legacyCodes.length} 个历史权限串不在目录中（如 {legacyCodes.slice(0, 3).join('、')}），保存时会原样保留。
-            </div>
-          )}
 
           {!editorLocked && (
             <div
@@ -964,7 +944,7 @@ export default function SystemPermissions() {
               }}
             >
               <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
-                已勾选 {checkedCount} / {allItems.length} 项 · 保存后相关用户需重新登录才生效
+                已勾选 {checkedCount} / {allItems.length} 项 · 保存后需重新登录生效
               </span>
               {dirty && (
                 <Tag color="orange" style={{ marginInlineEnd: 0 }}>
@@ -1015,12 +995,12 @@ export default function SystemPermissions() {
               { required: true, message: '请输入编码' },
               { pattern: /^[a-z][a-z0-9_-]{1,31}$/, message: '小写字母开头，可含数字、下划线、短横线' },
             ]}
-            extra="用于程序内部识别，建好后不建议修改；admin / teacher / student 为内置角色"
+            extra="admin / teacher / student 是内置编码，不要复用"
           >
             <Input placeholder="例如：research_lead" disabled={Boolean(editingRole && isBuiltin(editingRole))} />
           </Form.Item>
           {!editingRole && (
-            <Form.Item name="preset" label="以哪个预设为起点" extra="预设只是先把常见权限勾上，创建后仍可逐项调整">
+            <Form.Item name="preset" label="以哪个预设为起点" extra="创建后仍可逐项调整">
               <Radio.Group>
                 <Radio value="blank" title="从零开始，不预勾任何权限">
                   空白

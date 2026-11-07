@@ -1,3 +1,4 @@
+import BackButton from '../../components/BackButton';
 import { useEffect, useState } from 'react';
 import { Button, Card, Form, Input, message, Select, Spin } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
@@ -85,6 +86,7 @@ export default function AccountSettings() {
 
   return (
     <div style={{ maxWidth: 640 }}>
+      <BackButton label="返回" style={{ marginBottom: 4 }} />
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>ACCOUNT / 账号</div>
         <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>

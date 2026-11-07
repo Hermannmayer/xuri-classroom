@@ -620,6 +620,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				Wrappers.<Answer>lambdaQuery()
 						.eq(query.getProjectId() != null, Answer::getProjectId, query.getProjectId())
 						.isNotNull(Answer::getExamExerciseType)
+						// 只显示「真的动过」的记录：已交卷，或暂存里有内容。
+						// 点一下「开始练习」就会建一条空 record，不滤掉的话练习记录里全是 0% 的空条目。
+						.and(w -> w.eq(Answer::getTempSave, 1).or().isNotNull(Answer::getTempAnswer)
+								.ne(Answer::getTempAnswer, ""))
 						.eq(query.getTempSave() != null, Answer::getTempSave, query.getTempSave())
 						.eq(Answer::getCreateBy, SecurityContextUtils.getUserId()).orderByDesc(Answer::getCreateAt));
 

@@ -126,6 +126,9 @@ export default function RepoList() {
   const canDetail = hasPermission('repo:detail');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
+  // 练习入口的权限：repo:book（题库练习）或 exercise:list（练习记录）
+  // 之前用 !canCreate 判断，结果学员因为既没有 repo:create 也没有 repo:detail，整列操作都不渲染
+  const canPractice = hasPermission('repo:book') || hasPermission('exercise:list');
 
   const hasPracticeProgress = (id: string) => {
     try {
@@ -592,7 +595,7 @@ export default function RepoList() {
                 '—'
               ),
           },
-          ...(canDetail || canUpdate || canDelete
+          ...(canDetail || canPractice || canUpdate || canDelete
             ? [
                 {
                   title: '操作',
@@ -600,9 +603,9 @@ export default function RepoList() {
                   render: (_: unknown, row: RepoView) => (
                     <Space size={4}>
                       {canDetail && <LinkAction onClick={() => enter(row)}>题目</LinkAction>}
-                      {!canCreate && <LinkAction onClick={() => startPractice(row, 'full')}>开始练习</LinkAction>}
-                      {!canCreate && <LinkAction onClick={() => openRandom(row)}>随机练习</LinkAction>}
-                      {!canCreate && hasPracticeProgress(row.id) && (
+                      {canPractice && <LinkAction onClick={() => startPractice(row, 'full')}>开始练习</LinkAction>}
+                      {canPractice && <LinkAction onClick={() => openRandom(row)}>随机练习</LinkAction>}
+                      {canPractice && hasPracticeProgress(row.id) && (
                         <LinkAction onClick={() => startPractice(row, 'resume')}>继续练习</LinkAction>
                       )}
                       {canUpdate && <LinkAction onClick={() => setGranting(row)}>授权</LinkAction>}

@@ -1,3 +1,4 @@
+import BackButton from '../../components/BackButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
@@ -298,6 +299,7 @@ export default function SurveyOverview() {
 
   return (
     <div style={{ maxWidth: 1200 }}>
+      <BackButton to="/tasks" label="返回我的任务" style={{ marginBottom: 4 }} />
       {/* 页头：编辑 / 数据 / 项目列表 + 保存（发布设置已并入本页，不再有第二个「设置」入口） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>

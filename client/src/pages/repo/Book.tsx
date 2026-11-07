@@ -1,3 +1,4 @@
+import BackButton from '../../components/BackButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Key } from 'react';
 import {
@@ -468,6 +469,7 @@ export default function RepoBook() {
           flexWrap: 'wrap',
         }}
       >
+        <BackButton to="/repo/index" label="返回题库" style={{ marginBottom: 4 }} />
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>BOOK / 错题本</div>
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
