@@ -3,7 +3,6 @@ import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DatabaseOutlined,
-  FormOutlined,
   HomeOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -87,12 +86,10 @@ export default function BasicLayout() {
 
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
-    if (allow('project:list')) {
-      menu.push({ key: '/project', icon: <ProjectOutlined />, label: t('menu.project', '我的考试') });
-    }
-    // 管理员不做题，练习入口只给老师/学员
-    if (!isAdmin && allow('exercise:list')) {
-      menu.push({ key: '/exercise', icon: <FormOutlined />, label: t('menu.exercise', '我的练习') });
+    // 考试与练习合并成「我的任务」：左边只留一个入口，里面两个 Tab
+    // （考试安排 / 练习记录）。管理员不做题，所以只有考试时也显示。
+    if (allow('project:list') || (!isAdmin && allow('exercise:list'))) {
+      menu.push({ key: '/tasks', icon: <ProjectOutlined />, label: '我的任务' });
     }
 
     // 题库中心：父项只有在至少有一个子项可见时才出现

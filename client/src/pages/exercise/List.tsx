@@ -115,7 +115,7 @@ function PracticeRecords() {
       <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-            PRACTICE / 我的练习
+            PRACTICE / 练习记录
           </div>
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
             练习记录

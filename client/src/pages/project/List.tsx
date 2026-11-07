@@ -147,10 +147,10 @@ function StudentProjectList() {
     <>
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-          EXAMS / 我的考试
+          EXAMS / 考试安排
         </div>
         <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
-          我的考试
+          考试安排
         </h2>
         <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
           这里是被分配给你参加的考试；点「开始答题」直接进入答题页。

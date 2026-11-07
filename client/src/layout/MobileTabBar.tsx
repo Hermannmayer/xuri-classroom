@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import {
   DatabaseOutlined,
-  FormOutlined,
   HomeOutlined,
   ProjectOutlined,
   UserOutlined,
@@ -34,24 +33,15 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => p === '/home' || p === '/',
     },
   ];
-  if (can(authorities, 'project:list')) {
+  // 桌面端把「我的考试 + 我的练习」合并成「我的任务」，移动端保持一致
+  if (can(authorities, 'project:list') || can(authorities, 'exercise:list')) {
     tabs.push({
-      key: 'project',
-      path: '/project',
-      label: t('menu.project', '我的项目'),
+      key: 'tasks',
+      path: '/tasks',
+      label: '我的任务',
       icon: <ProjectOutlined />,
-      active: (p) => under(p, '/project'),
+      active: (p) => under(p, '/tasks') || under(p, '/project') || under(p, '/exercise'),
     });
-  }
-  const exerciseTab: TabItem = {
-    key: 'exercise',
-    path: '/exercise',
-    label: t('menu.exercise', '我的练习'),
-    icon: <FormOutlined />,
-    active: (p) => under(p, '/exercise'),
-  };
-  if (can(authorities, 'exercise:list')) {
-    tabs.push(exerciseTab);
   }
   if (can(authorities, 'repo:list')) {
     tabs.push({

@@ -161,7 +161,8 @@ public class ProjectApi {
 	 * @param query
 	 */
 	@GetMapping("/partner/download")
-	@PreAuthorize("hasAuthority('project:detail')")
+	// 名单里有手机号等个人信息，从 project:detail（所有能看到项目的人）收紧到 project:partner
+	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#query.projectId")
 	public void downloadPartner(ProjectPartnerQuery query) {
 		projectPartnerService.downloadPartner(query);
@@ -174,7 +175,9 @@ public class ProjectApi {
 	@PostMapping("/partner/import")
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
-	public void importPartner(WhiteListRequest request) {
+	public void importPartner(@RequestBody WhiteListRequest request) {
+		// 与 create/delete 对齐：只有项目所有者能导入名单，避免协作者给自己扩权
+		projectPartnerService.assertProjectOwner(request.getProjectId());
 		projectPartnerService.importPartner(request);
 	}
 
