@@ -56,6 +56,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public PaginationResponse<ProjectView> listProject(ProjectQuery query) {
+		// 说明：项目列表的可见性判定全部落在下面的 EXISTS 子查询里，
+		// 依赖 t_user_dept（附加组）与 t_dept 的祖先链，改这段务必跑一次
+		// scripts/nas/Deploy-Nas.ps1 让冒烟测试覆盖到「试卷能列出来」。
 		Page<Project> page = pageByQuery(query, Wrappers.<Project>lambdaQuery()
 				.like(isNotBlank(query.getName()), Project::getName, query.getName())
 				.eq(isNotBlank(query.getParentId()), Project::getParentId, query.getParentId())
