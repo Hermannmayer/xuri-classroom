@@ -52,6 +52,12 @@ public class UserInfo implements UserDetails, Serializable {
 	private List<String> positionList;
 
 	@JsonIgnore
+	/** 界面缩放（跟着账号走） */
+	private Double uiZoom;
+
+	/** 主题 light/dark（跟着账号走） */
+	private String uiTheme;
+
 	private Integer status;
 
 	/** 登录账号 */
