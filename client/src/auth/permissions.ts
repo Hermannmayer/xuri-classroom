@@ -3,11 +3,13 @@ import type { UserInfo } from '../api';
 
 /**
  * 权限模型（后端 authorityList 驱动）：
- * - 管理员：ROLE_admin，全权限
- * - 老师：project:* + answer:* + repo:* + exercise:list（能配考试/题库/看数据，不能进系统管理）
- * - 学生：exercise:list + repo:list/detail + user:update（练习、看题库、改自己资料）
+ * - 管理员：ROLE_admin，管理权限全集（不含学员专属能力）
+ * - 老师：教学/题库/答卷管理 + 班级管理，不含学员专属能力
+ * - 学生：repo:list/book/practice、project:answer、exercise:list、user:update
  *
- * can() 规则：ROLE_admin 直接放行；否则要求权限串命中（精确或同域前缀）。
+ * can() 规则：
+ * - 学员专属（开始答题/开始练习/错题本/学员视角）必须精确命中，ROLE_admin 不放行；
+ * - 其它权限：ROLE_admin 直接放行，否则要求精确串或同域通配符（repo:*）。
  *
  * 缓存生命周期（2026-11 修复）：
  * - 模块级缓存只在同一个登录态内复用；
@@ -53,10 +55,27 @@ export function isAdmin(authorities: string[]) {
   return authorities.includes('ROLE_admin');
 }
 
+/**
+ * 学员专属能力：不是管理权限，管理员不会自动拥有。
+ *
+ * <p>必须和后端 PermissionEnum 里 studentOnly=true 的条目保持一致；
+ * 这里不能让 ROLE_admin 兜底，否则「管理员界面出现开始答题」永远修不掉。
+ */
+export const STUDENT_ONLY_PERMISSIONS = new Set([
+  'project:answer',
+  'repo:practice',
+  'repo:book',
+  'portal:student',
+]);
+
 export function can(authorities: string[], permission: string): boolean {
+  // 精确命中优先：学生 / 显式勾选学员能力的自定义角色
+  if (authorities.includes(permission)) return true;
+  // 学员专属不再走 ROLE_admin / 域通配符兜底
+  if (STUDENT_ONLY_PERMISSIONS.has(permission)) return false;
   if (isAdmin(authorities)) return true;
-  // 只认精确权限或该域的显式通配符（repo:*）。
+  // 其它权限只认精确串或该域的显式通配符（repo:*）。
   // 不能用前缀匹配：学员的 repo:list 会误放行 repo:create / repo:delete。
   const domain = permission.split(':')[0];
-  return authorities.includes(permission) || authorities.includes(`${domain}:*`);
+  return authorities.includes(`${domain}:*`);
 }

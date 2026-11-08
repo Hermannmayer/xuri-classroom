@@ -22,7 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
-import { loadAuthorities } from '../../auth/permissions';
+import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
 
@@ -108,12 +108,9 @@ export default function RepoList() {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  // permissions.ts 的 can() 会按域前缀放行（学员的 repo:list 会被当成 repo:*），
-  // 这里按「精确权限 / 域通配符 / ROLE_admin」判断，避免学员拿到管理操作。
-  const hasPermission = (permission: string) =>
-    authorities.includes('ROLE_admin') ||
-    authorities.includes(permission) ||
-    authorities.includes(`${permission.split(':')[0]}:*`);
+  // 统一走 permissions.ts 的 can()：它已经处理了「学员专属权限不给管理员兜底」，
+  // 这里再手写一遍 ROLE_admin 放行会把 repo:practice 又放回来。
+  const hasPermission = (permission: string) => can(authorities, permission);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchGrantIds, setBatchGrantIds] = useState<string[]>([]);
