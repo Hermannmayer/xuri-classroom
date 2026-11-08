@@ -38,6 +38,12 @@ public class User extends BaseModel {
 	private Integer status;
 
 	/**
+	 * 用户类型：staff = 老师/管理员/职工；student = 学员。
+	 * 学员只在「班级管理」里按班维护，用户管理只列 staff。
+	 */
+	private String userType;
+
+	/**
 	 * 错题答对次数
 	 */
 	private Integer correctTimes;

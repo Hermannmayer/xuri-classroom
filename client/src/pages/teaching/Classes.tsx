@@ -56,6 +56,8 @@ interface ClassMember {
   status?: number | null;
   deptId?: string;
   deptName?: string;
+  phone?: string;
+  email?: string;
   createAt?: string;
   roleNames?: string[];
 }
@@ -232,6 +234,8 @@ export default function TeachingClasses() {
   const canDeptCreate = can(authorities, 'system:dept:create');
   const canDeptUpdate = can(authorities, 'system:dept:update');
   const canDeptDelete = can(authorities, 'system:dept:delete');
+  const canMemberUpdate = can(authorities, 'class:member:update');
+  const canMemberDelete = can(authorities, 'class:member:delete');
 
   /* ---------------- 班级树 ---------------- */
   const [tree, setTree] = useState<ClassNode[]>([]);
@@ -338,6 +342,17 @@ export default function TeachingClasses() {
   const [memberSaving, setMemberSaving] = useState(false);
   const [memberForm] = Form.useForm<MemberFormValues>();
 
+  /* ---------------- 编辑/删除学员 ---------------- */
+  const [editingMember, setEditingMember] = useState<ClassMember | null>(null);
+  const [memberEditSaving, setMemberEditSaving] = useState(false);
+  const [memberEditForm] = Form.useForm<{
+    name: string;
+    phone?: string;
+    email?: string;
+    status: number;
+    password?: string;
+  }>();
+
   const openMemberModal = () => {
     memberForm.resetFields();
     setMemberOpen(true);
@@ -368,6 +383,50 @@ export default function TeachingClasses() {
       message.error((e as Error).message);
     } finally {
       setMemberSaving(false);
+    }
+  };
+
+  const openEditMember = (row: ClassMember) => {
+    setEditingMember(row);
+  };
+
+  const submitEditMember = async () => {
+    if (!selected || !editingMember || memberEditSaving) return;
+    let values: { name: string; phone?: string; email?: string; status: number; password?: string };
+    try {
+      values = await memberEditForm.validateFields();
+    } catch {
+      return;
+    }
+    setMemberEditSaving(true);
+    try {
+      await post('/api/teaching/classes/member/update', {
+        deptId: selected.id,
+        id: editingMember.id,
+        name: values.name.trim(),
+        phone: values.phone?.trim() || undefined,
+        email: values.email?.trim() || undefined,
+        status: values.status,
+        password: values.password || undefined,
+      });
+      message.success('已保存学员信息');
+      setEditingMember(null);
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setMemberEditSaving(false);
+    }
+  };
+
+  const removeMember = async (row: ClassMember) => {
+    if (!selected) return;
+    try {
+      await post('/api/teaching/classes/member/delete', { deptId: selected.id, id: row.id });
+      message.success('已删除学员 ' + (row.name || ''));
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
     }
   };
 
@@ -488,6 +547,7 @@ export default function TeachingClasses() {
   const memberColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 120, render: (v?: string) => v || '—' },
     { title: '账号', dataIndex: 'username', width: 140, render: (v?: string) => v || '—' },
+    { title: '手机号', dataIndex: 'phone', width: 130, render: (v?: string) => v || '—' },
     { title: '状态', dataIndex: 'status', width: 100, render: (v?: number | null) => <MemberStatus status={v} /> },
     {
       title: '角色',
@@ -507,6 +567,32 @@ export default function TeachingClasses() {
         ),
     },
     { title: '加入时间', dataIndex: 'createAt', width: 160, render: (v?: string) => v || '—' },
+    ...(canMemberUpdate || canMemberDelete
+      ? [
+          {
+            title: '操作',
+            key: 'memberOps',
+            width: 120,
+            render: (_: unknown, row: ClassMember) => (
+              <Space size={8}>
+                {canMemberUpdate && <LinkAction onClick={() => openEditMember(row)}>编辑</LinkAction>}
+                {canMemberDelete && (
+                  <Popconfirm
+                    title={`删除学员「${row.name || row.username || '该学员'}」？`}
+                    description="账号会被删除，无法再登录；不可恢复。"
+                    okText="删除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={() => removeMember(row)}
+                  >
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                  </Popconfirm>
+                )}
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const teacherColumns: ColumnsType<ClassTeacher> = [
@@ -729,7 +815,7 @@ export default function TeachingClasses() {
                     loading={memberLoading}
                     dataSource={members}
                     columns={memberColumns}
-                    scroll={{ x: 760 }}
+                    scroll={{ x: 1000 }}
                     pagination={{ pageSize: 10, hideOnSinglePage: true, size: 'small' }}
                     locale={{
                       emptyText: (
@@ -787,6 +873,61 @@ export default function TeachingClasses() {
           </Form.Item>
           <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
             <Input placeholder="选填" maxLength={80} autoComplete="off" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={'编辑学员' + (editingMember?.name ? '：' + editingMember.name : '')}
+        open={Boolean(editingMember)}
+        onCancel={() => setEditingMember(null)}
+        onOk={() => void submitEditMember()}
+        confirmLoading={memberEditSaving}
+        okText="保存"
+        cancelText="取消"
+        width={isMobile ? '94%' : 520}
+        destroyOnClose
+        afterOpenChange={(visible) => {
+          if (visible && editingMember) {
+            memberEditForm.setFieldsValue({
+              name: editingMember.name || '',
+              phone: editingMember.phone,
+              email: editingMember.email,
+              status: editingMember.status ?? 1,
+              password: undefined,
+            });
+          }
+        }}
+      >
+        <Form form={memberEditForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
+          <Form.Item name="name" label="姓名" rules={[{ required: true, whitespace: true, message: '请填写学员姓名' }]}>
+            <Input placeholder="例如：张三" maxLength={40} autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="手机号"
+            rules={[{ pattern: /^1[3-9]\d{9}$/, message: '请输入 11 位手机号' }]}
+          >
+            <Input placeholder="选填" maxLength={11} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
+            <Input placeholder="选填" maxLength={80} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="status" label="账号状态">
+            <Select
+              options={[
+                { value: 1, label: '正常（可登录）' },
+                { value: 0, label: '停用（不能登录）' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="重置密码"
+            rules={[{ min: 8, message: '密码至少 8 位' }]}
+            extra="留空表示不修改；重置后请让学员用新密码登录"
+          >
+            <Input.Password placeholder="8-32 位，留空不改" maxLength={32} autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>

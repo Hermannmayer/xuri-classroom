@@ -4,6 +4,7 @@ import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
+import cn.surveyking.server.domain.dto.ClassMemberUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberView;
 import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
@@ -129,6 +130,8 @@ public class ClassServiceImpl implements ClassService {
 	public List<ClassMemberView> listClassMembers(String deptId) {
 		Dept dept = assertClassVisible(deptId);
 		List<User> users = userMapper.selectList(Wrappers.<User>lambdaQuery()
+				// 班级成员只列学员；老师/管理员在「用户管理」里，不混进班级名单
+				.eq(User::getUserType, "student")
 				.and(w -> w.eq(User::getDeptId, deptId).or()
 						.apply("EXISTS (SELECT 1 FROM t_user_dept ud WHERE ud.user_id = t_user.id AND ud.dept_id = {0} AND ud.is_deleted = 0)",
 								deptId))
@@ -151,6 +154,8 @@ public class ClassServiceImpl implements ClassService {
 			view.setStatus(user.getStatus());
 			view.setDeptId(dept.getId());
 			view.setDeptName(dept.getName());
+			view.setPhone(user.getPhone());
+			view.setEmail(user.getEmail());
 			view.setCreateAt(user.getCreateAt());
 			view.setRoleNames(roleNames.getOrDefault(user.getId(), Collections.emptyList()));
 			return view;
@@ -193,6 +198,8 @@ public class ClassServiceImpl implements ClassService {
 	@Override
 	public List<UserOptionView> listTeacherOptions(String keyword) {
 		List<User> users = userMapper.selectList(Wrappers.<User>lambdaQuery()
+				// 分配老师只列教职工，不把学员当成可授权的老师
+				.eq(User::getUserType, "staff")
 				.like(StringUtils.hasText(keyword), User::getName, keyword)
 				.orderByAsc(User::getName).last("LIMIT " + TEACHER_OPTION_LIMIT));
 		if (users.isEmpty()) {
@@ -295,6 +302,59 @@ public class ClassServiceImpl implements ClassService {
 			// 并发下 checkUsernameExist 可能漏掉，唯一键冲突统一给用户可读提示
 			throw new ValidationException("登录账号已存在");
 		}
+	}
+
+	@Override
+	public void updateClassMember(ClassMemberUpdateRequest request) {
+		if (request == null || !StringUtils.hasText(request.getDeptId()) || !StringUtils.hasText(request.getId())) {
+			throw new ValidationException("缺少班级或学员 id");
+		}
+		assertClassVisible(request.getDeptId());
+		User user = userMapper.selectById(request.getId());
+		if (user == null || !"student".equals(user.getUserType())) {
+			throw new ValidationException("只能编辑学员账号");
+		}
+		if (!isMemberOfClass(user, request.getDeptId())) {
+			throw new AccessDeniedException("这个学员不在当前班级");
+		}
+		if (!StringUtils.hasText(request.getName())) {
+			throw new ValidationException("请填写学员姓名");
+		}
+		UserRequest update = new UserRequest();
+		update.setId(user.getId());
+		update.setName(request.getName().trim());
+		update.setPhone(request.getPhone());
+		update.setEmail(request.getEmail());
+		update.setStatus(request.getStatus());
+		update.setPassword(request.getPassword());
+		userService.updateClassStudent(update);
+	}
+
+	@Override
+	public void deleteClassMember(String deptId, String userId) {
+		if (!StringUtils.hasText(deptId) || !StringUtils.hasText(userId)) {
+			throw new ValidationException("缺少班级或学员 id");
+		}
+		assertClassVisible(deptId);
+		User user = userMapper.selectById(userId);
+		if (user == null || !"student".equals(user.getUserType())) {
+			throw new ValidationException("只能删除学员账号");
+		}
+		if (!isMemberOfClass(user, deptId)) {
+			throw new AccessDeniedException("这个学员不在当前班级");
+		}
+		userService.deleteClassStudent(userId);
+	}
+
+	private boolean isMemberOfClass(User user, String deptId) {
+		if (user == null) {
+			return false;
+		}
+		if (Objects.equals(user.getDeptId(), deptId)) {
+			return true;
+		}
+		return userDeptMapper.selectCount(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getUserId, user.getId())
+				.eq(UserDept::getDeptId, deptId)) > 0;
 	}
 
 	// ---------------------------------------------------------------- 可见性
@@ -417,10 +477,20 @@ public class ClassServiceImpl implements ClassService {
 		if (deptIds.isEmpty()) {
 			return counts;
 		}
-		userMapper.selectList(Wrappers.<User>lambdaQuery().select(User::getDeptId).in(User::getDeptId, deptIds))
+		userMapper.selectList(Wrappers.<User>lambdaQuery().select(User::getDeptId)
+				.eq(User::getUserType, "student").in(User::getDeptId, deptIds))
 				.forEach(user -> counts.merge(user.getDeptId(), 1L, Long::sum));
-		userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptIds))
-				.forEach(userDept -> counts.merge(userDept.getDeptId(), 1L, Long::sum));
+		List<UserDept> extras = userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery()
+				.in(UserDept::getDeptId, deptIds));
+		if (!extras.isEmpty()) {
+			Set<String> extraUserIds = extras.stream().map(UserDept::getUserId).filter(StringUtils::hasText)
+					.collect(Collectors.toSet());
+			Map<String, String> userTypes = extraUserIds.isEmpty() ? Collections.emptyMap()
+					: userMapper.selectBatchIds(extraUserIds).stream().filter(Objects::nonNull)
+							.collect(Collectors.toMap(User::getId, User::getUserType, (a, b) -> a));
+			extras.stream().filter(userDept -> "student".equals(userTypes.get(userDept.getUserId())))
+					.forEach(userDept -> counts.merge(userDept.getDeptId(), 1L, Long::sum));
+		}
 		return counts;
 	}
 

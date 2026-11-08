@@ -2,6 +2,7 @@ package cn.surveyking.server.api;
 
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
+import cn.surveyking.server.domain.dto.ClassMemberUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberView;
 import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
@@ -100,6 +101,18 @@ public class TeachingApi {
 	@PreAuthorize("hasAuthority('class:member:create') or hasRole('admin')")
 	public void createClassMember(@RequestBody ClassMemberCreateRequest request) {
 		classService.createClassMember(request);
+	}
+
+	@PostMapping("/classes/member/update")
+	@PreAuthorize("hasAuthority('class:member:update') or hasRole('admin')")
+	public void updateClassMember(@RequestBody ClassMemberUpdateRequest request) {
+		classService.updateClassMember(request);
+	}
+
+	@PostMapping("/classes/member/delete")
+	@PreAuthorize("hasAuthority('class:member:delete') or hasRole('admin')")
+	public void deleteClassMember(@RequestBody ClassMemberUpdateRequest request) {
+		classService.deleteClassMember(request.getDeptId(), request.getId());
 	}
 
 }

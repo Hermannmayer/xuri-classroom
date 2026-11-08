@@ -47,6 +47,9 @@ public class UserRequest {
 
 	private Integer status;
 
+	/** 内部使用：staff / student；前端不传，由创建入口决定 */
+	private String userType;
+
 	private List<UserPositionRequest> userPositions;
 
 	private MultipartFile file;

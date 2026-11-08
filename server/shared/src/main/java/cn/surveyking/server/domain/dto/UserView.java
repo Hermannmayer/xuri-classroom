@@ -28,6 +28,9 @@ public class UserView {
 
 	private Integer status;
 
+	/** staff / student */
+	private String userType;
+
 	private Date createAt;
 
 	private String deptId;

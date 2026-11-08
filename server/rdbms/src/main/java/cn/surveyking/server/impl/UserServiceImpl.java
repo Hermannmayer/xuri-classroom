@@ -327,6 +327,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		List<String> orgIds = getChildOrgIds(query.getDeptId());
 		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery()
 				.like(isNotBlank(query.getName()), User::getName, query.getName())
+				// 用户管理与班级管理各看各的：staff / student
+				.eq(isNotBlank(query.getUserType()), User::getUserType, query.getUserType())
 				.exists(isNotBlank(query.getRoleId()),
 						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
 						query.getRoleId())
@@ -513,6 +515,10 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	 *                        目标是系统内置学员角色，不需要也不应该要求老师拥有学员的全部权限串。
 	 */
 	private void createUser(UserRequest request, boolean assertDeptRoles) {
+		// 内部入口没显式指定时按学员处理；用户管理（createSystemUser）会显式设 staff
+		if (!StringUtils.hasText(request.getUserType())) {
+			request.setUserType("student");
+		}
 		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
 		if (assertDeptRoles) {
 			assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
@@ -541,6 +547,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	@Override
 	public void createSystemUser(UserRequest request) {
 		validateStrongPassword(request.getPassword(), null);
+		request.setUserType("staff");
 		assertGrantableRoles(request.getRoles());
 		// 入口注解只认 system:user:create（能不能建用户），这里再按角色分「学员档 / 老师档」
 		assertRoleGrantScope(request.getRoles());
@@ -563,6 +570,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				.orElseThrow(() -> new ValidationException("系统里没有可用的学员角色，请联系管理员"));
 		request.setRoles(Collections.singletonList(studentRole.getId()));
 		request.setStatus(AppConsts.USER_STATUS.VALID);
+		request.setUserType("student");
 		assertClassDeptRoleSafe(request.getDeptId(), studentRole);
 		createUser(request, false);
 	}
@@ -801,9 +809,67 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		removeById(id);
 		accountMapper.physicallyDeleteExternalByUserId(id);
 		accountMapper.delete(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, id));
-		// 用户没了，附加组绑定也一起清掉
+		// 用户没了，附加组/角色绑定也一起清掉
 		userDeptMapper.deleteByUserId(id);
+		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, id));
 		evictUserAfterCommit(id);
+	}
+
+	/**
+	 * 班级管理里删除学员：调用方（ClassService）已经校验过班级可见性与「目标是学员」，
+	 * 这里不再走 system:user:delete 的 manage 校验，但仍然清账号、附加组与角色绑定。
+	 */
+	@Override
+	@CacheEvict(cacheNames = "userCache", key = "#userId")
+	public void deleteClassStudent(String userId) {
+		User user = this.getById(userId);
+		if (user == null || !"student".equals(user.getUserType())) {
+			throw new AccessDeniedException("只能删除学员账号");
+		}
+		removeById(userId);
+		accountMapper.physicallyDeleteExternalByUserId(userId);
+		accountMapper.delete(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, userId));
+		userDeptMapper.deleteByUserId(userId);
+		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId));
+		evictUserAfterCommit(userId);
+	}
+
+	/**
+	 * 班级管理里编辑学员：只允许改姓名、手机、邮箱、状态与重置密码；
+	 * 不允许改角色/所属组（防提权），也不走 system:user:update 的 manage 校验。
+	 */
+	@Override
+	@CacheEvict(cacheNames = "userCache", key = "#request.id")
+	public void updateClassStudent(UserRequest request) {
+		if (request == null || !StringUtils.hasText(request.getId())) {
+			throw new ValidationException("缺少学员 id");
+		}
+		User current = this.getById(request.getId());
+		if (current == null || !"student".equals(current.getUserType())) {
+			throw new AccessDeniedException("只能编辑学员账号");
+		}
+		User update = new User();
+		update.setId(request.getId());
+		update.setName(request.getName());
+		update.setPhone(request.getPhone());
+		update.setEmail(request.getEmail());
+		update.setStatus(request.getStatus());
+		updateById(update);
+		if (request.getStatus() != null || isNotBlank(request.getPassword())) {
+			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery()
+					.eq(Account::getUserId, request.getId()).eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
+			if (account != null) {
+				if (request.getStatus() != null) {
+					account.setStatus(request.getStatus());
+				}
+				if (isNotBlank(request.getPassword())) {
+					validateStrongPassword(request.getPassword(), null);
+					account.setAuthSecret(passwordEncoder.encode(request.getPassword()));
+				}
+				accountMapper.updateById(account);
+			}
+		}
+		evictUserAfterCommit(request.getId());
 	}
 
 	@Override
@@ -957,8 +1023,9 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 				? registerInfo.getDeptId()
 				: getRootDeptId();
 		createUserRequest.setDeptId(registerDeptId);
-		// 注册用户先进待审核状态（status=0），管理员在用户管理里启用后才能登录
+		// 注册用户先进待审核状态（status=0），管理员在班级管理里启用后才能登录
 		createUserRequest.setStatus(0);
+		createUserRequest.setUserType("student");
 		// 注册只能是学员；老师/管理员只能由后台分配
 		String role = null;
 		if (role != null) {

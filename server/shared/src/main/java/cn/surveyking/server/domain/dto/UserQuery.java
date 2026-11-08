@@ -13,6 +13,9 @@ public class UserQuery extends PageQuery {
 
 	private String name;
 
+	/** staff / student：用户管理传 staff，班级成员传 student */
+	private String userType;
+
 	private String deptId;
 
 	private String[] ids;

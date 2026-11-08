@@ -27,6 +27,10 @@ public class ClassMemberView {
 
 	private String deptName;
 
+	private String phone;
+
+	private String email;
+
 	private Date createAt;
 
 	private List<String> roleNames;

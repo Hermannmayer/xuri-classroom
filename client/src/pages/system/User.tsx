@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import { download, get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -32,6 +33,8 @@ interface SysUser {
   phone?: string;
   email?: string;
   status?: number;
+  /** staff / student：用户管理只列 staff */
+  userType?: string;
   deptId?: string;
   deptName?: string;
   /** 附加组：一人多组，主组仍用 deptId */
@@ -102,6 +105,7 @@ export default function SystemUser() {
   const [deptTree, setDeptTree] = useState<Dept[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [deptFilter, setDeptFilter] = useState<string | undefined>(undefined);
+  const navigate = useNavigate();
 
   const [editing, setEditing] = useState<SysUser | null>(null);
   const [open, setOpen] = useState(false);
@@ -134,6 +138,13 @@ export default function SystemUser() {
   const roleTouchesSystem = (role: Role) =>
     role.code === 'admin' || (role.authorities ?? []).some((a) => typeof a === 'string' && a.startsWith('system:'));
   const assignableRoles = canGrantSystemRole ? roles : roles.filter((role) => !roleTouchesSystem(role));
+  // 用户管理只维护教职工：学员类角色（student/xueyuan、只有 portal:student 的角色）不在下拉里出现
+  const isStudentRole = (role: Role) => {
+    if (role.code === 'student' || role.code === 'xueyuan') return true;
+    const auth = role.authorities ?? [];
+    return auth.includes('portal:student') && !auth.includes('portal:teacher');
+  };
+  const staffRoles = assignableRoles.filter((role) => !isStudentRole(role));
   // 批量导入：注解是 hasAnyAuthority('user:import','system:user:create')（UserApi.java:126）
   const canImportUser = can(authorities, 'user:import') || can(authorities, 'system:user:create');
   // 下载导入模板：后端要 file:import（FileApi.java:75）
@@ -148,6 +159,7 @@ export default function SystemUser() {
           current: 1,
           pageSize: 1000,
           name: keyword,
+          userType: 'staff',
         });
         const ungrouped = res.data.filter((user) => !user.deptId);
         setRows(ungrouped.slice((page - 1) * pageSize, page * pageSize));
@@ -158,6 +170,7 @@ export default function SystemUser() {
           pageSize,
           name: keyword,
           deptId: deptFilter,
+          userType: 'staff',
         });
         setRows(res.data);
         setTotal(res.total);
@@ -338,9 +351,12 @@ export default function SystemUser() {
         }}
       >
         <div>
-          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SYSTEM / 用户</div>
+          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SYSTEM / 教职工</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-            共 {total} 个账号
+            共 {total} 个教职工账号
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+            只显示老师 / 管理员 / 职工；学员请到「班级管理」里按班维护
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -381,9 +397,12 @@ export default function SystemUser() {
             下载模板
           </Button>
         )}
+        {can(authorities, 'class:list') && (
+          <Button onClick={() => navigate('/teaching/classes')}>去班级管理</Button>
+        )}
         {canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            新建用户
+            新建教职工
           </Button>
         )}
       </div>
@@ -499,7 +518,7 @@ export default function SystemUser() {
                 marginTop: 12,
               }}
             >
-              <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 个账号</span>
+              <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 个教职工账号</span>
               {total > pageSize && (
                 <Pagination
                   simple
@@ -628,7 +647,7 @@ export default function SystemUser() {
               mode="multiple"
               allowClear
               placeholder="默认不分配"
-              options={assignableRoles.map((r) => ({ value: r.id, label: r.name || r.code }))}
+              options={staffRoles.map((r) => ({ value: r.id, label: r.name || r.code }))}
             />
           </Form.Item>
           <Form.Item name="phone" label="手机">

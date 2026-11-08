@@ -82,6 +82,8 @@ public enum PermissionEnum {
 	CLASS_DETAIL("class:detail", "查看班级成员与学情", Group.CLASS, "查看班级成员名单与成员信息"),
 	CLASS_GRANT("class:grant", "分配班级给老师", Group.CLASS, "把班级的查看权限分配给老师；拥有者可看到全部班级用于分配"),
 	CLASS_MEMBER_CREATE("class:member:create", "在班级中新增学员", Group.CLASS, "班主任在自己可见的班里添加学员账号"),
+	CLASS_MEMBER_UPDATE("class:member:update", "编辑班级学员", Group.CLASS, "改学员姓名/联系方式/状态、重置密码；不改角色与所属组"),
+	CLASS_MEMBER_DELETE("class:member:delete", "删除班级学员", Group.CLASS, "删除学员账号；管理员与班主任可用"),
 
 	/* ---------------------------------------------------------------- 文件 */
 

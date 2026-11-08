@@ -24,6 +24,12 @@ public interface UserService extends UserDetailsService {
 	/** 班主任在班级管理里新增学员：角色固定为系统内置学员角色。 */
 	void createClassStudent(UserRequest request);
 
+	/** 班级管理里编辑学员：只改姓名/手机/邮箱/状态/密码，不改角色与组。 */
+	void updateClassStudent(UserRequest request);
+
+	/** 班级管理里删除学员账号（调用方先校验班级可见性）。 */
+	void deleteClassStudent(String userId);
+
 	/** 只读用户候选项（授权选人用），只返回 id/姓名/账号/组。 */
 	List<UserOptionView> listUserOptions(String keyword);
 

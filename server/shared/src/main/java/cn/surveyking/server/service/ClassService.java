@@ -1,6 +1,7 @@
 package cn.surveyking.server.service;
 
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
+import cn.surveyking.server.domain.dto.ClassMemberUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberView;
 import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
@@ -30,5 +31,9 @@ public interface ClassService {
 	void deleteClassPartner(ClassPartnerRequest request);
 
 	void createClassMember(ClassMemberCreateRequest request);
+
+	void updateClassMember(ClassMemberUpdateRequest request);
+
+	void deleteClassMember(String deptId, String userId);
 
 }
