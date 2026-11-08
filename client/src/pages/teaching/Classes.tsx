@@ -17,11 +17,19 @@ import {
 } from 'antd';
 import type { TreeDataNode } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ReloadOutlined, SearchOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  UserAddOutlined,
+} from '@ant-design/icons';
 import { get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
+import ClassSettingsModal from './ClassSettingsModal';
 
 /** 与后端 ClassNodeView 对齐 */
 interface ClassNode {
@@ -31,6 +39,10 @@ interface ClassNode {
   managerId?: string;
   managerName?: string;
   memberCount?: number;
+  /** 班级设置回显：组绑定角色与有效期 */
+  roleIds?: string[];
+  validFrom?: string;
+  validTo?: string;
   children?: ClassNode[];
 }
 
@@ -201,6 +213,10 @@ export default function TeachingClasses() {
   const canDetail = can(authorities, 'class:detail');
   const canGrant = can(authorities, 'class:grant');
   const canCreateMember = can(authorities, 'class:member:create');
+  // 原「用户组」页的组织设置权限：只有管理员/组织管理员有，老师默认没有
+  const canDeptCreate = can(authorities, 'system:dept:create');
+  const canDeptUpdate = can(authorities, 'system:dept:update');
+  const canDeptDelete = can(authorities, 'system:dept:delete');
 
   /* ---------------- 班级树 ---------------- */
   const [tree, setTree] = useState<ClassNode[]>([]);
@@ -282,6 +298,24 @@ export default function TeachingClasses() {
     const nextId = await loadTree();
     // 选中项没变时上面的 effect 不会重跑，这里手动刷新成员；变了就交给 effect
     if (nextId && nextId === before) await loadMembers(nextId);
+  };
+
+  /* ---------------- 班级设置（原用户组页） ---------------- */
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMode, setSettingsMode] = useState<'create' | 'edit'>('create');
+  const [settingsNode, setSettingsNode] = useState<ClassNode | null>(null);
+
+  const openCreateClass = () => {
+    setSettingsMode('create');
+    setSettingsNode(null);
+    setSettingsOpen(true);
+  };
+
+  const openClassSettings = () => {
+    if (!selected) return;
+    setSettingsMode('edit');
+    setSettingsNode(selected);
+    setSettingsOpen(true);
   };
 
   /* ---------------- 添加学员 ---------------- */
@@ -500,12 +534,19 @@ export default function TeachingClasses() {
             班级管理
           </h2>
           <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-            班主任默认看到自己创建/负责的班级；管理员可分配查看权限
+            班主任默认看到自己创建/负责的班级；管理员可在「班级设置」里维护组织并分配查看权限
           </div>
         </div>
-        <Button icon={<ReloadOutlined />} loading={treeLoading} onClick={() => void refreshAll()}>
-          刷新
-        </Button>
+        <Space wrap>
+          {canDeptCreate && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateClass}>
+              新建班级
+            </Button>
+          )}
+          <Button icon={<ReloadOutlined />} loading={treeLoading} onClick={() => void refreshAll()}>
+            刷新
+          </Button>
+        </Space>
       </div>
 
       <div
@@ -624,6 +665,11 @@ export default function TeachingClasses() {
                   {canGrant && (
                     <Button icon={<TeamOutlined />} onClick={openGrantModal}>
                       分配老师
+                    </Button>
+                  )}
+                  {canDeptUpdate && (
+                    <Button icon={<SettingOutlined />} onClick={openClassSettings}>
+                      班级设置
                     </Button>
                   )}
                 </Space>
@@ -795,6 +841,17 @@ export default function TeachingClasses() {
           </Button>
         </div>
       </Modal>
+
+      <ClassSettingsModal
+        open={settingsOpen}
+        mode={settingsMode}
+        node={settingsNode}
+        defaultParentId={selected?.id}
+        tree={tree}
+        canDelete={canDeptDelete}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => void refreshAll()}
+      />
     </div>
   );
 }

@@ -143,7 +143,11 @@ export default function BasicLayout() {
     // 系统管理：逐个判权，和 router.tsx 的 guard 一一对应
     const systemChildren: NonNullable<MenuProps['items']> = [];
     if (allow('system:user:list')) systemChildren.push({ key: '/system/user', label: t('menu.system.user', '用户管理') });
-    if (allow('system:dept:list')) systemChildren.push({ key: '/system/group', label: t('menu.system.group', '用户组') });
+    // 用户组（班级）设置已并入「班级管理」：有班级入口的人不再重复看到这棵树；
+    // 只做组织管理、没有 class:list 的角色仍保留独立页。
+    if (allow('system:dept:list') && !allow('class:list')) {
+      systemChildren.push({ key: '/system/group', label: t('menu.system.group', '用户组') });
+    }
     if (allow('system:role:list')) {
       systemChildren.push({ key: '/system/setting', label: t('menu.system.setting', '系统设置') });
       systemChildren.push({ key: '/system/permissions', label: t('menu.system.permissions', '权限配置') });

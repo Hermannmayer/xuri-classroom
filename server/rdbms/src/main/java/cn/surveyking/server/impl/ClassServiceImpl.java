@@ -13,6 +13,7 @@ import cn.surveyking.server.domain.dto.UserRequest;
 import cn.surveyking.server.domain.model.Account;
 import cn.surveyking.server.domain.model.ClassPartner;
 import cn.surveyking.server.domain.model.Dept;
+import cn.surveyking.server.domain.model.DeptRole;
 import cn.surveyking.server.domain.model.Role;
 import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.domain.model.UserDept;
@@ -20,6 +21,7 @@ import cn.surveyking.server.domain.model.UserRole;
 import cn.surveyking.server.mapper.AccountMapper;
 import cn.surveyking.server.mapper.ClassPartnerMapper;
 import cn.surveyking.server.mapper.DeptMapper;
+import cn.surveyking.server.mapper.DeptRoleMapper;
 import cn.surveyking.server.mapper.RoleMapper;
 import cn.surveyking.server.mapper.UserDeptMapper;
 import cn.surveyking.server.mapper.UserMapper;
@@ -71,6 +73,8 @@ public class ClassServiceImpl implements ClassService {
 
 	private final DeptMapper deptMapper;
 
+	private final DeptRoleMapper deptRoleMapper;
+
 	private final UserMapper userMapper;
 
 	private final AccountMapper accountMapper;
@@ -102,6 +106,7 @@ public class ClassServiceImpl implements ClassService {
 				.collect(Collectors.groupingBy(Dept::getParentId, LinkedHashMap::new, Collectors.toList()));
 		Set<String> include = withAncestors(visible, byId);
 		Map<String, Long> counts = countMembers(visible);
+		Map<String, List<String>> roleIdsByDept = loadDeptRoleIds(include);
 		Map<String, String> managerNames = new HashMap<>();
 		List<ClassNodeView> roots = new ArrayList<>();
 		for (Dept dept : depts) {
@@ -111,7 +116,7 @@ public class ClassServiceImpl implements ClassService {
 			// 父节点不在结果里 → 这是当前可见子树的根
 			if (!StringUtils.hasText(dept.getParentId()) || !include.contains(dept.getParentId())
 					|| ROOT_DEPT_PARENT_ID.equals(dept.getParentId())) {
-				roots.add(toNode(dept, childMap, include, counts, managerNames));
+				roots.add(toNode(dept, childMap, include, counts, managerNames, roleIdsByDept));
 			}
 		}
 		if (!StringUtils.hasText(keyword)) {
@@ -357,13 +362,16 @@ public class ClassServiceImpl implements ClassService {
 	}
 
 	private ClassNodeView toNode(Dept dept, Map<String, List<Dept>> childMap, Set<String> include,
-			Map<String, Long> counts, Map<String, String> managerNames) {
+			Map<String, Long> counts, Map<String, String> managerNames, Map<String, List<String>> roleIdsByDept) {
 		ClassNodeView view = new ClassNodeView();
 		view.setId(dept.getId());
 		view.setName(dept.getName());
 		view.setParentId(dept.getParentId());
 		view.setManagerId(dept.getManagerId());
 		view.setMemberCount(counts.getOrDefault(dept.getId(), 0L));
+		view.setRoleIds(roleIdsByDept.getOrDefault(dept.getId(), Collections.emptyList()));
+		view.setValidFrom(dept.getValidFrom());
+		view.setValidTo(dept.getValidTo());
 		if (StringUtils.hasText(dept.getManagerId())) {
 			view.setManagerName(managerNames.computeIfAbsent(dept.getManagerId(), userId -> {
 				User user = userMapper.selectById(userId);
@@ -372,8 +380,20 @@ public class ClassServiceImpl implements ClassService {
 		}
 		view.setChildren(childMap.getOrDefault(dept.getId(), Collections.emptyList()).stream()
 				.filter(child -> include.contains(child.getId()))
-				.map(child -> toNode(child, childMap, include, counts, managerNames)).collect(Collectors.toList()));
+				.map(child -> toNode(child, childMap, include, counts, managerNames, roleIdsByDept))
+				.collect(Collectors.toList()));
 		return view;
+	}
+
+	/** 一次取出本页所有组的角色绑定，避免每个节点查一次 */
+	private Map<String, List<String>> loadDeptRoleIds(Set<String> deptIds) {
+		if (deptIds.isEmpty()) {
+			return Collections.emptyMap();
+		}
+		return deptRoleMapper.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, deptIds)).stream()
+				.filter(role -> StringUtils.hasText(role.getDeptId()) && StringUtils.hasText(role.getRoleId()))
+				.collect(Collectors.groupingBy(DeptRole::getDeptId,
+						Collectors.mapping(DeptRole::getRoleId, Collectors.toList())));
 	}
 
 	private List<ClassNodeView> filterByKeyword(List<ClassNodeView> nodes, String keyword) {

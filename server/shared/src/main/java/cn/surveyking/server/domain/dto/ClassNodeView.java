@@ -27,6 +27,14 @@ public class ClassNodeView {
 	/** 本班直属成员数（主组 + 附加组，去重口径见 ClassServiceImpl） */
 	private long memberCount;
 
+	/** 组绑定的角色 id，班级设置弹窗回显用 */
+	private List<String> roleIds;
+
+	/** 组有效期（空=永久）；班级设置弹窗回显用 */
+	private java.util.Date validFrom;
+
+	private java.util.Date validTo;
+
 	private List<ClassNodeView> children;
 
 }
