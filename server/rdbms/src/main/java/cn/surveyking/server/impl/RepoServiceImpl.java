@@ -110,8 +110,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				.like(isNotBlank(query.getName()), Repo::getName, query.getName())
 						.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory()).and(x -> {
 							if (Boolean.TRUE.equals(query.getMemberOnly())) {
-								// 自己创建的、或被逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
-								x.eq(Repo::getCreateBy, currentUserId).or().apply(
+								// 自己创建的、共享的、逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
+								x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
 										"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
 												+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
 										currentUserId);
@@ -1045,6 +1045,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private void assertManageRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
+		// 管理员可以维护任何题库（含共享题库）；其他人只能管自己创建的
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
 		if (!Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())) {
 			throw new AccessDeniedException("无权限管理该题库");
 		}
@@ -1053,9 +1057,11 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	private void assertReadableRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
 		String userId = SecurityContextUtils.getUserId();
-		// 管理员全放行；其他人只能读自己创建的、被逐个授权的、或所在用户组被授权的
-		// （去掉 shared 全放行，否则知道 id 就能绕过「按组授权」的可见性）
-		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)) {
+		// 管理员全放行；共享题库对所有能进题库列表的人可读（与 TemplateServiceImpl#isReadableRepo、
+		// 列表的 shared 分支保持同一口径，否则列表能看到、点进去 403 空白）；
+		// 其余人只能读自己创建的、被逐个授权的、或所在用户组被授权的。
+		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
+				|| Boolean.TRUE.equals(repo.getShared())) {
 			return;
 		}
 		// 可见组 = 主组 + 附加组 + 祖先链（一次解析，不在循环里查）

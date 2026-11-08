@@ -84,12 +84,19 @@ function PracticeRecords() {
   }, [load]);
 
   const enter = (row: ExerciseView) => {
-    const target = row.repoId || row.projectId;
-    if (!target) {
-      message.warning('这条记录缺少题库信息，无法进入练习');
+    // 练习记录来自题库时进练习页（/exercise/practice/:repoId）；
+    // 原来的 /exercise/:repoId 只是占位页，点进去是空白。
+    if (row.repoId) {
+      navigate(`/exercise/practice/${row.repoId}?mode=${row.tempSave === 1 ? 'full' : 'resume'}`, {
+        state: { repoName: row.projectName },
+      });
       return;
     }
-    navigate(`/exercise/${target}`);
+    if (row.projectId) {
+      navigate(`/s/${row.projectId}`);
+      return;
+    }
+    message.warning('这条记录缺少题库信息，无法进入练习');
   };
 
   const remove = async (row: ExerciseView) => {

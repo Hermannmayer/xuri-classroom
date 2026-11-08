@@ -18,8 +18,12 @@ interface RepoPartnerView {
   deptName?: string;
 }
 
-interface SysUser {
-  userId: string;
+/**
+ * 后端 /api/system/user/options（UserOptionView）：
+ * 只返回 id / 姓名 / 账号 / 部门，不带手机号等敏感字段，老师也能读。
+ */
+interface UserOption {
+  id: string;
   name?: string;
   username?: string;
   deptName?: string;
@@ -59,8 +63,10 @@ export default function GrantModal({
   const [partners, setPartners] = useState<RepoPartnerView[]>([]);
   const [mode, setMode] = useState<GrantMode>('dept');
   const [depts, setDepts] = useState<Dept[]>([]);
+  const [deptError, setDeptError] = useState<string>();
   const [deptId, setDeptId] = useState<string>();
-  const [users, setUsers] = useState<SysUser[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [userIds, setUserIds] = useState<string[]>([]);
   const [userListError, setUserListError] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -89,20 +95,31 @@ export default function GrantModal({
     setUserIds([]);
     setMode('dept');
     void loadPartners();
+    // 组树失败不能再静默：老师没有 system:dept:list 时会 403，界面需要说明原因而不是给个空树
+    setDeptError(undefined);
     get<Dept[]>('/api/system/dept/list')
-      .then((list) => setDepts(list ?? []))
-      .catch(() => undefined);
+      .then((list) => {
+        setDepts(list ?? []);
+        setDeptError(undefined);
+      })
+      .catch((e: Error) => setDeptError(e.message || '没有权限读取用户组'));
   }, [open, loadPartners]);
 
-  /** 只有切到「按个人」时才拉用户列表；老师没有 system:user:list 会 403，给出可读提示 */
+  /**
+   * 只有切到「按个人」时才拉用户候选项。
+   *
+   * 走 /api/system/user/options（UserOptionView：id/姓名/账号/部门），
+   * 不再用需要 system:user:list 的 /api/system/user/list——老师没有系统用户权限，
+   * 以前切到「按个人」直接 403、下拉永远是空的。失败时给出可读提示，不静默变空。
+   */
   useEffect(() => {
     if (!open || mode !== 'user' || users.length > 0) return;
-    getWithPagination<SysUser>('/api/system/user/list', { current: 1, pageSize: 200 })
-      .then((res) => {
-        setUsers(res.data ?? []);
-        setUserListError(undefined);
-      })
-      .catch((e: Error) => setUserListError(e.message || '没有权限读取用户列表'));
+    setUsersLoading(true);
+    setUserListError(undefined);
+    get<UserOption[]>('/api/system/user/options')
+      .then((list) => setUsers(list ?? []))
+      .catch((e: Error) => setUserListError(e.message || '没有权限读取用户列表'))
+      .finally(() => setUsersLoading(false));
   }, [open, mode, users.length]);
 
   const flattenDepts = (list: Dept[], depth = 0): { id: string; name: string; depth: number }[] =>
@@ -274,22 +291,32 @@ export default function GrantModal({
       />
 
       {mode === 'dept' ? (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <TreeSelect
-            style={{ flex: '1 1 260px', minWidth: 220 }}
-            placeholder="选择用户组 / 班级"
-            value={deptId}
-            onChange={setDeptId}
-            treeData={deptTree}
-            showSearch
-            treeNodeFilterProp="title"
-            treeDefaultExpandAll
-            allowClear
-            dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
-          />
-          <Button type="primary" loading={saving} onClick={() => void grant()}>
-            授权该用户组
-          </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {deptError && (
+            <Alert
+              type="warning"
+              showIcon
+              message="读不到用户组"
+              description={`${deptError}；请确认 /api/system/dept/list 是否可用，或联系管理员给账号补上 org:list。`}
+            />
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <TreeSelect
+              style={{ flex: '1 1 260px', minWidth: 220 }}
+              placeholder="选择用户组 / 班级"
+              value={deptId}
+              onChange={setDeptId}
+              treeData={deptTree}
+              showSearch
+              treeNodeFilterProp="title"
+              treeDefaultExpandAll
+              allowClear
+              dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
+            />
+            <Button type="primary" loading={saving} onClick={() => void grant()}>
+              授权该用户组
+            </Button>
+          </div>
         </div>
       ) : (
         <div>
@@ -297,8 +324,8 @@ export default function GrantModal({
             <Alert
               type="warning"
               showIcon
-              message="读不到用户列表"
-              description={`${userListError}；如果当前账号不是管理员，请改用「按用户组」授权。`}
+              message="读不到用户候选项"
+              description={`${userListError}；可以改用「按用户组」授权，或请管理员确认 /api/system/user/options 是否正常。`}
             />
           ) : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -312,12 +339,10 @@ export default function GrantModal({
                 optionFilterProp="label"
                 maxTagCount={4}
                 options={users.map((user) => ({
-                  value: user.userId,
-                  label: `${user.name || user.username || user.userId}${
-                    user.deptName ? ` · ${user.deptName}` : ''
-                  }`,
+                  value: user.id,
+                  label: `${user.name || user.username || user.id}${user.deptName ? ` · ${user.deptName}` : ''}`,
                 }))}
-                notFoundContent={users.length ? undefined : <Spin size="small" />}
+                notFoundContent={usersLoading ? <Spin size="small" /> : users.length ? undefined : '没有可选用户'}
               />
               <Button type="primary" loading={saving} onClick={() => void grant()}>
                 授权所选用户

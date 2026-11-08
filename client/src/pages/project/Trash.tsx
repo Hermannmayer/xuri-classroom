@@ -4,6 +4,7 @@ import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import { get, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import type { Project } from '../../schema/project';
 import { TABLE_COMPONENTS } from '../repo/table';
 
@@ -21,6 +22,14 @@ export default function ProjectTrash() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
+  const [authorities, setAuthorities] = useState<string[]>([]);
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  // 恢复/彻底删除后端都要求 project:create；没权限就不渲染，避免「看得见、点了 403」
+  const canRestore = can(authorities, 'project:create');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,7 +51,8 @@ export default function ProjectTrash() {
 
   const restore = async (row: Project) => {
     try {
-      await post('/api/project/restore', { id: row.id });
+      // 后端 ProjectServiceImpl 读的是 request.getIds()，单个 id 也要放进数组
+      await post('/api/project/restore', { ids: [row.id] });
       message.success('已恢复');
       await load();
     } catch (e) {
@@ -52,7 +62,7 @@ export default function ProjectTrash() {
 
   const destroy = async (row: Project) => {
     try {
-      await post('/api/project/destroy', { id: row.id });
+      await post('/api/project/destroy', { ids: [row.id] });
       message.success('已彻底删除，无法再恢复');
       await load();
     } catch (e) {
@@ -108,7 +118,8 @@ export default function ProjectTrash() {
               title: '操作',
               key: 'ops',
               width: 180,
-              render: (_, row) => (
+              render: (_, row) =>
+                canRestore ? (
                 <Space size={12}>
                   <LinkAction onClick={() => restore(row)}>恢复</LinkAction>
                   <Popconfirm
@@ -121,7 +132,9 @@ export default function ProjectTrash() {
                     <LinkAction style={{ color: 'var(--bp-orange)' }}>彻底删除</LinkAction>
                   </Popconfirm>
                 </Space>
-              ),
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>只读</span>
+                ),
             },
           ]}
         />

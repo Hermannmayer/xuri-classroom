@@ -4,6 +4,7 @@ import {
   DatabaseOutlined,
   HomeOutlined,
   ProjectOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -50,8 +51,18 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       path: '/teaching',
       label: '学情',
       icon: <BarChartOutlined />,
-      active: (p) => under(p, '/teaching'),
+      // 精确匹配：/teaching/classes 属于下面的「班级」tab，不能再把「学情」点亮
+      active: (p) => p === '/teaching' || p === '/teaching/',
     });
+    if (can(authorities, 'class:list')) {
+      tabs.push({
+        key: 'classes',
+        path: '/teaching/classes',
+        label: '班级',
+        icon: <TeamOutlined />,
+        active: (p) => under(p, '/teaching/classes'),
+      });
+    }
   }
   if (!can(authorities, 'portal:teacher') && !can(authorities, 'portal:admin') && can(authorities, 'portal:student')) {
     tabs.push({

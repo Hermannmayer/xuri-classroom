@@ -185,6 +185,17 @@ public class SystemApi {
 	}
 
 	/**
+	 * 只读用户候选：题库/考试授权选人、班级分配老师用。
+	 *
+	 * <p>与 /user/list 分开，避免把 system:user:list 的完整用户资料面暴露给只有 user:select 的角色。
+	 */
+	@GetMapping("/user/options")
+	@PreAuthorize("hasAnyAuthority('system:user:list','user:select') or hasRole('admin')")
+	public List<UserOptionView> userOptions(@RequestParam(required = false) String keyword) {
+		return userService.listUserOptions(keyword);
+	}
+
+	/**
 	 * 创建系统用户
 	 * @param request
 	 */
@@ -299,7 +310,8 @@ public class SystemApi {
 	 * @return
 	 */
 	@GetMapping("/dept/list")
-	@PreAuthorize("hasAuthority('system:dept:list')")
+	// org:list 是只读组织树：老师要在题库/考试授权弹窗里选组，但不应因此获得用户组管理菜单
+	@PreAuthorize("hasAnyAuthority('system:dept:list','org:list') or hasRole('admin')")
 	public List<DeptView> listDept() {
 		return deptService.listDept(null);
 	}

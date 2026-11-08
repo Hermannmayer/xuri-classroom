@@ -59,7 +59,8 @@ public enum PermissionEnum {
 	REPO_CREATE("repo:create", "新建题库", Group.REPO, "新建题库、从题库复制"),
 	REPO_UPDATE("repo:update", "编辑题库", Group.REPO, "改题库、改题目、导入题目"),
 	REPO_DELETE("repo:delete", "删除题库", Group.REPO, "删题库/删题目；代价高，建议改为归档"),
-	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本、收藏与练习入口，属于学员功能"),
+	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本与收藏，属于学员功能；练习入口已拆到 repo:practice"),
+	REPO_PRACTICE("repo:practice", "开始练习", Group.REPO, "题库的开始/随机/继续练习；学员功能，老师默认不给"),
 	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭"),
 	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志"),
 	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", false),
@@ -74,6 +75,13 @@ public enum PermissionEnum {
 	/* ---------------------------------------------------------------- 练习 */
 
 	EXERCISE_LIST("exercise:list", "练习记录与练习页", Group.EXERCISE, "我的练习、练习作答；同时给考试列表兜底"),
+
+	/* ---------------------------------------------------------------- 班级 */
+
+	CLASS_LIST("class:list", "查看班级管理", Group.CLASS, "班级管理页入口；班主任看自己创建/负责的班，其他人看被授权的班"),
+	CLASS_DETAIL("class:detail", "查看班级成员与学情", Group.CLASS, "查看班级成员名单与成员信息"),
+	CLASS_GRANT("class:grant", "分配班级给老师", Group.CLASS, "把班级的查看权限分配给老师；拥有者可看到全部班级用于分配"),
+	CLASS_MEMBER_CREATE("class:member:create", "在班级中新增学员", Group.CLASS, "班主任在自己可见的班里添加学员账号"),
 
 	/* ---------------------------------------------------------------- 文件 */
 
@@ -98,6 +106,8 @@ public enum PermissionEnum {
 	SYSTEM_ROLE_UPDATE("system:role:update", "修改角色", Group.SYSTEM, "改角色信息与权限串；权限矩阵保存所需"),
 	SYSTEM_ROLE_DELETE("system:role:delete", "删除角色", Group.SYSTEM, "删除角色；至少保留一个角色"),
 	SYSTEM_DEPT_LIST("system:dept:list", "查看用户组", Group.SYSTEM, "用户组（班级）树"),
+	ORG_LIST("org:list", "读取组织树", Group.SYSTEM, "只读组织树，供题库/考试授权选组；不含用户组管理"),
+	USER_SELECT("user:select", "读取用户候选", Group.SYSTEM, "只读用户 id/姓名/组，供授权选人；不含用户管理"),
 	SYSTEM_DEPT_CREATE("system:dept:create", "新建用户组", Group.SYSTEM, "新建分组、调整分组排序"),
 	SYSTEM_DEPT_UPDATE("system:dept:update", "修改用户组", Group.SYSTEM, "重命名、调整上级分组"),
 	SYSTEM_DEPT_DELETE("system:dept:delete", "删除用户组", Group.SYSTEM, "删除分组；至少保留一个分组"),
@@ -159,7 +169,7 @@ public enum PermissionEnum {
 	@Getter
 	public enum Group {
 
-		PORTAL("视角"), EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), FILE("文件"), USER("用户"),
+		PORTAL("视角"), EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), CLASS("班级"), FILE("文件"), USER("用户"),
 		SYSTEM("系统"), CONTENT("内容保护"), OTHER("其它");
 
 		private final String label;

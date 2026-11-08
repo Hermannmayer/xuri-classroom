@@ -505,8 +505,18 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	@Override
 	public void createUser(UserRequest request) {
+		createUser(request, true);
+	}
+
+	/**
+	 * @param assertDeptRoles 是否校验「目标组绑定的角色自己能授予」。班级管理里老师给本班加学员时，
+	 *                        目标是系统内置学员角色，不需要也不应该要求老师拥有学员的全部权限串。
+	 */
+	private void createUser(UserRequest request, boolean assertDeptRoles) {
 		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
-		assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
+		if (assertDeptRoles) {
+			assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
+		}
 		User user = userViewMapper.fromRequest(request);
 		this.save(user);
 
@@ -535,6 +545,89 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		// 入口注解只认 system:user:create（能不能建用户），这里再按角色分「学员档 / 老师档」
 		assertRoleGrantScope(request.getRoles());
 		createUser(request);
+	}
+
+	/**
+	 * 班级管理里由班主任新增学员：角色固定成系统内置学员角色，不接受请求方指定角色。
+	 *
+	 * <p>不走 {@link #assertRoleGrantScope}：老师没有学员的 portal:student / repo:practice 等权限串，
+	 * 但这不代表不能在自己班里建学员；入口由 class:member:create 控制，班级可见性由 ClassService 校验。
+	 */
+	@Override
+	public void createClassStudent(UserRequest request) {
+		validateStrongPassword(request.getPassword(), null);
+		Role studentRole = roleService
+				.list(Wrappers.<Role>lambdaQuery().in(Role::getCode, "student", "xueyuan")
+						.eq(Role::getStatus, AppConsts.USER_STATUS.VALID).orderByAsc(Role::getCreateAt))
+				.stream().findFirst()
+				.orElseThrow(() -> new ValidationException("系统里没有可用的学员角色，请联系管理员"));
+		request.setRoles(Collections.singletonList(studentRole.getId()));
+		request.setStatus(AppConsts.USER_STATUS.VALID);
+		assertClassDeptRoleSafe(request.getDeptId(), studentRole);
+		createUser(request, false);
+	}
+
+	/**
+	 * 班级建学员时不能跳过「组绑定角色」的风险：把用户放进某个组会连带继承该组（含祖先链）的角色。
+	 *
+	 * <p>这里不允许目标组链绑定任何高于「学员角色」的角色；学员角色本身或权限是它子集的角色放行。
+	 * 这样班主任能往普通班级加学员，但不能借班级配置提权。
+	 */
+	private void assertClassDeptRoleSafe(String deptId, Role studentRole) {
+		if (SecurityContextUtils.isAdmin() || !StringUtils.hasText(deptId)) {
+			return;
+		}
+		List<String> chain = resolveDeptChainIds(Collections.singletonList(deptId), loadDeptMap());
+		if (CollectionUtils.isEmpty(chain)) {
+			return;
+		}
+		List<String> roleIds = deptRoleMapper
+				.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, chain)).stream()
+				.map(DeptRole::getRoleId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+		if (roleIds.isEmpty()) {
+			return;
+		}
+		Set<String> studentAuthorities = toAuthorityNames(studentRole);
+		for (Role role : roleService.listByIds(roleIds)) {
+			if (role == null || !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID)) {
+				continue;
+			}
+			if (Objects.equals(role.getCode(), "student") || Objects.equals(role.getCode(), "xueyuan")) {
+				continue;
+			}
+			if (!studentAuthorities.containsAll(toAuthorityNames(role))) {
+				throw new AccessDeniedException("不能把学员放进绑定了更高权限角色的用户组");
+			}
+		}
+	}
+
+	@Override
+	public List<UserOptionView> listUserOptions(String keyword) {
+		List<User> users = list(Wrappers.<User>lambdaQuery()
+				.like(StringUtils.hasText(keyword), User::getName, keyword).orderByAsc(User::getName)
+				.last("LIMIT 200"));
+		if (users.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<String> userIds = users.stream().map(User::getId).collect(Collectors.toList());
+		Map<String, String> usernames = accountMapper
+				.selectList(Wrappers.<Account>lambdaQuery().in(Account::getUserId, userIds)
+						.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()))
+				.stream().filter(account -> StringUtils.hasText(account.getUserId()))
+				.collect(Collectors.toMap(Account::getUserId, Account::getAuthAccount, (a, b) -> a));
+		Set<String> deptIds = users.stream().map(User::getDeptId).filter(StringUtils::hasText)
+				.collect(Collectors.toSet());
+		Map<String, String> deptNames = deptIds.isEmpty() ? Collections.emptyMap()
+				: deptMapper.selectBatchIds(deptIds).stream().filter(Objects::nonNull)
+						.collect(Collectors.toMap(Dept::getId, Dept::getName, (a, b) -> a));
+		return users.stream().map(user -> {
+			UserOptionView view = new UserOptionView();
+			view.setId(user.getId());
+			view.setName(user.getName());
+			view.setUsername(usernames.get(user.getId()));
+			view.setDeptName(user.getDeptId() == null ? null : deptNames.get(user.getDeptId()));
+			return view;
+		}).collect(Collectors.toList());
 	}
 
 	private void addUserRoles(UserRequest request) {

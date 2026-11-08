@@ -228,7 +228,9 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 
 	private void assertManageRepo(String repoId) {
 		Repo repo = repoMapper.selectById(repoId);
-		if (repo == null || !Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())) {
+		// 与 RepoServiceImpl#assertManageRepo 一致：管理员可以维护任何题库
+		if (repo == null || (!SecurityContextUtils.isAdmin()
+				&& !Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId()))) {
 			throw new AccessDeniedException("无权管理该题库的模板");
 		}
 	}

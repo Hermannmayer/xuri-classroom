@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import {
   Button,
   Empty,
@@ -16,7 +17,7 @@ import {
   Table,
   Tag,
 } from 'antd';
-import { AppstoreOutlined, DatabaseOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
@@ -24,7 +25,6 @@ import { getWithPagination, post } from '../../api';
 import { loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
-import RepoGroups from './RepoGroups';
 
 /** 与后端 RepoView 对齐（只取列表要用的字段） */
 interface RepoView {
@@ -55,6 +55,9 @@ const PRACTICE_TYPE_LABEL: Record<string, string> = {
 };
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
+
+/** 操作列的中文链接一律不折行：列宽再紧也要整词显示（「开始练习」被拆成两行是线上问题） */
+const NOWRAP: CSSProperties = { whiteSpace: 'nowrap' };
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
@@ -89,7 +92,8 @@ export default function RepoList() {
   const [renameSaving, setRenameSaving] = useState(false);
   const [granting, setGranting] = useState<RepoView | null>(null);
   const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
-  const [groupsOpen, setGroupsOpen] = useState(false);
+  // 分类下拉候选：从已加载数据累积，翻页/筛选后不丢（只在当前页取会越筛越少）
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [randomForm] = Form.useForm<Record<string, number>>();
   const [createForm] = Form.useForm<{
     name: string;
@@ -121,18 +125,43 @@ export default function RepoList() {
   const sortOrderOf = (key: string) => (sortKey === key ? (sortDesc ? 'descend' : 'ascend') : null);
 
   const canCreate = hasPermission('repo:create');
-  // 批量授权走 repo:grant；兼容老数据：有 repo:update 的也能看到入口
-  const canGrant = hasPermission('repo:grant') || hasPermission('repo:update');
+  // 授权入口只认 repo:grant：repo:update 管的是题库内容，不该顺带把可见范围也放出去
+  const canGrant = hasPermission('repo:grant');
   const canDetail = hasPermission('repo:detail');
-  // 能不能进题库看题：detail 之外，能导入/改/删/看题目列表的人都应该有入口。
-  // 之前只判 repo:detail，会话里权限串没刷新时点击会静默无反应（老师就踩过）。
+  // 能不能进题库看题：与后端 /api/template/list 的守卫对齐
+  // （template:list / repo:detail / repo:book）+ 能导入/改题库的人。
+  // 之前只判 repo:detail，会话里权限串没刷新时点击会静默无反应（老师就踩过）；
+  // 学员现在没有 repo:detail，靠 repo:book 放行，所以这里也要认。
   const canOpen =
-    canDetail || hasPermission('repo:import') || hasPermission('template:list') || hasPermission('repo:update');
+    canDetail ||
+    hasPermission('repo:import') ||
+    hasPermission('template:list') ||
+    hasPermission('repo:update') ||
+    hasPermission('repo:book');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
-  // 练习入口的权限：repo:book（题库练习）或 exercise:list（练习记录）
-  // 之前用 !canCreate 判断，结果学员因为既没有 repo:create 也没有 repo:detail，整列操作都不渲染
-  const canPractice = hasPermission('repo:book') || hasPermission('exercise:list');
+  // 练习入口只认 repo:practice（学员功能）。
+  // 不要再拿 canCreate / repo:book / exercise:list 推断：repo:book 是错题本、
+  // exercise:list 是练习记录，两者都不代表「这个题库能练」。
+  const canPractice = hasPermission('repo:practice');
+
+  // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）：
+  // 没有练习入口约 260，有练习入口约 380，保证「开始练习」不会被挤成两行。
+  const actionWidth = (() => {
+    const labels = [
+      canOpen ? '题目' : '',
+      canPractice ? '开始练习' : '',
+      canPractice ? '随机练习' : '',
+      canPractice ? '继续练习' : '',
+      canGrant ? '授权' : '',
+      canUpdate ? '编辑' : '',
+      canDelete ? '删除' : '',
+    ].filter(Boolean);
+    if (labels.length === 0) return 0;
+    return labels.reduce((sum, label) => sum + label.length * 18 + 24, 24);
+  })();
+  // 名称(220) + 分类 140 + 类型 170 + 题量 90 + 标签 180 = 800，再加操作列
+  const scrollX = 800 + actionWidth;
 
   const hasPracticeProgress = (id: string) => {
     try {
@@ -176,6 +205,8 @@ export default function RepoList() {
         current: page,
         pageSize,
         name: keyword,
+        // 分类筛选必须下推给后端（RepoQuery.category）；只在前端筛当前页等于没筛
+        category: categoryFilter || undefined,
         // 学员没有 repo:create 时只看「自己/被授权/共享」的题库；否则后端会返回 0 条
         memberOnly: canCreate ? undefined : true,
         // 五列全部走服务端排序，跨页才正确
@@ -184,6 +215,12 @@ export default function RepoList() {
       });
       setRows(res.data);
       setTotal(res.total);
+      // 分类候选累积：加载过的分类一直留在下拉里，翻页或筛选后不会消失
+      setCategoryOptions((prev) =>
+        Array.from(
+          new Set([...prev, ...res.data.map((r) => r.category).filter((c): c is string => Boolean(c))]),
+        ).sort((a, b) => a.localeCompare(b, 'zh-CN')),
+      );
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -270,14 +307,33 @@ export default function RepoList() {
     }
   };
 
-  const enter = (row: RepoView) => {
-    navigate(`/repo/${row.id}/questions/normal`, { state: { repoName: row.name } });
+  /** 题库名称与「题目」入口统一走这里：没有 canOpen 时名称退化成纯文本，不给出无效点击 */
+  const openRepo = (row: RepoView) => {
+    if (!canOpen) return;
+    // state 只在本次导航内有效，刷新就丢；同时带上 ?repoName=，题目页刷新后仍能显示名称
+    const query = row.name ? `?repoName=${encodeURIComponent(row.name)}` : '';
+    navigate(`/repo/${row.id}/questions/normal${query}`, { state: { repoName: row.name } });
   };
 
+  // 空列表的说明分三种：搜索/分类没命中、老师自己还没建库、学员没有可见题库（补一句可见范围）
   const emptyNode = (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
-      description={keyword ? '没有匹配的结果' : canCreate ? '还没有题库，点右上角「新建题库」开始' : '还没有可浏览的题库'}
+      description={
+        keyword || categoryFilter ? (
+          '没有匹配的结果'
+        ) : canCreate ? (
+          '还没有题库，点右上角「新建题库」开始'
+        ) : (
+          <div style={{ lineHeight: 1.9 }}>
+            还没有可浏览的题库
+            <br />
+            <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+              仅显示你创建、被授权或共享的题库
+            </span>
+          </div>
+        )
+      }
     />
   );
 
@@ -316,9 +372,6 @@ export default function RepoList() {
               : '浏览题库题目；练习记录在「我的练习」。'}
           </div>
         </div>
-        <Button icon={<AppstoreOutlined />} onClick={() => setGroupsOpen(true)}>
-          按分类浏览
-        </Button>
         {canGrant && selectedIds.length > 0 && (
           <Button icon={<TeamOutlined />} onClick={() => setBatchGrantIds(selectedIds)}>
             批量授权（{selectedIds.length}）
@@ -345,7 +398,7 @@ export default function RepoList() {
             setPage(1);
             setCategoryFilter(v);
           }}
-          options={[...new Set(rows.map((r) => r.category).filter(Boolean))].map((c) => ({ value: c as string, label: c as string }))}
+          options={categoryOptions.map((c) => ({ value: c, label: c }))}
         />
         <Input.Search
           allowClear
@@ -370,19 +423,34 @@ export default function RepoList() {
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <LinkAction
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: 14,
-                        }}
-                        onClick={() => { if (canDetail) enter(row); }}
-                      >
-                        {row.name || '(未命名题库)'}
-                      </LinkAction>
+                      {canOpen ? (
+                        <LinkAction
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontSize: 14,
+                          }}
+                          onClick={() => openRepo(row)}
+                        >
+                          {row.name || '(未命名题库)'}
+                        </LinkAction>
+                      ) : (
+                        <span
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontSize: 14,
+                          }}
+                        >
+                          {row.name || '(未命名题库)'}
+                        </span>
+                      )}
                       <Tag color={row.mode === 'exam' ? 'orange' : 'blue'}>
                         {row.mode ? MODE_LABEL[row.mode] ?? row.mode : '—'}
                       </Tag>
@@ -401,18 +469,30 @@ export default function RepoList() {
                       <span>{row.total ?? 0} 题</span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {canDetail && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {canOpen && (
                         <Button
-                          style={{ flex: 1, height: 38, paddingInline: 0 }}
-                          onClick={() => enter(row)}
+                          style={{
+                            flex: 1,
+                            minWidth: 96,
+                            height: 38,
+                            paddingInline: 0,
+                            whiteSpace: 'nowrap',
+                          }}
+                          onClick={() => openRepo(row)}
                         >
                           题目
                         </Button>
                       )}
-                      {canUpdate && (
+                      {canGrant && (
                         <Button
-                          style={{ flex: 1, height: 38, paddingInline: 0 }}
+                          style={{
+                            flex: 1,
+                            minWidth: 96,
+                            height: 38,
+                            paddingInline: 0,
+                            whiteSpace: 'nowrap',
+                          }}
                           onClick={() => setGranting(row)}
                         >
                           授权
@@ -420,7 +500,13 @@ export default function RepoList() {
                       )}
                       {canUpdate && (
                         <Button
-                          style={{ flex: 1, height: 38, paddingInline: 0 }}
+                          style={{
+                            flex: 1,
+                            minWidth: 96,
+                            height: 38,
+                            paddingInline: 0,
+                            whiteSpace: 'nowrap',
+                          }}
                           onClick={() => openRename(row)}
                         >
                           编辑
@@ -434,31 +520,40 @@ export default function RepoList() {
                           cancelText="取消"
                           onConfirm={() => remove(row)}
                         >
-                          <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                          <Button
+                            danger
+                            style={{
+                              flex: 1,
+                              minWidth: 96,
+                              height: 38,
+                              paddingInline: 0,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             删除
                           </Button>
                         </Popconfirm>
                       )}
                     </div>
 
-                    {!canCreate && (
+                    {canPractice && (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <Button
                           type="primary"
-                          style={{ flex: '1 1 100px', height: 38, paddingInline: 0 }}
+                          style={{ flex: '1 1 100px', height: 38, paddingInline: 0, whiteSpace: 'nowrap' }}
                           onClick={() => startPractice(row, 'full')}
                         >
                           开始练习
                         </Button>
                         <Button
-                          style={{ flex: '1 1 100px', height: 38, paddingInline: 0 }}
+                          style={{ flex: '1 1 100px', height: 38, paddingInline: 0, whiteSpace: 'nowrap' }}
                           onClick={() => openRandom(row)}
                         >
                           随机练习
                         </Button>
                         {hasPracticeProgress(row.id) && (
                           <Button
-                            style={{ flex: '1 1 100px', height: 38, paddingInline: 0 }}
+                            style={{ flex: '1 1 100px', height: 38, paddingInline: 0, whiteSpace: 'nowrap' }}
                             onClick={() => startPractice(row, 'resume')}
                           >
                             继续练习
@@ -520,15 +615,8 @@ export default function RepoList() {
         components={TABLE_COMPONENTS}
         loading={loading}
         dataSource={rows}
-        scroll={{ x: 860 }}
-        locale={{
-          emptyText: (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={keyword ? '没有匹配的结果' : canCreate ? '还没有题库，点右上角「新建题库」开始' : '还没有可浏览的题库'}
-            />
-          ),
-        }}
+        scroll={{ x: scrollX }}
+        locale={{ emptyText: emptyNode }}
         pagination={pager(page, pageSize, total, setPage, setPageSize, (n) => `共 ${n} 个题库`)}
         columns={[
           {
@@ -540,7 +628,11 @@ export default function RepoList() {
               <div>
                 <Space size={6}>
                   <DatabaseOutlined style={{ color: 'var(--bp-text-soft)' }} />
-                  <LinkAction onClick={() => { if (canDetail) enter(row); }}>{row.name || '(未命名题库)'}</LinkAction>
+                  {canOpen ? (
+                    <LinkAction onClick={() => openRepo(row)}>{row.name || '(未命名题库)'}</LinkAction>
+                  ) : (
+                    <span>{row.name || '(未命名题库)'}</span>
+                  )}
                 </Space>
                 {row.description && (
                   <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.65)', marginTop: 2 }}>
@@ -599,32 +691,41 @@ export default function RepoList() {
                 '—'
               ),
           },
-          ...(canOpen || canPractice || canUpdate || canDelete
+          ...(canOpen || canPractice || canGrant || canUpdate || canDelete
             ? [
                 {
                   title: '操作',
-                  width: canUpdate || canDelete ? 200 : 280,
+                  // 宽度按实际动作算，配上每个 LinkAction 的 nowrap，中文按钮不会被折成两行
+                  width: actionWidth,
                   render: (_: unknown, row: RepoView) => (
                     <Space size={4}>
-                      {canOpen && <LinkAction onClick={() => enter(row)}>题目</LinkAction>}
-                      {canPractice && <LinkAction onClick={() => startPractice(row, 'full')}>开始练习</LinkAction>}
-                      {canPractice && <LinkAction onClick={() => openRandom(row)}>随机练习</LinkAction>}
-                      {canPractice && hasPracticeProgress(row.id) && (
-                        <LinkAction onClick={() => startPractice(row, 'resume')}>继续练习</LinkAction>
+                      {canOpen && (
+                        <LinkAction style={NOWRAP} onClick={() => openRepo(row)}>
+                          题目
+                        </LinkAction>
                       )}
-                      {canUpdate && <LinkAction onClick={() => setGranting(row)}>授权</LinkAction>}
+                      {canPractice && (
+                        <LinkAction style={NOWRAP} onClick={() => startPractice(row, 'full')}>
+                          开始练习
+                        </LinkAction>
+                      )}
+                      {canPractice && (
+                        <LinkAction style={NOWRAP} onClick={() => openRandom(row)}>
+                          随机练习
+                        </LinkAction>
+                      )}
+                      {canPractice && hasPracticeProgress(row.id) && (
+                        <LinkAction style={NOWRAP} onClick={() => startPractice(row, 'resume')}>
+                          继续练习
+                        </LinkAction>
+                      )}
+                      {canGrant && (
+                        <LinkAction style={NOWRAP} onClick={() => setGranting(row)}>
+                          授权
+                        </LinkAction>
+                      )}
                       {canUpdate && (
-                        <LinkAction
-                          onClick={() => {
-                            renameForm.setFieldsValue({
-                              name: row.name || '',
-                              category: row.category,
-                              tag: (row.tag || []).join(','),
-                              description: row.description,
-                            });
-                            setRenaming(row);
-                          }}
-                        >
+                        <LinkAction style={NOWRAP} onClick={() => openRename(row)}>
                           编辑
                         </LinkAction>
                       )}
@@ -636,7 +737,7 @@ export default function RepoList() {
                           cancelText="取消"
                           onConfirm={() => remove(row)}
                         >
-                          <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                          <LinkAction style={{ ...NOWRAP, color: 'var(--bp-orange)' }}>删除</LinkAction>
                         </Popconfirm>
                       )}
                     </Space>
@@ -747,20 +848,6 @@ export default function RepoList() {
           </Form.Item>
         </Form>
       </Modal>
-      <RepoGroups
-        open={groupsOpen}
-        repos={rows}
-        onClose={() => setGroupsOpen(false)}
-        onEdit={(repo) => {
-          setGroupsOpen(false);
-          renameForm.setFieldsValue({
-            name: repo.name || '',
-            category: repo.category,
-            description: (repo as RepoView).description,
-          });
-          setRenaming(repo as RepoView);
-        }}
-      />
       <GrantModal
         repoIds={batchGrantIds}
         open={batchGrantIds.length > 0}

@@ -169,6 +169,23 @@ INSERT INTO `t_dept` (`id`, `parent_id`, `name`, `short_name`, `code`, `manager_
 COMMIT;
 
 -- ----------------------------
+-- Table structure for t_class_partner（班级授权给老师）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `t_class_partner` (
+  `id` varchar(64) NOT NULL COMMENT 'ID',
+  `dept_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id）',
+  `user_id` varchar(64) NOT NULL COMMENT '被授权的老师（t_user.id）',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_by` varchar(256) DEFAULT NULL,
+  `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `update_by` varchar(256) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_class_partner` (`dept_id`,`user_id`),
+  KEY `idx_class_partner_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级授权给老师';
+
+-- ----------------------------
 -- Table structure for t_file
 -- ----------------------------
 DROP TABLE IF EXISTS `t_file`;
@@ -379,13 +396,13 @@ CREATE TABLE `t_role` (
 -- Records of t_role
 -- ----------------------------
 BEGIN;
-INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,file,file:detail,file:list,file:import,file:delete,project,project:list,project:detail,project:create,project:update,project:delete,project:report,system,system:role,system:role:list,system:user,system:user:list,system:role:create,system:role:update,system:role:delete,system:user:create,system:user:update,system:user:updatePosition,system:user:delete,position,position:list,position:create,system:position,system:position:update,system:position:delete,system:org,system:org:list,system:org:create,system:org:update,system:org:delete,template,template:list,system:position:list,system:position:create,system:dept,system:dept:list,system:dept:create,system:dept:update,system:dept:delete,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,user,user:update,answer:upload,system:dict,system:dict:update,system:dict:delete,system:dictItem,system:dictItem:list,system:dictItem:create,system:dictItem:import,system:dictItem:delete,system:dict:list,system:dict:create,exercise,exercise:list,repo:book,system:dictItem:update,repo:export,repo:import,system:log:list ,system:setting:update', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
+INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,file,file:detail,file:list,file:import,file:delete,project,project:list,project:detail,project:create,project:update,project:delete,project:report,system,system:role,system:role:list,system:user,system:user:list,system:role:create,system:role:update,system:role:delete,system:user:create,system:user:update,system:user:updatePosition,system:user:delete,position,position:list,position:create,system:position,system:position:update,system:position:delete,system:org,system:org:list,system:org:create,system:org:update,system:org:delete,template,template:list,system:position:list,system:position:create,system:dept,system:dept:list,system:dept:create,system:dept:update,system:dept:delete,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,user,user:update,answer:upload,system:dict,system:dict:update,system:dict:delete,system:dictItem,system:dictItem:list,system:dictItem:create,system:dictItem:import,system:dictItem:delete,system:dict:list,system:dict:create,exercise,exercise:list,repo:book,system:dictItem:update,repo:export,repo:import,system:log:list ,system:setting:update,repo:practice,class:list,class:detail,class:grant,class:member:create,org:list,user:select', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
 -- 老师：能配考试/问卷、管题库、看答卷与报表；没有 system:*（进不了系统管理）
 -- 学员：答题、练习、错题本、看题库；没有 project:*，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:grant,repo:book,template,template:list,exercise,exercise:list,file,file:detail,file:list,file:import,file:delete,user:update,file:upload,template:import,system:user:create:student,portal:teacher', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
-('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'home,exercise:list,repo:list,repo:detail,repo:book,project:list,project:detail,answer:list,answer:detail,answer:upload,user:update', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project,project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo,repo:list,repo:detail,repo:grant,repo:import,template,template:list,template:import,file,file:detail,file:list,file:import,file:delete,user:update,user:import,file:upload,class:list,class:detail,class:member:create,org:list,user:select,portal:teacher', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,exercise:list,repo:list,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
 -- ----------------------------

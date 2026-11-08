@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import ProjectList from './pages/project/List';
 import TaskCenter from './pages/tasks/TaskCenter';
 import TeachingWorkbench from './pages/teaching/Workbench';
+import TeachingClasses from './pages/teaching/Classes';
 import ProjectTrash from './pages/project/Trash';
 import SurveyEditor from './pages/survey/Editor';
 import SurveySetting from './pages/survey/Setting';
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
       { path: 'teaching', element: guard('portal:teacher', <TeachingWorkbench />) },
+      { path: 'teaching/classes', element: guard('class:list', <TeachingClasses />) },
       { path: 'tasks', element: <TaskCenter /> },
       { path: 'project', element: guard('project:list', <ProjectList />) },
       { path: 'project/trash', element: guard('project:list', <ProjectTrash />) },
@@ -57,8 +59,10 @@ export const router = createBrowserRouter([
       { path: 'exercise/practice/:repoId', element: guard('exercise:list', <Practice />) },
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
       { path: 'repo/index', element: guard('repo:list', <RepoList />) },
-      { path: 'repo/book', element: guard('repo:list', <RepoBook />) },
-      { path: 'repo/book/practice', element: guard('repo:list', <BookPractice />) },
+      // 练习册/错题本后端要 repo:book，路由守卫与接口保持一致；
+      // 只有 repo:list 的角色（如老师）本来也不该从菜单进来。
+      { path: 'repo/book', element: guard('repo:book', <RepoBook />) },
+      { path: 'repo/book/practice', element: guard('repo:book', <BookPractice />) },
       { path: 'repo/:repoId/questions/:mode', element: guard('repo:list', <RepoQuestions />) },
       { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: guard('project:detail', <SurveyOverview />) },

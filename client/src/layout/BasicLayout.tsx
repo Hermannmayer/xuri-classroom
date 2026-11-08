@@ -12,6 +12,7 @@ import {
   ProjectOutlined,
   SettingOutlined,
   SunOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -116,6 +117,10 @@ export default function BasicLayout() {
     if (canTeach) {
       menu.push({ key: '/project', icon: <ProjectOutlined />, label: '教学管理' });
       menu.push({ key: '/teaching', icon: <BarChartOutlined />, label: '班级学情' });
+    }
+    // 班级管理：班主任/管理员维护自己负责的班；条件用 class:list 与路由守卫一致
+    if (allow('class:list')) {
+      menu.push({ key: '/teaching/classes', icon: <TeamOutlined />, label: '班级管理' });
     }
     // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
     // 不再显示「我的任务」——管理员和老师不做题。

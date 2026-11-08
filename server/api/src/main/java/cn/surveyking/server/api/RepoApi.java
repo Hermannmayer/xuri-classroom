@@ -44,8 +44,9 @@ public class RepoApi {
 		return repoService.listRepo(query);
 	}
 
+	@GetMapping("/detail")
 	@PreAuthorize("hasAuthority('repo:detail')")
-	public RepoView getRpo(String id) {
+	public RepoView getRpo(@RequestParam String id) {
 		return repoService.getRpo(id);
 	}
 

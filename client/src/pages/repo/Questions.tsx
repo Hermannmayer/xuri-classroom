@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Button,
   Empty,
   Form,
@@ -24,7 +25,7 @@ import {
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
-import { download, getWithPagination, post } from '../../api';
+import { download, get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
@@ -110,8 +111,27 @@ export default function RepoQuestions() {
   const { repoId = '', mode = 'normal' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  // 题库详情接口缺失（RepoApi#getRpo 没有 @GetMapping），名称从列表页跳转时带过来
-  const repoName = (location.state as { repoName?: string } | null)?.repoName;
+  // 题库名称的取法（刷新后 location.state 会丢）：
+  // 1) 列表页跳转时的 state；2) URL 上的 ?repoName=（可分享/可刷新）；
+  // 3) GET /api/repo/detail?id= 兜底（需要 repo:detail）；4) 都没有就显示「题库题目」。
+  const stateRepoName = (location.state as { repoName?: string } | null)?.repoName;
+  const queryRepoName = new URLSearchParams(location.search).get('repoName') || undefined;
+  const [repoDetail, setRepoDetail] = useState<{ id?: string; name?: string }>({});
+  const repoName = stateRepoName || queryRepoName || (repoDetail.id === repoId ? repoDetail.name : undefined);
+
+  useEffect(() => {
+    if (!repoId || stateRepoName || queryRepoName) return;
+    let alive = true;
+    get<{ name?: string }>('/api/repo/detail', { id: repoId })
+      .then((repo) => {
+        if (alive && repo?.name) setRepoDetail({ id: repoId, name: repo.name });
+      })
+      // 没有 repo:detail 时静默降级成「题库题目」，不打扰只读浏览的人
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [repoId, stateRepoName, queryRepoName]);
 
   const [rows, setRows] = useState<TemplateView[]>([]);
   const [total, setTotal] = useState(0);
@@ -130,6 +150,8 @@ export default function RepoQuestions() {
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  // 接口失败/无权限 ≠ 题库没题目：失败时单独展示错误说明，不再显示误导性的「题库还没有题目」
+  const [loadError, setLoadError] = useState<string>();
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [authorities, setAuthorities] = useState<string[]>([]);
@@ -163,6 +185,7 @@ export default function RepoQuestions() {
   const load = useCallback(async () => {
     if (!repoId) return;
     setLoading(true);
+    setLoadError(undefined);
     try {
       const res = await getWithPagination<TemplateView>('/api/template/list', {
         repoId,
@@ -179,7 +202,12 @@ export default function RepoQuestions() {
       setTypeOptions((prev) => Array.from(new Set([...prev, ...nextTypes])));
       setTagOptions((prev) => Array.from(new Set([...prev, ...nextTags])));
     } catch (e) {
-      message.error((e as Error).message);
+      // 403/网络失败都落到这里：单独记状态，让页面显示「加载失败 + 返回题库」而不是空题库。
+      // 顺便带上错误码，403 时给一句贴合本页的说明（通用 403 文案会误导成导出密码问题）。
+      const err = e as Error & { code?: number };
+      const base = err.code === 403 ? '没有权限查看这个题库的题目' : err.message || '读取题目列表失败';
+      setLoadError(err.code ? `${base}（错误码 ${err.code}）` : base);
+      message.error(base);
     } finally {
       setLoading(false);
     }
@@ -264,7 +292,7 @@ export default function RepoQuestions() {
   const openExport = () => {
     // ponytail: 空题库导出后端会 500（fastexcel 不允许 0 个 sheet），先在前端挡掉
     if (!loading && total === 0 && !hasFilter) {
-      message.warning('题库还没有题目，先导入再导出');
+      message.warning(loadError ? '题目列表没有加载成功，先点「重新加载」' : '题库还没有题目，先导入再操作');
       return;
     }
     setExportPwd('');
@@ -453,6 +481,28 @@ export default function RepoQuestions() {
     }
   };
 
+  // 没有 repoId（路由参数丢失/链接不完整）时直接给提示：不发请求，也不显示「题库还没有题目」
+  if (!repoId) {
+    return (
+      <div className="bp-card" style={{ padding: 32 }}>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <div style={{ lineHeight: 1.9 }}>
+              没有取到题库 ID，链接可能不完整。
+              <br />
+              请回到题库列表重新进入这个题库。
+            </div>
+          }
+        >
+          <Button type="primary" onClick={() => navigate('/repo/index')}>
+            返回题库列表
+          </Button>
+        </Empty>
+      </div>
+    );
+  }
+
   return (
     <>
       <div
@@ -485,7 +535,11 @@ export default function RepoQuestions() {
               {repoName || '题库题目'}
             </h2>
             <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-              共 {total} 道题{canImport ? ' · Excel 导入按题型分 sheet 解析，导出同样分 sheet' : ' · 只读浏览'}
+              {loadError
+                ? '题目列表没有加载成功，详见下方说明'
+                : `共 ${total} 道题${
+                    canImport ? ' · Excel 导入按题型分 sheet 解析，导出同样分 sheet' : ' · 只读浏览'
+                  }`}
             </div>
           </div>
         </div>
@@ -572,6 +626,28 @@ export default function RepoQuestions() {
         </div>
       )}
 
+      {loadError ? (
+        <div className="bp-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Alert
+            type="error"
+            showIcon
+            message="题目列表加载失败"
+            description={
+              <div style={{ lineHeight: 1.9 }}>
+                {loadError}
+                <br />
+                可能是没有查看该题库的权限（需要 repo:detail / template:list），也可能是后端接口暂时不可用。
+              </div>
+            }
+          />
+          <Space wrap>
+            <Button type="primary" onClick={() => void load()}>
+              重新加载
+            </Button>
+            <Button onClick={() => navigate('/repo/index')}>返回题库</Button>
+          </Space>
+        </div>
+      ) : (
       <TableScrollRegion label="题目列表（可横向滚动）">
       <Table<TemplateView>
         rowKey="id"
@@ -679,6 +755,7 @@ export default function RepoQuestions() {
         ]}
       />
       </TableScrollRegion>
+      )}
 
       <Modal
         title="编辑题目"
