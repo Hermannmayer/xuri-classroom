@@ -743,7 +743,7 @@ export default function SystemPermissions() {
               </div>
               <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 3 }}>
                 {editorLocked
-                  ? `共 ${allItems.length} 个权限点，全部已勾选`
+                  ? `共 ${allItems.length} 个权限点；管理员拥有全部管理权限，学员专属能力除外`
                   : `已勾选 ${checkedCount} / ${allItems.length} 项 · 左树勾选即加入，右栏可逐条移除`}
               </div>
             </div>
