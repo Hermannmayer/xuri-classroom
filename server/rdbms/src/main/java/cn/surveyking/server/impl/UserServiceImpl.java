@@ -1132,6 +1132,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 						validateStrongPassword(password, rowNum[0]);
 						userRequest.setPassword(password);
 						userRequest.setStatus(AppConsts.USER_STATUS.VALID);
+						// 用户管理里的批量导入是教职工入口；学员导入不在这个页面
+						userRequest.setUserType("staff");
 						userRequest.setPhone(getCellValue(r, 3).orElse(null));
 						userRequest.setEmail(getCellValue(r, 4).orElse(null));
 						String deptName = getCellValue(r, 5).orElse(null);
