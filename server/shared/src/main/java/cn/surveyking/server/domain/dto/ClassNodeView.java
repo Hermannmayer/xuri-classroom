@@ -35,6 +35,14 @@ public class ClassNodeView {
 
 	private java.util.Date validTo;
 
+	/**
+	 * 当前用户能否直接打开这个班。
+	 *
+	 * <p>false 表示它只是为了让被授权的子班有路径可显示而补出来的祖先节点，
+	 * 点它查成员会 403；前端据此禁用选择、显示成灰色。
+	 */
+	private boolean accessible = true;
+
 	private List<ClassNodeView> children;
 
 }

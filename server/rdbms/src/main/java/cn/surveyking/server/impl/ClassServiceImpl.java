@@ -116,7 +116,7 @@ public class ClassServiceImpl implements ClassService {
 			// 父节点不在结果里 → 这是当前可见子树的根
 			if (!StringUtils.hasText(dept.getParentId()) || !include.contains(dept.getParentId())
 					|| ROOT_DEPT_PARENT_ID.equals(dept.getParentId())) {
-				roots.add(toNode(dept, childMap, include, counts, managerNames, roleIdsByDept));
+				roots.add(toNode(dept, childMap, include, visible, counts, managerNames, roleIdsByDept));
 			}
 		}
 		if (!StringUtils.hasText(keyword)) {
@@ -362,13 +362,15 @@ public class ClassServiceImpl implements ClassService {
 	}
 
 	private ClassNodeView toNode(Dept dept, Map<String, List<Dept>> childMap, Set<String> include,
-			Map<String, Long> counts, Map<String, String> managerNames, Map<String, List<String>> roleIdsByDept) {
+			Set<String> visible, Map<String, Long> counts, Map<String, String> managerNames,
+			Map<String, List<String>> roleIdsByDept) {
 		ClassNodeView view = new ClassNodeView();
 		view.setId(dept.getId());
 		view.setName(dept.getName());
 		view.setParentId(dept.getParentId());
 		view.setManagerId(dept.getManagerId());
 		view.setMemberCount(counts.getOrDefault(dept.getId(), 0L));
+		view.setAccessible(visible.contains(dept.getId()));
 		view.setRoleIds(roleIdsByDept.getOrDefault(dept.getId(), Collections.emptyList()));
 		view.setValidFrom(dept.getValidFrom());
 		view.setValidTo(dept.getValidTo());
@@ -380,7 +382,7 @@ public class ClassServiceImpl implements ClassService {
 		}
 		view.setChildren(childMap.getOrDefault(dept.getId(), Collections.emptyList()).stream()
 				.filter(child -> include.contains(child.getId()))
-				.map(child -> toNode(child, childMap, include, counts, managerNames, roleIdsByDept))
+				.map(child -> toNode(child, childMap, include, visible, counts, managerNames, roleIdsByDept))
 				.collect(Collectors.toList()));
 		return view;
 	}

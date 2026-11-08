@@ -43,6 +43,8 @@ interface ClassNode {
   roleIds?: string[];
   validFrom?: string;
   validTo?: string;
+  /** false = 只是路径祖先（后端为了显示被授权的子班补出来的），点它会 403 */
+  accessible?: boolean;
   children?: ClassNode[];
 }
 
@@ -138,8 +140,9 @@ function findNode(nodes: ClassNode[], id: string): ClassNode | undefined {
  */
 function firstSelectable(nodes: ClassNode[]): ClassNode | undefined {
   for (const node of nodes) {
-    if (!node.children || node.children.length === 0) return node;
-    const hit = firstSelectable(node.children);
+    const leaf = !node.children || node.children.length === 0;
+    if (leaf && node.accessible !== false) return node;
+    const hit = firstSelectable(node.children ?? []);
     if (hit) return hit;
   }
   return undefined;
@@ -168,15 +171,27 @@ function filterTree(nodes: ClassNode[], keyword: string): ClassNode[] {
 function toTreeData(nodes: ClassNode[]): TreeDataNode[] {
   return nodes.map((node) => ({
     key: node.id,
+    // 只是路径的祖先节点不能选：点它查成员会 403
+    selectable: node.accessible !== false,
     title: (
-      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, maxWidth: '100%' }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'baseline',
+          gap: 6,
+          maxWidth: '100%',
+          color: node.accessible === false ? 'var(--bp-text-soft)' : undefined,
+        }}
+      >
         <span
           style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           title={node.name || '(未命名班级)'}
         >
           {node.name || '(未命名班级)'}
         </span>
-        <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-text-soft)' }}>{node.memberCount ?? 0} 人</span>
+        <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-text-soft)' }}>
+          {node.accessible === false ? '（上级）' : `${node.memberCount ?? 0} 人`}
+        </span>
       </span>
     ),
     children: node.children && node.children.length > 0 ? toTreeData(node.children) : undefined,
