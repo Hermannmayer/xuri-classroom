@@ -375,9 +375,10 @@ function taskAnswerId(id: string): string | undefined {
 }
 
 /** 学员视角：展示被班级/个人授权的考试与问卷，而不是练习记录 */
-function StudentTasks() {
+function StudentTasks({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const canAnswer = can(authorities, 'project:answer');
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   /** 每场考试的历次作答（服务端为准，不依赖 localStorage 里那份「最近一次」） */
   const [attempts, setAttempts] = useState<Record<string, PublicAttempt[]>>({});
@@ -515,13 +516,16 @@ function StudentTasks() {
             查看成绩
           </Button>
           {attemptsPopover(task, mobile, btnStyle)}
-          {canRetry && (
+          {canRetry && canAnswer && (
             <Button size={mobile ? 'middle' : 'small'} type="primary" style={btnStyle} onClick={() => retry(task)}>
               再考一次
             </Button>
           )}
         </Space>
       );
+    }
+    if (!canAnswer) {
+      return <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>未开放作答</span>;
     }
     return (
       <Button size={mobile ? 'middle' : 'small'} type="primary" style={btnStyle} onClick={() => start(task)}>
@@ -646,5 +650,5 @@ export default function ExerciseList() {
   }
 
   // 有 project:create = 老师/管理员，保留练习记录；否则是学员的「我的任务」
-  return can(authorities, 'project:create') ? <PracticeRecords /> : <StudentTasks />;
+  return can(authorities, 'project:create') ? <PracticeRecords /> : <StudentTasks authorities={authorities} />;
 }

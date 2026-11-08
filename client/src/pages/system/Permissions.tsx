@@ -364,6 +364,9 @@ export default function SystemPermissions() {
                 <span style={{ fontSize: 13 }}>{item.name}</span>
                 <span style={MUTED_STYLE}>{item.code}</span>
                 <KindTag kind={permissionKind(item.code)} />
+                {item.studentOnly && (
+                  <span style={{ fontSize: 10, color: 'var(--bp-orange)' }}>学员专属</span>
+                )}
               </div>
             ),
           })),

@@ -3,6 +3,7 @@ import { App, Card, Col, Row, Spin, Statistic, Table, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { get, getWithPagination, listProjects } from '../../api';
 import type { ProjectView } from '../../api';
+import { can } from '../../auth/permissions';
 
 const fmtScore = (v?: number | null) => (v === null || v === undefined ? '—' : v.toFixed(1));
 
@@ -30,9 +31,10 @@ interface MyReportRow {
   bestScore?: number | null;
 }
 
-export function StudentHome() {
+export function StudentHome({ authorities }: { authorities: string[] }) {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const canAnswer = can(authorities, 'project:answer');
   const [projects, setProjects] = useState<ProjectView[]>([]);
   const [report, setReport] = useState<MyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,9 +115,12 @@ export function StudentHome() {
               {
                 title: '操作',
                 width: 90,
-                render: (_: unknown, r) => (
-                  <a onClick={() => navigate(`/s/${r.id}`)}>开始答题</a>
-                ),
+                render: (_: unknown, r) =>
+                  canAnswer ? (
+                    <a onClick={() => navigate(`/s/${r.id}`)}>开始答题</a>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>未开放</span>
+                  ),
               },
             ]}
           />
@@ -294,5 +299,5 @@ export default function Dashboard({ authorities }: { authorities: string[] }) {
   const has = (code: string) => authorities.includes(code) || authorities.includes('ROLE_admin');
   if (has('portal:admin')) return <AdminHome />;
   if (has('portal:teacher')) return <TeacherHome />;
-  return <StudentHome />;
+  return <StudentHome authorities={authorities} />;
 }

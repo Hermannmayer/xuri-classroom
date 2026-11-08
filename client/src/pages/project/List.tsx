@@ -77,9 +77,11 @@ const STUDENT_MAX_PAGES = 10;
  * 管理端那一套（新建、回收站、编辑、设置、数据、删除、授权、批量操作）一个都不渲染，
  * 唯一动作是「开始答题」——直接跳公开答题页 /s/:id，这条路不需要任何管理权限，学员不会 403。
  */
-function StudentProjectList() {
+function StudentProjectList({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  // 开始答题是独立权限：没有 project:answer 的账号（比如误配的只读协作者）不再看到入口
+  const canAnswer = can(authorities, 'project:answer');
 
   const [rows, setRows] = useState<ProjectView[]>([]);
   const [page, setPage] = useState(1);
@@ -219,13 +221,17 @@ function StudentProjectList() {
                         创建于 {row.createAt}
                       </div>
                     )}
-                    <Button
-                      type="primary"
-                      style={{ height: 38, paddingInline: 0 }}
-                      onClick={() => start(row)}
-                    >
-                      开始答题
-                    </Button>
+                    {canAnswer ? (
+                      <Button
+                        type="primary"
+                        style={{ height: 38, paddingInline: 0 }}
+                        onClick={() => start(row)}
+                      >
+                        开始答题
+                      </Button>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>未开放作答</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -293,11 +299,14 @@ function StudentProjectList() {
             {
               title: '操作',
               width: 140,
-              render: (_: unknown, row) => (
-                <Button type="primary" size="small" onClick={() => start(row)}>
-                  开始答题
-                </Button>
-              ),
+              render: (_: unknown, row) =>
+                canAnswer ? (
+                  <Button type="primary" size="small" onClick={() => start(row)}>
+                    开始答题
+                  </Button>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>未开放作答</span>
+                ),
             },
           ]}
         />
@@ -963,7 +972,7 @@ export default function ProjectList() {
   const canList = can(authorities, 'project:list');
 
   if (!isManager && canList) {
-    return <StudentProjectList />;
+    return <StudentProjectList authorities={authorities} />;
   }
 
   return <ManagerProjectList />;

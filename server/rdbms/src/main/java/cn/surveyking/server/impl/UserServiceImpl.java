@@ -1348,7 +1348,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		// 管理员在页面显示「全勾选」，实际调接口却被 403 挡住（/api/system/audit/list 就是例子）。
 		if ("admin".equals(role.getCode())) {
 			for (PermissionEnum permission : PermissionEnum.values()) {
-				authorities.add(permission.getCode());
+				// 学员专属（开始答题/开始练习/错题本/学员视角）不注入管理员：
+				// 否则管理员页面会一直出现「开始答题」，前端只能逐页兜底。
+				if (!permission.isStudentOnly()) {
+					authorities.add(permission.getCode());
+				}
 			}
 		}
 		return authorities;

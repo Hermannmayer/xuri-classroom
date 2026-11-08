@@ -140,12 +140,10 @@ export default function RepoList() {
     hasPermission('repo:book');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
-  // 练习入口只给学员：repo:practice + 不是管理员/教师视角。
-  // 老师有 portal:teacher；管理员虽然被自动注入了全部权限目录（含 repo:practice），
-  // 但也不应该在自己的题库管理里看到「开始练习」。
-  // 不要再拿 canCreate / repo:book / exercise:list 推断。
-  const isAdminUser = authorities.includes('ROLE_admin');
-  const canPractice = hasPermission('repo:practice') && !isAdminUser && !hasPermission('portal:teacher');
+  // 练习入口只看 repo:practice（学员能力）。
+  // 管理员不再自动注入学员能力，老师角色默认也没有，所以这里不需要额外判 isAdmin/portal:teacher；
+  // 如果某个自定义角色明确勾了 repo:practice，就按配置显示，这才是真正的权限驱动。
+  const canPractice = hasPermission('repo:practice');
 
   // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）：
   // 没有练习入口约 260，有练习入口约 380，保证「开始练习」不会被挤成两行。

@@ -51,7 +51,8 @@ export const router = createBrowserRouter([
       { path: 'home', element: <Home /> },
       { path: 'teaching', element: guard('portal:teacher', <TeachingWorkbench />) },
       { path: 'teaching/classes', element: guard('class:list', <TeachingClasses />) },
-      { path: 'tasks', element: <TaskCenter /> },
+      // 「我的任务」是学员入口：没有 project:answer 的教职工不再能直接打开答题列表
+      { path: 'tasks', element: guard('project:answer', <TaskCenter />) },
       { path: 'project', element: guard('project:list', <ProjectList />) },
       { path: 'project/trash', element: guard('project:list', <ProjectTrash />) },
       { path: 'project/:id', element: <Placeholder title="项目详情" /> },

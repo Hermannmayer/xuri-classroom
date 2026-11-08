@@ -21,6 +21,9 @@ import java.util.Map;
  *
  * <p>
  * 权限串保持「域:对象:动作」约定；分组仅用于展示排序，不参与鉴权。
+ * 权限目录分两类听众：管理权限（管理员自动全量）与 {@code studentOnly} 学员能力
+ * （开始答题/开始练习/错题本/学员视角）。学员能力不自动注入管理员，避免
+ * 「管理员=全部权限」和「管理员不该看到开始答题」互相打架。
  * 注意：{@code t_role.authority} 里还存在 {@code answer}、{@code system:role}、{@code position}
  * 这类历史遗留的前缀串（早期权限提取器把层级前缀一并写库），它们不是真正的权限点，不在本目录内，
  * 前端保存角色权限时应原样保留，避免误删。
@@ -40,6 +43,7 @@ public enum PermissionEnum {
 	PROJECT_REPORT("project:report", "查看考试报表", Group.EXAM, "按题目统计的图表报表"),
 	PROJECT_PUBLISH("project:publish", "开启/关闭收集", Group.EXAM, "关闭后学员打不开问卷，属于高风险操作", true),
 	PROJECT_PARTNER("project:partner", "协作者与班级授权", Group.EXAM, "把考试授权给协作者或班级，目前混在编辑考试里", false),
+	PROJECT_ANSWER("project:answer", "开始答题", Group.EXAM, "进入考试/问卷答题页作答；学员功能，老师/管理员默认不给", false, true),
 
 	/* ---------------------------------------------------------------- 答卷 */
 
@@ -59,8 +63,8 @@ public enum PermissionEnum {
 	REPO_CREATE("repo:create", "新建题库", Group.REPO, "新建题库、从题库复制"),
 	REPO_UPDATE("repo:update", "编辑题库", Group.REPO, "改题库、改题目、导入题目"),
 	REPO_DELETE("repo:delete", "删除题库", Group.REPO, "删题库/删题目；代价高，建议改为归档"),
-	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本与收藏，属于学员功能；练习入口已拆到 repo:practice"),
-	REPO_PRACTICE("repo:practice", "开始练习", Group.REPO, "题库的开始/随机/继续练习；学员功能，老师默认不给"),
+	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本与收藏，属于学员功能；练习入口已拆到 repo:practice", false, true),
+	REPO_PRACTICE("repo:practice", "开始练习", Group.REPO, "题库的开始/随机/继续练习；学员功能，老师/管理员默认不给", false, true),
 	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭"),
 	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志"),
 	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", false),
@@ -131,7 +135,7 @@ public enum PermissionEnum {
 	TEMPLATE_IMPORT("template:import", "批量导入题目", Group.TEMPLATE, "从 Excel/题库文件导入题目；与 repo:import 区分：这里只进题目", false),
 	SYSTEM_USER_CREATE_STUDENT("system:user:create:student", "新建学员", Group.SYSTEM, "只能创建「不含任何 system:* 权限」的角色（学员）", false),
 	SYSTEM_USER_CREATE_TEACHER("system:user:create:teacher", "新建老师/职工", Group.SYSTEM, "可创建带 system:* 权限的角色；比新建学员高一档", false),
-	PORTAL_STUDENT("portal:student", "学员视角", Group.PORTAL, "显示「我的任务」：考试安排 / 练习记录 / 我的成绩", false),
+	PORTAL_STUDENT("portal:student", "学员视角", Group.PORTAL, "显示「我的任务」：考试安排 / 练习记录 / 我的成绩", false, true),
 	PORTAL_TEACHER("portal:teacher", "教师视角", Group.PORTAL, "显示「教学管理」与「班级学情」", false),
 	PORTAL_ADMIN("portal:admin", "管理视角", Group.PORTAL, "显示系统管理（用户 / 用户组 / 系统设置 / 权限 / 日志）", false),
 	CONTENT_PROTECT("content:protect", "水印与防复制策略", Group.CONTENT, "全站水印与防复制开关；文档里标注可与修改系统设置二选一", true);
@@ -153,16 +157,28 @@ public enum PermissionEnum {
 	/** 是否为 docs/permissions.md 第 4 节建议新增、尚未接入注解的权限点 */
 	private final boolean suggested;
 
+	/**
+	 * 学员专属权限：管理员虽然天然拥有全部权限，但这类权限不自动注入。
+	 * 否则管理员界面会不断出现「开始答题 / 开始练习」，再靠前端逐个页面判断。
+	 */
+	private final boolean studentOnly;
+
 	PermissionEnum(String code, String name, Group group, String description) {
-		this(code, name, group, description, false);
+		this(code, name, group, description, false, false);
 	}
 
 	PermissionEnum(String code, String name, Group group, String description, boolean suggested) {
+		this(code, name, group, description, suggested, false);
+	}
+
+	PermissionEnum(String code, String name, Group group, String description, boolean suggested,
+			boolean studentOnly) {
 		this.code = code;
 		this.name = name;
 		this.group = group;
 		this.description = description;
 		this.suggested = suggested;
+		this.studentOnly = studentOnly;
 	}
 
 	/**
@@ -198,12 +214,16 @@ public enum PermissionEnum {
 
 		private final boolean suggested;
 
+		/** 学员专属权限，权限矩阵里可以单独标出来 */
+		private final boolean studentOnly;
+
 		PermissionItem(PermissionEnum permission) {
 			this.code = permission.getCode();
 			this.name = permission.getName();
 			this.group = permission.getGroup().getLabel();
 			this.description = permission.getDescription();
 			this.suggested = permission.isSuggested();
+			this.studentOnly = permission.isStudentOnly();
 		}
 
 	}

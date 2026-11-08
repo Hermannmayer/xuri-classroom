@@ -90,6 +90,8 @@ export interface PermissionItem {
   description?: string;
   /** 是否只是「建议新增」、尚未接入注解 */
   suggested?: boolean;
+  /** 学员专属：管理员不会自动拥有 */
+  studentOnly?: boolean;
 }
 
 /** 权限目录的一个分组（后端 PermissionGroupView） */

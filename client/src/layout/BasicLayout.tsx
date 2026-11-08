@@ -133,7 +133,8 @@ export default function BasicLayout() {
     if (allow('repo:list')) {
       repoChildren.push({ key: '/repo/index', label: t('menu.repo.list', '题库列表') });
     }
-    if (!isAdmin && allow('repo:book')) {
+    // 练习册是学员能力（repo:book）；管理员不自动拥有，只有显式勾选的角色才显示
+    if (allow('repo:book')) {
       repoChildren.push({ key: '/repo/book', label: t('menu.repo.book', '练习册') });
     }
     if (repoChildren.length > 0) {
