@@ -332,7 +332,13 @@ public class ClassServiceImpl implements ClassService {
 		return visible;
 	}
 
-	/** 补上祖先节点，保证被授权的班在树里有路径可显示 */
+	/**
+	 * 补上祖先节点，保证被授权的班在树里有路径可显示。
+	 *
+	 * <p>祖先必须是本次查到的真实节点：根组被软删（is_deleted=1）时，
+	 * 子组的 parent_id 仍指向它；如果把这个幽灵祖先加进 include，所有子组都会被判成
+	 * 「父节点存在」而永远进不了 roots，整棵树就是空的。
+	 */
 	private Set<String> withAncestors(Set<String> visible, Map<String, Dept> byId) {
 		Set<String> include = new LinkedHashSet<>(visible);
 		for (String id : visible) {
@@ -340,10 +346,11 @@ public class ClassServiceImpl implements ClassService {
 			int depth = 0;
 			while (current != null && StringUtils.hasText(current.getParentId())
 					&& !ROOT_DEPT_PARENT_ID.equals(current.getParentId()) && depth++ < 64) {
-				if (!include.add(current.getParentId())) {
+				String parentId = current.getParentId();
+				if (!byId.containsKey(parentId) || !include.add(parentId)) {
 					break;
 				}
-				current = byId.get(current.getParentId());
+				current = byId.get(parentId);
 			}
 		}
 		return include;
