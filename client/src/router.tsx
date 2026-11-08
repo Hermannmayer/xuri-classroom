@@ -15,7 +15,7 @@ import SurveyOverview from './pages/survey/Overview';
 import SurveyData from './pages/survey/Data';
 import SurveyReport from './pages/survey/Report';
 import SystemUser from './pages/system/User';
-import SystemGroup from './pages/system/Group';
+import SystemGroupEntry from './pages/system/GroupEntry';
 import SystemSetting from './pages/system/Setting';
 import SystemPermissions from './pages/system/Permissions';
 import SystemAudit from './pages/system/Audit';
@@ -74,13 +74,15 @@ export const router = createBrowserRouter([
       { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: guard('project:detail', <SurveyOverview />) },
       { path: 'survey/:id/edit', element: guard('project:update', <SurveyEditor />) },
-      // 发布设置已并入概述页：旧链接保留，只做重定向（权限由 /survey/:id 的 project:detail 校验）
-      { path: 'survey/:id/setting', element: <SurveySetting /> },
+      // 发布设置已并入概述页：旧链接保留，但设置本身要 project:update，不能裸奔
+      { path: 'survey/:id/setting', element: guard('project:update', <SurveySetting />) },
       { path: 'survey/:id/data', element: guard('answer:list', <SurveyData />) },
-      { path: 'survey/:id/report', element: guard('answer:list', <SurveyReport />) },
+      // 报表接口要 project:report（ReportApi），守卫不能只看 answer:list
+      { path: 'survey/:id/report', element: guard('project:report', <SurveyReport />) },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
       { path: 'system/user', element: guard('system:user:list', <SystemUser />) },
-      { path: 'system/group', element: guard('system:dept:list', <SystemGroup />) },
+      // 用户组设置已并入班级管理：有 class:list 的账号进来会重定向，避免两棵树
+      { path: 'system/group', element: guard('system:dept:list', <SystemGroupEntry />) },
       { path: 'system/setting', element: guard('system:role:list', <SystemSetting />) },
       // 权限目录与角色矩阵：按任务要求用 system:user:update 守卫
       { path: 'system/permissions', element: guard('system:role:list', <SystemPermissions />) },
