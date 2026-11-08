@@ -1,7 +1,7 @@
 package cn.surveyking.server.core.aop;
 
 import cn.surveyking.server.core.annotation.EnableDataPerm;
-import cn.surveyking.server.core.exception.InternalServerError;
+import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.service.ProjectPartnerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +41,10 @@ public class DataPermAspect {
 
 	@Before("checkPermissionPointCut(dataPerm)")
 	public void around(JoinPoint joinPoint, EnableDataPerm dataPerm) throws Throwable {
+		// 管理员是管理权限全集：不要求它先成为每个项目的协作者
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
 		// 获取方法参数名和值
 		MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
 		List<String> paramNameList = Arrays.asList(methodSignature.getParameterNames());

@@ -74,6 +74,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	private final ProjectPartnerMapper projectPartnerMapper;
 
+	private final UserDeptScopeService userDeptScopeService;
+
 	/** 客户端上报「本轮开始时间」时允许的最大跨度：超过 24 小时的声称一律不认 */
 	private static final long MAX_ATTEMPT_SPAN_MS = 24 * 60 * 60 * 1000L;
 
@@ -98,12 +100,18 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
+		// 数据范围：管理员 / 项目所有者或协作者（含组授权）看全部；其他人（学员）只能看自己的答卷。
+		// 之前只靠 @PreAuthorize('answer:list')，学员知道 projectId 就能列出全班答卷。
+		boolean canSeeAll = canManageProject(query.getProjectId());
+		String currentUserId = SecurityContextUtils.getUserId();
 		super.page(page, Wrappers.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
 				.eq(query.getProjectId() != null, Answer::getProjectId, query.getProjectId())
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
-				.eq(query.getId() != null, Answer::getId, query.getId()).orderByDesc(Answer::getCreateAt));
+				.eq(query.getId() != null, Answer::getId, query.getId())
+				.eq(!canSeeAll, Answer::getCreateBy, currentUserId)
+				.orderByDesc(Answer::getCreateAt));
 		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
 		Project project = projectMapper.selectById(query.getProjectId());
 		FlatSurveySchemaByType schemaByType = parseSurveySchemaByType(project.getSurvey());
@@ -196,7 +204,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	public AnswerView getAnswer(AnswerQuery query) {
 		AnswerView answerView = null;
 		if (query.getId() != null) {
-			answerView = answerViewMapper.toView(getById(query.getId()));
+			Answer answer = getById(query.getId());
+			// 按 id 读单份答卷也要做数据范围校验：本人 / 管理员 / 项目所有者或协作者
+			assertAnswerAccess(answer);
+			answerView = answerViewMapper.toView(answer);
 		}
 		else if (query.getProjectId() != null && Boolean.TRUE.equals(query.getLatest())) {
 			answerView = answerViewMapper.toView(list(Wrappers.<Answer>lambdaQuery()
@@ -1089,6 +1100,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		if (answer == null) {
 			throw new AccessDeniedException("无权限访问该答案");
 		}
+		// 本人答卷：学员看自己的成绩/解析不需要项目协作者身份
+		if (Objects.equals(answer.getCreateBy(), SecurityContextUtils.getUserId())) {
+			return;
+		}
 		assertProjectAccess(answer.getProjectId());
 	}
 
@@ -1104,13 +1119,36 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	}
 
 	private void assertProjectAccess(String projectId) {
-		if (!StringUtils.hasText(projectId) || projectPartnerMapper
-				.selectCount(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, projectId)
-						.eq(ProjectPartner::getUserId, SecurityContextUtils.getUserId())
-						.in(ProjectPartner::getType, Arrays.asList(ProjectPartnerTypeEnum.OWNER.getType(),
-								ProjectPartnerTypeEnum.COLLABORATOR.getType()))) == 0) {
+		if (!canManageProject(projectId)) {
 			throw new AccessDeniedException("无权限访问该问卷答案");
 		}
+	}
+
+	/**
+	 * 当前用户能否看到某个项目的全部答卷。
+	 *
+	 * <p>管理员全量；项目所有者/协作者（含按用户组授权）可看；学员作为答卷人只能看自己的，
+	 * 由 {@link #listAnswer} 的 createBy 条件兜住。
+	 */
+	private boolean canManageProject(String projectId) {
+		if (SecurityContextUtils.isAdmin()) {
+			return true;
+		}
+		if (!StringUtils.hasText(projectId)) {
+			return false;
+		}
+		Set<String> deptScope = userDeptScopeService.resolveDeptScope(SecurityContextUtils.getUserId());
+		return projectPartnerMapper.selectCount(Wrappers.<ProjectPartner>lambdaQuery()
+				.eq(ProjectPartner::getProjectId, projectId)
+				.in(ProjectPartner::getType,
+						Arrays.asList(ProjectPartnerTypeEnum.OWNER.getType(),
+								ProjectPartnerTypeEnum.COLLABORATOR.getType()))
+				.and(w -> {
+					w.eq(ProjectPartner::getUserId, SecurityContextUtils.getUserId());
+					if (!deptScope.isEmpty()) {
+						w.or().in(ProjectPartner::getGroupId, deptScope);
+					}
+				})) > 0;
 	}
 
 	/**

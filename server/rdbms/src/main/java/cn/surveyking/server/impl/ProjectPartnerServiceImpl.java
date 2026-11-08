@@ -19,6 +19,7 @@ import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.mapper.ProjectPartnerMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ProjectPartnerService;
+import cn.surveyking.server.service.UserDeptScopeService;
 import cn.surveyking.server.service.UserService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -60,6 +61,8 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		implements ProjectPartnerService {
 
 	private final UserServiceImpl userService;
+
+	private final UserDeptScopeService userDeptScopeService;
 
 	private final CacheManager cacheManager;
 
@@ -255,7 +258,19 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 
 	@Override
 	public List<String> getProjectPerms() {
-		return getBaseMapper().getProjectPerms(SecurityContextUtils.getUserId());
+		String userId = SecurityContextUtils.getUserId();
+		Set<String> result = new java.util.LinkedHashSet<>(getBaseMapper().getProjectPerms(userId));
+		// 按用户组授权的项目（group_id 存 dept id）：之前只查 user_id，
+		// 组协作者在「数据/报表/答卷列表」这些 @EnableDataPerm 接口上会被误判 403。
+		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
+		if (!deptScope.isEmpty()) {
+			list(Wrappers.<ProjectPartner>lambdaQuery().in(ProjectPartner::getGroupId, deptScope)
+					.in(ProjectPartner::getType,
+							Arrays.asList(ProjectPartnerTypeEnum.OWNER.getType(),
+									ProjectPartnerTypeEnum.COLLABORATOR.getType())))
+					.stream().map(ProjectPartner::getProjectId).filter(Objects::nonNull).forEach(result::add);
+		}
+		return new ArrayList<>(result);
 	}
 
 	@Override

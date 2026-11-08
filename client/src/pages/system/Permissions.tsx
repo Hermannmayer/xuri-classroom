@@ -451,7 +451,11 @@ export default function SystemPermissions() {
    * 这样管理员改完老师角色的权限后，「套用预设：老师」立刻跟着变，不会再出现两套数据。
    */
   const presetCodesOf = (key: PresetKey): string[] => {
-    const role = roles.find((r) => r.code === key);
+    // 线上内置学员角色的 code 可能是 student，也可能是 xueyuan（迁移数据）；
+    // 只认 student 会让「套用学员预设」找不到角色。
+    const role =
+      roles.find((r) => r.code === key) ??
+      (key === 'student' ? roles.find((r) => r.code === 'xueyuan') : undefined);
     return (role?.authorities ?? []).filter((code) => catalogCodes.has(code));
   };
 

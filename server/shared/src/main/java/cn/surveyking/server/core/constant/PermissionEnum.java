@@ -79,7 +79,7 @@ public enum PermissionEnum {
 
 	/* ---------------------------------------------------------------- 练习 */
 
-	EXERCISE_LIST("exercise:list", "练习记录与练习页", Group.EXERCISE, "我的练习、练习作答；同时给考试列表兜底"),
+	EXERCISE_LIST("exercise:list", "练习记录与练习页", Group.EXERCISE, "我的练习、练习作答；学员专属，管理员不自动拥有", false, true),
 
 	/* ---------------------------------------------------------------- 班级 */
 
