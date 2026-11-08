@@ -8,7 +8,7 @@ import {
   Input,
   Modal,
   Popconfirm,
-  Radio,
+  Select,
   Spin,
   Switch,
   Tag,
@@ -31,11 +31,8 @@ import {
   KIND_HINT,
   KIND_META,
   PERMISSION_MENU,
-  PRESET_KEYS,
-  PRESET_META,
   permissionKind,
   type PermissionKind,
-  type PresetKey,
 } from './permissionPresets';
 
 /**
@@ -59,8 +56,9 @@ import {
  * - 勾选只改本地草稿：左树、右栏、底部保存条读的是同一份 draft，点保存才落库；
  * - t_role.authority 里还有 `system:role`、`position` 这类不在目录里的历史前缀串，
  *   它们不在页面上显示，但草稿里会原样保留，保存时不会误删；
- * - 「套用预设」只改本地草稿：从 roles 里取 code=teacher/student 的当前 authorities，
- *   不写死常量，这样管理员改完内置角色后预设会跟着变。
+ * - 「从现有角色复制」只改本地草稿：按角色 id 取该角色当前 authorities。
+ *   不写死 teacher/student，也不依赖学员角色 code（student / xueyuan 都能作为复制源），
+ *   以后新增的任何角色都可以直接复制。
  */
 
 const BUILTIN_CODES = new Set(['admin', 'teacher', 'student']);
@@ -186,7 +184,8 @@ type RoleFormValues = {
   name: string;
   code: string;
   remark?: string;
-  preset?: PresetKey | 'blank';
+  /** 复制源角色 id；空 = 空白角色 */
+  presetRoleId?: string;
 };
 
 /** 草稿绑定到角色：roleId 与当前选中角色不一致时，直接回落到服务端数据 */
@@ -223,6 +222,8 @@ export default function SystemPermissions() {
   const [editingRole, setEditingRole] = useState<RoleView | null>(null);
   const [savingRole, setSavingRole] = useState(false);
   const [roleForm] = Form.useForm<RoleFormValues>();
+  /** 工具栏「从现有角色复制」的当前选择 */
+  const [copyRoleId, setCopyRoleId] = useState<string>();
 
   const load = useCallback(
     async (silent = false): Promise<RoleView[]> => {
@@ -447,40 +448,36 @@ export default function SystemPermissions() {
   const collapseAll = () => setExpandedKeys([]);
 
   /**
-   * 预设不再写死在代码里：直接取内置角色（teacher/student）当前的权限配置。
-   * 这样管理员改完老师角色的权限后，「套用预设：老师」立刻跟着变，不会再出现两套数据。
+   * 不再按固定 key（teacher/student）查找：直接按角色 id 取当前 authorities。
+   * 这样 student / xueyuan / 以后新增的任何角色都能作为复制源，不会写死。
    */
-  const presetCodesOf = (key: PresetKey): string[] => {
-    // 线上内置学员角色的 code 可能是 student，也可能是 xueyuan（迁移数据）；
-    // 只认 student 会让「套用学员预设」找不到角色。
-    const role =
-      roles.find((r) => r.code === key) ??
-      (key === 'student' ? roles.find((r) => r.code === 'xueyuan') : undefined);
+  const presetCodesOf = (roleId?: string): string[] => {
+    const role = roles.find((r) => r.id === roleId);
     return (role?.authorities ?? []).filter((code) => catalogCodes.has(code));
   };
 
-  const applyPreset = (key: PresetKey) => {
-    const preset = PRESET_META[key];
-    const codes = presetCodesOf(key);
-    if (!codes.length) {
-      message.warning(`内置「${preset.label}」角色不存在或没有任何权限，无法套用`);
+  const applyPreset = (roleId: string) => {
+    const source = roles.find((r) => r.id === roleId);
+    const codes = presetCodesOf(roleId);
+    if (!source || !codes.length) {
+      message.warning('这个角色没有可复制的权限');
       return;
     }
-    // 保留不在目录里的历史权限串，其余整体替换成预设
+    // 保留不在目录里的历史权限串，其余整体替换成复制源
     const next = new Set([...draft].filter((code) => !catalogCodes.has(code)));
     codes.forEach((code) => next.add(code));
     if (sameMembers(next, draft)) {
-      message.info(`当前已经是${preset.label}预设`);
+      message.info(`当前权限与「${source.name || source.code}」一致`);
       return;
     }
     setDraftState({ roleId: activeRoleId, codes: next });
-    // 套用后把有权限的分组展开，方便直接核对
+    // 复制后把有权限的分组展开，方便直接核对
     setExpandedKeys(
       groups
         .filter((group) => (group.permissions ?? []).some((item) => next.has(item.code)))
         .map((group) => group.group),
     );
-    message.info(`已套用${preset.label}预设，保存后才生效`);
+    message.info(`已复制「${source.name || source.code}」的权限，保存后才生效`);
   };
 
   const clearDraft = () => {
@@ -564,14 +561,16 @@ export default function SystemPermissions() {
         });
         message.success('角色信息已更新');
       } else {
-        const preset = values.preset && values.preset !== 'blank' ? PRESET_META[values.preset] : undefined;
+        const source = values.presetRoleId ? roles.find((r) => r.id === values.presetRoleId) : undefined;
         await post('/api/system/role/create', {
           name: values.name,
           code: values.code,
           remark: values.remark,
-          authorities: preset ? presetCodesOf(values.preset as PresetKey) : [],
+          authorities: values.presetRoleId ? presetCodesOf(values.presetRoleId) : [],
         });
-        message.success(preset ? `角色已创建，已套用${preset.label}预设` : '角色已创建，接下来勾选权限');
+        message.success(
+          source ? `角色已创建，已复制「${source.name || source.code}」的权限` : '角色已创建，接下来勾选权限',
+        );
       }
       setRoleModalOpen(false);
       const nextRoles = await load(true);
@@ -748,12 +747,24 @@ export default function SystemPermissions() {
               </div>
             </div>
             {!editorLocked && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {PRESET_KEYS.map((key) => (
-                  <Button key={key} size="small" title={PRESET_META[key].hint} onClick={() => applyPreset(key)}>
-                    套用预设：{PRESET_META[key].label}
-                  </Button>
-                ))}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Select
+                  size="small"
+                  allowClear
+                  placeholder="从现有角色复制权限"
+                  style={{ width: 230 }}
+                  value={copyRoleId}
+                  onChange={(id) => setCopyRoleId(id)}
+                  options={roles
+                    .filter((role) => role.id !== activeRoleId)
+                    .map((role) => ({
+                      value: role.id,
+                      label: `${role.name || role.code || role.id}（${role.code || role.id}）`,
+                    }))}
+                />
+                <Button size="small" disabled={!copyRoleId} onClick={() => copyRoleId && applyPreset(copyRoleId)}>
+                  复制权限
+                </Button>
               </div>
             )}
           </div>
@@ -986,7 +997,7 @@ export default function SystemPermissions() {
           layout="vertical"
           size="small"
           requiredMark={false}
-          initialValues={{ preset: 'blank' }}
+          initialValues={{ presetRoleId: undefined }}
         >
           <Form.Item
             name="name"
@@ -1007,17 +1018,19 @@ export default function SystemPermissions() {
             <Input placeholder="例如：research_lead" disabled={Boolean(editingRole && isBuiltin(editingRole))} />
           </Form.Item>
           {!editingRole && (
-            <Form.Item name="preset" label="以哪个预设为起点" extra="创建后仍可逐项调整">
-              <Radio.Group>
-                <Radio value="blank" title="从零开始，不预勾任何权限">
-                  空白
-                </Radio>
-                {PRESET_KEYS.map((key) => (
-                  <Radio key={key} value={key} title={PRESET_META[key].hint}>
-                    {PRESET_META[key].label}
-                  </Radio>
-                ))}
-              </Radio.Group>
+            <Form.Item
+              name="presetRoleId"
+              label="复制哪个角色的权限"
+              extra="不选则从空白开始；老师、学员或后续新增的任何角色都可以作为复制源"
+            >
+              <Select
+                allowClear
+                placeholder="空白角色"
+                options={roles.map((role) => ({
+                  value: role.id,
+                  label: `${role.name || role.code || role.id}（${role.code || role.id}）`,
+                }))}
+              />
             </Form.Item>
           )}
           <Form.Item name="remark" label="说明">

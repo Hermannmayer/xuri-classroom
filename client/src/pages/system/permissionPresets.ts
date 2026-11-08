@@ -1,30 +1,10 @@
 /**
  * 权限配置页的静态元数据：分组说明、看/改判定、菜单入口映射。
  *
- * 预设权限串不在这里维护：页面上「套用老师/学员」直接读内置角色当前的 authorities，
- * 避免出现「代码里一份、数据库里一份」的旧清单。这里只保留展示用的 label/hint。
+ * 预设权限串不在这里维护：页面「从现有角色复制」直接按角色 id 取当前 authorities，
+ * 不再写死 teacher/student，也不依赖学员角色的 code 是 student 还是 xueyuan。
+ * 后续新增的任何角色都可以直接作为复制源。
  */
-
-export type PresetKey = 'teacher' | 'student';
-
-export interface PresetMeta {
-  label: string;
-  /** 一句话说明这套预设能做什么，用在按钮 title 与新建角色弹窗 */
-  hint: string;
-}
-
-export const PRESET_META: Record<PresetKey, PresetMeta> = {
-  teacher: {
-    label: '老师',
-    hint: '管考试、题库与答卷、班级管理，不进系统管理',
-  },
-  student: {
-    label: '学员',
-    hint: '答题、练习、看题库和我的考试，不能建考试',
-  },
-};
-
-export const PRESET_KEYS: PresetKey[] = ['teacher', 'student'];
 
 /* ------ 看 / 改 */
 
