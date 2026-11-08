@@ -581,7 +581,7 @@ export default function SystemUser() {
       </div>
 
       <Modal
-        title={editing ? '编辑用户' : '新建用户'}
+        title={editing ? '编辑教职工' : '新建教职工'}
         open={open}
         onCancel={() => setOpen(false)}
         onOk={submit}
@@ -639,8 +639,8 @@ export default function SystemUser() {
             label="角色"
             extra={
               canGrantSystemRole
-                ? '不分配角色等于没有后台权限；学员不需要分配'
-                : '只能分配不含系统管理权限的角色（学员类）；带 system:* 的角色需要「新建老师」权限'
+                ? '教职工需要分配角色；学员不在这里建，请到「班级管理」里按班添加'
+                : '只能分配不含系统管理权限的角色；带 system:* 的角色需要「新建老师」权限'
             }
           >
             <Select
