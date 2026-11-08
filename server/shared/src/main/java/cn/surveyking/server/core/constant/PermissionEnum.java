@@ -59,7 +59,8 @@ public enum PermissionEnum {
 	/* ---------------------------------------------------------------- 题库 */
 
 	REPO_LIST("repo:list", "查看题库列表", Group.REPO, "题库列表、练习册入口"),
-	REPO_DETAIL("repo:detail", "查看题库详情", Group.REPO, "读取题库信息与题目；学员靠它浏览题库"),
+	REPO_DETAIL("repo:detail", "查看题库详情", Group.REPO, "读取题库信息与题目；管理员/老师的管理入口"),
+	REPO_QUESTIONS_READ("repo:questions:read", "查看题库题目", Group.REPO, "打开题库查看题目列表；与错题本 repo:book、练习入口 repo:practice 分开", false, true),
 	REPO_CREATE("repo:create", "新建题库", Group.REPO, "新建题库、从题库复制"),
 	REPO_UPDATE("repo:update", "编辑题库", Group.REPO, "改题库、改题目、导入题目"),
 	REPO_DELETE("repo:delete", "删除题库", Group.REPO, "删题库/删题目；代价高，建议改为归档"),

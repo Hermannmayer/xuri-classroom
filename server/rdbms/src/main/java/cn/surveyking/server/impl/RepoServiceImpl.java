@@ -108,19 +108,25 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String currentUserId = SecurityContextUtils.getUserId();
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper = Wrappers.<Repo>lambdaQuery()
 				.like(isNotBlank(query.getName()), Repo::getName, query.getName())
-						.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory()).and(x -> {
-							if (Boolean.TRUE.equals(query.getMemberOnly())) {
-								// 自己创建的、共享的、逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
-								x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
-										"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
-												+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
-										currentUserId);
-							}
-							else {
-								x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true));
-							}
-						}).eq(query.getIsPractice() != null, Repo::getIsPractice, query.getIsPractice())
-						.eq(query.getMode() != null, Repo::getMode, query.getMode());
+				.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory());
+		// 管理员看全部题库；非管理员才按「自己创建 / 共享 / 被授权」收窄。
+		// 之前管理员也被 createBy 限制，题库是别人建的就看不到。
+		if (!SecurityContextUtils.isAdmin()) {
+			wrapper.and(x -> {
+				if (Boolean.TRUE.equals(query.getMemberOnly())) {
+					// 自己创建的、共享的、逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
+					x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
+							"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
+									+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
+							currentUserId);
+				}
+				else {
+					x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true));
+				}
+			});
+		}
+		wrapper.eq(query.getIsPractice() != null, Repo::getIsPractice, query.getIsPractice())
+				.eq(query.getMode() != null, Repo::getMode, query.getMode());
 		applyRepoOrder(wrapper, query);
 		Page<Repo> page = pageByQuery(query, wrapper);
 		PaginationResponse<RepoView> result = new PaginationResponse<>(page.getTotal(),

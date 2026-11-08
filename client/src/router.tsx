@@ -32,7 +32,9 @@ import ExamResult from './pages/answer/ExamResult';
 import Placeholder from './pages/Placeholder';
 
 /** 页面级权限守卫：角色权限在 auth/permissions.ts 里统一判定 */
-const guard = (perm: string, element: JSX.Element) => <RequirePerm perm={perm}>{element}</RequirePerm>;
+const guard = (perm: string | string[], element: JSX.Element) => (
+  <RequirePerm perm={perm}>{element}</RequirePerm>
+);
 
 /**
  * 路由与 spec/architecture.md 的 40 条表对齐，按调查结论做了裁剪：
@@ -64,7 +66,11 @@ export const router = createBrowserRouter([
       // 只有 repo:list 的角色（如老师）本来也不该从菜单进来。
       { path: 'repo/book', element: guard('repo:book', <RepoBook />) },
       { path: 'repo/book/practice', element: guard('repo:book', <BookPractice />) },
-      { path: 'repo/:repoId/questions/:mode', element: guard('repo:list', <RepoQuestions />) },
+      // 题目页：管理端 repo:detail，学员 repo:questions:read；不能再只靠 repo:list（那只是列表入口）
+      {
+        path: 'repo/:repoId/questions/:mode',
+        element: guard(['repo:detail', 'repo:questions:read', 'template:list'], <RepoQuestions />),
+      },
       { path: 'account/settings', element: <AccountSettings /> },
       { path: 'survey/:id', element: guard('project:detail', <SurveyOverview />) },
       { path: 'survey/:id/edit', element: guard('project:update', <SurveyEditor />) },

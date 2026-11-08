@@ -125,16 +125,11 @@ export default function RepoList() {
   // 授权入口只认 repo:grant：repo:update 管的是题库内容，不该顺带把可见范围也放出去
   const canGrant = hasPermission('repo:grant');
   const canDetail = hasPermission('repo:detail');
-  // 能不能进题库看题：与后端 /api/template/list 的守卫对齐
-  // （template:list / repo:detail / repo:book）+ 能导入/改题库的人。
-  // 之前只判 repo:detail，会话里权限串没刷新时点击会静默无反应（老师就踩过）；
-  // 学员现在没有 repo:detail，靠 repo:book 放行，所以这里也要认。
-  const canOpen =
-    canDetail ||
-    hasPermission('repo:import') ||
-    hasPermission('template:list') ||
-    hasPermission('repo:update') ||
-    hasPermission('repo:book');
+  // 能不能进题库看题：与后端 /api/template/list 的守卫对齐。
+  // 管理端用 repo:detail；学员用独立的 repo:questions:read。
+  // 不再用 repo:book（错题本）/repo:import/template:list/repo:update 推断「能看题目」——
+  // 那些是别的动作，混在一起就会出现「能导入但不能看题」或「有错题本就能点开题库」。
+  const canOpen = canDetail || hasPermission('repo:questions:read');
   const canUpdate = hasPermission('repo:update');
   const canDelete = hasPermission('repo:delete');
   // 练习入口只看 repo:practice（学员能力）。

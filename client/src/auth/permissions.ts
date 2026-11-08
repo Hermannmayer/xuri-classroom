@@ -65,6 +65,7 @@ export const STUDENT_ONLY_PERMISSIONS = new Set([
   'project:answer',
   'repo:practice',
   'repo:book',
+  'repo:questions:read',
   'portal:student',
 ]);
 
