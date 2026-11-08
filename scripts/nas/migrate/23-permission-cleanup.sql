@@ -1,20 +1,21 @@
 -- ======
--- 权限 v12：删除类归管理员、导入权限合并、历史前缀清理（2026-11-09，幂等）
+-- 权限 v12：老师保留考试删除权、答卷删除归管理员、导入权限合并、历史前缀清理（2026-11-09，幂等）
 --
--- 1. 老师不再拥有 project:delete / answer:delete / answer:restore：
---    建、编、发、看数据、导出、补录、批改保留；删考试、删答卷、清空回收站收归管理员。
+-- 1. 老师保留 project:delete（只能删自己创建/协作的考试）；收回 answer:delete / answer:restore，
+--    删答卷、恢复答卷、清空答卷回收站归管理员。题库仍然只读（repo:create/update/delete 不授予）。
 -- 2. repo:import 合并到 template:import：先补 template:import，再删 repo:import。
 -- 3. 清理 t_role.authority 中不参与鉴权的历史前缀（project / answer / repo / ...），
 --    这些串从来不是权限点，只会让权限矩阵导出看起来像有权限。
 -- ======
 SET NAMES utf8mb4;
 
--- 1) 老师：删除/恢复类收回管理员
+-- 1) 老师：保留删除自己创建的考试；收回删除/恢复答卷
 UPDATE t_role
-SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',project:delete,', ',')),
+SET authority = CONCAT(authority, ',project:delete'),
     update_at = NOW()
 WHERE code = 'teacher' AND is_deleted = 0 AND authority IS NOT NULL
-  AND CONCAT(',', authority, ',') LIKE '%,project:delete,%';
+  AND CONCAT(',', authority, ',') NOT LIKE '%,project:delete,%';
+
 UPDATE t_role
 SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',answer:delete,', ',')),
     update_at = NOW()
@@ -256,7 +257,7 @@ SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',system
 WHERE is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') LIKE '%,system:user:updatePosition,%';
 
--- 4) 校验：老师不应再有删除/恢复类，任何角色不应再有 repo:import
+-- 4) 校验：老师不应再有删除/恢复答卷，任何角色不应再有 repo:import；project:delete 允许保留
 SELECT code, name,
        LENGTH(authority) - LENGTH(REPLACE(authority, ',', '')) + 1 AS token_count,
        (CONCAT(',', authority, ',') LIKE '%,project:delete,%')  AS has_project_delete,

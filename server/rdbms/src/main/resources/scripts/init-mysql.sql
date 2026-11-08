@@ -401,7 +401,7 @@ INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is
 -- 学员：答题、练习、错题本、看题库；没有 project:create/update 等管理权限，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:upload,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:upload,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
 ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
