@@ -887,19 +887,22 @@ export default function TeachingClasses() {
         cancelText="取消"
         width={isMobile ? '94%' : 520}
         destroyOnClose
-        afterOpenChange={(visible) => {
-          if (visible && editingMember) {
-            memberEditForm.setFieldsValue({
-              name: editingMember.name || '',
-              phone: editingMember.phone,
-              email: editingMember.email,
-              status: editingMember.status ?? 1,
-              password: undefined,
-            });
-          }
-        }}
       >
-        <Form form={memberEditForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
+        <Form
+          key={editingMember?.id || 'new'}
+          form={memberEditForm}
+          layout="vertical"
+          size="small"
+          preserve={false}
+          requiredMark={false}
+          initialValues={{
+            name: editingMember?.name || '',
+            phone: editingMember?.phone,
+            email: editingMember?.email,
+            status: editingMember?.status ?? 1,
+            password: undefined,
+          }}
+        >
           <Form.Item name="name" label="姓名" rules={[{ required: true, whitespace: true, message: '请填写学员姓名' }]}>
             <Input placeholder="例如：张三" maxLength={40} autoComplete="off" />
           </Form.Item>
