@@ -39,7 +39,7 @@ import {
  * 系统管理 → 权限配置。
  *
  * 页面结构：
- * 1. 选角色：一行角色卡，内置的 admin/teacher/student 标「预设」；
+ * 1. 选角色：一行角色卡，内置的 admin/teacher/student（或 xueyuan）标「预设」；
  * 2. 左右两栏：左边是全部权限树（可勾选、可搜索、可只看已选），
  *    右边是当前角色已有的权限（按分组列出，可逐条移除、可清空）；
  * 3. 保存：只提交当前角色的 authorities，保存后相关用户需重新登录才生效。
@@ -61,7 +61,8 @@ import {
  *   以后新增的任何角色都可以直接复制。
  */
 
-const BUILTIN_CODES = new Set(['admin', 'teacher', 'student']);
+// 学员内置角色在迁移数据里可能是 student，也可能是 xueyuan；两者都不允许改 code。
+const BUILTIN_CODES = new Set(['admin', 'teacher', 'student', 'xueyuan']);
 const isBuiltin = (role: RoleView) => BUILTIN_CODES.has(role.code ?? '');
 
 /** t_role.authority 用逗号拆分，空串权限会拆出 ['']；这里统一清洗 */
