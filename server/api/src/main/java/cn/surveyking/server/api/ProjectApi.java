@@ -197,7 +197,8 @@ public class ProjectApi {
 	 * @param request
 	 */
 	@PostMapping("/destroy")
-	@PreAuthorize("hasAuthority('project:create')")
+	// 彻底删除与「新建/恢复」分开：老师可以建、可以恢复，但不能物理清空回收站。
+	@PreAuthorize("hasAuthority('project:delete')")
 	public void batchDestroyProject(@RequestBody ProjectRequest request) {
 		projectService.batchDestroyProject(request);
 	}

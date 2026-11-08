@@ -27,6 +27,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import QRCode from 'qrcode';
 import { get, getWithPagination, updateProject, updateProjectStatus } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
 import type {
   Answer,
   AnswerSetting,
@@ -74,6 +75,23 @@ export default function SurveyOverview() {
   const [saving, setSaving] = useState(false);
   /** 已加载的 setting：保存时用它与表单合并，避免丢掉本页没展示的字段 */
   const [current, setCurrent] = useState<ProjectSetting>({});
+
+  /**
+   * 权限列表：没回来之前既不渲染管理入口，也不发需要权限的请求。
+   * 判断统一走 auth/permissions 的 can()，与后端 authorityList 同源。
+   */
+  const [authorities, setAuthorities] = useState<string[]>();
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  const canEdit = can(authorities ?? [], 'project:update');
+  const canPublish = can(authorities ?? [], 'project:publish');
+  const canViewAnswers = can(authorities ?? [], 'answer:list');
+  const canReport = can(authorities ?? [], 'project:report');
+  const canAnswer = can(authorities ?? [], 'project:answer');
+  const canManagePartner = can(authorities ?? [], 'project:partner');
 
   const shareUrl = useMemo(() => `${location.origin}/s/${id}`, [id]);
 
@@ -126,10 +144,14 @@ export default function SurveyOverview() {
       const [p, setting, r, list] = await Promise.all([
         get<Project>('/api/project', { id }),
         get<ProjectSetting>('/api/project/setting', { id }).catch(() => ({}) as ProjectSetting),
-        get<ReportData>(`/api/report/${id}`).catch(() => undefined),
-        getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: 5 }).catch(
-          () => ({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }),
-        ),
+        // 没有 project:report 就不请求报表，免得每次都拿一个必 403 的请求去刷错误提示
+        canReport ? get<ReportData>(`/api/report/${id}`).catch(() => undefined) : Promise.resolve(undefined),
+        // 没有 answer:list 就不请求答卷列表
+        canViewAnswers
+          ? getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: 5 }).catch(
+              () => ({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }),
+            )
+          : Promise.resolve({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }),
       ]);
       setProject(p);
       setReport(r);
@@ -140,11 +162,12 @@ export default function SurveyOverview() {
     } finally {
       setLoading(false);
     }
-  }, [id, applySetting]);
+  }, [id, applySetting, canReport, canViewAnswers]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // 等权限落地再发请求：否则会先按「无权限」跑一遍，拿到权限后又跑一遍
+    if (authorities) void load();
+  }, [authorities, load]);
 
   useEffect(() => {
     QRCode.toDataURL(shareUrl, { width: 320, margin: 1, color: { dark: '#ffffff', light: '#1e3a5f' } })
@@ -152,14 +175,17 @@ export default function SurveyOverview() {
       .catch(() => undefined);
   }, [shareUrl]);
 
-  /** 保存后只刷新概览数据（不复位表单，避免把用户刚填的内容刷掉） */
+  /** 保存后只刷新概览数据（不复位表单，避免把用户刚填的内容刷掉）；没权限的数据源直接跳过 */
   const refreshSummary = async () => {
+    const emptyAnswers = { current: 1, pageSize: 5, total: 0, data: [] as Answer[] };
     const [p, r, list] = await Promise.all([
       get<Project>('/api/project', { id }).catch(() => undefined),
-      get<ReportData>(`/api/report/${id}`).catch(() => undefined),
-      getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: 5 }).catch(
-        () => ({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }),
-      ),
+      canReport ? get<ReportData>(`/api/report/${id}`).catch(() => undefined) : Promise.resolve(undefined),
+      canViewAnswers
+        ? getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: 5 }).catch(
+            () => emptyAnswers,
+          )
+        : Promise.resolve(emptyAnswers),
     ]);
     if (p) setProject(p);
     setReport(r);
@@ -167,6 +193,7 @@ export default function SurveyOverview() {
   };
 
   const onSave = async () => {
+    if (!canEdit) return; // 没有 project:update 不渲染保存按钮，这里再兜一层
     let v: Record<string, unknown>;
     try {
       v = await form.validateFields();
@@ -233,7 +260,8 @@ export default function SurveyOverview() {
 
     const setting: ProjectSetting = {
       ...current,
-      status: v.status ? 1 : 0,
+      // 没有 project:publish 时不提交 status：整包保存不能顺手把发布开关写回 0
+      ...(canPublish ? { status: v.status ? 1 : 0 } : {}),
       answerSetting,
       submittedSetting,
       examSetting,
@@ -242,11 +270,11 @@ export default function SurveyOverview() {
     setSaving(true);
     try {
       await updateProject({ id, setting });
-      // 整包 setting 更新只写 setting JSON，不会同步 t_project.status 列（后端只在
-      // settingKey='status' 时改 status），所以发布状态变了就再补一次单项更新，
-      // 否则页头标签与项目列表里的状态会一直显示旧值。
+      // 发布开关走独立端点 POST /api/project/status（project:publish）；
+      // 整包 setting 不会同步 t_project.status 列，所以状态变了要单独补一次。
+      // 没有 project:publish 的人不碰这个端点，状态保持后端原值。
       const nextStatus = v.status ? 1 : 0;
-      if ((current.status ?? 0) !== nextStatus) {
+      if (canPublish && (current.status ?? 0) !== nextStatus) {
         await updateProjectStatus({ id, status: nextStatus });
       }
       setCurrent(setting);
@@ -299,7 +327,11 @@ export default function SurveyOverview() {
 
   return (
     <div style={{ maxWidth: 1200 }}>
-      <BackButton to="/tasks" label="返回我的任务" style={{ marginBottom: 4 }} />
+      <BackButton
+        to={canAnswer ? '/tasks' : '/project'}
+        label={canAnswer ? '返回我的任务' : '返回项目列表'}
+        style={{ marginBottom: 4 }}
+      />
       {/* 页头：编辑 / 数据 / 项目列表 + 保存（发布设置已并入本页，不再有第二个「设置」入口） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
@@ -313,19 +345,31 @@ export default function SurveyOverview() {
         </Tag>
         <Tag>{project?.mode === 'exam' ? '考试' : '问卷'}</Tag>
         <div style={{ flex: 1 }} />
-        <Link to={`/survey/${id}/edit`}>
-          <Button icon={<EditOutlined />}>编辑</Button>
-        </Link>
-        <Link to={`/survey/${id}/data`}>
-          <Button>数据</Button>
-        </Link>
+        {canEdit && (
+          <Link to={`/survey/${id}/edit`}>
+            <Button icon={<EditOutlined />}>编辑</Button>
+          </Link>
+        )}
+        {canViewAnswers && (
+          <Link to={`/survey/${id}/data`}>
+            <Button>数据</Button>
+          </Link>
+        )}
         <Button onClick={() => navigate('/project')}>项目列表</Button>
-        <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void onSave()}>
-          保存
-        </Button>
+        {canEdit && (
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void onSave()}>
+            保存
+          </Button>
+        )}
       </div>
 
-      <Form form={form} layout="vertical" size="small" initialValues={{ progressBar: true, autoSave: true }}>
+      <Form
+        form={form}
+        layout="vertical"
+        size="small"
+        disabled={!canEdit}
+        initialValues={{ progressBar: true, autoSave: true }}
+      >
         <Row gutter={[14, 14]}>
           {/* ① 概览：收集趋势 */}
           <Col span={24}>
@@ -334,25 +378,38 @@ export default function SurveyOverview() {
               title={cardTitle('DAILY', '每日收集')}
               styles={{ body: { padding: 16 } }}
             >
-              {daily.entries.length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有答卷数据</div>
+              {/* 每日收集来自 /api/report，最近答卷来自 /api/answer/list；缺任一权限都不渲染数据 */}
+              {!canReport || !canViewAnswers ? (
+                <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>没有查看答卷数据的权限</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {daily.entries.map(([day, count]) => (
-                    <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                      <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
-                      <div style={{ flex: 1, height: 8, background: 'var(--bp-fill-soft)' }}>
-                        <div style={{ width: `${(count / daily.max) * 100}%`, height: 8, background: 'var(--bp-blue)' }} />
-                      </div>
-                      <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
+                <>
+                  {daily.entries.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有答卷数据</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {daily.entries.map(([day, count]) => (
+                        <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                          <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
+                          <div style={{ flex: 1, height: 8, background: 'var(--bp-fill-soft)' }}>
+                            <div
+                              style={{
+                                width: `${(count / daily.max) * 100}%`,
+                                height: 8,
+                                background: 'var(--bp-blue)',
+                              }}
+                            />
+                          </div>
+                          <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                  <div style={{ marginTop: 12, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                    共 <span style={{ color: 'var(--bp-orange)' }}>{answerTotal}</span> 份答卷 · 最近 5 份
+                    {answers.length > 0 ? `（最新 ${answers[0].createAt || ''}）` : ''}
+                  </div>
+                </>
               )}
-              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--bp-text-soft)' }}>
-                共 <span style={{ color: 'var(--bp-orange)' }}>{answerTotal}</span> 份答卷 · 最近 5 份
-                {answers.length > 0 ? `（最新 ${answers[0].createAt || ''}）` : ''}
-              </div>
             </Card>
           </Col>
 
@@ -537,7 +594,8 @@ export default function SurveyOverview() {
               <hr className="bp-dim" style={{ margin: '10px 0 14px' }} />
 
               <Row gutter={[12, 0]}>
-                {switchItem('status', '发布状态', '开启后任何人可通过链接作答；关闭后答题链接打不开')}
+                {canPublish &&
+                  switchItem('status', '发布状态', '开启后任何人可通过链接作答；关闭后答题链接打不开')}
                 {switchItem('enableUpdate', '允许修改答案')}
                 {switchItem('transcriptVisible', '显示成绩单')}
                 {switchItem('answerAnalysis', '显示答案解析')}
@@ -562,7 +620,7 @@ export default function SurveyOverview() {
               title={cardTitle('COLLABORATORS', '协作管理员')}
               styles={{ body: { padding: 16 } }}
             >
-              <PartnerPanel projectId={id} />
+              <PartnerPanel projectId={id} canManage={canManagePartner} />
             </Card>
           </Col>
         </Row>

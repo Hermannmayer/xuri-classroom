@@ -19,7 +19,7 @@ import {
 import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
-import { createProject, deleteProject, listProjects, updateProject } from '../../api';
+import { createProject, deleteProject, listProjects, updateProject, updateProjectStatus } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { ProjectSetting } from '../../schema/project';
@@ -315,10 +315,21 @@ function StudentProjectList({ authorities }: { authorities: string[] }) {
   );
 }
 
-/** 管理端 / 老师视图：与改造前完全一致（增删改、批量、回收站、文件夹都还在这里） */
-function ManagerProjectList() {
+/**
+ * 管理端 / 老师视图：增删改、批量、回收站、文件夹都还在这里，
+ * 但每个动作都按 authorities 逐项渲染，没权限的入口不出现（而不是点了才 403）。
+ */
+function ManagerProjectList({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  // 统一走 auth/permissions 的 can()：与后端 authorityList / @PreAuthorize 同源
+  const canCreate = can(authorities, 'project:create');
+  const canUpdate = can(authorities, 'project:update');
+  const canDelete = can(authorities, 'project:delete');
+  const canPublish = can(authorities, 'project:publish');
+  const canData = can(authorities, 'answer:list');
+  const canDetail = can(authorities, 'project:detail');
 
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -435,10 +446,10 @@ function ManagerProjectList() {
     }
   };
 
-  /** 开启 / 关闭：POST /api/project/update { id, settingKey: 'status', settingValue } */
+  /** 开启 / 关闭：POST /api/project/status（project:publish），不再借道整包更新 */
   const setStatus = async (row: ProjectView, next: 0 | 1) => {
     try {
-      await updateProject({ id: row.id, settingKey: 'status', settingValue: next });
+      await updateProjectStatus({ id: row.id, status: next });
       message.success(next === 1 ? '已开启' : '已关闭');
       await load();
     } catch (e) {
@@ -498,6 +509,29 @@ function ManagerProjectList() {
     setRenaming(row);
   };
 
+  /** 批量操作（批量设置 / 批量删除）至少要有一个权限，否则选择框没有意义 */
+  const canBatch = canUpdate || canDelete;
+
+  /**
+   * 操作列宽度不写死：按当前页「实际会渲染的动作数」算，
+   * 权限少的账号不会留一大片空白，动作多时也只占实际需要的宽度。
+   */
+  const desktopActionCount = (row: ProjectRow) =>
+    row.mode === 'folder'
+      ? Number(canUpdate) + Number(canDelete)
+      : Number(canDetail) +
+        Number(canPublish) +
+        Number(canUpdate) +
+        Number(canData) +
+        Number(canUpdate) +
+        Number(canDelete);
+  const opsActionCount = rows.length ? Math.max(...rows.map(desktopActionCount)) : 0;
+  const opsColumnWidth = Math.max(1, opsActionCount) * 56 + 16;
+
+  /** 移动端卡片同样逐项 gate：一个动作都没有时整行按钮不渲染 */
+  const mobileHasActions = (row: ProjectRow) =>
+    row.mode === 'folder' ? canUpdate || canDelete : canDetail || canPublish || canUpdate || canData;
+
   return (
     <>
       <div
@@ -524,9 +558,11 @@ function ManagerProjectList() {
         <Button icon={<DeleteOutlined />} onClick={() => navigate('/project/trash')}>
           回收站
         </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          新建
-        </Button>
+        {canCreate && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            新建
+          </Button>
+        )}
       </div>
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
@@ -585,20 +621,24 @@ function ManagerProjectList() {
         >
           <span style={{ fontSize: 12 }}>已选中 {selectedKeys.length} 项</span>
           <div style={{ flex: 1 }} />
-          <Button size="small" onClick={() => setBatchSettingOpen(true)}>
-            批量设置
-          </Button>
-          <Popconfirm
-            title={`删除选中的 ${selectedKeys.length} 个考试/问卷？`}
-            description="可在回收站恢复。"
-            okText="删除"
-            cancelText="取消"
-            onConfirm={() => batchDelete()}
-          >
-            <Button danger size="small" loading={batchDeleting}>
-              批量删除
+          {canUpdate && (
+            <Button size="small" onClick={() => setBatchSettingOpen(true)}>
+              批量设置
             </Button>
-          </Popconfirm>
+          )}
+          {canDelete && (
+            <Popconfirm
+              title={`删除选中的 ${selectedKeys.length} 个考试/问卷？`}
+              description="可在回收站恢复。"
+              okText="删除"
+              cancelText="取消"
+              onConfirm={() => batchDelete()}
+            >
+              <Button danger size="small" loading={batchDeleting}>
+                批量删除
+              </Button>
+            </Popconfirm>
+          )}
           <Button size="small" onClick={() => setSelectedKeys([])}>
             取消选择
           </Button>
@@ -617,7 +657,7 @@ function ManagerProjectList() {
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {row.mode !== 'folder' && (
+                      {canBatch && row.mode !== 'folder' && (
                         <Checkbox
                           checked={selectedKeys.includes(row.id)}
                           onChange={(e) => toggleSelected(row.id, e.target.checked)}
@@ -633,7 +673,9 @@ function ManagerProjectList() {
                           fontSize: 14,
                         }}
                         onClick={() =>
-                          row.mode === 'folder' ? enterFolder(row) : navigate(`/survey/${row.id}/edit`)
+                          row.mode === 'folder'
+                            ? enterFolder(row)
+                            : navigate(canUpdate ? `/survey/${row.id}/edit` : `/survey/${row.id}`)
                         }
                       >
                         {row.name || '(未命名)'}
@@ -664,70 +706,83 @@ function ManagerProjectList() {
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {row.mode === 'folder' ? (
-                        <>
-                          <Button
-                            style={{ flex: 1, height: 38, paddingInline: 0 }}
-                            onClick={() => openRename(row)}
-                          >
-                            重命名
-                          </Button>
-                          <Popconfirm
-                            title={`删除「${row.name || ''}」？`}
-                            description="删除后可在回收站找回。"
-                            okText="删除"
-                            cancelText="取消"
-                            onConfirm={() => remove(row)}
-                          >
-                            <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
-                              删除
-                            </Button>
-                          </Popconfirm>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            style={{ flex: 1, height: 38, paddingInline: 0 }}
-                            onClick={() => navigate(`/survey/${row.id}/setting`)}
-                          >
-                            设置
-                          </Button>
-                          {row.status === 1 ? (
-                            <Popconfirm
-                              title="关闭后学员将无法打开答题链接"
-                              description="已收集的答卷不受影响，可随时重新开启。"
-                              okText="关闭"
-                              cancelText="取消"
-                              onConfirm={() => setStatus(row, 0)}
-                            >
-                              <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
-                                关闭
+                    {mobileHasActions(row) && (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {row.mode === 'folder' ? (
+                          <>
+                            {canUpdate && (
+                              <Button
+                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                onClick={() => openRename(row)}
+                              >
+                                重命名
                               </Button>
-                            </Popconfirm>
-                          ) : (
-                            <Button
-                              style={{ flex: 1, height: 38, paddingInline: 0 }}
-                              onClick={() => setStatus(row, 1)}
-                            >
-                              开启
-                            </Button>
-                          )}
-                          <Button
-                            style={{ flex: 1, height: 38, paddingInline: 0 }}
-                            onClick={() => navigate(`/survey/${row.id}/edit`)}
-                          >
-                            编辑
-                          </Button>
-                          <Button
-                            style={{ flex: 1, height: 38, paddingInline: 0 }}
-                            onClick={() => navigate(`/survey/${row.id}/data`)}
-                          >
-                            数据
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                            )}
+                            {canDelete && (
+                              <Popconfirm
+                                title={`删除「${row.name || ''}」？`}
+                                description="删除后可在回收站找回。"
+                                okText="删除"
+                                cancelText="取消"
+                                onConfirm={() => remove(row)}
+                              >
+                                <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                                  删除
+                                </Button>
+                              </Popconfirm>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {canDetail && (
+                              <Button
+                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                onClick={() => navigate(`/survey/${row.id}`)}
+                              >
+                                设置
+                              </Button>
+                            )}
+                            {canPublish &&
+                              (row.status === 1 ? (
+                                <Popconfirm
+                                  title="关闭后学员将无法打开答题链接"
+                                  description="已收集的答卷不受影响，可随时重新开启。"
+                                  okText="关闭"
+                                  cancelText="取消"
+                                  onConfirm={() => setStatus(row, 0)}
+                                >
+                                  <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
+                                    关闭
+                                  </Button>
+                                </Popconfirm>
+                              ) : (
+                                <Button
+                                  style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                  onClick={() => setStatus(row, 1)}
+                                >
+                                  开启
+                                </Button>
+                              ))}
+                            {canUpdate && (
+                              <Button
+                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                onClick={() => navigate(`/survey/${row.id}/edit`)}
+                              >
+                                编辑
+                              </Button>
+                            )}
+                            {canData && (
+                              <Button
+                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                onClick={() => navigate(`/survey/${row.id}/data`)}
+                              >
+                                数据
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -767,11 +822,15 @@ function ManagerProjectList() {
         size="middle"
         loading={loading}
         dataSource={rows}
-        rowSelection={{
-          selectedRowKeys: selectedKeys,
-          onChange: (keys) => setSelectedKeys(keys.map(String)),
-          getCheckboxProps: (row) => ({ disabled: row.mode === 'folder' }),
-        }}
+        rowSelection={
+          canBatch
+            ? {
+                selectedRowKeys: selectedKeys,
+                onChange: (keys) => setSelectedKeys(keys.map(String)),
+                getCheckboxProps: (row) => ({ disabled: row.mode === 'folder' }),
+              }
+            : undefined
+        }
         locale={{
           emptyText: (
             <Empty
@@ -792,7 +851,9 @@ function ManagerProjectList() {
                   <span>{row.name}</span>
                 </Space>
               ) : (
-                <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>{row.name || '(未命名)'}</LinkAction>
+                <LinkAction onClick={() => navigate(canUpdate ? `/survey/${row.id}/edit` : `/survey/${row.id}`)}>
+                  {row.name || '(未命名)'}
+                </LinkAction>
               ),
           },
           {
@@ -827,41 +888,51 @@ function ManagerProjectList() {
           },
           {
             title: '操作',
-            width: 280,
+            // 宽度按实际渲染的动作数算，不写死：权限少的账号不会留一大片空白
+            width: opsColumnWidth,
             render: (_: unknown, row) => (
-              <Space size={4}>
+              <Space size={4} wrap={false} style={{ whiteSpace: 'nowrap' }}>
                 {row.mode !== 'folder' && (
                   <>
                     {/* 「设置」作为唯一入口，进入概述页（含分享链接/打开答题页/发布设置）；
                         原来单独的「打开」按钮已删除，避免两个按钮功能重叠 */}
-                    <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>设置</LinkAction>
-                    {row.status === 1 ? (
-                      <Popconfirm
-                        title="关闭后学员将无法打开答题链接"
-                        description="已收集的答卷不受影响，可随时重新开启。"
-                        okText="关闭"
-                        cancelText="取消"
-                        onConfirm={() => setStatus(row, 0)}
-                      >
-                        <LinkAction style={{ color: 'var(--bp-orange)' }}>关闭</LinkAction>
-                      </Popconfirm>
-                    ) : (
-                      <LinkAction onClick={() => setStatus(row, 1)}>开启</LinkAction>
+                    {canDetail && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>设置</LinkAction>
                     )}
-                    <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
-                    <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
+                    {canPublish &&
+                      (row.status === 1 ? (
+                        <Popconfirm
+                          title="关闭后学员将无法打开答题链接"
+                          description="已收集的答卷不受影响，可随时重新开启。"
+                          okText="关闭"
+                          cancelText="取消"
+                          onConfirm={() => setStatus(row, 0)}
+                        >
+                          <LinkAction style={{ color: 'var(--bp-orange)' }}>关闭</LinkAction>
+                        </Popconfirm>
+                      ) : (
+                        <LinkAction onClick={() => setStatus(row, 1)}>开启</LinkAction>
+                      ))}
+                    {canUpdate && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
+                    )}
+                    {canData && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
+                    )}
                   </>
                 )}
-                <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>
-                <Popconfirm
-                  title={`删除「${row.name || ''}」？`}
-                  description="删除后可在回收站找回（本页暂未接入回收站）。"
-                  okText="删除"
-                  cancelText="取消"
-                  onConfirm={() => remove(row)}
-                >
-                  <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
-                </Popconfirm>
+                {canUpdate && <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>}
+                {canDelete && (
+                  <Popconfirm
+                    title={`删除「${row.name || ''}」？`}
+                    description="删除后可在回收站找回（本页暂未接入回收站）。"
+                    okText="删除"
+                    cancelText="取消"
+                    onConfirm={() => remove(row)}
+                  >
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                  </Popconfirm>
+                )}
               </Space>
             ),
           },
@@ -948,7 +1019,7 @@ function ManagerProjectList() {
 /**
  * 「我的考试」入口：按权限分成两种视图，权限判断统一走 auth/permissions 的 can()。
  *
- * - 有 project:update（老师 / 管理员）：管理视图，行为与改造前一行不差；
+ * - 有 project:update（老师 / 管理员）：管理视图（各动作再按权限逐项渲染）；
  * - 没有 project:update、但有 project:list（学员 / 只读协作者）：学员视图，
  *   只有「开始答题」，不出现任何管理入口，避免每点一次都是 403。
  */
@@ -975,5 +1046,5 @@ export default function ProjectList() {
     return <StudentProjectList authorities={authorities} />;
   }
 
-  return <ManagerProjectList />;
+  return <ManagerProjectList authorities={authorities} />;
 }

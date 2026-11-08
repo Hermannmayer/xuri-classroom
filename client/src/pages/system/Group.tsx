@@ -4,7 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
-import { get, post } from '../../api';
+import { ApiError, get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 
 interface Dept {
@@ -18,10 +18,12 @@ interface Dept {
   children?: Dept[];
 }
 
-interface Role {
+/** /api/system/role/options 的只读候选：不含 authorities */
+interface RoleOption {
   id: string;
   name?: string;
   code?: string;
+  status?: number;
 }
 
 /**
@@ -75,7 +77,9 @@ function sameIds(a: string[] = [], b: string[] = []): boolean {
 
 export default function SystemGroup() {
   const [tree, setTree] = useState<Dept[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  // 角色候选读不到时（403 或无权限）把原因留在页面上，避免角色列静默显示成「未分配」
+  const [roleError, setRoleError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Dept | null>(null);
@@ -98,6 +102,10 @@ export default function SystemGroup() {
   const canCreate = can(authorities, 'system:dept:create');
   const canUpdate = can(authorities, 'system:dept:update');
   const canDelete = can(authorities, 'system:dept:delete');
+  /** 角色候选 403：本页只要求 system:dept:list，不能把「读不到角色」当成「没绑角色」 */
+  const roleDenied = roleError === '无权读取角色';
+  /** 任何原因没读到角色候选，都不能提交 roleIds（否则会被后端当成「清空」） */
+  const roleUnavailable = Boolean(roleError);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,13 +121,49 @@ export default function SystemGroup() {
 
   useEffect(() => {
     void load();
-    get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 })
-      .then((res) => setRoles(res?.list ?? []))
-      .catch(() => setRoles([]));
+    // 本页只需要「可选角色」，不需要角色权限明细：/role/list 要 system:role:list，
+    // 只有组织/班级权限的账号会 403，角色下拉和角色列就静默空了。改走只读的 /role/options。
+    get<RoleOption[]>('/api/system/role/options')
+      .then((list) => {
+        setRoles(Array.isArray(list) ? list : []);
+        setRoleError(undefined);
+      })
+      .catch((e) => {
+        setRoles([]);
+        if (e instanceof ApiError && e.code === 403) {
+          setRoleError('无权读取角色');
+        } else {
+          setRoleError('角色列表读取失败');
+          message.error((e as Error).message || '读取角色列表失败');
+        }
+      });
   }, [load]);
 
   /** 默认展开全部：组树不应折叠，否则多层班级找不到 */
   const allKeys = useMemo(() => collectIds(tree), [tree]);
+
+  /**
+   * 角色下拉的候选：
+   * - 正常读到了角色的账号直接用 /role/options 的结果，停用角色打「已停用」标记；
+   * - 读不到角色（403）时，用 /dept/list 已返回的 roleIds/roleNames 把当前组已有角色回显出来，
+   *   免得禁用状态的下拉框里只剩一串 id。
+   */
+  const roleSelectOptions = useMemo(() => {
+    const options = roles.map((r) => ({
+      value: r.id,
+      // 停用角色仍回显（历史绑定可能还在），只打标记，不隐藏也不阻止取消勾选
+      label: `${r.name ?? r.code ?? r.id}${r.status === 0 ? '（已停用）' : ''}`,
+    }));
+    if (roleUnavailable && editing) {
+      const known = new Set(options.map((option) => option.value));
+      (editing.roleIds ?? []).forEach((id, index) => {
+        if (!known.has(id)) {
+          options.push({ value: id, label: editing.roleNames?.[index] ?? id });
+        }
+      });
+    }
+    return options;
+  }, [roles, roleUnavailable, editing]);
 
   const openCreate = (parent?: Dept) => {
     setEditing(null);
@@ -151,12 +195,15 @@ export default function SystemGroup() {
     /**
      * roleIds 只在用户真的改过勾选时才提交（后端约定：不传=不动角色，传空数组=清空）。
      * 这样即使列表因缓存/并发读到了旧值，改个名字也不会顺手把组绑定的角色清掉。
+     *
+     * 角色候选读不到时（403）下拉框是禁用的，表单值只是原样回显：更不能把它当成「用户清空」提交，
+     * 编辑保持原绑定不动，新建也不带 roleIds（没有可选角色）。
      */
-    const roleIdsUnchanged = Boolean(editing) && sameIds(nextRoleIds, originalRoleIds);
+    const omitRoleIds = roleUnavailable || (Boolean(editing) && sameIds(nextRoleIds, originalRoleIds));
     const payload = {
       name: values.name,
       parentId: values.parentId,
-      ...(roleIdsUnchanged ? {} : { roleIds: nextRoleIds }),
+      ...(omitRoleIds ? {} : { roleIds: nextRoleIds }),
       validFrom: from ? from.startOf('day').toISOString() : null,
       validTo: to ? to.endOf('day').toISOString() : null,
     };
@@ -224,6 +271,12 @@ export default function SystemGroup() {
             组决定「哪些人 + 拥有哪些角色 + 有效期」；组内成员的最终权限 = 直挂角色 ∪ 组链上绑定的角色，
             具体权限点在「权限配置」里按角色维护（旧的组级权限串机制已下线）。
           </div>
+          {roleError && (
+            <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginTop: 4 }}>
+              {roleError}
+              {roleDenied && '：当前账号缺少 system:role:list，角色下拉已禁用；保存不会改动组已绑定的角色。'}
+            </div>
+          )}
         </div>
         <div style={{ flex: 1 }} />
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
@@ -252,6 +305,8 @@ export default function SystemGroup() {
               title: '角色',
               dataIndex: 'roleNames',
               width: 260,
+              // 角色名由 /dept/list 的 roleNames 回填；角色候选读不到时（403），
+              // 不能把空数组直接说成「未分配角色」——那会把「无权读取」和「确实没绑」混为一谈。
               render: (names?: string[]) =>
                 names && names.length ? (
                   <Space size={4} wrap>
@@ -262,7 +317,9 @@ export default function SystemGroup() {
                     ))}
                   </Space>
                 ) : (
-                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>未分配角色</span>
+                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                    {roleDenied ? '无权读取角色' : '未分配角色'}
+                  </span>
                 ),
             },
             {
@@ -310,13 +367,24 @@ export default function SystemGroup() {
                 .map((d) => ({ value: d.id, label: `${'　'.repeat(d.depth)}${d.name}` }))}
             />
           </Form.Item>
-          <Form.Item name="roleIds" label="本组角色" extra="组内成员（含子组）自动获得这些角色的权限；权限点请在「权限配置」里维护">
+          <Form.Item
+            name="roleIds"
+            label="本组角色"
+            extra={
+              roleDenied
+                ? '当前账号没有读取角色的权限（需要 system:role:list）；保存时不会改动本组已绑定的角色'
+                : roleUnavailable
+                  ? '角色列表读取失败，暂时不能修改角色；保存时不会改动本组已绑定的角色'
+                  : '组内成员（含子组）自动获得这些角色的权限；权限点请在「权限配置」里维护'
+            }
+          >
             <Select
               mode="multiple"
               allowClear
-              placeholder="选择角色（可多选）"
+              disabled={roleUnavailable}
+              placeholder={roleDenied ? '无权读取角色' : roleUnavailable ? '角色列表读取失败' : '选择角色（可多选）'}
               optionFilterProp="label"
-              options={roles.map((r) => ({ value: r.id, label: r.name ?? r.code ?? r.id }))}
+              options={roleSelectOptions}
             />
           </Form.Item>
           <Form.Item name="validity" label="有效期" extra="留空=永久有效；过期后组内成员无法登录">

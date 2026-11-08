@@ -84,7 +84,7 @@ public class FileApi {
 	 */
 	@GetMapping("/downloadTemplate")
 	// 下载导入模板：凡是「能导入」的角色都应该能拿到模板（附件导入 / 题目导入 / 题库导入）
-	@PreAuthorize("hasAnyAuthority('file:import','template:import','repo:import') or hasRole('admin')")
+	@PreAuthorize("hasAnyAuthority('file:import','template:import') or hasRole('admin')")
 	public ResponseEntity<Resource> downloadTemplate(String name) {
 		return fileService.downloadTemplate(name);
 	}

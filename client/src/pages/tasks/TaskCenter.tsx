@@ -27,9 +27,12 @@ export default function TaskCenter() {
     });
   }, []);
 
-  // 老师/管理员走「教学管理 + 班级学情」，这个页面只属于学员视角
-  if (can(authorities, 'portal:teacher') || can(authorities, 'portal:admin')) {
-    return <Navigate to="/project" replace />;
+  // 教学视角 = portal:teacher 且 project:report：TeachingApi 要 report，
+  // 只配门户权限的账号进 /teaching 会 403，这里不能再把它当成教学视角。
+  const teachingView = can(authorities, 'portal:teacher') && can(authorities, 'project:report');
+  if (teachingView || can(authorities, 'portal:admin')) {
+    // 没有 project:list 的教学角色去不了项目列表，退到班级学情（它同样要 report）
+    return <Navigate to={can(authorities, 'project:list') ? '/project' : '/teaching'} replace />;
   }
   const canExam = can(authorities, 'project:list');
   const canPractice = can(authorities, 'exercise:list');

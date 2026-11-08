@@ -35,7 +35,14 @@ interface Dept {
  *
  * 匿名答题不受这里影响：公开链接 /s/:id 任何人都能答。
  */
-export default function PartnerPanel({ projectId }: { projectId: string }) {
+export default function PartnerPanel({
+  projectId,
+  canManage = false,
+}: {
+  projectId: string;
+  /** project:partner：没有这个权限时只读（不渲染添加/授权/移除，只能看名单） */
+  canManage?: boolean;
+}) {
   const [rows, setRows] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(false);
   const [depts, setDepts] = useState<Dept[]>([]);
@@ -142,13 +149,23 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', flex: 1, minWidth: 200 }}>
           协作者能编辑题目、看数据；授权班级后该班学员能在「我的考试」里看到。公开链接仍然任何人都能答。
         </div>
-        <Button size="small" icon={<TeamOutlined />} onClick={() => setGrantOpen(true)}>
-          授权给班级
-        </Button>
-        <Button size="small" icon={<PlusOutlined />} onClick={openCollab}>
-          添加协作者
-        </Button>
+        {canManage && (
+          <>
+            <Button size="small" icon={<TeamOutlined />} onClick={() => setGrantOpen(true)}>
+              授权给班级
+            </Button>
+            <Button size="small" icon={<PlusOutlined />} onClick={openCollab}>
+              添加协作者
+            </Button>
+          </>
+        )}
       </div>
+
+      {!canManage && (
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+          只读：没有「协作者与班级授权」（project:partner）权限，只能查看名单。
+        </div>
+      )}
 
       <Table<Partner>
         rowKey="id"
@@ -171,16 +188,26 @@ export default function PartnerPanel({ projectId }: { projectId: string }) {
             render: (_, row) =>
               row.groupId ? <Tag color="orange">班级可见</Tag> : <Tag color="blue">协作者</Tag>,
           },
-          {
-            title: '操作',
-            key: 'ops',
-            width: 80,
-            render: (_, row) => (
-              <Popconfirm title="移除此授权？" okText="移除" cancelText="取消" onConfirm={() => remove(row)}>
-                <LinkAction style={{ color: 'var(--bp-orange)' }}>移除</LinkAction>
-              </Popconfirm>
-            ),
-          },
+          // 移除是 project:partner 的写操作：没权限时整列不渲染，避免「看得见、点了 403」
+          ...(canManage
+            ? [
+                {
+                  title: '操作',
+                  key: 'ops',
+                  width: 80,
+                  render: (_: unknown, row: Partner) => (
+                    <Popconfirm
+                      title="移除此授权？"
+                      okText="移除"
+                      cancelText="取消"
+                      onConfirm={() => remove(row)}
+                    >
+                      <LinkAction style={{ color: 'var(--bp-orange)' }}>移除</LinkAction>
+                    </Popconfirm>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
 

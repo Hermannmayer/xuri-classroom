@@ -294,10 +294,16 @@ export function AdminHome() {
   );
 }
 
-/** 首页分发：完全按门户权限决定看哪一版 */
+/**
+ * 首页分发：门户权限决定视角，教学首页还要叠加接口权限。
+ *
+ * <p>TeacherHome 会请求 /api/teaching/projects（要 project:report）；只配了 portal:teacher
+ * 的账号进来只会整页报错，所以这里必须 portal:teacher + project:report 才渲染教师首页。
+ * 学员预设也带 project:report，因此只看 report 会把学员误判成老师，必须两个条件一起判。
+ */
 export default function Dashboard({ authorities }: { authorities: string[] }) {
   const has = (code: string) => authorities.includes(code) || authorities.includes('ROLE_admin');
   if (has('portal:admin')) return <AdminHome />;
-  if (has('portal:teacher')) return <TeacherHome />;
+  if (can(authorities, 'portal:teacher') && can(authorities, 'project:report')) return <TeacherHome />;
   return <StudentHome authorities={authorities} />;
 }

@@ -25,6 +25,15 @@ public interface SystemService {
 
 	PaginationResponse<RoleView> getRoles(RoleQuery query);
 
+	/**
+	 * 角色候选（只读）：只返回 id/name/code/status，不含权限明细。
+	 *
+	 * <p>供用户组绑定角色、班级设置等「只需要选一个角色」的场景使用，避免这些页面为了一个下拉框
+	 * 而要求 {@code system:role:list}，把只有组织/班级权限的账号挡在门外。
+	 * @return 全部角色（含停用，由调用方按 status 决定是否可选）
+	 */
+	List<RoleOptionView> getRoleOptions();
+
 	void createRole(RoleRequest request);
 
 	void updateRole(RoleRequest request);

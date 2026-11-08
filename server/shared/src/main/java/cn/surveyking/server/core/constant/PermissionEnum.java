@@ -67,7 +67,6 @@ public enum PermissionEnum {
 	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本与收藏，属于学员功能；练习入口已拆到 repo:practice", false, true),
 	REPO_PRACTICE("repo:practice", "开始练习", Group.REPO, "题库的开始/随机/继续练习；学员功能，老师/管理员默认不给", false, true),
 	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭"),
-	REPO_IMPORT("repo:import", "导入题库", Group.REPO, "批量导入题目，建议配合操作日志"),
 	REPO_GRANT("repo:grant", "题库授权给组", Group.REPO, "把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围", false),
 
 	/* ---------------------------------------------------------------- 题目 */
@@ -133,7 +132,7 @@ public enum PermissionEnum {
 	/* ---------------------------------------------------------------- 内容保护 */
 
 	FILE_UPLOAD("file:upload", "通用文件上传", Group.FILE, "系统 Logo 等通用上传；与「导入模板/题库文件」分开", false),
-	TEMPLATE_IMPORT("template:import", "批量导入题目", Group.TEMPLATE, "从 Excel/题库文件导入题目；与 repo:import 区分：这里只进题目", false),
+	TEMPLATE_IMPORT("template:import", "批量导入题目", Group.TEMPLATE, "从 Excel/题库文件导入题目；原 repo:import 已合并到这里", false),
 	SYSTEM_USER_CREATE_STUDENT("system:user:create:student", "新建学员", Group.SYSTEM, "只能创建「不含任何 system:* 权限」的角色（学员）", false),
 	SYSTEM_USER_CREATE_TEACHER("system:user:create:teacher", "新建老师/职工", Group.SYSTEM, "可创建带 system:* 权限的角色；比新建学员高一档", false),
 	PORTAL_STUDENT("portal:student", "学员视角", Group.PORTAL, "显示「我的任务」：考试安排 / 练习记录 / 我的成绩", false, true),

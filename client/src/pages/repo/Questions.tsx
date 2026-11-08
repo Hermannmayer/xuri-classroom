@@ -164,8 +164,8 @@ export default function RepoQuestions() {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  // 权限细分：导入要 repo:import，导出要 repo:export（后端注解同步改了）
-  const canImport = can(authorities, 'repo:import') || can(authorities, 'template:import');
+  // 权限细分：导入统一用 template:import（原 repo:import 已合并），导出要 repo:export
+  const canImport = can(authorities, 'template:import');
   const canExport = can(authorities, 'repo:export');
   const canEdit = can(authorities, 'template:update');
   const canDelete = can(authorities, 'template:delete');

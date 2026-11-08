@@ -111,9 +111,9 @@ public class RepoApi {
 	}
 
 	@PostMapping("/import")
-	// 只往已存在题库里加题目：template:import（题目导入）或 repo:import（题库级导入）都放行，
+	// 只往已存在题库里加题目：统一用 template:import（原 repo:import 已合并到这里）。
 	// 两者差异是「能不能新建题库」，导入题目本身是同一个动作。
-	@PreAuthorize("hasAnyAuthority('template:import','repo:import') or hasRole('admin')")
+	@PreAuthorize("hasAuthority('template:import') or hasRole('admin')")
 	public void importFromTemplate(RepoTemplateRequest request) {
 		try {
 			repoService.importFromTemplate(request);

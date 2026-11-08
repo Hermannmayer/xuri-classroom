@@ -168,6 +168,20 @@ public class SystemServiceImpl implements SystemService {
 	}
 
 	@Override
+	public List<RoleOptionView> getRoleOptions() {
+		// 只读下拉：只映射 id/name/code/status，绝不能把 t_role.authority 带出去。
+		// 复用 /role/list 会把角色权限明细暴露给只有组织/班级权限的账号。
+		return roleService.list().stream().filter(Objects::nonNull).map(role -> {
+			RoleOptionView view = new RoleOptionView();
+			view.setId(role.getId());
+			view.setName(role.getName());
+			view.setCode(role.getCode());
+			view.setStatus(role.getStatus());
+			return view;
+		}).collect(Collectors.toList());
+	}
+
+	@Override
 	public void createRole(RoleRequest request) {
 		// 自定义角色只允许管理员创建：老师即使有 system:role:create 也不能凭空造角色
 		if (!SecurityContextUtils.isAdmin()) {

@@ -51,7 +51,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
-      { path: 'teaching', element: guard('portal:teacher', <TeachingWorkbench />) },
+      // 教学视角 = 门户权限 + 报表权限：TeachingApi（/api/teaching/*）要 project:report，
+      // 只配 portal:teacher 的角色进来会 403；学员预设也带 project:report，所以不能只判 report。
+      { path: 'teaching', element: guard('portal:teacher', guard('project:report', <TeachingWorkbench />)) },
       { path: 'teaching/classes', element: guard('class:list', <TeachingClasses />) },
       // 「我的任务」是学员入口：没有 project:answer 的教职工不再能直接打开答题列表
       { path: 'tasks', element: guard('project:answer', <TaskCenter />) },

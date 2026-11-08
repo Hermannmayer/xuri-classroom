@@ -28,8 +28,10 @@ export default function ProjectTrash() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  // 恢复/彻底删除后端都要求 project:create；没权限就不渲染，避免「看得见、点了 403」
+  // 逐项按权限渲染，避免「看得见、点了 403」：
+  // 恢复走 project:create，彻底删除走 project:delete，两个动作互不牵连
   const canRestore = can(authorities, 'project:create');
+  const canDestroy = can(authorities, 'project:delete');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,28 +116,32 @@ export default function ProjectTrash() {
               render: (v: string) => (v === 'exam' ? <Tag>考试</Tag> : <Tag color="blue">问卷</Tag>),
             },
             { title: '删除时间', dataIndex: 'updateAt', width: 180, render: (v?: string) => v || '—' },
-            {
-              title: '操作',
-              key: 'ops',
-              width: 180,
-              render: (_, row) =>
-                canRestore ? (
-                <Space size={12}>
-                  <LinkAction onClick={() => restore(row)}>恢复</LinkAction>
-                  <Popconfirm
-                    title="彻底删除后无法恢复，确认？"
-                    okText="彻底删除"
-                    okButtonProps={{ danger: true }}
-                    cancelText="取消"
-                    onConfirm={() => destroy(row)}
-                  >
-                    <LinkAction style={{ color: 'var(--bp-orange)' }}>彻底删除</LinkAction>
-                  </Popconfirm>
-                </Space>
-                ) : (
-                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>只读</span>
-                ),
-            },
+            // 两个动作各自独立渲染；都没有权限时整列不出现
+            ...(canRestore || canDestroy
+              ? [
+                  {
+                    title: '操作',
+                    key: 'ops',
+                    width: canRestore && canDestroy ? 180 : 110,
+                    render: (_: unknown, row: Project) => (
+                      <Space size={12} wrap={false} style={{ whiteSpace: 'nowrap' }}>
+                        {canRestore && <LinkAction onClick={() => restore(row)}>恢复</LinkAction>}
+                        {canDestroy && (
+                          <Popconfirm
+                            title="彻底删除后无法恢复，确认？"
+                            okText="彻底删除"
+                            okButtonProps={{ danger: true }}
+                            cancelText="取消"
+                            onConfirm={() => destroy(row)}
+                          >
+                            <LinkAction style={{ color: 'var(--bp-orange)' }}>彻底删除</LinkAction>
+                          </Popconfirm>
+                        )}
+                      </Space>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       </Card>

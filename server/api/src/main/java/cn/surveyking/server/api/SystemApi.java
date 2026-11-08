@@ -114,6 +114,19 @@ public class SystemApi {
 	}
 
 	/**
+	 * 角色候选（只读）：用户组/班级绑定角色时只需要「可选角色」。
+	 *
+	 * <p>不能复用 /role/list：那个接口返回 authorities，要 system:role:list；
+	 * 只有组织/班级权限的账号打开用户组页时只需要角色名，不该因此拿到权限明细。
+	 * @return 角色候选项（不含权限串）
+	 */
+	@GetMapping("/role/options")
+	@PreAuthorize("hasAnyAuthority('system:role:list','system:dept:list','system:dept:update','org:list','class:list') or hasRole('admin')")
+	public List<RoleOptionView> roleOptions() {
+		return systemService.getRoleOptions();
+	}
+
+	/**
 	 * 添加系统角色
 	 * @param request 角色信息
 	 */
@@ -200,7 +213,9 @@ public class SystemApi {
 	 * @param request
 	 */
 	@PostMapping("/user/create")
-	@PreAuthorize("hasAuthority('system:user:create')")
+	// 入口放行三档权限，具体能建学员还是老师由 UserServiceImpl#assertRoleGrantScope 判断；
+	// 否则只配 create:student 的角色连接口都进不来。
+	@PreAuthorize("hasAnyAuthority('system:user:create','system:user:create:student','system:user:create:teacher') or hasRole('admin')")
 	public void createUser(@RequestBody @Valid UserRequest request) {
 		userService.createSystemUser(request);
 	}

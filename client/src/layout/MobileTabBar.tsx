@@ -25,6 +25,7 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
 export default function MobileTabBar({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const canTeach = can(authorities, 'portal:teacher');
 
   const tabs: TabItem[] = [
     {
@@ -36,9 +37,9 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
     },
   ];
   // 三个视角和桌面端一致：
-  // - 老师/管理员：教学管理 + 班级学情
+  // - 老师/管理员：教学管理 + 班级学情（分别叠加接口要求的 project:list / project:report）
   // - 学员：我的任务（考试安排 / 练习记录 / 我的成绩）
-  if (can(authorities, 'portal:teacher')) {
+  if (canTeach && can(authorities, 'project:list')) {
     tabs.push({
       key: 'project',
       path: '/project',
@@ -46,6 +47,8 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       icon: <ProjectOutlined />,
       active: (p) => under(p, '/project') || under(p, '/survey'),
     });
+  }
+  if (canTeach && can(authorities, 'project:report')) {
     tabs.push({
       key: 'teaching',
       path: '/teaching',
@@ -54,17 +57,18 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       // 精确匹配：/teaching/classes 属于下面的「班级」tab，不能再把「学情」点亮
       active: (p) => p === '/teaching' || p === '/teaching/',
     });
-    if (can(authorities, 'class:list')) {
-      tabs.push({
-        key: 'classes',
-        path: '/teaching/classes',
-        label: '班级',
-        icon: <TeamOutlined />,
-        active: (p) => under(p, '/teaching/classes'),
-      });
-    }
   }
-  if (!can(authorities, 'portal:teacher') && !can(authorities, 'portal:admin') && can(authorities, 'portal:student')) {
+  // 班级管理与教学视角无关：有 class:list 就该有入口（桌面端菜单也是独立判定）
+  if (can(authorities, 'class:list')) {
+    tabs.push({
+      key: 'classes',
+      path: '/teaching/classes',
+      label: '班级',
+      icon: <TeamOutlined />,
+      active: (p) => under(p, '/teaching/classes'),
+    });
+  }
+  if (!canTeach && !can(authorities, 'portal:admin') && can(authorities, 'portal:student')) {
     tabs.push({
       key: 'tasks',
       path: '/tasks',
