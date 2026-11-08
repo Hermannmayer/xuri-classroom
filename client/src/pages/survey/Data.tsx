@@ -407,15 +407,25 @@ export default function SurveyData() {
   return (
     <div>
       <style>{`
-        /* 表格单元格是透明的（主题 colorBgContainer: transparent），固定列横向滚动时会透出下层内容，这里补底色 */
+        /* 表格单元格是透明的（主题 colorBgContainer: transparent），固定列横向滚动时会透出下层内容，这里补底色。
+           底色走主题变量，不能再写死暗色蓝图的值：亮色主题下 #263f62 会变成深蓝底 + 深灰字，几乎看不清。 */
+        .sk-data-grid .ant-table-thead > tr > th {
+          background: var(--bp-panel-strong) !important;
+          color: var(--bp-text-soft) !important;
+        }
         .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-left,
-        .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-right { background: #263f62; }
+        .sk-data-grid .ant-table-thead > tr > .ant-table-cell-fix-right {
+          background: var(--bp-panel-strong) !important;
+          color: var(--bp-text-soft) !important;
+        }
         .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-left,
-        .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-right { background: var(--bp-bg); }
+        .sk-data-grid .ant-table-tbody > tr > .ant-table-cell-fix-right { background: var(--bp-panel); }
         .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
-        .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-right { background: #23446e; }
+        .sk-data-grid .ant-table-tbody > tr:hover > .ant-table-cell-fix-right { background: var(--bp-blue-weak); }
         .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-left,
-        .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-right { background: rgb(36,57,79); }
+        .sk-data-grid .ant-table-tbody > tr.ant-table-row-selected > .ant-table-cell-fix-right {
+          background: var(--bp-option-hover);
+        }
         /* 手机上工具条按钮要够 36px 才好点 */
         .sk-data-toolbar-mobile .ant-btn { height: 36px; }
       `}</style>

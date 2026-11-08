@@ -18,6 +18,7 @@ import {
 import type { TreeDataNode } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
+  DeleteOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -323,6 +324,7 @@ export default function TeachingClasses() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMode, setSettingsMode] = useState<'create' | 'edit'>('create');
   const [settingsNode, setSettingsNode] = useState<ClassNode | null>(null);
+  const [deletingClass, setDeletingClass] = useState(false);
 
   const openCreateClass = () => {
     setSettingsMode('create');
@@ -335,6 +337,22 @@ export default function TeachingClasses() {
     setSettingsMode('edit');
     setSettingsNode(selected);
     setSettingsOpen(true);
+  };
+
+  /** 删除分组：后端会把组内成员变成「未分组」并清掉授权，不会删账号 */
+  const removeClass = async () => {
+    if (!selected || deletingClass) return;
+    setDeletingClass(true);
+    try {
+      await post('/api/system/dept/delete', { id: selected.id });
+      message.success('已删除分组');
+      await loadTree();
+      await loadMembers(undefined);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setDeletingClass(false);
+    }
   };
 
   /* ---------------- 添加学员 ---------------- */
@@ -772,6 +790,20 @@ export default function TeachingClasses() {
                     <Button icon={<SettingOutlined />} onClick={openClassSettings}>
                       班级设置
                     </Button>
+                  )}
+                  {canDeptDelete && (
+                    <Popconfirm
+                      title={`删除分组「${selected.name || ''}」？`}
+                      description="组里还有成员时不能删：请先把成员移到其他分组或删除账号；有子分组时也要先处理子分组。"
+                      okText="删除"
+                      okButtonProps={{ danger: true }}
+                      cancelText="取消"
+                      onConfirm={() => void removeClass()}
+                    >
+                      <Button danger loading={deletingClass} icon={<DeleteOutlined />}>
+                        删除分组
+                      </Button>
+                    </Popconfirm>
                   )}
                 </Space>
               </div>

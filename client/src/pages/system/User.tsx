@@ -412,7 +412,7 @@ export default function SystemUser() {
           <Card
             className="bp-card bp-corners"
             size="small"
-            title="用户组"
+            title="筛选用户组"
             style={{ width: 200, flex: '0 0 200px', alignSelf: 'flex-start' }}
             styles={{ body: { padding: '8px 4px' } }}
           >

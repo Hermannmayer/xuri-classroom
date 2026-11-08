@@ -8,13 +8,23 @@ import cn.surveyking.server.domain.dto.DeptSortRequest;
 import cn.surveyking.server.domain.dto.DeptView;
 import cn.surveyking.server.domain.dto.SelectDeptRequest;
 import cn.surveyking.server.domain.mapper.DeptDtoMapper;
+import cn.surveyking.server.domain.model.ClassPartner;
 import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.DeptRole;
+import cn.surveyking.server.domain.model.ProjectPartner;
+import cn.surveyking.server.domain.model.RepoPartner;
 import cn.surveyking.server.domain.model.Role;
+import cn.surveyking.server.domain.model.User;
+import cn.surveyking.server.domain.model.UserDept;
 import cn.surveyking.server.domain.model.UserPosition;
+import cn.surveyking.server.mapper.ClassPartnerMapper;
 import cn.surveyking.server.mapper.DeptMapper;
 import cn.surveyking.server.mapper.DeptRoleMapper;
+import cn.surveyking.server.mapper.ProjectPartnerMapper;
+import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.mapper.RoleMapper;
+import cn.surveyking.server.mapper.UserDeptMapper;
+import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.mapper.UserPositionMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.DeptService;
@@ -34,6 +44,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
 
+import javax.validation.ValidationException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -66,6 +77,16 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	private final DeptRoleMapper deptRoleMapper;
 
 	private final RoleMapper roleMapper;
+
+	private final UserMapper userMapper;
+
+	private final UserDeptMapper userDeptMapper;
+
+	private final RepoPartnerMapper repoPartnerMapper;
+
+	private final ProjectPartnerMapper projectPartnerMapper;
+
+	private final ClassPartnerMapper classPartnerMapper;
 
 	private final CacheManager cacheManager;
 
@@ -313,10 +334,28 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void deleteDept(String id) {
-		removeById(id);
+		List<Dept> children = list(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, id));
+		if (!children.isEmpty()) {
+			String names = children.stream().map(Dept::getName).filter(Objects::nonNull).limit(5)
+					.collect(Collectors.joining("、"));
+			throw new ValidationException("这个分组下面还有子分组" + (names.isEmpty() ? "" : "（" + names + "）")
+					+ "，请先删除或移动子分组");
+		}
+		// 组里还有人时不允许直接删：否则学员会变成「无班级」，班级管理里反而找不到他们。
+		// 先把成员移到别的组或删除账号，再删组。
+		long primaryMembers = userMapper.selectCount(Wrappers.<User>lambdaQuery().eq(User::getDeptId, id));
+		long extraMembers = userDeptMapper.selectCount(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getDeptId, id));
+		if (primaryMembers + extraMembers > 0) {
+			throw new ValidationException("这个分组还有 " + (primaryMembers + extraMembers) + " 个成员，请先把成员移到其他分组或删除账号");
+		}
+		userDeptMapper.delete(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getDeptId, id));
+		repoPartnerMapper.delete(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getDeptId, id));
+		projectPartnerMapper.delete(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getGroupId, id));
+		classPartnerMapper.delete(Wrappers.<ClassPartner>lambdaQuery().eq(ClassPartner::getDeptId, id));
 		userPositionMapper.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getDeptId, id));
 		// 组没了，组与角色的绑定也要一起清，否则 t_dept_role 会留下孤儿行
 		deptRoleMapper.deleteByDeptId(id);
+		removeById(id);
 	}
 
 	@Override
