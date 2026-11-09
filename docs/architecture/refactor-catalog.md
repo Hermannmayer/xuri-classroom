@@ -118,7 +118,7 @@ ai/         依赖接口 + 条件装配
 - 权限码单一真源：`PermissionEnum` → 生成前端常量、`t_role_permission` 种子、`docs/reference/permissions.md`；
 - 角色-权限落关联表，废弃 `t_role.authority` 逗号串（对 admin 而言它本来就不参与鉴权，`UserServiceImpl:1338` 运行时注入全集）；
 - 权限矩阵标注「仅前端」：`portal:*`、`project:answer`、`repo:practice` 这 5 个后端无注解，属 UI 入口控制；
-- 清理孤儿串 `answer:attach`（注解有、枚举无）。
+- `answer:attach` 已由迁移 11 移除，代码里只剩注释示例（`AnswerApi` 的 javadoc），无需再清理；权限矩阵不需要动。
 
 ### 3.6 发布链路
 

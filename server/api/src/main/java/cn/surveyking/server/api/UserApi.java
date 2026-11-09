@@ -46,6 +46,8 @@ public class UserApi {
 
 	private final LoginAttemptLimiter loginAttemptLimiter;
 
+	private final cn.surveyking.server.core.audit.AuditRecorder auditRecorder;
+
 	@PostMapping("/public/login")
 	public ResponseEntity login(@RequestBody @Valid AuthRequest request, HttpServletRequest httpRequest) {
 		userService.validateCaptcha(request);
@@ -62,6 +64,9 @@ public class UserApi {
 			Authentication authenticate = authenticationManager.authenticate(authentication);
 			UserInfo user = (UserInfo) authenticate.getPrincipal();
 			loginAttemptLimiter.recordSuccess(request.getUsername(), clientAddress);
+			// 登录成功单记一条：AuthAspect 排除了 /api/public/**，否则「谁在什么时候从哪里登录成功」永远查不到
+			auditRecorder.record("AUTH_LOGIN", user.getUserId(),
+					"登录成功 username=" + request.getUsername() + " ip=" + clientAddress, true, null);
 			String token = authenticationCookieService.createToken(user.getUserId());
 			HttpCookie cookie = authenticationCookieService.createCookie(token, httpRequest);
 			return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString())
@@ -73,6 +78,9 @@ public class UserApi {
 			org.slf4j.LoggerFactory.getLogger(UserApi.class).warn("登录失败 username={} ip={}", request.getUsername(),
 					clientAddress, e);
 			loginAttemptLimiter.recordFailure(request.getUsername(), clientAddress);
+			// 失败也记：撞库、错密、禁用、组过期都靠这条追溯（detail 里带真实原因，便于区分）
+			auditRecorder.record("AUTH_LOGIN_FAILED", null,
+					"登录失败 username=" + request.getUsername() + " ip=" + clientAddress, false, e.getMessage());
 			throw new ErrorCodeException(ErrorCode.UsernameOrPasswordError);
 		}
 	}

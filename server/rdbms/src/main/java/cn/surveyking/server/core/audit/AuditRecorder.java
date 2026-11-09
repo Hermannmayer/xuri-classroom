@@ -98,12 +98,7 @@ public class AuditRecorder {
 			if (attrs == null) {
 				return null;
 			}
-			HttpServletRequest request = attrs.getRequest();
-			String forwarded = request.getHeader("X-Forwarded-For");
-			if (forwarded != null && !forwarded.isEmpty() && !"unknown".equalsIgnoreCase(forwarded)) {
-				return forwarded.split(",")[0].trim();
-			}
-			return request.getRemoteAddr();
+			return cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(attrs.getRequest());
 		}
 		catch (Exception e) {
 			return null;
