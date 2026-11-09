@@ -35,8 +35,6 @@ public interface SurveyService {
 	PublicLinkResult loadLinkResult(PublicLinkRequest request);
 
 	/** 切屏计数落库：累加答卷 metaInfo.switchScreenTimes，返回当前累计次数。 */
-	Integer recordSwitchScreen(PublicSwitchScreenRequest request);
-
 	/** 当前登录用户在某场考试里的历次已提交答卷，按时间倒序。 */
 	List<PublicAttemptView> listPublicAttempts(PublicAttemptRequest request);
 

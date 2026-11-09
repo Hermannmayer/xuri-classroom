@@ -29,6 +29,8 @@ public class SurveyApi {
 
 	private final cn.surveyking.server.impl.PublicQueryService publicQueryService;
 
+	private final cn.surveyking.server.impl.ExamControlService examControlService;
+
 	private final FileService fileService;
 
 	/**
@@ -172,7 +174,7 @@ public class SurveyApi {
 	 */
 	@PostMapping("/exam/switch-screen")
 	public Integer recordSwitchScreen(@RequestBody PublicSwitchScreenRequest request) {
-		return surveyService.recordSwitchScreen(request);
+		return examControlService.recordSwitchScreen(request);
 	}
 
 	/**
