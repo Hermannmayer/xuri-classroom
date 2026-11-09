@@ -59,8 +59,27 @@ function qs(params?: Record<string, unknown>): string {
 }
 
 /**
- * 后端约定：HTTP 状态恒为 200，真实结果在 body.code 里。
- * 401 = 未登录，403 = 无权限，其它非 200 一律按业务错误抛出。
+ * 没有可用 JSON body 时的兜底：按 HTTP 状态归纳成 ApiError。
+ * 401 仍走全局跳登录；429 用后端的业务码 4290，保证提示文案一致。
+ */
+function statusError(status: number, url: string): ApiError {
+  if (status === 401) {
+    onUnauthorized();
+    return new ApiError(401, humanizeApiError(401));
+  }
+  if (status === 403) return new ApiError(403, humanizeApiError(403));
+  if (status === 404) return new ApiError(404, `接口不存在（${url}）`);
+  if (status === 429) return new ApiError(4290, '请求过于频繁，请稍后再试');
+  if (status >= 500) return new ApiError(status, '服务暂时不可用，请稍后重试');
+  if (status >= 400) return new ApiError(status, humanizeApiError(status));
+  return new ApiError(-1, `接口返回非 JSON（${url}），请检查后端是否已启动`);
+}
+
+/**
+ * 后端契约：**HTTP 状态码与 body.code 对齐**（S3-7 起）。
+ * - 成功 200 + code 200；
+ * - 参数/业务拒绝 400，无权限 403，未登录 401，不存在 404，未预期异常 500；
+ * - body 结构始终是 {code,message,data}，前端优先按 body.code 分支。
  *
  * 注意：这里不再自己弹 message——调用方统一 `catch` 后展示（错误文案已经过 humanize），
  * 否则 403 会同时出现「未授权访问」和后端原文两条提示。
@@ -89,14 +108,22 @@ export async function http<T>(method: string, url: string, data?: unknown): Prom
     throw new ApiError(-1, '无法连接后端服务，请确认后端已启动');
   }
 
-  // 后端对未知路径有 SPA 兜底，会返回 HTML；这里显式拦掉，避免 JSON.parse 报错
+  // 非 JSON（网关 5xx HTML、未知路径兜底页）也要给出可读错误，而不是让 JSON.parse 抛原始异常
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
-    if (res.status >= 500) throw new ApiError(res.status, '服务暂时不可用，请稍后重试');
-    throw new ApiError(-1, `接口返回非 JSON（${url}），请检查后端是否已启动`);
+    throw statusError(res.status, url);
   }
 
-  const json = (await res.json()) as ApiResponse<T>;
+  let json: ApiResponse<T> | undefined;
+  try {
+    json = (await res.json()) as ApiResponse<T>;
+  } catch {
+    // 空体 / 截断的 JSON（例如网关直接断开）同样按状态兜底
+    throw statusError(res.status, url);
+  }
+  if (!json || typeof json.code !== 'number') {
+    throw statusError(res.status, url);
+  }
   switch (json.code) {
     case 200:
       return json.data;

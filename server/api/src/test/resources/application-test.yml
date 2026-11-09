@@ -1,0 +1,31 @@
+# 集成测试专用：只在显式提供 S2_TEST_DB_URL 时使用（见 AnswerFlowTest 的 @EnabledIfEnvironmentVariable）。
+# 不写死任何密码：CI/无库机器上测试类会被禁用，不会加载这个配置。
+spring:
+  datasource:
+    url: ${S2_TEST_DB_URL}
+    username: ${S2_TEST_DB_USER:root}
+    password: ${S2_TEST_DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: never
+
+# 集成测试不跑前端、不依赖真实存储
+file-storage:
+  local:
+    root-path: ./build/test-files
+
+custom-cache:
+  entries:
+    projectCache: 1d
+    fileCache: 1h
+    userCache: 1h
+    deptCache: 1d
+    projectPermissionCache: 10m
+    commonCache: 30d
+    oauthFlowCache: 10m
+
+logging:
+  level:
+    root: WARN
+    cn.surveyking: INFO

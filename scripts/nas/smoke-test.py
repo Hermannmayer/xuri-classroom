@@ -3,12 +3,15 @@
 """
 旭日云课堂 · 线上冒烟测试（从开发机跑，打 NAS 上的 live 环境）
 
-检查 5 件事，全过才算"这次改动没把线上搞坏"：
+检查 8 件事，全过才算"这次改动没把线上搞坏"：
   1. 前端首页 200 且 <title> 是「考试与学习平台」
   2. 首页引用的 JS 产物能取到（说明 web-watch 构建产物已就位）
   3. /api/system 200，且返回的站点名不是空的
   4. admin 能登录（密码走 RSA 加密，和浏览器完全同一条路径）
   5. 登录后能列出试卷，且至少有一份能打开（说明数据可读、JSON 没坏）
+  6. 未知路径 404（S3-7：错误也要有真实 HTTP 状态码）
+  7. 未登录访问受保护接口 401
+  8. 错误密码登录 401 + body.code=1024
 
 退出码：0 全过 / 1 有失败项
 
@@ -44,6 +47,17 @@ def http(url, data=None, cookie=None, timeout=15):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read()
         return r.status, dict(r.headers), raw
+
+
+def http_any(url, data=None, cookie=None, timeout=15):
+    """和 http() 一样，但 4xx/5xx 也返回 (status, headers, body)，不抛 HTTPError。
+
+    S3-7 之后错误响应带真实状态码，冒烟必须能读错误体，而不是被 urllib 直接抛异常打断。
+    """
+    try:
+        return http(url, data=data, cookie=cookie, timeout=timeout)
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read()
 
 
 def rsa_encrypt(public_key_b64, text):
@@ -131,6 +145,36 @@ def main():
         assert d.get('name'), '打开第一份试卷失败'
         return f'{len(rows)} 份，首份「{d["name"]}」'
     check('试卷数据', c5)
+
+    # 6. 未知接口 → 404 JSON（S3-7）。带 cookie 走：/api/** 先过认证，才能到 DispatcherServlet 的 404；
+    #    非 /api 路径会被 nginx 的 try_files 兜成 index.html（200），不能用来验状态码。
+    def c6():
+        status, _, body = http_any(base + '/api/__smoke_not_exists__', cookie=state['cookie'])
+        assert status == 404, f'HTTP {status}'
+        code = json.loads(body.decode()).get('code')
+        assert code == 404, f'body.code={code}'
+        return '未知接口 → 404'
+    check('未知接口', c6)
+
+    # 7. 未登录访问受保护接口 → 401 JSON（S3-7：认证入口点不再伪装 200）
+    def c7():
+        status, _, body = http_any(base + '/api/project/list?page=1&size=1')
+        assert status == 401, f'HTTP {status}'
+        code = json.loads(body.decode()).get('code')
+        assert code == 401, f'body.code={code}'
+        return '未登录 → 401'
+    check('未登录拦截', c7)
+
+    # 8. 登录失败 → 401 + 业务码 1024（S3-7）
+    def c8():
+        enc = rsa_encrypt(state['publicKey'], args.password)
+        status, _, body = http_any(base + '/api/public/login',
+                                   data={'username': '__smoke_probe__', 'password': enc})
+        assert status == 401, f'HTTP {status}'
+        payload = json.loads(body.decode())
+        assert payload.get('code') == 1024, f'body.code={payload.get("code")}'
+        return '错误账号 → 401 / 1024'
+    check('登录失败', c8)
 
     print(f'\n冒烟测试 → {base}\n' + '-' * 60)
     ok = True

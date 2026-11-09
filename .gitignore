@@ -12,7 +12,8 @@ bin/
 .classpath
 .projecttarget/
 target/
-test/
+# 只忽略仓库根目录的 test/；server/*/src/test 是真正的回归测试，必须进版本库
+/test/
 build.sh
 # Dependencies
 /node_modules
@@ -28,6 +29,8 @@ build.sh
 .firebase
 
 # Misc
+__pycache__/
+*.pyc
 .DS_Store
 .env.local
 .env.development.local

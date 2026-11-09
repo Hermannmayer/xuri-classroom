@@ -28,11 +28,13 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authenticationException) throws IOException, ServletException {
 
-		response.setContentType("application/json");
+		response.setContentType("application/json;charset=UTF-8");
 		ApiResponse<String> apiResponse = new ApiResponse(ResponseCode.UNAUTHORIZED.code,
 				authenticationException.getMessage());
 
-		response.setStatus(HttpServletResponse.SC_OK);
+		// S3-7：未认证就是 401，不再伪装成 200。前端仍按 body.code 分支（json.code === 401
+		// 触发跳登录），状态码只用于网关 / 冒烟 / 浏览器开发者工具识别。
+		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 		response.getOutputStream().println(objectMapper.writeValueAsString(apiResponse));
 	}
 
