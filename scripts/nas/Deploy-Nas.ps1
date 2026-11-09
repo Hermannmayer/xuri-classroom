@@ -266,22 +266,31 @@ docker compose restart web-watch
 }
 
 if ($clientChanged) {
-    Say '等待 web-watch 出一次新构建'
+    # 之前靠 grep web-watch 日志里的 "built in" 判断构建完成，会误判：
+    # 依赖变化时旧容器会先失败一次（日志里仍有上一次成功的 built in），而失败构建可能把 dist 清空。
+    # 现在直接探测结果：前端首页 200 且引用的 JS 能取到，才算就绪。
+    Say '等待前端产物就绪'
     $wait = @'
-START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-for i in $(seq 1 45); do
-  if docker logs --since "$START" xuri-live-web-watch 2>&1 | grep -q "built in"; then
-    docker logs --since "$START" xuri-live-web-watch 2>&1 | grep "built in" | tail -1
-    echo "BUILD_DONE"
-    exit 0
+for i in $(seq 1 90); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:201/ 2>/dev/null || true)
+  if [ "$code" = "200" ]; then
+    js=$(curl -s http://127.0.0.1:201/ 2>/dev/null | grep -o '/assets/index-[A-Za-z0-9_-]*.js' | head -1)
+    if [ -n "$js" ]; then
+      jcode=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:201$js" 2>/dev/null || true)
+      if [ "$jcode" = "200" ]; then
+        echo "FRONTEND_READY $js"
+        exit 0
+      fi
+    fi
   fi
   sleep 2
 done
-echo "BUILD_TIMEOUT"
+echo "FRONTEND_TIMEOUT"
 '@
     $w = Invoke-NasScript -Body $wait -AllowFail
-    if ($w.Output -match 'BUILD_TIMEOUT') { Warn '90 秒内没看到新构建，检查：docker logs xuri-live-web-watch' }
-    else { $w.Output | Where-Object { $_ -and $_ -ne 'BUILD_DONE' } | ForEach-Object { "  $_" } }
+    if ($w.Output -match 'FRONTEND_TIMEOUT') { Warn '180 秒内前端产物没就绪，检查：docker logs xuri-live-web-watch' }
+    else { $w.Output | Where-Object { $_ -and $_ -ne 'FRONTEND_READY*' } | ForEach-Object { "  $_" } }
+    $w.Output | Where-Object { $_ -match 'FRONTEND_READY' } | ForEach-Object { "  $_" }
 }
 
 Test-Smoke

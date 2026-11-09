@@ -25,6 +25,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // 生产用 web-watch 常驻 vite build --watch，nginx 直接读 dist。
+    // 默认 emptyOutDir=true 会在每次构建开始时清空目录：一旦构建失败（例如依赖还没装好、
+    // 或某次改动有语法错误），线上首页立刻 403，而且旧产物也没了。
+    // 关掉之后：构建失败 = 目录保持原样（线上仍是上一版），成功 = 新 hash 文件与旧文件共存。
+    // 代价是旧 assets 会累积：需要时在 NAS 上执行 docker exec xuri-live-web-watch find /web/dist/assets -type f -mtime +14 -delete。
+    emptyOutDir: false,
     chunkSizeWarningLimit: 1200,
   },
 });

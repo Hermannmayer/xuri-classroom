@@ -153,6 +153,7 @@ ai/         依赖接口 + 条件装配
 | S0-3 | 导出每个请求 `new Thread`，无并发上限；且先把全部行组装成 List | 受控线程池 + 队列满拒绝 | `AnswerServiceImpl`：`EXPORT_POOL`（2 并发、队列 4、AbortPolicy，队满返回中文错误）。注：Excel 已用流式库 `fastexcel`，不需要换 SXSSF——真正的风险在行数据预构建与并发数 | 两人并发导出不 OOM；第三份返回明确错误 | ✅ |
 | S0-4 | 两处 `dangerouslySetInnerHTML` 无消毒 | DOMPurify 消毒 | `SchemaRenderer.tsx`（Remark 题）、`PublicAnswer.tsx`（交卷提示）；新增依赖 `dompurify`。**未加 CSP**：`WebSecurityConfig` 有意关闭 `frameOptions` 以支持嵌入，加 `frame-ancestors` 会破坏该场景，需先确认嵌入需求 | 注入 `<img onerror>` 不执行 | ✅ |
 | S0-5 | 生产 `vite build --watch` 不跑 `tsc` | 发布前类型检查 | `Deploy-Nas.ps1` 新增 0.5 步：`client/**` 有改动且装了 `node_modules` 时跑 `npm run check`，失败即中止 | 故意写错类型 → 发布被拒 | ✅ |
+| S0-7 | 构建失败会清空 `dist`，线上瞬时 403 | `vite.build.emptyOutDir=false` + 发布脚本改为探测首页 200 而不是 grep 日志 | `client/vite.config.ts`、`Deploy-Nas.ps1` 第 6 步 | 构建失败时线上仍是上一版；依赖变更后自动等到产物可访问 | ✅ |
 | S0-6 | `t_answer` 只有 `(project_id)` 索引 | 覆盖列表排序 | `init-mysql.sql` 加 `key_answer_pid_user_time(project_id, create_by, create_at)`；新增幂等迁移 `scripts/nas/migrate/24-answer-indexes.sql` | 列表查询无 filesort | ✅ |
 
 ### S1 · 可扩容地基（2–3 天，为 S4 铺垫）
