@@ -247,7 +247,15 @@ ai/         依赖接口 + 条件装配
 | 查分 `loadExamResult` | 匿名/普通用户一律 403 | 该接口要求「答卷归属本人」（答卷 cookie 或登录态），测试里缺少真实会话 |
 | 统计 `/api/report/statistics` | **真实 JWT 下不是 403 而是 500**（`NullPointerException`） | 认证与 `@PreAuthorize` 都通过，异常在 `statProject` 内部。已排除 `DataPermAspect`；已给 `statFromProjection` 补了 survey 空守卫但仍 500，**这是生产 bug**。已加两道守卫（`statFromProjection` 的 survey 空判断、`ProjectStatHelper.stat()` 里 `answerView.getAnswer() == null` 跳过），仍 500；**已修复**：根因是 `ProjectStatHelper.initQuestionStatistics()` 的过滤条件里对 `questionSchema.getAttribute()` 与 `getChildren()` 直接解引用——历史数据/第三方导入的题面可能没有 attribute，直接 NPE，整个统计 500。改成 `isStatable()` 空安全判断，并顺带修掉 `stat()` 里 `answer.get(questionId)` 为 null 时的强转 NPE。两条路径（投影 / 内存）实测均返回 200 且数字一致；`ProjectStatHelperTest` 增加 2 个回归用例 |
 
-下次继续时：种子用 `s2exam`（已在本地 `s2_check` 建好，2 题、status=1），先解决统计的归属校验，再补查分的 cookie 模拟。
+**已完成（2026-11-09）**：`ExamFlowTest` 跑通「开始答题 → 暂存 → 交卷 → 统计」四个步骤。
+
+一路上解决了三个问题：
+
+1. `t_project.survey` 必须是 `SurveySchema` **对象**，不是数组；
+2. 统计步骤必须用**真实 JWT**（cookie `sk-token`）走 `JwtTokenFilter`，MockMvc 的 `user(...)` 不经过过滤器链会被 `@PreAuthorize` 拒绝；
+3. 统计接口曾经的 500 根因是 `ProjectStatHelper.initQuestionStatistics()` 对空属性直接解引用（见上表）。
+
+查分（`loadExamResult`）暂未纳入：它要求「答卷归属本人」，需要答卷 cookie 与登录态一致，留待后续补。
 | S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |
 | S3-4 | 无边界约束 | ArchUnit 规则进构建 | 违规即失败 | ✅ 2026-11-09：三条规则（api 不依赖 mapper / impl 不依赖 api / service 接口不依赖 impl）；顺带给 `TeachingApi` 补了 `TeachingService`（它原本是全仓唯一直连 Mapper 的 Controller）。第四条「api 不得依赖 impl」等公开查询等组件搬进独立包后再加 |
