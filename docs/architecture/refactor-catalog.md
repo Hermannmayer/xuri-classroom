@@ -156,6 +156,14 @@ ai/         依赖接口 + 条件装配
 | S0-7 | 构建失败会清空 `dist`，线上瞬时 403 | `vite.build.emptyOutDir=false` + 发布脚本改为探测首页 200 而不是 grep 日志 | `client/vite.config.ts`、`Deploy-Nas.ps1` 第 6 步 | 构建失败时线上仍是上一版；依赖变更后自动等到产物可访问 | ✅ |
 | S0-6 | `t_answer` 只有 `(project_id)` 索引 | 覆盖列表排序 | `init-mysql.sql` 加 `key_answer_pid_user_time(project_id, create_by, create_at)`；新增幂等迁移 `scripts/nas/migrate/24-answer-indexes.sql` | 列表查询无 filesort | ✅ |
 
+### S0 验证记录（2026-11-09）
+
+- **发布**：两个提交分两次上 NAS。后端编译 23s、重启 12s；冒烟 5 项全绿（首页 / 产物 / 系统信息 / 登录 / 试卷数据）。
+- **迁移**：`24-answer-indexes.sql` 已执行；`t_answer` 现有 `key_answer_pid(project_id)` 与 `key_answer_pid_user_time(project_id, create_by, create_at)`。
+- **接口实测**：`POST /api/public/statistics` 68–229ms（3 次）、`GET /api/answer/list` 61ms、`GET /api/answer/download` 250ms（11922 字节）。
+- **数据量**：`t_answer` 共 5 份，`answer` 合计 6.3KB，`survey` 列为 NULL。所以「统计收窄列」的收益要等数据量上来才体现——当前验证的是**功能正确**，不是性能提升幅度。
+- **一次真实故障**：首次发布后前端 403。原因：`web-watch` 在依赖未安装时构建失败（`Rollup failed to resolve import "dompurify"`），而 `emptyOutDir` 默认 true 会先清空 `dist`；同时发布脚本靠 grep 日志里的 `built in` 判断就绪，匹配到了上一次成功的记录。已按 S0-7 修复并在第二次发布验证：`emptyOutDir=false` + 发布脚本改为探测首页 200 与引用 JS 200。
+
 ### S1 · 可扩容地基（2–3 天，为 S4 铺垫）
 
 | 编号 | 现状 | 目标 | 改动点 | 验收 |
