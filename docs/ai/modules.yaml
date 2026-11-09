@@ -67,7 +67,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-09
-    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+    verified_against: 5de89e7a20d0b6107efe1e3b812e7381e4b34c4b
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md

@@ -244,6 +244,7 @@ ai/         依赖接口 + 条件装配
 - 已知收窄点：`AnswerLookup` / `AnswerLimitGuard` / `ProjectAnswerValidator` / `ProjectStatisticsService` / `PublicSurveyExtrasService` 这 5 个只读组件没有类级 `@Transactional`；当前唯一入口 `SurveyServiceImpl` 仍带事务，行为不变。将来若 Controller 直接调用它们，需要补注解。
 - 命名注意：新组件不能叫 `UserDeptScopeService` —— `cn.surveyking.server.service.UserDeptScopeService` 已是 Spring bean，同名会 `ConflictingBeanDefinitionException`，故命名 `UserDeptMembershipService`。
 - 测试树入库：此前 `.gitignore` 的 `test/` 规则把 `server/*/src/test` 整个忽略，测试从未进过 git。本次改为只忽略根目录 `/test/`，9 个测试文件已纳入版本控制。
+- 顺带修复的既有 bug：公开链接 `PublicQueryService#loadQuery` / `getQueryResult`、`PublicSurveyExtrasService#loadExamResult` 对不存在的项目直接解引用，NPE 被兜成 500；现在分别回 7000（查询链接失效）与 4004（项目不存在），与 S3-7 的状态码映射一致。新增 `PublicQueryServiceTest`（4 例）/ `PublicSurveyExtrasServiceTest`（1 例）作为回归。
 
 **S3-1 拆类历程（保留历史）**
 

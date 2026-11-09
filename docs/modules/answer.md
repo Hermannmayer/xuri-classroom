@@ -65,7 +65,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-09
-verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+verified_against: 5de89e7a20d0b6107efe1e3b812e7381e4b34c4b
 ---
 
 # 答卷、判分与报表
@@ -155,7 +155,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 - **统计有两条路径，且会自动切换**：`t_answer_item` 覆盖了该场全部答卷时走 SQL 聚合（`AnswerItemMapper` + `ProjectStatHelper.statFromProjection`），否则回退到内存算法。判断条件是 `COUNT(DISTINCT answer_id) >= COUNT(*)`，所以「未回填 / 回填中 / 已回填」三个阶段统计数字都不会变少。回填是 `AnswerItemBackfill`，用 `surveyking.answer-items.backfill=true` 触发一次（幂等，可重跑）。覆盖判断看 `t_answer.items_synced`（每份处理过就置 1），不要改成「投影表行数」——没有选项答案的答卷展开后是 0 行。
 - **投影表是派生数据**：`t_answer.answer` 才是真源，`t_answer_item` 丢了可以随时重建。交卷与回填都走 `AnswerItemProjector.rebuild`，保证两条路径产出一致；投影写入失败只 warn，不让交卷失败。
-- **统计接口的权限注解必须写在 Controller**：`/api/public/statistics` 前缀是 public，但统计暴露答卷分布。`@PreAuthorize` 写在 `SurveyServiceImpl` 上不生效（JDK 动态代理只看接口注解），已改到 `SurveyApi.statProject`。
+- **统计接口的权限注解必须写在 Controller**：统计接口的 URL 前缀是 public（实际路径 `/api/report/statistics`），但统计暴露答卷分布。`@PreAuthorize` 写在 `SurveyServiceImpl` 上不生效（JDK 动态代理只看接口注解），已改到 `SurveyApi.statProject`。
 - **导出并发受限、统计不读整卷快照**：导出走 `EXPORT_POOL`（2 并发 + 队列 4，队满返回中文错误而不是把 JVM 拖死）；统计走 `listAnswerForStat`，只 SELECT `answer` 等必要列，不再把每份答卷的整卷 `survey` 读进堆（该列有值时是整卷 JSON，100 题约 30~80KB；当前线上多数行是 NULL，写入路径见 `SurveyServiceImpl` 的随机卷快照）。给 `listAnswer` 加字段时注意：不要把 `survey` 加回统计路径，否则单场 500 份的统计会重新变成几百 MB 的临时对象。
 - **报表可能把随机卷快照算进总数**：`ReportServiceImpl.getData` 按 `project_id` 取全部 `t_answer`，不过滤 `answer IS NULL`。`RandomSurveyProcessor` 创建随机卷快照时会先写一条没有 `answer` 的答卷（`saveAnswer` 会把 `tempSave` 默认成 1），因此报表总数和逐题统计可能包含这些空记录；`parseAnswer` 对 null `answer` 也没有防御，极端情况下会 500。项目列表的 `total` 也按 `temp_save=1` 计数，同样会把快照算进去。
 - **数据页全量进内存**：`Data.tsx` 固定 `pageSize=-1`，筛选/排序/分页都在前端。答卷上万条后首屏会明显变慢，需要改成服务端分页 + 服务端排序。
@@ -165,7 +165,8 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 - **`tempSave=0` 的草稿不在列表里**：`listAnswer` 有 `isNotNull(Answer::getAnswer)`，未提交/仅暂存的记录不会出现在数据页；不要用答卷列表判断"有没有人打开过"。
 - **`answer:attach` 没有接到接口**：答题页附件走公开 `POST /api/public/upload`，管理侧导入走 `answer:upload`；权限目录里的 `answer:attach` 目前只是注释约定，改附件权限时要一起确认。
 - **成绩单逐题对错是前端预览**：`ExamResult.tsx` 用 `utils/scoring.ts` 自行比对，最终分数以服务端 `exam_score` 为准；`manual` 模式会标"待人工评分"，不会假装判过。
-- **公开查询与普通答卷共用 `t_answer`**：`PublicQuery` 的修改走 `validateAndMergeAnswer`，字段权限由 `ProjectSetting.PublicQuery.fieldPermission` 控制；改答卷结构时要同时看 `SurveyServiceImpl.getQueryResult` / `filterAnswerByFieldPermission`。
+- **公开查询与普通答卷共用 `t_answer`**：`PublicQuery` 的修改走 `validateAndMergeAnswer`，字段权限由 `ProjectSetting.PublicQuery.fieldPermission` 控制；改答卷结构时要同时看 `PublicQueryService#getQueryResult` / `filterAnswerByFieldPermission`。
+- **公开链接上的 projectId 不可信**：`PublicQueryService#loadQuery` / `getQueryResult` 与 `PublicSurveyExtrasService#loadExamResult` 拿到不存在的项目时，2026-11-09 之前会直接解引用 `project` 抛 NPE、被全局兜底成 500；现在统一回 7000（查询链接失效）与 4004（项目不存在）。新增公开端点时第一件事也是判 `project == null`。
 
 ## 验证
 
