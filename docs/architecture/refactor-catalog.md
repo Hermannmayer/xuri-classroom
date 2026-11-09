@@ -217,7 +217,8 @@ ai/         依赖接口 + 条件装配
 | S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | ✅ 2026-11-09：`gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（改动面覆盖 46 个文件，单独排期，可逐步迁移到 `PERMISSION_CODES` 常量） |
 | S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | 5 个 UI 权限明确标注 |
 | S3-7 | 错误一律 HTTP 200 | 状态码与 `code` 对齐 | 冒烟能发现 4xx/5xx |
-| S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | 撞库可追溯 |
+| S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | ✅ 2026-11-09：`UserApi` 写 `AUTH_LOGIN` / `AUTH_LOGIN_FAILED`，本地实测两条落库 |
+| S3-9 | 前端 32 个页面静态 import，入口 chunk 2.1MB | 路由级 `lazy` + `Suspense` | ✅ 2026-11-09：入口 chunk 2,143KB→998KB（gzip 682→320KB），页面各自分包 |
 
 ### S4 · 多实例（推广前 1 周）
 
