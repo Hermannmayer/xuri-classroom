@@ -53,7 +53,7 @@
 能否登录   = 组链上任一组的有效期窗口内（valid_from ≤ now ≤ valid_to，空表示不限）
 ```
 
-- 实现位置：`UserServiceImpl#loadUserById`（`resolveUserAuthorities` + `resolveDeptChainIds`），
+- 实现位置：`UserAuthService#buildUserInfo`（`resolveUserAuthorities`）+ `UserDeptMembershipService#resolveDeptChainIds`；缓存注解在门面 `UserServiceImpl#loadUserById`，
   `assertDeptValid` 也走同一条组链；组表整表取一次、`t_dept_role` 按整条组链 `in` 一次，无 N+1。
 - 权限缓存：`loadUserById` 结果按 user 缓存在 `userCache`；组角色变更时
   `DeptServiceImpl#saveDeptRoles` 会在事务提交后清空 `userCache`，否则改角色不生效。

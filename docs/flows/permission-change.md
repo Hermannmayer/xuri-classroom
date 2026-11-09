@@ -50,7 +50,7 @@ verified_against: "765fc89"
 
 1. 在 `server/shared/src/main/java/cn/surveyking/server/core/constant/PermissionEnum.java` 加条目：`code`、中文名、`Group`、一句话说明；学员专属加第五/第六个参数 `studentOnly=true`。
 2. 给接口加注解，例如 `@PreAuthorize("hasAuthority('xxx:yyy') or hasRole('admin')")`；一个动作有多个等价权限时用 `hasAnyAuthority`。
-3. 如果这是「同一入口、不同档位」，在服务层再校验一次（参考 `UserServiceImpl#assertRoleGrantScope`）。
+3. 如果这是「同一入口、不同档位」，在服务层再校验一次（参考 `UserPermissionGuard#assertRoleGrantScope`）。
 4. 确认 `Group` 选对：它只影响权限矩阵的卡片顺序，不参与鉴权；选错会让页面分组很怪。
 
 ### 2.3 前端

@@ -116,7 +116,7 @@ verified_against: '765fc89'
 | `answerSetting.endTime` | 超过后 `ExceededEndTime` 4011 | `validateSubmittable` / `validateProject` |
 | `answerSetting.maxAnswers` | 新答卷达到上限 `ExceededMaxAnswers` 4010 | `validateSubmittable` |
 | `examSetting.startTime/endTime` | 未开始 `ExamUnStarted` 6000 / 已结束 `ExamFinished` 6010 | `validateExamSetting` |
-| `examSetting.minSubmitMinutes/maxSubmitMinutes` | 最短/最长交卷；最长到点前端自动交卷 | `PublicAnswer` + `AnswerServiceImpl.assertWithinTimeLimit` |
+| `examSetting.minSubmitMinutes/maxSubmitMinutes` | 最短/最长交卷；最长到点前端自动交卷 | `PublicAnswer` + `AnswerScoringService#assertWithinTimeLimit` |
 | `examSetting.maxSwitchScreenTimes` | 达到次数自动交卷并锁定 | `PublicAnswer` visibilitychange + `/api/public/exam/switch-screen` |
 | `examSetting.exerciseMode` | 逐题下发时保留正确答案/解析 | `loadPublicQuestion` |
 | `examSetting.passMode` | 一页一题、不可回头、超时 0 分 | `PublicAnswer` + `applyPassModePenalty` |

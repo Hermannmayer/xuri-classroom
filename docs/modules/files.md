@@ -26,6 +26,7 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
   - server/rdbms/src/main/resources/scripts/init-mysql.sql
 entrypoints:
   - client/src/pages/system/Setting.tsx

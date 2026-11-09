@@ -129,7 +129,7 @@ verified_against: '765fc89'
 - **未配 `JWT_SECRET` 会全员掉线**：`application.yml` 默认 `secret: ${SK_JWT_SECRET:}`，为空就随机；docker-compose 把 `.env` 的 `JWT_SECRET` 注入为 `SK_JWT_SECRET`。生产必须配。
 - **改密码不踢下线**：JWT 无状态、没有黑名单；如果要求"改密即失效"，需要加 token 版本号/黑名单或缩短 TTL。
 - **组有效期不是每请求校验**：过期后已登录用户还能用到 token 过期；需要更强控制时在 `JwtTokenFilter` 里补 `assertDeptValid` 或加缓存。
-- **答题页内嵌登录不是 RSA**：`SurveyServiceImpl.validateUsernameAndPassword` 直接拿表单里的明文 `password` 交给 `AuthenticationManager`；这是"问卷要求登录"的另一条路径，和 `/api/public/login` 的 RSA 加密不同。两条路径都依赖 HTTPS。
+- **答题页内嵌登录不是 RSA**：`LoginFormValidator#validateUsernameAndPassword` 直接拿表单里的明文 `password` 交给 `AuthenticationManager`；这是"问卷要求登录"的另一条路径，和 `/api/public/login` 的 RSA 加密不同。两条路径都依赖 HTTPS。
 - **注册密码也是明文提交**：`Register.tsx` 直接把 `password` POST 给 `/api/public/register`，后端 BCrypt 入库；不要误以为全站密码都走 RSA。
 - **URL token 默认关闭**：`sk.security.url-token-authentication.enabled=false`；打开后 token 会出现在 URL/日志/Referer，非必要不要开。
 - **前端权限缓存要主动清**：登录成功/退出必须调 `notifyAuthChanged()`，否则同标签页换账号会继续用上一个人的 `authorityList`；其它标签页靠 `storage` 事件同步。

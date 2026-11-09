@@ -96,7 +96,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ## 关键流程
 
 1. **班级树**：`Classes.tsx` 调 `GET /api/teaching/classes/tree`（`class:list`）。`ClassServiceImpl.listClassTree` 先取全部未删除的 `t_dept`，按 `visibleDeptIds` 算可见集合：管理员 / `class:grant` 看全部；其他人取「自己创建（`create_by`）或负责（`manager_id`）的班 + `t_class_partner` 里的班」，再把这些班的后代一起并入。随后 `withAncestors` 补祖先节点保证树有路径，`toNode` 写入成员数、负责人、组角色、有效期，`accessible` 标记该节点能否直接打开（补出来的祖先为 `false`，前端灰显且不可选）。
-2. **班级成员**：`GET /api/teaching/classes/members?deptId=`（`class:detail`）→ `listClassMembers` 先 `assertClassVisible`，再只查 `user_type='student'`，条件是主组 `t_user.dept_id` 或附加组 `t_user_dept` 命中该班；回填登录账号与角色名。新增走 `POST /api/teaching/classes/member/create`（`class:member:create`）→ `createClassMember` 校验班级可见、姓名/账号/初始密码必填、账号不重复 → `UserServiceImpl.createClassStudent`：角色固定为内置学员角色（`student` 或 `xueyuan`）、状态置为有效、`user_type=student`，并通过 `assertClassDeptRoleSafe` 阻止把学员放进绑定了更高权限角色的组。编辑/删除同理，只允许 `student` 且必须属于当前班。
+2. **班级成员**：`GET /api/teaching/classes/members?deptId=`（`class:detail`）→ `listClassMembers` 先 `assertClassVisible`，再只查 `user_type='student'`，条件是主组 `t_user.dept_id` 或附加组 `t_user_dept` 命中该班；回填登录账号与角色名。新增走 `POST /api/teaching/classes/member/create`（`class:member:create`）→ `createClassMember` 校验班级可见、姓名/账号/初始密码必填、账号不重复 → `ClassStudentService#createClassStudent`：角色固定为内置学员角色（`student` 或 `xueyuan`）、状态置为有效、`user_type=student`，并通过 `assertClassDeptRoleSafe` 阻止把学员放进绑定了更高权限角色的组。编辑/删除同理，只允许 `student` 且必须属于当前班。
 3. **分配老师**：`GET /api/teaching/classes/teachers?deptId=` 与 `teacher-options` 都要求 `class:grant`；新增走 `POST /api/teaching/classes/partner/create`，`addClassPartners` 校验班级存在、用户存在并去重后写入 `t_class_partner`；取消走 `/partner/delete`，`ClassPartnerMapper.hardDelete` 做物理删除（表上有 `(dept_id,user_id)` 唯一键，逻辑删除会挡住重新授权）。老师候选只列 `user_type='staff'`，服务端上限 200 条。
 4. **班级设置**：`ClassSettingsModal` 直接调 `/api/system/dept/create`、`/update`、`/delete`（`system:dept:create/update/delete`）。`DeptServiceImpl.addDept` 补 `short_name`（库里有 NOT NULL 约束）并按兄弟节点数排 `sort_code`；`updateDept` 改上级时校验不成环、且非管理员不能把组挂到「绑定了更高权限角色」的祖先下；`deleteDept` 见「坑与已知限制」。
 5. **班级学情**：`Workbench.tsx` 先调 `GET /api/teaching/projects`（`project:report`）→ `TeachingMapper.listMyProjects` 查「自己是所有者，或是 `type` 1/2 协作者」的考试，附带已交卷数与平均分；再调 `GET /api/teaching/classes?projectId=` → `listClasses` 按答卷人的主组 `t_user.dept_id` 聚合交卷数与平均分，空组显示「未分组」。
@@ -107,7 +107,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 1. 先分清是「谁能看到哪个班」（`ClassServiceImpl.visibleDeptIds`、`assertClassVisible`）还是「页面怎么展示」（`Classes.tsx` 的 `accessible`、`firstSelectable`）。两者的口径必须一致，否则会出现「树里有、点开 403」。
 2. 改班级口径时同步检查三处：`listClassTree` 的可见集合、`assertClassVisible` 的祖先链授权、`UserDeptScopeService`（题库/考试授权用的组范围）。
-3. 改学员增删改时，记住账号操作在 `UserServiceImpl`，班级校验在 `ClassServiceImpl`；不要把「移出班级」和「删除账号」混成一个动作。
+3. 改学员增删改时，记住账号操作在 `ClassStudentService`，班级校验在 `ClassServiceImpl`；不要把「移出班级」和「删除账号」混成一个动作。
 4. 改学情 SQL 时只动 `TeachingMapper`，保持「只返回聚合、不回传答卷内容」的约定。
 
 ### 新增字段/接口
@@ -147,7 +147,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 - **学情按主组聚合**：`TeachingMapper.listClasses` 只用 `t_user.dept_id`，附加组与班级树层级不参与；学员换主组后历史答卷会算到新班，未交卷（`temp_save=1` 之外）不计入。
 - **学情只认所有者/协作者**：`listMyProjects` 只按 `t_project_partner.user_id` 查 `type` 1/2，按班级组授权（`type=3`）或按组添加的协作者都不会出现在工作台。
 - **`/api/teaching/classes` 不校验项目归属**：只要持有 `project:report`，传任意 `projectId` 都能拿到该考试的班级聚合（不含答卷明细）；这是当前的数据范围缺口。
-- **组有效期只在登录时校验**：`UserServiceImpl.assertDeptValid` 在登录链路执行，`loadUserById` 未校验；组过期后已登录会话仍可继续用，直到重新登录。
+- **组有效期只在登录时校验**：`UserDeptMembershipService#assertDeptValid` 在登录链路执行，`loadUserById` 未校验；组过期后已登录会话仍可继续用，直到重新登录。
 - **`class:grant` 的人能看到全部班级**：`visibleDeptIds` 与 `listClassTeachers` 都对 `class:grant` 放行全量，用于分配；这不是「只能看自己负责的班」。
 
 ## 验证

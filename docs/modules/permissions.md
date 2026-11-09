@@ -194,7 +194,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 - 前端 `loadAuthorities()` 是模块级缓存，登录成功/登出必须调 `notifyAuthChanged()`；否则同标签页「管理员登出 → 学员登录」会继续沿用上一人的权限。
 - `router.tsx` 里 `/system/permissions` 的注释还写着「用 `system:user:update` 守卫」，实际守卫是 `system:role:list`；以代码为准，注释待修。
 - 管理员判定有两套：后端 `SecurityContextUtils#isAdmin` 看 `ROLE_admin` 权限；前端权限矩阵页按 `role.code === 'admin'` 锁编辑，后端还额外按名称「超级管理员」兜底。
-- 学员角色的 code 可能是 `student` 也可能是 `xueyuan`（历史数据），迁移脚本与 `UserServiceImpl` 都同时接受两者；新脚本别只写一个。
+- 学员角色的 code 可能是 `student` 也可能是 `xueyuan`（历史数据），迁移脚本与 `ClassStudentService` 都同时接受两者；新脚本别只写一个。
 - 职务权限已下线：`system:position:*`、`system:user:updatePosition` 不在目录里，对应接口仍是 `hasRole('admin')`，改它们不会经过权限矩阵。
 - 数据范围已经按「主组 ∪ 附加组 ∪ 各自祖先链」解析（`UserDeptScopeService#resolveDeptScope` / `DEPT_SCOPE_SQL`），不要再退回只读 `t_user.dept_id`；但按组聚合的 SQL（如 `TeachingMapper#listClasses` 的 `GROUP BY u.dept_id`）仍只认主组，附加组成员会落到主组那一行。
 - 用户管理只显示 `user_type=staff`（前端固定传 `userType: 'staff'`），学员在「班级管理」里按组维护；`ClassServiceImpl` 的成员接口还会硬校验 `user_type=student`，两边不是同一批人。
