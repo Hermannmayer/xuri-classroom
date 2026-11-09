@@ -164,6 +164,18 @@ ai/         依赖接口 + 条件装配
 - **数据量**：`t_answer` 共 5 份，`answer` 合计 6.3KB，`survey` 列为 NULL。所以「统计收窄列」的收益要等数据量上来才体现——当前验证的是**功能正确**，不是性能提升幅度。
 - **一次真实故障**：首次发布后前端 403。原因：`web-watch` 在依赖未安装时构建失败（`Rollup failed to resolve import "dompurify"`），而 `emptyOutDir` 默认 true 会先清空 `dist`；同时发布脚本靠 grep 日志里的 `built in` 判断就绪，匹配到了上一次成功的记录。已按 S0-7 修复并在第二次发布验证：`emptyOutDir=false` + 发布脚本改为探测首页 200 与引用 JS 200。
 
+### S0.5 · 回归测试网（已完成，2026-11-09）
+
+拆类（S3-1~4）的前置条件。`server/shared/src/test` 下 9 个用例，约 10 秒：
+
+| 测试 | 保护什么 |
+|---|---|
+| `ProjectStatHelperTest`（2） | 投影聚合与内存算法结果一致；未启用统计的题不进入 |
+| `PermissionEnumTest`（4） | 权限码不重复、格式合规、学员专属恰好 6 个 |
+| `SchemaHelperTest`（3） | 扁平化只收有数据的题；`withOption` 才展开选项 |
+
+已接进 `Deploy-Nas.ps1` 的 0.6 步：每次发布先跑 `:shared:test`，失败即中止（紧急可用 `-SkipTests`）。
+
 ### S1 · 可扩容地基（2–3 天，为 S4 铺垫）
 
 > 状态：**2026-11-09 完成 5 项，S1-3 随 S2 一起做**（改交卷路径，需要与投影表同一批验证）。

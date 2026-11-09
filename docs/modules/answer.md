@@ -162,6 +162,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 ## 验证
 
 ```bash
+cd server && ./gradlew :shared:test   # 9 个单元测试：统计两路径一致、权限目录、扁平化
 cd client && npm run check
 python scripts/nas/smoke-test.py
 npm run docs:check

@@ -30,6 +30,7 @@ param(
     [switch]$SkipSmoke,
     [switch]$ReloadOnly,
     [switch]$DiscardNasChanges,   # NAS 上有未提交改动时，强制丢弃（默认中止）
+    [switch]$SkipTests,           # 跳过后端单元测试（紧急发布用；会打 Warn）
     [string]$NasHost = '192.168.0.2',
     [string]$NasUser = 'Home',
     [string]$RemoteRepo = '/vol2/1000/xuri/src/work',
@@ -134,6 +135,41 @@ if (-not $ReloadOnly) {
     }
     elseif ($clientDirty) {
         Warn "client/node_modules 不存在，跳过类型检查（先 cd client && npm install）"
+    }
+}
+
+# ------ 0.6 后端单元测试
+# 目的：拆上帝类/改统计之前先有一层能红的网。9 个用例约 10 秒，每次发布都跑；
+# 紧急发布可用 -SkipTests 跳过（会打 Warn，便于事后追溯）。
+function Resolve-JavaHome {
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) { return $env:JAVA_HOME }
+    $local = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'jdk8') -Directory -ErrorAction SilentlyContinue |
+        Where-Object { Test-Path (Join-Path $_.FullName 'bin\java.exe') } | Select-Object -First 1
+    if ($local) { return $local.FullName }
+    $cmd = Get-Command java -ErrorAction SilentlyContinue
+    if ($cmd) { return (Split-Path -Parent (Split-Path -Parent $cmd.Source)) }
+    return $null
+}
+
+if (-not $ReloadOnly -and -not $SkipTests) {
+    $javaHome = Resolve-JavaHome
+    if ($javaHome) {
+        Say '0.6/6 后端单元测试'
+        $previousJavaHome = $env:JAVA_HOME
+        $env:JAVA_HOME = $javaHome
+        Push-Location (Join-Path $repoRoot 'server')
+        try {
+            & .\gradlew.bat :shared:test --no-daemon --console=plain 2>&1 | Select-Object -Last 6
+            if ($LASTEXITCODE -ne 0) { Die '后端单元测试没通过（:shared:test），已中止发布。' }
+        }
+        finally {
+            Pop-Location
+            $env:JAVA_HOME = $previousJavaHome
+        }
+        Ok '单元测试通过'
+    }
+    else {
+        Warn '找不到 JDK，跳过后端单元测试（可用 JAVA_HOME 指定）'
     }
 }
 
