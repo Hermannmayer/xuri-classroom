@@ -1,0 +1,25 @@
+{
+  "name": "xuri-classroom-docs",
+  "private": true,
+  "type": "module",
+  "description": "旭日云课堂开发文档站与 AI 模块索引",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:gen": "node scripts/docs/gen.mjs",
+    "docs:check": "node scripts/docs/check.mjs",
+    "docs:where": "node scripts/docs/where.mjs",
+    "docs:impact": "node scripts/docs/impact.mjs",
+    "docs:mark": "node scripts/docs/mark.mjs",
+    "docs:audit": "node scripts/docs/audit.mjs",
+    "docs:new": "node scripts/docs/new.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4",
+    "yaml": "^2.8.1"
+  }
+}

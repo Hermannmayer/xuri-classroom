@@ -1,3 +1,5 @@
+> ⚠️ 本文是旧基线，已归档。当前事实见 [权限与角色](modules/permissions.md)、[权限目录（生成）](reference/permissions.md)、[ADR-0001](decisions/ADR-0001-rbac.md)。
+
 # 权限与角色
 
 > ⚠️ 2026-11-09 更新：本文的「56 个权限串 / 56-30-5」是 2026-11-07 的基线，已过期。

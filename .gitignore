@@ -120,3 +120,7 @@ server/**/build/
 scripts/dev/*.bak
 
 
+# 文档站
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
