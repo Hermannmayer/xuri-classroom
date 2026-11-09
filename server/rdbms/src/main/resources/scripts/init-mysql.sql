@@ -59,6 +59,25 @@ CREATE TABLE `t_answer` (
   KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
 
+-- ------
+-- Table structure for t_answer_item
+-- ------
+DROP TABLE IF EXISTS `t_answer_item`;
+CREATE TABLE `t_answer_item` (
+  `id` varchar(64) NOT NULL,
+  `answer_id` varchar(64) NOT NULL,
+  `project_id` varchar(64) NOT NULL,
+  `question_id` varchar(64) NOT NULL,
+  `question_type` varchar(32) DEFAULT NULL,
+  `option_id` varchar(64) DEFAULT NULL,
+  `value_key` varchar(64) DEFAULT NULL,
+  `score` double DEFAULT NULL,
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_item_answer` (`answer_id`),
+  KEY `idx_item_project_question` (`project_id`,`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答卷明细投影（统计专用）';
+
 -- ----------------------------
 -- Records of t_answer
 -- ----------------------------

@@ -11,8 +11,10 @@ import cn.surveyking.server.core.uitls.*;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.AnswerViewMapper;
 import cn.surveyking.server.domain.model.Answer;
+import cn.surveyking.server.domain.model.AnswerItem;
 import cn.surveyking.server.domain.model.Project;
 import cn.surveyking.server.domain.model.ProjectPartner;
+import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.mapper.ProjectPartnerMapper;
@@ -22,6 +24,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.dhatim.fastexcel.reader.ReadableWorkbook;
 import org.dhatim.fastexcel.reader.Row;
 import org.dhatim.fastexcel.reader.Sheet;
@@ -63,6 +66,7 @@ import java.util.zip.ZipOutputStream;
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
+@Slf4j
 public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> implements AnswerService {
 
 	private final ProjectMapper projectMapper;
@@ -80,6 +84,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private final ProjectPartnerMapper projectPartnerMapper;
 
 	private final UserDeptScopeService userDeptScopeService;
+
+	private final AnswerItemProjector answerItemProjector;
 
 	/** 客户端上报「本轮开始时间」时允许的最大跨度：超过 24 小时的声称一律不认 */
 	private static final long MAX_ATTEMPT_SPAN_MS = 24 * 60 * 60 * 1000L;
@@ -124,6 +130,16 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	@Override
 	public PaginationResponse<AnswerView> listAnswerForStat(AnswerQuery query) {
 		return listAnswer(query, false);
+	}
+
+	@Override
+	public List<AnswerView> listAnswersForStat(String projectId) {
+		List<Answer> answers = list(Wrappers.<Answer>lambdaQuery()
+				.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,
+						Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
+						Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt)
+				.eq(Answer::getProjectId, projectId).isNotNull(Answer::getAnswer));
+		return answerViewMapper.toView(answers);
 	}
 
 	private PaginationResponse<AnswerView> listAnswer(AnswerQuery query, boolean withSnapshot) {
@@ -329,6 +345,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 这里在服务端补齐真实 IP 与限次 cookie 标识。
 		answer.setMetaInfo(enrichMetaInfo(answer.getMetaInfo()));
 		save(beforeSaveAnswer(answer));
+		rebuildAnswerItems(answer);
 		return answerViewMapper.toView(answer);
 	}
 
@@ -343,6 +360,17 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	 * <p>
 	 * 返回 null 表示本次不做幂等：显式「再考一次」、题库练习、以及拿不到可信答题人身份的情况。
 	 */
+	/** 投影写失败不应该让交卷失败：统计侧有「覆盖数不足就回退内存算法」的兜底 */
+	private void rebuildAnswerItems(Answer answer) {
+		try {
+			answerItemProjector.rebuild(answer);
+		}
+		catch (Exception e) {
+			log.warn("重建答卷明细失败（不影响交卷，统计会回退内存算法）: answerId={}", answer == null ? null : answer.getId(),
+					e);
+		}
+	}
+
 	private String buildSubmitIdempotencyKey(AnswerRequest request) {
 		// 「再考一次」是用户显式要一条新答卷，必须绕过幂等
 		if (Boolean.TRUE.equals(request.getFreshAttempt())) {
@@ -478,6 +506,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	public AnswerView updateAnswer(AnswerRequest request) {
 		Answer answer = beforeSaveAnswer(answerViewMapper.fromRequest(request));
 		updateById(answer);
+		rebuildAnswerItems(answer);
 		return answerViewMapper.toView(answer);
 	}
 

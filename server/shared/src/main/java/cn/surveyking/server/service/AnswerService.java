@@ -34,6 +34,15 @@ public interface AnswerService {
 	 */
 	PaginationResponse<AnswerView> listAnswerForStat(AnswerQuery filter);
 
+	/**
+	 * 统计回退路径专用：按项目取全部答卷，**不按 createBy 过滤**。
+	 * <p>
+	 * 列表页的「只能看自己的答卷」是行级数据范围；统计的权限由 {@code statistic} 方法上的
+	 * {@code @PreAuthorize} 保证，若这里再套一层行级过滤，未登录/非协作者会统计出 0 份，
+	 * 与投影路径（按 project_id 聚合）结果不一致。
+	 */
+	List<AnswerView> listAnswersForStat(String projectId);
+
 	AnswerView getAnswer(AnswerQuery query);
 
 	AnswerView getAnswerWithPermission(AnswerQuery query);

@@ -185,13 +185,25 @@ ai/         依赖接口 + 条件装配
 
 ### S2 · 数据形状（1–2 周，推广分水岭）
 
-| 编号 | 现状 | 目标 | 改动点 | 验收 |
-|---|---|---|---|---|
-| S2-1 | 答案只在 JSON 里 | `t_answer_item(answer_id, project_id, question_id, option_id, score, is_correct)` | 新表 + 交卷时批量写 | 单份 100 题 = 100 行，单事务 |
-| S2-2 | 统计内存三层循环 | `GROUP BY question_id, option_id` | `ProjectStatHelper` → Mapper | 5000 份 < 300ms |
-| S2-3 | 无历史投影 | 回填脚本 + 双读校验 | 一次性脚本 | 回填后可切读投影；差异 0 |
-| S2-4 | 导出读 JSON | 导出读投影 | `AnswerServiceImpl:469` | 5000 份导出内存恒定 |
-| S2-5 | 24 处注解 SQL 绕过 Wrapper | 收口到统一入口 | `@Select` 等 24 处 | 为多租户插件留出拦截面 |
+> 状态：**2026-11-09 完成 S2-1/2/3，S2-4/5 未做**（导出仍读 JSON；注解 SQL 收口留到多租户阶段）。
+
+| 编号 | 现状 | 目标 | 改动点 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| S2-1 | 答案只在 JSON 里 | `t_answer_item(answer_id, project_id, question_id, option_id)` | 新表（迁移 25 + init）；`AnswerItemProjector` 交卷时批量写（每批 500 条多值 INSERT） | 单份 100 题 = 100 行 | ✅ |
+| S2-2 | 统计内存三层循环 | `GROUP BY question_id, option_id` | `AnswerItemMapper.statQuestions/statOptions`；`ProjectStatHelper.statFromProjection()` | 只回传「题 × 选项」计数，不加载答卷 JSON | ✅ |
+| S2-3 | 无历史投影 | 回填 + 一致性校验 | `AnswerItemBackfill`（`surveyking.answer-items.backfill=true` 触发，幂等） | 200 份 / 21559 行回填 2.6 秒；与旧算法逐题逐选项 0 差异 | ✅ |
+| S2-4 | 导出读 JSON | 导出读投影 | — | — | ⏳ 未做（导出是行式明细，投影表缺 value，需先扩列） |
+| S2-5 | 24 处注解 SQL 绕过 Wrapper | 收口到统一入口 | — | — | ⏳ 随 S5（多租户插件）一起做 |
+
+**S2 验证记录（2026-11-09，本地 s2_check 隔离库，未上 NAS）**
+
+- 种子：100 题（80 题 `statEnabled`）× 200 份答卷，answer JSON 合计 411KB。
+- 基准：用 Python 按 `ProjectStatHelper` 的语义算出 80 题 / 331 个选项的计数，作为旧算法基准。
+- 投影聚合：同一批数据展开成 21,559 行，`GROUP BY` 结果与基准 **0 差异**。
+- 端到端：本地启动 jar（JDK8 + s2_check），回填 200 份成功 0 失败，`POST /api/public/statistics` 返回 80 题 331 选项，**0 差异**，耗时 137–173ms。
+- 回退兜底：清空投影后统计自动回退内存算法（不会变空），回填完成后自动切回 SQL。
+- 顺带修掉的越权：`/api/public/statistics` 原本匿名可调（能拿任意 projectId 的答卷分布）。已加 `@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")`，匿名返回 `body.code=403`。**注解必须写在 Controller**：ServiceImpl 被 JDK 动态代理包装，写在实现类上不生效（实测）。
+- 批量插入：逐条 insert 回填 200 份要 56 秒，改多值 INSERT 后 2.6 秒（5000 份预计 ~65 秒）。
 
 ### S3 · 结构与权限（1–2 周）
 

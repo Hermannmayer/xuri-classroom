@@ -4,6 +4,7 @@ import cn.surveyking.server.domain.dto.AnswerView;
 import cn.surveyking.server.domain.dto.PublicStatisticsView;
 import cn.surveyking.server.domain.dto.SurveySchema;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,11 @@ public class ProjectStatHelper {
 	final SurveySchema schema;
 
 	final List<AnswerView> answers;
+
+	public ProjectStatHelper(SurveySchema schema) {
+		this.schema = schema;
+		this.answers = Collections.emptyList();
+	}
 
 	public ProjectStatHelper(SurveySchema schema, List<AnswerView> answers) {
 		this.schema = schema;
@@ -43,6 +49,33 @@ public class ProjectStatHelper {
 						}
 					});
 				}
+			});
+		});
+		result.setQuestionStatistics(questionStatistics);
+		return result;
+	}
+
+	/**
+	 * 从投影表（t_answer_item）的聚合结果组装统计。
+	 * <p>
+	 * 与 {@link #stat()} 的区别：不在内存里遍历全部答卷，只消费 SQL 的 GROUP BY 结果。
+	 * 单场 5000 份 × 100 题时，前者要把几十 MB 的答案 JSON 全读进堆，后者只传回「题 × 选项」量级的计数。
+	 * @param totalAnswers 该场答卷总数（与投影行数一致时才应该走这条路）
+	 * @param questionCounts questionId → 答了该题的人数
+	 * @param optionCounts questionId → optionId → 选了该选项的人数
+	 */
+	public PublicStatisticsView statFromProjection(long totalAnswers, Map<String, Long> questionCounts,
+			Map<String, Map<String, Long>> optionCounts) {
+		PublicStatisticsView result = new PublicStatisticsView();
+		result.setCount((int) totalAnswers);
+		Map<String, PublicStatisticsView.QuestionStatistics> questionStatistics = initQuestionStatistics();
+		questionStatistics.forEach((questionId, qStatistics) -> {
+			Long answered = questionCounts.get(questionId);
+			qStatistics.setCount(answered == null ? 0 : answered.intValue());
+			Map<String, Long> perOption = optionCounts.get(questionId);
+			qStatistics.getOptionStatistics().forEach(optionStatistics -> {
+				Long optionCount = perOption == null ? null : perOption.get(optionStatistics.getOptionId());
+				optionStatistics.setCount(optionCount == null ? 0 : optionCount.intValue());
 			});
 		});
 		result.setQuestionStatistics(questionStatistics);

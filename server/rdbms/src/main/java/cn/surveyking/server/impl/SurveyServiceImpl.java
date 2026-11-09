@@ -9,6 +9,7 @@ import cn.surveyking.server.core.uitls.*;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.ProjectViewMapper;
 import cn.surveyking.server.domain.model.*;
+import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.ProjectPartnerMapper;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.RepoPartnerService;
@@ -75,6 +76,8 @@ public class SurveyServiceImpl implements SurveyService {
 	private final AnswerServiceImpl answerService;
 
 	private final ProjectPartnerMapper projectPartnerMapper;
+
+	private final AnswerItemMapper answerItemMapper;
 
 	private final AuthenticationManager authenticationManager;
 
@@ -355,10 +358,32 @@ public class SurveyServiceImpl implements SurveyService {
 		if (statTotal > STAT_MAX_ANSWERS) {
 			throw new ErrorCodeException(ErrorCode.StatisticsTooLarge);
 		}
-		// 统计不需要整卷快照，走收窄列的查询，避免把每份答卷的 survey（整卷 JSON）读进堆
-		List<AnswerView> answers = answerService.listAnswerForStat(answerQuery).getList();
 		ProjectView project = projectService.getProject(query.getId());
+		// 投影表覆盖了全部答卷才走 SQL 聚合；历史数据还没回填时回退到内存算法，
+		// 保证「回填前、回填中、回填后」三个阶段统计数字都不变（宁可慢，不可少算）。
+		long covered = answerItemMapper.countDistinctAnswers(query.getId());
+		if (statTotal > 0 && covered >= statTotal) {
+			return statFromProjection(project, statTotal);
+		}
+		// 统计不需要整卷快照，也不套行级数据范围（权限由方法上的 @PreAuthorize 保证）
+		List<AnswerView> answers = answerService.listAnswersForStat(query.getId());
 		return new ProjectStatHelper(project.getSurvey(), answers).stat();
+	}
+
+	/**
+	 * 从投影表聚合：只把「题 × 选项」量级的计数读回来，不加载任何答卷 JSON。
+	 */
+	private PublicStatisticsView statFromProjection(ProjectView project, long total) {
+		Map<String, Long> questionCounts = new HashMap<>();
+		for (AnswerItemStat stat : answerItemMapper.statQuestions(project.getId())) {
+			questionCounts.put(stat.getQuestionId(), stat.getCnt());
+		}
+		Map<String, Map<String, Long>> optionCounts = new HashMap<>();
+		for (AnswerItemStat stat : answerItemMapper.statOptions(project.getId())) {
+			optionCounts.computeIfAbsent(stat.getQuestionId(), key -> new HashMap<>()).put(stat.getOptionId(),
+					stat.getCnt());
+		}
+		return new ProjectStatHelper(project.getSurvey()).statFromProjection(total, questionCounts, optionCounts);
 	}
 
 	@Override

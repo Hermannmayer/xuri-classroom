@@ -73,6 +73,9 @@ public class SurveyApi {
 	 * @return
 	 */
 	@PostMapping("/statistics")
+	// 路径在 /api/public 下（匿名可访问的 URL 前缀），但统计暴露的是答卷分布，必须登录且有报表权限。
+	// 注解写在 Controller 而不是 ServiceImpl：实现类被 JDK 动态代理包装，Spring 只看接口方法上的注解。
+	@org.springframework.security.access.prepost.PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public PublicStatisticsView statProject(@RequestBody ProjectQuery query) {
 		return surveyService.statProject(query);
 	}
