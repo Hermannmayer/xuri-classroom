@@ -24,10 +24,6 @@ public interface SurveyService {
 
 	PublicAnswerView saveAnswer(AnswerRequest request);
 
-	PublicQueryVerifyView loadQuery(PublicQueryRequest request);
-
-	PublicQueryView getQueryResult(PublicQueryRequest request);
-
 	PublicProjectView validateProject(ProjectQuery query);
 
 	List<PublicDictView> loadDict(PublicDictRequest request);

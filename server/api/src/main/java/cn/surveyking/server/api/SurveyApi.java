@@ -27,6 +27,8 @@ public class SurveyApi {
 
 	private final SurveyService surveyService;
 
+	private final cn.surveyking.server.impl.PublicQueryService publicQueryService;
+
 	private final FileService fileService;
 
 	/**
@@ -120,7 +122,7 @@ public class SurveyApi {
 	 */
 	@PostMapping("/loadQuery")
 	public PublicQueryVerifyView loadQuery(@RequestBody PublicQueryRequest request) {
-		return surveyService.loadQuery(request);
+		return publicQueryService.loadQuery(request);
 	}
 
 	/**
@@ -130,7 +132,7 @@ public class SurveyApi {
 	 */
 	@PostMapping("/getQueryResult")
 	public PublicQueryView getQueryResult(@RequestBody PublicQueryRequest request) {
-		return surveyService.getQueryResult(request);
+		return publicQueryService.getQueryResult(request);
 	}
 
 	/**
