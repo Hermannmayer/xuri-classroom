@@ -622,7 +622,7 @@ public class SurveyServiceImpl implements SurveyService {
 		SurveySchema schema = buildQueryResultSchema(projectAndQuery.getFirst(), projectAndQuery.getSecond());
 		PublicQueryView view = new PublicQueryView();
 		view.setSchema(schema);
-		List<Answer> answers = findAnswerByQuery(request, projectAndQuery);
+		List<AnswerView> answers = findAnswerByQuery(request, projectAndQuery);
 		// 根据配置的权限信息过滤答案
 		LinkedHashMap<String, Integer> fieldPermission = projectAndQuery.getSecond().getFieldPermission();
 		view.setFieldPermission(fieldPermission);
@@ -1420,7 +1420,7 @@ public class SurveyServiceImpl implements SurveyService {
 	 * @param projectAndQuery 项目信息和当前查询信息
 	 * @return
 	 */
-	private List<Answer> findAnswerByQuery(PublicQueryRequest request,
+	private List<AnswerView> findAnswerByQuery(PublicQueryRequest request,
 			Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery) {
 		ProjectView projectView = projectAndQuery.getFirst();
 		List<SurveySchema> conditionSchemaList = findMatchChildrenInSchema(
@@ -1435,13 +1435,10 @@ public class SurveyServiceImpl implements SurveyService {
 		// 将查询表单和url参数构建的查询表单合并
 		queryFormValues.putAll(request.getAnswer());
 
-		List<Answer> answer = ((AnswerServiceImpl) answerService)
-				.list(Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, projectView.getId()).and(i -> {
-					queryFormValues.forEach((qId, qValueObj) -> {
-						i.like(Answer::getAnswer,
-								buildLikeQueryConditionOfQuestion(treeNode.getTreeNodeMap().get(qId), qValueObj));
-					});
-				}));
+		List<String> likeConditions = new ArrayList<>();
+		queryFormValues.forEach((qId, qValueObj) -> likeConditions
+				.add(buildLikeQueryConditionOfQuestion(treeNode.getTreeNodeMap().get(qId), qValueObj)));
+		List<AnswerView> answer = answerService.listByProjectAndLikeConditions(projectView.getId(), likeConditions);
 		if (answer.size() == 0) {
 			throw new ErrorCodeException(ErrorCode.QueryResultNotExist);
 		}

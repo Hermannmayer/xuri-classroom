@@ -128,6 +128,20 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	}
 
 	@Override
+	public List<AnswerView> listByProjectAndLikeConditions(String projectId, List<String> likeValues) {
+		if (projectId == null || likeValues == null || likeValues.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<Answer> answers = list(Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, projectId)
+				.and(wrapper -> {
+					for (String likeValue : likeValues) {
+						wrapper.like(Answer::getAnswer, likeValue);
+					}
+				}));
+		return answerViewMapper.toView(answers);
+	}
+
+	@Override
 	public List<AnswerView> listAnswersForStat(String projectId) {
 		List<Answer> answers = list(Wrappers.<Answer>lambdaQuery()
 				.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,

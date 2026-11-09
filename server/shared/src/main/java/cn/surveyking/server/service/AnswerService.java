@@ -34,6 +34,15 @@ public interface AnswerService {
 	 */
 	List<AnswerView> listAnswersForStat(String projectId);
 
+	/**
+	 * 公开查询专用：按项目 + 一组「答案 JSON 模糊条件」取原始答卷。
+	 * <p>
+	 * 之前调用方是 {@code ((AnswerServiceImpl) answerService).list(Wrapper)} —— 强转实现类才能用
+	 * MyBatis-Plus 的 {@code ServiceImpl.list}，既破坏分层，也让方法搬不进独立组件。
+	 * 这里把 Wrapper 的构造收进实现类，接口只暴露语义。
+	 */
+	List<AnswerView> listByProjectAndLikeConditions(String projectId, List<String> likeValues);
+
 	AnswerView getAnswer(AnswerQuery query);
 
 	AnswerView getAnswerWithPermission(AnswerQuery query);
