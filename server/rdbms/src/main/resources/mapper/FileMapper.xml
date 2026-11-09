@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- S2-5：SQL 由 Mapper 方法上的注解原样迁移过来，语句文本与语义不变；statement id = 方法名。 -->
+<mapper namespace="cn.surveyking.server.mapper.FileMapper">
+    <select id="selectTotalSizeByProjectId" resultType="java.lang.Long">
+        select coalesce(sum(file_size), 0) from t_file where project_id = #{projectId} and is_deleted = 0
+    </select>
+
+    <select id="selectTotalPublicSize" resultType="java.lang.Long">
+        select coalesce(sum(file_size), 0) from t_file where project_id is not null and is_deleted = 0
+    </select>
+
+</mapper>

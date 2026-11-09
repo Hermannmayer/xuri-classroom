@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- S2-5：SQL 由 Mapper 方法上的注解原样迁移过来，语句文本与语义不变；statement id = 方法名。 -->
+<mapper namespace="cn.surveyking.server.mapper.RepoMapper">
+    <select id="selectRepoTemplateTags" resultType="cn.surveyking.server.domain.dto.TemplateTagTotalView">
+        SELECT a.`name`, count(*) total FROM t_tag a
+        LEFT JOIN t_template b ON a.entity_id = b.id
+        LEFT JOIN t_repo d ON b.repo_id = d.id
+        WHERE d.id = #{repoId} GROUP by a.`name`
+    </select>
+
+    <select id="selectRepoQuestionTypes" resultType="cn.surveyking.server.domain.dto.RepoQuestionTypeTotalView">
+        SELECT a.question_type, COUNT(*) total FROM t_template a
+        WHERE a.is_deleted = 0 and a.repo_id = #{repoId} GROUP BY a.question_type
+    </select>
+
+</mapper>

@@ -2,7 +2,6 @@ package cn.surveyking.server.mapper;
 
 import cn.surveyking.server.domain.model.UserDept;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 
 /**
@@ -20,7 +19,6 @@ public interface UserDeptMapper extends BaseMapper<UserDept> {
 	 * @param userId 用户 id
 	 * @return 受影响行数
 	 */
-	@Delete("DELETE FROM t_user_dept WHERE user_id = #{userId}")
 	int deleteByUserId(@Param("userId") String userId);
 
 }
