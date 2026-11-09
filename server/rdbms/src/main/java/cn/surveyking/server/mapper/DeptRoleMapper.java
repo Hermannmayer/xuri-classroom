@@ -2,7 +2,6 @@ package cn.surveyking.server.mapper;
 
 import cn.surveyking.server.domain.model.DeptRole;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 
 /**
@@ -21,7 +20,6 @@ public interface DeptRoleMapper extends BaseMapper<DeptRole> {
 	 * @param deptId 用户组 id
 	 * @return 受影响行数
 	 */
-	@Delete("DELETE FROM t_dept_role WHERE dept_id = #{deptId}")
 	int deleteByDeptId(@Param("deptId") String deptId);
 
 	/**
@@ -29,7 +27,6 @@ public interface DeptRoleMapper extends BaseMapper<DeptRole> {
 	 * @param roleId 角色 id
 	 * @return 受影响行数
 	 */
-	@Delete("DELETE FROM t_dept_role WHERE role_id = #{roleId}")
 	int deleteByRoleId(@Param("roleId") String roleId);
 
 }

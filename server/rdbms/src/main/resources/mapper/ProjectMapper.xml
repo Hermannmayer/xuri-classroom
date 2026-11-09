@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- S2-5：SQL 由 Mapper 方法上的注解原样迁移过来，语句文本与语义不变；statement id = 方法名。 -->
+<mapper namespace="cn.surveyking.server.mapper.ProjectMapper">
+    <select id="selectLogicDeleted" resultMap="mybatis-plus_Project">
+        select * from t_project where is_deleted = 1 and create_by = #{userId}
+    </select>
+
+    <delete id="batchDestroy">
+        delete
+        FROM t_project
+        WHERE id IN
+        <foreach item="item" index="index" collection="ids" open="(" separator="," close=")"> #{item} </foreach>
+    </delete>
+
+    <update id="restoreProject">
+        update
+        t_project set is_deleted = 0
+        WHERE id IN
+        <foreach item="item" index="index" collection="ids" open="(" separator="," close=")"> #{item} </foreach>
+    </update>
+
+</mapper>

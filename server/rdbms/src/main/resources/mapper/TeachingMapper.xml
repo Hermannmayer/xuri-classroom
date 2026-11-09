@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- S2-5：SQL 由 Mapper 方法上的注解原样迁移过来，语句文本与语义不变；statement id = 方法名。 -->
+<mapper namespace="cn.surveyking.server.mapper.TeachingMapper">
+    <select id="listMyProjects" resultType="cn.surveyking.server.domain.dto.TeachingProjectView">
+        SELECT p.id AS projectId, p.name AS projectName, p.status AS status,
+        (SELECT COUNT(*) FROM t_answer a WHERE a.project_id = p.id AND a.temp_save = 1 AND a.is_deleted = 0) AS answerCount,
+        (SELECT AVG(a.exam_score) FROM t_answer a WHERE a.project_id = p.id AND a.temp_save = 1 AND a.is_deleted = 0) AS avgScore
+        FROM t_project p WHERE p.is_deleted = 0
+        AND (p.create_by = #{userId} OR EXISTS (SELECT 1 FROM t_project_partner pp WHERE pp.project_id = p.id AND pp.user_id = #{userId} AND pp.type IN (1,2)))
+        ORDER BY p.create_at DESC
+    </select>
+
+    <select id="listClasses" resultType="cn.surveyking.server.domain.dto.TeachingClassView">
+        SELECT COALESCE(u.dept_id, '') AS deptId, COALESCE(d.name, '未分组') AS deptName,
+        COUNT(*) AS answerCount, AVG(a.exam_score) AS avgScore
+        FROM t_answer a JOIN t_user u ON u.id = a.create_by
+        LEFT JOIN t_dept d ON d.id = u.dept_id
+        WHERE a.project_id = #{projectId} AND a.temp_save = 1 AND a.is_deleted = 0
+        GROUP BY u.dept_id, d.name ORDER BY answerCount DESC
+    </select>
+
+</mapper>

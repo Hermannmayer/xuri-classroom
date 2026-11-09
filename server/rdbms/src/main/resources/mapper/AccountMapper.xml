@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- S2-5：SQL 由 Mapper 方法上的注解原样迁移过来，语句文本与语义不变；statement id = 方法名。 -->
+<mapper namespace="cn.surveyking.server.mapper.AccountMapper">
+    <delete id="physicallyDeleteExternal">
+        <![CDATA[DELETE FROM t_account WHERE id = #{id} AND user_id = #{userId} AND auth_type <> 'PWD']]>
+    </delete>
+
+    <delete id="physicallyDeleteExternalByUserId">
+        <![CDATA[DELETE FROM t_account WHERE user_id = #{userId} AND auth_type <> 'PWD']]>
+    </delete>
+
+</mapper>
