@@ -236,6 +236,18 @@ ai/         依赖接口 + 条件装配
 | 考试控制 | ✅ 已抽 `ExamControlService` | 切屏计数、闯关超时扣分、考试结束判断；SurveyApi 与 saveAnswer 改为委托 |
 | 答案校验 | ◐ 部分抽出 | `validateSubmittable`（停用/截止/回收上限）已抽到 `AnswerValidationService`。剩余 `validateAnswer`（要调 `statProject`，构造器循环依赖）、`validateAndMergeAnswer`+`validateAnswerGate`（依赖 `getAnswerForProject` 与三个限次方法，那几处还被别的入口复用）**未搬**：需先补「缺必填题交卷被拒」「超时交卷宽限」的集成用例 |
 | 统计 | ✅ 已抽 `statFromProjection` | 投影聚合与内存算法双路径 |
+
+**端到端测试尝试（2026-11-09，未完成）**
+
+目标是「开始答题 → 暂存 → 交卷 → 查分 → 统计」一条链路，作为 S3-1/S3-2/S3-3 的前置保护。实际推进到第 5 步，卡在三个地方，测试未提交：
+
+| 卡点 | 现象 | 结论 |
+|---|---|---|
+| 种子 survey 结构 | `JacksonTypeHandler` 报 `_deserializeFromArray` | `t_project.survey` 必须是 `SurveySchema` **对象**（含 `id/title/type/children`），不是数组。已确认正确写法 |
+| 查分 `loadExamResult` | 匿名/普通用户一律 403 | 该接口要求「答卷归属本人」（答卷 cookie 或登录态），测试里缺少真实会话 |
+| 统计 `/api/report/statistics` | 带 `project:report` 甚至 `role=admin` 仍 403 | 403 来自代码内部的项目归属校验，不是 `@PreAuthorize`；需要项目 `create_by` 与当前用户一致，或走管理员旁路 |
+
+下次继续时：种子用 `s2exam`（已在本地 `s2_check` 建好，2 题、status=1），先解决统计的归属校验，再补查分的 cookie 模拟。
 | S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |
 | S3-4 | 无边界约束 | ArchUnit 规则进构建 | 违规即失败 | ✅ 2026-11-09：三条规则（api 不依赖 mapper / impl 不依赖 api / service 接口不依赖 impl）；顺带给 `TeachingApi` 补了 `TeachingService`（它原本是全仓唯一直连 Mapper 的 Controller）。第四条「api 不得依赖 impl」等公开查询等组件搬进独立包后再加 |
