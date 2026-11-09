@@ -174,7 +174,10 @@ ai/         依赖接口 + 条件装配
 | `PermissionEnumTest`（4） | 权限码不重复、格式合规、学员专属恰好 6 个 |
 | `SchemaHelperTest`（3） | 扁平化只收有数据的题；`withOption` 才展开选项 |
 
-已接进 `Deploy-Nas.ps1` 的 0.6 步：每次发布先跑 `:shared:test`，失败即中止（紧急可用 `-SkipTests`）。
+另有 3 个 **Service 层集成测试**（`server/api/src/test/.../AnswerFlowTest`）：匿名统计被拒、统计数与答卷数一致、投影重建幂等。
+它们用 `@SpringBootTest` + MockMvc + 本地测试库，靠 `@EnabledIfEnvironmentVariable(S2_TEST_DB_URL)` 控制——没配测试库的机器上自动禁用，不会拖红构建。
+
+已接进 `Deploy-Nas.ps1` 的 0.6 步：每次发布先跑 `:shared:test :api:test`，失败即中止（紧急可用 `-SkipTests`）。
 
 ### S1 · 可扩容地基（2–3 天，为 S4 铺垫）
 

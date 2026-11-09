@@ -44,6 +44,8 @@ Controller (server/api/**/api)
 
 ## 缓存
 
+> `custom-cache.entries` 缺失时不再启动失败（`CacheConfig` 已做空值兜底）；但缓存名列表为空会让首次 `@Cacheable` 按需创建，容量与 TTL 走默认值，生产环境仍应显式配置。
+
 | 缓存 | 内容 | 容量 / 失效 |
 |---|---|---|
 | `userCache` | 用户资料与有效权限 | 10000 条；改角色/改组角色/改用户后清 |

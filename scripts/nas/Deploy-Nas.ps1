@@ -159,7 +159,8 @@ if (-not $ReloadOnly -and -not $SkipTests) {
         $env:JAVA_HOME = $javaHome
         Push-Location (Join-Path $repoRoot 'server')
         try {
-            & .\gradlew.bat :shared:test --no-daemon --console=plain 2>&1 | Select-Object -Last 6
+            # :shared:test 是 9 个纯单测；:api:test 是集成测试，没有 S2_TEST_DB_URL 时会自动禁用（不会拖慢/拖红）
+            & .\gradlew.bat :shared:test :api:test --no-daemon --console=plain 2>&1 | Select-Object -Last 8
             if ($LASTEXITCODE -ne 0) { Die '后端单元测试没通过（:shared:test），已中止发布。' }
         }
         finally {

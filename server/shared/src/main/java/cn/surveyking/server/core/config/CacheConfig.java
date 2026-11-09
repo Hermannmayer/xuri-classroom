@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -93,7 +94,9 @@ public class CacheConfig extends CachingConfigurerSupport {
 			}
 		};
 
-		cacheManager.setCacheNames(entries.entrySet().stream().map(x -> x.getKey()).collect(Collectors.toList()));
+		// 配置缺失时不要让应用起不来：没有 entries 就等于没有预声明缓存，首次 @Cacheable 时按需创建
+		cacheManager.setCacheNames(entries == null ? Collections.emptyList()
+				: entries.keySet().stream().collect(Collectors.toList()));
 		return cacheManager;
 	}
 
