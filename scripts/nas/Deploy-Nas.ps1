@@ -244,17 +244,23 @@ docker compose ps --format "  {{.Name}}  {{.Status}}"
     Write-Host "`n──── 4/6 compose 无变化，跳过 ────"
 }
 
-# 4b. nginx 配置变更：文件是 bind mount 进容器的，重置后 reload 即可生效
+# 4b. nginx 配置变更：deploy/nginx.conf 是**单文件** bind mount。
+# git reset --hard 会替换文件（新 inode），容器仍指向旧 inode —— 只 reload 不会读到新内容
+# （实测：宿主机已是新配置，容器内还是旧的）。必须重启容器让它重新挂载。
 if ($nginxChanged) {
-    Say '4b/6 重载 nginx 配置'
+    Say '4b/6 重启 web 使 nginx 配置生效'
     $reloadNginx = @'
-docker exec xuri-live-web nginx -t 2>&1
-if [ $? -ne 0 ]; then echo "NGINX_CONF_INVALID"; exit 1; fi
-docker exec xuri-live-web nginx -s reload
-echo "NGINX_RELOADED"
-'@
+cd "@COMPOSE@" || exit 1
+docker compose restart web
+for i in 1 2 3 4 5 6; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:201/ 2>/dev/null || true)
+  if [ "$code" = "200" ]; then echo "NGINX_OK"; exit 0; fi
+  sleep 2
+done
+echo "NGINX_UNHEALTHY"
+'@.Replace('@COMPOSE@', $ComposeDir)
     $n = Invoke-NasScript -Body $reloadNginx -AllowFail
-    if ($n.Output -match 'NGINX_CONF_INVALID') { Die 'nginx 配置校验失败，已保留旧配置（未 reload）。' }
+    if ($n.Output -match 'NGINX_UNHEALTHY') { Die 'nginx 重启后 12 秒内首页不是 200：检查 docker logs xuri-live-web，必要时 docker compose stop web 并回滚配置。' }
     else { $n.Output | Where-Object { $_ } | ForEach-Object { "  $_" } }
 }
 

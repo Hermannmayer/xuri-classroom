@@ -1,6 +1,6 @@
 ---
 id: module-auth
-title: "登录与账号"
+title: 登录与账号
 status: current
 keywords:
   - 登录
@@ -32,8 +32,8 @@ tables:
 tests:
   - client:npm run check
   - nas:python scripts/nas/smoke-test.py
-last_verified: "2026-11-09"
-verified_against: "765fc89"
+last_verified: 2026-11-09
+verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 ---
 
 # 登录与账号
@@ -102,6 +102,7 @@ verified_against: "765fc89"
 
 ## 坑与已知限制
 
+- **登录失败的"地址"维度依赖 `IPUtils`**：`LoginAttemptLimiter` 的 key 是 `用户名|客户端地址`，地址必须走 `IPUtils.getClientIpAddress`（XFF 最左公网地址优先）。用 `getRemoteAddr()` 会在 nginx 后面拿到 docker 网关（172.19.0.1），把「同一账号 + 同一地址」的失败计数退化成「全站按账号锁定」——任何人都能用错密码把 admin 锁 10 分钟。
 - 密码必须 RSA 加密；发明文一定报账号或密码错误。
 - 后端重启后 RSA 公钥可能变化，登录页要重新取 `/api/system`。
 - `sk-token` 是 HttpOnly，JS 读不到；调试看 Network/Set-Cookie，不要 `document.cookie`。

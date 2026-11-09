@@ -57,7 +57,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-09
-verified_against: c0e3501fb432dfcbb2da095a36de431938398737
+verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 ---
 
 # 权限、角色与用户组

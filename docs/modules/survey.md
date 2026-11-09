@@ -54,7 +54,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-09
-verified_against: c0e3501fb432dfcbb2da095a36de431938398737
+verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 ---
 
 # 考试编辑器与题型
@@ -136,6 +136,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 
 ## 坑与已知限制
 
+- **统计有 20000 份的硬上限**：`statProject` 先 `count()`，超过 `STAT_MAX_ANSWERS` 抛 `ErrorCode.StatisticsTooLarge(4060)`，提示按班级/时间段筛选。这个上限是为了在「全量内存聚合」的实现下守住 `-Xmx768m`；S2 把统计改成投影表 + `GROUP BY` 之后可以放开。
 - **统计是"全量内存聚合"**：`statProject` 用 `pageSize=-1` 取整场答卷，再用 `ProjectStatHelper` 在堆里按「答卷 × 题 × 选项」做三层遍历；单场 500 份 × 100 题约几十毫秒，但 5000 份以上会明显变慢，届时应改为投影表 + `GROUP BY`（见 `docs/architecture/refactor-catalog.md` 的 S2）。统计路径已改用 `listAnswerForStat` 收窄 SELECT 列，不要改回 `listAnswer`。
 - **"18 种题型"是旧文案**：`QUESTION_META` 实际 17 项；`Pagination` 是 schema 支持但面板不提供的容器。写文档/答复用户时不要按 18 去数，否则会和代码对不上。
 - **未注册题型不会报错，只会占位**：`SchemaRenderer` 找不到组件时渲染橙色"[未注册题型] xxx"，答卷仍可提交但该题没有输入控件。加后端枚举/导入题时尤其容易踩。

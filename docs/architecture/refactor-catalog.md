@@ -166,14 +166,22 @@ ai/         依赖接口 + 条件装配
 
 ### S1 · 可扩容地基（2–3 天，为 S4 铺垫）
 
-| 编号 | 现状 | 目标 | 改动点 | 验收 |
-|---|---|---|---|---|
-| S1-1 | 缓存实现写死 Caffeine | 走 Spring `CacheManager` 抽象，可换 Redis | `CacheConfig` | 换实现只改一个 Bean |
-| S1-2 | 限流是内存 `ConcurrentHashMap`（`RateLimitFilter:52`） | `RateLimiter` 接口 + 本地实现 | `RateLimitFilter` | 接口可替换；行为不变 |
-| S1-3 | 交卷幂等用内存结构 | DB 唯一键 `(project_id, user_id, attempt_no)` | `AnswerServiceImpl:310` 附近 | 多实例下重复提交只落一条 |
-| S1-4 | 统计无阈值，全量打 | `count()` > 阈值走分页/预聚合 | `SurveyServiceImpl:342` | 1 万答卷不 OOM |
-| S1-5 | 无租户概念 | `TenantContext` 固定返回 `default` | 新增 `platform/tenant` | 所有业务入口经它取（为 §5 预留） |
-| S1-6 | 4 套 IP 取法（`IPUtils`/`X-Real-IP`/`XFF`/`getRemoteAddr`） | 唯一 `ClientIpResolver` | 4 处调用点 + nginx `real_ip` | 审计/限流/登录锁定按真实 IP |
+> 状态：**2026-11-09 完成 5 项，S1-3 随 S2 一起做**（改交卷路径，需要与投影表同一批验证）。
+
+| 编号 | 现状 | 目标 | 改动点 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| S1-1 | 缓存实现写死 Caffeine，容量统一 100 | Spring `CacheManager` 抽象 + 按 cacheName 可配容量 | S0-2 已完成容量分治；抽象本来就在 Spring Cache 上，换 Redis 只需替换 `CacheManager` Bean | 换实现只改一个 Bean | ✅ |
+| S1-2 | 限流是 `RateLimitFilter` 内部的静态 `Map` | `RateLimiter` 接口 + `InMemoryRateLimiter` | 新增两个类；Filter 只负责取 key 与返回 429 | 接口可替换；行为不变 | ✅ |
+| S1-3 | 交卷幂等用进程内 `recentSubmits`（15 秒窗口） | DB 唯一键 `(project_id, create_by, attempt_no)` | `AnswerServiceImpl:310` 附近 | 多实例下重复提交只落一条 | ⏳ 随 S2 |
+| S1-4 | 统计无上限，全量进内存聚合 | `count()` 超过 20000 直接拒绝并提示分批 | `SurveyServiceImpl.statProject` + `ErrorCode.StatisticsTooLarge(4060)` | 1 万答卷不 OOM | ✅ |
+| S1-5 | 无租户概念 | `TenantContext` 固定返回 `default`（**不参与任何查询**） | 新增 `core/tenant/TenantContext` | 为 §5 预留；现在过滤会查不到数据 | ✅ |
+| S1-6 | 4 套 IP 取法（`IPUtils`/`X-Real-IP`/`XFF`/`getRemoteAddr`） | 唯一 `IPUtils` 解析 + nginx `real_ip` | `IPUtils` 重写；替换 `RateLimitFilter`/`ExportGuardService`/`UserApi`/`FileServiceImpl`；`deploy/nginx.conf` 加 `set_real_ip_from` + `real_ip_header` | 审计/限流/登录锁定按真实 IP | ✅ |
+
+**S1 验证记录（2026-11-09）**
+
+- 编译 22s、重启 12s，冒烟 5 项全绿；`nginx -t` 通过。
+- 公网请求后 nginx 日志的 `$remote_addr` 从 `172.19.0.1` 变成真实来源地址（`192.168.0.1`，NAT 后的出口），证明 `real_ip` 生效。
+- **踩到的坑**：`deploy/nginx.conf` 是单文件 bind mount，`git reset --hard` 替换文件后容器仍指向旧 inode，`nginx -s reload` 读不到新配置（容器内是旧内容、宿主机是新内容）。必须 `docker compose restart web`。已写进 `Deploy-Nas.ps1` 的 4b 步。
 
 ### S2 · 数据形状（1–2 周，推广分水岭）
 
