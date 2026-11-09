@@ -25,6 +25,7 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/FileMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
   - server/rdbms/src/main/resources/scripts/init-mysql.sql
 entrypoints:
   - client/src/pages/system/Setting.tsx
@@ -46,7 +47,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-09
-verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 文件、附件与导入模板
@@ -74,7 +75,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 | 请求/查询 DTO | `server/shared/src/main/java/cn/surveyking/server/domain/dto/UploadFileRequest.java`、`FileQuery.java` | `UploadFileRequest.publicUpload` 标了 `@JsonIgnore`；`FileQuery.id` 带 `@` 时读缩略图 |
 | 常量 | `StorageTypeEnum`、`AttachmentNameVariableEnum`、`FileUtils.ALLOWED_EXTENSIONS` | 存储类型 1~5、导出命名变量、默认扩展名白名单 |
 | 实体/Mapper | `server/rdbms/src/main/java/cn/surveyking/server/domain/model/File.java`、`mapper/FileMapper.java` | `t_file`；`selectTotalSizeByProjectId` / `selectTotalPublicSize` 供配额 |
-| 答卷侧 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 提交时绑定附件；导出时打 zip、按 `AttachmentNameVariableEnum` 命名 |
+| 答卷侧 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java` | 导出时打 zip（整卷 Excel / 单份附件 / 批量附件）、按 `AttachmentNameVariableEnum` 命名 |
 | 前端上传 | `client/src/pages/system/Setting.tsx` | 系统 Logo：`FormData` → `/api/file/create` → 存 `/api/public/preview/<id>` |
 | 前端下载 | `client/src/api/request.ts`（`download`） | 先看 `content-type`，是 JSON 就按 `code/message` 抛中文错误，只有二进制才落盘 |
 | 导入模板文件 | `server/api/src/main/resources/template/` | `卷王用户导入模板.xlsx`、`卷王题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx` |
@@ -116,7 +117,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 
 ### 5. 绑定到答卷
 
-提交答卷时 `AnswerServiceImpl#beforeSaveAnswer` 调 `FileService#validateAndBindAnswerFiles`：对 `Upload` / `Signature` 题，收集答案里的文件 id，默认上限 20 个（`maxFileCount` 可覆盖），要求全部存在、`storage_type=ANSWER_ATTACHMENT`、属于本项目本题（或历史未绑定但在上一版答案里出现过），且答案为本答卷或尚未绑定；随后写 `answer_id`。绑定后该文件不能被别的答卷复用。
+提交答卷时 `AnswerScoringService#beforeSaveAnswer` 调 `FileService#validateAndBindAnswerFiles`：对 `Upload` / `Signature` 题，收集答案里的文件 id，默认上限 20 个（`maxFileCount` 可覆盖），要求全部存在、`storage_type=ANSWER_ATTACHMENT`、属于本项目本题（或历史未绑定但在上一版答案里出现过），且答案为本答卷或尚未绑定；随后写 `answer_id`。绑定后该文件不能被别的答卷复用。
 
 ### 6. 导入模板
 
@@ -142,7 +143,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 
 ### 换导出附件命名
 
-命名完全由后端决定，前端不参与：实现在 `AnswerServiceImpl#parseAttachmentNameByExp`，变量来自 `AttachmentNameVariableEnum`（`projectId`、`serialNum`、`serialNumInAnswer`、`uploadDate`、`uploadDateTime`、`sourceName`、`questionTitle`）。新增变量时同步前端导出设置里的提示。
+命名完全由后端决定，前端不参与：实现在 `AnswerExporter#parseAttachmentNameByExp`，变量来自 `AttachmentNameVariableEnum`（`projectId`、`serialNum`、`serialNumInAnswer`、`uploadDate`、`uploadDateTime`、`sourceName`、`questionTitle`）。新增变量时同步前端导出设置里的提示。
 
 ### 加导入模板
 

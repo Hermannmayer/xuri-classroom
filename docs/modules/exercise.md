@@ -18,6 +18,7 @@ source_globs:
   - client/src/pages/repo/BookPractice.tsx
   - server/api/src/main/java/cn/surveyking/server/api/ExerciseApi.java
   - server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserBookServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ExerciseView.java
@@ -50,11 +51,11 @@ tables:
   - t_repo
   - t_template
 tests:
-  - 'client:npm run check'
-  - 'docs:npm run docs:check'
-  - 'nas:python scripts/nas/smoke-test.py'
-last_verified: '2026-11-09'
-verified_against: '765fc89'
+  - client:npm run check
+  - docs:npm run docs:check
+  - nas:python scripts/nas/smoke-test.py
+last_verified: 2026-11-09
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 任务中心、练习与错题本
@@ -85,8 +86,8 @@ verified_against: '765fc89'
 | 成绩接口 | `server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java` | `project:report` 或 admin；只查当前用户 |
 | 成绩实现 | `server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java` | 按 `projectId` 聚合 `temp_save=1` 的答卷 |
 | 错题实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserBookServiceImpl.java` | `saveWrongQuestion`：收题、去重、累加错误次数 |
-| 练习记录实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | `historyExercise` / `deleteExercise` |
-| 题库练习建卷 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java` | `loadProject` 的 `repoId` 分支：O/R/W 三种练习 |
+| 练习记录实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java` | `historyExercise` / `deleteExercise` |
+| 题库练习建卷 | `server/rdbms/src/main/java/cn/surveyking/server/impl/PublicProjectLoader.java` | `loadProject` 的 `repoId` 分支：O/R/W 三种练习 |
 | 数据表 | `t_answer`、`t_user_book`、`t_repo`、`t_template` | 练习记录、错题/收藏、题库、题目 |
 
 ## 关键流程

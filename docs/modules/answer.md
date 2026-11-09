@@ -20,6 +20,14 @@ source_globs:
   - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
   - server/api/src/main/java/cn/surveyking/server/api/ReportApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSubmitIdempotency.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerUploadParser.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSchemaDecorator.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerMetaEnricher.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/LinkSurveyUpdater.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java
@@ -57,14 +65,14 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-09
-verified_against: c0e3501fb432dfcbb2da095a36de431938398737
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 答卷、判分与报表
 
 ## 30 秒摘要
 
-一份答卷是一行 `t_answer`：`answer` 存最终作答、`temp_answer` 存草稿、`survey` 存随机卷快照、`exam_score` / `exam_info` 存总分与逐题得分。这个模块覆盖"公开答题 → 交卷判分 → 成绩单 → 数据页 → 报表 → 导出/回收站"，后端入口是 `AnswerApi`、`ReportApi`，大部分规则在 `AnswerServiceImpl` 与 `AnswerScoreEvaluator`。题目结构在 [survey](./survey.md)，项目生命周期在 [project](./project.md)。
+一份答卷是一行 `t_answer`：`answer` 存最终作答、`temp_answer` 存草稿、`survey` 存随机卷快照、`exam_score` / `exam_info` 存总分与逐题得分。这个模块覆盖"公开答题 → 交卷判分 → 成绩单 → 数据页 → 报表 → 导出/回收站"，后端入口是 `AnswerApi`、`ReportApi`，大部分规则在 `AnswerServiceImpl` 及其 impl 包下的组件与 `AnswerScoreEvaluator`。题目结构在 [survey](./survey.md)，项目生命周期在 [project](./project.md)。
 
 ## 什么时候看这篇
 
@@ -87,7 +95,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 | 数据格式化 | `client/src/pages/survey/data/format.ts` | 答案值 → 表格单元格文本（空值统一 `—`） |
 | 答卷接口 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java` | 管理侧 CRUD、导入导出、回收站 |
 | 报表接口 | `server/api/src/main/java/cn/surveyking/server/api/ReportApi.java` | `GET /api/report/{shortId}`，`project:report` + 数据权限 |
-| 答卷实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 列表范围、幂等提交、判分、导出、回收站、导入 |
+| 答卷实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 列表范围与回收站；提交前的判分/附件绑定在 `AnswerScoringService`、幂等在 `AnswerSubmitIdempotency`、导出在 `AnswerExporter`、导入在 `AnswerUploadParser`，其余见同目录 |
 | 判分器 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java` | `onlyOne` / `selectAll` / `selectCorrect` / `select` |
 | 报表实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java` | 逐题选项计数、每日答卷数、数值 min/max/avg |
 | 公开统计 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java` | 投票/配额用的轻量统计 |
@@ -98,7 +106,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 1. **打开答题页**：`/s/:id`（可选 `/:answerId`）先 `POST /api/public/projectOutline`。后端 `SurveyServiceImpl.loadProject` 会按项目设置依次处理微信授权、题库练习、密码/登录表单、随机卷、最近一份答案；返回的 `survey` 首屏只有 shell + `outline`，不含题干和选项。前端 `applyProject` 恢复 `answerId`、答案、切屏次数，并从 `localStorage` 读未提交草稿。
 2. **逐题取题**：`PublicAnswer` 对当前题调 `POST /api/public/question { id, answerId, questionId }`；后端重新走 `loadProject`，校验题目属于当前项目/快照，再按模式剥答案。练习模式保留正确答案/解析，其它模式连 `examScore` 一起剥。
 3. **提交**：`doSubmit` 调 `POST /api/public/saveAnswer`，带 `projectId`、`id`、`answer`、`survey`、`freshAttempt`、`metaInfo`。后端 `SurveyServiceImpl.saveAnswer` 先做提交路径校验（`validateSubmittable`：状态/截止/回收上限；`validateAnswerGate`：密码/登录/白名单/开始时间/限次），再处理随机卷 Cookie、公开查询修改、允许修改答案、`freshAttempt` 新轮次。
-4. **保存与判分**：`AnswerServiceImpl.saveAnswer` 对新答卷做 15 秒应用级幂等（key = projectId + 答题人 + 答案指纹），生成 UUID 作为 `t_answer.id`；`beforeSaveAnswer` 丢弃考试模式下客户端上传的 `survey`（防伪造正确答案刷分），校验最长/最短答题时间，绑定附件，调 `computeExamScore`。判分 schema 只来自服务端：库里随机卷快照优先，否则项目 `survey`。
+4. **保存与判分**：`AnswerServiceImpl.saveAnswer` 对新答卷做 15 秒应用级幂等（key = projectId + 答题人 + 答案指纹，实现在 `AnswerSubmitIdempotency`），生成 UUID 作为 `t_answer.id`；`AnswerScoringService#beforeSaveAnswer` 丢弃考试模式下客户端上传的 `survey`（防伪造正确答案刷分），校验最长/最短答题时间，绑定附件，调 `computeExamScore`。判分 schema 只来自服务端：库里随机卷快照优先，否则项目 `survey`。
 5. **判分口径**：`AnswerScoreEvaluator` 按每题的 `attribute.examAnswerMode` 选 evaluator：`onlyOne`（唯一正确项且只选一个）、`selectAll`（全对才得分）、`selectCorrect`（选择类选错整题 0 分，填空类按正确项累加）、`select`（按选中项分值累加）。`manual` / `none` 没有 evaluator，按 0 分或人工处理；自动判分只覆盖 `examType()` 的 7 种题型。结果写 `exam_score` 与 `exam_info.questionScore`。
 6. **成绩单**：`/s/:id/exam-result/:answerId` 调 `POST /api/public/loadExamResult`。只有 `submittedSetting.answerAnalysis=true` 且考试已结束（`examFinished`）才返回答案/schema/examInfo；`transcriptVisible` 控制总分，`rankVisible` 控制排名。随机卷快照若已剥掉正确答案，会回退项目 schema 渲染解析。
 7. **数据页**：`/survey/:id/data`（`answer:list`）用 `pageSize=-1` 拉全量，前端筛选/排序/分页。列由项目 schema 的 `flattenSchema(...).filter(isDataQuestion)` 生成；单元格文本由 `data/format.ts` 统一格式化。补录走 `POST /api/answer/create`，编辑走 `POST /api/answer/update`，删除走 `/delete`（进回收站）。
@@ -120,7 +128,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 1. 后端：`Answer` 实体 → `AnswerRequest` / `AnswerView` / `AnswerQuery` → `AnswerViewMapper` → `AnswerServiceImpl`。
 2. 数据库：改 `init-mysql.sql` 的 `t_answer`，同时在 `scripts/nas/migrate/` 加幂等迁移；有数据的库不要重跑 init。
 3. 前端：`client/src/schema/project.ts` 的 `Answer` 类型、`Data.tsx` 的列/详情、`ExamResult.tsx` 的展示。
-4. 如果字段参与导出，同步 `SchemaHelper.parseColumns` / `AnswerServiceImpl.export`。
+4. 如果字段参与导出，同步 `SchemaHelper.parseColumns` / `AnswerExporter#export`。
 
 ### 改导出/回收站
 

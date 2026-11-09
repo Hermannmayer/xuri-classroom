@@ -17,6 +17,7 @@ source_globs:
   - client/src/pages/system/GroupEntry.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
@@ -55,10 +56,10 @@ tables:
   - t_project
   - t_answer
 tests:
-  - 'client:npx tsc --noEmit'
-  - 'docs:npm run docs:check'
-last_verified: '2026-11-09'
-verified_against: '765fc89'
+  - client:npx tsc --noEmit
+  - docs:npm run docs:check
+last_verified: 2026-11-09
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 班级与教学工作台
@@ -88,7 +89,7 @@ verified_against: '765fc89'
 | 班级实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | 可见范围、树组装、成员/老师授权、学员增删改 |
 | 学情 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java` | 两条只读聚合 SQL，不拉答卷内容 |
 | 组织写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java` | 建组/改组/删组、组绑角色与缓存失效 |
-| 学员账号 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java` | `createClassStudent`、`updateClassStudent`、`deleteClassStudent` |
+| 学员账号 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java` | `createClassStudent`、`updateClassStudent`、`deleteClassStudent` |
 | 组数据范围 | `server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java` | 「主组 + 附加组 + 祖先链」的唯一解析出口 |
 | 数据表 | `t_dept`、`t_dept_role`、`t_class_partner`、`t_user`、`t_user_dept`、`t_project`、`t_answer` | 班级、组角色、老师授权、成员、附加组、学情来源 |
 

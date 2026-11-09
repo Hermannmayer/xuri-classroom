@@ -16,6 +16,9 @@ source_globs:
   - server/api/src/main/java/cn/surveyking/server/api/UserApi.java
   - server/api/src/main/java/cn/surveyking/server/api/OAuthApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
 entrypoints:
   - client/src/pages/user/Login.tsx
   - client/src/pages/user/Register.tsx
@@ -33,7 +36,7 @@ tests:
   - client:npm run check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-09
-verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 登录与账号
@@ -59,7 +62,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 | 前端 API | `client/src/api/index.ts` | `login` / `logout` / `getCurrentUser` |
 | 请求层 | `client/src/api/request.ts` | 401 统一跳登录 |
 | 登录接口 | `server/api/.../UserApi.java` | `/public/login`、`/currentUser` |
-| 账号服务 | `server/rdbms/.../UserServiceImpl.java` | `loadUserById`、账号状态、密码 |
+| 账号服务 | `server/rdbms/.../UserAuthService.java` | `loadUserByUsername` / `buildUserInfo`（原 `loadUserById` 方法体）、账号状态、密码 |
 | 数据表 | `t_user`、`t_account` | 用户资料、登录方式/密码哈希 |
 
 ## 关键流程
@@ -76,7 +79,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 ### 改登录字段/校验
 
 1. 前端 `Login.tsx` 与 `api/index.ts` 的 `LoginRequest`。
-2. 后端 `UserApi#login`、`AuthRequest`、`UserServiceImpl#loadUserByUsername`。
+2. 后端 `UserApi#login`、`AuthRequest`、`UserAuthService#loadUserByUsername`。
 3. 同步 `t_account` 的 `auth_account` / `auth_secret` / `auth_type`。
 4. 跑登录冒烟；确认 Cookie 的 `HttpOnly`/`SameSite` 没被改掉。
 

@@ -22,6 +22,14 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
       - server/api/src/main/java/cn/surveyking/server/api/ReportApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSubmitIdempotency.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerUploadParser.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSchemaDecorator.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerMetaEnricher.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/LinkSurveyUpdater.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java
@@ -59,7 +67,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-09
-    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -77,6 +85,9 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/UserApi.java
       - server/api/src/main/java/cn/surveyking/server/api/OAuthApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
     entrypoints:
       - client/src/pages/user/Login.tsx
       - client/src/pages/user/Register.tsx
@@ -94,7 +105,7 @@ modules:
       - client:npm run check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-09
-    verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   - id: module-dashboard
     title: 首页与统计
     doc: docs/modules/dashboard.md
@@ -162,6 +173,7 @@ modules:
       - client/src/pages/repo/BookPractice.tsx
       - server/api/src/main/java/cn/surveyking/server/api/ExerciseApi.java
       - server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserBookServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ExerciseView.java
@@ -198,7 +210,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   - id: module-files
     title: 文件、附件与导入模板
     doc: docs/modules/files.md
@@ -225,6 +237,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/FileMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
       - server/rdbms/src/main/resources/scripts/init-mysql.sql
     entrypoints:
       - client/src/pages/system/Setting.tsx
@@ -246,7 +259,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md
@@ -271,6 +284,9 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
@@ -305,7 +321,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -438,6 +454,14 @@ modules:
       - client/src/schema/**
       - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicProjectLoader.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicAnswerSubmitter.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/LoginFormValidator.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerLimitGuard.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectStatisticsService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerLookup.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RandomSurveyProcessor.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/SurveySchema.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/mapper/ProjectViewMapper.java
@@ -474,7 +498,7 @@ modules:
       - client:npm run test:tree
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
@@ -493,6 +517,7 @@ modules:
       - client/src/pages/system/GroupEntry.tsx
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
@@ -534,4 +559,4 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6

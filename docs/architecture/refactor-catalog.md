@@ -46,15 +46,15 @@ description: "从单校可用到可扩容、可多租户的分阶段改造清单
 
 ---
 
-## 2. 现状基线
+## 2. 现状基线（2026-11 重构前）
 
 | 项 | 数字 | 出处 |
 |---|---|---|
 | 后端 | 约 2.9 万行 Java；`api` 17 类 / 154 端点；`rdbms` 122 文件 | `server/**` |
 | 前端 | 108 文件 / 约 2.35 万行；单 chunk 2.06MB（gzip 0.64MB） | `client/src`、构建产物 |
 | 数据库 | 25 张表；`t_answer` 仅 `(project_id)` 一个二级索引 | `init-mysql.sql` |
-| 最大单文件 | `SurveyServiceImpl` 1672 行、`UserServiceImpl` 1436、`AnswerServiceImpl` 1252、`PublicAnswer.tsx` 1596 | 代码 |
-| 测试 | 后端 0 个测试类；前端 3 个零框架脚本；CI 只有文档流水线 | `server/**`、`client/package.json`、`.github/workflows` |
+| 最大单文件 | 重构前：`SurveyServiceImpl` 1672 行、`UserServiceImpl` 1436、`AnswerServiceImpl` 1252、`PublicAnswer.tsx` 1596。S3-1/2/3 完成后：115 / 264 / 350（`PublicAnswer.tsx` 未动） | 代码 |
+| 测试 | 重构前后端 0 个测试类；现 `server/{shared,api}/src/test` 共 15 个用例（含 ArchUnit 3 条），已纳入版本库 | `server/**`、`client/package.json`、`.github/workflows` |
 | 发布 | `reset --hard` + 原地重编译；`release.sh`/`rollback.sh` 存在但未接入 | `scripts/nas/` |
 | 缓存 | Caffeine `maximumSize(100)` 对所有缓存生效 | `CacheConfig.java:64` |
 
@@ -223,47 +223,41 @@ ai/         依赖接口 + 条件装配
 
 ### S3 · 结构与权限（1–2 周）
 
-| 编号 | 现状 | 目标 | 验收 |
-|---|---|---|---|
-| S3-1 | `SurveyServiceImpl` 1672 行、6 类职责 | 拆 access / scoring / publicQuery / loader | 单类 < 400 行 |
+| 编号 | 现状 | 目标 | 改动点 / 结果 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| S3-1 | `SurveyServiceImpl` 1672 行、6 类职责 | 拆 access / scoring / publicQuery / loader | 1373 → **115 行**，只剩 13 个接口方法的薄委托。抽出 8 个组件：`PublicProjectLoader`(367) / `ProjectAnswerValidator`(267) / `PublicAnswerSubmitter`(252) / `LoginFormValidator`(250) / `PublicSurveyExtrasService`(229) / `AnswerLimitGuard`(159) / `ProjectStatisticsService`(101) / `AnswerLookup`(83) | 单类 < 400 行 | ✅ 2026-11-09 |
+| S3-2 | `AnswerServiceImpl` 1434 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 1231 → **350 行**。抽出 `AnswerExporter`(367) / `AnswerSubmitIdempotency`(176) / `AnswerUploadParser`(157) / `AnswerScoringService`(130) / `AnswerSchemaDecorator`(106) / `ExerciseAnswerService`(95) / `LinkSurveyUpdater`(90) / `AnswerMetaEnricher`(49)；此前已抽 `AnswerAccessGuard` / `AnswerTimer` / `AnswerAssembler` | 同上 | ✅ 2026-11-09 |
+| S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 1535 → **264 行**。抽出 `UserQueryService`(360) / `UserAdminService`(338) / `UserDeptMembershipService`(302) / `UserAuthService`(218) / `UserImportService`(207) / `UserPermissionGuard`(196) / `ClassStudentService`(170)。缓存注解与 `@Transactional` 留在入口 bean，`evictUserAfterCommit` 原样搬入 `UserAdminService` | 同上 | ✅ 2026-11-09 |
+| S3-4 | 无边界约束 | ArchUnit 规则进构建 | 三条规则：api 不依赖 mapper / impl 不依赖 api / service 接口不依赖 impl；顺带给 `TeachingApi` 补了 `TeachingService`（它原本是全仓唯一直连 Mapper 的 Controller）。第四条「api 不得依赖 impl」等公开查询等组件搬进独立包后再加 | 违规即失败 | ✅ 2026-11-09 |
+| S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | `gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（覆盖 46 个文件，单独排期） | 生成物与枚举一致 | ✅ 2026-11-09（常量替换未做） |
+| S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | `answer:attach` 已由迁移 11 删除；矩阵标注见 S6-7（前端集合，过渡方案） | 矩阵可区分 | ✅ 2026-11-09 |
+| S3-7 | 错误一律 HTTP 200 | 状态码与 `code` 对齐 | `GlobalExceptionHandler`：参数/校验 400、权限 403、不存在/失效链接 404、账号密码错 401、未预期 500；新增请求体不可读 400 / 方法不支持 405 / 媒体类型 415。`RestAuthenticationEntryPoint` 认证失败改 401。前端 `request.ts` 在 body 缺失或非 JSON 时按 HTTP 状态兜底。body 仍是 `{code,message,data}`，业务码不变 | 冒烟能发现 4xx/5xx | ✅ 2026-11-09 |
+| S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | `UserApi` 写 `AUTH_LOGIN` / `AUTH_LOGIN_FAILED`，本地实测两条落库 | 审计里有登录记录 | ✅ 2026-11-09 |
+| S3-9 | 前端 32 个页面静态 import，入口 chunk 2.1MB | 路由级 `lazy` + `Suspense` | 入口 chunk 2,143KB→998KB（gzip 682→320KB），页面各自分包 | 入口 chunk 明显下降 | ✅ 2026-11-09 |
 
-**S3-1 拆类进度（2026-11-09）**
+**S3 验证记录（2026-11-09）**
 
-| 块 | 状态 | 说明 |
-|---|---|---|
-| 微信访问控制 | ✅ 已抽 `WechatAccessGuard` | 7 个方法，纯搬运，`SurveyServiceImpl` 少 82 行 |
-| 公开查询 | ⏸ 已备测试，暂缓搬迁 | 新增 `PublicQueryTest`（2 用例）。搬迁障碍：① `findAnswerByQuery` 强转 `AnswerServiceImpl` 调 `ServiceImpl.list`，接口层没有该方法；② `buildQueryFormSchema`/`buildQueryResultSchema` 依赖 `MessageSource` 的 `i18n`；③ 整块 300+ 行、10 个方法。**前置条件**：先把 `AnswerService` 补一个语义化查询方法去掉强转，并给 `getQueryResult` 补 3 个用例（含 `buildLikeQueryConditionOfQuestion` 的模糊匹配）。 |
-| 考试控制 | ✅ 已抽 `ExamControlService` | 切屏计数、闯关超时扣分、考试结束判断；SurveyApi 与 saveAnswer 改为委托 |
-| 答案校验 | ◐ 部分抽出 | `validateSubmittable`（停用/截止/回收上限）已抽到 `AnswerValidationService`。剩余 `validateAnswer`（要调 `statProject`，构造器循环依赖）、`validateAndMergeAnswer`+`validateAnswerGate`（依赖 `getAnswerForProject` 与三个限次方法，那几处还被别的入口复用）**未搬**：需先补「缺必填题交卷被拒」「超时交卷宽限」的集成用例 |
-| 统计 | ✅ 已抽 `statFromProjection` | 投影聚合与内存算法双路径 |
+- 门面类：`SurveyServiceImpl` 1373→115、`AnswerServiceImpl` 1231→350、`UserServiceImpl` 1535→264；新增 23 个组件，全部 < 400 行。
+- 验证：`gradlew :shared:test :api:test` 全绿 —— 单元测试 11 个 + ArchUnit 3 条 + `ErrorStatusTest` 8 例；`AnswerFlowTest` / `ExamFlowTest` / `PublicQueryTest` 共 8 例在无 `S2_TEST_DB_URL` 时按设计跳过。
+- 纯搬运证据：每个分支都把原文件 `git show` 出来做规范化逐行比对（去掉可见性修饰与注入前缀），缺失 0 行；差异只有刻意的折行、可见性与调用方适配。
+- 事务与缓存边界：新组件不带 `@Transactional`，仍由门面类的类级事务统一开启；`@Cacheable` / `@CacheEvict` 全部留在 `UserServiceImpl` 入口，key 与时机不变。
+- 已知收窄点：`AnswerLookup` / `AnswerLimitGuard` / `ProjectAnswerValidator` / `ProjectStatisticsService` / `PublicSurveyExtrasService` 这 5 个只读组件没有类级 `@Transactional`；当前唯一入口 `SurveyServiceImpl` 仍带事务，行为不变。将来若 Controller 直接调用它们，需要补注解。
+- 命名注意：新组件不能叫 `UserDeptScopeService` —— `cn.surveyking.server.service.UserDeptScopeService` 已是 Spring bean，同名会 `ConflictingBeanDefinitionException`，故命名 `UserDeptMembershipService`。
+- 测试树入库：此前 `.gitignore` 的 `test/` 规则把 `server/*/src/test` 整个忽略，测试从未进过 git。本次改为只忽略根目录 `/test/`，9 个测试文件已纳入版本控制。
 
-**端到端测试尝试（2026-11-09，未完成）**
+**S3-1 拆类历程（保留历史）**
 
-目标是「开始答题 → 暂存 → 交卷 → 查分 → 统计」一条链路，作为 S3-1/S3-2/S3-3 的前置保护。实际推进到第 5 步，卡在三个地方，测试未提交：
+微信访问控制 → `WechatAccessGuard`；考试控制 → `ExamControlService`；统计 → `statFromProjection` + `ProjectStatisticsService`；提交校验 → `AnswerValidationService` + `ProjectAnswerValidator`（本轮把 `validateAnswer` / `validateAndMergeAnswer` / `validateAnswerGate` 三个剩余方法一并搬完）；公开查询在更早的提交里已落到 `PublicQueryService`（`loadQuery` / `getQueryResult` / `buildQueryFormSchema` / `buildQueryResultSchema`）。
 
-| 卡点 | 现象 | 结论 |
-|---|---|---|
-| 种子 survey 结构 | `JacksonTypeHandler` 报 `_deserializeFromArray` | `t_project.survey` 必须是 `SurveySchema` **对象**（含 `id/title/type/children`），不是数组。已确认正确写法 |
-| 查分 `loadExamResult` | 匿名/普通用户一律 403 | 该接口要求「答卷归属本人」（答卷 cookie 或登录态），测试里缺少真实会话 |
-| 统计 `/api/report/statistics` | **真实 JWT 下不是 403 而是 500**（`NullPointerException`） | 认证与 `@PreAuthorize` 都通过，异常在 `statProject` 内部。已排除 `DataPermAspect`；已给 `statFromProjection` 补了 survey 空守卫但仍 500，**这是生产 bug**。已加两道守卫（`statFromProjection` 的 survey 空判断、`ProjectStatHelper.stat()` 里 `answerView.getAnswer() == null` 跳过），仍 500；**已修复**：根因是 `ProjectStatHelper.initQuestionStatistics()` 的过滤条件里对 `questionSchema.getAttribute()` 与 `getChildren()` 直接解引用——历史数据/第三方导入的题面可能没有 attribute，直接 NPE，整个统计 500。改成 `isStatable()` 空安全判断，并顺带修掉 `stat()` 里 `answer.get(questionId)` 为 null 时的强转 NPE。两条路径（投影 / 内存）实测均返回 200 且数字一致；`ProjectStatHelperTest` 增加 2 个回归用例 |
+**端到端测试网（2026-11-09）**
 
-**已完成（2026-11-09）**：`ExamFlowTest` 跑通「开始答题 → 暂存 → 交卷 → 统计」四个步骤。
-
-一路上解决了三个问题：
+`ExamFlowTest` 跑通「开始答题 → 暂存 → 交卷 → 统计」，`AnswerFlowTest` 覆盖匿名统计被拒 / 统计数与答卷数一致 / 投影重建幂等。修通过程中解决三个问题：
 
 1. `t_project.survey` 必须是 `SurveySchema` **对象**，不是数组；
 2. 统计步骤必须用**真实 JWT**（cookie `sk-token`）走 `JwtTokenFilter`，MockMvc 的 `user(...)` 不经过过滤器链会被 `@PreAuthorize` 拒绝；
-3. 统计接口曾经的 500 根因是 `ProjectStatHelper.initQuestionStatistics()` 对空属性直接解引用（见上表）。
+3. 统计接口曾经的 500 根因是 `ProjectStatHelper.initQuestionStatistics()` 对空属性直接解引用（历史数据/第三方导入的题面可能没有 attribute），已改成 `isStatable()` 空安全判断，并补了「`answer.get(questionId)` 为 null」的强转 NPE 守卫。
 
-查分（`loadExamResult`）暂未纳入：它要求「答卷归属本人」，需要答卷 cookie 与登录态一致，留待后续补。
-| S3-2 | `AnswerServiceImpl` 1434 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | ◐ 已抽 `AnswerAccessGuard`（授权，-52 行）+ `AnswerTimer`（计时 139 行，纯计算），现 **1243 行**。剩余：装配块（约 80 行）、导出块（334 行，依赖 `listAnswer`，需先抽共享方法） |
-| S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |
-| S3-4 | 无边界约束 | ArchUnit 规则进构建 | 违规即失败 | ✅ 2026-11-09：三条规则（api 不依赖 mapper / impl 不依赖 api / service 接口不依赖 impl）；顺带给 `TeachingApi` 补了 `TeachingService`（它原本是全仓唯一直连 Mapper 的 Controller）。第四条「api 不得依赖 impl」等公开查询等组件搬进独立包后再加 |
-| S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | ✅ 2026-11-09：`gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（改动面覆盖 46 个文件，单独排期，可逐步迁移到 `PERMISSION_CODES` 常量） |
-| S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | ✅ 2026-11-09：`answer:attach` 已由迁移 11 删除；矩阵标注见 S6-7（前端集合，过渡方案） |
-| S3-7 | 错误一律 HTTP 200 | 状态码与 `code` 对齐 | 冒烟能发现 4xx/5xx |
-| S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | ✅ 2026-11-09：`UserApi` 写 `AUTH_LOGIN` / `AUTH_LOGIN_FAILED`，本地实测两条落库 |
-| S3-9 | 前端 32 个页面静态 import，入口 chunk 2.1MB | 路由级 `lazy` + `Suspense` | ✅ 2026-11-09：入口 chunk 2,143KB→998KB（gzip 682→320KB），页面各自分包 |
+查分（`loadExamResult`）仍未纳入自动化：它要求「答卷归属本人」，需要答卷 cookie 与登录态一致。
 
 ### S4 · 多实例（推广前 1 周）
 

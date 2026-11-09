@@ -18,6 +18,14 @@ source_globs:
   - client/src/schema/**
   - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicProjectLoader.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicAnswerSubmitter.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/LoginFormValidator.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerLimitGuard.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectStatisticsService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerLookup.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RandomSurveyProcessor.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/SurveySchema.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/mapper/ProjectViewMapper.java
@@ -54,7 +62,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-09
-verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 考试编辑器与题型
@@ -86,7 +94,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 | 渲染注册表 | `client/src/renderer/registerAll.ts`、`registry.ts` | 14 个题型组件；未注册类型显示占位框 |
 | 渲染入口 | `client/src/renderer/SchemaRenderer.tsx` | 按 `displays` 隐藏、渲染题号/题干/组件、处理题组/说明/分割线 |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `/api/public/**`，无 `@PreAuthorize`，校验在 Service |
-| 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java` | `loadProject` / `loadPublicQuestion` / `saveAnswer` / `loadExamResult` |
+| 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java` | `loadProject` / `loadPublicQuestion` / `saveAnswer` / `loadExamResult` 的入口；门面只做委托，实现在 impl 包组件里（`PublicProjectLoader`、`PublicAnswerSubmitter`、`ProjectAnswerValidator`） |
 | 随机抽题 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RandomSurveyProcessor.java` | 编辑器 `RandomSurvey` 节点 + `examSetting.randomSurvey` |
 | 数据表 | `t_project`、`t_answer`、`t_template` | 项目含 schema；答案含随机卷快照；模板供抽题 |
 
@@ -100,7 +108,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 6. **首屏与逐题下发**：答题页先 `POST /api/public/projectOutline`，后端 `loadProjectOutline` 只返回 `outline`（题号/题型/必填）和一个不含题干/选项的 shell；前端再按题 id 调 `POST /api/public/question` 取单题。`loadPublicQuestion` 会重新走 `loadProject` 校验项目访问权限，并校验题目确实属于当前问卷/当前随机卷快照。
 7. **答案剥离**：公开视图由 `ProjectViewMapper.toPublicProjectView` 生成，考试模式且非练习模式时会 `trimExamAnswerInfo` 去掉 `examCorrectAnswer`、`examScore`、`examMatchRule`；`loadPublicQuestion` 默认再剥一次正确答案/解析/分值。只有 `examSetting.exerciseMode=true` 时保留正确答案与解析给前端即时判题，分值仍然不下发。
 8. **随机题**：`RandomSurveyProcessor.processRandomSurvey` 在考试模式下处理两种来源：编辑器里的 `RandomSurvey` 节点，以及 `examSetting.randomSurvey` 配置。抽出的卷子会写进 `t_answer.survey` 快照，并用 `rd_answer_id_<projectId>` Cookie（7 天）复用；`examSetting.randomOrder=true` 时 `ProjectViewMapper.randomSchemaOrder` 会打乱非填空/非简答题目，填空题顺序保持不变。
-9. **交卷**：答题页 `POST /api/public/saveAnswer`，`SurveyServiceImpl.saveAnswer` 先校验项目可提交（状态/截止/回收上限）、答案门槛（密码/登录/白名单/开始时间/限次），再交给 `AnswerServiceImpl` 保存、判分、写错题本。闯关模式的超时裁决也在 `SurveyServiceImpl.applyPassModePenalty` 里完成。
+9. **交卷**：答题页 `POST /api/public/saveAnswer`，`SurveyServiceImpl.saveAnswer`（门面只做委托，实现在 impl 包组件里：校验走 `AnswerValidationService`，落库走 `PublicAnswerSubmitter`）先校验项目可提交（状态/截止/回收上限）、答案门槛（密码/登录/白名单/开始时间/限次），再交给 `AnswerServiceImpl` 保存、判分、写错题本。闯关模式的超时裁决在 `ExamControlService#applyPassModePenalty` 里完成（由 `PublicAnswerSubmitter` 调用）。
 
 ## 修改指南
 

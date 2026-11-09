@@ -23,6 +23,9 @@ source_globs:
   - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
   - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
@@ -57,7 +60,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-09
-verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
+verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ---
 
 # 权限、角色与用户组
@@ -79,7 +82,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 | 层 | 入口 | 说明 |
 |---|---|---|
 | 权限目录（唯一来源） | `server/shared/src/main/java/cn/surveyking/server/core/constant/PermissionEnum.java` | 77 条权限串 + 中文名 + 分组 + `suggested` / `studentOnly`；`grouped()` 供目录接口 |
-| 权限装配 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java` | `loadUserById`（`userCache`）、`resolveUserAuthorities`、`toAuthorityNames`（admin 注入）、`resolveDeptChainIds` |
+| 权限装配 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java` | `buildUserInfo`（原 `loadUserById` 方法体；`userCache` 注解仍在门面 `UserServiceImpl#loadUserById` 上）、`resolveUserAuthorities`、`toAuthorityNames`（admin 注入）；组链解析在 `UserDeptMembershipService#resolveDeptChainIds` |
 | 角色写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java` | `getRoles` / `createRole` / `updateRole` / `deleteRole` / `getPermissionCatalog`；`assertRoleMutationAllowed`、`assertBuiltinAdminAuthorityKept` |
 | 用户组绑角色 | `server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java` | 写 `t_dept_role` 后清 `userCache` / `deptCache` |
 | 后端接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemApi.java` | `/system/role/*`、`/system/permission/list`、用户/组/字典接口的 `@PreAuthorize` |
@@ -195,7 +198,7 @@ verified_against: f348f0ae1b4a2ba3f354702d89db0c9ab5c30bb1
 - 职务权限已下线：`system:position:*`、`system:user:updatePosition` 不在目录里，对应接口仍是 `hasRole('admin')`，改它们不会经过权限矩阵。
 - 数据范围已经按「主组 ∪ 附加组 ∪ 各自祖先链」解析（`UserDeptScopeService#resolveDeptScope` / `DEPT_SCOPE_SQL`），不要再退回只读 `t_user.dept_id`；但按组聚合的 SQL（如 `TeachingMapper#listClasses` 的 `GROUP BY u.dept_id`）仍只认主组，附加组成员会落到主组那一行。
 - 用户管理只显示 `user_type=staff`（前端固定传 `userType: 'staff'`），学员在「班级管理」里按组维护；`ClassServiceImpl` 的成员接口还会硬校验 `user_type=student`，两边不是同一批人。
-- 用户组有效期只在登录时校验（`UserServiceImpl#assertDeptValid`）：已登录用户不会因为组到期被踢，最长可以用到 JWT 过期（`sk.security.jwt.expiration-seconds`，默认 8 小时）。
+- 用户组有效期只在登录时校验（`UserDeptMembershipService#assertDeptValid`）：已登录用户不会因为组到期被踢，最长可以用到 JWT 过期（`sk.security.jwt.expiration-seconds`，默认 8 小时）。
 - 审计只覆盖写操作，读接口不落日志；`/api/public/**` 全部排除，匿名答题与登录失败只能在应用日志里查。
 
 ## 验证
