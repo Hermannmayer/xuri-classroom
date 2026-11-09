@@ -87,6 +87,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	private final AnswerAccessGuard answerAccessGuard;
 
+	private final AnswerAssembler answerAssembler;
+
 	private final AnswerItemProjector answerItemProjector;
 
 	/** 客户端上报「本轮开始时间」时允许的最大跨度：超过 24 小时的声称一律不认 */
@@ -203,7 +205,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		setAnswerTypeInfo(schemaByType.getDeptQuestions(), view);
 		setAnswerTypeInfo(schemaByType.getFileQuestions(), view);
 		setAnswerTypeInfo(schemaByType.getUserQuestions(), view);
-		setUserName(view);
+		answerAssembler.setUserName(view);
 	}
 
 	private void setAnswerTypeInfo(List<SurveySchema> flatQuestionSchema, AnswerView view) {
@@ -248,20 +250,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		});
 	}
 
-	private void setUserName(AnswerView answerView) {
-		if (answerView.getCreateBy() != null) {
-			UserInfo userInfo = userService.loadUserById(answerView.getCreateBy());
-			if (userInfo != null) {
-				answerView.setCreateByName(userInfo.getName());
-				return;
-			}
-			ProjectPartner projectPartner = projectPartnerMapper.selectById(answerView.getCreateBy());
-			if (projectPartner != null) {
-				answerView.setCreateByName(projectPartner.getUserName());
-				return;
-			}
-		}
-	}
+
 
 	@Override
 	public AnswerView getAnswer(AnswerQuery query) {
