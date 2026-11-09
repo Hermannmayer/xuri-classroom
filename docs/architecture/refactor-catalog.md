@@ -234,7 +234,7 @@ ai/         依赖接口 + 条件装配
 | 微信访问控制 | ✅ 已抽 `WechatAccessGuard` | 7 个方法，纯搬运，`SurveyServiceImpl` 少 82 行 |
 | 公开查询 | ⏸ 已备测试，暂缓搬迁 | 新增 `PublicQueryTest`（2 用例）。搬迁障碍：① `findAnswerByQuery` 强转 `AnswerServiceImpl` 调 `ServiceImpl.list`，接口层没有该方法；② `buildQueryFormSchema`/`buildQueryResultSchema` 依赖 `MessageSource` 的 `i18n`；③ 整块 300+ 行、10 个方法。**前置条件**：先把 `AnswerService` 补一个语义化查询方法去掉强转，并给 `getQueryResult` 补 3 个用例（含 `buildLikeQueryConditionOfQuestion` 的模糊匹配）。 |
 | 考试控制 | ✅ 已抽 `ExamControlService` | 切屏计数、闯关超时扣分、考试结束判断；SurveyApi 与 saveAnswer 改为委托 |
-| 答案校验 | ⏸ 未动 | `validateAnswer`/`validateAndMergeAnswer`/`validateAnswerGate`/`validateSubmittable` 约 150 行，全部在交卷主链路上；现有测试不覆盖交卷校验（只覆盖投影幂等与统计）。**前置条件**：先补一个「缺必填题交卷被拒」「超时交卷宽限」的集成用例 |
+| 答案校验 | ◐ 部分抽出 | `validateSubmittable`（停用/截止/回收上限）已抽到 `AnswerValidationService`。剩余 `validateAnswer`（要调 `statProject`，构造器循环依赖）、`validateAndMergeAnswer`+`validateAnswerGate`（依赖 `getAnswerForProject` 与三个限次方法，那几处还被别的入口复用）**未搬**：需先补「缺必填题交卷被拒」「超时交卷宽限」的集成用例 |
 | 统计 | ✅ 已抽 `statFromProjection` | 投影聚合与内存算法双路径 |
 | S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |

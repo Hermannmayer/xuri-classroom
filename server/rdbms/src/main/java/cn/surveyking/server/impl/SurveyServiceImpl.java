@@ -81,6 +81,8 @@ public class SurveyServiceImpl implements SurveyService {
 
 	private final ExamControlService examControlService;
 
+	private final AnswerValidationService answerValidationService;
+
 	private final AuthenticationManager authenticationManager;
 
 	private final JwtTokenUtil jwtTokenUtil;
@@ -395,7 +397,7 @@ public class SurveyServiceImpl implements SurveyService {
 		PublicAnswerView result = new PublicAnswerView();
 		ProjectView project = projectService.getProject(projectId);
 		// 提交也要校验问卷状态/截止时间：此前只有 loadProject 挡，拿到 projectId 直接 POST 就能绕过
-		validateSubmittable(project, !isNotBlank(request.getId()));
+		answerValidationService.validateSubmittable(project, !isNotBlank(request.getId()));
 		// 密码 / 需要登录 / 白名单 / 开始时间：同样要在提交路径再判一次
 		validateAnswerGate(project, !isNotBlank(request.getId()));
 		SurveyWechatIdentity wechatIdentity = wechatAccessGuard.requireWechatAccess(project);
@@ -655,40 +657,6 @@ public class SurveyServiceImpl implements SurveyService {
 				continue;
 			}
 			questionValueMap.put(linkField.getFillOptionId(), linkQuestionValue.get(linkField.getLinkOptionId()));
-		}
-	}
-
-	/**
-	 * 提交阶段的校验：只做「还能不能交」相关的判断，不做登录/cookie/ip 限次
-	 * （那些是"能不能开始答"的约束，修改已有答卷时不该再拦一次）。
-	 *
-	 * @param project 项目
-	 * @param isNewAnswer true=新建答卷，才校验回收上限；false=修改已有答卷
-	 */
-	private void validateSubmittable(ProjectView project, boolean isNewAnswer) {
-		if (project == null) {
-			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
-		}
-		ProjectSetting setting = project.getSetting();
-		if (setting == null || setting.getAnswerSetting() == null) {
-			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
-		}
-		if (setting.getStatus() != null && setting.getStatus() == 0) {
-			throw new ErrorCodeException(ErrorCode.SurveySuspend);
-		}
-		Long endTime = setting.getAnswerSetting().getEndTime();
-		if (endTime != null && System.currentTimeMillis() > endTime) {
-			throw new ErrorCodeException(ErrorCode.ExceededEndTime);
-		}
-		if (isNewAnswer) {
-			Long maxAnswers = setting.getAnswerSetting().getMaxAnswers();
-			if (maxAnswers != null) {
-				AnswerQuery answerQuery = new AnswerQuery();
-				answerQuery.setProjectId(project.getId());
-				if (answerService.count(answerQuery) >= maxAnswers) {
-					throw new ErrorCodeException(ErrorCode.ExceededMaxAnswers);
-				}
-			}
 		}
 	}
 
