@@ -21,6 +21,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
 import { WATERMARK_EVENT } from '../../components/Watermark';
 import type { WatermarkMode } from '../../components/Watermark';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏） */
 interface AiSetting {
@@ -111,7 +112,7 @@ export default function SystemSetting() {
    * 保存动作统一要 system:setting:update（SystemApi.java:100），没有就当只读页。
    */
   const [authorities, setAuthorities] = useState<string[]>([]);
-  const canUpdate = can(authorities, 'system:setting:update');
+  const canUpdate = can(authorities, PERMISSION_CODES.systemSettingUpdate);
   /**
    * 「内容与隐私」是独立权限点：content:protect（SystemProtectionApi.java 的 @PreAuthorize）。
    * can() 对 ROLE_admin 直接放行，所以这里等价于「content:protect || 管理员」。
@@ -119,9 +120,9 @@ export default function SystemSetting() {
    * system:setting:update 的角色点了保存会 403，不如直接置灰。
    * 反过来，只有 content:protect 的角色本页其它页签仍是只读（canUpdate 为 false）。
    */
-  const canProtect = can(authorities, 'content:protect');
+  const canProtect = can(authorities, PERMISSION_CODES.contentProtect);
   // Logo 上传走 /api/file/create，后端认 file:upload 或 file:import（FileApi.java 的 /create），与改系统设置分开
-  const canUploadLogo = can(authorities, 'file:upload') || can(authorities, 'file:import');
+  const canUploadLogo = can(authorities, PERMISSION_CODES.fileUpload) || can(authorities, PERMISSION_CODES.fileImport);
 
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);

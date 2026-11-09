@@ -25,6 +25,7 @@ import { post } from '../api';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
+import { PERMISSION_CODES } from '../auth/permission-codes';
 
 const { Header, Sider, Content } = Layout;
 
@@ -114,30 +115,30 @@ export default function BasicLayout() {
     // 门户权限只决定「有没有教学视角」，具体入口还要和接口/路由守卫对齐：
     // - 教学管理 → 项目列表接口要 project:list
     // - 班级学情 → TeachingApi 要 project:report（学员预设也带 report，所以必须再叠 portal:teacher）
-    const canTeach = allow('portal:teacher');
-    if (canTeach && allow('project:list')) {
+    const canTeach = allow(PERMISSION_CODES.portalTeacher);
+    if (canTeach && allow(PERMISSION_CODES.projectList)) {
       menu.push({ key: '/project', icon: <ProjectOutlined />, label: '教学管理' });
     }
-    if (canTeach && allow('project:report')) {
+    if (canTeach && allow(PERMISSION_CODES.projectReport)) {
       menu.push({ key: '/teaching', icon: <BarChartOutlined />, label: '班级学情' });
     }
     // 班级管理：班主任/管理员维护自己负责的班；条件用 class:list 与路由守卫一致
-    if (allow('class:list')) {
+    if (allow(PERMISSION_CODES.classList)) {
       menu.push({ key: '/teaching/classes', icon: <TeamOutlined />, label: '班级管理' });
     }
     // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
     // 不再显示「我的任务」——管理员和老师不做题。
-    if (!canTeach && !isAdmin && allow('portal:student')) {
+    if (!canTeach && !isAdmin && allow(PERMISSION_CODES.portalStudent)) {
       menu.push({ key: '/tasks', icon: <ProjectOutlined />, label: '我的任务' });
     }
 
     // 题库中心：父项只有在至少有一个子项可见时才出现
     const repoChildren: NonNullable<MenuProps['items']> = [];
-    if (allow('repo:list')) {
+    if (allow(PERMISSION_CODES.repoList)) {
       repoChildren.push({ key: '/repo/index', label: t('menu.repo.list', '题库列表') });
     }
     // 练习册是学员能力（repo:book）；管理员不自动拥有，只有显式勾选的角色才显示
-    if (allow('repo:book')) {
+    if (allow(PERMISSION_CODES.repoBook)) {
       repoChildren.push({ key: '/repo/book', label: t('menu.repo.book', '练习册') });
     }
     if (repoChildren.length > 0) {
@@ -146,17 +147,17 @@ export default function BasicLayout() {
 
     // 系统管理：逐个判权，和 router.tsx 的 guard 一一对应
     const systemChildren: NonNullable<MenuProps['items']> = [];
-    if (allow('system:user:list')) systemChildren.push({ key: '/system/user', label: t('menu.system.user', '用户管理') });
+    if (allow(PERMISSION_CODES.systemUserList)) systemChildren.push({ key: '/system/user', label: t('menu.system.user', '用户管理') });
     // 用户组（班级）设置已并入「班级管理」：有班级入口的人不再重复看到这棵树；
     // 只做组织管理、没有 class:list 的角色仍保留独立页。
-    if (allow('system:dept:list') && !allow('class:list')) {
+    if (allow(PERMISSION_CODES.systemDeptList) && !allow(PERMISSION_CODES.classList)) {
       systemChildren.push({ key: '/system/group', label: t('menu.system.group', '用户组') });
     }
-    if (allow('system:role:list')) {
+    if (allow(PERMISSION_CODES.systemRoleList)) {
       systemChildren.push({ key: '/system/setting', label: t('menu.system.setting', '系统设置') });
       systemChildren.push({ key: '/system/permissions', label: t('menu.system.permissions', '权限配置') });
     }
-    if (allow('system:log:list')) systemChildren.push({ key: '/system/audit', label: t('menu.system.audit', '操作日志') });
+    if (allow(PERMISSION_CODES.systemLogList)) systemChildren.push({ key: '/system/audit', label: t('menu.system.audit', '操作日志') });
     if (systemChildren.length > 0) {
       menu.push({ key: '/system', icon: <SettingOutlined />, label: t('menu.system', '系统管理'), children: systemChildren });
     }

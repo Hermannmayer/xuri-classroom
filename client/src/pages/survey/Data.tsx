@@ -47,6 +47,7 @@ import {
   isDataQuestion,
   questionHeader,
 } from './data/format';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 const { RangePicker } = DatePicker;
 
@@ -108,15 +109,15 @@ export default function SurveyData() {
   }, []);
 
   // 按钮级权限闸门：没有权限的写操作按钮直接不渲染，避免「看得见、点了 403」
-  const canExport = can(authorities, 'answer:export');
-  const canCreate = can(authorities, 'answer:create');
-  const canUpdate = can(authorities, 'answer:update');
-  const canDelete = can(authorities, 'answer:delete');
+  const canExport = can(authorities, PERMISSION_CODES.answerExport);
+  const canCreate = can(authorities, PERMISSION_CODES.answerCreate);
+  const canUpdate = can(authorities, PERMISSION_CODES.answerUpdate);
+  const canDelete = can(authorities, PERMISSION_CODES.answerDelete);
   // 「导入数据」调的是 POST /api/answer/upload（后台补录答卷，见 AnswerApi 的 /upload），
   // 后端认 answer:upload；它不是 file:import / file:upload（那是文件上传），也不是学员答题附件
   // 用的 answer:attach（答题页走公开接口 /api/public/upload），所以这里必须跟 answer:upload 对齐。
-  const canUpload = can(authorities, 'answer:upload');
-  const canRestore = can(authorities, 'answer:restore');
+  const canUpload = can(authorities, PERMISSION_CODES.answerUpload);
+  const canRestore = can(authorities, PERMISSION_CODES.answerRestore);
   /** 恢复和彻底删除都没有权限时，回收站入口本身也没东西可做，不渲染 */
   const canOpenTrash = canRestore || canDelete;
 

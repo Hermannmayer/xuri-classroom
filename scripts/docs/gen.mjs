@@ -41,18 +41,29 @@ function parseRoutes() {
   const file = path.join(root, 'client/src/router.tsx')
   const text = fs.readFileSync(file, 'utf8')
   const rows = []
+  // 页面里的守卫现在写成 PERMISSION_CODES.xxx；生成文档时还原成权限码，保持 routes.md 稳定
+  const codeByKey = new Map(parsePermissions().map((row) => [permissionCodeKey(row.code), row.code]))
+  const resolveGuard = (quoted, constantKey) => {
+    if (quoted) return quoted
+    if (constantKey) return codeByKey.get(constantKey) || constantKey
+    return ''
+  }
   const routeRe = /\{\s*path:\s*'([^']+)'\s*,\s*element:\s*([\s\S]*?)\s*\}/g
   let match
   while ((match = routeRe.exec(text))) {
     const routePath = match[1]
     const element = match[2]
     const guards = []
-    const guardRe = /guard\(\s*(?:'([^']*)'|"([^"]*)"|\[([^\]]*)\])/g
+    const guardRe = /guard\(\s*(?:'([^']*)'|"([^"]*)"|PERMISSION_CODES\.([A-Za-z0-9_$]+)|\[([^\]]*)\])/g
     let gm
     while ((gm = guardRe.exec(element))) {
       if (gm[1] || gm[2]) guards.push(gm[1] || gm[2])
-      if (gm[3]) {
-        for (const part of gm[3].matchAll(/'([^']+)'/g)) guards.push(part[1])
+      if (gm[3]) guards.push(resolveGuard('', gm[3]))
+      if (gm[4]) {
+        for (const part of gm[4].matchAll(/'([^']+)'|"([^"]+)"|PERMISSION_CODES\.([A-Za-z0-9_$]+)/g)) {
+          const guard = resolveGuard(part[1] || part[2], part[3])
+          if (guard) guards.push(guard)
+        }
       }
     }
     const component = (element.match(/<([A-Z][A-Za-z0-9_]*)/) || [])[1] || '—'
@@ -161,9 +172,48 @@ function permissionsDoc() {
 }
 
 
+/** 权限码 → 常量 key：按冒号分段转 camelCase（project:list → projectList） */
+function permissionCodeKey(code) {
+  const segments = code.split(':').filter(Boolean)
+  const camel = segments.map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1)).join('')
+  return camel.charAt(0).toLowerCase() + camel.slice(1)
+}
+
+/**
+ * 权限码常量对象：页面里不再写裸串，统一引用 PERMISSION_CODES.xxx。
+ * 正常情况下 key 唯一；万一两个权限码算出同一个 key，后出现的追加序号并在注释里说明。
+ */
+function permissionCodesConst(rows) {
+  const used = new Map()
+  const lines = [
+    '/**',
+    ' * 权限码 → 前端常量。key 由权限码按冒号分段转 camelCase：project:list → projectList。',
+    ' * 页面里不要写裸串，统一用 PERMISSION_CODES.xxx；新增权限点后重跑 npm run docs:gen。',
+    ' */',
+    'export const PERMISSION_CODES = {',
+  ]
+  for (const row of rows) {
+    let key = permissionCodeKey(row.code)
+    if (used.has(key)) {
+      const baseKey = key
+      let index = 2
+      while (used.has(baseKey + index)) index += 1
+      lines.push(
+        '  // 重名：' + JSON.stringify(row.code) + ' 与 ' + JSON.stringify(used.get(baseKey)) + ' 都映射到 ' + baseKey + '，本条追加序号 ' + index + ' 区分',
+      )
+      key = baseKey + index
+    }
+    used.set(key, row.code)
+    lines.push('  ' + key + ": '" + row.code + "',")
+  }
+  lines.push('} as const;', '')
+  return lines
+}
+
 /**
  * 从 PermissionEnum.java 生成前端常量，消除「权限码手抄三份」里的前端那一份。
- * 生成的文件不参与现有页面逻辑（页面仍用字符串），但任何新增/改名都会在 docs:check 里暴露为 STALE。
+ * PERMISSIONS 供权限矩阵列出可勾选项；PERMISSION_CODES 供页面引用具体权限码。
+ * 任何新增/改名都会在 docs:check 里暴露为 STALE。
  */
 function permissionCodesTs() {
   const rows = parsePermissions()
@@ -191,6 +241,7 @@ function permissionCodesTs() {
   lines.push('export const STUDENT_ONLY_PERMISSIONS: string[] = [')
   for (const row of rows.filter((r) => r.studentOnly)) lines.push('  ' + JSON.stringify(row.code) + ',')
   lines.push('];', '')
+  lines.push(...permissionCodesConst(rows))
   return lines.join('\n')
 }
 function parseTables() {

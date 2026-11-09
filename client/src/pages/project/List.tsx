@@ -26,6 +26,7 @@ import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
 import ComposeModal from './ComposeModal';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 type Crumb = { id: string; name: string };
 type ProjectRow = ProjectView & { setting?: ProjectSetting };
@@ -81,7 +82,7 @@ function StudentProjectList({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   // 开始答题是独立权限：没有 project:answer 的账号（比如误配的只读协作者）不再看到入口
-  const canAnswer = can(authorities, 'project:answer');
+  const canAnswer = can(authorities, PERMISSION_CODES.projectAnswer);
 
   const [rows, setRows] = useState<ProjectView[]>([]);
   const [page, setPage] = useState(1);
@@ -324,12 +325,12 @@ function ManagerProjectList({ authorities }: { authorities: string[] }) {
   const isMobile = useIsMobile();
 
   // 统一走 auth/permissions 的 can()：与后端 authorityList / @PreAuthorize 同源
-  const canCreate = can(authorities, 'project:create');
-  const canUpdate = can(authorities, 'project:update');
-  const canDelete = can(authorities, 'project:delete');
-  const canPublish = can(authorities, 'project:publish');
-  const canData = can(authorities, 'answer:list');
-  const canDetail = can(authorities, 'project:detail');
+  const canCreate = can(authorities, PERMISSION_CODES.projectCreate);
+  const canUpdate = can(authorities, PERMISSION_CODES.projectUpdate);
+  const canDelete = can(authorities, PERMISSION_CODES.projectDelete);
+  const canPublish = can(authorities, PERMISSION_CODES.projectPublish);
+  const canData = can(authorities, PERMISSION_CODES.answerList);
+  const canDetail = can(authorities, PERMISSION_CODES.projectDetail);
 
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -1039,8 +1040,8 @@ export default function ProjectList() {
     );
   }
 
-  const isManager = can(authorities, 'project:update');
-  const canList = can(authorities, 'project:list');
+  const isManager = can(authorities, PERMISSION_CODES.projectUpdate);
+  const canList = can(authorities, PERMISSION_CODES.projectList);
 
   if (!isManager && canList) {
     return <StudentProjectList authorities={authorities} />;

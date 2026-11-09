@@ -7,6 +7,7 @@ import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from '../repo/table';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 与后端 ExerciseView 对齐 */
 interface ExerciseView {
@@ -378,7 +379,7 @@ function taskAnswerId(id: string): string | undefined {
 function StudentTasks({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const canAnswer = can(authorities, 'project:answer');
+  const canAnswer = can(authorities, PERMISSION_CODES.projectAnswer);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   /** 每场考试的历次作答（服务端为准，不依赖 localStorage 里那份「最近一次」） */
   const [attempts, setAttempts] = useState<Record<string, PublicAttempt[]>>({});
@@ -650,5 +651,5 @@ export default function ExerciseList() {
   }
 
   // 有 project:create = 老师/管理员，保留练习记录；否则是学员的「我的任务」
-  return can(authorities, 'project:create') ? <PracticeRecords /> : <StudentTasks authorities={authorities} />;
+  return can(authorities, PERMISSION_CODES.projectCreate) ? <PracticeRecords /> : <StudentTasks authorities={authorities} />;
 }

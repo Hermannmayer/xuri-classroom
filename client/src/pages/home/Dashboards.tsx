@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { get, getWithPagination, listProjects } from '../../api';
 import type { ProjectView } from '../../api';
 import { can } from '../../auth/permissions';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 const fmtScore = (v?: number | null) => (v === null || v === undefined ? '—' : v.toFixed(1));
 
@@ -34,7 +35,7 @@ interface MyReportRow {
 export function StudentHome({ authorities }: { authorities: string[] }) {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const canAnswer = can(authorities, 'project:answer');
+  const canAnswer = can(authorities, PERMISSION_CODES.projectAnswer);
   const [projects, setProjects] = useState<ProjectView[]>([]);
   const [report, setReport] = useState<MyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,7 +304,7 @@ export function AdminHome() {
  */
 export default function Dashboard({ authorities }: { authorities: string[] }) {
   const has = (code: string) => authorities.includes(code) || authorities.includes('ROLE_admin');
-  if (has('portal:admin')) return <AdminHome />;
-  if (can(authorities, 'portal:teacher') && can(authorities, 'project:report')) return <TeacherHome />;
+  if (has(PERMISSION_CODES.portalAdmin)) return <AdminHome />;
+  if (can(authorities, PERMISSION_CODES.portalTeacher) && can(authorities, PERMISSION_CODES.projectReport)) return <TeacherHome />;
   return <StudentHome authorities={authorities} />;
 }

@@ -7,6 +7,7 @@ import { get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { Project } from '../../schema/project';
 import { TABLE_COMPONENTS } from '../repo/table';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /**
  * 项目回收站：软删除的试卷/问卷在这里，可恢复或彻底删除。
@@ -30,8 +31,8 @@ export default function ProjectTrash() {
 
   // 逐项按权限渲染，避免「看得见、点了 403」：
   // 恢复走 project:create，彻底删除走 project:delete，两个动作互不牵连
-  const canRestore = can(authorities, 'project:create');
-  const canDestroy = can(authorities, 'project:delete');
+  const canRestore = can(authorities, PERMISSION_CODES.projectCreate);
+  const canDestroy = can(authorities, PERMISSION_CODES.projectDelete);
 
   const load = useCallback(async () => {
     setLoading(true);

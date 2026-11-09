@@ -31,6 +31,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import ClassSettingsModal from './ClassSettingsModal';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 与后端 ClassNodeView 对齐 */
 interface ClassNode {
@@ -228,15 +229,15 @@ export default function TeachingClasses() {
   useEffect(() => {
     void loadAuthorities().then((list) => setAuthorities(list));
   }, []);
-  const canDetail = can(authorities, 'class:detail');
-  const canGrant = can(authorities, 'class:grant');
-  const canCreateMember = can(authorities, 'class:member:create');
+  const canDetail = can(authorities, PERMISSION_CODES.classDetail);
+  const canGrant = can(authorities, PERMISSION_CODES.classGrant);
+  const canCreateMember = can(authorities, PERMISSION_CODES.classMemberCreate);
   // 原「用户组」页的组织设置权限：只有管理员/组织管理员有，老师默认没有
-  const canDeptCreate = can(authorities, 'system:dept:create');
-  const canDeptUpdate = can(authorities, 'system:dept:update');
-  const canDeptDelete = can(authorities, 'system:dept:delete');
-  const canMemberUpdate = can(authorities, 'class:member:update');
-  const canMemberDelete = can(authorities, 'class:member:delete');
+  const canDeptCreate = can(authorities, PERMISSION_CODES.systemDeptCreate);
+  const canDeptUpdate = can(authorities, PERMISSION_CODES.systemDeptUpdate);
+  const canDeptDelete = can(authorities, PERMISSION_CODES.systemDeptDelete);
+  const canMemberUpdate = can(authorities, PERMISSION_CODES.classMemberUpdate);
+  const canMemberDelete = can(authorities, PERMISSION_CODES.classMemberDelete);
 
   /* ---------------- 班级树 ---------------- */
   const [tree, setTree] = useState<ClassNode[]>([]);

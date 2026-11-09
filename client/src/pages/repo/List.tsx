@@ -25,6 +25,7 @@ import { getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 与后端 RepoView 对齐（只取列表要用的字段） */
 interface RepoView {
@@ -121,21 +122,21 @@ export default function RepoList() {
   const [sortDesc, setSortDesc] = useState(false);
   const sortOrderOf = (key: string) => (sortKey === key ? (sortDesc ? 'descend' : 'ascend') : null);
 
-  const canCreate = hasPermission('repo:create');
+  const canCreate = hasPermission(PERMISSION_CODES.repoCreate);
   // 授权入口只认 repo:grant：repo:update 管的是题库内容，不该顺带把可见范围也放出去
-  const canGrant = hasPermission('repo:grant');
-  const canDetail = hasPermission('repo:detail');
+  const canGrant = hasPermission(PERMISSION_CODES.repoGrant);
+  const canDetail = hasPermission(PERMISSION_CODES.repoDetail);
   // 能不能进题库看题：与后端 /api/template/list 的守卫对齐。
   // 管理端用 repo:detail；学员用独立的 repo:questions:read。
   // 不再用 repo:book（错题本）/repo:import/template:list/repo:update 推断「能看题目」——
   // 那些是别的动作，混在一起就会出现「能导入但不能看题」或「有错题本就能点开题库」。
-  const canOpen = canDetail || hasPermission('repo:questions:read');
-  const canUpdate = hasPermission('repo:update');
-  const canDelete = hasPermission('repo:delete');
+  const canOpen = canDetail || hasPermission(PERMISSION_CODES.repoQuestionsRead);
+  const canUpdate = hasPermission(PERMISSION_CODES.repoUpdate);
+  const canDelete = hasPermission(PERMISSION_CODES.repoDelete);
   // 练习入口只看 repo:practice（学员能力）。
   // 管理员不再自动注入学员能力，老师角色默认也没有，所以这里不需要额外判 isAdmin/portal:teacher；
   // 如果某个自定义角色明确勾了 repo:practice，就按配置显示，这才是真正的权限驱动。
-  const canPractice = hasPermission('repo:practice');
+  const canPractice = hasPermission(PERMISSION_CODES.repoPractice);
 
   // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）：
   // 没有练习入口约 260，有练习入口约 380，保证「开始练习」不会被挤成两行。

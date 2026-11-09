@@ -29,6 +29,7 @@ import { download, get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
 interface TemplateView {
@@ -165,10 +166,10 @@ export default function RepoQuestions() {
   }, []);
 
   // 权限细分：导入统一用 template:import（原 repo:import 已合并），导出要 repo:export
-  const canImport = can(authorities, 'template:import');
-  const canExport = can(authorities, 'repo:export');
-  const canEdit = can(authorities, 'template:update');
-  const canDelete = can(authorities, 'template:delete');
+  const canImport = can(authorities, PERMISSION_CODES.templateImport);
+  const canExport = can(authorities, PERMISSION_CODES.repoExport);
+  const canEdit = can(authorities, PERMISSION_CODES.templateUpdate);
+  const canDelete = can(authorities, PERMISSION_CODES.templateDelete);
   const [editing, setEditing] = useState<TemplateView | null>(null);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);

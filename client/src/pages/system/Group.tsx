@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
 import { ApiError, get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 interface Dept {
   id: string;
@@ -99,9 +100,9 @@ export default function SystemGroup() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  const canCreate = can(authorities, 'system:dept:create');
-  const canUpdate = can(authorities, 'system:dept:update');
-  const canDelete = can(authorities, 'system:dept:delete');
+  const canCreate = can(authorities, PERMISSION_CODES.systemDeptCreate);
+  const canUpdate = can(authorities, PERMISSION_CODES.systemDeptUpdate);
+  const canDelete = can(authorities, PERMISSION_CODES.systemDeptDelete);
   /** 角色候选 403：本页只要求 system:dept:list，不能把「读不到角色」当成「没绑角色」 */
   const roleDenied = roleError === '无权读取角色';
   /** 任何原因没读到角色候选，都不能提交 roleIds（否则会被后端当成「清空」） */

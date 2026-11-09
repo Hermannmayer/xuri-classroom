@@ -24,6 +24,7 @@ import LinkAction from '../../components/LinkAction';
 import { download, get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { pager } from '../repo/table';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 interface SysUser {
   id?: string;
@@ -124,9 +125,9 @@ export default function SystemUser() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  const canCreate = can(authorities, 'system:user:create');
-  const canUpdate = can(authorities, 'system:user:update');
-  const canDelete = can(authorities, 'system:user:delete');
+  const canCreate = can(authorities, PERMISSION_CODES.systemUserCreate);
+  const canUpdate = can(authorities, PERMISSION_CODES.systemUserUpdate);
+  const canDelete = can(authorities, PERMISSION_CODES.systemUserDelete);
 
   /**
    * 角色下拉按「建用户分权」过滤（与后端 UserServiceImpl.assertRoleGrantScope 同一规则）：
@@ -134,7 +135,7 @@ export default function SystemUser() {
    * - 没有 teacher 档能力的人只能看到「不含任何 system:*」的角色（学员类）。
    * code=admin 的角色由后端 toAuthorityNames 注入全部权限目录，即便库里没存 system:* 也按 teacher 档算。
    */
-  const canGrantSystemRole = can(authorities, 'system:user:create:teacher');
+  const canGrantSystemRole = can(authorities, PERMISSION_CODES.systemUserCreateTeacher);
   const roleTouchesSystem = (role: Role) =>
     role.code === 'admin' || (role.authorities ?? []).some((a) => typeof a === 'string' && a.startsWith('system:'));
   const assignableRoles = canGrantSystemRole ? roles : roles.filter((role) => !roleTouchesSystem(role));
@@ -142,13 +143,13 @@ export default function SystemUser() {
   const isStudentRole = (role: Role) => {
     if (role.code === 'student' || role.code === 'xueyuan') return true;
     const auth = role.authorities ?? [];
-    return auth.includes('portal:student') && !auth.includes('portal:teacher');
+    return auth.includes(PERMISSION_CODES.portalStudent) && !auth.includes(PERMISSION_CODES.portalTeacher);
   };
   const staffRoles = assignableRoles.filter((role) => !isStudentRole(role));
   // 批量导入：注解是 hasAnyAuthority('user:import','system:user:create')（UserApi.java:126）
-  const canImportUser = can(authorities, 'user:import') || can(authorities, 'system:user:create');
+  const canImportUser = can(authorities, PERMISSION_CODES.userImport) || can(authorities, PERMISSION_CODES.systemUserCreate);
   // 下载导入模板：后端要 file:import（FileApi.java:75）
-  const canDownloadTemplate = can(authorities, 'file:import');
+  const canDownloadTemplate = can(authorities, PERMISSION_CODES.fileImport);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -397,7 +398,7 @@ export default function SystemUser() {
             下载模板
           </Button>
         )}
-        {can(authorities, 'class:list') && (
+        {can(authorities, PERMISSION_CODES.classList) && (
           <Button onClick={() => navigate('/teaching/classes')}>去班级管理</Button>
         )}
         {canCreate && (

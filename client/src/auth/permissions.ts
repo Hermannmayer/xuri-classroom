@@ -1,5 +1,6 @@
 import { get } from '../api';
 import type { UserInfo } from '../api';
+import { PERMISSION_CODES } from './permission-codes';
 
 /**
  * 权限模型（后端 authorityList 驱动）：
@@ -61,13 +62,13 @@ export function isAdmin(authorities: string[]) {
  * <p>必须和后端 PermissionEnum 里 studentOnly=true 的条目保持一致；
  * 这里不能让 ROLE_admin 兜底，否则「管理员界面出现开始答题」永远修不掉。
  */
-export const STUDENT_ONLY_PERMISSIONS = new Set([
-  'project:answer',
-  'repo:practice',
-  'repo:book',
-  'repo:questions:read',
-  'exercise:list',
-  'portal:student',
+export const STUDENT_ONLY_PERMISSIONS = new Set<string>([
+  PERMISSION_CODES.projectAnswer,
+  PERMISSION_CODES.repoPractice,
+  PERMISSION_CODES.repoBook,
+  PERMISSION_CODES.repoQuestionsRead,
+  PERMISSION_CODES.exerciseList,
+  PERMISSION_CODES.portalStudent,
 ]);
 
 export function can(authorities: string[], permission: string): boolean {

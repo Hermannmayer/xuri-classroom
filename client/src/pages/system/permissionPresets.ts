@@ -1,3 +1,5 @@
+import { PERMISSION_CODES } from '../../auth/permission-codes';
+
 /**
  * 权限配置页的静态元数据：分组说明、看/改判定、菜单入口映射。
  *
@@ -42,7 +44,7 @@ const WRITE_ACTIONS = new Set([
  * 这些串整体是「基础能力」，最后一个词恰好会命中上面的动词表：
  * - user:update 是「改自己的资料」，三个角色都应具备，标成「改」会让人误以为能改别人。
  */
-const BASIC_CODES = new Set(['user:update']);
+const BASIC_CODES = new Set<string>([PERMISSION_CODES.userUpdate]);
 
 /**
  * 按权限串最后一段判断「看 / 改」。
@@ -85,19 +87,19 @@ export const GROUP_DESCRIPTIONS: Record<string, string> = {
  * 只列真正会决定菜单是否出现的权限；没有列出的说明它影响的是按钮或接口，不是菜单。
  */
 export const PERMISSION_MENU: Record<string, string> = {
-  'project:list': '我的考试 / 教学管理',
-  'project:answer': '我的任务 / 开始答题',
-  'exercise:list': '我的练习',
-  'repo:list': '题库中心 / 题库列表',
-  'repo:book': '题库中心 / 练习册',
-  'repo:questions:read': '题库中心 / 题库题目',
-  'repo:practice': '题库中心 / 开始练习',
-  'class:list': '班级管理',
-  'class:grant': '班级管理 / 分配老师',
-  'system:user:list': '系统管理 / 用户管理',
-  'system:dept:list': '系统管理 / 用户组（有班级管理时合并）',
-  'system:role:list': '系统管理 / 系统设置、权限配置',
-  'system:log:list': '系统管理 / 操作日志',
+  [PERMISSION_CODES.projectList]: '我的考试 / 教学管理',
+  [PERMISSION_CODES.projectAnswer]: '我的任务 / 开始答题',
+  [PERMISSION_CODES.exerciseList]: '我的练习',
+  [PERMISSION_CODES.repoList]: '题库中心 / 题库列表',
+  [PERMISSION_CODES.repoBook]: '题库中心 / 练习册',
+  [PERMISSION_CODES.repoQuestionsRead]: '题库中心 / 题库题目',
+  [PERMISSION_CODES.repoPractice]: '题库中心 / 开始练习',
+  [PERMISSION_CODES.classList]: '班级管理',
+  [PERMISSION_CODES.classGrant]: '班级管理 / 分配老师',
+  [PERMISSION_CODES.systemUserList]: '系统管理 / 用户管理',
+  [PERMISSION_CODES.systemDeptList]: '系统管理 / 用户组（有班级管理时合并）',
+  [PERMISSION_CODES.systemRoleList]: '系统管理 / 系统设置、权限配置',
+  [PERMISSION_CODES.systemLogList]: '系统管理 / 操作日志',
 };
 
 
@@ -108,9 +110,9 @@ export const PERMISSION_MENU: Record<string, string> = {
  * 目前是 5 个：3 个视角开关 + 开始答题 + 开始练习。
  */
 export const FRONTEND_ONLY_CODES = new Set<string>([
-  'portal:admin',
-  'portal:student',
-  'portal:teacher',
-  'project:answer',
-  'repo:practice',
+  PERMISSION_CODES.portalAdmin,
+  PERMISSION_CODES.portalStudent,
+  PERMISSION_CODES.portalTeacher,
+  PERMISSION_CODES.projectAnswer,
+  PERMISSION_CODES.repoPractice,
 ]);

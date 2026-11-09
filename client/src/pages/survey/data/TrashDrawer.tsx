@@ -10,6 +10,7 @@ import { get, post } from '../../../api';
 import { can, loadAuthorities } from '../../../auth/permissions';
 import type { Answer } from '../../../schema/project';
 import { TABLE_COMPONENTS } from '../../repo/table';
+import { PERMISSION_CODES } from '../../../auth/permission-codes';
 
 export interface TrashDrawerProps {
   open: boolean;
@@ -31,8 +32,8 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
   }, []);
 
   // 按钮级权限：恢复要 answer:restore，彻底删除要 answer:delete；没有权限的动作不渲染
-  const canRestore = can(authorities, 'answer:restore');
-  const canDelete = can(authorities, 'answer:delete');
+  const canRestore = can(authorities, PERMISSION_CODES.answerRestore);
+  const canDelete = can(authorities, PERMISSION_CODES.answerDelete);
   const canOperate = canRestore || canDelete;
 
   const load = useCallback(async () => {

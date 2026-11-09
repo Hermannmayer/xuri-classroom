@@ -37,6 +37,7 @@ import type {
   SubmittedSetting,
 } from '../../schema/project';
 import PartnerPanel from './PartnerPanel';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 interface ReportStat {
   min?: number;
@@ -86,12 +87,12 @@ export default function SurveyOverview() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  const canEdit = can(authorities ?? [], 'project:update');
-  const canPublish = can(authorities ?? [], 'project:publish');
-  const canViewAnswers = can(authorities ?? [], 'answer:list');
-  const canReport = can(authorities ?? [], 'project:report');
-  const canAnswer = can(authorities ?? [], 'project:answer');
-  const canManagePartner = can(authorities ?? [], 'project:partner');
+  const canEdit = can(authorities ?? [], PERMISSION_CODES.projectUpdate);
+  const canPublish = can(authorities ?? [], PERMISSION_CODES.projectPublish);
+  const canViewAnswers = can(authorities ?? [], PERMISSION_CODES.answerList);
+  const canReport = can(authorities ?? [], PERMISSION_CODES.projectReport);
+  const canAnswer = can(authorities ?? [], PERMISSION_CODES.projectAnswer);
+  const canManagePartner = can(authorities ?? [], PERMISSION_CODES.projectPartner);
 
   const shareUrl = useMemo(() => `${location.origin}/s/${id}`, [id]);
 

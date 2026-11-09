@@ -3,6 +3,7 @@ import { Spin } from 'antd';
 import { Navigate } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import SystemGroup from './Group';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /**
  * 用户组入口兼容层：
@@ -23,7 +24,7 @@ export default function GroupEntry() {
       </div>
     );
   }
-  if (can(authorities, 'class:list')) {
+  if (can(authorities, PERMISSION_CODES.classList)) {
     return <Navigate to="/teaching/classes" replace />;
   }
   return <SystemGroup />;

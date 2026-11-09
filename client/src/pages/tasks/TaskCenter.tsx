@@ -5,6 +5,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import ProjectList from '../project/List';
 import ExerciseList from '../exercise/List';
 import MyReport from './MyReport';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /**
  * 我的任务：把原来左侧「我的考试」和「我的练习」两个入口合并成一个。
@@ -29,14 +30,14 @@ export default function TaskCenter() {
 
   // 教学视角 = portal:teacher 且 project:report：TeachingApi 要 report，
   // 只配门户权限的账号进 /teaching 会 403，这里不能再把它当成教学视角。
-  const teachingView = can(authorities, 'portal:teacher') && can(authorities, 'project:report');
-  if (teachingView || can(authorities, 'portal:admin')) {
+  const teachingView = can(authorities, PERMISSION_CODES.portalTeacher) && can(authorities, PERMISSION_CODES.projectReport);
+  if (teachingView || can(authorities, PERMISSION_CODES.portalAdmin)) {
     // 没有 project:list 的教学角色去不了项目列表，退到班级学情（它同样要 report）
-    return <Navigate to={can(authorities, 'project:list') ? '/project' : '/teaching'} replace />;
+    return <Navigate to={can(authorities, PERMISSION_CODES.projectList) ? '/project' : '/teaching'} replace />;
   }
-  const canExam = can(authorities, 'project:list');
-  const canPractice = can(authorities, 'exercise:list');
-  const canReport = can(authorities, 'project:report');
+  const canExam = can(authorities, PERMISSION_CODES.projectList);
+  const canPractice = can(authorities, PERMISSION_CODES.exerciseList);
+  const canReport = can(authorities, PERMISSION_CODES.projectReport);
 
   const items = useMemo(() => {
     const tabs: { key: string; label: string; children: JSX.Element }[] = [];
