@@ -245,7 +245,7 @@ ai/         依赖接口 + 条件装配
 |---|---|---|
 | 种子 survey 结构 | `JacksonTypeHandler` 报 `_deserializeFromArray` | `t_project.survey` 必须是 `SurveySchema` **对象**（含 `id/title/type/children`），不是数组。已确认正确写法 |
 | 查分 `loadExamResult` | 匿名/普通用户一律 403 | 该接口要求「答卷归属本人」（答卷 cookie 或登录态），测试里缺少真实会话 |
-| 统计 `/api/report/statistics` | **真实 JWT 下不是 403 而是 500**（`NullPointerException`） | 认证与 `@PreAuthorize` 都通过，异常在 `statProject` 内部。已排除 `DataPermAspect`；已给 `statFromProjection` 补了 survey 空守卫但仍 500，**这是生产 bug**。已加两道守卫（`statFromProjection` 的 survey 空判断、`ProjectStatHelper.stat()` 里 `answerView.getAnswer() == null` 跳过），仍 500；打点确认 `useProjection=true`（count=4、covered=4），但随后仍执行了 fallback 且 catch 里的「投影统计失败」没有输出——说明异常路径与日志路径不一致（要么 `statFromProjection` 返回后另有环节抛错，要么 catch 分支未命中）。**临时日志已全部移除**，避免污染线上；这个 bug 需要单独排期：给 `statFromProjection` 的入口/出口各打一条日志，并给 `ProjectStatHelper.stat()` 内部逐行打点 |
+| 统计 `/api/report/statistics` | **真实 JWT 下不是 403 而是 500**（`NullPointerException`） | 认证与 `@PreAuthorize` 都通过，异常在 `statProject` 内部。已排除 `DataPermAspect`；已给 `statFromProjection` 补了 survey 空守卫但仍 500，**这是生产 bug**。已加两道守卫（`statFromProjection` 的 survey 空判断、`ProjectStatHelper.stat()` 里 `answerView.getAnswer() == null` 跳过），仍 500；**已修复**：根因是 `ProjectStatHelper.initQuestionStatistics()` 的过滤条件里对 `questionSchema.getAttribute()` 与 `getChildren()` 直接解引用——历史数据/第三方导入的题面可能没有 attribute，直接 NPE，整个统计 500。改成 `isStatable()` 空安全判断，并顺带修掉 `stat()` 里 `answer.get(questionId)` 为 null 时的强转 NPE。两条路径（投影 / 内存）实测均返回 200 且数字一致；`ProjectStatHelperTest` 增加 2 个回归用例 |
 
 下次继续时：种子用 `s2exam`（已在本地 `s2_check` 建好，2 题、status=1），先解决统计的归属校验，再补查分的 cookie 模拟。
 | S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |

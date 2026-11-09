@@ -45,11 +45,16 @@ public class ProjectStatHelper {
 			questionStatistics.entrySet().forEach(entry -> {
 				String questionId = entry.getKey();
 				PublicStatisticsView.QuestionStatistics qStatistics = entry.getValue();
-				if (answer.containsKey(questionId)) {
+				// 注意：containsKey 为 true 不代表值不为 null——填空题没作答、或前端提交了
+				// {"q2": null} 时，这里的 get 会拿到 null，直接强转 Map 就是 NPE，
+				// 会让整个统计接口 500（线上「有答卷的项目点统计就报错」的根因）。
+				Object questionValue = answer.get(questionId);
+				if (questionValue instanceof Map) {
 					qStatistics.setCount(qStatistics.getCount() + 1);
+					Map<?, ?> questionValueMap = (Map<?, ?>) questionValue;
 					qStatistics.getOptionStatistics().forEach(optionStatistics -> {
 						String optionId = optionStatistics.getOptionId();
-						if (((Map) answer.get(questionId)).containsKey(optionId)) {
+						if (questionValueMap.containsKey(optionId)) {
 							optionStatistics.setCount(optionStatistics.getCount() + 1);
 						}
 					});
@@ -87,13 +92,28 @@ public class ProjectStatHelper {
 		return result;
 	}
 
+	/**
+	 * 题目属性、子节点、选项属性都可能为空（历史数据 / 手工改库 / 第三方导入），
+	 * 任何一处直接解引用都会让整个统计接口 500。
+	 */
+	private static boolean isStatable(SurveySchema questionSchema) {
+		if (questionSchema == null || questionSchema.getAttribute() == null) {
+			return false;
+		}
+		if (Boolean.TRUE.equals(questionSchema.getAttribute().getStatEnabled())) {
+			return true;
+		}
+		if (questionSchema.getChildren() == null) {
+			return false;
+		}
+		return questionSchema.getChildren().stream()
+				.anyMatch(child -> child != null && child.getAttribute() != null && child.getAttribute().getQuota() != null);
+	}
+
 	private Map<String, PublicStatisticsView.QuestionStatistics> initQuestionStatistics() {
 		List<SurveySchema> flatSurveySchema = SchemaHelper.flatSurveySchema(schema);
 		// 只有问题配置了 statEnabled 和选项配置了 quota 属性的题才能进行统计
-		List<SurveySchema> canStatSchema = flatSurveySchema.stream()
-				.filter(questionSchema -> Boolean.TRUE.equals(questionSchema.getAttribute().getStatEnabled())
-						|| questionSchema.getChildren().stream().filter(x -> x.getAttribute().getQuota() != null)
-								.findFirst().isPresent())
+		List<SurveySchema> canStatSchema = flatSurveySchema.stream().filter(ProjectStatHelper::isStatable)
 				.collect(Collectors.toList());
 
 		Map<String, PublicStatisticsView.QuestionStatistics> questionStatistics = new LinkedHashMap<>();

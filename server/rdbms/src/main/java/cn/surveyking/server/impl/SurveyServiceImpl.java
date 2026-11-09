@@ -366,8 +366,7 @@ public class SurveyServiceImpl implements SurveyService {
 		// 投影表覆盖了全部答卷才走 SQL 聚合；历史数据还没回填时回退到内存算法，
 		// 保证「回填前、回填中、回填后」三个阶段统计数字都不变（宁可慢，不可少算）。
 		long covered = answerItemMapper.countSyncedAnswers(query.getId());
-		boolean useProjection = statTotal > 0 && covered >= statTotal;
-		if (useProjection) {
+		if (statTotal > 0 && covered >= statTotal) {
 			try {
 				return statFromProjection(project, statTotal);
 			}
