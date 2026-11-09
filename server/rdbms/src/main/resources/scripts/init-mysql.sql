@@ -54,6 +54,7 @@ CREATE TABLE `t_answer` (
   `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `items_synced` tinyint(1) NOT NULL DEFAULT '0' COMMENT '明细投影是否已同步',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `key_answer_pid` (`project_id`) USING BTREE,
   KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE

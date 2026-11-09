@@ -75,6 +75,14 @@ public class Answer extends BaseModel {
 	@TableField(fill = FieldFill.INSERT)
 	private String createBy;
 
+	/**
+	 * 明细投影是否已经同步（0 未同步 / 1 已同步）。
+	 * <p>
+	 * 不能用「t_answer_item 里有几行」来判断：没有选项答案的答卷（纯文本、空卷）展开后是 0 行，
+	 * 永远达不到「覆盖全部答卷」，统计就会永远回退到内存算法。
+	 */
+	private Integer itemsSynced;
+
 	@TableField(fill = FieldFill.UPDATE)
 	private Date updateAt;
 

@@ -58,3 +58,4 @@
 - `scripts/nas/migrate/23-permission-cleanup.sql`
 - `scripts/nas/migrate/24-answer-indexes.sql`
 - `scripts/nas/migrate/25-answer-items.sql`
+- `scripts/nas/migrate/26-answer-items-synced.sql`

@@ -3,6 +3,7 @@ package cn.surveyking.server.impl;
 import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.domain.model.AnswerItem;
 import cn.surveyking.server.mapper.AnswerItemMapper;
+import cn.surveyking.server.mapper.AnswerMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,8 @@ public class AnswerItemProjector {
 
 	private final AnswerItemMapper answerItemMapper;
 
+	private final AnswerMapper answerMapper;
+
 	/** 先删后插：重复提交、修改答案、回填重跑都会得到与真源一致结果 */
 	public int rebuild(Answer answer) {
 		if (answer == null || !StringUtils.hasText(answer.getId())) {
@@ -40,6 +43,7 @@ public class AnswerItemProjector {
 		answerItemMapper.delete(Wrappers.<AnswerItem>lambdaQuery().eq(AnswerItem::getAnswerId, answer.getId()));
 		Map<String, Object> payload = answer.getAnswer();
 		if (payload == null || payload.isEmpty()) {
+			markSynced(answer.getId());
 			return 0;
 		}
 		Date now = new Date();
@@ -66,7 +70,13 @@ public class AnswerItemProjector {
 		for (int from = 0; from < items.size(); from += BATCH_SIZE) {
 			answerItemMapper.batchInsert(items.subList(from, Math.min(from + BATCH_SIZE, items.size())));
 		}
+		markSynced(answer.getId());
 		return items.size();
+	}
+
+	private void markSynced(String answerId) {
+		answerMapper.update(null, Wrappers.<Answer>lambdaUpdate().eq(Answer::getId, answerId)
+				.set(Answer::getItemsSynced, Integer.valueOf(1)));
 	}
 
 }

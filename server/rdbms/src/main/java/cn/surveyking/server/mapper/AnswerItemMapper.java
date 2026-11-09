@@ -32,8 +32,13 @@ public interface AnswerItemMapper extends BaseMapper<AnswerItem> {
 			+ "GROUP BY question_id, option_id")
 	List<AnswerItemStat> statOptions(@Param("projectId") String projectId);
 
-	/** 已经展开过明细的答卷数：与答卷总数相等才认为回填完成，否则统计回退到旧的内存算法 */
-	@Select("SELECT COUNT(DISTINCT answer_id) FROM t_answer_item WHERE project_id = #{projectId}")
-	long countDistinctAnswers(@Param("projectId") String projectId);
+	/**
+	 * 已同步过明细的答卷数。与答卷总数相等才走 SQL 聚合，否则回退内存算法。
+	 * <p>
+	 * 用 t_answer.items_synced 而不是 t_answer_item 的行数：没有选项的答卷展开后是 0 行，
+	 * 按行数判断会永远「覆盖不全」。
+	 */
+	@Select("SELECT COUNT(*) FROM t_answer WHERE project_id = #{projectId} AND is_deleted = 0 AND items_synced = 1")
+	long countSyncedAnswers(@Param("projectId") String projectId);
 
 }

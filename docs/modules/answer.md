@@ -145,7 +145,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 
 ## 坑与已知限制
 
-- **统计有两条路径，且会自动切换**：`t_answer_item` 覆盖了该场全部答卷时走 SQL 聚合（`AnswerItemMapper` + `ProjectStatHelper.statFromProjection`），否则回退到内存算法。判断条件是 `COUNT(DISTINCT answer_id) >= COUNT(*)`，所以「未回填 / 回填中 / 已回填」三个阶段统计数字都不会变少。回填是 `AnswerItemBackfill`，用 `surveyking.answer-items.backfill=true` 触发一次（幂等，可重跑）。
+- **统计有两条路径，且会自动切换**：`t_answer_item` 覆盖了该场全部答卷时走 SQL 聚合（`AnswerItemMapper` + `ProjectStatHelper.statFromProjection`），否则回退到内存算法。判断条件是 `COUNT(DISTINCT answer_id) >= COUNT(*)`，所以「未回填 / 回填中 / 已回填」三个阶段统计数字都不会变少。回填是 `AnswerItemBackfill`，用 `surveyking.answer-items.backfill=true` 触发一次（幂等，可重跑）。覆盖判断看 `t_answer.items_synced`（每份处理过就置 1），不要改成「投影表行数」——没有选项答案的答卷展开后是 0 行。
 - **投影表是派生数据**：`t_answer.answer` 才是真源，`t_answer_item` 丢了可以随时重建。交卷与回填都走 `AnswerItemProjector.rebuild`，保证两条路径产出一致；投影写入失败只 warn，不让交卷失败。
 - **统计接口的权限注解必须写在 Controller**：`/api/public/statistics` 前缀是 public，但统计暴露答卷分布。`@PreAuthorize` 写在 `SurveyServiceImpl` 上不生效（JDK 动态代理只看接口注解），已改到 `SurveyApi.statProject`。
 - **导出并发受限、统计不读整卷快照**：导出走 `EXPORT_POOL`（2 并发 + 队列 4，队满返回中文错误而不是把 JVM 拖死）；统计走 `listAnswerForStat`，只 SELECT `answer` 等必要列，不再把每份答卷的整卷 `survey` 读进堆（该列有值时是整卷 JSON，100 题约 30~80KB；当前线上多数行是 NULL，写入路径见 `SurveyServiceImpl` 的随机卷快照）。给 `listAnswer` 加字段时注意：不要把 `survey` 加回统计路径，否则单场 500 份的统计会重新变成几百 MB 的临时对象。

@@ -202,6 +202,7 @@ ai/         依赖接口 + 条件装配
 - 投影聚合：同一批数据展开成 21,559 行，`GROUP BY` 结果与基准 **0 差异**。
 - 端到端：本地启动 jar（JDK8 + s2_check），回填 200 份成功 0 失败，`POST /api/public/statistics` 返回 80 题 331 选项，**0 差异**，耗时 137–173ms。
 - 回退兜底：清空投影后统计自动回退内存算法（不会变空），回填完成后自动切回 SQL。
+- **覆盖判断用 `t_answer.items_synced` 而不是投影行数**：没有选项答案的答卷（纯文本/空卷）展开后是 0 行，按行数判断会永远「覆盖不全」、统计永远回退。实测生产 5 份里有 2 份就是这种，加列后 `200/200` 全部同步。
 - 顺带修掉的越权：`/api/public/statistics` 原本匿名可调（能拿任意 projectId 的答卷分布）。已加 `@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")`，匿名返回 `body.code=403`。**注解必须写在 Controller**：ServiceImpl 被 JDK 动态代理包装，写在实现类上不生效（实测）。
 - 批量插入：逐条 insert 回填 200 份要 56 秒，改多值 INSERT 后 2.6 秒（5000 份预计 ~65 秒）。
 
