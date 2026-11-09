@@ -1014,10 +1014,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		ProjectView project = projectService.getProject(answer.getProjectId());
 		Answer previousAnswer = StringUtils.hasText(answer.getId()) ? getById(answer.getId()) : null;
 		// 考试模式下客户端递交的 schema 一律不落库（可伪造 examCorrectAnswer 刷分）
-		dropClientSnapshotForExam(answer, project);
-		AttemptStart attemptStart = resolveAttemptStart(answer, project, previousAnswer);
+		AnswerTimer.dropClientSnapshotForExam(answer, project);
+		AnswerTimer.AttemptStart attemptStart = AnswerTimer.resolveAttemptStart(answer, project, previousAnswer);
 		assertWithinTimeLimit(answer, project, attemptStart);
-		stampAttemptTime(answer, previousAnswer, attemptStart);
+		AnswerTimer.stampAttemptTime(answer, previousAnswer, attemptStart);
 		SurveySchema answerSurvey = answer.getSurvey() != null ? answer.getSurvey()
 				: previousAnswer != null && previousAnswer.getSurvey() != null ? previousAnswer.getSurvey()
 						: project.getSurvey();
@@ -1029,128 +1029,6 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	}
 
 	/**
-	 * 考试模式下丢掉请求体里的 survey。
-	 *
-	 * <p>
-	 * 这一列会被 {@link #computeExamScore} 当作判分依据，而请求体是客户端可控的：伪造
-	 * {@code examCorrectAnswer} 后第一次提交把它存进库里，之后每次改答案都按伪造 schema 计分 → 满分。
-	 * 现在改成：
-	 * <ul>
-	 * <li>新建答卷：survey 留空，判分回退到项目 schema（服务端真值）；</li>
-	 * <li>更新答卷：留空，不覆盖库里已有的快照（随机卷快照是 loadProject 时由服务端写入的）。</li>
-	 * </ul>
-	 * 非考试模式（普通问卷、题库练习）里 survey 只用于展示与练习记录，不参与计分，保留客户端内容。
-	 */
-	private static void dropClientSnapshotForExam(Answer answer, ProjectView project) {
-		if (answer == null || project == null) {
-			return;
-		}
-		if (!ProjectModeEnum.exam.equals(project.getMode())) {
-			return;
-		}
-		// 题库练习的答卷快照要用来算「做了几题」，不能丢（且练习不判分）
-		if (ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
-			return;
-		}
-		answer.setSurvey(null);
-	}
-
-	/**
-	 * 解析「本轮作答开始时间」。优先级：
-	 * <ol>
-	 * <li>库里已有答卷 → 服务端记录的 startTime，其次 create_at（都是服务端写的，可信）；</li>
-	 * <li>首次提交 → 客户端上报的 {@code metaInfo.answerInfo.startTime}，但要过合理性校验；</li>
-	 * <li>都没有 → 以「现在」为本轮起点，并标记为估算值。</li>
-	 * </ol>
-	 */
-	private static AttemptStart resolveAttemptStart(Answer answer, ProjectView project, Answer previousAnswer) {
-		long now = System.currentTimeMillis();
-		if (previousAnswer != null) {
-			Long storedStart = answerStartOf(previousAnswer);
-			if (storedStart != null) {
-				return new AttemptStart(storedStart, "stored", false);
-			}
-			if (previousAnswer.getCreateAt() != null) {
-				return new AttemptStart(previousAnswer.getCreateAt().getTime(), "answer.createAt", false);
-			}
-		}
-		Long clientStart = clientStartedAt(answer, project, now);
-		if (clientStart != null) {
-			return new AttemptStart(clientStart, "client", false);
-		}
-		// 既没有库里的答卷、客户端也没给开始时间：服务端无法证明考生是什么时候开始的。
-		// 用「现在」当起点——最长交卷不会因此误判，最短交卷在这种情况只能记录不能拦截（见 assertWithinTimeLimit）。
-		return new AttemptStart(now, "estimated", true);
-	}
-
-	private static Long answerStartOf(Answer answer) {
-		if (answer == null || answer.getMetaInfo() == null || answer.getMetaInfo().getAnswerInfo() == null) {
-			return null;
-		}
-		long startedAt = answer.getMetaInfo().getAnswerInfo().getStartTime();
-		return startedAt > 0 ? startedAt : null;
-	}
-
-	/**
-	 * 客户端上报的开始时间（防篡改）：
-	 * <ul>
-	 * <li>不能晚于服务器时间（允许 1 分钟时钟偏差）；</li>
-	 * <li>不能早于 24 小时；</li>
-	 * <li>项目设置了考试开始时间时，不能早于开考时间。</li>
-	 * </ul>
-	 * 注意：客户端仍可以「谎称更早开始」来让最短交卷提前满足，这是没有服务端计时器时的固有上限；
-	 * 谎称越早，最长交卷越容易被自己触发，属于自伤方向。
-	 */
-	private static Long clientStartedAt(Answer answer, ProjectView project, long now) {
-		if (answer == null || answer.getMetaInfo() == null || answer.getMetaInfo().getAnswerInfo() == null) {
-			return null;
-		}
-		long startedAt = answer.getMetaInfo().getAnswerInfo().getStartTime();
-		if (startedAt <= 0 || startedAt > now + CLOCK_SKEW_MS) {
-			return null;
-		}
-		if (startedAt < now - MAX_ATTEMPT_SPAN_MS) {
-			return null;
-		}
-		ProjectSetting setting = project == null ? null : project.getSetting();
-		Long examStart = setting == null || setting.getExamSetting() == null ? null
-				: setting.getExamSetting().getStartTime();
-		if (examStart != null && startedAt < examStart - CLOCK_SKEW_MS) {
-			return null;
-		}
-		return startedAt;
-	}
-
-	/**
-	 * 把本轮起止时间写进 metaInfo.answer_info。
-	 *
-	 * <p>
-	 * 一是给后续提交留一个服务端可信的起点（不再依赖 create_at），二是让导出里的「填写时长」有数据。
-	 * 合并时保留库里已有的 clientInfo / passMode 信息，避免整列覆盖把别人的数据冲掉。
-	 */
-	private static void stampAttemptTime(Answer answer, Answer previousAnswer, AttemptStart attemptStart) {
-		if (answer == null || attemptStart == null) {
-			return;
-		}
-		AnswerMetaInfo meta = answer.getMetaInfo();
-		if (meta == null && previousAnswer != null) {
-			meta = previousAnswer.getMetaInfo();
-		}
-		if (meta == null) {
-			meta = new AnswerMetaInfo();
-		}
-		if (meta.getClientInfo() == null && previousAnswer != null && previousAnswer.getMetaInfo() != null) {
-			meta.setClientInfo(previousAnswer.getMetaInfo().getClientInfo());
-		}
-		AnswerMetaInfo.AnswerInfo answerInfo = meta.getAnswerInfo() == null ? new AnswerMetaInfo.AnswerInfo()
-				: meta.getAnswerInfo();
-		answerInfo.setStartTime(attemptStart.at);
-		answerInfo.setEndTime(System.currentTimeMillis());
-		meta.setAnswerInfo(answerInfo);
-		answer.setMetaInfo(meta);
-	}
-
-	/**
 	 * 服务端裁决最长/最短答题时间。
 	 *
 	 * <p>
@@ -1158,7 +1036,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	 * 例外是 {@code estimated}（既没库里的答卷、客户端也没给开始时间）：这时硬判最短交卷会把每一次
 	 * 首次提交都拒掉（耗时恒为 0），因此这种情况只记录不拦截。
 	 */
-	private static void assertWithinTimeLimit(Answer answer, ProjectView project, AttemptStart attemptStart) {
+	private static void assertWithinTimeLimit(Answer answer, ProjectView project, AnswerTimer.AttemptStart attemptStart) {
 		if (project == null || project.getSetting() == null || project.getSetting().getExamSetting() == null) {
 			return;
 		}
@@ -1339,23 +1217,6 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		}
 		answer.setAnswer(answerMap);
 		return answer;
-	}
-
-	/** 本轮作答的开始时间：at=服务端认定的起点，estimated=是否为「拿不到开始时间」时的估算值 */
-	private static final class AttemptStart {
-
-		private final long at;
-
-		private final String source;
-
-		private final boolean estimated;
-
-		private AttemptStart(long at, String source, boolean estimated) {
-			this.at = at;
-			this.source = source;
-			this.estimated = estimated;
-		}
-
 	}
 
 	/** 幂等回放需要的最小应答快照（此刻数据库可能还没提交完成，读不到行） */
