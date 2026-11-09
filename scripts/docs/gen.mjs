@@ -160,6 +160,39 @@ function permissionsDoc() {
   return lines.join('\n')
 }
 
+
+/**
+ * 从 PermissionEnum.java 生成前端常量，消除「权限码手抄三份」里的前端那一份。
+ * 生成的文件不参与现有页面逻辑（页面仍用字符串），但任何新增/改名都会在 docs:check 里暴露为 STALE。
+ */
+function permissionCodesTs() {
+  const rows = parsePermissions()
+  const lines = [
+    '// 由 npm run docs:gen 从 server/shared/.../PermissionEnum.java 生成；不要手改。',
+    '// 新增或改名权限点：改 PermissionEnum.java，然后跑 npm run docs:gen 并提交生成物。',
+    '',
+    'export interface PermissionDef {',
+    '  code: string;',
+    '  name: string;',
+    '  group: string;',
+    '  studentOnly: boolean;',
+    '}',
+    '',
+    '/** 全部权限点，顺序与 PermissionEnum 一致 */',
+    'export const PERMISSIONS: PermissionDef[] = [',
+  ]
+  for (const row of rows) {
+    lines.push(
+      '  { code: ' + JSON.stringify(row.code) + ', name: ' + JSON.stringify(row.name) + ', group: ' + JSON.stringify(row.group) + ', studentOnly: ' + row.studentOnly + ' },',
+    )
+  }
+  lines.push('];', '')
+  lines.push('/** 学员专属：管理员/老师默认不拥有，前端 can() 必须精确命中 */')
+  lines.push('export const STUDENT_ONLY_PERMISSIONS: string[] = [')
+  for (const row of rows.filter((r) => r.studentOnly)) lines.push('  ' + JSON.stringify(row.code) + ',')
+  lines.push('];', '')
+  return lines.join('\n')
+}
 function parseTables() {
   const file = path.join(root, 'server/rdbms/src/main/resources/scripts/init-mysql.sql')
   const text = fs.readFileSync(file, 'utf8')
@@ -233,6 +266,7 @@ function main() {
   add('docs/reference/routes.md', routesDoc())
   add('docs/reference/api.md', apiDoc())
   add('docs/reference/permissions.md', permissionsDoc())
+  add('client/src/auth/permission-codes.ts', permissionCodesTs())
   add('docs/reference/db-schema.md', dbDoc())
   add('docs/status.md', moduleStatus())
   add('docs/public/llms.txt', llmsDoc())

@@ -201,7 +201,7 @@ ai/         依赖接口 + 条件装配
 | S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |
 | S3-4 | 无边界约束 | 四条 ArchUnit 规则进构建 | 违规即失败 |
-| S3-5 | 权限三份真源（77 枚举 / 前端裸串 / SQL） | 枚举生成前端常量 + SQL + 文档 | 改一处，三处同步 |
+| S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | ✅ 2026-11-09：`gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（改动面覆盖 46 个文件，单独排期，可逐步迁移到 `PERMISSION_CODES` 常量） |
 | S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | 5 个 UI 权限明确标注 |
 | S3-7 | 错误一律 HTTP 200 | 状态码与 `code` 对齐 | 冒烟能发现 4xx/5xx |
 | S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | 撞库可追溯 |
