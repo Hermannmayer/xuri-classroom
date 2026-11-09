@@ -1,3 +1,6 @@
+# 维护者本地开发/生产环境笔记：不属于项目本身，不随仓库分发
+/AGENTS.md
+
 .gradle
 build/
 .idea/
