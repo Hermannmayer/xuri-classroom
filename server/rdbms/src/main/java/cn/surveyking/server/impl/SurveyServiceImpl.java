@@ -99,9 +99,8 @@ public class SurveyServiceImpl implements SurveyService {
 
 	private final RepoPartnerService repoPartnerService;
 
-	private final SystemService systemService;
 
-	private final SurveyWechatCookieService surveyWechatCookieService;
+	private final WechatAccessGuard wechatAccessGuard;
 
 	/**
 	 * answerService 如果需要验证密码，则只有密码输入正确之后才开始加载 schema
@@ -115,9 +114,10 @@ public class SurveyServiceImpl implements SurveyService {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
 		PublicProjectView projectView = projectViewMapper.toPublicProjectView(project);
-		if (wechatAccessRequired(project)) {
+		if (wechatAccessGuard.wechatAccessRequired(project)) {
 			projectView.setSurvey(null);
-			projectView.setWechatAuthorizationRequired(isWechatOfficialEnabled() && isWechatRequest());
+			projectView.setWechatAuthorizationRequired(
+					wechatAccessGuard.isWechatOfficialEnabled() && wechatAccessGuard.isWechatRequest());
 			projectView.setIsAuthenticated(SecurityContextUtils.isAuthenticated());
 			return projectView;
 		}
@@ -334,7 +334,7 @@ public class SurveyServiceImpl implements SurveyService {
 	public PublicProjectView validateProject(ProjectQuery query) {
 		String projectId = query.getId();
 		ProjectView project = projectService.getProject(projectId);
-		requireWechatAccess(project);
+		wechatAccessGuard.requireWechatAccess(project);
 		// 登录验证
 		convertAndValidateLoginFormIfNeeded(project, query.getAnswer());
 		PublicProjectView projectView = projectViewMapper.toPublicProjectView(project);
@@ -396,8 +396,8 @@ public class SurveyServiceImpl implements SurveyService {
 		validateSubmittable(project, !isNotBlank(request.getId()));
 		// 密码 / 需要登录 / 白名单 / 开始时间：同样要在提交路径再判一次
 		validateAnswerGate(project, !isNotBlank(request.getId()));
-		SurveyWechatIdentity wechatIdentity = requireWechatAccess(project);
-		applyWechatIdentity(project, request, wechatIdentity);
+		SurveyWechatIdentity wechatIdentity = wechatAccessGuard.requireWechatAccess(project);
+		wechatAccessGuard.applyWechatIdentity(project, request, wechatIdentity);
 		String answerId = request.getId();
 		// 随机问卷更新答案
 		String randomSurveyCookieName = AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + project.getId();
@@ -815,88 +815,6 @@ public class SurveyServiceImpl implements SurveyService {
 			return true;
 		}
 		return false;
-	}
-
-	private boolean wechatAccessRequired(ProjectView project) {
-		if (!isWechatOnly(project)) {
-			return false;
-		}
-		if (!isWechatRequest()) {
-			return true;
-		}
-		if (!isWechatOfficialEnabled()) {
-			return false;
-		}
-		return resolveSurveyWechatIdentity(project) == null;
-	}
-
-	private SurveyWechatIdentity requireWechatAccess(ProjectView project) {
-		if (project == null) {
-			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
-		}
-		if (!isWechatOnly(project)) {
-			return null;
-		}
-		if (!isWechatRequest()) {
-			throw new ValidationException("只能在微信中打开");
-		}
-		if (!isWechatOfficialEnabled()) {
-			return null;
-		}
-		SurveyWechatIdentity identity = resolveSurveyWechatIdentity(project);
-		if (identity == null) {
-			throw new ValidationException("请先完成微信授权");
-		}
-		return identity;
-	}
-
-	private SurveyWechatIdentity resolveSurveyWechatIdentity(ProjectView project) {
-		SurveyWechatIdentity identity = surveyWechatCookieService.resolve(ContextHelper.getCurrentHttpRequest());
-		if (identity == null || !StringUtils.equals(project.getId(), identity.getProjectId())
-				|| !StringUtils.isNotBlank(identity.getOpenId())) {
-			return null;
-		}
-		ProjectSetting.AnswerSetting answerSetting = project.getSetting().getAnswerSetting();
-		if (Boolean.TRUE.equals(answerSetting.getWechatUserInfo()) && !identity.isUserInfoCollected()) {
-			return null;
-		}
-		return identity;
-	}
-
-	private void applyWechatIdentity(ProjectView project, AnswerRequest request, SurveyWechatIdentity identity) {
-		if (!isWechatOnly(project) || !isWechatOfficialEnabled()) {
-			return;
-		}
-		if (request.getAnswer() == null) {
-			request.setAnswer(new LinkedHashMap<>());
-		}
-		request.getAnswer().remove("openid");
-		request.getAnswer().remove("wechatNickname");
-		request.getAnswer().remove("wechatAvatarUrl");
-		if (identity != null && Boolean.TRUE.equals(project.getSetting().getAnswerSetting().getWechatUserInfo())) {
-			request.getAnswer().put("openid", identity.getOpenId());
-			request.getAnswer().put("wechatNickname", identity.getNickname());
-			request.getAnswer().put("wechatAvatarUrl", identity.getAvatarUrl());
-		}
-	}
-
-	private boolean isWechatOnly(ProjectView project) {
-		return project != null && project.getSetting() != null && project.getSetting().getAnswerSetting() != null
-				&& Boolean.TRUE.equals(project.getSetting().getAnswerSetting().getWechatOnly());
-	}
-
-	private boolean isWechatOfficialEnabled() {
-		OAuthSetting setting = systemService.getSystemOAuthSetting();
-		OAuthSetting.WechatClient client = setting == null ? null : setting.getWechatOfficial();
-		return setting != null && StringUtils.isNotBlank(setting.getPublicBaseUrl()) && client != null
-				&& Boolean.TRUE.equals(client.getEnabled()) && StringUtils.isNotBlank(client.getAppId())
-				&& StringUtils.isNotBlank(client.getAppSecret());
-	}
-
-	private boolean isWechatRequest() {
-		HttpServletRequest request = ContextHelper.getCurrentHttpRequest();
-		return request != null && StringUtils.containsIgnoreCase(
-				StringUtils.defaultString(request.getHeader(HttpHeaders.USER_AGENT)), "micromessenger");
 	}
 
 	/**
