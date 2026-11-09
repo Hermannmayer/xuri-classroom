@@ -10,8 +10,8 @@ import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.TeachingClassView;
 import cn.surveyking.server.domain.dto.TeachingProjectView;
 import cn.surveyking.server.domain.dto.UserOptionView;
-import cn.surveyking.server.mapper.TeachingMapper;
 import cn.surveyking.server.service.ClassService;
+import cn.surveyking.server.service.TeachingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,20 +34,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TeachingApi {
 
-	private final TeachingMapper teachingMapper;
+	private final TeachingService teachingService;
 
 	private final ClassService classService;
 
 	@GetMapping("/projects")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public List<TeachingProjectView> myProjects() {
-		return teachingMapper.listMyProjects(SecurityContextUtils.getUserId());
+		return teachingService.listMyProjects(SecurityContextUtils.getUserId());
 	}
 
 	@GetMapping("/classes")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public List<TeachingClassView> classes(@RequestParam String projectId) {
-		return teachingMapper.listClasses(projectId);
+		return teachingService.listClasses(projectId);
 	}
 
 	/* ---------------------------------------------------------------- 班级管理 */

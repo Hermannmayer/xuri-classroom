@@ -26,6 +26,7 @@ dependencies {
     implementation project(':rdbms')
     implementation project(':ai')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.0.1'
     // 集成测试要直接构造 Wrapper 与调用 BaseMapper：mybatis-plus 在 rdbms 的 implementation 里，
     // 不会传递到 api 的 testCompileClasspath，必须显式声明（版本与 rdbms 对齐）。
     testImplementation 'com.baomidou:mybatis-plus-boot-starter:3.5.0'
