@@ -367,7 +367,14 @@ public class SurveyServiceImpl implements SurveyService {
 		// 保证「回填前、回填中、回填后」三个阶段统计数字都不变（宁可慢，不可少算）。
 		long covered = answerItemMapper.countSyncedAnswers(query.getId());
 		if (statTotal > 0 && covered >= statTotal) {
-			return statFromProjection(project, statTotal);
+			try {
+				return statFromProjection(project, statTotal);
+			}
+			catch (RuntimeException e) {
+				// 投影聚合出任何意外都不能让统计直接 500：回退到内存算法，
+				// 结果一样（只是慢），同时留一条日志便于定位投影表的脏数据。
+				log.warn("投影统计失败，回退内存算法: projectId={}", query.getId(), e);
+			}
 		}
 		// 统计不需要整卷快照，也不套行级数据范围（权限由方法上的 @PreAuthorize 保证）
 		List<AnswerView> answers = answerService.listAnswersForStat(query.getId());

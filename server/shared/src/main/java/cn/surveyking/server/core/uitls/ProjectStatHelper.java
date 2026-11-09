@@ -37,6 +37,11 @@ public class ProjectStatHelper {
 
 		answers.forEach(answerView -> {
 			LinkedHashMap<String, Object> answer = answerView.getAnswer();
+			// 空答案（暂存被清空、历史脏数据、或查询只取了统计需要的列）不参与聚合，
+			// 否则下面 answer.containsKey 直接 NPE，整个统计接口 500。
+			if (answer == null) {
+				return;
+			}
 			questionStatistics.entrySet().forEach(entry -> {
 				String questionId = entry.getKey();
 				PublicStatisticsView.QuestionStatistics qStatistics = entry.getValue();
