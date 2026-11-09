@@ -227,6 +227,7 @@ $serverChanged  = @($changed | Where-Object { $_ -match '^server/' }).Count -gt 
 $composeChanged = @($changed | Where-Object { $_ -match "^$([regex]::Escape($ComposeDir))/" }).Count -gt 0
 $depsChanged    = @($changed | Where-Object { $_ -match '^client/package(-lock)?\.json$' }).Count -gt 0
 $clientChanged  = @($changed | Where-Object { $_ -match '^client/' }).Count -gt 0
+$nginxChanged   = @($changed | Where-Object { $_ -match '^deploy/nginx\.conf$' }).Count -gt 0
 $forceReload    = $ReloadOnly.IsPresent
 
 # ---------------------------------------------------------------- 4. compose
@@ -241,6 +242,20 @@ docker compose ps --format "  {{.Name}}  {{.Status}}"
     (Invoke-NasScript -Body $composeScript).Output | Write-Host
 } else {
     Write-Host "`n──── 4/6 compose 无变化，跳过 ────"
+}
+
+# 4b. nginx 配置变更：文件是 bind mount 进容器的，重置后 reload 即可生效
+if ($nginxChanged) {
+    Say '4b/6 重载 nginx 配置'
+    $reloadNginx = @'
+docker exec xuri-live-web nginx -t 2>&1
+if [ $? -ne 0 ]; then echo "NGINX_CONF_INVALID"; exit 1; fi
+docker exec xuri-live-web nginx -s reload
+echo "NGINX_RELOADED"
+'@
+    $n = Invoke-NasScript -Body $reloadNginx -AllowFail
+    if ($n.Output -match 'NGINX_CONF_INVALID') { Die 'nginx 配置校验失败，已保留旧配置（未 reload）。' }
+    else { $n.Output | Where-Object { $_ } | ForEach-Object { "  $_" } }
 }
 
 # ---------------------------------------------------------------- 5. 后端

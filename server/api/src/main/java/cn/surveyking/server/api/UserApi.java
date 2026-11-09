@@ -49,7 +49,9 @@ public class UserApi {
 	@PostMapping("/public/login")
 	public ResponseEntity login(@RequestBody @Valid AuthRequest request, HttpServletRequest httpRequest) {
 		userService.validateCaptcha(request);
-		String clientAddress = httpRequest.getRemoteAddr();
+		// 用统一解析：getRemoteAddr() 在 nginx 后面永远是 docker 网关，
+		// 会让「同一账号 + 同一地址」的失败计数退化成「全站按账号锁定」。
+		String clientAddress = cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(httpRequest);
 		if (!loginAttemptLimiter.isAllowed(request.getUsername(), clientAddress)) {
 			throw new ErrorCodeException(ErrorCode.UsernameOrPasswordError);
 		}

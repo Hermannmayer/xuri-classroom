@@ -62,6 +62,12 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 @Slf4j
 public class SurveyServiceImpl implements SurveyService {
 
+	/**
+	 * 单次统计允许的最大答卷数。超过就拒绝并提示按班级/时间段筛选：
+	 * 统计会把整场答卷读进内存做「答卷 × 题 × 选项」聚合，没有上限就等于给 OOM 留口子。
+	 */
+	private static final long STAT_MAX_ANSWERS = 20000;
+
 	private final ProjectService projectService;
 
 	private final ProjectViewMapper projectViewMapper;
@@ -343,6 +349,12 @@ public class SurveyServiceImpl implements SurveyService {
 		AnswerQuery answerQuery = new AnswerQuery();
 		answerQuery.setProjectId(query.getId());
 		answerQuery.setPageSize(-1);
+		// 统计是「全部答卷进内存做聚合」：先计数，超过保护阈值直接拒绝，
+		// 让调用方按班级/时间段分批，避免一次统计把堆打满（-Xmx768m 下这是最容易 OOM 的读接口）。
+		long statTotal = answerService.count(answerQuery);
+		if (statTotal > STAT_MAX_ANSWERS) {
+			throw new ErrorCodeException(ErrorCode.StatisticsTooLarge);
+		}
 		// 统计不需要整卷快照，走收窄列的查询，避免把每份答卷的 survey（整卷 JSON）读进堆
 		List<AnswerView> answers = answerService.listAnswerForStat(answerQuery).getList();
 		ProjectView project = projectService.getProject(query.getId());

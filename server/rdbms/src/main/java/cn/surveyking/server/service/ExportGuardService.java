@@ -139,9 +139,7 @@ public class ExportGuardService {
 			if (attrs == null) {
 				return null;
 			}
-			javax.servlet.http.HttpServletRequest request = attrs.getRequest();
-			String real = request.getHeader("X-Real-IP");
-			return StringUtils.hasText(real) ? real : request.getRemoteAddr();
+			return cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(attrs.getRequest());
 		}
 		catch (Exception e) {
 			return null;

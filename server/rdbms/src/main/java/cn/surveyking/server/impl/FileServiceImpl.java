@@ -367,7 +367,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 	private void assertPublicUploadRate(String projectId) {
 		long now = System.currentTimeMillis();
 		HttpServletRequest httpRequest = ContextHelper.getCurrentHttpRequest();
-		String remoteAddress = httpRequest == null ? "unknown" : httpRequest.getRemoteAddr();
+		String remoteAddress = httpRequest == null ? "unknown" : IPUtils.getClientIpAddress(httpRequest);
 		if (!acquireRateLimit("client:" + remoteAddress, storageProperties.getMaxPublicUploadsPerMinute(), now)
 				|| !acquireRateLimit("project:" + projectId, storageProperties.getMaxPublicUploadsPerProjectPerMinute(),
 						now)) {
