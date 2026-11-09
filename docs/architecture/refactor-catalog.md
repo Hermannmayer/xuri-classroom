@@ -249,15 +249,17 @@ ai/         依赖接口 + 条件装配
 
 盘点见两份文档：[前台与后台的边界](front-back-boundaries.md)、[没有接线的东西](unwired-inventory.md)。
 
-| 编号 | 内容 | 优先级 | 验收 |
-|---|---|---|---|
-| S6-1 | 微信校验补到公开查询三个方法（`loadQuery` / `getQueryResult` / `loadLinkResult`） | **P0**（限制可绕过） | 设了 wechatOnly 的问卷，公开查询也要求微信授权 |
-| S6-2 | 27 个前端未调用端点：按「有意不接 / 忘了接」分类，前者写进 scope.md，后者补前端或删端点 | P1 | scope.md 与实际一致 |
-| S6-3 | `SK_CRYPTO_KEY`：实现加密或删掉必填项 | P1 | compose 里不再有假开关 |
-| S6-4 | 删除 `t_role_permission` 表与 `RolePermission` 实体（迁移 27） | P2 | 表和实体都不在 |
-| S6-5 | 注册 `setUnauthorizedHandler`，401 按路由前缀分流（前台不跳登录页） | P2 | 答题页 401 不再整页刷新 |
-| S6-6 | 统计接口移出 `/api/public`（改为 `/api/report/statistics`） | P1 | URL 与所需权限一致 |
-| S6-7 | 权限矩阵给 5 个「仅前端」权限加标注 | P3 | 矩阵里能看出哪些只控制入口 |
+> 状态：**2026-11-09 完成 6/7**，S6-7 主动跳过（原因见表格）。
+
+| 编号 | 内容 | 优先级 | 验收 | 状态 |
+|---|---|---|---|---|
+| S6-1 | 微信校验补到公开查询三个方法（`loadQuery` / `getQueryResult` / `loadLinkResult`） | **P0**（限制可绕过） | 设了 wechatOnly 的问卷，公开查询也要求微信授权 | ✅ |
+| S6-2 | 27 个前端未调用端点：按「有意不接 / 忘了接」分类 | P1 | scope.md 与实际一致 | ✅ 三组写进 scope，其余待逐个确认 |
+| S6-3 | `SK_CRYPTO_KEY`：实现加密或删掉必填项 | P1 | compose 里不再有假开关 | ✅ 改为诚实化（未实现加密），不删变量以免破坏部署脚本 |
+| S6-4 | 删除 `RolePermission` 实体 | P2 | 实体不存在 | ✅ 顺带发现表本身不存在，无需迁移 |
+| S6-5 | 注册 `setUnauthorizedHandler`，401 按路由前缀分流 | P2 | 答题页 401 不再整页刷新 | ✅ |
+| S6-6 | 统计接口移出 `/api/public`（改为 `/api/report/statistics`） | P1 | URL 与所需权限一致 | ✅ |
+| S6-7 | 权限矩阵给 5 个「仅前端」权限加标注 | P3 | 矩阵里能看出哪些只控制入口 | ⏳ 跳过：正确做法是后端在权限目录里返回 `enforced`（靠注解扫描），前端硬编码会新增一份真源，与单一真源原则冲突；留到 S3 权限改造 |
 
 ### S5 · 多租户（见 §5）
 

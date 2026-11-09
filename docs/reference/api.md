@@ -76,13 +76,13 @@
 | POST | `${api.prefix}/repo/book/delete` | `RepoApi#deleteUserBook` | `hasAuthority('repo:book')` | — |
 | GET | `${api.prefix}/repo/export` | `RepoApi#exportRepoQuestions` | `hasAuthority('repo:export')` | — |
 | POST | `${api.prefix}/repo/export/token` | `RepoApi#exportToken` | `hasAuthority('repo:export') or hasAuthority('answer:export')` | — |
+| POST | `${api.prefix}/report/statistics` | `ReportApi#statProject` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/report/{shortId}` | `ReportApi#getData` | `hasAuthority('project:report')` | 是 |
 | POST | `${api.prefix}/public/loadProject` | `SurveyApi#loadProject` | — | — |
 | POST | `${api.prefix}/public/projectOutline` | `SurveyApi#projectOutline` | — | — |
 | POST | `${api.prefix}/public/validateProjectOutline` | `SurveyApi#validateProjectOutline` | — | — |
 | POST | `${api.prefix}/public/question` | `SurveyApi#question` | — | — |
 | POST | `${api.prefix}/public/validateProject` | `SurveyApi#validateProject` | — | — |
-| POST | `${api.prefix}/public/statistics` | `SurveyApi#statProject` | — | — |
 | POST | `${api.prefix}/public/saveAnswer` | `SurveyApi#saveAnswer` | — | — |
 | POST | `${api.prefix}/public/tempSaveAnswer` | `SurveyApi#tempSaveAnswer` | — | — |
 | POST | `${api.prefix}/public/upload` | `SurveyApi#upload` | — | — |
