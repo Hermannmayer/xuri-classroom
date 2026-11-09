@@ -6,6 +6,7 @@
 
 - [后端结构](https://hermannmayer.github.io/xuri-classroom/architecture/backend): API/Service/Mapper 分层、权限注解、数据范围、缓存与异常契约
 - [数据模型](https://hermannmayer.github.io/xuri-classroom/architecture/data-model): 核心表、关系、软删除、迁移与生成参考
+- [前台与后台的边界](https://hermannmayer.github.io/xuri-classroom/architecture/front-back-boundaries): 哪些地方前台（学员/公开侧）与后台（教职工/管理侧）没有界限：现象、代码位置、后果与收敛方向
 - [前端结构](https://hermannmayer.github.io/xuri-classroom/architecture/frontend): 页面、路由、请求封装、权限判定、编辑器与主题
 - [架构总览](https://hermannmayer.github.io/xuri-classroom/architecture/overview): 运行时拓扑、前后端边界、请求契约、认证、权限与部署
 - [架构改造目录（2026-11）](https://hermannmayer.github.io/xuri-classroom/architecture/refactor-catalog): 从单校可用到可扩容、可多租户的分阶段改造清单：现状、目标、改动点、验收
