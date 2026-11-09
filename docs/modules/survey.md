@@ -136,6 +136,7 @@ verified_against: '765fc89'
 
 ## 坑与已知限制
 
+- **统计是"全量内存聚合"**：`statProject` 用 `pageSize=-1` 取整场答卷，再用 `ProjectStatHelper` 在堆里按「答卷 × 题 × 选项」做三层遍历；单场 500 份 × 100 题约几十毫秒，但 5000 份以上会明显变慢，届时应改为投影表 + `GROUP BY`（见 `docs/architecture/refactor-catalog.md` 的 S2）。统计路径已改用 `listAnswerForStat` 收窄 SELECT 列，不要改回 `listAnswer`。
 - **"18 种题型"是旧文案**：`QUESTION_META` 实际 17 项；`Pagination` 是 schema 支持但面板不提供的容器。写文档/答复用户时不要按 18 去数，否则会和代码对不上。
 - **未注册题型不会报错，只会占位**：`SchemaRenderer` 找不到组件时渲染橙色"[未注册题型] xxx"，答卷仍可提交但该题没有输入控件。加后端枚举/导入题时尤其容易踩。
 - **选项有两份数据**：`dataSource`（渲染器读）和 `children` 的 `Option` 节点（答案 key、统计、计分读）必须同时存在。导入的题库题常常只有 `children`，练习页会补 `dataSource`；编辑器保存前也会 `normalizeSchema`。

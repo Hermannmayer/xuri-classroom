@@ -1,5 +1,6 @@
 package cn.surveyking.server.core.config;
 
+import cn.surveyking.server.core.constant.CacheConsts;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import org.checkerframework.checker.index.qual.NonNegative;
@@ -14,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -34,6 +36,29 @@ public class CacheConfig extends CachingConfigurerSupport {
 	 */
 	private static final Duration DEFAULT_TTL = Duration.ofMinutes(10);
 
+	/**
+	 * 每个缓存名的条目上限。
+	 * <p>
+	 * 之前所有缓存统一 {@code maximumSize(100)}：500 人同时在线时 userCache 只能装 100 个用户，
+	 * 命中率接近 0，而每个已登录请求都要走 {@code loadUserById}（约 5~6 次查询）——
+	 * 等于把鉴权变成了每请求一次的数据库风暴。容量按「体积小、读多写少」的原则给：
+	 * 用户与项目权限给足，组织结构与全局配置本来就只有几十条。
+	 */
+	private static final Map<String, Long> DEFAULT_SIZES = new HashMap<>();
+
+	static {
+		DEFAULT_SIZES.put(CacheConsts.userCacheName, 10_000L);
+		DEFAULT_SIZES.put(CacheConsts.projectPermissionCacheName, 10_000L);
+		DEFAULT_SIZES.put(CacheConsts.projectCache, 2_000L);
+		DEFAULT_SIZES.put(CacheConsts.fileCacheName, 1_000L);
+		DEFAULT_SIZES.put(CacheConsts.oauthFlowCacheName, 10_000L);
+		DEFAULT_SIZES.put(CacheConsts.deptCacheName, 200L);
+		DEFAULT_SIZES.put(CacheConsts.commonCacheName, 200L);
+	}
+
+	/** 可选覆盖：custom-cache.sizes.<cacheName>=条目数 */
+	private Map<String, Long> sizes;
+
 	private Map<String, Duration> entries;
 
 	@Bean
@@ -43,7 +68,10 @@ public class CacheConfig extends CachingConfigurerSupport {
 
 			@Override
 			protected Cache createConcurrentMapCache(final String name) {
-				return new ConcurrentMapCache(name, Caffeine.newBuilder().expireAfter(new Expiry<Object, Object>() {
+				long maximumSize = (sizes != null && sizes.get(name) != null) ? sizes.get(name)
+						: DEFAULT_SIZES.getOrDefault(name, 1_000L);
+				return new ConcurrentMapCache(name, Caffeine.newBuilder().maximumSize(maximumSize)
+						.expireAfter(new Expiry<Object, Object>() {
 					@Override
 					public long expireAfterCreate(Object key, Object value, long currentTime) {
 						Duration ttl = entries == null ? null : entries.get(name);
@@ -61,12 +89,20 @@ public class CacheConfig extends CachingConfigurerSupport {
 							@NonNegative long currentDuration) {
 						return currentDuration;
 					}
-				}).maximumSize(100).build().asMap(), false);
+						}).build().asMap(), false);
 			}
 		};
 
 		cacheManager.setCacheNames(entries.entrySet().stream().map(x -> x.getKey()).collect(Collectors.toList()));
 		return cacheManager;
+	}
+
+	public Map<String, Long> getSizes() {
+		return sizes;
+	}
+
+	public void setSizes(Map<String, Long> sizes) {
+		this.sizes = sizes;
 	}
 
 	public Map<String, Duration> getEntries() {

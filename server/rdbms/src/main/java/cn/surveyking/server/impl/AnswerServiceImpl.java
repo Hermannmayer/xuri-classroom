@@ -42,8 +42,13 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -97,21 +102,52 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	/** 幂等键 → 最近一次成功新建的答卷（用于回放，不依赖数据库是否已经可见） */
 	private final ConcurrentMap<String, RecentSubmit> recentSubmits = new ConcurrentHashMap<>();
 
+	/**
+	 * 导出线程池：最多 2 个并发导出，队列 4。
+	 * <p>
+	 * 之前每来一个导出请求就 {@code new Thread}，且先把全部行在内存里组装成 List 再交给 Excel 库；
+	 * 两个老师同时导 500 份 × 100 题的卷，峰值就能吃掉几百 MB 堆。-Xmx768m 下这是最容易触发 OOM 的路径。
+	 * 队列满时直接拒绝（AbortPolicy），让请求拿到明确错误，而不是把 JVM 拖死。
+	 */
+	private static final ExecutorService EXPORT_POOL = new ThreadPoolExecutor(2, 2, 60L, TimeUnit.SECONDS,
+			new ArrayBlockingQueue<>(4), runnable -> {
+				Thread thread = new Thread(runnable, "answer-export");
+				thread.setDaemon(true);
+				return thread;
+			});
+
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
+		return listAnswer(query, true);
+	}
+
+	@Override
+	public PaginationResponse<AnswerView> listAnswerForStat(AnswerQuery query) {
+		return listAnswer(query, false);
+	}
+
+	private PaginationResponse<AnswerView> listAnswer(AnswerQuery query, boolean withSnapshot) {
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
 		// 数据范围：管理员 / 项目所有者或协作者（含组授权）看全部；其他人（学员）只能看自己的答卷。
 		// 之前只靠 @PreAuthorize('answer:list')，学员知道 projectId 就能列出全班答卷。
 		boolean canSeeAll = canManageProject(query.getProjectId());
 		String currentUserId = SecurityContextUtils.getUserId();
-		super.page(page, Wrappers.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Answer> wrapper = Wrappers
+				.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
 				.eq(query.getProjectId() != null, Answer::getProjectId, query.getProjectId())
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
 				.eq(query.getId() != null, Answer::getId, query.getId())
 				.eq(!canSeeAll, Answer::getCreateBy, currentUserId)
-				.orderByDesc(Answer::getCreateAt));
+				.orderByDesc(Answer::getCreateAt);
+		if (!withSnapshot) {
+			// 统计路径：只取统计与权限判定需要的列，整卷快照与暂存答案一律不读。
+			wrapper.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,
+					Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
+					Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt);
+		}
+		super.page(page, wrapper);
 		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
 		Project project = projectMapper.selectById(query.getProjectId());
 		FlatSurveySchemaByType schemaByType = parseSurveySchemaByType(project.getSurvey());
@@ -489,25 +525,37 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 			PipedOutputStream outputStream = new PipedOutputStream();
 			PipedInputStream inputStream = new PipedInputStream(outputStream);
 			Locale locale = LocaleContextHolder.getLocale();
-			new Thread(() -> {
-				Locale previousLocale = LocaleContextHolder.getLocale();
-				try {
-					LocaleContextHolder.setLocale(locale);
-					export(project, answerViews, outputStream);
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
-				finally {
+			try {
+				EXPORT_POOL.execute(() -> {
+					Locale previousLocale = LocaleContextHolder.getLocale();
 					try {
-						outputStream.close();
+						LocaleContextHolder.setLocale(locale);
+						export(project, answerViews, outputStream);
 					}
-					catch (IOException e) {
+					catch (Exception e) {
 						e.printStackTrace();
 					}
-					LocaleContextHolder.setLocale(previousLocale);
+					finally {
+						try {
+							outputStream.close();
+						}
+						catch (IOException e) {
+							e.printStackTrace();
+						}
+						LocaleContextHolder.setLocale(previousLocale);
+					}
+				});
+			}
+			catch (RejectedExecutionException rejected) {
+				// 队列满：明确拒绝，别让第三份大导出把堆打穿
+				try {
+					outputStream.close();
 				}
-			}).start();
+				catch (IOException ignored) {
+					// 关闭管道失败不影响返回错误
+				}
+				throw new InternalServerError("当前导出任务过多，请稍后再试（同时最多 3 个）");
+			}
 			download.setResource(new InputStreamResource(inputStream));
 		}
 		catch (IOException e) {

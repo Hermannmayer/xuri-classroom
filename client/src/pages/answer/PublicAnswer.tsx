@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } fr
 import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
 import { ArrowLeftOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { ApiError, post } from '../../api';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
 import type { AnswerValue } from '../../renderer/types';
@@ -1133,7 +1134,7 @@ export default function PublicAnswer() {
             已提交
           </div>
           {html ? (
-            <div dangerouslySetInnerHTML={{ __html: html }} />
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />
           ) : (
             <div style={{ color: 'var(--bp-text-soft)', fontSize: 13 }}>感谢你的填写。</div>
           )}

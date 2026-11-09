@@ -25,6 +25,15 @@ public interface AnswerService {
 
 	PaginationResponse<AnswerView> listAnswer(AnswerQuery filter);
 
+	/**
+	 * 统计专用：不读取整卷 schema 快照（survey）与暂存答案（tempAnswer）。
+	 * <p>
+	 * 单份答卷的 survey 是整卷 JSON（100 题约 30~80KB），统计要全量拉一场的全部答卷；
+	 * 500 份就是几十 MB 的网络传输，还要为每行反序列化一棵 SurveySchema 树。
+	 * 统计本身只需要 answer 字段，这里显式收窄 SELECT 列，把内存峰值降一个量级。
+	 */
+	PaginationResponse<AnswerView> listAnswerForStat(AnswerQuery filter);
+
 	AnswerView getAnswer(AnswerQuery query);
 
 	AnswerView getAnswerWithPermission(AnswerQuery query);

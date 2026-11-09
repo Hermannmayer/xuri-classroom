@@ -1,4 +1,5 @@
 import { Fragment, useMemo, type CSSProperties, type ReactNode } from 'react';
+import DOMPurify from 'dompurify';
 import { flattenSchema } from '../schema/flatten';
 import { DATA_TYPES, type SurveySchema } from '../schema/types';
 import { getQuestionComponent } from './registry';
@@ -81,13 +82,14 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
             </section>
           );
         case 'Remark':
-          // 富文本由问卷设计者编写，与旧版一致直出 HTML；若日后接入用户可写来源，需要先消毒
+          // 富文本由问卷设计者编写。设计者本身是「可编辑问卷的人」（老师即可），
+          // 所以这里不是「未来才需要消毒」：不消毒等于任何老师都能在所有答题学员的浏览器里执行脚本。
           return node.attribute?.content ? (
             <div
               key={node.id}
               style={styles.remark}
               data-node-id={node.id}
-              dangerouslySetInnerHTML={{ __html: node.attribute.content }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(node.attribute.content) }}
             />
           ) : null;
         case 'SplitLine':

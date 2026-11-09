@@ -55,3 +55,4 @@
 - `scripts/nas/migrate/21-question-read-permission.sql`
 - `scripts/nas/migrate/22-admin-no-exercise.sql`
 - `scripts/nas/migrate/23-permission-cleanup.sql`
+- `scripts/nas/migrate/24-answer-indexes.sql`

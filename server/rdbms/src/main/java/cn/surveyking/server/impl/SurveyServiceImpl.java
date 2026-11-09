@@ -343,7 +343,8 @@ public class SurveyServiceImpl implements SurveyService {
 		AnswerQuery answerQuery = new AnswerQuery();
 		answerQuery.setProjectId(query.getId());
 		answerQuery.setPageSize(-1);
-		List<AnswerView> answers = answerService.listAnswer(answerQuery).getList();
+		// 统计不需要整卷快照，走收窄列的查询，避免把每份答卷的 survey（整卷 JSON）读进堆
+		List<AnswerView> answers = answerService.listAnswerForStat(answerQuery).getList();
 		ProjectView project = projectService.getProject(query.getId());
 		return new ProjectStatHelper(project.getSurvey(), answers).stat();
 	}

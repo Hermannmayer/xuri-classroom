@@ -117,6 +117,26 @@ $remotes = git remote
 if ($remotes -notcontains 'nas') { Die "没有名为 nas 的远端。先执行：git remote add nas ssh://$NasUser@$NasHost/vol2/1000/xuri/src/repo.git" }
 Ok "仓库 $repoRoot，分支 main，远端 nas 就绪"
 
+# ------ 0.5 前端类型检查
+# 生产构建走 web-watch 的 vite build --watch，它不跑 tsc；类型错误会直接上线。
+# 只在本次确实改了 client/** 时才跑，避免每次发布都多等十几秒。
+if (-not $ReloadOnly) {
+    $clientDirty = @(git status --porcelain -- client).Count -gt 0
+    if ($clientDirty -and (Test-Path (Join-Path $repoRoot "client/node_modules"))) {
+        Say "0.5/6 前端类型检查"
+        Push-Location (Join-Path $repoRoot "client")
+        try {
+            npm run check
+            if ($LASTEXITCODE -ne 0) { Die "前端类型检查没通过（npm run check），已中止发布。" }
+        }
+        finally { Pop-Location }
+        Ok "类型检查通过"
+    }
+    elseif ($clientDirty) {
+        Warn "client/node_modules 不存在，跳过类型检查（先 cd client && npm install）"
+    }
+}
+
 if (-not $ReloadOnly) {
     # ------------------------------------------------------------ 1. 提交
     Say '1/6 本地提交'

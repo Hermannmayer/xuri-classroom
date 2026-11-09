@@ -145,6 +145,7 @@ verified_against: '765fc89'
 
 ## 坑与已知限制
 
+- **导出并发受限、统计不读整卷快照**：导出走 `EXPORT_POOL`（2 并发 + 队列 4，队满返回中文错误而不是把 JVM 拖死）；统计走 `listAnswerForStat`，只 SELECT `answer` 等必要列，不再把每份答卷的整卷 `survey`（100 题约 30~80KB）读进堆。给 `listAnswer` 加字段时注意：不要把 `survey` 加回统计路径，否则单场 500 份的统计会重新变成几百 MB 的临时对象。
 - **报表可能把随机卷快照算进总数**：`ReportServiceImpl.getData` 按 `project_id` 取全部 `t_answer`，不过滤 `answer IS NULL`。`RandomSurveyProcessor` 创建随机卷快照时会先写一条没有 `answer` 的答卷（`saveAnswer` 会把 `tempSave` 默认成 1），因此报表总数和逐题统计可能包含这些空记录；`parseAnswer` 对 null `answer` 也没有防御，极端情况下会 500。项目列表的 `total` 也按 `temp_save=1` 计数，同样会把快照算进去。
 - **数据页全量进内存**：`Data.tsx` 固定 `pageSize=-1`，筛选/排序/分页都在前端。答卷上万条后首屏会明显变慢，需要改成服务端分页 + 服务端排序。
 - **彻底删除不清理附件**：`batchDestroyAnswer` 只执行 `DELETE FROM t_answer`，没有看到删除 `t_file` 或物理附件的代码；回收站提示"附件也会一起清掉"与当前实现不完全一致，需另行确认/补清理任务。

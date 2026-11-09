@@ -55,7 +55,8 @@ CREATE TABLE `t_answer` (
   `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
-  KEY `key_answer_pid` (`project_id`) USING BTREE
+  KEY `key_answer_pid` (`project_id`) USING BTREE,
+  KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
 
 -- ----------------------------
