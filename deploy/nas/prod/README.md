@@ -1,6 +1,6 @@
 # 旭日云课堂 · NAS 生产 runbook（备份 / 演练 / 切换 / 回滚）
 
-> 适用机器：`192.168.0.2`（飞牛 fnOS，x86_64，Ryzen 3 2200G 4C/4T，8GB）
+> 适用机器：`<nas-host>`（飞牛 fnOS，x86_64，Ryzen 3 2200G 4C/4T，8GB）
 > 本目录里的 compose **不是**当前生产，是「定制分支上生产」时要切过去的目标态。
 
 ---
@@ -14,7 +14,7 @@
 | 镜像 | `surveyking/surveyking:latest`（上游 v1.13.2） | `xuri-classroom`（app）+ `xuri-classroom-web`（web）+ `mysql:8.0` |
 | 数据库 | **H2 单文件库**（`PROFILE=h2`，容器内 `/app/db`） | **MySQL 8**（容器内 `/var/lib/mysql`） |
 | 对外端口 | 宿主机 **201** → 容器 1991 | 宿主机 **201** → nginx 80 → app 7007 |
-| 数据位置 | 全部 bind mount 到 `/vol2/1000/surveyking/{db,files,config,logs}` | bind mount 到 `/vol2/1000/xuri/prod/{mysql,files}` |
+| 数据位置 | 全部 bind mount 到 `<legacy-data-root>/{db,files,config,logs}` | bind mount 到 `<data-root>/prod/{mysql,files}` |
 | 备份工具 | `scripts/nas/backup.sh`（停机拷 H2 + 附件） | `scripts/deploy/backup.sh`（进 db 容器 mysqldump） |
 
 三条必须记住的事实（都已在仓库/机器上核实过）：
@@ -35,16 +35,16 @@
 sudo CONFIRM=yes bash scripts/nas/backup.sh
 
 # 保留 14 份（默认）、自定义目录
-sudo CONFIRM=yes bash scripts/nas/backup.sh --retention 14 --output /vol2/1000/xuri/backup
+sudo CONFIRM=yes bash scripts/nas/backup.sh --retention 14 --output <data-root>/backup
 
 # 想先看它打算干什么（不动生产）
 bash scripts/nas/backup.sh --dry-run
 
 # 无人值守（cron）：把确认写进 cron 行
-# 0 3 * * *  cd <仓库所在绝对路径> && CONFIRM=yes bash scripts/nas/backup.sh --yes >> /vol2/1000/xuri/backup/cron.log 2>&1
+# 0 3 * * *  cd <仓库所在绝对路径> && CONFIRM=yes bash scripts/nas/backup.sh --yes >> <data-root>/backup/cron.log 2>&1
 ```
 
-产物（`/vol2/1000/xuri/backup/`）：
+产物（`<data-root>/backup/`）：
 
 ```
 backup_20261107-134229.tar.gz            # 归档
@@ -56,7 +56,7 @@ backup_20261107-134229.tar.gz.manifest.txt
 核对：
 
 ```bash
-cd /vol2/1000/xuri/backup && sha256sum -c backup_20261107-134229.tar.gz.sha256
+cd <data-root>/backup && sha256sum -c backup_20261107-134229.tar.gz.sha256
 mkdir -p /tmp/chk && tar -xzf backup_20261107-134229.tar.gz -C /tmp/chk
 cd /tmp/chk && sha256sum -c SHA256SUMS
 ```
@@ -84,12 +84,12 @@ H2 单文件库在**应用进程持有文件锁**期间一直有内存里未落�
 演练的目的只有一个：**证明这份备份真能打开、数据真在里面**。别在生产 `db` 目录上试。
 
 ```bash
-# 1) 建演练目录（不要放在生产的 /vol2/1000/surveyking 下面）
-DRILL=/vol2/1000/xuri/drill/20261107
+# 1) 建演练目录（不要放在生产的 <legacy-data-root> 下面）
+DRILL=<data-root>/drill/20261107
 mkdir -p "$DRILL" && cd "$DRILL"
 
 # 2) 解包 + 校验
-tar -xzf /vol2/1000/xuri/backup/backup_20261107-134229.tar.gz -C .
+tar -xzf <data-root>/backup/backup_20261107-134229.tar.gz -C .
 sha256sum -c SHA256SUMS
 
 # 3) 把 db.tar.gz 展开成一份独立的 H2 目录
@@ -102,7 +102,7 @@ docker run -d --name h2-drill -p 1201:1991 \
   -v "$DRILL/restore-db/db:/app/db" \
   surveyking/surveyking:latest
 
-# 5) 等 30 秒再访问 http://192.168.0.2:1201
+# 5) 等 30 秒再访问 http://<nas-host>:1201
 #    要用 admin 登录、翻题库/项目、看一眼最近答卷、下载一个附件
 #    —— 数据库能起来只证明「文件没坏」，数据对不对必须人眼抽查
 
@@ -139,8 +139,8 @@ docker stop h2-drill && docker rm h2-drill
 ### 3.2 准备目录与密钥
 
 ```bash
-sudo mkdir -p /vol2/1000/xuri/prod/{mysql,files}
-sudo chmod 750 /vol2/1000/xuri/prod
+sudo mkdir -p <data-root>/prod/{mysql,files}
+sudo chmod 750 <data-root>/prod
 cd <仓库>/deploy/nas/prod
 cp .env.example .env
 vi .env          # 必填 DB_PASSWORD、SK_CRYPTO_KEY；建议 JWT_SECRET 也填
@@ -164,7 +164,7 @@ set -a; . ./.env; set +a
 docker compose pull db
 
 # 2) 确认数据目录是空的（第一次切换必须为空）
-ls -A /vol2/1000/xuri/prod/mysql      # 应该没有任何输出
+ls -A <data-root>/prod/mysql      # 应该没有任何输出
 
 # 3) 只起 db，等 healthy
 docker compose up -d db
@@ -224,13 +224,13 @@ docker compose exec -T -e MYSQL_PWD="$DB_PASSWORD" db \
   mysql -uroot -N -B surveyking -e "SELECT COUNT(*) FROM <表名>;"
 
 # 附件：数量 + 总字节数（这两个数字最容易被忽略，但用户最先发现）
-find /vol2/1000/surveyking/files -type f | wc -l        # 旧
-find /vol2/1000/xuri/prod/files  -type f | wc -l        # 新
-du -sb /vol2/1000/surveyking/files
-du -sb /vol2/1000/xuri/prod/files
+find <legacy-data-root>/files -type f | wc -l        # 旧
+find <data-root>/prod/files  -type f | wc -l        # 新
+du -sb <legacy-data-root>/files
+du -sb <data-root>/prod/files
 ```
 
-对不上就别急着宣布切换成功——**旧数据目录 `/vol2/1000/surveyking` 在观察期内一律不动**。
+对不上就别急着宣布切换成功——**旧数据目录 `<legacy-data-root>` 在观察期内一律不动**。
 
 ---
 
@@ -260,16 +260,16 @@ docker start surveyking
 docker ps --filter name=surveyking
 curl -fsS http://127.0.0.1:201/api/system
 
-# 3) 旧库数据如果被改过（理论上不会），按第 2 节用备份覆盖 /vol2/1000/surveyking/db
+# 3) 旧库数据如果被改过（理论上不会），按第 2 节用备份覆盖 <legacy-data-root>/db
 ```
 
-> 全流程**禁止**：`docker compose down -v`、`docker rm -v`、`rm -rf /vol2/1000/surveyking`。
+> 全流程**禁止**：`docker compose down -v`、`docker rm -v`、`rm -rf <legacy-data-root>`。
 > 这几种命令会连数据一起带走，而这个系统没有别的地方留着那份数据。
 
 ### 4.3 回滚之后
 
 - 把失败的 app 日志（`docker compose logs --tail=200 app`）和这次 `--image` 的 tag 记录下来；
-- 目标栈的 MySQL 数据目录 `/vol2/1000/xuri/prod/mysql` **留着**：它可能是排查现场，
+- 目标栈的 MySQL 数据目录 `<data-root>/prod/mysql` **留着**：它可能是排查现场，
   也可能是你唯一一次迁移的结果；确认不再需要之后再人工清理。
 
 ---
@@ -300,7 +300,7 @@ WHERE status = 1
 
 ```bash
 # 先把查询在只读副本/演练库上跑通，确认字段路径与时间格式
-CONFIRM=yes bash scripts/nas/preflight.sh --exam-sql /vol2/1000/xuri/exam-check.sql
+CONFIRM=yes bash scripts/nas/preflight.sh --exam-sql <data-root>/exam-check.sql
 ```
 
 任何情况下，**教师正在收卷的时间点不要发版**；预约考试的空档、午休、晚上更安全。
@@ -316,7 +316,7 @@ CONFIRM=yes bash scripts/nas/preflight.sh --exam-sql /vol2/1000/xuri/exam-check.
 | `SK_CRYPTO_KEY` | 无（compose 必填） | **当前未实现加密**：Java 里零引用，仅占位；填随机值不影响数据 |
 | `JWT_SECRET` | 空 | JWT 签名密钥；不填则每次重启所有人掉线 |
 | `APP_PORT` | `201` | 宿主机对外端口（沿用学校现端口） |
-| `XURI_DATA_DIR` | `/vol2/1000/xuri/prod` | 数据根目录（`mysql/`、`files/` 落在它下面） |
+| `XURI_DATA_DIR` | `<data-root>/prod` | 数据根目录（`mysql/`、`files/` 落在它下面） |
 | `XURI_APP_IMAGE` | `xuri-classroom:latest` | app 镜像（`release.sh` 会覆盖） |
 | `XURI_WEB_IMAGE` | `xuri-classroom-web:latest` | web 镜像（`release.sh` 会覆盖） |
 | `JAVA_OPTS` | `-Xmx768m` | JVM 上限；同时写入 `JAVA_OPTS` 与 `JAVA_TOOL_OPTIONS` |
@@ -338,7 +338,7 @@ CONFIRM=yes bash scripts/nas/preflight.sh --exam-sql /vol2/1000/xuri/exam-check.
 其余：
 
 - [ ] `SK_CRYPTO_KEY` / `JWT_SECRET` / `DB_PASSWORD` 已存进密码管理器（不是只存在 NAS 上）
-- [ ] 飞牛的「文件夹备份 / 快照」已覆盖 `/vol2/1000/xuri/prod` 与 `/vol2/1000/surveyking`
+- [ ] 飞牛的「文件夹备份 / 快照」已覆盖 `<data-root>/prod` 与 `<legacy-data-root>`
 - [ ] 备份 cron 已配（第 1 节），且 `preflight.sh` 能读到 24h 内的新备份
 - [ ] NAS 磁盘剩余 > 5GB（`preflight.sh` 会卡这条）
 - [ ] 演练环境（另起端口，如 1201）在切换后保留 1–2 周，别急着删

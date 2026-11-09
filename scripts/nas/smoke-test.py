@@ -15,7 +15,7 @@
 用法：
   python scripts/nas/smoke-test.py
   python scripts/nas/smoke-test.py --base http://192.168.0.2:201
-  python scripts/nas/smoke-test.py --base https://ks.1618030.xyz:200   # 连公网一起验
+  python scripts/nas/smoke-test.py --base https://<public-host>   # 连公网一起验
   python scripts/nas/smoke-test.py --user admin --password 123456 --expect-name 旭日
 """
 import argparse

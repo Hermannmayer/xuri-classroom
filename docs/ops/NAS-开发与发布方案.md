@@ -1,6 +1,6 @@
 # 在飞牛 NAS 上继续开发这套系统：迁移与发布方案
 
-> 适用对象：192.168.0.2（飞牛 fnOS，x86_64）这台学校在用的 NAS。
+> 适用对象：<nas-host>（飞牛 fnOS，x86_64）这台学校在用的 NAS。
 > 目标：开发、构建、联调全部搬到 NAS 上，同时**不破坏**正在使用的考试系统，也**不影响**飞牛 OS 后续升级。
 
 ---
@@ -39,7 +39,7 @@
 | 运行参数 | `PROFILE=h2`、`SERVER_PORT=1991`、`JAVA_OPTS=-Xms256M`（**没有 `-Xmx`**） |
 | 对外端口 | 宿主机 **201** → 容器 1991 |
 | 内存占用 | 实测约 730MB |
-| 数据挂载 | 全部 bind mount：`/vol2/1000/surveyking/{db,files,config,logs}` |
+| 数据挂载 | 全部 bind mount：`<legacy-data-root>/{db,files,config,logs}` |
 | 数据库 | H2 单文件库：`db/surveyking.mv.db`，**47.9MB**（另有 `surveyking.trace.db` 8.8KB，说明跑出过错） |
 | 资源限制 | 无 CPU/内存上限；日志 json-file 100MB × 5 |
 | 站点信息 | 名称「威海市旭日职业培训学校」，API `/api/system` 返回 200，`dbInitialized: true` |
@@ -64,18 +64,18 @@
 一台 8GB 的机器上，用 **Compose 项目名 + 端口 + 数据目录** 三重隔离，分四个栈：
 
 ```
-                         ┌───────────────── NAS 192.168.0.2 ─────────────────┐
+                         ┌───────────────── NAS <nas-host> ─────────────────┐
   学校师生 ──:201──────▶ │ surveyking（现状，上游 v1.13.2 + H2）              │
-                         │   /vol2/1000/surveyking/{db,files,...}            │
+                         │   <legacy-data-root>/{db,files,...}            │
                          │                                                    │
   你自己 ──:19080─────▶ │ xuri-dev（devbox + MySQL8）  ← VS Code Remote-SSH  │
-                         │   /vol2/1000/xuri/src  (代码)                      │
+                         │   <data-root>/src  (代码)                      │
                          │                                                    │
   验收/老师试用 ─:202─▶ │ xuri-staging（定制分支 + 真数据副本）              │
-                         │   /vol2/1000/xuri/staging/{mysql,files}            │
+                         │   <data-root>/staging/{mysql,files}            │
                          │                                                    │
   切换后 ────────────▶ │ xuri-prod（定制分支，接管 201）                    │
-                         │   /vol2/1000/xuri/prod/{mysql,files}               │
+                         │   <data-root>/prod/{mysql,files}               │
                          └────────────────────────────────────────────────────┘
 ```
 
@@ -96,7 +96,7 @@
 **目录规划**（全部放 `/vol2`，不占系统盘）：
 
 ```
-/vol2/1000/xuri/
+<data-root>/
 ├── src/            # 代码仓库（devbox 挂载为 /workspace）
 ├── backup/         # 备份包 + manifest + sha256
 ├── dev/            # 开发环境（compose、.env）
@@ -119,10 +119,10 @@
 - **推荐：在 NAS 上建裸仓库，Windows 直接 push 过去。**
   ```bash
   # NAS 上
-  mkdir -p /vol2/1000/xuri/src && cd /vol2/1000/xuri/src
+  mkdir -p <data-root>/src && cd <data-root>/src
   git init --bare xuri-classroom.git
   # Windows 上
-  git remote add nas ssh://<你的账号>@192.168.0.2/vol2/1000/xuri/src/xuri-classroom.git
+  git remote add nas ssh://<你的账号>@<nas-host><data-root>/src/xuri-classroom.git
   git push nas main
   ```
   好处：不依赖 GitHub/Gitee 连通性，历史完整，NAS 上再 `git clone` 出工作副本给 devbox 挂载。
@@ -148,7 +148,7 @@ bash deploy/nas/dev/bootstrap.sh
 
 ### 3.3 VS Code 怎么连
 
-1. Windows 上装 **Remote - SSH** 扩展，连 `192.168.0.2`（实测 22 端口已开启；用你的飞牛账号或预置公钥登录，别用密码爆破式的脚本）。
+1. Windows 上装 **Remote - SSH** 扩展，连 `<nas-host>`（实测 22 端口已开启；用你的飞牛账号或预置公钥登录，别用密码爆破式的脚本）。
 2. 连上后用 **Dev Containers: Attach to Running Container** → 选 `xuri-dev-devbox-1`。
 3. 打开 `/workspace`，此时编辑器、终端、构建全在 NAS 容器内，文件在 `/vol2` 上——**单一代码源，Windows 上不再留第二份正在改的代码**。
 
@@ -163,7 +163,7 @@ java -jar api/build/libs/*.jar --server.port=7007 --spring.profiles.active=dev
 
 # 前端（容器内，另开一个终端）
 cd /workspace/client && npm ci && npm run dev
-# 浏览器打开 http://192.168.0.2:19080
+# 浏览器打开 http://<nas-host>:19080
 ```
 
 注意：`client/vite.config.ts` 里 dev server **写死 80 端口且 `strictPort: true`**，所以只能靠容器内 80 → 宿主 19080 的映射来换端口；别想着改宿主机 80。
@@ -191,13 +191,13 @@ cd /workspace/client && npm ci && npm run dev
 - **H2 不能热拷。** 运行中直接 `cp surveyking.mv.db` 可能拿到损坏文件（MVStore 有写缓冲）。正确做法二选一：
   1. 停容器 → 拷 `db/` → 起容器（约 10–20 秒不可用，建议 21:00 后）；
   2. 在线备份：`docker exec` 进容器用 H2 的 `BACKUP TO`（需要 H2 工具类，见 §5）。
-- 附件目录 `/vol2/1000/surveyking/files` 和 `db` **必须在同一个时间点**取，否则会出现"答卷里有附件 id、文件里没有文件"的不一致。
+- 附件目录 `<legacy-data-root>/files` 和 `db` **必须在同一个时间点**取，否则会出现"答卷里有附件 id、文件里没有文件"的不一致。
 
 对应脚本：`scripts/nas/backup.sh`（见本仓库新增）。
 
 ### 4.2 演练环境
 
-`deploy/nas/prod/docker-compose.yml` 可以当模板，把端口改 202、数据目录改 `/vol2/1000/xuri/staging`，就是 staging。
+`deploy/nas/prod/docker-compose.yml` 可以当模板，把端口改 202、数据目录改 `<data-root>/staging`，就是 staging。
 
 验收清单（每次改动都跑一遍）：
 
@@ -244,7 +244,7 @@ cd /workspace/client && npm ci && npm run dev
 
 **并且飞牛是"存算分离"的**：系统分区和存储池是两个东西，**系统升级/重装只覆盖系统分区，存储池里的数据完整保留**（这一点在飞牛官方 2026 年 2 月的安全事件处置说明里被明确写出来：「重装过程仅覆盖系统分区，原有存储池中的全部数据将完整保留」）。参见：<https://m.zol.com.cn/article/11294221.html>。
 
-这条对我们的方案是决定性的：**代码放 `/vol2`（存储池），工具链放容器（镜像层也在存储池的 Docker 数据目录里），系统层一点不碰**。哪怕最坏情况要重装飞牛系统，`/vol2/1000/xuri` 里的代码和备份都还在，重建 devbox 只需要重新 `docker compose up -d --build`。
+这条对我们的方案是决定性的：**代码放 `/vol2`（存储池），工具链放容器（镜像层也在存储池的 Docker 数据目录里），系统层一点不碰**。哪怕最坏情况要重装飞牛系统，`<data-root>` 里的代码和备份都还在，重建 devbox 只需要重新 `docker compose up -d --build`。
 
 所以判断标准很简单：**你改的东西如果进了系统分区/系统包/系统服务，就有风险；只在 Docker 和数据卷里，就没风险。**
 
@@ -314,7 +314,7 @@ ss -lntp | grep -E ':(201|202|19080|17007|13306|13307)\b'
 
 ## 9. 本方案的验收标准
 
-- [ ] 开发环境：Windows 上不改代码，全部改动发生在 `/vol2/1000/xuri/src`，VS Code 连着 NAS 容器
+- [ ] 开发环境：Windows 上不改代码，全部改动发生在 `<data-root>/src`，VS Code 连着 NAS 容器
 - [ ] 隔离：`docker ps` 里 `surveyking` 与 `xuri-dev-*` 同时存在，互不影响；201 端口始终是学校在用的那套
 - [ ] 可回滚：任意一次发布都能在 5 分钟内回退到上一版本
 - [ ] 可恢复：备份包能在一台干净机器上还原出可用系统（每学期演练一次）
@@ -390,17 +390,17 @@ docker logs -f xuri-live-web-watch
 #   实测：touch 后 ~9 秒出 built in xxx ms，刷新页面即生效
 
 # 改后端：一条命令（增量编译 19 秒 + 重启到就绪 10 秒）
-bash /vol2/1000/xuri/src/work/scripts/nas/live-reload.sh
+bash <data-root>/src/work/scripts/nas/live-reload.sh
 
 # 看状态 / 日志
-cd /vol2/1000/xuri/src/work/deploy/nas/live && docker compose ps
+cd <data-root>/src/work/deploy/nas/live && docker compose ps
 docker compose logs --tail=80 app
 ```
 
 ### 11.4 代码怎么同步（这台机器上只有一份代码）
 
-- Windows 上：`git push nas main`（远端已配好 `ssh://Home@192.168.0.2/vol2/1000/xuri/src/repo.git`）
-- NAS 上：`cd /vol2/1000/xuri/src/work && git pull`
-- **不要**在两边各改一份：NAS 上的 `/vol2/1000/xuri/src/work` 是运行中的工作副本，Windows 那份只当编辑源。
+- Windows 上：`git push nas main`（远端已配好 `ssh://<user>@<nas-host><data-root>/src/repo.git`）
+- NAS 上：`cd <data-root>/src/work && git pull`
+- **不要**在两边各改一份：NAS 上的 `<data-root>/src/work` 是运行中的工作副本，Windows 那份只当编辑源。
 
 

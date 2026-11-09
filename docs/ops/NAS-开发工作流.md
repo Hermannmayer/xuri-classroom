@@ -10,9 +10,9 @@
 | 角色 | 在哪 | 干什么 |
 |---|---|---|
 | 编辑区 | Windows 上的这个仓库 | 改代码、跑 git、发起发布 |
-| 同步中枢 | NAS `/vol2/1000/xuri/src/repo.git`（裸仓库） | 只是中转，不检出工作区 |
-| 运行区 | NAS `/vol2/1000/xuri/src/work` | **线上跑的就是这份**，由脚本 `reset --hard` 对齐 |
-| 数据区 | NAS `/vol2/1000/xuri/live/` | MySQL 数据、附件、编译产物 app.jar |
+| 同步中枢 | NAS `<data-root>/src/repo.git`（裸仓库） | 只是中转，不检出工作区 |
+| 运行区 | NAS `<data-root>/src/work` | **线上跑的就是这份**，由脚本 `reset --hard` 对齐 |
+| 数据区 | NAS `<data-root>/live/` | MySQL 数据、附件、编译产物 app.jar |
 
 ```
 ┌──────────── Windows ────────────┐        ┌─────────────────── NAS ───────────────────┐
@@ -71,7 +71,7 @@
 
 ```powershell
 python scripts/nas/smoke-test.py                              # 内网
-python scripts/nas/smoke-test.py --base https://ks.1618030.xyz:200  # 连公网入口一起
+python scripts/nas/smoke-test.py --base https://<public-host>  # 连公网入口一起
 ```
 
 五项检查（全过才算数）：
@@ -95,7 +95,7 @@ python scripts/nas/smoke-test.py --base https://ks.1618030.xyz:200  # 连公网�
 | 后端 500 | 看日志里的 `Caused by` | `docker logs --tail=100 xuri-live-app` |
 | 500 且提到 SQL 列不存在 | schema 漂移（开发库手工改过、`init-mysql.sql` 没同步） | 对比实体类与 `init-mysql.sql` |
 | app 起不来，`SSLHandshakeException` | 连接串丢了 `useSSL=false` | 看 compose 的 `SPRING_DATASOURCE_URL` |
-| db 容器反复重启 | 数据目录属主不是 999 | `sudo chown -R 999:999 /vol2/1000/xuri/live/mysql` |
+| db 容器反复重启 | 数据目录属主不是 999 | `sudo chown -R 999:999 <data-root>/live/mysql` |
 | 拉镜像超时 | Docker Hub 不通 | `docker pull docker.m.daocloud.io/library/<img>` 再 `docker tag` |
 | 冒烟第 4 项失败 | 密码不是 123456，或账号被禁用 | 用浏览器登一次确认 |
 | 构建脚本报 `$'\r'` | 脚本被 Windows 改成 CRLF | `sed -i 's/\r$//' 脚本`，并给 `.gitattributes` 补 `*.sh text eol=lf` |
@@ -110,12 +110,12 @@ python scripts/nas/smoke-test.py --base https://ks.1618030.xyz:200  # 连公网�
 | 模式 | 适合谁 | 怎么做 |
 |---|---|---|
 | **A. 本地编辑（默认）** | 主力在这台 Windows 上改 | 改 → `Deploy-Nas.ps1 -Message "..."` |
-| **B. 直接改 NAS** | 想省掉"推送"这一步、或临时在别的机器上改 | VS Code Remote-SSH → `/vol2/1000/xuri/src/work` 直接改 → **commit + push 回裸仓库** |
+| **B. 直接改 NAS** | 想省掉"推送"这一步、或临时在别的机器上改 | VS Code Remote-SSH → `<data-root>/src/work` 直接改 → **commit + push 回裸仓库** |
 
 模式 B 的完整回路：
 
 ```bash
-cd /vol2/1000/xuri/src/work
+cd <data-root>/src/work
 git add -A && git commit -m "改了什么" && git push origin main
 bash scripts/nas/live-reload.sh     # 只有后端改动需要；前端 web-watch 自动重建
 ```
@@ -135,7 +135,7 @@ git pull nas main
 | 谁在跑 | 容器 `xuri-live-backup`（compose 里的 `backup` 服务，`restart: unless-stopped`） |
 | 频率 | 每 6 小时一次 |
 | 保留 | 最近 28 份（≈7 天） |
-| 落盘 | `/vol2/1000/xuri/backup/db_*.sql.gz`、`files_*.tar.gz`、`manifest_*.txt` |
+| 落盘 | `<data-root>/backup/db_*.sql.gz`、`files_*.tar.gz`、`manifest_*.txt` |
 | 内容 | `mysqldump --single-transaction`（不锁表）+ 附件 tar + sha256 + manifest（表数/大小/哈希） |
 | 手动跑 | `docker exec xuri-live-backup sh /opt/backup/backup-live.sh` |
 | 恢复 | `gunzip < db_*.sql.gz \| docker compose exec -T db mysql -uroot -p"$DB_PASSWORD" surveyking` |
@@ -153,12 +153,12 @@ git revert <坏提交>
 .\scripts\nas\Deploy-Nas.ps1
 
 # 整体退回旧系统（迁移前的上游版本，数据原封不动）
-cd /vol2/1000/xuri/src/work/deploy/nas/live
+cd <data-root>/src/work/deploy/nas/live
 docker compose stop web      # 让出 201
 docker start surveyking
 ```
 
-旧容器 `surveyking` 和它的 `/vol2/1000/surveyking/` 数据是最后的底牌，**不要删**。
+旧容器 `surveyking` 和它的 `<legacy-data-root>/` 数据是最后的底牌，**不要删**。
 
 ---
 

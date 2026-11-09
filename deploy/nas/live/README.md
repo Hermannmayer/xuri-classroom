@@ -7,7 +7,7 @@
 
 | 容器 | 作用 | 端口 |
 |---|---|---|
-| `xuri-live-db` | MySQL 8，数据在 `/vol2/1000/xuri/live/mysql` | 内网 3306 |
+| `xuri-live-db` | MySQL 8，数据在 `<data-root>/live/mysql` | 内网 3306 |
 | `xuri-live-app` | Spring Boot 后端，跑 bind mount 进来的 `app.jar` | 内网 7007 |
 | `xuri-live-web` | nginx，托管前端产物 + 反代 `/api` | **201**（+1201 调试） |
 | `xuri-live-web-watch` | 常驻 `vite build --watch`，产物写进共享卷 | — |
@@ -15,7 +15,7 @@
 ## 日常操作
 
 ```bash
-cd /vol2/1000/xuri/src/work/deploy/nas/live
+cd <data-root>/src/work/deploy/nas/live
 
 # 改前端：不用做任何事，保存后看这行日志出现 "built in xxx ms" 就刷新页面
 docker logs -f xuri-live-web-watch
@@ -32,9 +32,9 @@ docker compose restart app
 ## 回滚到旧系统（考试出问题时）
 
 ```bash
-cd /vol2/1000/xuri/src/work/deploy/nas/live
+cd <data-root>/src/work/deploy/nas/live
 docker compose stop web            # 让出 201
-docker start surveyking            # 旧容器：数据还是 /vol2/1000/surveyking，一个字节没动
+docker start surveyking            # 旧容器：数据还是 <legacy-data-root>，一个字节没动
 ```
 
 ## 已知约束

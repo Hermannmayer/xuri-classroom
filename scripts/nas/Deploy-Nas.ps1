@@ -356,7 +356,7 @@ Test-Smoke
 Say '完成'
 Write-Host @"
   线上：$BaseUrl
-  公网：https://ks.1618030.xyz:200
+  公网：https://<public-host>
   回滚：git revert <commit> 后再跑一次本脚本；或
         cd $RemoteRepo/$ComposeDir && docker compose stop web && docker start surveyking
 "@ -ForegroundColor DarkGray

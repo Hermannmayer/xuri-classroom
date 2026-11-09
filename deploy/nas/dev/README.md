@@ -1,22 +1,22 @@
 # 旭日云课堂 · 飞牛 NAS 开发环境
 
-在飞牛 fnOS（主机 `192.168.0.2`）上用 **容器** 跑一套完整的开发环境：JDK 8 + Node 20 + Gradle 7.6 全部装在镜像里，**宿主机上一件东西都不用装**。
+在飞牛 fnOS（主机 `<nas-host>`）上用 **容器** 跑一套完整的开发环境：JDK 8 + Node 20 + Gradle 7.6 全部装在镜像里，**宿主机上一件东西都不用装**。
 
 这样做的目的只有一个：**飞牛系统升级/重装不会破坏任何开发工具链**，同时**生产考试系统不受任何影响**。
 
-> 生产环境（容器 `surveyking`，宿主机 `201` 端口，H2 库，数据在 `/vol2/1000/surveyking/`）与本目录**完全隔离**：不同容器名、不同项目名、不同网络、不同数据卷、不同端口段。本目录不含任何往生产目录写数据的逻辑。
+> 生产环境（容器 `surveyking`，宿主机 `201` 端口，H2 库，数据在 `<legacy-data-root>/`）与本目录**完全隔离**：不同容器名、不同项目名、不同网络、不同数据卷、不同端口段。本目录不含任何往生产目录写数据的逻辑。
 
 ---
 
 ## TL;DR：三条命令
 
 ```bash
-# 1) 仓库已经在 /vol2/1000/xuri/src（没有就 git clone 过去）
-cd /vol2/1000/xuri/src
+# 1) 仓库已经在 <data-root>/src（没有就 git clone 过去）
+cd <data-root>/src
 bash deploy/nas/dev/bootstrap.sh          # 首次约 5-15 分钟（拉镜像、装工具链）
 # 2) 进容器
 docker compose -f deploy/nas/dev/docker-compose.yml exec devbox bash
-# 3) 浏览器打开 http://192.168.0.2:19080
+# 3) 浏览器打开 http://<nas-host>:19080
 ```
 
 在 NAS 上执行 `./bootstrap.sh` 若报 `Permission denied`（Windows 下 clone 过来的文件没有执行位），用 `bash bootstrap.sh`，或者 `chmod +x bootstrap.sh` 一次即可。
@@ -46,8 +46,8 @@ docker compose -f deploy/nas/dev/docker-compose.yml exec devbox bash
 | 前端 dev server | `19080`（`DEV_WEB_PORT`） | **`80`** | Vite 在 `client/vite.config.ts` 里固定 `port: 80` + `strictPort: true`，容器内改不了，只能改宿主机这一侧 |
 | 后端 Spring Boot | `17007`（`DEV_BACKEND_PORT`） | **`7007`** | 只用于 curl/Postman 直连；浏览器走 Vite 同源代理，不需要它 |
 | 开发 MySQL | `13306`（`DEV_DB_PORT`） | **`3306`** | 库名 `surveyking`，用户 `root`，密码见 `.env` |
-| 源码目录 | `/vol2/1000/xuri/src`（`DEV_SRC`） | `/workspace` | bind mount，两边实时同步 |
-| 备份目录 | `/vol2/1000/xuri/backup` | — | `bootstrap.sh` 会创建；本目录不写入（留给你手工备份用） |
+| 源码目录 | `<data-root>/src`（`DEV_SRC`） | `/workspace` | bind mount，两边实时同步 |
+| 备份目录 | `<data-root>/backup` | — | `bootstrap.sh` 会创建；本目录不写入（留给你手工备份用） |
 
 **宿主机 `80` 端口是飞牛 Web 管理界面在用的，绝对不要映射。** `bootstrap.sh` 会显式检查并直接拒绝 `DEV_WEB_PORT=80`。
 
@@ -78,12 +78,12 @@ docker compose -f deploy/nas/dev/docker-compose.yml exec devbox bash
 
 ```bash
 # 0) 仓库放到数据盘（不要放 128GB 系统盘）
-sudo mkdir -p /vol2/1000/xuri
-sudo chown -R 1000:1000 /vol2/1000/xuri
-git clone <仓库地址> /vol2/1000/xuri/src
+sudo mkdir -p <data-root>
+sudo chown -R 1000:1000 <data-root>
+git clone <仓库地址> <data-root>/src
 
 # 1) （可选）改端口/密码
-cd /vol2/1000/xuri/src/deploy/nas/dev
+cd <data-root>/src/deploy/nas/dev
 cp .env.example .env && vi .env      # 不改也行，默认值能直接跑
 
 # 2) 一键引导（幂等，可重复执行）
@@ -95,7 +95,7 @@ bash bootstrap.sh
 1. 没有 `.env` 就从 `.env.example` 生成；校验端口是整数、源码路径是绝对路径、CRLF 换行
 2. `docker info` / `docker compose version`（要求 **Compose v2**：`docker compose`，中间是空格）
 3. `docker compose config -q` 预检 compose 语法
-4. 创建 `/vol2/1000/xuri/src`、`/vol2/1000/xuri/backup`；确认 `server/rdbms/src/main/resources/scripts/init-mysql.sql` 存在
+4. 创建 `<data-root>/src`、`<data-root>/backup`；确认 `server/rdbms/src/main/resources/scripts/init-mysql.sql` 存在
 5. 检查 `19080` / `17007` / `13306` 是否空闲（`80` 只报告、不当错误；被本项目自己容器占着也算正常）
 6. `docker compose build devbox` → 以 root 跑一次性容器把两个命名卷的属主改成 `1000:1000` → `docker compose up -d --build`
 
@@ -107,17 +107,17 @@ bash bootstrap.sh
 
 ```bash
 # 在 NAS 上，任意目录
-docker compose -f /vol2/1000/xuri/src/deploy/nas/dev/docker-compose.yml exec devbox bash
+docker compose -f <data-root>/src/deploy/nas/dev/docker-compose.yml exec devbox bash
 ```
 
 或者按 VS Code 的方式（`bootstrap.sh` 结束时也会打印）：
 
 1. 飞牛「系统设置 → SSH」确认 SSH 服务已开启
 2. Windows 装 VS Code，扩展装 **Remote - SSH** + **Dev Containers**
-3. 左下角绿色按钮 → Connect to Host → `你的用户名@192.168.0.2`
-4. 打开宿主机目录 `/vol2/1000/xuri/src`
+3. 左下角绿色按钮 → Connect to Host → `你的用户名@<nas-host>`
+4. 打开宿主机目录 `<data-root>/src`
 5. 左下角绿色按钮 → **Attach to Running Container** → 选 `xuri-devbox`
-6. 在容器窗口里打开文件夹 **`/workspace`**（容器内路径，不是宿主机的 `/vol2/1000/xuri/src`）
+6. 在容器窗口里打开文件夹 **`/workspace`**（容器内路径，不是宿主机的 `<data-root>/src`）
 
 镜像里的 `dev` 用户 uid=1000，所以容器里新建的文件在 NAS 上仍然是你自己的，不会变成 `root` 所有。
 
@@ -153,9 +153,9 @@ npm run dev                          # Vite 监听容器内 80
 
 | 用途 | 地址 |
 | --- | --- |
-| 前端页面 | `http://192.168.0.2:19080` |
-| 后端接口直连 | `http://192.168.0.2:17007/api/system` |
-| MySQL | `192.168.0.2:13306`，库 `surveyking`，用户 `root`，密码见 `.env` |
+| 前端页面 | `http://<nas-host>:19080` |
+| 后端接口直连 | `http://<nas-host>:17007/api/system` |
+| MySQL | `<nas-host>:13306`，库 `surveyking`，用户 `root`，密码见 `.env` |
 
 手机连同一个 Wi-Fi 也能直接打开前端页面（Vite 的 `host: true`）。
 
@@ -275,7 +275,7 @@ cd /workspace/client && npm run dev -- --port 5173 --host
 
 **不要**为了「避开端口冲突」去改 `client/vite.config.ts`，那是前后端约定的一部分；要换对外端口只改 `.env` 的 `DEV_WEB_PORT`。
 
-### 3）浏览器打不开 `http://192.168.0.2:19080`
+### 3）浏览器打不开 `http://<nas-host>:19080`
 
 按顺序查：
 
@@ -360,7 +360,7 @@ docker stats --no-stream       # 看实际占用
 ## 停止 / 清理 / 备份
 
 ```bash
-DC="docker compose -f /vol2/1000/xuri/src/deploy/nas/dev/docker-compose.yml"
+DC="docker compose -f <data-root>/src/deploy/nas/dev/docker-compose.yml"
 
 $DC ps                 # 状态
 $DC stop               # 停（保留容器和数据）
@@ -370,12 +370,12 @@ $DC logs -f devbox     # 看日志
 $DC build --no-cache devbox   # 镜像彻底重建（换工具链版本时用）
 ```
 
-数据库备份（写到 `/vol2/1000/xuri/backup`，**不碰生产目录**）：
+数据库备份（写到 `<data-root>/backup`，**不碰生产目录**）：
 
 ```bash
-docker compose -f /vol2/1000/xuri/src/deploy/nas/dev/docker-compose.yml \
+docker compose -f <data-root>/src/deploy/nas/dev/docker-compose.yml \
   exec -T db sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --databases surveyking' \
-  > /vol2/1000/xuri/backup/surveyking-dev-$(date +%F).sql
+  > <data-root>/backup/surveyking-dev-$(date +%F).sql
 ```
 
 想换源码路径/端口：改 `.env` → `down` → `bootstrap.sh`。**改端口一定要重建容器**（`up -d` 会自动重建，因为端口映射变了）。

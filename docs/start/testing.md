@@ -44,7 +44,7 @@ npm run docs:build
 
 ~~~bash
 python scripts/nas/smoke-test.py
-python scripts/nas/smoke-test.py --base https://ks.1618030.xyz:200
+python scripts/nas/smoke-test.py --base https://<public-host>
 ~~~
 
 冒烟覆盖：前端首页、静态资源、系统信息、admin 登录、试卷列表。
