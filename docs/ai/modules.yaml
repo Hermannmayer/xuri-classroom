@@ -59,7 +59,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -142,7 +142,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -246,7 +246,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md
@@ -305,7 +305,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -474,7 +474,7 @@ modules:
       - client:npm run test:tree
       - docs:npm run docs:check
     last_verified: 2026-11-09
-    verified_against: 765fc89
+    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
