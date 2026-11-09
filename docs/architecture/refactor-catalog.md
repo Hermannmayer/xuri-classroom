@@ -240,7 +240,7 @@ ai/         依赖接口 + 条件装配
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |
 | S3-4 | 无边界约束 | 四条 ArchUnit 规则进构建 | 违规即失败 |
 | S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | ✅ 2026-11-09：`gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（改动面覆盖 46 个文件，单独排期，可逐步迁移到 `PERMISSION_CODES` 常量） |
-| S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | 5 个 UI 权限明确标注 |
+| S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | ✅ 2026-11-09：`answer:attach` 已由迁移 11 删除；矩阵标注见 S6-7（前端集合，过渡方案） |
 | S3-7 | 错误一律 HTTP 200 | 状态码与 `code` 对齐 | 冒烟能发现 4xx/5xx |
 | S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | ✅ 2026-11-09：`UserApi` 写 `AUTH_LOGIN` / `AUTH_LOGIN_FAILED`，本地实测两条落库 |
 | S3-9 | 前端 32 个页面静态 import，入口 chunk 2.1MB | 路由级 `lazy` + `Suspense` | ✅ 2026-11-09：入口 chunk 2,143KB→998KB（gzip 682→320KB），页面各自分包 |
@@ -269,7 +269,7 @@ ai/         依赖接口 + 条件装配
 | S6-4 | 删除 `RolePermission` 实体 | P2 | 实体不存在 | ✅ 顺带发现表本身不存在，无需迁移 |
 | S6-5 | 注册 `setUnauthorizedHandler`，401 按路由前缀分流 | P2 | 答题页 401 不再整页刷新 | ✅ |
 | S6-6 | 统计接口移出 `/api/public`（改为 `/api/report/statistics`） | P1 | URL 与所需权限一致 | ✅ |
-| S6-7 | 权限矩阵给 5 个「仅前端」权限加标注 | P3 | 矩阵里能看出哪些只控制入口 | ⏳ 跳过：正确做法是后端在权限目录里返回 `enforced`（靠注解扫描），前端硬编码会新增一份真源，与单一真源原则冲突；留到 S3 权限改造 |
+| S6-7 | 权限矩阵给 5 个「仅前端」权限加标注 | P3 | 矩阵里能看出哪些只控制入口 | ✅ 前端 `FRONTEND_ONLY_CODES` 集合 + 矩阵标签；理想做法是后端在权限目录返回 `enforced`（注解扫描），当前是前端硬编码这一份，属于过渡方案 |
 
 ### S5 · 多租户（见 §5）
 
