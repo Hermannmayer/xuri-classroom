@@ -27,6 +27,7 @@ import {
   type RoleView,
 } from '../../api';
 import {
+  FRONTEND_ONLY_CODES,
   GROUP_DESCRIPTIONS,
   KIND_HINT,
   KIND_META,
@@ -368,6 +369,14 @@ export default function SystemPermissions() {
                 <KindTag kind={permissionKind(item.code)} />
                 {item.studentOnly && (
                   <span style={{ fontSize: 10, color: 'var(--bp-orange)' }}>学员专属</span>
+                )}
+                {FRONTEND_ONLY_CODES.has(item.code) && (
+                  <span
+                    style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}
+                    title="后端没有接口校验这个权限点，它只控制前端入口"
+                  >
+                    仅前端
+                  </span>
                 )}
               </div>
             ),

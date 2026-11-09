@@ -99,3 +99,18 @@ export const PERMISSION_MENU: Record<string, string> = {
   'system:role:list': '系统管理 / 系统设置、权限配置',
   'system:log:list': '系统管理 / 操作日志',
 };
+
+
+/**
+ * 后端没有任何 @PreAuthorize 消费方的权限点：它们只控制前端入口/菜单，勾选不会改变服务端行为。
+ *
+ * 与 PermissionEnum.studentOnly 的区别：studentOnly 是"管理员默认不注入"，这组是"后端根本不校验"。
+ * 目前是 5 个：3 个视角开关 + 开始答题 + 开始练习。
+ */
+export const FRONTEND_ONLY_CODES = new Set<string>([
+  'portal:admin',
+  'portal:student',
+  'portal:teacher',
+  'project:answer',
+  'repo:practice',
+]);
