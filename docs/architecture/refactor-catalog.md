@@ -256,7 +256,7 @@ ai/         依赖接口 + 条件装配
 3. 统计接口曾经的 500 根因是 `ProjectStatHelper.initQuestionStatistics()` 对空属性直接解引用（见上表）。
 
 查分（`loadExamResult`）暂未纳入：它要求「答卷归属本人」，需要答卷 cookie 与登录态一致，留待后续补。
-| S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |
+| S3-2 | `AnswerServiceImpl` 1434 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | ◐ 已抽 `AnswerAccessGuard`（授权 4 个方法，-52 行）。导出块（334 行）首次尝试失败并回滚：它依赖 `listAnswer` 等自身方法，需先把共享方法抽成支持类 |
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 同上 |
 | S3-4 | 无边界约束 | ArchUnit 规则进构建 | 违规即失败 | ✅ 2026-11-09：三条规则（api 不依赖 mapper / impl 不依赖 api / service 接口不依赖 impl）；顺带给 `TeachingApi` 补了 `TeachingService`（它原本是全仓唯一直连 Mapper 的 Controller）。第四条「api 不得依赖 impl」等公开查询等组件搬进独立包后再加 |
 | S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | ✅ 2026-11-09：`gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（改动面覆盖 46 个文件，单独排期，可逐步迁移到 `PERMISSION_CODES` 常量） |

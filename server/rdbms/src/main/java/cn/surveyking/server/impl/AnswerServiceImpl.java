@@ -85,6 +85,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	private final UserDeptScopeService userDeptScopeService;
 
+	private final AnswerAccessGuard answerAccessGuard;
+
 	private final AnswerItemProjector answerItemProjector;
 
 	/** 客户端上报「本轮开始时间」时允许的最大跨度：超过 24 小时的声称一律不认 */
@@ -155,7 +157,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
 		// 数据范围：管理员 / 项目所有者或协作者（含组授权）看全部；其他人（学员）只能看自己的答卷。
 		// 之前只靠 @PreAuthorize('answer:list')，学员知道 projectId 就能列出全班答卷。
-		boolean canSeeAll = canManageProject(query.getProjectId());
+		boolean canSeeAll = answerAccessGuard.canManageProject(query.getProjectId());
 		String currentUserId = SecurityContextUtils.getUserId();
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Answer> wrapper = Wrappers
 				.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
@@ -267,7 +269,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		if (query.getId() != null) {
 			Answer answer = getById(query.getId());
 			// 按 id 读单份答卷也要做数据范围校验：本人 / 管理员 / 项目所有者或协作者
-			assertAnswerAccess(answer);
+			answerAccessGuard.assertAnswerAccess(answer);
 			answerView = answerViewMapper.toView(answer);
 		}
 		else if (query.getProjectId() != null && Boolean.TRUE.equals(query.getLatest())) {
@@ -303,10 +305,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	@Override
 	public AnswerView getAnswerWithPermission(AnswerQuery query) {
 		if (query.getId() != null) {
-			assertAnswerAccess(getById(query.getId()));
+			answerAccessGuard.assertAnswerAccess(getById(query.getId()));
 		}
 		else if (query.getProjectId() != null && Boolean.TRUE.equals(query.getLatest())) {
-			assertProjectAccess(query.getProjectId());
+			answerAccessGuard.assertProjectAccess(query.getProjectId());
 		}
 		return getAnswer(query);
 	}
@@ -523,19 +525,19 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	public AnswerView updateAnswerWithPermission(AnswerRequest request) {
 		if (StringUtils.hasText(request.getId())) {
 			Answer answer = getById(request.getId());
-			assertAnswerAccess(answer);
+			answerAccessGuard.assertAnswerAccess(answer);
 			// 后台编辑只能更新原问卷下的答案，避免通过请求参数迁移到其他问卷
 			request.setProjectId(answer.getProjectId());
 		}
 		else {
-			assertProjectAccess(request.getProjectId());
+			answerAccessGuard.assertProjectAccess(request.getProjectId());
 		}
 		return updateAnswer(request);
 	}
 
 	@Override
 	public void deleteAnswer(AnswerRequest request) {
-		assertAnswersAccess(request.getIds());
+		answerAccessGuard.assertAnswersAccess(request.getIds());
 		super.removeByIds(request.getIds());
 	}
 
@@ -651,13 +653,13 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	@Override
 	public void batchDestroyAnswer(AnswerRequest request) {
-		assertAnswersAccess(request.getIds());
+		answerAccessGuard.assertAnswersAccess(request.getIds());
 		this.getBaseMapper().batchDestroy(request.getIds());
 	}
 
 	@Override
 	public void restoreAnswer(AnswerRequest request) {
-		assertAnswersAccess(request.getIds());
+		answerAccessGuard.assertAnswersAccess(request.getIds());
 		this.getBaseMapper().restoreAnswer(request.getIds());
 	}
 
@@ -665,7 +667,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	@SneakyThrows
 	public AnswerUploadView upload(AnswerUploadRequest request) {
 		if (request.getProjectId() != null) {
-			assertProjectAccess(request.getProjectId());
+			answerAccessGuard.assertProjectAccess(request.getProjectId());
 		}
 		ExcelImportSecurity.validateFile(request.getFile());
 		ExcelImportSecurity.RowGuard rowGuard = ExcelImportSecurity.newRowGuard();
@@ -1180,61 +1182,6 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 						"需答满 " + minMinutes + " 分钟才能交卷，还剩 " + (leftSec / 60) + " 分 " + (leftSec % 60) + " 秒");
 			}
 		}
-	}
-
-	private void assertAnswerAccess(Answer answer) {
-		if (answer == null) {
-			throw new AccessDeniedException("无权限访问该答案");
-		}
-		// 本人答卷：学员看自己的成绩/解析不需要项目协作者身份
-		if (Objects.equals(answer.getCreateBy(), SecurityContextUtils.getUserId())) {
-			return;
-		}
-		assertProjectAccess(answer.getProjectId());
-	}
-
-	private void assertAnswersAccess(List<String> answerIds) {
-		if (CollectionUtils.isEmpty(answerIds)) {
-			return;
-		}
-		List<String> projectIds = getBaseMapper().selectProjectIdsByIds(answerIds);
-		if (projectIds.size() == 0) {
-			throw new AccessDeniedException("无权限访问该答案");
-		}
-		projectIds.forEach(this::assertProjectAccess);
-	}
-
-	private void assertProjectAccess(String projectId) {
-		if (!canManageProject(projectId)) {
-			throw new AccessDeniedException("无权限访问该问卷答案");
-		}
-	}
-
-	/**
-	 * 当前用户能否看到某个项目的全部答卷。
-	 *
-	 * <p>管理员全量；项目所有者/协作者（含按用户组授权）可看；学员作为答卷人只能看自己的，
-	 * 由 {@link #listAnswer} 的 createBy 条件兜住。
-	 */
-	private boolean canManageProject(String projectId) {
-		if (SecurityContextUtils.isAdmin()) {
-			return true;
-		}
-		if (!StringUtils.hasText(projectId)) {
-			return false;
-		}
-		Set<String> deptScope = userDeptScopeService.resolveDeptScope(SecurityContextUtils.getUserId());
-		return projectPartnerMapper.selectCount(Wrappers.<ProjectPartner>lambdaQuery()
-				.eq(ProjectPartner::getProjectId, projectId)
-				.in(ProjectPartner::getType,
-						Arrays.asList(ProjectPartnerTypeEnum.OWNER.getType(),
-								ProjectPartnerTypeEnum.COLLABORATOR.getType()))
-				.and(w -> {
-					w.eq(ProjectPartner::getUserId, SecurityContextUtils.getUserId());
-					if (!deptScope.isEmpty()) {
-						w.or().in(ProjectPartner::getGroupId, deptScope);
-					}
-				})) > 0;
 	}
 
 	/**
