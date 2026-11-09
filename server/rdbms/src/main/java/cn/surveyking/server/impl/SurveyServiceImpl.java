@@ -378,6 +378,14 @@ public class SurveyServiceImpl implements SurveyService {
 	 * 从投影表聚合：只把「题 × 选项」量级的计数读回来，不加载任何答卷 JSON。
 	 */
 	private PublicStatisticsView statFromProjection(ProjectView project, long total) {
+		// 极端数据：项目没有 survey（早期导入 / 手动改库），题面为空时投影聚合没有题可对齐，
+		// 直接返回「有总数、无逐题」的结果，而不是抛 NPE 让整个统计接口 500。
+		if (project == null || project.getSurvey() == null) {
+			PublicStatisticsView empty = new PublicStatisticsView();
+			empty.setCount((int) total);
+			empty.setQuestionStatistics(new HashMap<>());
+			return empty;
+		}
 		Map<String, Long> questionCounts = new HashMap<>();
 		for (AnswerItemStat stat : answerItemMapper.statQuestions(project.getId())) {
 			questionCounts.put(stat.getQuestionId(), stat.getCnt());
