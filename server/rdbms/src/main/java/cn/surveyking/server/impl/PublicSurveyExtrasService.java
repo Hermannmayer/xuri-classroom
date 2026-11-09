@@ -72,6 +72,11 @@ public class PublicSurveyExtrasService {
 	 */
 	public PublicExamResult loadExamResult(PublicExamRequest request) {
 		ProjectView project = projectService.getProject(request.getId());
+		// 成绩单链接是公开接口：项目被删/链接拼错时以前会在这里 NPE，被兜成 500。
+		// 按「项目不存在」处理，前端能显示可读提示而不是「服务出了点问题」。
+		if (project == null) {
+			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
+		}
 		AnswerView answerView = answerLookup.getAnswerForProject(project.getId(), request.getAnswerId(),
 				Boolean.TRUE.equals(project.getSetting().getSubmittedSetting().getRankVisible()));
 		ProjectSetting.SubmittedSetting submittedSetting = project.getSetting().getSubmittedSetting();

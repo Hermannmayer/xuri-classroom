@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -101,11 +102,16 @@ public class PublicQueryService {
 
 	private Tuple2<ProjectView, ProjectSetting.PublicQuery> getProjectAndQueryThenValidate(PublicQueryRequest request) {
 		ProjectView project = projectService.getProject(request.getId());
+		// 项目或设置缺失时直接解引用会 NPE，被全局兜底成 500。公开查询链接应该统一回「链接已失效」：
+		// 既不泄露项目是否存在，也能让前端显示一句可读的提示（而不是「服务出了点问题」）。
+		if (project == null || project.getSetting() == null || project.getSetting().getSubmittedSetting() == null) {
+			throw new ErrorCodeException(ErrorCode.QueryNotExist);
+		}
 		List<ProjectSetting.PublicQuery> queries = project.getSetting().getSubmittedSetting().getPublicQuery();
 		if (queries == null || queries.size() == 0) {
 			throw new ErrorCodeException(ErrorCode.QueryNotExist);
 		}
-		ProjectSetting.PublicQuery query = queries.stream().filter(x -> x.getId().equals(request.getResultId()))
+		ProjectSetting.PublicQuery query = queries.stream().filter(x -> Objects.equals(x.getId(), request.getResultId()))
 				.findFirst().orElseThrow(() -> new ErrorCodeException(ErrorCode.QueryNotExist));
 		validatePublicQuery(query, request.getAnswer());
 		return new Tuple2<>(project, query);
