@@ -11,6 +11,7 @@
 - [架构总览](https://hermannmayer.github.io/xuri-classroom/architecture/overview): 运行时拓扑、前后端边界、请求契约、认证、权限与部署
 - [架构改造目录（2026-11）](https://hermannmayer.github.io/xuri-classroom/architecture/refactor-catalog): 从单校可用到可扩容、可多租户的分阶段改造清单：现状、目标、改动点、验收
 - [功能范围](https://hermannmayer.github.io/xuri-classroom/architecture/scope): 当前做了什么、有意不做什么、已知缺口
+- [没有接线的东西](https://hermannmayer.github.io/xuri-classroom/architecture/unwired-inventory): 写了但没接上的功能、配了但没读的开关、建了但没用的表：清单、证据与处理建议
 - [ADR-0001 权限模型：权限点 → 角色 → 用户组/用户](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0001-rbac): 为什么组只绑角色、不直接挂权限；最终权限如何计算
 - [ADR-0002 管理员 = 管理权限全集，不是所有权限串](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0002-admin-catalog): 为什么管理员不自动拥有学员能力；前端 can() 如何配合
 - [ADR-0003 老师可以编辑/删除考试，但不能改题库](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0003-teacher-exam-vs-repo): 老师保留考试与问卷生命周期；题库只读；答卷删除归管理员

@@ -245,6 +245,20 @@ ai/         依赖接口 + 条件装配
 | S4-4 | 附件走对象存储（`StorageService` 已有抽象，加实现） | — |
 | S4-5 | 连接池与读写分离评估（先只调参：Hikari 20→40，视压测） | S2 |
 
+### S6 · 未接线清理（2026-11-09 新增）
+
+盘点见两份文档：[前台与后台的边界](front-back-boundaries.md)、[没有接线的东西](unwired-inventory.md)。
+
+| 编号 | 内容 | 优先级 | 验收 |
+|---|---|---|---|
+| S6-1 | 微信校验补到公开查询三个方法（`loadQuery` / `getQueryResult` / `loadLinkResult`） | **P0**（限制可绕过） | 设了 wechatOnly 的问卷，公开查询也要求微信授权 |
+| S6-2 | 27 个前端未调用端点：按「有意不接 / 忘了接」分类，前者写进 scope.md，后者补前端或删端点 | P1 | scope.md 与实际一致 |
+| S6-3 | `SK_CRYPTO_KEY`：实现加密或删掉必填项 | P1 | compose 里不再有假开关 |
+| S6-4 | 删除 `t_role_permission` 表与 `RolePermission` 实体（迁移 27） | P2 | 表和实体都不在 |
+| S6-5 | 注册 `setUnauthorizedHandler`，401 按路由前缀分流（前台不跳登录页） | P2 | 答题页 401 不再整页刷新 |
+| S6-6 | 统计接口移出 `/api/public`（改为 `/api/report/statistics`） | P1 | URL 与所需权限一致 |
+| S6-7 | 权限矩阵给 5 个「仅前端」权限加标注 | P3 | 矩阵里能看出哪些只控制入口 |
+
 ### S5 · 多租户（见 §5）
 
 ---
