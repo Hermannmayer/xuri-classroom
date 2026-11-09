@@ -53,11 +53,11 @@ tables:
   - t_project
   - t_file
 tests:
-  - 'client:npm run check'
-  - 'docs:npm run docs:check'
-  - 'nas:python scripts/nas/smoke-test.py'
-last_verified: '2026-11-09'
-verified_against: '765fc89'
+  - client:npm run check
+  - docs:npm run docs:check
+  - nas:python scripts/nas/smoke-test.py
+last_verified: 2026-11-09
+verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 ---
 
 # 答卷、判分与报表

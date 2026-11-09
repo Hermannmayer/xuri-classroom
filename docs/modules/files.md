@@ -1,6 +1,6 @@
 ---
 id: module-files
-title: "文件、附件与导入模板"
+title: 文件、附件与导入模板
 status: current
 keywords:
   - 附件
@@ -45,8 +45,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: "2026-11-09"
-verified_against: "765fc89"
+last_verified: 2026-11-09
+verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 ---
 
 # 文件、附件与导入模板

@@ -1,6 +1,6 @@
 ---
 id: module-permissions
-title: "权限、角色与用户组"
+title: 权限、角色与用户组
 status: current
 keywords:
   - 权限
@@ -56,8 +56,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: "2026-11-09"
-verified_against: "765fc89"
+last_verified: 2026-11-09
+verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 ---
 
 # 权限、角色与用户组

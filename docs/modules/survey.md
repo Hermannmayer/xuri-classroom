@@ -49,12 +49,12 @@ tables:
   - t_answer
   - t_template
 tests:
-  - 'client:npm run check'
-  - 'client:npm run test:rules'
-  - 'client:npm run test:tree'
-  - 'docs:npm run docs:check'
-last_verified: '2026-11-09'
-verified_against: '765fc89'
+  - client:npm run check
+  - client:npm run test:rules
+  - client:npm run test:tree
+  - docs:npm run docs:check
+last_verified: 2026-11-09
+verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 ---
 
 # 考试编辑器与题型

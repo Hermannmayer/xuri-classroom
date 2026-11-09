@@ -1,6 +1,6 @@
 ---
 id: module-dashboard
-title: "首页与统计"
+title: 首页与统计
 status: current
 keywords:
   - 首页
@@ -45,8 +45,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: "2026-11-09"
-verified_against: "765fc89"
+last_verified: 2026-11-09
+verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 ---
 
 # 首页与统计
