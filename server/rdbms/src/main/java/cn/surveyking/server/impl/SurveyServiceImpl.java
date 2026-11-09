@@ -607,6 +607,8 @@ public class SurveyServiceImpl implements SurveyService {
 	@SneakyThrows
 	public PublicQueryVerifyView loadQuery(PublicQueryRequest request) {
 		Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery = getProjectAndQueryThenValidate(request);
+		// 公开查询同样是"打开一份问卷"：问卷设了「仅微信打开」时也要拦，否则可以从查询链接绕过限制
+		wechatAccessGuard.requireWechatAccess(projectAndQuery.getFirst());
 		SurveySchema schema = buildQueryFormSchema(projectAndQuery.getFirst(), projectAndQuery.getSecond());
 		PublicQueryVerifyView view = new PublicQueryVerifyView();
 		view.setSchema(schema);
@@ -616,6 +618,7 @@ public class SurveyServiceImpl implements SurveyService {
 	@Override
 	public PublicQueryView getQueryResult(PublicQueryRequest request) {
 		Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery = getProjectAndQueryThenValidate(request);
+		wechatAccessGuard.requireWechatAccess(projectAndQuery.getFirst());
 		SurveySchema schema = buildQueryResultSchema(projectAndQuery.getFirst(), projectAndQuery.getSecond());
 		PublicQueryView view = new PublicQueryView();
 		view.setSchema(schema);
@@ -754,6 +757,7 @@ public class SurveyServiceImpl implements SurveyService {
 		if (projectView == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
+		wechatAccessGuard.requireWechatAccess(projectView);
 		SurveySchema currentQuestionSchema = SchemaHelper.flatSurveySchema(projectView.getSurvey()).stream()
 				.filter(x -> x.getId().equals(request.getQuestionId())).findFirst().orElseGet(() -> {
 					SurveySchema surveySchema = new SurveySchema();

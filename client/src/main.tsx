@@ -13,8 +13,24 @@ import './renderer/registerAll';
 import './styles/global.css';
 import './styles/answer.css';
 import { applyStoredZoom } from './utils/uiZoom';
+import { setUnauthorizedHandler } from './api';
 
 dayjs.locale('zh-cn');
+
+/**
+ * 401 的统一处理按路由分流。
+ *
+ * 后台页面：跳登录页（保持原行为）。
+ * 前台答题/公开查询（/s/*、/setup）：这些页面没有登录概念，整页跳登录会把学员刚填的答案冲掉，
+ * 所以只把错误抛给调用方（页面自己提示"提交失败，请刷新重试"）。
+ */
+setUnauthorizedHandler(() => {
+  const path = window.location.pathname;
+  if (path.startsWith('/s/') || path === '/setup' || path.startsWith('/user/')) {
+    return;
+  }
+  window.location.replace('/user/login');
+});
 
 // 统一界面缩放：开机就按用户上次选的档位作用到 <html>
 applyStoredZoom();
