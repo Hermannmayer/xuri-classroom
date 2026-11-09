@@ -1432,8 +1432,12 @@ public class SurveyServiceImpl implements SurveyService {
 
 		// 通过 url 参数构建查询表单
 		LinkedHashMap<String, Map> queryFormValues = buildFormValuesFromQueryParameter(treeNode, request.getQuery());
-		// 将查询表单和url参数构建的查询表单合并
-		queryFormValues.putAll(request.getAnswer());
+		// 将查询表单和url参数构建的查询表单合并。
+		// 只带 url 参数（前端用 ?q1o1=xxx 这种查询链接）时 answer 为 null，
+		// 直接 putAll 会 NPE，整个公开查询 500 —— 这里补空判断。
+		if (request.getAnswer() != null) {
+			queryFormValues.putAll(request.getAnswer());
+		}
 
 		List<String> likeConditions = new ArrayList<>();
 		queryFormValues.forEach((qId, qValueObj) -> likeConditions
