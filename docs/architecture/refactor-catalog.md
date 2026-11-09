@@ -210,12 +210,12 @@ ai/         依赖接口 + 条件装配
 | S2-4 | 导出读 JSON | 导出读投影 | — | — | ⏳ 未做（导出是行式明细，投影表缺 value，需先扩列） |
 | S2-5 | 24 处注解 SQL 绕过 Wrapper | 收口到统一入口 | — | — | ⏳ 随 S5（多租户插件）一起做 |
 
-**S2 验证记录（2026-11-09，本地 s2_check 隔离库，未上 NAS）**
+**S2 验证记录（2026-11-09，本地隔离测试库，未上 NAS；库名与连接不写进仓库）**
 
 - 种子：100 题（80 题 `statEnabled`）× 200 份答卷，answer JSON 合计 411KB。
 - 基准：用 Python 按 `ProjectStatHelper` 的语义算出 80 题 / 331 个选项的计数，作为旧算法基准。
 - 投影聚合：同一批数据展开成 21,559 行，`GROUP BY` 结果与基准 **0 差异**。
-- 端到端：本地启动 jar（JDK8 + s2_check），回填 200 份成功 0 失败，`POST /api/public/statistics` 返回 80 题 331 选项，**0 差异**，耗时 137–173ms。
+- 端到端：本地启动 jar（JDK8 + 隔离测试库），回填 200 份成功 0 失败，`POST /api/public/statistics` 返回 80 题 331 选项，**0 差异**，耗时 137–173ms。
 - 回退兜底：清空投影后统计自动回退内存算法（不会变空），回填完成后自动切回 SQL。
 - **覆盖判断用 `t_answer.items_synced` 而不是投影行数**：没有选项答案的答卷（纯文本/空卷）展开后是 0 行，按行数判断会永远「覆盖不全」、统计永远回退。实测生产 5 份里有 2 份就是这种，加列后 `200/200` 全部同步。
 - 顺带修掉的越权：`/api/public/statistics` 原本匿名可调（能拿任意 projectId 的答卷分布）。已加 `@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")`，匿名返回 `body.code=403`。**注解必须写在 Controller**：ServiceImpl 被 JDK 动态代理包装，写在实现类上不生效（实测）。
