@@ -35,6 +35,8 @@ services:
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:-123456}
       # 生产必须提供 32 字节 Base64 密钥；Compose 缺失该变量时拒绝启动，避免静默明文存储。
+      # 注意：当前没有任何代码读取这个变量（Java 里零引用），加密尚未实现；
+      # 保留必填只是不破坏既有 .env 与部署脚本，填随机值不影响数据。
       SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?Set SK_CRYPTO_KEY to a base64-encoded 32-byte key}
       # JWT 签名密钥（可选但强烈建议）：不配则每次重启随机生成 → 重启后所有人掉线、多实例无法共享会话。
       # 生成：openssl rand -base64 48

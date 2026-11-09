@@ -79,9 +79,12 @@ description: "写了但没接上的功能、配了但没读的开关、建了但
 
 ### 3.1 `t_role_permission` 与 `RolePermission`
 
-- 表在 `init-mysql.sql` 里；实体 `RolePermission` 存在；
-- 全仓**没有任何 Java 代码引用这个实体**（`grep RolePermission` 只命中实体定义本身）；
+- 实体 `RolePermission` 存在并声明 `@TableName("t_role_permission")`；
+- **数据库里其实没有这张表**（`init-mysql.sql` 里 grep 不到 `t_role_permission`），实体指向一张不存在的表；
+- 全仓**没有任何 Java 代码引用这个实体**；
 - 真实权限存的是 `t_role.authority` 逗号串。
+
+已删除该实体（2026-11-09），不需要迁移。
 
 **后果**：新读者看到表名会以为权限在关联表里，从而改错地方。建议在表上加注释或直接删表（迁移）。
 

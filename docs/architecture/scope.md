@@ -29,6 +29,9 @@ description: "当前做了什么、有意不做什么、已知缺口"
 | 系统管理·职务 | 唯一下游是工作流审批，权限体系用不到 |
 | 系统管理·数据字典 | 仅 `dataType=selectDict` 时使用，初始库无默认字典 |
 | 独立角色权限矩阵页 | 权限矩阵已并入「权限配置」 |
+| 模板相关接口 | `/api/template/get`、`create`、`listCategory`、`listTag` 前端不接；模板只在客户端 localStorage 参与「从模板新建」 |
+| 文件管理页 | `/api/file/list`、`/api/file/delete` 无前端入口；附件只通过题库导入、答题上传两条路径产生 |
+| OAuth 账号绑定 | `/api/oauth/bind/*`、`/api/oauth/bindings` 无前端入口；当前只支持「用第三方登录」，不支持在已登录状态下绑定 |
 
 > 这些是“前端不提供入口/不进入主流程”，后端数据与接口不一定删除。
 
@@ -41,6 +44,7 @@ description: "当前做了什么、有意不做什么、已知缺口"
 | 学员答题状态跨设备 | 部分依赖本地 localStorage |
 | 标签筛选（题库内） | 后端 `listTag` 硬编码 `question_type=Survey`，题库题型查不到 |
 | 白名单前端入口 | 后端支持，前端入口不完整 |
+| 模板/文件/OAuth 绑定的端点 | 见上表「有意不做」，接口保留但没有前端调用方（`docs/architecture/unwired-inventory.md`） |
 
 ## 维护
 

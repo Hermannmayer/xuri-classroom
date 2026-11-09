@@ -19,7 +19,7 @@ description: "前端、后端、NAS 部署常用变量；不记录真实值"
 |---|---|
 | `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | MySQL 连接 |
 | `SPRING_DATASOURCE_URL` | 显式 JDBC URL（生产用；必须 `useSSL=false`） |
-| `SK_CRYPTO_KEY` | 敏感字段加密密钥 |
+| `SK_CRYPTO_KEY` | **当前未实现**：Java 里零引用，compose 里必填仅为将来预留 |
 | `SK_JWT_SECRET` | JWT 签名密钥（留空则按应用默认策略） |
 | `JAVA_TOOL_OPTIONS` | JVM 参数（生产默认 `-Xmx768m`） |
 

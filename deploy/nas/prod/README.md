@@ -148,7 +148,9 @@ chmod 600 .env
 # 密钥生成：
 openssl rand -base64 32     # → SK_CRYPTO_KEY
 openssl rand -base64 48     # → JWT_SECRET
-# ！！！这两个值必须抄进密码管理器：SK_CRYPTO_KEY 丢了，已加密的题库永久解不开
+# ！！！JWT_SECRET 要抄进密码管理器（丢了所有登录态失效，用户重新登录即可，影响可控）
+# 注意：SK_CRYPTO_KEY 目前**没有任何代码在用**（Java 里零引用），填随机值不影响数据；
+#      等你真正实现字段加密前，不要把它当成"题库已加密"的证据
 ```
 
 ### 3.3 首次建库（受控，别挂 init 脚本自动跑）
@@ -311,7 +313,7 @@ CONFIRM=yes bash scripts/nas/preflight.sh --exam-sql /vol2/1000/xuri/exam-check.
 |---|---|---|
 | `DB_NAME` | `surveyking` | 库名 |
 | `DB_PASSWORD` | 无（**必填**） | MySQL root 密码；compose 缺失会拒绝启动 |
-| `SK_CRYPTO_KEY` | 无（**必填**） | 题库字段加密密钥，Base64 的 32 字节；**丢失不可恢复** |
+| `SK_CRYPTO_KEY` | 无（compose 必填） | **当前未实现加密**：Java 里零引用，仅占位；填随机值不影响数据 |
 | `JWT_SECRET` | 空 | JWT 签名密钥；不填则每次重启所有人掉线 |
 | `APP_PORT` | `201` | 宿主机对外端口（沿用学校现端口） |
 | `XURI_DATA_DIR` | `/vol2/1000/xuri/prod` | 数据根目录（`mysql/`、`files/` 落在它下面） |
