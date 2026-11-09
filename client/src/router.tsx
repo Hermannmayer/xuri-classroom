@@ -1,35 +1,54 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import BasicLayout from './layout/BasicLayout';
 import RequirePerm from './components/RequirePerm';
-import Login from './pages/user/Login';
-import Register from './pages/user/Register';
-import Home from './pages/Home';
-import ProjectList from './pages/project/List';
-import TaskCenter from './pages/tasks/TaskCenter';
-import TeachingWorkbench from './pages/teaching/Workbench';
-import TeachingClasses from './pages/teaching/Classes';
-import ProjectTrash from './pages/project/Trash';
-import SurveyEditor from './pages/survey/Editor';
-import SurveySetting from './pages/survey/Setting';
-import SurveyOverview from './pages/survey/Overview';
-import SurveyData from './pages/survey/Data';
-import SurveyReport from './pages/survey/Report';
-import SystemUser from './pages/system/User';
-import SystemGroupEntry from './pages/system/GroupEntry';
-import SystemSetting from './pages/system/Setting';
-import SystemPermissions from './pages/system/Permissions';
-import SystemAudit from './pages/system/Audit';
-import AccountSettings from './pages/account/Settings';
-import RepoList from './pages/repo/List';
-import RepoQuestions from './pages/repo/Questions';
-import RepoBook from './pages/repo/Book';
-import BookPractice from './pages/repo/BookPractice';
-import ExerciseList from './pages/exercise/List';
-import Practice from './pages/exercise/Practice';
-import PublicAnswer from './pages/answer/PublicAnswer';
-import PublicQuery from './pages/answer/PublicQuery';
-import ExamResult from './pages/answer/ExamResult';
 import Placeholder from './pages/Placeholder';
+
+/**
+ * 页面全部按路由懒加载。
+ *
+ * 之前 32 个页面是静态 import，整个后台（含权限目录、系统管理、出卷编辑器）都打进一个 2MB 的
+ * 入口 chunk：学员打开 /s/:id 答题也要先下完管理端代码，弱网/旧手机上首屏要好几秒。
+ * 改成 lazy 之后，首屏只加载 BasicLayout 与当前路由对应的一页。
+ */
+const Login = lazy(() => import('./pages/user/Login'));
+const Register = lazy(() => import('./pages/user/Register'));
+const Home = lazy(() => import('./pages/Home'));
+const ProjectList = lazy(() => import('./pages/project/List'));
+const TaskCenter = lazy(() => import('./pages/tasks/TaskCenter'));
+const TeachingWorkbench = lazy(() => import('./pages/teaching/Workbench'));
+const TeachingClasses = lazy(() => import('./pages/teaching/Classes'));
+const ProjectTrash = lazy(() => import('./pages/project/Trash'));
+const SurveyEditor = lazy(() => import('./pages/survey/Editor'));
+const SurveySetting = lazy(() => import('./pages/survey/Setting'));
+const SurveyOverview = lazy(() => import('./pages/survey/Overview'));
+const SurveyData = lazy(() => import('./pages/survey/Data'));
+const SurveyReport = lazy(() => import('./pages/survey/Report'));
+const SystemUser = lazy(() => import('./pages/system/User'));
+const SystemGroupEntry = lazy(() => import('./pages/system/GroupEntry'));
+const SystemSetting = lazy(() => import('./pages/system/Setting'));
+const SystemPermissions = lazy(() => import('./pages/system/Permissions'));
+const SystemAudit = lazy(() => import('./pages/system/Audit'));
+const AccountSettings = lazy(() => import('./pages/account/Settings'));
+const RepoList = lazy(() => import('./pages/repo/List'));
+const RepoQuestions = lazy(() => import('./pages/repo/Questions'));
+const RepoBook = lazy(() => import('./pages/repo/Book'));
+const BookPractice = lazy(() => import('./pages/repo/BookPractice'));
+const ExerciseList = lazy(() => import('./pages/exercise/List'));
+const Practice = lazy(() => import('./pages/exercise/Practice'));
+const PublicAnswer = lazy(() => import('./pages/answer/PublicAnswer'));
+const PublicQuery = lazy(() => import('./pages/answer/PublicQuery'));
+const ExamResult = lazy(() => import('./pages/answer/ExamResult'));
+
+/** 懒加载页面的统一占位：不要用空白，否则弱网下看起来像白屏 */
+const PageLoading = () => (
+  <div style={{ padding: 64, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 13 }}>
+    页面加载中…
+  </div>
+);
+
+/** 顶层路由（布局与公开页）包一层 Suspense；布局内的子路由由它一并覆盖 */
+const withSuspense = (element: JSX.Element) => <Suspense fallback={<PageLoading />}>{element}</Suspense>;
 
 /** 页面级权限守卫：角色权限在 auth/permissions.ts 里统一判定 */
 const guard = (perm: string | string[], element: JSX.Element) => (
@@ -40,14 +59,14 @@ const guard = (perm: string | string[], element: JSX.Element) => (
  * 路由与 spec/architecture.md 的 40 条表对齐，按调查结论做了裁剪：
  * - 模板广场 / 题库模板：模板只在客户端 localStorage 参与「从模板新建」，无独立页面价值
  * - 系统管理的角色/部门/职务/数据字典：单人自用场景用不到，数据仍在库里
- * - 流程编排：flow 模块没打进 api jar，`/api/workflow/*` 实际不可用
+ * - 流程编排：flow 模块没打进 api jar，/api/workflow/* 实际不可用
  */
 export const router = createBrowserRouter([
-  { path: '/user/login', element: <Login /> },
-  { path: '/user/register', element: <Register /> },
+  { path: '/user/login', element: withSuspense(<Login />) },
+  { path: '/user/register', element: withSuspense(<Register />) },
   {
     path: '/',
-    element: <BasicLayout />,
+    element: withSuspense(<BasicLayout />),
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
@@ -92,10 +111,10 @@ export const router = createBrowserRouter([
     ],
   },
   // 公开答题侧不需要登录与侧栏
-  { path: '/s/:id', element: <PublicAnswer /> },
-  { path: '/s/:id/:answerId', element: <PublicAnswer /> },
-  { path: '/s/:id/exam-result/:answerId', element: <ExamResult /> },
-  { path: '/s/:id/result/:resultId', element: <PublicQuery /> },
+  { path: '/s/:id', element: withSuspense(<PublicAnswer />) },
+  { path: '/s/:id/:answerId', element: withSuspense(<PublicAnswer />) },
+  { path: '/s/:id/exam-result/:answerId', element: withSuspense(<ExamResult />) },
+  { path: '/s/:id/result/:resultId', element: withSuspense(<PublicQuery />) },
   { path: '/setup', element: <Placeholder title="初始化向导" public /> },
   { path: '*', element: <Placeholder title="页面不存在" /> },
 ]);
