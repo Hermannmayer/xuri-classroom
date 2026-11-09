@@ -245,7 +245,7 @@ ai/         依赖接口 + 条件装配
 |---|---|---|
 | 种子 survey 结构 | `JacksonTypeHandler` 报 `_deserializeFromArray` | `t_project.survey` 必须是 `SurveySchema` **对象**（含 `id/title/type/children`），不是数组。已确认正确写法 |
 | 查分 `loadExamResult` | 匿名/普通用户一律 403 | 该接口要求「答卷归属本人」（答卷 cookie 或登录态），测试里缺少真实会话 |
-| 统计 `/api/report/statistics` | 带 `project:report` 甚至 `role=admin` 仍 403 | 403 来自代码内部的项目归属校验，不是 `@PreAuthorize`；需要项目 `create_by` 与当前用户一致，或走管理员旁路 |
+| 统计 `/api/report/statistics` | 带 `project:report` 甚至 `role=admin` 仍 403 | 已排除 `DataPermAspect`（切点是 `@annotation`，该端点没有注解）。剩余嫌疑集中在 `@PreAuthorize` 的 SpEL 与测试的 `user(...)` 上下文是否真进了 `SecurityContext`——需要用真实登录 token 对照一次 |
 
 下次继续时：种子用 `s2exam`（已在本地 `s2_check` 建好，2 题、status=1），先解决统计的归属校验，再补查分的 cookie 模拟。
 | S3-2 | `AnswerServiceImpl` 1252 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 同上 |
