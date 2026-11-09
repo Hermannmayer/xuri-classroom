@@ -128,11 +128,6 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	}
 
 	@Override
-	public PaginationResponse<AnswerView> listAnswerForStat(AnswerQuery query) {
-		return listAnswer(query, false);
-	}
-
-	@Override
 	public List<AnswerView> listAnswersForStat(String projectId) {
 		List<Answer> answers = list(Wrappers.<Answer>lambdaQuery()
 				.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,
