@@ -2,1001 +2,174 @@ package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.AppConsts;
-import cn.surveyking.server.core.constant.CacheConsts;
-import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.constant.ErrorCode;
-import cn.surveyking.server.core.constant.ProjectModeEnum;
-import cn.surveyking.server.core.constant.ProjectPartnerTypeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.exception.InternalServerError;
-import cn.surveyking.server.core.security.PasswordEncoder;
-import cn.surveyking.server.core.uitls.ContextHelper;
-import cn.surveyking.server.core.uitls.ExcelImportSecurity;
-import cn.surveyking.server.core.uitls.PinyinUtils;
-import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
-import cn.surveyking.server.domain.mapper.RoleViewMapper;
-import cn.surveyking.server.domain.mapper.UserPositionDtoMapper;
-import cn.surveyking.server.domain.mapper.UserViewMapper;
-import cn.surveyking.server.domain.model.*;
-import cn.surveyking.server.mapper.*;
+import cn.surveyking.server.domain.model.Account;
+import cn.surveyking.server.domain.model.Dept;
+import cn.surveyking.server.domain.model.User;
+import cn.surveyking.server.mapper.AccountMapper;
+import cn.surveyking.server.mapper.DeptMapper;
+import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.BaseService;
-import cn.surveyking.server.service.ProjectPartnerService;
 import cn.surveyking.server.service.SystemService;
 import cn.surveyking.server.service.UserService;
-import com.anji.captcha.model.common.ResponseModel;
-import com.anji.captcha.model.vo.CaptchaVO;
-import com.anji.captcha.service.CaptchaService;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import org.dhatim.fastexcel.reader.ReadableWorkbook;
-import org.dhatim.fastexcel.reader.Row;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
-import javax.validation.ValidationException;
-import java.io.InputStream;
 import java.util.*;
-import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static java.lang.String.format;
-import static org.apache.commons.lang3.StringUtils.isBlank;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 /**
- * @author javahuang
- * @date 2021/8/24getCellValue
+ * 用户服务入口：只保留接口方法、缓存注解与注册流程，方法体按职责拆到 impl 包下的组件。
+ *
+ * <p>
+ * 拆分口径（2026-11 重构）：
+ * <ul>
+ * <li>{@link UserAuthService}：登录、{@code UserInfo} 组装、验证码、i18n；</li>
+ * <li>{@link UserPermissionGuard}：能管谁 / 能授哪些角色 / 能放进哪些组；</li>
+ * <li>{@link UserDeptMembershipService}：主组 + 附加组 + 祖先链、按组的数据范围；</li>
+ * <li>{@link UserAdminService}：建号/改号/删号/岗位/界面偏好 + 事务提交后清缓存；</li>
+ * <li>{@link UserImportService}：Excel 批量导入；</li>
+ * <li>{@link ClassStudentService}：班级学员的增删改；</li>
+ * <li>{@link UserQueryService}：列表、候选项、分组、我的任务。</li>
+ * </ul>
+ *
+ * <p>
+ * 这里刻意保留全部 {@code @Cacheable} / {@code @CacheEvict} 注解：缓存切面仍然挂在同一个
+ * 入口 bean 上，key 与注解时机和拆分前完全一致。组件本身没有事务注解，
+ * 仍由本类上的 {@code @Transactional} 开启事务，跨 bean 调用参与同一个事务。
  */
 @Service
 @Transactional
 @RequiredArgsConstructor
-@Slf4j
 public class UserServiceImpl extends BaseService<UserMapper, User> implements UserService {
 
 	private static final String ROOT_DEPT_PARENT_ID = "0";
 
-	private static final Pattern STRONG_PASSWORD_PATTERN = Pattern.compile("^.{8,32}$");
-
-	/** 后台系统管理权限前缀：带这类权限的角色属于「老师/职工」档，只能由持 system:user:create:teacher 的人授予 */
-	private static final String SYSTEM_AUTHORITY_PREFIX = "system:";
-
 	private final AccountMapper accountMapper;
-
-	private final PasswordEncoder passwordEncoder;
-
-	private final RoleViewMapper roleViewMapper;
-
-	private final UserViewMapper userViewMapper;
-
-	private final UserRoleMapper userRoleMapper;
-
-	private final RoleServiceImpl roleService;
-
-	private final UserPositionMapper userPositionMapper;
-
-	private final UserPositionDtoMapper userPositionDtoMapper;
-
-	private final UserDeptMapper userDeptMapper;
-
-	/** 组绑角色（t_dept_role）；用 Mapper 而不是 DeptService，避免 UserService ↔ DeptService 循环依赖 */
-	private final DeptRoleMapper deptRoleMapper;
-
-	private final MessageSource messageSource;
 
 	private final DeptMapper deptMapper;
 
+	private final RoleServiceImpl roleService;
+
 	private final SystemService systemService;
 
-	private final ProjectMapper projectMapper;
+	private final UserAuthService userAuthService;
 
-	private final CaptchaService captchaService;
+	private final UserAdminService userAdminService;
 
-	private final CacheManager cacheManager;
+	private final UserImportService userImportService;
 
-	/**
-	 * @param username 账号密码登录认证使用
-	 * @return
-	 * @throws UsernameNotFoundException
-	 */
+	private final ClassStudentService classStudentService;
+
+	private final UserQueryService userQueryService;
+
 	@Override
 	public UserInfo loadUserByUsername(String username) throws UsernameNotFoundException {
-		LambdaQueryWrapper<Account> queryWrapper = Wrappers.<Account>lambdaQuery()
-				.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()).eq(Account::getAuthAccount, username);
-		Account existAccount = accountMapper.selectOne(queryWrapper);
-		if (existAccount == null) {
-			throw new UsernameNotFoundException(i18n("user.service.notFound", username));
-		}
-		if (existAccount.getStatus() != AppConsts.USER_STATUS.VALID) {
-			throw new AccessDeniedException(i18n("user.service.disabled", username));
-		}
-		// 用户组有效期：过期后不允许登录（匿名答题走公开链接，不受此限）
-		assertDeptValid(existAccount.getUserId());
-
-		return userViewMapper.toUserView(existAccount);
-	}
-
-	/**
-	 * 校验用户所属组链的有效期。
-	 * 用户可能是「主组 + 若干附加组」（一人多组），每个组各自沿祖先链校验；
-	 * 任意一个组（或它的祖先组）不在有效窗口内就拒绝登录，并说明是哪个组。
-	 * 组上的 valid_from / valid_to 为空表示不限制。
-	 */
-	private void assertDeptValid(String userId) {
-		if (!StringUtils.hasText(userId)) {
-			return;
-		}
-		User user = this.getById(userId);
-		if (user == null) {
-			return;
-		}
-		List<String> rootDeptIds = resolveUserDeptIds(user);
-		if (CollectionUtils.isEmpty(rootDeptIds)) {
-			return;
-		}
-		Map<String, Dept> deptMap = loadDeptMap();
-		java.util.Date now = new java.util.Date();
-		for (String deptId : resolveDeptChainIds(rootDeptIds, deptMap)) {
-			Dept dept = deptMap.get(deptId);
-			if (dept == null) {
-				continue;
-			}
-			if (dept.getValidFrom() != null && now.before(dept.getValidFrom())) {
-				throw new AccessDeniedException("所在用户组「" + dept.getName() + "」尚未到生效时间（"
-						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidFrom()) + " 起），请联系管理员");
-			}
-			if (dept.getValidTo() != null && now.after(dept.getValidTo())) {
-				throw new AccessDeniedException("所在用户组「" + dept.getName() + "」有效期已过（"
-						+ new java.text.SimpleDateFormat("yyyy-MM-dd").format(dept.getValidTo()) + " 截止），请联系管理员延期");
-			}
-		}
-	}
-
-	/**
-	 * 用户所属的全部组：主组（t_user.dept_id）在前，附加组（t_user_dept）在后，去重。
-	 */
-	private List<String> resolveUserDeptIds(User user) {
-		if (user == null) {
-			return Collections.emptyList();
-		}
-		return mergeDeptIds(user.getDeptId(), listExtraDeptIds(user.getId()));
-	}
-
-	private List<String> mergeDeptIds(String mainDeptId, List<String> extraDeptIds) {
-		java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
-		if (StringUtils.hasText(mainDeptId)) {
-			merged.add(mainDeptId);
-		}
-		if (!CollectionUtils.isEmpty(extraDeptIds)) {
-			extraDeptIds.stream().filter(StringUtils::hasText).map(String::trim).forEach(merged::add);
-		}
-		return new ArrayList<>(merged);
-	}
-
-	/** 附加组 id（不含主组） */
-	private List<String> listExtraDeptIds(String userId) {
-		if (!StringUtils.hasText(userId)) {
-			return Collections.emptyList();
-		}
-		return userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getUserId, userId)).stream()
-				.map(UserDept::getDeptId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
-	}
-
-	/**
-	 * 重写用户的附加组：先物理删除再插入（唯一键 (user_id, dept_id) 不能和逻辑删除共存）。
-	 * 主组已经存在 t_user.dept_id，这里顺带把它从附加组里剔掉，避免同一个组出现两次。
-	 */
-	private void saveUserDepts(String userId, String mainDeptId, List<String> extraDeptIds) {
-		if (!StringUtils.hasText(userId)) {
-			return;
-		}
-		userDeptMapper.deleteByUserId(userId);
-		if (CollectionUtils.isEmpty(extraDeptIds)) {
-			return;
-		}
-		extraDeptIds.stream().filter(StringUtils::hasText).map(String::trim)
-				.filter(deptId -> !deptId.equals(mainDeptId)).distinct().forEach(deptId -> {
-					UserDept userDept = new UserDept();
-					userDept.setUserId(userId);
-					userDept.setDeptId(deptId);
-					userDeptMapper.insert(userDept);
-				});
+		return userAuthService.loadUserByUsername(username);
 	}
 
 	@Override
 	@Cacheable(cacheNames = "userCache", key = "#p0", condition = "#p0!=null", unless = "#result == null")
 	public UserInfo loadUserById(String userId) {
-		User user = this.getById(userId);
-		if (user == null) {
-			return null;
-		}
-		UserInfo userInfo = userViewMapper.toUserInfo(user);
-		// 界面偏好（缩放 / 主题）用显式 SQL 读，实体映射在不同列类型下不可靠
-		java.util.Map<String, Object> prefs = getBaseMapper().selectUiPrefs(userId);
-		if (prefs != null) {
-			Object zoom = prefs.get("uiZoom");
-			Object theme = prefs.get("uiTheme");
-			userInfo.setUiZoom(zoom == null ? null : String.valueOf(zoom));
-			userInfo.setUiTheme(theme == null ? null : String.valueOf(theme));
-		}
-		// 一人多组：主组 + 附加组，各自沿祖先链展开（组表整表取一次，避免逐层查库）
-		List<String> extraDeptIds = listExtraDeptIds(user.getId());
-		Map<String, Dept> deptMap = loadDeptMap();
-		List<String> deptChainIds = resolveDeptChainIds(mergeDeptIds(user.getDeptId(), extraDeptIds), deptMap);
-
-		// 最终权限 = 用户直挂角色 ∪ 所属组（主组 + 附加组，含祖先链）绑定的角色 ∪ ROLE_* 标记。
-		// 超级管理员靠 ROLE_admin 放行，这里照常把它的角色标记并进来，不做任何裁剪。
-		Set<String> authorities = resolveUserAuthorities(user.getId(), deptChainIds);
-		userInfo.setAuthorities(authorities.stream()
-				.map(authority -> (GrantedAuthority) () -> authority).collect(Collectors.toSet()));
-
-		// 设置用户部门（deptName 仍然是主组名）
-		if (StringUtils.hasText(user.getDeptId())) {
-			Dept dept = deptMap.get(user.getDeptId());
-			if (dept != null) {
-				userInfo.setDeptName(dept.getName());
-			}
-		}
-		userInfo.setDeptIds(extraDeptIds);
-		userInfo.setDeptNames(extraDeptIds.stream().map(deptId -> deptNameOf(deptMap, deptId))
-				.collect(Collectors.toList()));
-
-		return userInfo;
-	}
-
-	/** 一次取出全部用户组（组表很小），供祖先链解析与组名回显复用 */
-	private Map<String, Dept> loadDeptMap() {
-		return deptMapper.selectList(null).stream().filter(Objects::nonNull)
-				.collect(Collectors.toMap(Dept::getId, dept -> dept, (a, b) -> a));
-	}
-
-	/** 组 → 名称；查不到回落成 id，避免界面上出现空白标签 */
-	private String deptNameOf(Map<String, Dept> deptMap, String deptId) {
-		Dept dept = deptMap.get(deptId);
-		return dept != null && isNotBlank(dept.getName()) ? dept.getName() : deptId;
-	}
-
-	/**
-	 * 用户所属组 + 各自祖先链展开后的组 id（去重，主组及其祖先排在最前）。
-	 */
-	private List<String> resolveDeptChainIds(List<String> rootDeptIds, Map<String, Dept> deptMap) {
-		LinkedHashSet<String> chain = new LinkedHashSet<>();
-		if (CollectionUtils.isEmpty(rootDeptIds)) {
-			return new ArrayList<>(chain);
-		}
-		Set<String> visited = new HashSet<>();
-		for (String rootDeptId : rootDeptIds) {
-			String deptId = rootDeptId;
-			while (StringUtils.hasText(deptId) && !ROOT_DEPT_PARENT_ID.equals(deptId) && visited.add(deptId)) {
-				chain.add(deptId);
-				Dept dept = deptMap.get(deptId);
-				if (dept == null) {
-					break;
-				}
-				deptId = dept.getParentId();
-			}
-		}
-		return new ArrayList<>(chain);
-	}
-
-	/**
-	 * 最终权限集合：t_user_role（直挂角色）∪ t_dept_role（组链上绑定的角色）。
-	 *
-	 * <p>
-	 * 只查两次关联表：一次 user_role、一次 dept_role（按整条组链 in），角色再按 id 批量取一次，
-	 * 不做「按角色逐条 getById」的 N+1。已停用的角色与直挂角色一样被忽略。
-	 */
-	private Set<String> resolveUserAuthorities(String userId, List<String> deptChainIds) {
-		Set<String> roleIds = new LinkedHashSet<>();
-		userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId)).stream()
-				.map(UserRole::getRoleId).filter(StringUtils::hasText).forEach(roleIds::add);
-		if (!CollectionUtils.isEmpty(deptChainIds)) {
-			deptRoleMapper.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, deptChainIds)).stream()
-					.map(DeptRole::getRoleId).filter(StringUtils::hasText).forEach(roleIds::add);
-		}
-		if (roleIds.isEmpty()) {
-			return new HashSet<>();
-		}
-		return roleService.listByIds(roleIds).stream()
-				.filter(role -> role != null && Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID))
-				.flatMap(role -> toAuthorityNames(role).stream()).collect(Collectors.toCollection(HashSet::new));
+		return userAuthService.buildUserInfo(userId);
 	}
 
 	@Override
 	public PaginationResponse<UserView> getUsers(UserQuery query) {
-		List<String> orgIds = getChildOrgIds(query.getDeptId());
-		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery()
-				.like(isNotBlank(query.getName()), User::getName, query.getName())
-				// 用户管理与班级管理各看各的：staff / student
-				.eq(isNotBlank(query.getUserType()), User::getUserType, query.getUserType())
-				.exists(isNotBlank(query.getRoleId()),
-						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
-						query.getRoleId())
-				.notExists(isNotBlank(query.getNeRoleId()),
-						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
-						query.getNeRoleId())
-				.in(query.getIds() != null, User::getId,
-						Arrays.asList(query.getIds() != null ? query.getIds() : new String[0]));
-		// 一人多组：按组筛选时主组或附加组命中都算，否则加进附加组的人在这个列表里「搜不到」
-		applyUserDeptScope(userQuery, orgIds);
-		// 数据范围：非管理员只看自己组链下的用户 + 自己建的账号（管理员全量）
-		applyCurrentUserDataScope(userQuery);
-		Page<User> userPage = pageByQuery(query, userQuery);
-		List<User> records = userPage.getRecords();
-		// 一人多组：整页一次性取出附加组与组名，避免每行再查库
-		List<String> userIds = records.stream().map(User::getId).filter(StringUtils::hasText)
-				.collect(Collectors.toList());
-		Map<String, List<String>> extraDeptIdsByUser = new HashMap<>();
-		if (!userIds.isEmpty()) {
-			userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getUserId, userIds))
-					.forEach(binding -> {
-						if (StringUtils.hasText(binding.getUserId()) && StringUtils.hasText(binding.getDeptId())) {
-							extraDeptIdsByUser.computeIfAbsent(binding.getUserId(), key -> new ArrayList<>())
-									.add(binding.getDeptId());
-						}
-					});
-		}
-		Set<String> deptIdsInPage = new HashSet<>();
-		records.forEach(user -> {
-			if (StringUtils.hasText(user.getDeptId())) {
-				deptIdsInPage.add(user.getDeptId());
-			}
-			deptIdsInPage.addAll(extraDeptIdsByUser.getOrDefault(user.getId(), Collections.emptyList()));
-		});
-		Map<String, String> deptNameById = deptIdsInPage.isEmpty() ? Collections.emptyMap()
-				: deptMapper.selectBatchIds(deptIdsInPage).stream().filter(Objects::nonNull)
-						.collect(Collectors.toMap(Dept::getId,
-								dept -> isNotBlank(dept.getName()) ? dept.getName() : dept.getId(), (a, b) -> a));
-		return new PaginationResponse<>(userPage.getTotal(), records.stream().map(x -> {
-			UserView userView = userViewMapper.toView(x);
-			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, x.getId())
-					.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
-			userView.setUsername(account.getAuthAccount());
-			userView.setStatus(account.getStatus());
-			// 设置用户部门（deptName 仍是主组名；附加组单独给 deptIds/deptNames）
-			if (StringUtils.hasText(x.getDeptId())) {
-				userView.setDeptName(deptNameById.getOrDefault(x.getDeptId(), x.getDeptId()));
-			}
-			List<String> extraDeptIds = extraDeptIdsByUser.getOrDefault(x.getId(), Collections.emptyList());
-			userView.setDeptIds(extraDeptIds);
-			userView.setDeptNames(extraDeptIds.stream().map(deptId -> deptNameById.getOrDefault(deptId, deptId))
-					.collect(Collectors.toList()));
-			// 设置用户角色
-			userView.setRoles(
-					userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, x.getId()))
-							.stream().map(userRole -> roleViewMapper.toView(roleService.getById(userRole.getRoleId())))
-							.collect(Collectors.toList()));
-			// 设置用户岗位
-			userView.setUserPositions(userPositionDtoMapper.toView(userPositionMapper
-					.selectList(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, x.getId()))));
-			return userView;
-		}).collect(Collectors.toList()));
-	}
-
-	private List<String> getChildOrgIds(String parentOrgId) {
-		List<String> result = new ArrayList<>();
-		if (parentOrgId == null) {
-			return result;
-		}
-		result.add(parentOrgId);
-		deptMapper.selectList(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, parentOrgId)).forEach(dept -> {
-			result.addAll(getChildOrgIds(dept.getId()));
-		});
-		return result;
-	}
-
-	/**
-	 * 「用户属于这些组」的查询条件：主组（t_user.dept_id）命中，或者附加组（t_user_dept）命中。
-	 *
-	 * <p>
-	 * 附加组先转成 user_id 集合再 OR，不把组 id 拼进 SQL 字符串——组 id 来自请求参数，
-	 * 直接拼接会有注入风险；这里的组人数是几十到几百量级，IN 列表可以接受。
-	 * 组 id 集合为空（没按组筛选）时什么都不加，保持「查全部」的原语义。
-	 */
-	private void applyUserDeptScope(LambdaQueryWrapper<User> wrapper, List<String> deptIds) {
-		if (CollectionUtils.isEmpty(deptIds)) {
-			return;
-		}
-		List<String> extraDeptUserIds = userDeptMapper
-				.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptIds)).stream()
-				.map(UserDept::getUserId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
-		wrapper.and(w -> {
-			w.in(User::getDeptId, deptIds);
-			if (!extraDeptUserIds.isEmpty()) {
-				w.or().in(User::getId, extraDeptUserIds);
-			}
-		});
-	}
-
-	/**
-	 * 用户列表的数据范围（非管理员），与题库/考试的组范围同一口径：
-	 * <ul>
-	 * <li>自己所在用户组（主组 + 附加组）及其祖先链下的用户 —— 组链解析复用
-	 * {@link #resolveDeptChainIds}，与 {@code UserDeptScopeService.DEPT_SCOPE_SQL} 的祖先链语义一致；</li>
-	 * <li>或 {@code create_by = 自己}：自己建的学员就算后来被调到别的组，也仍然留在自己的列表里。</li>
-	 * </ul>
-	 *
-	 * <p>
-	 * 管理员保持全量。这里只「收窄范围」，不改变按组筛选的语义：它与 {@link #applyUserDeptScope}
-	 * 在查询条件里是同层 AND，所以 (主组命中 OR 附加组命中) 依然生效。
-	 *
-	 * <p>
-	 * 子查询都走 Mapper / IN 列表，不把用户输入拼进 SQL；附加组同样是先转成 user_id 集合再 OR。
-	 */
-	private void applyCurrentUserDataScope(LambdaQueryWrapper<User> wrapper) {
-		if (SecurityContextUtils.isAdmin()) {
-			return;
-		}
-		String currentUserId = SecurityContextUtils.getUserId();
-		if (!StringUtils.hasText(currentUserId) || AppConsts.ANONYMOUS_USER_ID.equals(currentUserId)) {
-			// 用户列表接口本身要求登录；万一走到这里也绝不放成全量
-			wrapper.eq(User::getId, AppConsts.ANONYMOUS_USER_ID);
-			return;
-		}
-		// 主组 + 附加组 → 各自祖先链（组表整表取一次，与 loadUserById 同一套解析）
-		Map<String, Dept> deptMap = loadDeptMap();
-		List<String> ancestorChainIds = resolveDeptChainIds(resolveUserDeptIds(this.getById(currentUserId)), deptMap);
-		// 再向下扩展到子树：年级主任挂在「年级组」，也要能看到下属班级的学生。
-		// 只按祖先链会漏掉子组，这是 2026-11-07 评审时确认要补的语义。
-		// 用 final 变量给下面的 lambda 捕获（Java 8 要求 effectively final）
-		final List<String> deptChainIds = expandWithDescendants(ancestorChainIds, deptMap);
-		List<String> extraDeptUserIds = deptChainIds.isEmpty() ? Collections.emptyList()
-				: userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptChainIds))
-						.stream().map(UserDept::getUserId).filter(StringUtils::hasText).distinct()
-						.collect(Collectors.toList());
-		wrapper.and(scope -> {
-			if (deptChainIds.isEmpty()) {
-				// 没有任何组的人只剩「自己建的账号」这一条范围
-				scope.eq(User::getCreateBy, currentUserId);
-				return;
-			}
-			scope.in(User::getDeptId, deptChainIds);
-			if (!extraDeptUserIds.isEmpty()) {
-				scope.or().in(User::getId, extraDeptUserIds);
-			}
-			scope.or().eq(User::getCreateBy, currentUserId);
-		});
-	}
-
-	/**
-	 * 把「自己的组 + 祖先链」扩展成「再加上所有子孙组」。
-	 *
-	 * <p>没有子孙会漏掉「年级主任挂着年级组、看不到下属班级学生」这种结构；
-	 * 组表很小（全量取一次），这里用迭代向上找父的方式展开，避免拼递归 SQL。
-	 */
-	private List<String> expandWithDescendants(List<String> chainIds, Map<String, Dept> deptMap) {
-		if (chainIds == null || chainIds.isEmpty() || deptMap == null || deptMap.isEmpty()) {
-			return chainIds == null ? Collections.emptyList() : chainIds;
-		}
-		Set<String> scope = new LinkedHashSet<>(chainIds);
-		boolean changed = true;
-		while (changed) {
-			changed = false;
-			for (Dept dept : deptMap.values()) {
-				if (dept.getId() == null || scope.contains(dept.getId()) || dept.getParentId() == null) {
-					continue;
-				}
-				if (scope.contains(dept.getParentId())) {
-					scope.add(dept.getId());
-					changed = true;
-				}
-			}
-		}
-		return new ArrayList<>(scope);
+		return userQueryService.getUsers(query);
 	}
 
 	@Override
 	public void createUser(UserRequest request) {
-		createUser(request, true);
-	}
-
-	/**
-	 * @param assertDeptRoles 是否校验「目标组绑定的角色自己能授予」。班级管理里老师给本班加学员时，
-	 *                        目标是系统内置学员角色，不需要也不应该要求老师拥有学员的全部权限串。
-	 */
-	private void createUser(UserRequest request, boolean assertDeptRoles) {
-		// 内部入口没显式指定时按学员处理；用户管理（createSystemUser）会显式设 staff
-		if (!StringUtils.hasText(request.getUserType())) {
-			request.setUserType("student");
-		}
-		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
-		if (assertDeptRoles) {
-			assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
-		}
-		User user = userViewMapper.fromRequest(request);
-		this.save(user);
-
-		// 创建登录账号
-		Account account = userViewMapper.toAccount(request);
-		account.setAuthType(AppConsts.AUTH_TYPE.PWD.name());
-		account.setUserType(AppConsts.USER_TYPE.SysUser.toString());
-		account.setAuthSecret(passwordEncoder.encode(request.getPassword()));
-		account.setUserId(user.getId());
-		account.setStatus(request.getStatus());
-		accountMapper.insert(account);
-
-		// 添加用户角色
-		request.setId(user.getId());
-		addUserRoles(request);
-		// 添加用户岗位
-		addUserPositions(request);
-		// 添加附加组（主组已经在 t_user.dept_id 里）
-		saveUserDepts(user.getId(), user.getDeptId(), request.getDeptIds());
+		userAdminService.createUser(request);
 	}
 
 	@Override
 	public void createSystemUser(UserRequest request) {
-		validateStrongPassword(request.getPassword(), null);
-		request.setUserType("staff");
-		assertGrantableRoles(request.getRoles());
-		// 入口注解只认 system:user:create（能不能建用户），这里再按角色分「学员档 / 老师档」
-		assertRoleGrantScope(request.getRoles());
-		createUser(request);
+		userAdminService.createSystemUser(request);
 	}
 
-	/**
-	 * 班级管理里由班主任新增学员：角色固定成系统内置学员角色，不接受请求方指定角色。
-	 *
-	 * <p>不走 {@link #assertRoleGrantScope}：老师没有学员的 portal:student / repo:practice 等权限串，
-	 * 但这不代表不能在自己班里建学员；入口由 class:member:create 控制，班级可见性由 ClassService 校验。
-	 */
 	@Override
 	public void createClassStudent(UserRequest request) {
-		validateStrongPassword(request.getPassword(), null);
-		Role studentRole = roleService
-				.list(Wrappers.<Role>lambdaQuery().in(Role::getCode, "student", "xueyuan")
-						.eq(Role::getStatus, AppConsts.USER_STATUS.VALID).orderByAsc(Role::getCreateAt))
-				.stream().findFirst()
-				.orElseThrow(() -> new ValidationException("系统里没有可用的学员角色，请联系管理员"));
-		request.setRoles(Collections.singletonList(studentRole.getId()));
-		request.setStatus(AppConsts.USER_STATUS.VALID);
-		request.setUserType("student");
-		assertClassDeptRoleSafe(request.getDeptId(), studentRole);
-		createUser(request, false);
-	}
-
-	/**
-	 * 班级建学员时不能跳过「组绑定角色」的风险：把用户放进某个组会连带继承该组（含祖先链）的角色。
-	 *
-	 * <p>这里不允许目标组链绑定任何高于「学员角色」的角色；学员角色本身或权限是它子集的角色放行。
-	 * 这样班主任能往普通班级加学员，但不能借班级配置提权。
-	 */
-	private void assertClassDeptRoleSafe(String deptId, Role studentRole) {
-		if (SecurityContextUtils.isAdmin() || !StringUtils.hasText(deptId)) {
-			return;
-		}
-		List<String> chain = resolveDeptChainIds(Collections.singletonList(deptId), loadDeptMap());
-		if (CollectionUtils.isEmpty(chain)) {
-			return;
-		}
-		List<String> roleIds = deptRoleMapper
-				.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, chain)).stream()
-				.map(DeptRole::getRoleId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
-		if (roleIds.isEmpty()) {
-			return;
-		}
-		Set<String> studentAuthorities = toAuthorityNames(studentRole);
-		for (Role role : roleService.listByIds(roleIds)) {
-			if (role == null || !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID)) {
-				continue;
-			}
-			if (Objects.equals(role.getCode(), "student") || Objects.equals(role.getCode(), "xueyuan")) {
-				continue;
-			}
-			if (!studentAuthorities.containsAll(toAuthorityNames(role))) {
-				throw new AccessDeniedException("不能把学员放进绑定了更高权限角色的用户组");
-			}
-		}
+		classStudentService.createClassStudent(request);
 	}
 
 	@Override
 	public List<UserOptionView> listUserOptions(String keyword) {
-		List<User> users = list(Wrappers.<User>lambdaQuery()
-				.like(StringUtils.hasText(keyword), User::getName, keyword).orderByAsc(User::getName)
-				.last("LIMIT 200"));
-		if (users.isEmpty()) {
-			return Collections.emptyList();
-		}
-		List<String> userIds = users.stream().map(User::getId).collect(Collectors.toList());
-		Map<String, String> usernames = accountMapper
-				.selectList(Wrappers.<Account>lambdaQuery().in(Account::getUserId, userIds)
-						.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()))
-				.stream().filter(account -> StringUtils.hasText(account.getUserId()))
-				.collect(Collectors.toMap(Account::getUserId, Account::getAuthAccount, (a, b) -> a));
-		Set<String> deptIds = users.stream().map(User::getDeptId).filter(StringUtils::hasText)
-				.collect(Collectors.toSet());
-		Map<String, String> deptNames = deptIds.isEmpty() ? Collections.emptyMap()
-				: deptMapper.selectBatchIds(deptIds).stream().filter(Objects::nonNull)
-						.collect(Collectors.toMap(Dept::getId, Dept::getName, (a, b) -> a));
-		return users.stream().map(user -> {
-			UserOptionView view = new UserOptionView();
-			view.setId(user.getId());
-			view.setName(user.getName());
-			view.setUsername(usernames.get(user.getId()));
-			view.setDeptName(user.getDeptId() == null ? null : deptNames.get(user.getDeptId()));
-			return view;
-		}).collect(Collectors.toList());
-	}
-
-	private void addUserRoles(UserRequest request) {
-		if (!CollectionUtils.isEmpty(request.getRoles())) {
-			request.getRoles().forEach(roleId -> {
-				UserRole userRole = new UserRole();
-				userRole.setUserId(request.getId());
-				userRole.setRoleId(roleId);
-				userRole.setUserType(AppConsts.USER_TYPE.SysUser.name());
-				userRoleMapper.insert(userRole);
-			});
-		}
-	}
-
-	private void addUserPositions(UserRequest request) {
-		if (!CollectionUtils.isEmpty(request.getUserPositions())) {
-			request.getUserPositions().forEach(userPositionRequest -> {
-				UserPosition userPosition = userPositionDtoMapper.fromRequest(userPositionRequest);
-				userPosition.setUserId(request.getId());
-				userPositionMapper.insert(userPosition);
-			});
-		}
+		return userQueryService.listUserOptions(keyword);
 	}
 
 	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#request.id")
 	public void updateUser(UserRequest request) {
-		if (request.getId() == null) {
-			return;
-		}
-		assertManageableUser(request.getId());
-		assertGrantableRoles(request.getRoles());
-		// 改角色和建用户同档：把学员改成老师也是「授予 system:* 角色」，必须持 teacher 档权限
-		assertRoleGrantScope(request.getRoles());
-		User current = this.getById(request.getId());
-		// 组变更同样会改变「有效权限」：目标组链上绑定的角色必须都是自己能授予的，否则等于借改组提权
-		assertDeptAssignmentAllowed(request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
-				request.getDeptIds() != null ? request.getDeptIds() : listExtraDeptIds(request.getId()));
-		if (isNotBlank(request.getPassword())) {
-			validateStrongPassword(request.getPassword(), null);
-		}
-		User user = userViewMapper.fromRequest(request);
-		this.updateById(user);
-
-		if (request.getStatus() != null || isNotBlank(request.getPassword())) {
-			// 更新登录账号
-			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery()
-					.eq(Account::getUserId, request.getId()).eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
-			if (isNotBlank(request.getPassword()) && Objects.equals(request.getId(), SecurityContextUtils.getUserId())
-					&& !SecurityContextUtils.isAdmin() && isBlank(request.getOldPassword())) {
-				throw new InternalServerError(i18n("user.password.invalid"));
-			}
-			if (isNotBlank(request.getPassword()) && isNotBlank(request.getOldPassword())) {
-				if (!passwordEncoder.matches(request.getOldPassword(), account.getAuthSecret())) {
-					throw new InternalServerError(i18n("user.password.invalid"));
-				}
-			}
-			if (request.getUsername() != null) {
-				account.setAuthAccount(request.getUsername());
-			}
-			if (request.getStatus() != null) {
-				account.setStatus(request.getStatus());
-			}
-			if (isNotBlank(request.getPassword())) {
-				account.setAuthSecret(passwordEncoder.encode(request.getPassword()));
-			}
-			accountMapper.updateById(account);
-		}
-
-		// 更新用户角色
-		if (request.getRoles() != null) {
-			userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, request.getId()));
-			addUserRoles(request);
-		}
-		// 更新用户岗位
-		if (request.getUserPositions() != null) {
-			userPositionMapper
-					.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, request.getId()));
-			addUserPositions(request);
-		}
-		// 更新附加组（deptIds 为 null 表示本次不改；空数组表示只保留主组）
-		if (request.getDeptIds() != null) {
-			String mainDeptId = request.getDeptId();
-			if (!StringUtils.hasText(mainDeptId)) {
-				mainDeptId = current == null ? null : current.getDeptId();
-			}
-			saveUserDepts(request.getId(), mainDeptId, request.getDeptIds());
-		}
-		evictUserAfterCommit(request.getId());
+		userAdminService.updateUser(request);
 	}
 
 	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#userId")
 	public void updateUserProfile(String userId, UserProfileRequest request) {
-		if (userId == null) {
-			throw new AccessDeniedException("未登录用户不能修改个人资料");
-		}
-		User user = new User();
-		user.setId(userId);
-		user.setName(request.getName());
-		user.setAvatar(request.getAvatar());
-		user.setProfile(request.getProfile());
-		user.setPhone(request.getPhone());
-		user.setEmail(request.getEmail());
-		user.setGender(request.getGender());
-		user.setCorrectTimes(request.getCorrectTimes());
-		updateById(user);
-
-		if (isNotBlank(request.getPassword())) {
-			validateStrongPassword(request.getPassword(), null);
-			if (isBlank(request.getOldPassword())) {
-				throw new InternalServerError(i18n("user.password.invalid"));
-			}
-			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, userId)
-					.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
-			if (account == null || !passwordEncoder.matches(request.getOldPassword(), account.getAuthSecret())) {
-				throw new InternalServerError(i18n("user.password.invalid"));
-			}
-			account.setAuthSecret(passwordEncoder.encode(request.getPassword()));
-			accountMapper.updateById(account);
-		}
-		evictUserAfterCommit(userId);
+		userAdminService.updateUserProfile(userId, request);
 	}
 
 	@Override
 	public void updateUiZoom(UserRequest request) {
-		if (request == null || request.getUiZoom() == null) {
-			return;
-		}
-		// 只允许 0.9 / 1 / 1.15 / 1.3 四个档位：越界值夹到区间内，
-		// 避免有人手工把 ui_zoom 改成 10 倍把界面撑爆
-		double zoom;
-		try {
-			zoom = Double.parseDouble(String.valueOf(request.getUiZoom()));
-		}
-		catch (NumberFormatException ex) {
-			return;
-		}
-		if (zoom < 0.9) {
-			zoom = 0.9;
-		}
-		if (zoom > 1.3) {
-			zoom = 1.3;
-		}
-		User update = new User();
-		update.setId(SecurityContextUtils.getUserId());
-		update.setUiZoom(String.valueOf(zoom));
-		this.updateById(update);
-		// currentUser 走 userCache，改完必须清掉，否则刷新还是旧档位
-		evictUserAfterCommit(SecurityContextUtils.getUserId());
+		userAdminService.updateUiZoom(request);
 	}
 
 	@Override
 	public void updateUiTheme(UserRequest request) {
-		if (request == null || request.getUiTheme() == null) {
-			return;
-		}
-		// 白名单：只接受 light / dark，其它值忽略，避免脏数据影响全站主题
-		String theme = "light".equals(request.getUiTheme()) ? "light" : "dark";
-		User update = new User();
-		update.setId(SecurityContextUtils.getUserId());
-		update.setUiTheme(theme);
-		this.updateById(update);
-		evictUserAfterCommit(SecurityContextUtils.getUserId());
+		userAdminService.updateUiTheme(request);
 	}
 
 	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#id")
 	public void deleteUser(String id) {
-		assertManageableUser(id);
-		removeById(id);
-		accountMapper.physicallyDeleteExternalByUserId(id);
-		accountMapper.delete(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, id));
-		// 用户没了，附加组/角色绑定也一起清掉
-		userDeptMapper.deleteByUserId(id);
-		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, id));
-		evictUserAfterCommit(id);
+		userAdminService.deleteUser(id);
 	}
 
-	/**
-	 * 班级管理里删除学员：调用方（ClassService）已经校验过班级可见性与「目标是学员」，
-	 * 这里不再走 system:user:delete 的 manage 校验，但仍然清账号、附加组与角色绑定。
-	 */
 	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#userId")
 	public void deleteClassStudent(String userId) {
-		User user = this.getById(userId);
-		if (user == null || !"student".equals(user.getUserType())) {
-			throw new AccessDeniedException("只能删除学员账号");
-		}
-		removeById(userId);
-		accountMapper.physicallyDeleteExternalByUserId(userId);
-		accountMapper.delete(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, userId));
-		userDeptMapper.deleteByUserId(userId);
-		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId));
-		evictUserAfterCommit(userId);
+		classStudentService.deleteClassStudent(userId);
 	}
 
-	/**
-	 * 班级管理里编辑学员：只允许改姓名、手机、邮箱、状态与重置密码；
-	 * 不允许改角色/所属组（防提权），也不走 system:user:update 的 manage 校验。
-	 */
 	@Override
 	@CacheEvict(cacheNames = "userCache", key = "#request.id")
 	public void updateClassStudent(UserRequest request) {
-		if (request == null || !StringUtils.hasText(request.getId())) {
-			throw new ValidationException("缺少学员 id");
-		}
-		User current = this.getById(request.getId());
-		if (current == null || !"student".equals(current.getUserType())) {
-			throw new AccessDeniedException("只能编辑学员账号");
-		}
-		User update = new User();
-		update.setId(request.getId());
-		update.setName(request.getName());
-		update.setPhone(request.getPhone());
-		update.setEmail(request.getEmail());
-		update.setStatus(request.getStatus());
-		updateById(update);
-		if (request.getStatus() != null || isNotBlank(request.getPassword())) {
-			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery()
-					.eq(Account::getUserId, request.getId()).eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
-			if (account != null) {
-				if (request.getStatus() != null) {
-					account.setStatus(request.getStatus());
-				}
-				if (isNotBlank(request.getPassword())) {
-					validateStrongPassword(request.getPassword(), null);
-					account.setAuthSecret(passwordEncoder.encode(request.getPassword()));
-				}
-				accountMapper.updateById(account);
-			}
-		}
-		evictUserAfterCommit(request.getId());
+		classStudentService.updateClassStudent(request);
 	}
 
 	@Override
 	public boolean checkUsernameExist(String username) {
-		Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery()
-				.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()).eq(Account::getAuthAccount, username));
-		if (account != null) {
-			return true;
-		}
-		return false;
+		return userAuthService.checkUsernameExist(username);
 	}
 
 	@Override
 	public void updateUserPosition(UserRequest request) {
-		userPositionMapper
-				.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getPositionId, request.getId()));
-		if (!CollectionUtils.isEmpty(request.getUserPositions())) {
-			request.getUserPositions().forEach(userPositionRequest -> {
-				UserPosition position = userPositionDtoMapper.fromRequest(userPositionRequest);
-				position.setUserId(request.getId());
-				userPositionMapper.insert(position);
-			});
-		}
+		userAdminService.updateUserPosition(request);
 	}
 
 	@Override
 	public Set<String> getUserGroups(String userId) {
-		Set<String> groups = new LinkedHashSet<>();
-		// 获取用户的系统角色
-		userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId)).forEach(role -> {
-			groups.add("R:" + role.getRoleId());
-		});
-		// 获取用户的用户岗位
-		userPositionMapper.selectList(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, userId))
-				.forEach(userPosition -> {
-					groups.add("P:" + userPosition.getDeptId() + ":" + userPosition.getPositionId());
-					groups.add("P:" + "ALL:" + userPosition.getPositionId());
-					groups.add("P:" + userPosition.getDeptId() + ":ALL");
-				});
-		// User current = getById(userId);
-		groups.add("U:" + userId);
-		// groups.add("P:" + current.getOrgId() + ":");
-		return groups;
+		return userQueryService.getUserGroups(userId);
 	}
 
 	@Override
 	public Set<String> getUsersByGroup(String groupId, String currentUser) {
-		// 获取角色下面的所有用户
-		if (groupId.startsWith("R:")) {
-			return userRoleMapper
-					.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getRoleId, groupId.split(":")[1]))
-					.stream().map(x -> x.getUserId()).collect(Collectors.toSet());
-		}
-		if (groupId.startsWith("P:")) {
-			String[] orgAndPositionId = groupId.split(":");
-			String orgId = orgAndPositionId[1], positionId = orgAndPositionId[2];
-			if (orgId.contains(AppConsts.VARIABLE_CURRENT_ORG_ID)) {
-				orgId = loadUserById(currentUser).getDeptId();
-			}
-			else if (orgId.contains(AppConsts.VARIABLE_PARENT_ORG_ID)) {
-				orgId = loadUserById(currentUser).getDeptId();
-				orgId = deptMapper.selectById(orgId).getParentId();
-			}
-			return userPositionMapper
-					.selectList(Wrappers.<UserPosition>lambdaQuery()
-							.eq(StringUtils.hasText(orgId), UserPosition::getDeptId, orgId)
-							.eq(StringUtils.hasText(positionId), UserPosition::getPositionId, positionId))
-					.stream().map(up -> up.getUserId()).collect(Collectors.toSet());
-		}
-		return Collections.EMPTY_SET;
+		return userQueryService.getUsersByGroup(groupId, currentUser);
 	}
 
 	@Override
 	public List<UserInfo> selectUsers(SelectUserRequest request) {
-		List<String> list = new ArrayList<>();
-		if (request.getDeptId() != null) {
-			list.add(request.getDeptId());
-			this.getTreeDeptId(request.getDeptId(), list);
-		}
-		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery().select(User::getId)
-				.like(StringUtils.hasText(request.getName()), User::getName, request.getName());
-		// 一人多组：协作者候选按组筛选时，附加组命中的用户也要出现
-		applyUserDeptScope(userQuery, StringUtils.hasText(request.getDeptId()) ? list : Collections.emptyList());
-		List<User> users = list(userQuery);
-		List<UserInfo> result = Stream.concat(users.stream().map(user -> user.getId()), request.getSelected().stream())
-				.collect(Collectors.toSet()).stream()
-				.map(userId -> ContextHelper.getBean(UserService.class).loadUserById(userId))
-				.collect(Collectors.toList());
-		// 协作者候选：只留具备协作权限的账号（默认 project:create），学员会被过滤掉。
-		// 注意必须在 simpleMode() 之前判断——simpleMode 会剥掉 authorityList。
-		if (Boolean.TRUE.equals(request.getCollaboratorOnly())) {
-			String required = resolveCollaboratorAuthority();
-			result = result.stream().filter(user -> hasCollaboratorAuthority(user, required))
-					.collect(Collectors.toList());
-		}
-		return result.stream().map(UserInfo::simpleMode).collect(Collectors.toList());
-	}
-
-	/** 管理端可配置「谁可以当协作者」，没配时用 project:create 兜底 */
-	private String resolveCollaboratorAuthority() {
-		try {
-			SystemInfo info = systemService.getSystemInfo();
-			if (info != null && info.getSetting() != null
-					&& StringUtils.hasText(info.getSetting().getCollaboratorAuthority())) {
-				return info.getSetting().getCollaboratorAuthority().trim();
-			}
-		}
-		catch (Exception ignored) {
-			// 读系统设置失败不影响用户列表，退回默认值
-		}
-		return "project:create";
-	}
-
-	private boolean hasCollaboratorAuthority(UserInfo user, String required) {
-		List<String> authorities = user.getAuthorityList();
-		if (authorities == null || authorities.isEmpty()) {
-			return false;
-		}
-		return authorities.contains("ROLE_admin") || authorities.contains(required);
-	}
-
-	private void getTreeDeptId(String deptId, List<String> list) {
-		List<Dept> deptList = deptMapper.selectList(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, deptId));
-		Optional.ofNullable(deptList).map(List::stream).orElseGet(Stream::empty).forEach(info -> {
-			list.add(info.getId());
-			this.getTreeDeptId(info.getId(), list);
-		});
+		return userQueryService.selectUsers(request);
 	}
 
 	@Override
@@ -1006,7 +179,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (registerInfo == null || !Boolean.TRUE.equals(registerInfo.getRegisterEnabled())) {
 			throw new ErrorCodeException(ErrorCode.RegisterError);
 		}
-		validateStrongPassword(request.getPassword(), null);
+		userAdminService.validateStrongPassword(request.getPassword(), null);
 
 		long total = accountMapper
 				.selectCount(Wrappers.<Account>lambdaQuery().eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name())
@@ -1040,14 +213,6 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		createUser(createUserRequest);
 	}
 
-	private String getRootDeptId() {
-		return deptMapper
-				.selectList(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, ROOT_DEPT_PARENT_ID)
-						.orderByAsc(Dept::getSortCode).orderByAsc(Dept::getCreateAt))
-				.stream().findFirst().map(Dept::getId)
-				.orElseThrow(() -> new InternalServerError(i18n("user.register.rootDeptNotFound")));
-	}
-
 	@Override
 	public List<RegisterRoleView> getRegisterRoles() {
 		List<String> defaultRegisterRoleCodes = systemService.getSystemInfo().getRegisterInfo().getRoles();
@@ -1065,471 +230,35 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	@Override
 	public UserOverview getUserOverviewData() {
-		UserOverview userOverview = new UserOverview();
-		ProjectPartnerServiceImpl partnerService = (ProjectPartnerServiceImpl) ContextHelper
-				.getBean(ProjectPartnerService.class);
-		userOverview.setSurveyCount(partnerService.count(Wrappers.<ProjectPartner>lambdaQuery()
-				.in(ProjectPartner::getType,
-						Arrays.asList(ProjectPartnerTypeEnum.OWNER.getType(),
-								ProjectPartnerTypeEnum.COLLABORATOR.getType()))
-				.eq(ProjectPartner::getUserId, SecurityContextUtils.getUserId())
-				.exists("SELECT 1 FROM t_project t WHERE t.mode = {0} AND t.id = t_project_partner.project_id",
-						ProjectModeEnum.survey.name())));
-
-		userOverview.setExamCount(partnerService.count(Wrappers.<ProjectPartner>lambdaQuery()
-				.in(ProjectPartner::getType,
-						Arrays.asList(ProjectPartnerTypeEnum.OWNER.getType(),
-								ProjectPartnerTypeEnum.COLLABORATOR.getType()))
-				.eq(ProjectPartner::getUserId, SecurityContextUtils.getUserId())
-				.exists("SELECT 1 FROM t_project t WHERE t.mode = {0} AND t.id = t_project_partner.project_id",
-						ProjectModeEnum.exam.name())));
-		return userOverview;
+		return userQueryService.getUserOverviewData();
 	}
 
 	@Override
-	@SneakyThrows
 	public void importUser(UserRequest request) {
-		if (!SecurityContextUtils.hasAuthority("system:user:create")) {
-			throw new AccessDeniedException("无权限导入用户");
-		}
-		if (request.getFile() == null || request.getFile().isEmpty()) {
-			throw new InternalServerError(i18n("user.import.fileRequired"));
-		}
-		ExcelImportSecurity.validateFile(request.getFile());
-		ExcelImportSecurity.RowGuard rowGuard = ExcelImportSecurity.newRowGuard();
-		Map<String, String> roleName2Id = buildNameIdMap(roleService.list(), Role::getName, Role::getId,
-				"user.import.duplicateRoleName");
-		Map<String, String> deptName2Id = buildNameIdMap(deptMapper.selectList(null), Dept::getName, Dept::getId,
-				"user.import.duplicateDeptName");
-		Set<String> usernameSet = new HashSet<>();
-		Set<String> existingUsernames = accountMapper
-				.selectList(Wrappers.<Account>lambdaQuery().select(Account::getAuthAccount).eq(Account::getAuthType,
-						AppConsts.AUTH_TYPE.PWD.name()))
-				.stream().map(Account::getAuthAccount).filter(Objects::nonNull).collect(Collectors.toSet());
-		try (InputStream is = request.getFile().getInputStream(); ReadableWorkbook wb = new ReadableWorkbook(is)) {
-			wb.getSheets().forEach(sheet -> {
-				int[] rowNum = { 1 };
-				try (Stream<Row> rows = sheet.openStream()) {
-					rows.forEach(r -> {
-						rowGuard.validate(r);
-						if (r.getRowNum() == 1) {
-							return;
-						}
-						rowNum[0] = r.getRowNum();
-						UserRequest userRequest = new UserRequest();
-						userRequest.setName(
-								getCellValue(r, 0).orElseThrow(() -> new ErrorCodeException(ErrorCode.FileParseError)));
-						userRequest.setUsername(
-								getCellValue(r, 1).orElse(PinyinUtils.chineseToPinyin(userRequest.getName())));
-						if (existingUsernames.contains(userRequest.getUsername())) {
-							throw new InternalServerError(i18n("user.import.usernameExists", rowNum[0]));
-						}
-						if (!usernameSet.add(userRequest.getUsername())) {
-							throw new InternalServerError(i18n("user.import.usernameDuplicate", rowNum[0]));
-						}
-						// 密码列可以留空，留空时用默认密码 12345678，学员首次登录后自行修改
-						String password = getCellValue(r, 2).orElse("12345678");
-						validateStrongPassword(password, rowNum[0]);
-						userRequest.setPassword(password);
-						userRequest.setStatus(AppConsts.USER_STATUS.VALID);
-						// 用户管理里的批量导入是教职工入口；学员导入不在这个页面
-						userRequest.setUserType("staff");
-						userRequest.setPhone(getCellValue(r, 3).orElse(null));
-						userRequest.setEmail(getCellValue(r, 4).orElse(null));
-						String deptName = getCellValue(r, 5).orElse(null);
-						if (deptName != null) {
-							String deptId = deptName2Id.get(deptName);
-							if (deptId == null) {
-								throw new InternalServerError(i18n("user.import.deptNotFound", rowNum[0], deptName));
-							}
-							userRequest.setDeptId(deptId);
-						}
-						String roles = getCellValue(r, 6).orElse(null);
-						if (roles != null) {
-							List<String> roleNames = parseImportRoleNames(roles, roleName2Id);
-							if (CollectionUtils.isEmpty(roleNames)) {
-								throw new InternalServerError(i18n("user.import.roleNotFound", rowNum[0], roles));
-							}
-							List<String> missingRoleNames = roleNames.stream()
-									.filter(roleName -> !roleName2Id.containsKey(roleName))
-									.collect(Collectors.toList());
-							if (!CollectionUtils.isEmpty(missingRoleNames)) {
-								throw new InternalServerError(i18n("user.import.roleNotFound", rowNum[0],
-										String.join("、", missingRoleNames)));
-							}
-							List<String> roleIds = roleNames.stream().map(roleName2Id::get).distinct()
-									.collect(Collectors.toList());
-							assertGrantableRoles(roleIds);
-							// 导入是「批量建用户」的入口：每行角色同样要过学员/老师两档校验
-							assertRoleGrantScope(roleIds);
-							userRequest.setRoles(roleIds);
-						}
-						createUser(userRequest);
-					});
-				}
-				catch (Exception e) {
-					if (e instanceof InternalServerError) {
-						throw (InternalServerError) e;
-					}
-					// 权限类异常不能被改写成「第 N 行解析失败」：否则学员档账号导入老师角色时，
-					// 看到的是文件格式错误，根本不知道是权限不足。原样抛给上层（会回滚整批）。
-					if (e instanceof AccessDeniedException) {
-						throw (AccessDeniedException) e;
-					}
-					if (e instanceof ErrorCodeException) {
-						throw (ErrorCodeException) e;
-					}
-					if (e instanceof DuplicateKeyException) {
-						throw new InternalServerError(i18n("user.import.userExists", rowNum[0]), e);
-					}
-					throw new InternalServerError(i18n("user.import.parseError", rowNum[0]), e);
-				}
-			});
-		}
-	}
-
-	private void assertManageableUser(String userId) {
-		if (SecurityContextUtils.isAdmin()) {
-			return;
-		}
-		Set<String> callerAuthorities = currentAuthorityNames();
-		if (!callerAuthorities.containsAll(loadAuthorityNames(userId))) {
-			throw new AccessDeniedException("不能管理权限高于当前用户的账号（含用户组继承来的权限）");
-		}
-	}
-
-	/**
-	 * 「把用户放进某个组」会连带把该组（含祖先链）绑定的角色授予他，因此非管理员改 deptId / deptIds 时，
-	 * 必须确认目标组链上绑定的角色自己都能授予——否则光有 system:user:update 就能把人塞进绑了
-	 * admin/teacher 的组，等于绕开 assertGrantableRoles 发角色。
-	 *
-	 * <p>
-	 * 两条豁免：① 管理员；② 匿名调用（注册）：那条路径的组与角色都来自系统设置，不由请求方指定。
-	 * 孤儿绑定（角色已被删）不授予任何权限，直接跳过，避免脏数据阻断正常的用户管理。
-	 */
-	private void assertDeptAssignmentAllowed(String mainDeptId, List<String> extraDeptIds) {
-		if (!SecurityContextUtils.isAuthenticated() || SecurityContextUtils.isAdmin()) {
-			return;
-		}
-		List<String> roots = mergeDeptIds(mainDeptId, extraDeptIds);
-		if (CollectionUtils.isEmpty(roots)) {
-			return;
-		}
-		List<String> chain = resolveDeptChainIds(roots, loadDeptMap());
-		if (CollectionUtils.isEmpty(chain)) {
-			return;
-		}
-		List<String> roleIds = deptRoleMapper
-				.selectList(Wrappers.<DeptRole>lambdaQuery().in(DeptRole::getDeptId, chain)).stream()
-				.map(DeptRole::getRoleId).filter(StringUtils::hasText).distinct().collect(Collectors.toList());
-		if (roleIds.isEmpty()) {
-			return;
-		}
-		Set<String> callerAuthorities = currentAuthorityNames();
-		for (Role role : roleService.listByIds(roleIds)) {
-			if (role == null || !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID)) {
-				continue;
-			}
-			Set<String> roleAuthorities = toAuthorityNames(role);
-			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN)
-					|| !callerAuthorities.containsAll(roleAuthorities)) {
-				throw new AccessDeniedException("不能把用户放进该用户组：它（或其上级组）绑定的角色「"
-						+ role.getName() + "」权限高于当前用户");
-			}
-		}
-	}
-
-	private void assertGrantableRoles(List<String> roleIds) {
-		if (roleIds == null) {
-			return;
-		}
-		List<String> normalizedIds = roleIds.stream().filter(StringUtils::hasText).distinct()
-				.collect(Collectors.toList());
-		List<Role> roles = normalizedIds.isEmpty() ? Collections.emptyList() : roleService.listByIds(normalizedIds);
-		if (roles.size() != normalizedIds.size()
-				|| roles.stream().anyMatch(role -> !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID))) {
-			throw new AccessDeniedException("不能分配不存在或已停用的角色");
-		}
-		if (SecurityContextUtils.isAdmin()) {
-			return;
-		}
-		Set<String> callerAuthorities = currentAuthorityNames();
-		for (Role role : roles) {
-			Set<String> roleAuthorities = toAuthorityNames(role);
-			if (roleAuthorities.contains(AppConsts.ROLE_ADMIN) || !callerAuthorities.containsAll(roleAuthorities)) {
-				throw new AccessDeniedException("不能分配权限高于当前用户的角色");
-			}
-		}
-	}
-
-	/**
-	 * 「建用户按角色分权」的服务层二次校验。
-	 *
-	 * <p>
-	 * 入口上的 @PreAuthorize 只回答「能不能进入建/改用户这个动作」，同一个人可能只该建学员、
-	 * 不该建老师；这个区分只能看请求里的 roles，所以在服务层拦：
-	 * <ul>
-	 * <li>目标角色里<b>任一</b>权限串以 {@code system:} 开头（即能进系统管理）→ 调用方必须是管理员，
-	 * 或持有 {@code system:user:create:teacher}；</li>
-	 * <li>否则（纯学员类角色，不含任何 system:*）→ 调用方持有
-	 * {@code system:user:create:student} 或 {@code system:user:create} 即可。</li>
-	 * </ul>
-	 *
-	 * <p>
-	 * 与 {@link #assertGrantableRoles} 分工：那个管「不能授予比自己高的角色」，这个管「学员/老师两档
-	 * 委派」，两者都过才允许写库。角色 id 不存在/已停用由 assertGrantableRoles 先拦，这里只做分档。
-	 * {@code roleIds} 为 null 表示本次不改角色（更新场景），直接跳过。
-	 */
-	private void assertRoleGrantScope(List<String> roleIds) {
-		if (CollectionUtils.isEmpty(roleIds)) {
-			return;
-		}
-		List<String> normalizedIds = roleIds.stream().filter(StringUtils::hasText).distinct()
-				.collect(Collectors.toList());
-		if (normalizedIds.isEmpty() || SecurityContextUtils.isAdmin()) {
-			return;
-		}
-		// 有效权限与 toAuthorityNames 同口径：code=admin 的角色会被注入全部权限目录，天然落进 system: 档。
-		// 另外把 code=teacher 显式算作「老师档」：老师角色没有 system:* 权限（进不了系统管理），
-		// 但能管考试/题库，属于高权角色，只有 system:user:create:teacher 的人才能授予，
-		// 否则只有 create:student 的人也能把学员改成老师，等于越权提权。
-		boolean assignsSystemRole = roleService.listByIds(normalizedIds).stream().filter(Objects::nonNull).anyMatch(role -> {
-			if ("admin".equals(role.getCode()) || "teacher".equals(role.getCode())) {
-				return true;
-			}
-			return toAuthorityNames(role).stream().anyMatch(authority -> authority.startsWith(SYSTEM_AUTHORITY_PREFIX));
-		});
-		Set<String> callerAuthorities = currentAuthorityNames();
-		if (assignsSystemRole) {
-			if (!callerAuthorities.contains(PermissionEnum.SYSTEM_USER_CREATE_TEACHER.getCode())) {
-				throw new ErrorCodeException(ErrorCode.PermVerifyFailed,
-						"没有权限创建/修改为带系统管理权限的角色（需要 system:user:create:teacher）");
-			}
-			return;
-		}
-		if (!callerAuthorities.contains(PermissionEnum.SYSTEM_USER_CREATE_STUDENT.getCode())
-				&& !callerAuthorities.contains(PermissionEnum.SYSTEM_USER_CREATE.getCode())) {
-			throw new ErrorCodeException(ErrorCode.PermVerifyFailed,
-					"没有权限创建/分配学员角色（需要 system:user:create:student 或 system:user:create）");
-		}
-	}
-
-	/**
-	 * 目标用户的有效权限：直挂角色 ∪ 组链绑定角色（与 loadUserById 同一套口径）。
-	 *
-	 * <p>
-	 * 只查 t_user_role 会把「没有任何直挂角色、但所在组绑了 teacher」的老师误判成低权限，
-	 * 从而允许别人重置他的密码/删除他（账号接管）。这里直接用 loadUserById 的并集结果。
-	 * 注意：内部自调用不走缓存代理，拿到的一定是实时结果。
-	 */
-	private Set<String> loadAuthorityNames(String userId) {
-		UserInfo userInfo = loadUserById(userId);
-		if (userInfo == null || userInfo.getAuthorityList() == null) {
-			return Collections.emptySet();
-		}
-		return new HashSet<>(userInfo.getAuthorityList());
-	}
-
-	private Set<String> currentAuthorityNames() {
-		return SecurityContextUtils.getUser().getAuthorities().stream().map(GrantedAuthority::getAuthority)
-				.collect(Collectors.toSet());
-	}
-
-	private Set<String> toAuthorityNames(Role role) {
-		Set<String> authorities = new HashSet<>();
-		if (StringUtils.hasText(role.getCode())) {
-			authorities.add("ROLE_" + role.getCode());
-		}
-		if (isNotBlank(role.getAuthority())) {
-			Arrays.stream(role.getAuthority().split(",")).filter(StringUtils::hasText).forEach(authorities::add);
-		}
-		// 超级管理员天然拥有全部权限：把权限目录里的所有串直接注进来。
-		// 之前只认 t_role.authority 里存的串，结果目录新增权限（如 system:log:list）后，
-		// 管理员在页面显示「全勾选」，实际调接口却被 403 挡住（/api/system/audit/list 就是例子）。
-		if ("admin".equals(role.getCode())) {
-			for (PermissionEnum permission : PermissionEnum.values()) {
-				// 学员专属（开始答题/开始练习/错题本/学员视角）不注入管理员：
-				// 否则管理员页面会一直出现「开始答题」，前端只能逐页兜底。
-				if (!permission.isStudentOnly()) {
-					authorities.add(permission.getCode());
-				}
-			}
-		}
-		return authorities;
-	}
-
-	private void evictUserAfterCommit(String userId) {
-		Cache userCache = cacheManager.getCache(CacheConsts.userCacheName);
-		if (userCache == null || userId == null) {
-			return;
-		}
-		Runnable evict = () -> userCache.evictIfPresent(userId);
-		if (TransactionSynchronizationManager.isActualTransactionActive()
-				&& TransactionSynchronizationManager.isSynchronizationActive()) {
-			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-				@Override
-				public void afterCommit() {
-					evict.run();
-				}
-			});
-		}
-		else {
-			evict.run();
-		}
-	}
-
-	private List<String> parseImportRoleNames(String roles, Map<String, String> roleName2Id) {
-		String normalizedRoles = roles.trim();
-		List<String> roleNames = Arrays.stream(normalizedRoles.split("\\s*[,，、;；\\r\\n]+\\s*")).map(String::trim)
-				.filter(StringUtils::hasText).distinct().collect(Collectors.toList());
-		if (roleNames.size() == 1 && normalizedRoles.matches(".*\\s+.*")
-				&& !roleName2Id.containsKey(roleNames.get(0))) {
-			roleNames = Arrays.stream(normalizedRoles.split("\\s+")).map(String::trim).filter(StringUtils::hasText)
-					.distinct().collect(Collectors.toList());
-		}
-		return roleNames;
-	}
-
-	private <T> Map<String, String> buildNameIdMap(List<T> items, Function<T, String> nameGetter,
-			Function<T, String> idGetter, String duplicateMessageKey) {
-		Map<String, String> name2Id = new LinkedHashMap<>();
-		Set<String> duplicateNames = new LinkedHashSet<>();
-		items.forEach(item -> {
-			String name = nameGetter.apply(item);
-			if (isBlank(name)) {
-				return;
-			}
-			String normalizedName = name.trim();
-			String previousId = name2Id.putIfAbsent(normalizedName, idGetter.apply(item));
-			if (previousId != null) {
-				duplicateNames.add(normalizedName);
-			}
-		});
-		if (!duplicateNames.isEmpty()) {
-			throw new InternalServerError(i18n(duplicateMessageKey, duplicateNames.iterator().next()));
-		}
-		return name2Id;
+		userImportService.importUser(request);
 	}
 
 	@Override
 	public PaginationResponse<MyTaskView> queryTask(MyTaskQuery query) {
-		Page<ProjectPartner> page = ContextHelper.getBean(ProjectPartnerServiceImpl.class).pageByQuery(query, Wrappers
-				.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getUserId, SecurityContextUtils.getUserId())
-				.ne(ProjectPartner::getStatus, AppConsts.ProjectPartnerStatus.ANSWERED)
-				.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType())
-				.exists("SELECT 1 FROM t_project t WHERE t.mode = {0} AND t.id = t_project_partner.project_id And t.is_deleted = 0",
-						query.getType())
-				.orderByAsc(ProjectPartner::getStatus).orderByDesc(ProjectPartner::getCreateAt));
-		PaginationResponse<MyTaskView> result = new PaginationResponse<>(page.getTotal(),
-				page.getRecords().stream().map(projectPartner -> {
-					MyTaskView taskView = new MyTaskView();
-					Project project = projectMapper.selectById(projectPartner.getProjectId());
-					taskView.setId(projectPartner.getId());
-					taskView.setProjectId(projectPartner.getProjectId());
-					taskView.setName(project.getName());
-					taskView.setStatus(projectPartner.getStatus());
-					taskView.setExamStartTime(project.getSetting().getExamSetting().getStartTime());
-					taskView.setExamEndTime(project.getSetting().getExamSetting().getEndTime());
-					return taskView;
-				}).collect(Collectors.toList()));
-		return result;
-	}
-
-	@Override
-	public PaginationResponse<MyTaskView> queryHistoryTask(MyTaskQuery query) {
-		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
-		ContextHelper.getBean(AnswerServiceImpl.class).page(page,
-				Wrappers.<Answer>lambdaQuery().eq(Answer::getCreateBy, SecurityContextUtils.getUserId()).exists(
-						"SELECT 1 FROM t_project t WHERE t.mode = {0} AND t.id = t_answer.project_id And t.is_deleted = 0",
-						query.getType()).orderByDesc(Answer::getCreateAt));
-		if (page.getTotal() == 0) {
-			return new PaginationResponse<>(0l, new ArrayList<>());
-		}
-		List<Project> projectList = projectMapper.selectList(Wrappers.<Project>lambdaQuery().in(Project::getId,
-				page.getRecords().stream().map(x -> x.getProjectId()).collect(Collectors.toSet())));
-
-		PaginationResponse<MyTaskView> result = new PaginationResponse<>(page.getTotal(),
-				page.getRecords().stream().map(answer -> {
-					MyTaskView taskView = new MyTaskView();
-					taskView.setId(answer.getId());
-					taskView.setAnswerId(answer.getId());
-
-					Project project = projectList.stream().filter(x -> x.getId().equals(answer.getProjectId()))
-							.findFirst().orElse(null);
-					if (project != null) {
-						taskView.setProjectId(project.getId());
-						taskView.setName(project.getName());
-						if (ProjectModeEnum.exam.equals(project.getMode())) {
-							taskView.setExamScore(answer.getExamScore());
-							taskView.setExamTotal(project.getSurvey().getAttribute().getExamScore());
-						}
-					}
-
-					try {
-						taskView.setStartTime(answer.getMetaInfo().getAnswerInfo().getStartTime());
-						taskView.setEndTime(answer.getMetaInfo().getAnswerInfo().getEndTime());
-					}
-					catch (Exception e) {
-						// ignore error
-					}
-					return taskView;
-				}).collect(Collectors.toList()));
-		return result;
-
+		return userQueryService.queryTask(query);
 	}
 
 	@Override
 	public void validateCaptcha(AuthRequest request) {
-		SystemInfo systemInfo = systemService.getSystemInfo();
-		if (systemInfo.getSetting() != null && Boolean.TRUE.equals(systemInfo.getSetting().getCaptchaEnabled())) {
-			// 验证码已开启
-			CaptchaVO captchaVO = new CaptchaVO();
-			captchaVO.setCaptchaVerification(request.getCaptchaVerification());
-			ResponseModel response = captchaService.verification(captchaVO);
-			if (response.isSuccess() == false) {
-				// 验证码校验失败，返回信息告诉前端
-				// repCode 0000 无异常，代表成功
-				// repCode 9999 服务器内部异常
-				// repCode 0011 参数不能为空
-				// repCode 6110 验证码已失效，请重新获取
-				// repCode 6111 验证失败
-				// repCode 6112 获取验证码失败,请联系管理员
-				// repCode 6113 底图未初始化成功，请检查路径
-				// repCode 6201 get接口请求次数超限，请稍后再试!
-				// repCode 6206 无效请求，请重新获取验证码
-				// repCode 6202 接口验证失败数过多，请稍后再试
-				// repCode 6204 check接口请求次数超限，请稍后再试!
-				throw new ValidationException(response.getRepMsg());
-			}
-		}
+		userAuthService.validateCaptcha(request);
 	}
 
-	private Optional<String> getCellValue(Row row, int cellIndex) {
-		String cellValue;
-		try {
-			cellValue = row.getCellText(cellIndex);
-		}
-		catch (Exception ex) {
-			cellValue = row.getCellRawValue(cellIndex).orElse(null);
-		}
-		if (isBlank(cellValue)) {
-			return Optional.empty();
-		}
-		return Optional.of(cellValue.trim());
+	@Override
+	public PaginationResponse<MyTaskView> queryHistoryTask(MyTaskQuery query) {
+		return userQueryService.queryHistoryTask(query);
 	}
 
-	private void validateStrongPassword(String password, Integer rowNum) {
-		if (password != null && STRONG_PASSWORD_PATTERN.matcher(password).matches()) {
-			return;
-		}
-		if (rowNum != null) {
-			throw new InternalServerError(i18n("user.import.passwordWeak", rowNum));
-		}
-		throw new InternalServerError(i18n("user.password.strong"));
-	}
-
-	private String i18n(String key, Object... args) {
-		return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+	private String getRootDeptId() {
+		return deptMapper
+				.selectList(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, ROOT_DEPT_PARENT_ID)
+						.orderByAsc(Dept::getSortCode).orderByAsc(Dept::getCreateAt))
+				.stream().findFirst().map(Dept::getId)
+				.orElseThrow(() -> new InternalServerError(userAuthService.i18n("user.register.rootDeptNotFound")));
 	}
 
 }
