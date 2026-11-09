@@ -359,17 +359,15 @@ public class SurveyServiceImpl implements SurveyService {
 		// 统计是「全部答卷进内存做聚合」：先计数，超过保护阈值直接拒绝，
 		// 让调用方按班级/时间段分批，避免一次统计把堆打满（-Xmx768m 下这是最容易 OOM 的读接口）。
 		long statTotal = answerService.count(answerQuery);
-		log.info("[STAT] projectId={} count={}", query.getId(), statTotal);
 		if (statTotal > STAT_MAX_ANSWERS) {
 			throw new ErrorCodeException(ErrorCode.StatisticsTooLarge);
 		}
 		ProjectView project = projectService.getProject(query.getId());
-		log.info("[STAT] project={} survey={}", project != null, project != null && project.getSurvey() != null);
 		// 投影表覆盖了全部答卷才走 SQL 聚合；历史数据还没回填时回退到内存算法，
 		// 保证「回填前、回填中、回填后」三个阶段统计数字都不变（宁可慢，不可少算）。
 		long covered = answerItemMapper.countSyncedAnswers(query.getId());
-		log.info("[STAT] covered={}", covered);
-		if (statTotal > 0 && covered >= statTotal) {
+		boolean useProjection = statTotal > 0 && covered >= statTotal;
+		if (useProjection) {
 			try {
 				return statFromProjection(project, statTotal);
 			}
@@ -381,10 +379,7 @@ public class SurveyServiceImpl implements SurveyService {
 		}
 		// 统计不需要整卷快照，也不套行级数据范围（权限由方法上的 @PreAuthorize 保证）
 		List<AnswerView> answers = answerService.listAnswersForStat(query.getId());
-		log.info("[STAT] fallback answers={} firstAnswerNull={}", answers.size(),
-				answers.isEmpty() || answers.get(0).getAnswer() == null);
 		PublicStatisticsView view = new ProjectStatHelper(project.getSurvey(), answers).stat();
-		log.info("[STAT] done count={}", view.getCount());
 		return view;
 	}
 
