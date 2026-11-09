@@ -187,7 +187,7 @@ ai/         依赖接口 + 条件装配
 |---|---|---|---|---|---|
 | S1-1 | 缓存实现写死 Caffeine，容量统一 100 | Spring `CacheManager` 抽象 + 按 cacheName 可配容量 | S0-2 已完成容量分治；抽象本来就在 Spring Cache 上，换 Redis 只需替换 `CacheManager` Bean | 换实现只改一个 Bean | ✅ |
 | S1-2 | 限流是 `RateLimitFilter` 内部的静态 `Map` | `RateLimiter` 接口 + `InMemoryRateLimiter` | 新增两个类；Filter 只负责取 key 与返回 429 | 接口可替换；行为不变 | ✅ |
-| S1-3 | 交卷幂等用进程内 `recentSubmits`（15 秒窗口） | DB 唯一键 `(project_id, create_by, attempt_no)` | `AnswerServiceImpl:310` 附近 | 多实例下重复提交只落一条 | ⏳ 随 S2 |
+| S1-3 | 交卷幂等用进程内 `recentSubmits`（15 秒窗口） | DB 唯一键 `(project_id, create_by, attempt_no)` | 迁移 27 加 `attempt_no` + `ROW_NUMBER` 回填 + 唯一键；`AnswerAttemptAllocator` 分配序号，`DuplicateKeyException` 时回读赢家 | 多实例下重复提交只落一条 | ✅ 2026-11-09（参数 `create_by IS NULL` 的纯匿名提交不受唯一索引约束） |
 | S1-4 | 统计无上限，全量进内存聚合 | `count()` 超过 20000 直接拒绝并提示分批 | `SurveyServiceImpl.statProject` + `ErrorCode.StatisticsTooLarge(4060)` | 1 万答卷不 OOM | ✅ |
 | S1-5 | 无租户概念 | `TenantContext` 固定返回 `default`（**不参与任何查询**） | 新增 `core/tenant/TenantContext` | 为 §5 预留；现在过滤会查不到数据 | ✅ |
 | S1-6 | 4 套 IP 取法（`IPUtils`/`X-Real-IP`/`XFF`/`getRemoteAddr`） | 唯一 `IPUtils` 解析 + nginx `real_ip` | `IPUtils` 重写；替换 `RateLimitFilter`/`ExportGuardService`/`UserApi`/`FileServiceImpl`；`deploy/nginx.conf` 加 `set_real_ip_from` + `real_ip_header` | 审计/限流/登录锁定按真实 IP | ✅ |
@@ -207,8 +207,8 @@ ai/         依赖接口 + 条件装配
 | S2-1 | 答案只在 JSON 里 | `t_answer_item(answer_id, project_id, question_id, option_id)` | 新表（迁移 25 + init）；`AnswerItemProjector` 交卷时批量写（每批 500 条多值 INSERT） | 单份 100 题 = 100 行 | ✅ |
 | S2-2 | 统计内存三层循环 | `GROUP BY question_id, option_id` | `AnswerItemMapper.statQuestions/statOptions`；`ProjectStatHelper.statFromProjection()` | 只回传「题 × 选项」计数，不加载答卷 JSON | ✅ |
 | S2-3 | 无历史投影 | 回填 + 一致性校验 | `AnswerItemBackfill`（`surveyking.answer-items.backfill=true` 触发，幂等） | 200 份 / 21559 行回填 2.6 秒；与旧算法逐题逐选项 0 差异 | ✅ |
-| S2-4 | 导出读 JSON | 导出读投影 | — | — | ⏳ 未做（导出是行式明细，投影表缺 value，需先扩列） |
-| S2-5 | 24 处注解 SQL 绕过 Wrapper | 收口到统一入口 | — | — | ⏳ 随 S5（多租户插件）一起做 |
+| S2-4 | 导出读 JSON | 导出读投影 | 迁移 28 给 `t_answer_item` 加 `value_json`（JSON 存值，保留布尔/数字/数组类型）；`AnswerItemProjector` 写入值；导出改「瘦查询 + `AnswerItemAnswerRebuilder` 重建」，投影未覆盖时回退 JSON | 导出列与内容不变 | ✅ 2026-11-09 |
+| S2-5 | 24 处注解 SQL 绕过 Wrapper | 收口到统一入口 | 全仓 26 条注解 SQL 全部迁到 `server/rdbms/src/main/resources/mapper/*.xml`（12 个 Mapper），接口只留方法签名；`application.yml` 显式 `mapper-locations`；逐字比对 18/18（另 8 条本轮同步迁移） | SQL 语义逐字一致 | ✅ 2026-11-09 |
 
 **S2 验证记录（2026-11-09，本地隔离测试库，未上 NAS；库名与连接不写进仓库）**
 
@@ -229,7 +229,7 @@ ai/         依赖接口 + 条件装配
 | S3-2 | `AnswerServiceImpl` 1434 行（装配/授权/计时/导出） | 拆 assemble / authorize / export / timer | 1231 → **350 行**。抽出 `AnswerExporter`(367) / `AnswerSubmitIdempotency`(176) / `AnswerUploadParser`(157) / `AnswerScoringService`(130) / `AnswerSchemaDecorator`(106) / `ExerciseAnswerService`(95) / `LinkSurveyUpdater`(90) / `AnswerMetaEnricher`(49)；此前已抽 `AnswerAccessGuard` / `AnswerTimer` / `AnswerAssembler` | 同上 | ✅ 2026-11-09 |
 | S3-3 | `UserServiceImpl` 1436 行（认证/权限/组织/导入/学员） | 拆 auth / org / admin / import | 1535 → **264 行**。抽出 `UserQueryService`(360) / `UserAdminService`(338) / `UserDeptMembershipService`(302) / `UserAuthService`(218) / `UserImportService`(207) / `UserPermissionGuard`(196) / `ClassStudentService`(170)。缓存注解与 `@Transactional` 留在入口 bean，`evictUserAfterCommit` 原样搬入 `UserAdminService` | 同上 | ✅ 2026-11-09 |
 | S3-4 | 无边界约束 | ArchUnit 规则进构建 | 三条规则：api 不依赖 mapper / impl 不依赖 api / service 接口不依赖 impl；顺带给 `TeachingApi` 补了 `TeachingService`（它原本是全仓唯一直连 Mapper 的 Controller）。第四条「api 不得依赖 impl」等公开查询等组件搬进独立包后再加 | 违规即失败 | ✅ 2026-11-09 |
-| S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | `gen.mjs` 新增 `client/src/auth/permission-codes.ts`（含 `PERMISSIONS` 与 `STUDENT_ONLY_PERMISSIONS`），`docs:check` 会在枚举变化而生成物未更新时报 STALE。**页面里 57 处裸串尚未替换**（覆盖 46 个文件，单独排期） | 生成物与枚举一致 | ✅ 2026-11-09（常量替换未做） |
+| S3-5 | 权限三份真源（枚举 / 前端裸串 / SQL 种子） | `PermissionEnum` 唯一真源，生成前端常量与文档 | `gen.mjs` 生成 `PERMISSIONS` / `STUDENT_ONLY_PERMISSIONS` / `PERMISSION_CODES`；页面 143 处裸串全部替换为常量（AST 扫描命中 0），`docs:check` 会在枚举变化而生成物未更新时报 STALE | 生成物与枚举一致 | ✅ 2026-11-09 |
 | S3-6 | 权限矩阵不区分「仅前端」 | 矩阵加标注；清理 `answer:attach` | `answer:attach` 已由迁移 11 删除；矩阵标注见 S6-7（前端集合，过渡方案） | 矩阵可区分 | ✅ 2026-11-09 |
 | S3-7 | 错误一律 HTTP 200 | 状态码与 `code` 对齐 | `GlobalExceptionHandler`：参数/校验 400、权限 403、不存在/失效链接 404、账号密码错 401、未预期 500；新增请求体不可读 400 / 方法不支持 405 / 媒体类型 415。`RestAuthenticationEntryPoint` 认证失败改 401。前端 `request.ts` 在 body 缺失或非 JSON 时按 HTTP 状态兜底。body 仍是 `{code,message,data}`，业务码不变 | 冒烟能发现 4xx/5xx | ✅ 2026-11-09 |
 | S3-8 | 登录不进审计（`AuditAspect:33` 排除 `/api/public/**`） | 登录成败单独记录 | `UserApi` 写 `AUTH_LOGIN` / `AUTH_LOGIN_FAILED`，本地实测两条落库 | 审计里有登录记录 | ✅ 2026-11-09 |
@@ -260,15 +260,18 @@ ai/         依赖接口 + 条件装配
 
 查分（`loadExamResult`）仍未纳入自动化：它要求「答卷归属本人」，需要答卷 cookie 与登录态一致。
 
-### S4 · 多实例（推广前 1 周）
+### S4 · 多实例（2026-11-09 评估后决定留到以后）
 
-| 编号 | 内容 | 前置 |
-|---|---|---|
-| S4-1 | 无状态审计：逐项确认无进程内状态（缓存/限流/幂等已外置） | S1-1/2/3 |
-| S4-2 | nginx upstream 两实例 + 滚动重启 | S4-1 |
-| S4-3 | Redis 接缓存与限流（`CacheManager` / `RateLimiter` 换实现） | S1-1/2 |
-| S4-4 | 附件走对象存储（`StorageService` 已有抽象，加实现） | — |
-| S4-5 | 连接池与读写分离评估（先只调参：Hikari 20→40，视压测） | S2 |
+> 2026-11-09：用户确认当前并发不高，**S4 整体不做**（Redis、nginx 双实例、滚动重启、对象存储均未落地）。
+> 需要时再按「先 S1-3 幂等（已做）→ Redis 外置缓存/限流 → 对象存储 → nginx upstream」的顺序推进。
+
+| 编号 | 内容 | 前置 | 状态 |
+|---|---|---|---|
+| S4-1 | 无状态审计：逐项确认无进程内状态（缓存/限流/幂等已外置） | S1-1/2/3 | ⏳ 未做（交卷幂等已落 DB 唯一键，缓存/限流仍是进程内） |
+| S4-2 | nginx upstream 两实例 + 滚动重启 | S4-1 | ⏳ 未做 |
+| S4-3 | Redis 接缓存与限流（`CacheManager` / `RateLimiter` 换实现） | S1-1/2 | ⏳ 未做 |
+| S4-4 | 附件走对象存储（`StorageService` 已有抽象，加实现） | — | ⏳ 未做 |
+| S4-5 | 连接池与读写分离评估（先只调参：Hikari 20→40，视压测） | S2 | ⏳ 未做 |
 
 ### S6 · 未接线清理（2026-11-09 新增）
 

@@ -55,9 +55,11 @@ CREATE TABLE `t_answer` (
   `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `items_synced` tinyint(1) NOT NULL DEFAULT '0' COMMENT '明细投影是否已同步',
+  `attempt_no` int NOT NULL DEFAULT '0' COMMENT '同项目同答题人的第几次作答（从 0 开始）',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `key_answer_pid` (`project_id`) USING BTREE,
-  KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE
+  KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE,
+  UNIQUE KEY `uk_answer_pid_user_attempt` (`project_id`,`create_by`,`attempt_no`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
 
 -- ------
@@ -71,6 +73,7 @@ CREATE TABLE `t_answer_item` (
   `question_id` varchar(64) NOT NULL,
   `question_type` varchar(32) DEFAULT NULL,
   `option_id` varchar(64) DEFAULT NULL,
+  `value_json` text COMMENT '该选项对应的答案值（JSON，保留类型）',
   `value_key` varchar(64) DEFAULT NULL,
   `score` double DEFAULT NULL,
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

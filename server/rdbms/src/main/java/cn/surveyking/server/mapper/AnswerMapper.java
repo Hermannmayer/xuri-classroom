@@ -2,37 +2,33 @@ package cn.surveyking.server.mapper;
 
 import cn.surveyking.server.domain.model.Answer;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.ResultMap;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
 /**
  * @author javahuang
  * @date 2021/8/6
+ *
+ * <p>
+ * 原生 SQL 统一放在 {@code resources/mapper/AnswerMapper.xml}（S2-5）：注解里的裸 SQL 不易审计，
+ * 也不方便将来统一加租户/分片拦截；接口这里只留方法签名。
  */
 public interface AnswerMapper extends BaseMapper<Answer> {
 
-	@Select("select * from t_answer where is_deleted = 1 and project_id = #{projectId}")
-	@ResultMap("mybatis-plus_Answer")
+	/** 回收站列表：逻辑删除的行只能绕过 @TableLogic 用原生 SQL 查 */
 	List<Answer> selectLogicDeleted(String projectId);
 
-	@Select({ "<script>", "select distinct project_id from t_answer", "WHERE id IN",
-			"<foreach item='item' index='index' collection='ids'", "open='(' separator=',' close=')'>", "#{item}",
-			"</foreach>", "</script>" })
 	List<String> selectProjectIdsByIds(@Param("ids") List<String> ids);
 
-	@Delete({ "<script>", "delete", "FROM t_answer", "WHERE id IN",
-			"<foreach item='item' index='index' collection='ids'", "open='(' separator=',' close=')'>", "#{item}",
-			"</foreach>", "</script>" })
 	void batchDestroy(List<String> ids);
 
-	@Update({ "<script>", "update", "t_answer set is_deleted = 0", "WHERE id IN",
-			"<foreach item='item' index='index' collection='ids'", "open='(' separator=',' close=')'>", "#{item}",
-			"</foreach>", "</script>" })
 	void restoreAnswer(List<String> ids);
+
+	/**
+	 * 同项目 + 同答题人已用的最大作答序号（含已逻辑删除的行，避免撞唯一键）。
+	 * @return 没有历史答卷时返回 -1
+	 */
+	Integer selectMaxAttemptNo(@Param("projectId") String projectId, @Param("createBy") String createBy);
 
 }

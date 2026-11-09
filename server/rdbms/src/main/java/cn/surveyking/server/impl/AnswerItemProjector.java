@@ -5,6 +5,7 @@ import cn.surveyking.server.domain.model.AnswerItem;
 import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,9 @@ public class AnswerItemProjector {
 
 	private final AnswerMapper answerMapper;
 
+	/** 导出要用「值本身」重建 answer，用 JSON 存可以保留布尔/数字/数组等类型 */
+	private final ObjectMapper objectMapper;
+
 	/** 先删后插：重复提交、修改答案、回填重跑都会得到与真源一致结果 */
 	public int rebuild(Answer answer) {
 		if (answer == null || !StringUtils.hasText(answer.getId())) {
@@ -53,8 +57,9 @@ public class AnswerItemProjector {
 				continue;
 			}
 			String questionId = entry.getKey();
-			for (Object optionId : ((Map<?, ?>) entry.getValue()).keySet()) {
-				if (optionId == null) {
+			Map<?, ?> optionValues = (Map<?, ?>) entry.getValue();
+			for (Map.Entry<?, ?> option : optionValues.entrySet()) {
+				if (option.getKey() == null) {
 					continue;
 				}
 				AnswerItem item = new AnswerItem();
@@ -62,7 +67,8 @@ public class AnswerItemProjector {
 				item.setAnswerId(answer.getId());
 				item.setProjectId(answer.getProjectId());
 				item.setQuestionId(questionId);
-				item.setOptionId(String.valueOf(optionId));
+				item.setOptionId(String.valueOf(option.getKey()));
+				item.setValueJson(serializeValue(option.getValue()));
 				item.setCreateAt(now);
 				items.add(item);
 			}
@@ -72,6 +78,25 @@ public class AnswerItemProjector {
 		}
 		markSynced(answer.getId());
 		return items.size();
+	}
+
+	/** 值的序列化不能影响交卷：失败就退化成字符串，导出仍能显示原文 */
+	private String serializeValue(Object value) {
+		if (value == null) {
+			return null;
+		}
+		try {
+			return objectMapper.writeValueAsString(value);
+		}
+		catch (Exception e) {
+			log.warn("答案值序列化失败，退化为字符串: value={}", value, e);
+			try {
+				return objectMapper.writeValueAsString(String.valueOf(value));
+			}
+			catch (Exception ignored) {
+				return null;
+			}
+		}
 	}
 
 	private void markSynced(String answerId) {

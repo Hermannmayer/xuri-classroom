@@ -83,6 +83,15 @@ public class Answer extends BaseModel {
 	 */
 	private Integer itemsSynced;
 
+	/**
+	 * 同项目 + 同答题人的第几次作答（从 0 开始）。
+	 * <p>
+	 * 与 {@code (project_id, create_by, attempt_no)} 的唯一键一起，把「交卷幂等」从进程内窗口
+	 * 升级成数据库约束：多实例并发重复提交时，只有一条能落库，另一条按唯一键冲突回读赢家。
+	 * 注意 {@code create_by} 为 NULL（纯匿名）时 MySQL 唯一索引不生效，这类提交仍只靠设备 cookie 限次。
+	 */
+	private Integer attemptNo;
+
 	@TableField(fill = FieldFill.UPDATE)
 	private Date updateAt;
 

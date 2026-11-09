@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.surveyking.server.mapper.AnswerMapper">
+
+    <!-- 显式 resultMap：answer / survey / temp_answer / meta_info / exam_info 是 JSON 大字段，
+         必须交给 JacksonTypeHandler，不能用默认的 resultType 自动映射。 -->
+    <resultMap id="answerResultMap" type="cn.surveyking.server.domain.model.Answer">
+        <id column="id" property="id"/>
+        <result column="project_id" property="projectId"/>
+        <result column="repo_id" property="repoId"/>
+        <result column="temp_answer" property="tempAnswer"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+        <result column="answer" property="answer"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+        <result column="survey" property="survey"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+        <result column="meta_info" property="metaInfo"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+        <result column="exam_info" property="examInfo"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+        <result column="exam_score" property="examScore"/>
+        <result column="exam_exercise_type" property="examExerciseType"/>
+        <result column="temp_save" property="tempSave"/>
+        <result column="items_synced" property="itemsSynced"/>
+        <result column="attempt_no" property="attemptNo"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_at" property="createAt"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_at" property="updateAt"/>
+        <result column="is_deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 回收站：逻辑删除的行只能绕过 @TableLogic 用原生 SQL 查 -->
+    <select id="selectLogicDeleted" resultMap="answerResultMap">
+        select * from t_answer where is_deleted = 1 and project_id = #{projectId}
+    </select>
+
+    <select id="selectProjectIdsByIds" resultType="java.lang.String">
+        select distinct project_id from t_answer
+        WHERE id IN
+        <foreach item="item" index="index" collection="ids" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <delete id="batchDestroy">
+        delete FROM t_answer
+        WHERE id IN
+        <foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+    <update id="restoreAnswer">
+        update t_answer set is_deleted = 0
+        WHERE id IN
+        <foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </update>
+
+    <!-- S1-3：分配下一次作答序号。刻意不加 is_deleted 过滤：唯一索引覆盖已删除的行，
+         重新分配时要避开它们，否则会撞唯一键。 -->
+    <select id="selectMaxAttemptNo" resultType="java.lang.Integer">
+        SELECT COALESCE(MAX(attempt_no), -1) FROM t_answer
+        WHERE project_id = #{projectId}
+        <choose>
+            <when test="createBy != null and createBy != ''">
+                AND create_by = #{createBy}
+            </when>
+            <otherwise>
+                AND create_by IS NULL
+            </otherwise>
+        </choose>
+    </select>
+
+</mapper>

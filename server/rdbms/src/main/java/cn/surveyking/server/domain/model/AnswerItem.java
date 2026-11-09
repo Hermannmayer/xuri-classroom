@@ -30,6 +30,9 @@ public class AnswerItem {
 
 	private String optionId;
 
+	/** 该选项对应的答案值（JSON，保留类型）；导出重建 answer 时用 */
+	private String valueJson;
+
 	private String valueKey;
 
 	private Double score;

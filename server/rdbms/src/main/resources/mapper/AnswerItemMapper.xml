@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.surveyking.server.mapper.AnswerItemMapper">
+
+    <insert id="batchInsert">
+        INSERT INTO t_answer_item (id, answer_id, project_id, question_id, option_id, value_json, create_at) VALUES
+        <foreach collection="items" item="item" separator=",">
+            (#{item.id},#{item.answerId},#{item.projectId},#{item.questionId},#{item.optionId},#{item.valueJson},#{item.createAt})
+        </foreach>
+    </insert>
+
+    <!-- S2-4：导出按答卷 id 批量取明细，用来重建 answer（不读 t_answer.answer JSON） -->
+    <select id="selectByAnswerIds" resultType="cn.surveyking.server.domain.model.AnswerItem">
+        SELECT id AS id,
+               answer_id AS answerId,
+               project_id AS projectId,
+               question_id AS questionId,
+               question_type AS questionType,
+               option_id AS optionId,
+               value_json AS valueJson,
+               score AS score,
+               create_at AS createAt
+        FROM t_answer_item
+        WHERE answer_id IN
+        <foreach collection="answerIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 每题的回答人数（答了该题的人数，去重） -->
+    <select id="statQuestions" resultType="cn.surveyking.server.domain.dto.AnswerItemStat">
+        SELECT question_id AS questionId, COUNT(DISTINCT answer_id) AS cnt
+        FROM t_answer_item
+        WHERE project_id = #{projectId}
+        GROUP BY question_id
+    </select>
+
+    <!-- 每题每个选项的选择人数 -->
+    <select id="statOptions" resultType="cn.surveyking.server.domain.dto.AnswerItemStat">
+        SELECT question_id AS questionId, option_id AS optionId, COUNT(DISTINCT answer_id) AS cnt
+        FROM t_answer_item
+        WHERE project_id = #{projectId} AND option_id IS NOT NULL
+        GROUP BY question_id, option_id
+    </select>
+
+    <select id="countSyncedAnswers" resultType="long">
+        SELECT COUNT(*) FROM t_answer WHERE project_id = #{projectId} AND is_deleted = 0 AND items_synced = 1
+    </select>
+
+</mapper>

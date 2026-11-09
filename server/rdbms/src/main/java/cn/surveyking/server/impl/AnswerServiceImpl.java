@@ -5,7 +5,9 @@ import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.AnswerViewMapper;
 import cn.surveyking.server.domain.model.Answer;
+import cn.surveyking.server.domain.model.AnswerItem;
 import cn.surveyking.server.domain.model.Project;
+import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.service.AnswerService;
@@ -14,6 +16,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -39,6 +42,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	private final AnswerItemProjector answerItemProjector;
 
+	private final AnswerItemMapper answerItemMapper;
+
+	private final AnswerItemAnswerRebuilder answerItemAnswerRebuilder;
+
 	private final AnswerSchemaDecorator answerSchemaDecorator;
 
 	private final AnswerExporter answerExporter;
@@ -52,6 +59,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private final AnswerMetaEnricher answerMetaEnricher;
 
 	private final ExerciseAnswerService exerciseAnswerService;
+
+	private final AnswerAttemptAllocator answerAttemptAllocator;
 
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
@@ -83,6 +92,14 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	}
 
 	private PaginationResponse<AnswerView> listAnswer(AnswerQuery query, boolean withSnapshot) {
+		return listAnswer(query, withSnapshot, true);
+	}
+
+	/**
+	 * @param withSnapshot 是否读取整卷快照（统计路径为 false）
+	 * @param withAnswer 是否读取 {@code t_answer.answer} 原文（导出走投影时为 false）
+	 */
+	private PaginationResponse<AnswerView> listAnswer(AnswerQuery query, boolean withSnapshot, boolean withAnswer) {
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
 		// 数据范围：管理员 / 项目所有者或协作者（含组授权）看全部；其他人（学员）只能看自己的答卷。
 		// 之前只靠 @PreAuthorize('answer:list')，学员知道 projectId 就能列出全班答卷。
@@ -100,6 +117,12 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		if (!withSnapshot) {
 			// 统计路径：只取统计与权限判定需要的列，整卷快照与暂存答案一律不读。
 			wrapper.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,
+					Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
+					Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt);
+		}
+		else if (!withAnswer) {
+			// S2-4 导出读投影：answer / survey / temp_answer 三个大字段都不读，答案由 t_answer_item 重建。
+			wrapper.select(Answer::getId, Answer::getProjectId, Answer::getRepoId, Answer::getMetaInfo,
 					Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
 					Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt);
 		}
@@ -203,9 +226,36 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 新前端不再上传 metaInfo，「每 IP / 每台设备限次」会永远统计为 0：
 		// 这里在服务端补齐真实 IP 与限次 cookie 标识。
 		answer.setMetaInfo(answerMetaEnricher.enrichMetaInfo(answer.getMetaInfo()));
-		save(answerScoringService.beforeSaveAnswer(answer, previousAnswerFor(answer)));
-		rebuildAnswerItems(answer);
-		return answerViewMapper.toView(answer);
+		// S1-3：先确定答题人再分配作答序号。createBy 由 MetaObjectHandler 兜底填当前登录用户，
+		// 这里提前算出来，保证 attempt_no 和最终写进库的 create_by 是同一个值。
+		String actor = StringUtils.hasText(answer.getCreateBy()) ? answer.getCreateBy()
+				: SecurityContextUtils.getUserId();
+		answer.setCreateBy(actor);
+		answer.setAttemptNo(answerAttemptAllocator.next(answer.getProjectId(), actor));
+		Answer scored = answerScoringService.beforeSaveAnswer(answer, previousAnswerFor(answer));
+		try {
+			save(scored);
+		}
+		catch (DuplicateKeyException duplicate) {
+			// 多实例并发提交：唯一键 (project_id, create_by, attempt_no) 裁决，另一条已经落库就回读它。
+			// 这样重复提交只会产生一条答卷，而不是把 500 抛给前端。
+			Answer winner = findAttempt(scored);
+			if (winner != null) {
+				log.info("交卷幂等命中数据库唯一键，回读已有答卷: answerId={}", winner.getId());
+				return answerViewMapper.toView(winner);
+			}
+			throw duplicate;
+		}
+		rebuildAnswerItems(scored);
+		return answerViewMapper.toView(scored);
+	}
+
+	/** 唯一键冲突后按 (project_id, create_by, attempt_no) 找回赢家 */
+	private Answer findAttempt(Answer answer) {
+		return getOne(Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, answer.getProjectId())
+				.eq(answer.getCreateBy() != null, Answer::getCreateBy, answer.getCreateBy())
+				.isNull(answer.getCreateBy() == null, Answer::getCreateBy)
+				.eq(Answer::getAttemptNo, answer.getAttemptNo()).last("limit 1"), false);
 	}
 
 	/** 投影写失败不应该让交卷失败：统计侧有「覆盖数不足就回退内存算法」的兜底 */
@@ -279,7 +329,13 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		else {
 			answerQuery.setPageSize(Integer.MAX_VALUE);
 		}
-		List<AnswerView> answerViews = listAnswer(answerQuery).getList();
+		// S2-4：投影覆盖全部答卷时只读投影（瘦查询 + 重建 answer）；否则回退真源 JSON，
+		// 保证「回填前 / 回填中 / 回填后」导出的列与内容完全一致。
+		boolean projectionReady = projectionCoversAnswers(query.getProjectId());
+		List<AnswerView> answerViews = listAnswer(answerQuery, true, !projectionReady).getList();
+		if (projectionReady) {
+			fillAnswersFromProjection(answerViews);
+		}
 		return answerExporter.downloadSurvey(project, answerViews);
 	}
 
@@ -309,6 +365,35 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 			return answerExporter.generateSurveyAttachment(project, listAnswer(answerQuery).getList().get(0));
 		}
 		return answerExporter.downloadAttachmentZip(project, listAnswer(answerQuery).getList(), query);
+	}
+
+	/** 全部答卷都同步过明细才走投影；与统计用同一判据（items_synced 而不是投影行数） */
+	private boolean projectionCoversAnswers(String projectId) {
+		AnswerQuery countQuery = new AnswerQuery();
+		countQuery.setProjectId(projectId);
+		long total = count(countQuery);
+		if (total <= 0) {
+			return false;
+		}
+		return answerItemMapper.countSyncedAnswers(projectId) >= total;
+	}
+
+	/** 按答卷 id 批量取明细（500 一批），把 answer 重建回视图；投影是派生数据，真源仍是 answer JSON */
+	private void fillAnswersFromProjection(List<AnswerView> views) {
+		if (views == null || views.isEmpty()) {
+			return;
+		}
+		List<String> answerIds = views.stream().map(AnswerView::getId).filter(Objects::nonNull)
+				.collect(Collectors.toList());
+		Map<String, List<AnswerItem>> itemsByAnswer = new HashMap<>();
+		for (int from = 0; from < answerIds.size(); from += 500) {
+			List<String> chunk = answerIds.subList(from, Math.min(from + 500, answerIds.size()));
+			for (AnswerItem item : answerItemMapper.selectByAnswerIds(chunk)) {
+				itemsByAnswer.computeIfAbsent(item.getAnswerId(), key -> new ArrayList<>()).add(item);
+			}
+		}
+		views.forEach(view -> view.setAnswer(
+				answerItemAnswerRebuilder.rebuild(itemsByAnswer.getOrDefault(view.getId(), Collections.emptyList()))));
 	}
 
 	@Override

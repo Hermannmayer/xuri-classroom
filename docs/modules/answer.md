@@ -65,7 +65,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-09
-verified_against: 5de89e7a20d0b6107efe1e3b812e7381e4b34c4b
+verified_against: fa9ed5bf5b68d539afcc4f561c6eeee5240d7af5
 ---
 
 # 答卷、判分与报表
@@ -166,6 +166,8 @@ verified_against: 5de89e7a20d0b6107efe1e3b812e7381e4b34c4b
 - **`answer:attach` 没有接到接口**：答题页附件走公开 `POST /api/public/upload`，管理侧导入走 `answer:upload`；权限目录里的 `answer:attach` 目前只是注释约定，改附件权限时要一起确认。
 - **成绩单逐题对错是前端预览**：`ExamResult.tsx` 用 `utils/scoring.ts` 自行比对，最终分数以服务端 `exam_score` 为准；`manual` 模式会标"待人工评分"，不会假装判过。
 - **公开查询与普通答卷共用 `t_answer`**：`PublicQuery` 的修改走 `validateAndMergeAnswer`，字段权限由 `ProjectSetting.PublicQuery.fieldPermission` 控制；改答卷结构时要同时看 `PublicQueryService#getQueryResult` / `filterAnswerByFieldPermission`。
+- **导出读投影（S2-4）**：`downloadSurvey` 先判断 `t_answer_item` 是否覆盖全部答卷（按 `items_synced`），覆盖时只查瘦列并用 `AnswerItemAnswerRebuilder` 重建 `answer`，未覆盖自动回退 `t_answer.answer` JSON。新增答案字段时 `AnswerItemProjector` 要同步写 `value_json`，否则导出会缺值。
+- **交卷幂等靠数据库唯一键（S1-3）**：`(project_id, create_by, attempt_no)` 唯一，`AnswerAttemptAllocator` 分配序号，`DuplicateKeyException` 时回读赢家；`create_by` 为 NULL 的纯匿名提交不受约束（仍靠设备限频）。
 - **公开链接上的 projectId 不可信**：`PublicQueryService#loadQuery` / `getQueryResult` 与 `PublicSurveyExtrasService#loadExamResult` 拿到不存在的项目时，2026-11-09 之前会直接解引用 `project` 抛 NPE、被全局兜底成 500；现在统一回 7000（查询链接失效）与 4004（项目不存在）。新增公开端点时第一件事也是判 `project == null`。
 
 ## 验证
