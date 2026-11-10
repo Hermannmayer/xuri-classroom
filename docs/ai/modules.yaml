@@ -120,6 +120,8 @@ modules:
       - 仪表盘
       - 统计
       - 视角
+      - 教学页
+      - 入口跳转
       - dashboard
       - 我的成绩
     source_globs:
@@ -158,8 +160,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: c0e3501fb432dfcbb2da095a36de431938398737
+    last_verified: 2026-11-10
+    verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -380,12 +382,17 @@ modules:
       - 协作者
       - 班级分配
       - 按班窗口
+      - 教学页
+      - embedded
+      - 入口重定向
       - 数据范围
       - t_project
       - t_project_partner
       - t_class_resource
     source_globs:
       - client/src/pages/project/**
+      - client/src/router.tsx
+      - client/src/layout/BasicLayout.tsx
       - client/src/api/index.ts
       - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
@@ -395,6 +402,7 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
     entrypoints:
+      - client/src/pages/project/Entry.tsx
       - client/src/pages/project/List.tsx
       - client/src/pages/project/ComposeModal.tsx
       - client/src/pages/project/BatchSettingModal.tsx
@@ -426,7 +434,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+    verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -580,6 +588,9 @@ modules:
       - 按班窗口
       - 题库窗口
       - 题库全局期
+      - 教学页
+      - TeachingHome
+      - 学情
       - access_level
       - 分配老师
       - 学员导入
@@ -591,6 +602,11 @@ modules:
       - t_class_resource
     source_globs:
       - client/src/pages/teaching/**
+      - client/src/pages/project/List.tsx
+      - client/src/pages/project/Entry.tsx
+      - client/src/router.tsx
+      - client/src/layout/BasicLayout.tsx
+      - client/src/layout/MobileTabBar.tsx
       - client/src/pages/system/Group.tsx
       - client/src/pages/system/GroupEntry.tsx
       - client/src/pages/system/User.tsx
@@ -620,12 +636,15 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassResourceView.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java
     entrypoints:
+      - client/src/pages/teaching/TeachingHome.tsx
       - client/src/pages/teaching/Classes.tsx
       - client/src/pages/teaching/ClassSettingsModal.tsx
       - client/src/pages/teaching/ClassResourcesPanel.tsx
       - client/src/pages/teaching/ImportMembersModal.tsx
       - client/src/pages/teaching/DeleteDeptDialog.tsx
       - client/src/pages/teaching/Workbench.tsx
+      - client/src/pages/project/List.tsx
+      - client/src/pages/project/Entry.tsx
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
@@ -669,4 +688,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
+    verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7

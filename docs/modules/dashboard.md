@@ -7,6 +7,8 @@ keywords:
   - 仪表盘
   - 统计
   - 视角
+  - 教学页
+  - 入口跳转
   - dashboard
   - 我的成绩
 source_globs:
@@ -45,8 +47,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-09
-verified_against: c0e3501fb432dfcbb2da095a36de431938398737
+last_verified: 2026-11-10
+verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
 ---
 
 # 首页与统计
@@ -69,7 +71,7 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 | 路由 | `client/src/router.tsx` | `/home` 无守卫（登录即可进）；`/tasks` 要 `project:answer` |
 | 页面外壳 | `client/src/pages/Home.tsx` | 从 `BasicLayout` 的 `outlet context` 取 `user.authorityList`，交给 `Dashboards` |
 | 三种视角 | `client/src/pages/home/Dashboards.tsx` | `StudentHome` / `TeacherHome` / `AdminHome` + 默认导出的分发函数 `Dashboard` |
-| 菜单 | `client/src/layout/BasicLayout.tsx` | 教学管理要 `portal:teacher` + `project:list`；班级学情要 `portal:teacher` + `project:report` |
+| 菜单 | `client/src/layout/BasicLayout.tsx` | 教学管理与班级学情合并为一个「教学」`/teaching`（`portal:teacher` && (`project:list` 或 `project:report`)）；`/teaching/classes` 独立按 `class:list` |
 | 我的成绩接口 | `server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java` | `GET /api/my-report/list`，`project:report or admin` |
 | 我的成绩实现 | `server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java` | 只查 `create_by = 当前用户` 且 `temp_save=1` 的答卷，按项目聚合成 `MyReportView` |
 | 教学接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | `GET /api/teaching/projects`、`/teaching/classes`，都要 `project:report` |
@@ -103,6 +105,8 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 
 `GET /api/teaching/projects` → `TeachingMapper#listMyProjects`：`t_project` 里 `create_by = 我` 或 `t_project_partner` 里 `type IN (1,2)`，子查询算 `answerCount`（`temp_save=1` 且未删）与 `avgScore`。前端再算：已发布 = `status === 1` 的场次；累计答卷 = 各场 `answerCount` 求和；平均分 = **有答卷场次**的 `avgScore` 算术平均（不是按答卷数加权）。
 
+TeacherHome 的跳转已跟教学页合并对齐：「班级学情」卡与答题数据行的「按班级」都去 `/teaching?tab=insight`；AdminHome 的「考试 / 问卷」统计卡与「教学管理」快捷去 `/teaching?tab=exam`，「累计答卷」统计卡去 `/teaching?tab=insight`。
+
 ### 4. 管理员首页数据
 
 `Promise.all` 并发四个请求，各自 `.catch` 成 0 / 空数组：
@@ -114,13 +118,17 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 | 考试 / 问卷 | `GET /api/project/list`（`pageSize=1`） | `total` |
 | 累计答卷 | `GET /api/teaching/projects` | 各场 `answerCount` 求和 |
 
-常用入口是纯前端跳转（权限配置、用户管理、用户组、系统设置、操作日志、教学管理），不额外校验权限，点进去由路由守卫兜底。
+常用入口是纯前端跳转（权限配置、用户管理、用户组、系统设置、操作日志、教学管理），不额外校验权限，点进去由路由守卫兜底。跳转目标已随教学页合并调整：
+
+- 「考试 / 问卷」统计卡 → `/teaching?tab=exam`
+- 「累计答卷」统计卡 → `/teaching?tab=insight`
+- 「教学管理」快捷入口 → `/teaching?tab=exam`
 
 ### 5. 与任务中心、报表页的边界
 
 - 「我的任务」（`/tasks`，要 `project:answer`）是学员作答入口，首页只做汇总与跳转，不重复列表逻辑。
 - 报表（`/survey/:id/report`，要 `project:report`）是单场考试的题目级统计；首页的「平均分/答卷数」是场次级近似，两者口径不同。
-- 教学管理的班级学情（`/teaching`）按班级聚合，数据源是 `TeachingMapper#listClasses`，首页只给一个入口链接。
+- 教学页的「学情」Tab（`/teaching?tab=insight`）按班级聚合，数据源是 `TeachingMapper#listClasses`；首页只给一个入口链接，不直接请求班级分布。
 
 ### 6. 遗留：`/api/dashboard/list`
 
@@ -171,7 +179,8 @@ verified_against: c0e3501fb432dfcbb2da095a36de431938398737
 - `t_dashboard` 在 `init-mysql.sql` 里没有 `is_deleted` 列，而 `Dashboard` 继承 `BaseModel`（`@TableLogic` 会自动拼 `is_deleted = 0`）。老库不改表，`/api/dashboard/list` 稳定 500；补列脚本是 `scripts/dev/add-dashboard-is-deleted.sql`。
 - `Dashboard` 的 `key` 字段必须把列名写成 MySQL 的反引号转义形式（见 `Dashboard.java` 里 `@TableField` 上的注释），`type` 也不能映射成别的字段名，否则 SELECT 直接语法/未知列错误——这两个坑都修过一次。
 - 前端从未调用 `/api/dashboard/*`，所以这套接口目前没有回归覆盖；改它只能靠手工请求验证。
-- 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。
+- 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。教学管理与班级学情合并后，移动端只剩一个「教学」tab；`/teaching/classes` 仍是独立「班级」tab。
+- 首页/快捷入口的 `?tab=exam|insight` 只是前端状态：直接访问 `/teaching` 默认 exam；没有 `project:report` 的账号访问 `?tab=insight` 会被 `TeachingHome` 回退到 exam，不要把该 URL 当权限校验。
 
 ## 验证
 
@@ -189,14 +198,15 @@ npm run docs:check
 1. 打开 `/home`，确认视角正确：管理员四张卡、老师「我的教学」、学员「我的学习」。
 2. 浏览器网络面板确认首页数据请求数量（不含 `/api/system` 与 `/api/currentUser`）：管理员 4 个、老师 1 个、学员 2 个。
 3. 用学员账号直接访问 `/api/teaching/projects` 应 403；用老师账号访问 `/api/system/user/list` 应 403。
-4. 遗留接口：
+4. 老师首页点「班级学情 / 按班级」应到 `/teaching?tab=insight`；管理员首页点「考试 / 问卷」到 `/teaching?tab=exam`、点「累计答卷」/「教学管理」分别到 insight/exam。
+5. 遗留接口：
 
 ```bash
 # 要 project:detail；表没补 is_deleted 时会 500
 curl -s -b cookie.txt "https://<host>/api/dashboard/list?type=1" | head -c 400
 ```
 
-预期：1/2/3 与上表一致；4 返回 `{"code":200,"data":[...]}`（空数组也算正常，表里本来没数据），若是「服务器内部错误」先查 `t_dashboard.is_deleted`。
+预期：1/2/3/4 与上表/跳转一致；5 返回 `{"code":200,"data":[...]}`（空数组也算正常，表里本来没数据），若是「服务器内部错误」先查 `t_dashboard.is_deleted`。
 
 ## 相关文档
 

@@ -10,10 +10,10 @@
 | `/user/register` | `Register` | 公开/仅登录 |
 | `/` | `BasicLayout` | 公开/仅登录 |
 | `/home` | `Home` | 公开/仅登录 |
-| `/teaching` | `TeachingWorkbench` | `portal:teacher`<br>`project:report` |
+| `/teaching` | `TeachingHome` | `portal:teacher`<br>`project:list` |
 | `/teaching/classes` | `TeachingClasses` | `class:list` |
 | `/tasks` | `TaskCenter` | `project:answer` |
-| `/project` | `ProjectList` | `project:list` |
+| `/project` | `ProjectEntry` | `project:list` |
 | `/project/trash` | `ProjectTrash` | `project:list` |
 | `/project/:id` | `Placeholder` | 公开/仅登录 |
 | `/exercise` | `ExerciseList` | `exercise:list` |

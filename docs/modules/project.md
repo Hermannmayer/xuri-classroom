@@ -10,12 +10,17 @@ keywords:
   - 协作者
   - 班级分配
   - 按班窗口
+  - 教学页
+  - embedded
+  - 入口重定向
   - 数据范围
   - t_project
   - t_project_partner
   - t_class_resource
 source_globs:
   - client/src/pages/project/**
+  - client/src/router.tsx
+  - client/src/layout/BasicLayout.tsx
   - client/src/api/index.ts
   - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
@@ -25,6 +30,7 @@ source_globs:
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
 entrypoints:
+  - client/src/pages/project/Entry.tsx
   - client/src/pages/project/List.tsx
   - client/src/pages/project/ComposeModal.tsx
   - client/src/pages/project/BatchSettingModal.tsx
@@ -56,14 +62,14 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
 ---
 
 # 考试与问卷（项目）
 
 ## 30 秒摘要
 
-一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（项目只关心 `resource_type='project'`；同表也存题库 repo 分配，但不参与项目可见性）。
+一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；老师侧的列表并入 `/teaching` 的「考试/问卷」Tab（ProjectList embedded），`/project` 入口对「有 portal:teacher + project:list」的账号重定向、对其余账号（学员/无门户权限的只读账号）保留原「考试安排」；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（项目只关心 `resource_type='project'`；同表也存题库 repo 分配，但不参与项目可见性）。
 
 ## 什么时候看这篇
 
@@ -72,12 +78,14 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 - 要加协作者、把考试授权给班级，或排查"授权了但学员看不到"。
 - 回收站里找不到项目、恢复/彻底删除报"没有权限访问本问卷"。
 - 列表里某份试卷的答卷数、文件夹子项数不对。
+- 老师点「教学管理」被带到 `/teaching`，或 `/project` 打不开/重定向循环。
 
 ## 代码地图
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 项目列表 | `client/src/pages/project/List.tsx` | 管理视图与学员视图二选一；创建/改名/发布/删除/批量/文件夹 |
+| 项目列表 | `client/src/pages/project/List.tsx` | 管理视图与学员视图二选一；创建/改名/发布/删除/批量/文件夹；`embedded` 时隐藏自己的页头，保留工具条 |
+| `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list → `/teaching?tab=exam`；其余账号（学员/无门户权限的只读）→ 原 ProjectList |
 | 组卷弹窗 | `client/src/pages/project/ComposeModal.tsx` | 从题库按题型抽题生成考试，见 [repo-compose](../flows/repo-compose.md) |
 | 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update` |
 | 回收站 | `client/src/pages/project/Trash.tsx` | 只读数组结果；恢复/彻底删除两个动作分别鉴权 |
@@ -90,6 +98,14 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 | 数据表 | `t_project`、`t_project_partner`、`t_class_resource`、`t_answer` | 项目本体、参与者、班级分配、答卷数统计 |
 
 ## 关键流程
+
+### 0. 入口与页面复用（/project + /teaching）
+
+- `/project` 路由守卫仍是 `project:list`，但组件换成 `ProjectEntry`：有 `portal:teacher + project:list` 的账号重定向到 `/teaching?tab=exam`；学员、以及没有 `portal:teacher` 的只读账号继续渲染 `ProjectList` 的「考试安排」。
+- `/teaching` 守卫是 `portal:teacher + project:list`；「考试/问卷」Tab 渲染 `<ProjectList embedded />`，隐藏 ProjectList 自己的页头/分隔线，保留搜索、新建、回收站、批量等工具条。
+- 「学情」Tab 是另一套 `Workbench`（考试 Select + 班级分布），不是 ProjectList；没有 `project:report` 时不渲染该 Tab。
+- 菜单只剩一个「教学」`/teaching`（`portal:teacher && (project:list || project:report)`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
+- 学员侧不变：菜单/首页仍走「我的任务」，`/project` 是可访问的「考试安排」，不会被重定向。
 
 1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
 2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
@@ -137,6 +153,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
 | 列表 | `project:list` 或 `exercise:list` | 本人/本组被授权为 OWNER、COLLABORATOR、RESPONDENT（含组链） |
+| 访问 `/project` 入口 | `project:list` | 有 `portal:teacher` 的账号重定向 `/teaching?tab=exam`；学员/无门户权限的只读账号渲染原列表 |
 | 查看详情/设置 | `project:detail` + `@EnableDataPerm` | OWNER/COLLABORATOR（含组授权）或 admin |
 | 新建/恢复 | `project:create` | 恢复还要求项目在 `getProjectPerms` 里 |
 | 编辑题目/设置 | `project:update` + `@EnableDataPerm` | OWNER/COLLABORATOR |
@@ -160,6 +177,10 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 - **分配资源不校验项目可见性**：班级资源写入只校验班级可管理 + 项目存在/非文件夹，不校验调用者是否能看到该项目；拿 `projectId` 即可分配（P1/P2 服务端缺口，题库同理）。
 - **全局窗口未设置 = 不限制**：`examSetting.startTime/endTime` 为空时，班级窗口可以任意设；「硬上限」只在全局有值时成立。
 - **`t_class_resource` 是逻辑删表且混存两类资源**：手写 SQL 必须显式加 `is_deleted=0` **和** `resource_type='project'`（题库 repo 也在这张表里）；`t_project_partner` 没有 `is_deleted`，两者不要混。
+- **`/project` 现在只是学员入口**：老师访问会被 `Entry` 重定向到 `/teaching?tab=exam`；`/project/trash` 没有重定向，老师仍可直接访问（侧栏不再给入口）。
+- **嵌入列表的页头只由外层负责**：`<ProjectList embedded />` 会隐藏自己的标题/分隔线，但保留工具条；外层 `TeachingHome` 已有标题，别再套第二份。
+- **菜单「教学」与路由守卫不完全一致**：菜单是 `portal:teacher && (project:list || project:report)`，`/teaching` 路由还要 `project:list`；只有 report、没有 list 的自定义角色会看到入口但进不去。
+- **`/project` 菜单已移除**：老书签/直接链接仍可用（会重定向或渲染列表），但侧栏只有「教学」和「班级管理」。
 
 ## 验证
 
@@ -170,12 +191,13 @@ npm run docs:check
 
 手工回归：
 
-1. 学员账号（只有 `project:list`/`project:answer`）打开"考试安排"只看到被授权的项目，没有"新建/回收站"入口。
-2. 老师建考试 → 列表出现 → 发布 → 学员能打开 `/s/:id`；关闭收集后再打开应提示"问卷已暂停回收"。
-3. 协作者账号能看列表和答卷但改不了成员；项目所有者能加/删成员，组授权后组员能看到。
-4. 删除项目 → 回收站能看到 → 恢复后回到列表；彻底删除后列表和回收站都不再出现。
-5. 学生 A 在班级 X：给 X 分配一场考试后，A 的列表出现该考试；未分配该班的 B 打开链接应 404；把班级窗口设到未来/过去，A 打开分别提示未开始/已结束。
-6. 把班级开关关掉（`t_class_resource.status=0`）→ A 打开提示「问卷已暂停回收」；重新打开后可正常进入。
+1. 学员账号（只有 `project:list`/`project:answer`）打开 `/project` 仍看到"考试安排"，没有被重定向；只看到被授权的项目，没有"新建/回收站"入口。
+2. 老师/管理员访问 `/project` 应重定向到 `/teaching?tab=exam`；`/teaching` 的「考试/问卷」Tab 只出现一份页头（ProjectList embedded）。
+3. 老师建考试 → 列表出现 → 发布 → 学员能打开 `/s/:id`；关闭收集后再打开应提示"问卷已暂停回收"。
+4. 协作者账号能看列表和答卷但改不了成员；项目所有者能加/删成员，组授权后组员能看到。
+5. 删除项目 → 回收站能看到 → 恢复后回到列表；彻底删除后列表和回收站都不再出现。
+6. 学生 A 在班级 X：给 X 分配一场考试后，A 的列表出现该考试；未分配该班的 B 打开链接应 404；把班级窗口设到未来/过去，A 打开分别提示未开始/已结束。
+7. 把班级开关关掉（`t_class_resource.status=0`）→ A 打开提示「问卷已暂停回收」；重新打开后可正常进入。
 
 ## 相关文档
 
