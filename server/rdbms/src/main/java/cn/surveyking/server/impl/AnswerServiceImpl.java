@@ -11,6 +11,7 @@ import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.service.AnswerService;
+import cn.surveyking.server.service.ClassResourceService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -61,6 +62,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private final ExerciseAnswerService exerciseAnswerService;
 
 	private final AnswerAttemptAllocator answerAttemptAllocator;
+
+	/** 新建答卷时解析「答题时所在班级」（按班级分配的考试窗口） */
+	private final ClassResourceService classResourceService;
 
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
@@ -232,6 +236,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				: SecurityContextUtils.getUserId();
 		answer.setCreateBy(actor);
 		answer.setAttemptNo(answerAttemptAllocator.next(answer.getProjectId(), actor));
+		// 答题时所在班级：学员按「自己的班 + 班级资源分配」解析，主班优先；匿名/教职工拿不到就是 null。
+		// 更新答案不走这里，class_id 保持首次答题时的值（换班后历史答卷仍算在原班）。
+		answer.setClassId(classResourceService.resolveForStudent(answer.getProjectId(), actor));
 		Answer scored = answerScoringService.beforeSaveAnswer(answer, previousAnswerFor(answer));
 		try {
 			save(scored);

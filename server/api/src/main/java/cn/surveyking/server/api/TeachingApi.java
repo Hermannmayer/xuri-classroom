@@ -11,11 +11,16 @@ import cn.surveyking.server.domain.dto.ClassMemberUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberView;
 import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
+import cn.surveyking.server.domain.dto.ClassResourceAssignRequest;
+import cn.surveyking.server.domain.dto.ClassResourceDeleteRequest;
+import cn.surveyking.server.domain.dto.ClassResourceUpdateRequest;
+import cn.surveyking.server.domain.dto.ClassResourceView;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.TeachingClassView;
 import cn.surveyking.server.domain.dto.TeachingProjectView;
 import cn.surveyking.server.domain.dto.UserOptionView;
+import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.ClassService;
 import cn.surveyking.server.service.TeachingService;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +59,8 @@ public class TeachingApi {
 	private final TeachingService teachingService;
 
 	private final ClassService classService;
+
+	private final ClassResourceService classResourceService;
 
 	@GetMapping("/projects")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
@@ -102,6 +109,50 @@ public class TeachingApi {
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public void updateClass(@RequestBody DeptRequest request) {
 		classService.updateClass(request);
+	}
+
+	/* ------ 班级资源分配（P1：考试/问卷，按班级开放窗口） */
+
+	/**
+	 * 某班已分配的资源面板。
+	 *
+	 * <p>只有能管理这个班的人能看（服务层 assertManage）：面板就是写入口，读也不外包。
+	 */
+	@GetMapping("/classes/resources")
+	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
+	public List<ClassResourceView> classResources(@RequestParam String deptId,
+			@RequestParam(required = false) String resourceType) {
+		return classResourceService.list(deptId, resourceType);
+	}
+
+	/**
+	 * 给班级分配考试/问卷。
+	 *
+	 * <p>body {@code {classId, resourceType:"project", resourceIds, startAt?, endAt?, status?}}。
+	 * 班级窗口为空表示继承全局；非空必须落在项目全局窗口内（全局是硬上限）。已存在是 upsert。
+	 */
+	@PostMapping("/classes/resources/assign")
+	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
+	public void assignClassResource(@RequestBody ClassResourceAssignRequest request) {
+		classResourceService.assign(request);
+	}
+
+	/**
+	 * 修改一条分配：班级窗口与班级级开关。
+	 *
+	 * <p>body {@code {id, startAt?, endAt?, status?}}；startAt/endAt 传 null 表示回退到继承全局。
+	 */
+	@PostMapping("/classes/resources/update")
+	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
+	public void updateClassResource(@RequestBody ClassResourceUpdateRequest request) {
+		classResourceService.update(request);
+	}
+
+	/** 取消班级对某个资源的分配 */
+	@PostMapping("/classes/resources/delete")
+	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
+	public void deleteClassResource(@RequestBody ClassResourceDeleteRequest request) {
+		classResourceService.delete(request);
 	}
 
 	@GetMapping("/classes/members")

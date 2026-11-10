@@ -72,11 +72,20 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				// 注意：不能加 t.is_deleted = 0 —— t_project_partner 没有这列（ProjectPartner 把
 				// BaseModel.deleted 覆盖成了 @TableField(exist = false)，删除走的是物理 DELETE）。
 				// 加了会直接 500：Unknown column 't.is_deleted' in 'IN/ALL/ANY subquery'。
-				.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
-						+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
-						+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
-						+ " AND t.type IN (1, 2, 3)",
-						SecurityContextUtils.getUserId())
+				// 两个可见性条件必须包在 and(...) 里，否则 OR 会把上面的 name/parentId/mode 过滤一起 OR 掉
+				.and(w -> w
+						.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
+								+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
+								+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
+								+ " AND t.type IN (1, 2, 3)",
+								SecurityContextUtils.getUserId())
+						// 按班级分配：本班（主组 + 附加组）在 t_class_resource 上有这场考试的分配就可见。
+						// t_class_resource 有真实的 is_deleted 列，必须显式过滤（partner 表没有，见上）。
+						.or()
+						.exists("SELECT 1 FROM t_class_resource cr WHERE cr.resource_id = t_project.id"
+								+ " AND cr.resource_type = 'project' AND cr.is_deleted = 0"
+								+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",
+								SecurityContextUtils.getUserId()))
 				// 文件夹排在前面，然后按创建时间从近到远排序
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));
 		PaginationResponse<ProjectView> result = new PaginationResponse<>(page.getTotal(),

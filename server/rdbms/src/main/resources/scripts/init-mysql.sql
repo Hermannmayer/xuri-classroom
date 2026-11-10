@@ -56,9 +56,11 @@ CREATE TABLE `t_answer` (
   `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `items_synced` tinyint(1) NOT NULL DEFAULT '0' COMMENT '明细投影是否已同步',
   `attempt_no` int NOT NULL DEFAULT '0' COMMENT '同项目同答题人的第几次作答（从 0 开始）',
+  `class_id` varchar(64) DEFAULT NULL COMMENT '答题时所在班级',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `key_answer_pid` (`project_id`) USING BTREE,
   KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE,
+  KEY `idx_answer_class` (`class_id`) USING BTREE,
   UNIQUE KEY `uk_answer_pid_user_attempt` (`project_id`,`create_by`,`attempt_no`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
 
@@ -211,6 +213,30 @@ CREATE TABLE IF NOT EXISTS `t_class_partner` (
   UNIQUE KEY `uk_class_partner` (`dept_id`,`user_id`),
   KEY `idx_class_partner_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级授权给老师';
+
+-- ------
+-- Table structure for t_class_resource（班级资源分配：按班级的考试窗口）
+-- ------
+CREATE TABLE IF NOT EXISTS `t_class_resource` (
+  `id` varchar(64) NOT NULL COMMENT 'ID',
+  `class_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id，dept_type=class）',
+  `resource_type` varchar(16) NOT NULL COMMENT 'project=考试/问卷；repo=题库(P2)；course=课程(预留)',
+  `resource_id` varchar(64) NOT NULL COMMENT '资源 id（project: t_project.id）',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '0=关闭 1=开放（班级级手动开关）',
+  `start_at` datetime DEFAULT NULL COMMENT '本班开始时间；空=继承全局',
+  `end_at` datetime DEFAULT NULL COMMENT '本班结束时间；空=继承全局',
+  `assigned_by` varchar(64) DEFAULT NULL COMMENT '分配人',
+  `settings` text COMMENT '预留',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_by` varchar(256) DEFAULT NULL,
+  `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `update_by` varchar(256) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_class_resource` (`class_id`,`resource_type`,`resource_id`),
+  KEY `idx_cr_resource` (`resource_type`,`resource_id`),
+  KEY `idx_cr_class` (`class_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级资源分配（按班级的考试窗口）';
 
 -- ----------------------------
 -- Table structure for t_file

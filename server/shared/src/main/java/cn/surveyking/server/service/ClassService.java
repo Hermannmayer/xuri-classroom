@@ -33,6 +33,15 @@ public interface ClassService {
 	 */
 	void updateClass(DeptRequest request);
 
+	/**
+	 * 当前用户能否管理这个班（写操作闸门）。
+	 *
+	 * <p>管理员 / class:grant / 班主任（create_by、manager_id）/ access_level=2 的授权可以通过；
+	 * 其余抛 {@code AccessDeniedException("你对该班级只有查看权限，不能修改")}。
+	 * 供班级资源分配等「不在 ClassService 内部」的写操作用接口方式调用，避免注入实现类。
+	 */
+	void assertManage(String deptId);
+
 	List<ClassMemberView> listClassMembers(String deptId);
 
 	List<ClassTeacherView> listClassTeachers(String deptId);

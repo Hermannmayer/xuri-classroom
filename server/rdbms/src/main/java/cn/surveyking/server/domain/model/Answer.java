@@ -31,6 +31,13 @@ public class Answer extends BaseModel {
 	private String repoId;
 
 	/**
+	 * 答题时所在的班级（t_dept.id，dept_type=class）。
+	 * <p>新建答卷时按「学生班级 + 班级资源分配」解析写入；公开匿名、教职工答卷为 null。
+	 * 班级分布统计优先用它，学员换班后历史答卷仍算在原来的班。
+	 */
+	private String classId;
+
+	/**
 	 * 暂存的答案
 	 */
 	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)

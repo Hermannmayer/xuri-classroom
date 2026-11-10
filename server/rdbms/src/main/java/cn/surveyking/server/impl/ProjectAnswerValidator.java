@@ -15,6 +15,7 @@ import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.PublicStatisticsView;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.service.AnswerService;
+import cn.surveyking.server.service.ClassResourceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -51,6 +52,9 @@ public class ProjectAnswerValidator {
 
 	private final ProjectStatisticsService projectStatisticsService;
 
+	/** 按班级分配：学生只能参加分配给自己班的考试 */
+	private final ClassResourceService classResourceService;
+
 	/** 只有 validateAnswer 的提示文案用到 i18n */
 	private final MessageSource messageSource;
 
@@ -63,6 +67,9 @@ public class ProjectAnswerValidator {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
+		// 按班级分配：没分配到学生所在班 → 当作不存在（不泄露标题）；未开始/已结束/关闭分别报对应错误。
+		// 教职工、管理员、匿名公开问卷在这里直接放行。
+		classResourceService.assertStudentCanAnswer(project);
 
 		ProjectSetting setting = project.getSetting();
 		String projectId = project.getId();
@@ -225,6 +232,8 @@ public class ProjectAnswerValidator {
 	 * 这里把同一套条件在提交路径上再判一次；回收上限不在此列（会挡住正常修改答案）。
 	 */
 	public void validateAnswerGate(ProjectView project, boolean newAnswer) {
+		// 提交路径也要判一次班级分配：否则拿到 projectId 直接 POST saveAnswer 就能绕开班级窗口
+		classResourceService.assertStudentCanAnswer(project);
 		if (project == null || project.getSetting() == null || project.getSetting().getAnswerSetting() == null) {
 			return;
 		}

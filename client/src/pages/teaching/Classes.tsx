@@ -34,6 +34,7 @@ import { get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
+import ClassResourcesPanel from './ClassResourcesPanel';
 import ClassSettingsModal from './ClassSettingsModal';
 import DeleteDeptDialog from './DeleteDeptDialog';
 import ImportMembersModal from './ImportMembersModal';
@@ -943,6 +944,14 @@ export default function TeachingClasses() {
                     }}
                   />
                 </TableScrollRegion>
+              )}
+
+              {selected.manageable === true && (
+                <>
+                  <hr className="bp-dim" style={{ margin: '14px 0' }} />
+
+                  <ClassResourcesPanel classId={selected.id} manageable />
+                </>
               )}
             </>
           )}
