@@ -43,6 +43,9 @@ public class DownloadQuery extends PageQuery {
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	private Date endTime;
 
+	/** 按班级导出（t_answer.class_id）；为空导出全部 */
+	private String classId;
+
 	@NotNull
 	private DownloadType type;
 

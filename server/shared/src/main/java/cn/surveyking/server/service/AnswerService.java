@@ -26,6 +26,15 @@ public interface AnswerService {
 	PaginationResponse<AnswerView> listAnswer(AnswerQuery filter);
 
 	/**
+	 * 按班级查答卷（教学页「班级答卷」报表用）。
+	 *
+	 * <p>必须同时带 {@code projectId} 与 {@code classId}；可见性由调用方先校验（
+	 * {@code ClassService#assertVisible}），这里**不套**「非协作者只看自己」的行级过滤，
+	 * 否则不是项目所有者/协作者的班主任只能看到自己的答卷。非班级入口仍走 {@link #listAnswer}。
+	 */
+	PaginationResponse<AnswerView> listAnswerByClass(AnswerQuery query);
+
+	/**
 	 * 统计回退路径专用：按项目取全部答卷，**不按 createBy 过滤**。
 	 * <p>
 	 * 列表页的「只能看自己的答卷」是行级数据范围；统计的权限由 {@code statistic} 方法上的
@@ -60,6 +69,13 @@ public interface AnswerService {
 	DownloadData downloadAttachment(DownloadQuery query);
 
 	DownloadData downloadSurvey(DownloadQuery query);
+
+	/**
+	 * 按班级导出答卷（xlsx）。
+	 *
+	 * <p>只含该班（{@code t_answer.class_id}）的已提交答卷；班级可见性由调用方先校验。
+	 */
+	DownloadData downloadByClass(DownloadQuery query);
 
 	default AnswerMetaInfo.ClientInfo parseClientInfo(AnswerMetaInfo.ClientInfo clientInfo) {
 		HttpServletRequest request = ContextHelper.getCurrentHttpRequest();

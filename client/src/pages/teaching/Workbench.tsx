@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Card, Empty, Select, Spin, Table } from 'antd';
+import { App, Card, Empty, Select, Space, Spin, Table } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { get } from '../../api';
 import LinkAction from '../../components/LinkAction';
+import TableScrollRegion from '../../components/TableScrollRegion';
+import ClassAnswersDrawer, { downloadClassAnswers } from './ClassAnswersDrawer';
 
 interface TeachingProject {
   projectId: string;
@@ -19,13 +21,20 @@ interface TeachingClass {
   avgScore?: number | null;
 }
 
+interface AnswerTarget {
+  projectId: string;
+  deptId: string;
+  deptName?: string;
+}
+
 const score = (v?: number | null) => (v === null || v === undefined ? '—' : v.toFixed(1));
 
 /**
  * 班级学情（老师视角）。
  *
  * <p>合并进教学页后不再有独立大标题和「我的考试」表格：
- * 顶部一个考试下拉（名称 + 状态/交卷/平均分摘要），下方是该场考试的班级分布。
+ * 顶部一个考试下拉（名称 + 状态/交卷/平均分摘要），下方是该场考试的班级分布，
+ * 每个班可查看答卷明细（抽屉）或导出本班答卷 xlsx。
  */
 export default function TeachingWorkbench() {
   const { message } = App.useApp();
@@ -35,6 +44,7 @@ export default function TeachingWorkbench() {
   const [activeId, setActiveId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [classLoading, setClassLoading] = useState(false);
+  const [answerTarget, setAnswerTarget] = useState<AnswerTarget>();
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -67,6 +77,26 @@ export default function TeachingWorkbench() {
 
   const active = projects.find((p) => p.projectId === activeId);
 
+  const openAnswers = (row: TeachingClass) => {
+    if (!activeId || !row.deptId) return;
+    setAnswerTarget({ projectId: activeId, deptId: row.deptId, deptName: row.deptName });
+  };
+
+  const exportAnswers = async (row: TeachingClass) => {
+    if (!activeId || !row.deptId) return;
+    try {
+      await downloadClassAnswers({
+        projectId: activeId,
+        deptId: row.deptId,
+        projectName: active?.projectName,
+        deptName: row.deptName,
+      });
+      message.success('导出已开始');
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -91,7 +121,10 @@ export default function TeachingWorkbench() {
           <Select
             style={{ width: '100%', maxWidth: 520, marginBottom: 12 }}
             value={activeId}
-            onChange={(value: string) => setActiveId(value)}
+            onChange={(value: string) => {
+              setActiveId(value);
+              setAnswerTarget(undefined);
+            }}
             placeholder="选择考试"
             options={projects.map((project) => ({
               value: project.projectId,
@@ -120,20 +153,49 @@ export default function TeachingWorkbench() {
             ) : classes.length === 0 ? (
               <Empty description="这场考试还没有人交卷" />
             ) : (
-              <Table<TeachingClass>
-                rowKey={(row) => row.deptId || row.deptName || 'none'}
-                size="small"
-                pagination={false}
-                dataSource={classes}
-                columns={[
-                  { title: '班级 / 用户组', dataIndex: 'deptName', render: (v?: string) => v || '未分组' },
-                  { title: '交卷', dataIndex: 'answerCount', width: 100, render: (v?: number) => v ?? 0 },
-                  { title: '平均分', dataIndex: 'avgScore', width: 120, render: (v?: number | null) => score(v) },
-                ]}
-              />
+              <TableScrollRegion label="班级分布（可横向滚动）">
+                <Table<TeachingClass>
+                  rowKey={(row) => row.deptId || row.deptName || 'none'}
+                  size="small"
+                  pagination={false}
+                  dataSource={classes}
+                  scroll={{ x: 560 }}
+                  columns={[
+                    { title: '班级 / 用户组', dataIndex: 'deptName', render: (v?: string) => v || '未分组' },
+                    { title: '交卷', dataIndex: 'answerCount', width: 100, render: (v?: number) => v ?? 0 },
+                    { title: '平均分', dataIndex: 'avgScore', width: 120, render: (v?: number | null) => score(v) },
+                    {
+                      title: '操作',
+                      key: 'ops',
+                      width: 150,
+                      render: (_: unknown, row: TeachingClass) =>
+                        row.deptId ? (
+                          <Space size={12}>
+                            <LinkAction onClick={() => openAnswers(row)}>查看答卷</LinkAction>
+                            <LinkAction onClick={() => void exportAnswers(row)}>导出</LinkAction>
+                          </Space>
+                        ) : (
+                          '—'
+                        ),
+                    },
+                  ]}
+                />
+              </TableScrollRegion>
             )}
           </Card>
         </>
+      )}
+
+      {answerTarget && (
+        <ClassAnswersDrawer
+          key={answerTarget.projectId + ':' + answerTarget.deptId}
+          open
+          projectId={answerTarget.projectId}
+          deptId={answerTarget.deptId}
+          deptName={answerTarget.deptName}
+          projectName={active?.projectName}
+          onClose={() => setAnswerTarget(undefined)}
+        />
       )}
     </div>
   );

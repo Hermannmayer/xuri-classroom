@@ -42,6 +42,14 @@ public interface ClassService {
 	 */
 	void assertManage(String deptId);
 
+	/**
+	 * 当前用户能否查看这个班（读操作闸门）。
+	 *
+	 * <p>管理员 / class:grant 放行；其余人要求本班或任一祖先班由自己创建、负责，或被授权。
+	 * 供「按班查答卷」等不在 ClassService 内部的读操作用接口方式调用。
+	 */
+	void assertVisible(String deptId);
+
 	List<ClassMemberView> listClassMembers(String deptId);
 
 	List<ClassTeacherView> listClassTeachers(String deptId);

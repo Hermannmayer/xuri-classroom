@@ -1,9 +1,12 @@
 package cn.surveyking.server.api;
 
+import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.uitls.HTTPUtils;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
+import cn.surveyking.server.domain.dto.AnswerQuery;
+import cn.surveyking.server.domain.dto.AnswerView;
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberImportRequest;
 import cn.surveyking.server.domain.dto.ClassMemberImportResult;
@@ -20,6 +23,7 @@ import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.TeachingClassView;
 import cn.surveyking.server.domain.dto.TeachingProjectView;
 import cn.surveyking.server.domain.dto.UserOptionView;
+import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.ClassService;
 import cn.surveyking.server.service.TeachingService;
@@ -62,6 +66,9 @@ public class TeachingApi {
 
 	private final ClassResourceService classResourceService;
 
+	/** 按班查答卷（只读） */
+	private final AnswerService answerService;
+
 	@GetMapping("/projects")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public List<TeachingProjectView> myProjects() {
@@ -72,6 +79,27 @@ public class TeachingApi {
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public List<TeachingClassView> classes(@RequestParam String projectId) {
 		return teachingService.listClasses(projectId);
+	}
+
+	/**
+	 * 某个班在某场考试里的答卷列表（答卷明细下钻）。
+	 *
+	 * <p>按 t_answer.class_id 过滤（答题时所在班级，学员换班后历史答卷仍算在原班）。
+	 * 双重保险：注解管「有没有资格看报表」，{@link ClassService#assertVisible(String)} 管
+	 * 「这个班在不在你的可见范围」；答卷本身的数据范围仍由 AnswerService 内部判定。
+	 */
+	@GetMapping("/classes/answers")
+	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
+	public PaginationResponse<AnswerView> classAnswers(@RequestParam String projectId, @RequestParam String deptId,
+			@RequestParam(defaultValue = "1") int current, @RequestParam(defaultValue = "20") int pageSize) {
+		classService.assertVisible(deptId);
+		AnswerQuery query = new AnswerQuery();
+		query.setProjectId(projectId);
+		query.setClassId(deptId);
+		query.setCurrent(current);
+		query.setPageSize(pageSize);
+		// 班级可见即可看本班全部：走 listAnswerByClass（不再套「非协作者只看自己」的行级过滤）
+		return answerService.listAnswerByClass(query);
 	}
 
 	/* ------ 班级管理 */

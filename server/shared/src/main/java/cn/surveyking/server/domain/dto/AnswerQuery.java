@@ -30,6 +30,9 @@ public class AnswerQuery extends PageQuery {
 
 	private String createBy;
 
+	/** 按班级过滤（t_answer.class_id，答题时所在班级）；为空不过滤 */
+	private String classId;
+
 	/** 获取最近一份答案 */
 	private Boolean latest;
 

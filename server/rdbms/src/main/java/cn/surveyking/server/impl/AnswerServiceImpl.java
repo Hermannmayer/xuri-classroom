@@ -7,9 +7,11 @@ import cn.surveyking.server.domain.mapper.AnswerViewMapper;
 import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.domain.model.AnswerItem;
 import cn.surveyking.server.domain.model.Project;
+import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
+import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.ClassResourceService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import javax.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,9 @@ import java.util.stream.Collectors;
 public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> implements AnswerService {
 
 	private final ProjectMapper projectMapper;
+
+	/** 答卷列表回填答题人姓名用（只读 t_user.name，不参与权限） */
+	private final UserMapper userMapper;
 
 	private final AnswerViewMapper answerViewMapper;
 
@@ -68,7 +74,58 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
-		return listAnswer(query, true);
+		PaginationResponse<AnswerView> result = listAnswer(query, true);
+		// 列表页要显示答题人姓名（AnswerView.createByName）；导出/统计不走这里，避免大 IN 查询
+		fillCreateByName(result.getList());
+		return result;
+	}
+
+	/**
+	 * 按班级查答卷（报表）：可见性由调用方（ClassService#assertVisible）判定，这里不再套
+	 * canManageProject，也不加 create_by = 当前用户，保证「班级可见就能看本班全部」。
+	 */
+	@Override
+	public PaginationResponse<AnswerView> listAnswerByClass(AnswerQuery query) {
+		if (query == null || !StringUtils.hasText(query.getProjectId()) || !StringUtils.hasText(query.getClassId())) {
+			throw new ValidationException("按班级查答卷需要同时提供项目与班级");
+		}
+		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Answer> wrapper = Wrappers
+				.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
+				.eq(Answer::getProjectId, query.getProjectId())
+				// 答题时所在班级：学员换班后历史答卷仍算在原班
+				.eq(Answer::getClassId, query.getClassId())
+				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
+				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
+				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
+				.orderByDesc(Answer::getCreateAt);
+		super.page(page, wrapper);
+		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
+		fillCreateByName(list);
+		return new PaginationResponse<>(page.getTotal(), list);
+	}
+
+	/**
+	 * 批量回填答题人姓名：一页最多几十条，一次 in 查询足够；createBy 为空或查不到（例如白名单导入的
+	 * 参与者 id）就留 null。
+	 */
+	private void fillCreateByName(List<AnswerView> views) {
+		if (views == null || views.isEmpty()) {
+			return;
+		}
+		Set<String> userIds = views.stream().filter(Objects::nonNull).map(AnswerView::getCreateBy)
+				.filter(StringUtils::hasText).collect(Collectors.toSet());
+		if (userIds.isEmpty()) {
+			return;
+		}
+		Map<String, String> userNames = userMapper.selectBatchIds(userIds).stream()
+				.filter(user -> user != null && StringUtils.hasText(user.getName()))
+				.collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+		views.forEach(view -> {
+			if (view != null && StringUtils.hasText(view.getCreateBy())) {
+				view.setCreateByName(userNames.get(view.getCreateBy()));
+			}
+		});
 	}
 
 	@Override
@@ -112,6 +169,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Answer> wrapper = Wrappers
 				.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
 				.eq(query.getProjectId() != null, Answer::getProjectId, query.getProjectId())
+				// 按班级过滤（答题时所在班级）；为空不过滤
+				.eq(StringUtils.hasText(query.getClassId()), Answer::getClassId, query.getClassId())
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
@@ -329,6 +388,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answerQuery.setIds(query.getIds());
 		answerQuery.setStartTime(query.getStartTime());
 		answerQuery.setEndTime(query.getEndTime());
+		// 按班导出：只导出该班的答卷（class_id 为答题时所在班级）
+		answerQuery.setClassId(query.getClassId());
 		if (query.getPageSize() != 0) {
 			answerQuery.setCurrent(query.getCurrent());
 			answerQuery.setPageSize(query.getPageSize());
@@ -347,6 +408,35 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	}
 
 	/**
+	 * 按班级导出答卷（xlsx）：只含该班已提交答卷，走真源 JSON（不做投影优化）。
+	 *
+	 * <p>班级可见性由调用方（AnswerApi → ClassService#assertVisible）先校验。
+	 */
+	@Override
+	public DownloadData downloadByClass(DownloadQuery query) {
+		if (query == null || !StringUtils.hasText(query.getProjectId()) || !StringUtils.hasText(query.getClassId())) {
+			throw new ValidationException("按班级导出需要同时提供项目与班级");
+		}
+		if (query.getType() != null && query.getType() != DownloadQuery.DownloadType.answer) {
+			// 附件按班导出暂未支持：宁可报错，也不要回一份「答卷 xlsx」冒充附件导出
+			throw new ValidationException("按班级导出暂只支持答卷");
+		}
+		Project project = projectMapper.selectById(query.getProjectId());
+		if (project == null) {
+			throw new ValidationException("项目不存在");
+		}
+		AnswerQuery answerQuery = new AnswerQuery();
+		answerQuery.setProjectId(query.getProjectId());
+		answerQuery.setClassId(query.getClassId());
+		answerQuery.setIds(query.getIds());
+		answerQuery.setStartTime(query.getStartTime());
+		answerQuery.setEndTime(query.getEndTime());
+		answerQuery.setPageSize(Integer.MAX_VALUE);
+		List<AnswerView> answerViews = listAnswerByClass(answerQuery).getList();
+		return answerExporter.downloadSurvey(project, answerViews);
+	}
+
+	/**
 	 * 下载附件要使用 InputStreamResource，避免 Byte... 加载到内存
 	 * @param query
 	 * @return
@@ -359,6 +449,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answerQuery.setProjectId(query.getProjectId());
 		answerQuery.setStartTime(query.getStartTime());
 		answerQuery.setEndTime(query.getEndTime());
+		// 按班导出附件：只导出该班答卷的附件
+		answerQuery.setClassId(query.getClassId());
 		if (query.getCurrent() != 0 && query.getPageSize() != 0) {
 			answerQuery.setCurrent(query.getCurrent());
 			answerQuery.setPageSize(query.getPageSize());

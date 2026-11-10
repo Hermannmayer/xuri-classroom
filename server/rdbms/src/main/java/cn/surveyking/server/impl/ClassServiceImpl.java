@@ -189,6 +189,12 @@ public class ClassServiceImpl implements ClassService {
 		assertClassManage(deptId);
 	}
 
+	/** 对外暴露的读权限闸门：只做委托，规则全在 {@link #assertClassVisible(String)} 里 */
+	@Override
+	public void assertVisible(String deptId) {
+		assertClassVisible(deptId);
+	}
+
 	@Override
 	public List<ClassMemberView> listClassMembers(String deptId) {
 		Dept dept = assertClassVisible(deptId);
