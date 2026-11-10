@@ -368,7 +368,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+    verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -438,6 +438,10 @@ modules:
       - 导入模板
       - 班级分配
       - 题库窗口
+      - 全局开放期
+      - openStartAt
+      - openEndAt
+      - 学员题库详情
       - 组卷
       - 题库授权
       - repo:grant
@@ -460,6 +464,8 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoView.java
+      - scripts/nas/migrate/32-repo-open-window.sql
     entrypoints:
       - client/src/pages/repo/List.tsx
       - client/src/pages/repo/Questions.tsx
@@ -494,7 +500,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+    verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -573,6 +579,7 @@ modules:
       - 题库分配
       - 按班窗口
       - 题库窗口
+      - 题库全局期
       - access_level
       - 分配老师
       - 学员导入
@@ -603,6 +610,10 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassResource.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Repo.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoView.java
+      - scripts/nas/migrate/32-repo-open-window.sql
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassNodeView.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassMemberView.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassTeacherView.java
@@ -658,4 +669,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+    verified_against: f74f37ad5a91a2982bd66854555659a0c875d530

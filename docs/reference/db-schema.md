@@ -21,7 +21,7 @@
 | `t_position` | id:varchar(64)<br>name:varchar(50)<br>code:varchar(20)<br>is_virtual:tinyint(1)<br>data_permission_type:varchar(256)<br>property_json:varchar(20)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_project` | id:varchar(64)<br>parent_id:varchar(64)<br>name:text<br>survey:longtext<br>setting:text<br>status:int<br>mode:varchar(32)<br>priority:int<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp |
 | `t_project_partner` | id:varchar(64)<br>uid:varchar(64)<br>project_id:varchar(64)<br>type:int<br>status:int<br>user_id:varchar(64)<br>user_name:varchar(256)<br>group_id:varchar(64)<br>data_permission:text<br>initial_value:text<br>create_at:timestamp<br>create_by:varchar(256) |
-| `t_repo` | id:varchar(64)<br>name:varchar(64)<br>description:varchar(512)<br>category:varchar(64)<br>mode:varchar(32)<br>shared:tinyint(1)<br>tag:varchar(512)<br>priority:int<br>setting:text<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp |
+| `t_repo` | id:varchar(64)<br>name:varchar(64)<br>description:varchar(512)<br>category:varchar(64)<br>mode:varchar(32)<br>shared:tinyint(1)<br>tag:varchar(512)<br>priority:int<br>setting:text<br>open_start_at:datetime<br>open_end_at:datetime<br>create_at:timestamp |
 | `t_repo_partner` | id:varchar(64)<br>repo_id:varchar(64)<br>user_id:varchar(64)<br>dept_id:varchar(64)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_repo_template` | id:varchar(64)<br>template_id:varchar(64)<br>repo_id:varchar(64)<br>create_at:timestamp<br>create_by:varchar(256) |
 | `t_role` | id:varchar(64)<br>name:varchar(50)<br>code:varchar(50)<br>remark:varchar(100)<br>authority:varchar(3000)<br>status:tinyint(1)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
@@ -65,3 +65,4 @@
 - `scripts/nas/migrate/29-class-partner-access-level.sql`
 - `scripts/nas/migrate/30-dept-type.sql`
 - `scripts/nas/migrate/31-class-resource.sql`
+- `scripts/nas/migrate/32-repo-open-window.sql`

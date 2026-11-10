@@ -87,7 +87,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 ---
 
 # 权限、角色与用户组
@@ -103,7 +103,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 - 管理员看不到某个新接口，但权限矩阵里显示「全部勾选」。
 - 改完角色或用户组，怀疑「权限没生效」。
 - 用户组页/班级页互相看不到对方的数据，或「老师能不能自己建班」说不清。
-- 班级分配了题库，学员仍打不开详情/题目，要确认是缺 `repo:detail` 还是窗口未开放。
+- 班级分配了题库，学员仍打不开详情/题目，要确认是缺 `repo:detail`/`repo:questions:read`，还是题库全局期/本班窗口未开放。
 - 要查谁导出了题库/答卷、谁改了权限，或要把审计接到新接口上。
 - 403 只看到英文 / 不知道是权限不足还是业务拒绝。
 
@@ -171,7 +171,8 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 2. `POST /api/teaching/classes/partner/create` 支持 `accessLevel`；对已存在的 `(dept_id,user_id)` 是 upsert（显式传才改级别）。`partner/update` 单独改一条授权的级别，`id` 必须属于该班。
 3. `ClassNodeView.manageable` 与 `ClassServiceImpl#assertClassManage` 同一口径：管理员 / `class:grant`；本班或祖先班是自己创建/负责；本班或祖先班有 `access_level=2` 授权。
 4. 成员写操作（create/update/delete/import）与班级资源写操作都要求 `assertClassManage`；只读授权能看不能改。
-5. 班级资源支持 `project` 与 `repo` 两类。题库分配只放宽「可见/读题/练习」：`RepoServiceImpl#listRepo`、`TemplateServiceImpl#isReadableRepo`、`RepoPartnerServiceImpl#hasPracticePermission` 认班级分配；**`/api/repo/detail` 仍要求 `repo:detail`**，学员没有这个权限，不能直接调详情。题库也没有全局窗口，读闸门只看班级开关 + 本班窗口。
+5. 班级资源支持 `project` 与 `repo` 两类。题库分配放宽「可见/读题/练习/详情」：`RepoServiceImpl#listRepo`、`TemplateServiceImpl#isReadableRepo`、`RepoPartnerServiceImpl#hasPracticePermission` 认班级分配；`/api/repo/detail` 允许 `repo:detail` 或 `repo:questions:read`，但仍走 `RepoServiceImpl#assertReadableRepo`（管理员/创建者/共享/partner/班级分配）。
+6. 题库有全局开放期（`t_repo.open_start_at/open_end_at`，NULL=不限）：班级窗口非空端必须落在全局期内，越界 400「题库开放时间必须在全局开放时间内」；读闸门按「班级开关 → 题库全局期 → 本班窗口」判断。已经存在的班级窗口如果超出后来新设的全局期，不会自动修正，学生侧按硬上限判，需要老师重设。
 
 ### 6. 审计：动作、目标、操作人都可读
 
@@ -231,7 +232,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
-| 看题库列表/题目 | `repo:list` + `repo:detail` 或 `repo:questions:read` | 成员/协作者/所属组授权/本班题库分配；管理员全量。列表与 `/api/template/list` 认班级分配，`/api/repo/detail` 仍只认 `repo:detail` |
+| 看题库列表/题目 | `repo:list` + `repo:detail` 或 `repo:questions:read` | 成员/协作者/所属组授权/本班题库分配；管理员全量。列表、`/api/template/list`、`/api/repo/detail` 均认班级分配；详情仍受 `assertReadableRepo` 与题库全局期/本班窗口约束 |
 | 看考试与答卷 | `project:list`、`answer:list` | 所有者、协作者（`t_project_partner`，含组）、班级资源分配或本人答卷 |
 | 删考试 | `project:delete` | 仅自己创建/协作的考试（老师同样受此约束） |
 | 改系统设置 | `system:setting:update` | 全局 |
@@ -265,7 +266,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 - **403 文案依赖异常 message**：业务代码抛 `AccessDeniedException` 时请写可读中文；改成无 message 会让前端只看到 `Authentication failed`。
 - **审计只覆盖写操作**，读接口不落日志；`/api/public/**` 全部排除，匿名答题与登录失败只能在应用日志里查。`targetName` 是尽力解析，实体已删/账号已删/参数里没有 id 时为 null，前端回退 `targetId`。
 - **审计动作名是展示层**：`AuditActionCatalog` 未收录的动作会按 token 拼接或回退原码；新增接口后补一条精确名，别指望兜底永远读得通。
-- **题库班级分配不等于 `repo:detail`**：班级分配只让学员在列表看到、通过 `/api/template/list` 看题、通过 `/api/repo/pick`/旧练习入口练习；直接调 `/api/repo/detail` 仍会 403。排查「能看到题库但打不开详情」时先看这条。
+- **题库班级分配可以读详情，但不绕过数据边界**：`/api/repo/detail` 允许 `repo:detail` 或 `repo:questions:read`，班级分配的学生可以打开本班可见题库；但仍受 `assertReadableRepo`、题库全局开放期与本班窗口约束。排查「能看到题库但打不开详情」时先看这条。
 - **题库列表不按窗口过滤**：班级开关关闭/未开始/已结束时题库仍可能出现在列表里，打开/练习才被 `canStudentReadRepo` 拒绝；与项目列表同一套「列表宽、打开严」的取舍。
 
 ## 验证

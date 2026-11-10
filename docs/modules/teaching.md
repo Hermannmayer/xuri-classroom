@@ -10,6 +10,7 @@ keywords:
   - 题库分配
   - 按班窗口
   - 题库窗口
+  - 题库全局期
   - access_level
   - 分配老师
   - 学员导入
@@ -40,6 +41,10 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassResource.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Repo.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoRequest.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoView.java
+  - scripts/nas/migrate/32-repo-open-window.sql
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassNodeView.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassMemberView.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassTeacherView.java
@@ -95,7 +100,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 ---
 
 # 班级与教学工作台
@@ -184,25 +189,25 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 2. 面板顶部 `Segmented` 切换资源类型：`project`（考试/问卷）与 `repo`（题库）。切换时分别请求 `GET /api/teaching/classes/resources?deptId=&resourceType=project|repo`；添加弹窗的候选项分别来自 `/api/project/list` 与 `/api/repo/list?current=1&pageSize=200`。
 3. 列表行是 `ClassResourceView`：
    - project：资源名/类型、班级窗口、**项目全局窗口**、状态、分配人、本班答卷数、`effectiveStatus`；
-   - repo：资源名/题库类型、班级窗口、**全局窗口为 null（前端显示「不限」）**、状态、分配人、`answerCount=0`（前端显示「—」）、`effectiveStatus` 只看班级开关 + 本班窗口。
+   - repo：资源名/题库类型、班级窗口、**题库全局开放期**（来自 `t_repo.open_start_at/open_end_at`，空=不限）、状态、分配人、`answerCount=0`（前端显示「—」）、`effectiveStatus` 按「班级开关 → 题库全局期 → 本班窗口」计算。
 4. 分配：`POST /api/teaching/classes/resources/assign`，body `{classId, resourceType:"project"|"repo", resourceIds[], startAt?, endAt?, status?}`；按 `(class_id, resource_type, resource_id)` upsert，已存在时只更新窗口与开关，不改 `assignedBy`。
 5. 修改/取消：`/resources/update` 传 `{id,startAt?,endAt?,status?}`（`startAt/endAt` 传 null = 回退继承/不限）；`/resources/delete` 传 `{id}`，物理删除分配行。
 6. 窗口规则：
    - project：`ProjectSetting.examSetting.startTime/endTime` 是**全局窗口，也是硬上限**；班级窗口为空表示继承全局，非空必须落在全局窗口内（全局未设置时不限制）；
-   - repo：题库没有全局窗口，只校验「开始 ≤ 结束」，为空表示不限。
-   - 时间统一用 epoch 毫秒传输。
-7. 状态：`status=0` 手动关闭；project 的有效状态由「班级开关 + 项目发布状态 + 班级/全局窗口」计算，repo 只看「班级开关 + 本班窗口」。
-8. 题库删除：`RepoServiceImpl.deleteRepo` 调 `ClassResourceService#removeByResource("repo", id)` 清掉该题库的 `t_class_resource` 行，避免孤儿分配；题库本身没有全局窗口，也不需要处理全局状态。
+   - repo：题库全局开放期（`t_repo.open_start_at/open_end_at`）是**班级窗口的硬上限**；班级窗口为空继承全局，非空端必须落在全局期内（越界 400「题库开放时间必须在全局开放时间内」）。
+   - 时间统一用 epoch 毫秒传输；题库全局期在题库新建/编辑弹窗维护（留空=不限）。
+7. 状态：`status=0` 手动关闭；project 的有效状态由「班级开关 + 项目发布状态 + 班级/全局窗口」计算，repo 按「班级开关 → 题库全局期 → 本班窗口（为空用全局）」计算。
+8. 题库删除：`RepoServiceImpl.deleteRepo` 调 `ClassResourceService#removeByResource("repo", id)` 清掉该题库的 `t_class_resource` 行，避免孤儿分配。
 
 ### 7. 学生按班进入：考试与题库
 
 1. **考试列表**：项目列表可见性新增 `t_class_resource` EXISTS（`resource_id=项目`、`resource_type='project'`、`is_deleted=0`、`class_id` 命中主组/附加组/祖先链）；未分配到他所在班的考试不出现在列表里。
 2. **考试打开/交卷**：`ProjectAnswerValidator` 还会再判一次（见 [project](./project.md)、[survey](./survey.md)）：没有分配 → `ProjectNotFound`（404）；班级/全局未开始 → `ExamUnStarted`；已结束 → `ExamFinished`；手动关闭或项目停用 → `SurveySuspend`。匿名、staff、管理员不受班级分配限制。
 3. **题库列表**：`RepoServiceImpl#listRepo` 对非管理员增加 `t_class_resource` EXISTS（`resource_type='repo'`、`is_deleted=0`、`class_id` 命中主组/附加组/祖先链）；学生只要有 `repo:list`（或有 `exercise:list` 的练习分支）就能在题库列表看到本班被分配的题库。
-4. **题库读题/模板**：`TemplateServiceImpl#isReadableRepo` 对班级分配放行，`/api/template/list` 接受 `repo:questions:read`（学员有），所以学生能看题库题目；`/api/repo/pick`（`repo:detail` 或 `repo:book`）也会经 `assertReadableRepo` 放行。
+4. **题库读题/模板/详情**：`TemplateServiceImpl#isReadableRepo` 对班级分配放行，`/api/template/list` 接受 `repo:questions:read`（学员有）；`/api/repo/detail` 现在也接受 `repo:detail` 或 `repo:questions:read`，但服务层仍走 `assertReadableRepo`，只放行自己可见（共享/partner/班级分配）的题库；`/api/repo/pick`（`repo:detail` 或 `repo:book`）同样经 `assertReadableRepo` 放行。
 5. **题库练习入口**：旧 `PublicProjectLoader` 的练习入口走 `RepoPartnerServiceImpl#hasPracticePermission`，本轮也认班级分配；但要求题库 `isPractice=true`，普通题库仍只能通过组卷/考试使用。
-6. **`/api/repo/detail` 仍需 `repo:detail`**：班级分配只放宽列表、模板读取、`/repo/pick` 与练习入口，**不绕过 Controller 的 `@PreAuthorize`**；学员没有 `repo:detail`，不要指望直接看题库详情。
-7. **题库窗口差异**：题库列表只判断「有没有分配」，不判断状态/窗口；打开/练习时 `canStudentReadRepo` 才校验「班级开关 + 本班窗口」，关闭/未开始/已结束会返回 false（读接口 403，练习入口拒绝）。题库没有全局窗口，也不产生答卷。
+6. **`/api/repo/detail` 权限放宽但数据范围不变**：注解接受 `repo:detail` 或 `repo:questions:read`，学员可调；但 `assertReadableRepo` 仍只放行管理员/创建者/共享/partner/班级分配，未分配或窗口未开放仍 403。
+7. **题库窗口差异**：题库列表只判断「有没有分配」，不判断状态/窗口；打开/练习时 `canStudentReadRepo` 才校验「班级开关 → 题库全局期 → 本班窗口」，关闭/未开始/已结束会返回 false（读接口 403，练习入口拒绝）。题库有全局开放期（`t_repo.open_start_at/open_end_at`），但不产生答卷。
 8. **答卷班级**：新建答卷时 `AnswerServiceImpl` 调 `ClassResourceService#resolveForStudent` 写 `t_answer.class_id`（主班优先，主班没有有效分配时取任一有效班级）；更新答卷不改 `class_id`。匿名/教职工答卷为 NULL。
 9. **资源面板答卷数**：只在 project 面板有意义（`t_answer` 中 `project_id + class_id + temp_save=1` 的条数，仅新答卷）；repo 面板恒为 0。
 
@@ -229,7 +234,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 ### 改班级资源 / 按班窗口
 
 1. `t_class_resource` 的 DTO/接口在 `ClassResourceAssignRequest`、`ClassResourceUpdateRequest`、`ClassResourceDeleteRequest`、`ClassResourceView`；实现集中在 `ClassResourceService`。
-2. 改窗口规则：project 看 `assertAssignable` / `effectiveStatus` / `invalidReason`；repo 看 `assertWindowOrder` / `repoEffectiveStatus` / `invalidRepoReason`。同时同步 `ProjectAnswerValidator` 的两处 `assertStudentCanAnswer`（考试打开与交卷）。
+2. 改窗口规则：project 看 `assertAssignable` / `effectiveStatus` / `invalidReason`；repo 看 `assertRepoAssignable` / `effectiveStatusForRepo` / `invalidRepoReason(row, repo)`（顺序：班级开关 → 题库全局期 → 本班窗口）。同时同步 `ProjectAnswerValidator` 的两处 `assertStudentCanAnswer`（考试打开与交卷）。
 3. 扩展资源类型时：先确认 `ClassResource` 的 `TYPE_*`/常量与 `normalizeResourceType`，再在 `RepoServiceImpl#listRepo`/`assertReadableRepo`、`TemplateServiceImpl#isReadableRepo`、`RepoPartnerServiceImpl#hasPracticePermission`、前端 `ClassResourcesPanel` 里各补一条；不要只放开写入。
 4. 改分配可见性时同时看 `ProjectServiceImpl#listProject`、`RepoServiceImpl#listRepo` 的 EXISTS 子查询与 `t_class_resource.is_deleted=0`；同一张表同时存 `project` 与 `repo`，SQL 必须带 `resource_type`。
 5. 删除资源时清分配：project 走班级删除/资源表清理；repo 走 `RepoServiceImpl#deleteRepo` → `removeByResource("repo", id)`，新增资源删除路径别漏。
@@ -269,15 +274,17 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 
 ## 坑与已知限制
 
-- **P2 支持考试/问卷 + 题库**：班级资源接受 `resourceType=project|repo`；题库没有全局窗口，P2 暂不做全局窗口。
+- **P3 支持考试/问卷 + 题库**：班级资源接受 `resourceType=project|repo`；题库有全局开放期（`t_repo.open_start_at/open_end_at`，空=不限），是班级窗口的硬上限。
 - **未分配班级的学生看不到考试**：列表不出现，直接打接口/打开链接按 `ProjectNotFound`（404）处理，不泄露标题；未开始/已结束/关闭分别是 `ExamUnStarted` / `ExamFinished` / `SurveySuspend`。
 - **题库未分配走 403 而不是 404**：题库读闸门是 `assertReadableRepo` / `isReadableRepo`，没分配时抛「无权限访问该题库」；与考试的 404 口径不同，排查时别混。
 - **班级分配只约束 student**：匿名公开问卷、staff、管理员走原逻辑；练习/错题本伪项目（`ExerciseProjectTemplate.EXERCISE_PROJECT_ID`）直接放行，不参与班级分配；题库的班级分配也只对 student 生效（`canStudentReadRepo`）。
 - **班级资源面板的答卷数只统计新答卷**：project 按 `t_answer.class_id + temp_save=1` 计数；上线前的历史答卷 `class_id` 为 NULL，不会计入；repo 面板恒为 0。
 - **分配资源不校验调用者对资源的可见性**：`ClassResourceService#assign` 只校验班级可管理、资源存在且不是文件夹；拿到 `projectId`/`repoId` 就能分配给自己的班（P1/P2 服务端缺口，改时应在分配前复用可见性判定）。
 - **项目/题库列表的班级可见性不按窗口/开关过滤**：只要有一行 `t_class_resource`（即使 `status=0`、已结束），资源仍可能出现在学生列表里，打开/练习时才报错；要隐藏得在 SQL 里补窗口/状态条件。
-- **`/api/repo/detail` 仍需 `repo:detail`**：班级分配只放宽 `/api/repo/list`、`/api/template/list`、`/api/repo/pick` 与旧练习入口；学员没有 `repo:detail`，不能直接调详情。
-- **题库窗口只在读闸门生效**：`canStudentReadRepo` 会校验班级开关/本班窗口，关闭/未开始/已结束时返回 false；列表 SQL 不做这层过滤。
+- **`/api/repo/detail` 权限已放宽**：接受 `repo:detail` 或 `repo:questions:read`；学员可调，但 `assertReadableRepo` 只放行自己可见（共享/partner/班级分配）的题库，未分配/窗口未开放仍 403。
+- **题库窗口是全局期 + 班级窗口的交集**：`canStudentReadRepo` 按「班级开关 → 题库全局期 → 本班窗口（为空用全局）」判断；列表 SQL 不做这层过滤。
+- **已有班级窗口不会随全局期变化自动修正**：老师把题库全局期改窄后，旧班级窗口可能仍越界；学生按全局硬上限判断（全局期外不可用），需要老师重设班级窗口。
+- **题库编辑是整表单保存**：清空全局开放时间（提交 null）会落 NULL=不限；只提交 `id+name` 的脚本会顺带清空全局期，改题库时带完整字段。
 - **`assertStudentCanAccessRepo` 目前没有调用方**：实际题库读闸门是 `canStudentReadRepo`（RepoServiceImpl/TemplateServiceImpl/RepoPartnerServiceImpl 各自调用），新增入口时不要以为它已经兜底。
 - **只读老师看不到资源面板**：面板只在 `manageable=true` 时渲染，后端 `list` 也 `assertManage`；只读授权只能看成员/学情。
 - **删除文案与类型**：`DeleteDeptDialog` 的标题/提示仍统一写「用户组」（班级也复用它），以弹窗里的实际名称与后端错误为准；`lastDept` 后端按**同类型**计算（org 与 class 各算一套），前端文案仍写「最后一个用户组」。
@@ -315,7 +322,8 @@ npm run docs:check
 6. 删除一个有成员的班：`delete-check` 能看到成员；选 UNASSIGN 删除后学员变成未分组、仍能登录；选 MOVE 只能选同类型 `class` 节点，删除后 `t_class_resource` 无孤儿行。
 7. 给班级分配一个题库（面板切到「题库」）并设置窗口：本班学生能在题库列表看到；未分配该班的学生看不到，直接打开/练习应被拒；窗口未开始/已结束再打开应被拒。
 8. 题库列表能看到但窗口关闭时，打开题库题目/练习应被拒（列表不按窗口过滤）。
-9. 教学工作台能看到自己参与的考试；选一场已有人交卷的考试，班级分布按答题时班级聚合；历史答卷 `class_id` 为空时应落在答题人当前主组，资源面板答卷数只算新答卷。
+9. 管理员给题库设全局开放期（如 09:00~18:00），班级老师把班级窗口设到 08:00/19:00 应 400「题库开放时间必须在全局开放时间内」；设 10:00~17:00 成功，学员在该窗口内可读题/练习。
+10. 教学工作台能看到自己参与的考试；选一场已有人交卷的考试，班级分布按答题时班级聚合；历史答卷 `class_id` 为空时应落在答题人当前主组，资源面板答卷数只算新答卷。
 
 ## 相关文档
 

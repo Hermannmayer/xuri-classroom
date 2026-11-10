@@ -59,7 +59,7 @@
 | POST | `${api.prefix}/project/selectRepo` | `ProjectApi#selectRepo` | — | — |
 | POST | `${api.prefix}/project/selectTag` | `ProjectApi#selectTag` | — | — |
 | GET | `${api.prefix}/repo/list` | `RepoApi#listRepo` | `hasAnyAuthority('repo:list', 'exercise:list')` | — |
-| GET | `${api.prefix}/repo/detail` | `RepoApi#getRpo` | `hasAuthority('repo:detail')` | — |
+| GET | `${api.prefix}/repo/detail` | `RepoApi#getRpo` | `hasAnyAuthority('repo:detail','repo:questions:read')` | — |
 | POST | `${api.prefix}/repo/create` | `RepoApi#addRepo` | `hasAuthority('repo:create')` | — |
 | POST | `${api.prefix}/repo/update` | `RepoApi#updateRepo` | `hasAuthority('repo:update')` | — |
 | POST | `${api.prefix}/repo/delete` | `RepoApi#deleteRepo` | `hasAuthority('repo:delete')` | — |
