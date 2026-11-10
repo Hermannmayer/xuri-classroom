@@ -13,6 +13,7 @@ import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.RepoViewMapper;
 import cn.surveyking.server.domain.mapper.UserBookViewMapper;
 import cn.surveyking.server.domain.model.*;
+import cn.surveyking.server.mapper.RepoCategoryMapper;
 import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.AnswerService;
@@ -26,12 +27,14 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.Arrays;
@@ -62,10 +65,19 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private final RepoPartnerMapper repoPartnerMapper;
 
+	/** 题库分类（目录登记表，含空文件夹） */
+	private final RepoCategoryMapper repoCategoryMapper;
+
 	private final UserDeptScopeService userDeptScopeService;
 
 	/** 按班级分配的题库存取：可见性与读权限都要认 t_class_resource 上的 repo 分配 */
 	private final ClassResourceService classResourceService;
+
+	/** 分类列表里表示「题库没填分类」的节点名 */
+	private static final String UNCATEGORIZED_NAME = "未分类";
+
+	/** 分类路径分隔符 */
+	private static final String CATEGORY_PATH_SEPARATOR = "/";
 
 	/**
 	 * 「本班被分配了这个题库」的 EXISTS 条件（占位符 {0} = 当前用户 id）。
@@ -125,24 +137,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory());
 		// 管理员看全部题库；非管理员才按「自己创建 / 共享 / 被授权」收窄。
 		// 之前管理员也被 createBy 限制，题库是别人建的就看不到。
-		if (!SecurityContextUtils.isAdmin()) {
-			wrapper.and(x -> {
-				if (Boolean.TRUE.equals(query.getMemberOnly())) {
-					// 自己创建的、共享的、逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
-					x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
-							"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
-									+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
-							currentUserId)
-							// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
-							.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
-				}
-				else {
-					x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true))
-							// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
-							.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
-				}
-			});
-		}
+		applyRepoVisibility(wrapper, currentUserId, Boolean.TRUE.equals(query.getMemberOnly()));
 		wrapper.eq(query.getIsPractice() != null, Repo::getIsPractice, query.getIsPractice())
 				.eq(query.getMode() != null, Repo::getMode, query.getMode());
 		applyRepoOrder(wrapper, query);
@@ -158,6 +153,218 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			repoView.setRepoQuestionTypes(this.getBaseMapper().selectRepoQuestionTypes(repoView.getId()));
 		});
 		return result;
+	}
+
+	/**
+	 * 题库可见性（listRepo 与 listRepoCategories 共用）。
+	 *
+	 * <p>管理员全量；非管理员按「自己创建 / 共享 / 逐个或按组授权 / 按班级分配」收窄。
+	 * @param memberOnly 只算成员可见范围（学员的练习册入口用）
+	 */
+	private void applyRepoVisibility(
+			com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper, String currentUserId,
+			boolean memberOnly) {
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		wrapper.and(x -> {
+			if (memberOnly) {
+				// 自己创建的、共享的、逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
+				x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
+						"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
+								+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
+						currentUserId)
+						// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
+						.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
+			}
+			else {
+				x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true))
+						// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
+						.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
+			}
+		});
+	}
+
+	/**
+	 * 题库分类/文件夹列表：目录登记表 + t_repo 现有 category 的 distinct 值，扁平返回。
+	 *
+	 * <p>同一路径只出现一次；t_repo.category 写了多级（如 A/B）会自动补齐祖先节点（A）。
+	 * count = 直接挂在该目录 + 所有子目录的**可见**题库数；返回顺序是「父在前、子紧跟」的前序，
+	 * 同层按名称排序，前端可以直接顺序建树。
+	 */
+	@Override
+	public List<RepoCategoryView> listRepoCategories() {
+		String currentUserId = SecurityContextUtils.getUserId();
+		// 1. 可见题库的分类（可见性与 listRepo 同源）
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> repoWrapper = Wrappers
+				.<Repo>lambdaQuery().select(Repo::getId, Repo::getCategory);
+		applyRepoVisibility(repoWrapper, currentUserId, false);
+		Map<String, Integer> repoCounts = new LinkedHashMap<>();
+		for (Repo repo : list(repoWrapper)) {
+			if (repo == null) {
+				continue;
+			}
+			repoCounts.merge(normalizeCategoryPath(repo.getCategory()), 1, Integer::sum);
+		}
+
+		// 2. 目录登记表（空文件夹只存在这里）
+		Map<String, RepoCategory> registryByPath = new LinkedHashMap<>();
+		for (RepoCategory category : repoCategoryMapper.selectList(Wrappers.<RepoCategory>lambdaQuery())) {
+			if (category == null || !StringUtils.hasText(category.getPath())) {
+				continue;
+			}
+			registryByPath.put(normalizeCategoryPath(category.getPath()), category);
+		}
+
+		// 3. 节点 = 登记表路径 ∪ 可见题库的分类路径，并逐层补齐祖先
+		Set<String> paths = new LinkedHashSet<>(registryByPath.keySet());
+		for (String path : repoCounts.keySet()) {
+			if (StringUtils.hasText(path)) {
+				paths.add(path);
+			}
+		}
+		Map<String, RepoCategoryView> nodes = new LinkedHashMap<>();
+		for (String path : paths) {
+			String[] segments = path.split(CATEGORY_PATH_SEPARATOR);
+			StringBuilder current = new StringBuilder();
+			for (int i = 0; i < segments.length; i++) {
+				if (i > 0) {
+					current.append(CATEGORY_PATH_SEPARATOR);
+				}
+				current.append(segments[i]);
+				String nodePath = current.toString();
+				if (nodes.containsKey(nodePath)) {
+					continue;
+				}
+				RepoCategoryView view = new RepoCategoryView();
+				view.setName(segments[i]);
+				view.setPath(nodePath);
+				int index = nodePath.lastIndexOf(CATEGORY_PATH_SEPARATOR);
+				view.setParentPath(index < 0 ? null : nodePath.substring(0, index));
+				view.setCount(0);
+				nodes.put(nodePath, view);
+			}
+		}
+		// 4. 登记表里的 id / name / parentId 覆盖回来（名称以登记表为准）
+		registryByPath.forEach((path, category) -> {
+			RepoCategoryView view = nodes.get(path);
+			if (view == null) {
+				return;
+			}
+			view.setId(category.getId());
+			view.setName(category.getName());
+			view.setParentId(category.getParentId());
+		});
+
+		// 5. count：从每个题库所在目录往上，累加到所有祖先
+		repoCounts.forEach((path, count) -> {
+			if (!StringUtils.hasText(path)) {
+				return;
+			}
+			String cursor = path;
+			while (StringUtils.hasText(cursor)) {
+				RepoCategoryView view = nodes.get(cursor);
+				if (view != null) {
+					view.setCount((view.getCount() == null ? 0 : view.getCount()) + count);
+				}
+				int index = cursor.lastIndexOf(CATEGORY_PATH_SEPARATOR);
+				cursor = index < 0 ? null : cursor.substring(0, index);
+			}
+		});
+
+		// 6. 「未分类」：只有真的存在没填分类的题库时才出现
+		Integer uncategorized = repoCounts.get("");
+		if (uncategorized != null && uncategorized > 0) {
+			RepoCategoryView view = new RepoCategoryView();
+			view.setName(UNCATEGORIZED_NAME);
+			view.setPath("");
+			view.setCount(uncategorized);
+			nodes.put("", view);
+		}
+
+		// 7. 前序展开：父节点在前、子节点紧跟；同层按名称排序
+		Map<String, List<RepoCategoryView>> children = new LinkedHashMap<>();
+		List<RepoCategoryView> roots = new ArrayList<>();
+		for (RepoCategoryView view : nodes.values()) {
+			String parentPath = view.getParentPath();
+			if (StringUtils.hasText(parentPath) && nodes.containsKey(parentPath)) {
+				children.computeIfAbsent(parentPath, key -> new ArrayList<>()).add(view);
+			}
+			else {
+				roots.add(view);
+			}
+		}
+		Comparator<RepoCategoryView> byName = Comparator.comparing(RepoCategoryView::getName,
+				Comparator.nullsLast(String::compareTo));
+		roots.sort(byName);
+		children.values().forEach(list -> list.sort(byName));
+		List<RepoCategoryView> result = new ArrayList<>();
+		LinkedList<RepoCategoryView> queue = new LinkedList<>(roots);
+		while (!queue.isEmpty()) {
+			RepoCategoryView view = queue.removeFirst();
+			result.add(view);
+			List<RepoCategoryView> sub = children.get(view.getPath());
+			if (sub != null) {
+				queue.addAll(0, sub);
+			}
+		}
+		return result;
+	}
+
+	@Override
+	public void createRepoCategory(RepoCategoryRequest request) {
+		if (request == null || !StringUtils.hasText(request.getName())) {
+			throw new ValidationException("分类名不能为空");
+		}
+		String name = request.getName().trim();
+		if (name.contains(CATEGORY_PATH_SEPARATOR)) {
+			throw new ValidationException("分类名不能包含 /");
+		}
+		// 上级：优先 parentId（登记表行），其次 parentPath（给还没登记、只有路径的层级用）
+		RepoCategory parent = null;
+		if (StringUtils.hasText(request.getParentId())) {
+			parent = repoCategoryMapper.selectById(request.getParentId());
+			if (parent == null) {
+				throw new ValidationException("上级分类不存在，请刷新后重试");
+			}
+		}
+		String parentPath = parent != null ? normalizeCategoryPath(parent.getPath())
+				: normalizeCategoryPath(request.getParentPath());
+		String path = StringUtils.hasText(parentPath) ? parentPath + CATEGORY_PATH_SEPARATOR + name : name;
+		if (path.length() > 255) {
+			throw new ValidationException("分类层级过深");
+		}
+		Long exists = repoCategoryMapper
+				.selectCount(Wrappers.<RepoCategory>lambdaQuery().eq(RepoCategory::getPath, path));
+		if (exists != null && exists > 0) {
+			throw new ValidationException("分类已存在");
+		}
+		RepoCategory category = new RepoCategory();
+		category.setName(name);
+		category.setParentId(parent == null ? null : parent.getId());
+		category.setPath(path);
+		try {
+			repoCategoryMapper.insert(category);
+		}
+		catch (DuplicateKeyException e) {
+			// 并发建同一路径：唯一键兜底
+			throw new ValidationException("分类已存在");
+		}
+	}
+
+	/** 分类路径规范化：trim、反斜杠当 /、去掉首尾与重复的 /（t_repo.category 是自由文本） */
+	private String normalizeCategoryPath(String category) {
+		if (category == null) {
+			return "";
+		}
+		String path = category.trim().replace('\\', '/').replaceAll("/{2,}", CATEGORY_PATH_SEPARATOR);
+		while (path.startsWith(CATEGORY_PATH_SEPARATOR)) {
+			path = path.substring(1);
+		}
+		while (path.endsWith(CATEGORY_PATH_SEPARATOR)) {
+			path = path.substring(0, path.length() - 1);
+		}
+		return path;
 	}
 
 	@Override

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty, Spin, Tree, message } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { get } from '../../api';
@@ -44,22 +44,47 @@ export default function ProjectCategoryTree({
   const [rows, setRows] = useState<CategoryCount[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    // silent：窗口重新获得焦点时静默刷新，不闪 loading
+    if (!silent) setLoading(true);
     try {
       const list = await get<CategoryCount[]>('/api/project/categories');
       setRows(Array.isArray(list) ? list : []);
     } catch (e) {
-      message.error((e as Error).message || '读取分类失败');
-      setRows([]);
+      // 静默刷新失败时保留旧数据，避免分类树突然被清空
+      if (!silent) {
+        message.error((e as Error).message || '读取分类失败');
+        setRows([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load, refreshToken]);
+
+  /**
+   * 从设置页/其它页返回时重新拉一次：新建项目/批量改分类后左侧能立即出现新分类。
+   * 只监听 focus + visibilitychange，并用 1s 节流避免两个事件连发/无限刷新。
+   */
+  const lastRefreshRef = useRef(0);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshRef.current < 1000) return;
+      lastRefreshRef.current = now;
+      void load(true);
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const treeData = useMemo<TreeDataNode[]>(
     () => [

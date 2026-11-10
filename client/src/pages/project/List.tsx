@@ -717,6 +717,12 @@ function ManagerProjectList({
               setCategory(next);
               setPage(1);
             }}
+            onFolderCreated={() => {
+              // 新建文件夹后树 counts 与右侧列表都要刷新
+              setTreeToken((token) => token + 1);
+              void load();
+            }}
+            canCreate={canCreate}
           />
         </div>
         <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
@@ -1152,6 +1158,8 @@ function ManagerProjectList({
         onUpdated={() => {
           setBatchSettingOpen(false);
           setSelectedKeys([]);
+          // 批量改分类后左侧分类树也要刷新，否则新分类/计数不出现
+          setTreeToken((token) => token + 1);
           void load();
         }}
       />

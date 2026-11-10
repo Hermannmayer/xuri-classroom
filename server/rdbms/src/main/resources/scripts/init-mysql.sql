@@ -405,6 +405,28 @@ BEGIN;
 COMMIT;
 
 -- ----------------------------
+-- Table structure for t_repo_category（题库分类 / 空文件夹）
+-- ----------------------------
+DROP TABLE IF EXISTS `t_repo_category`;
+CREATE TABLE `t_repo_category` (
+  `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '分类名（单段，不含 /）',
+  `parent_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '上级分类 id；为空表示根',
+  `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '全路径，用 / 连接（如 保育员/初级）',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_repo_category_path` (`path`),
+  KEY `idx_repo_category_parent` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='题库分类（含空文件夹）';
+
+-- ----------------------------
+-- Records of t_repo_category
+-- ----------------------------
+BEGIN;
+COMMIT;
+
+-- ----------------------------
 -- Table structure for t_repo_partner
 -- ----------------------------
 DROP TABLE IF EXISTS `t_repo_partner`;

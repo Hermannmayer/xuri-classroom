@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
+  AutoComplete,
   Button,
   DatePicker,
   Empty,
@@ -12,7 +13,6 @@ import {
   Pagination,
   Popconfirm,
   Segmented,
-  Select,
   Space,
   Spin,
   Table,
@@ -24,10 +24,11 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
-import { getWithPagination, post } from '../../api';
+import { get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
+import RepoCategoryTree from './RepoCategoryTree';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
@@ -101,8 +102,10 @@ export default function RepoList() {
   const [granting, setGranting] = useState<RepoView | null>(null);
   const [exportTarget, setExportTarget] = useState<RepoExportTarget | null>(null);
   const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
-  // 分类下拉候选：从已加载数据累积，翻页/筛选后不丢（只在当前页取会越筛越少）
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  /** 新建/编辑题库的分类候选（来自 /api/repo/categories，值用 path） */
+  const [categoryOptions, setCategoryOptions] = useState<{ value: string; label: string }[]>([]);
+  /** 题库/分类变化后递增，让左侧分类树刷新计数 */
+  const [treeToken, setTreeToken] = useState(0);
   const [randomForm] = Form.useForm<Record<string, number>>();
   const [createForm] = Form.useForm<{
     name: string;
@@ -226,12 +229,6 @@ export default function RepoList() {
       });
       setRows(res.data);
       setTotal(res.total);
-      // 分类候选累积：加载过的分类一直留在下拉里，翻页或筛选后不会消失
-      setCategoryOptions((prev) =>
-        Array.from(
-          new Set([...prev, ...res.data.map((r) => r.category).filter((c): c is string => Boolean(c))]),
-        ).sort((a, b) => a.localeCompare(b, 'zh-CN')),
-      );
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -242,6 +239,23 @@ export default function RepoList() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 分类候选：来自服务端分类树（path 作为提交值，name 作为展示）
+  useEffect(() => {
+    get<{ name?: string; path?: string }[]>('/api/repo/categories')
+      .then((list) =>
+        setCategoryOptions(
+          (Array.isArray(list) ? list : [])
+            // 「未分类」的 path 为空，不能当作可提交的分类值
+            .filter((item) => Boolean((item.path || '').trim()))
+            .map((item) => {
+              const value = (item.path || '').trim();
+              return { value, label: item.name || value };
+            }),
+        ),
+      )
+      .catch(() => setCategoryOptions([]));
+  }, [treeToken]);
 
   const openCreate = () => {
     createForm.setFieldsValue({ name: '', category: '', mode: 'exam', description: '', window: undefined });
@@ -275,6 +289,7 @@ export default function RepoList() {
       });
       setCreateOpen(false);
       message.success('已创建题库');
+      setTreeToken((token) => token + 1);
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -318,6 +333,7 @@ export default function RepoList() {
       });
       message.success('已保存');
       setRenaming(null);
+      setTreeToken((token) => token + 1);
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -330,6 +346,7 @@ export default function RepoList() {
     try {
       await post<void>('/api/repo/delete', { id: row.id });
       message.success('已删除题库');
+      setTreeToken((token) => token + 1);
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -425,17 +442,6 @@ export default function RepoList() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {total} 个题库</span>
         <div style={{ flex: 1 }} />
-        <Select
-          allowClear
-          placeholder="全部分类"
-          style={{ width: 160 }}
-          value={categoryFilter}
-          onChange={(v) => {
-            setPage(1);
-            setCategoryFilter(v);
-          }}
-          options={categoryOptions.map((c) => ({ value: c, label: c }))}
-        />
         <Input.Search
           allowClear
           placeholder="搜索题库名称"
@@ -447,6 +453,28 @@ export default function RepoList() {
         />
       </div>
 
+      {/* 左树与右侧列表同顶：工具栏在上面，分类筛选走左侧树 */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: 'flex-start',
+          gap: 12,
+        }}
+      >
+        <div style={{ width: isMobile ? '100%' : 220, flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 0 }}>
+          <RepoCategoryTree
+            selectedPath={categoryFilter}
+            refreshToken={treeToken}
+            canCreate={canCreate}
+            onSelect={(path) => {
+              setCategoryFilter(path);
+              setPage(1);
+            }}
+            onCreated={() => setTreeToken((token) => token + 1)}
+          />
+        </div>
+        <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
       {isMobile ? (
         <>
           <Spin spinning={loading}>
@@ -807,6 +835,8 @@ export default function RepoList() {
       />
       </TableScrollRegion>
       )}
+        </div>
+      </div>
 
       <Modal
         title={`随机练习${randomRepo?.name ? `：${randomRepo.name}` : ''}`}
@@ -859,9 +889,13 @@ export default function RepoList() {
             name="category"
             label="分类"
             rules={[{ required: true, whitespace: true, message: '请填写题库分类' }]}
-            extra="后端要求分类必填；练习题库会按分类分组展示"
+            extra="后端要求分类必填；可从左侧分类树选择，也可自由输入"
           >
-            <Input placeholder="例如：安全生产" maxLength={60} />
+            <AutoComplete
+              allowClear
+              options={categoryOptions}
+              placeholder="例如：安全生产 / 安全生产/基础"
+            />
           </Form.Item>
           <Form.Item name="mode" label="类型">
             <Segmented
@@ -907,8 +941,12 @@ export default function RepoList() {
           >
             <Input maxLength={120} />
           </Form.Item>
-          <Form.Item name="category" label="分类" extra="例如：保育员 / 养老护理员 / 育婴员">
-            <Input maxLength={60} placeholder="按专业或课程分类" />
+          <Form.Item name="category" label="分类" extra="可从左侧分类树选择，也可自由输入">
+            <AutoComplete
+              allowClear
+              options={categoryOptions}
+              placeholder="例如：保育员 / 养老护理员 / 育婴员"
+            />
           </Form.Item>
           <Form.Item name="tag" label="标签" extra="多个标签用英文逗号分隔">
             <Input maxLength={200} placeholder="例如：三级,重点,2025" />

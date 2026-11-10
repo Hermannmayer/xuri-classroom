@@ -44,6 +44,28 @@ public class RepoApi {
 		return repoService.listRepo(query);
 	}
 
+	/**
+	 * 题库分类/文件夹列表（**扁平**返回，前端按 path 拆 "/" 建树）。
+	 *
+	 * <p>= 目录登记表（空文件夹）+ 当前用户可见题库的 category distinct 值；count 含子目录。
+	 */
+	@GetMapping("/categories")
+	@PreAuthorize("hasAuthority('repo:list') or hasRole('admin')")
+	public List<RepoCategoryView> listRepoCategories() {
+		return repoService.listRepoCategories();
+	}
+
+	/**
+	 * 新建题库分类/文件夹（不挂题库也能建，用于先把目录搭出来）。
+	 *
+	 * <p>body：{name, parentId 或 parentPath}；同名路径已存在返回 400「分类已存在」。
+	 */
+	@PostMapping("/categories/create")
+	@PreAuthorize("hasAuthority('repo:create') or hasRole('admin')")
+	public void createRepoCategory(@RequestBody RepoCategoryRequest request) {
+		repoService.createRepoCategory(request);
+	}
+
 	@GetMapping("/detail")
 	// 学员用 repo:questions:read / repo:book 进练习页，也要能读到题库详情（读闸门仍在 RepoServiceImpl#assertReadableRepo）
 	@PreAuthorize("hasAnyAuthority('repo:detail','repo:questions:read')")

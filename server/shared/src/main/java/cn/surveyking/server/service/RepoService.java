@@ -18,6 +18,20 @@ public interface RepoService {
 	PaginationResponse<RepoView> listRepo(RepoQuery query);
 
 	/**
+	 * 题库分类/文件夹列表（**扁平**返回，前端按 path 建树）。
+	 *
+	 * <p>目录登记表 t_repo_category（空文件夹只在这里）+ t_repo 现有 category 的 distinct 值；
+	 * 可见性与 {@link #listRepo(RepoQuery)} 同源，count 是该目录下（含子目录）可见题库数。
+	 */
+	List<RepoCategoryView> listRepoCategories();
+
+	/**
+	 * 新建空分类/文件夹（不挂题库也能建）。
+	 * @param request name + parentId（或 parentPath 指定上级路径）
+	 */
+	void createRepoCategory(RepoCategoryRequest request);
+
+	/**
 	 * 获取单个模板库
 	 * @param id
 	 * @return
