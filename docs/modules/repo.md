@@ -14,8 +14,13 @@ keywords:
   - openStartAt
   - openEndAt
   - 学员题库详情
-  - 组卷
+  - 题库分类
+  - 分类文件夹
+  - RepoCategoryTree
   - 题库授权
+  - 授权级别
+  - access_level
+  - 三级授权
   - repo:grant
   - repo:export
   - template:import
@@ -33,13 +38,22 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Repo.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/RepoPartner.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/RepoCategory.java
+  - server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoCategoryMapper.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoCategoryView.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoCategoryRequest.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerRequest.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerView.java
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoRequest.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoView.java
   - scripts/nas/migrate/32-repo-open-window.sql
+  - scripts/nas/migrate/35-repo-category.sql
+  - scripts/nas/migrate/36-partner-access-level.sql
 entrypoints:
   - client/src/pages/repo/List.tsx
+  - client/src/pages/repo/RepoCategoryTree.tsx
   - client/src/pages/repo/Questions.tsx
   - client/src/pages/repo/RepoExportModal.tsx
   - client/src/pages/repo/GrantModal.tsx
@@ -47,6 +61,8 @@ entrypoints:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
 apis:
   - GET /api/repo/list
+  - GET /api/repo/categories
+  - POST /api/repo/categories/create
   - GET /api/repo/detail
   - POST /api/repo/create
   - POST /api/repo/update
@@ -57,12 +73,14 @@ apis:
   - POST /api/repo/pick
   - GET /api/repo/partner/list
   - POST /api/repo/partner/create
+  - POST /api/repo/partner/update
   - POST /api/repo/partner/delete
   - GET /api/template/list
   - POST /api/template/update
   - POST /api/template/delete
 tables:
   - t_repo
+  - t_repo_category
   - t_template
   - t_repo_partner
   - t_class_resource
@@ -72,14 +90,14 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
+verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 ---
 
 # 题库与题目
 
 ## 30 秒摘要
 
-题库（`t_repo`）是题目的容器，题目（`t_template`）挂在题库下。这一层负责：题库列表与增删改、题目浏览与单题编辑、Excel 导入导出、从题库抽题组卷、按用户组/按人授权题库、按班级分配题库（P2）、题库全局开放期与班级窗口硬上限（P3），以及学员的错题本（`t_user_book`）。它**不负责**考试的生命周期（创建、发布、作答、判分）——那是 project/answer 模块；也**不负责**练习作答页——那是 exercise 模块。后端入口是 `RepoApi`，绝大部分规则落在 `RepoServiceImpl` 与 `RepoPartnerServiceImpl`；前端入口在 `client/src/pages/repo/`。
+题库（`t_repo`）是题目的容器，题目（`t_template`）挂在题库下。这一层负责：题库列表与增删改、题目浏览与单题编辑、Excel 导入导出、从题库抽题组卷、按用户组/按人授权题库（P12 三级授权）、按班级分配题库（P2）、题库全局开放期与班级窗口硬上限（P3）、题库分类/空文件夹侧栏（P11），以及学员的错题本（`t_user_book`）。它**不负责**考试的生命周期（创建、发布、作答、判分）——那是 project/answer 模块；也**不负责**练习作答页——那是 exercise 模块。后端入口是 `RepoApi`，绝大部分规则落在 `RepoServiceImpl` 与 `RepoPartnerServiceImpl`；前端入口在 `client/src/pages/repo/`。
 
 ## 什么时候看这篇
 
@@ -90,33 +108,35 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - 要把题库授权给班级/个人，或排查「授权了但看不到」。
 - 班级分配了题库，学员列表能看到但打不开题目或练习。
 - 题库开放时间设错、清不掉，或班级窗口提示「题库开放时间必须在全局开放时间内」。
-- 需要确认老师、学员分别能对题库做什么（老师题库只读，见下）。
+- 需要确认老师、学员分别能对题库做什么（老师题库默认可读，授权级别见 P12）。
+- 题库分类树看不到空文件夹/计数不对，或授权了「可编辑」仍改不了题库。
 
 ## 代码地图
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 题库列表页 | `client/src/pages/repo/List.tsx` | 列表、新建/改名/删除、练习入口、批量授权、行内「导出」；新建/编辑弹窗含「全局开放时间」RangePicker（epoch 毫秒，留空=不限）；按钮按 `repo:create/update/delete/grant/export/practice` 渲染 |
+| 题库列表页 | `client/src/pages/repo/List.tsx` | 双栏：左侧分类树 + 右侧题库表；工具栏上移（新建/搜索/导出等）；新建/编辑含分类 AutoComplete 与「全局开放时间」RangePicker；按钮按 `repo:create/update/delete/grant/export/practice` 渲染 |
+| 题库分类树 | `client/src/pages/repo/RepoCategoryTree.tsx` | `GET /api/repo/categories` 扁平列表按 `/` 拆树；根「全部分类」+ 各路径 count；「新建分类文件夹」→ `/categories/create`；选中 path 过滤列表 |
 | 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
-| 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | 按用户组或按人授权；组树来自 `/api/system/dept/list`，人来自 `/api/system/user/options` |
+| 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | 按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树来自 `/api/system/dept/list`，人来自 `/api/system/user/options`；成员行可改级别 |
 | 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book` |
 | 前端请求 | `client/src/api/index.ts` | `getWithPagination`、`post`、`download`；导出/导入都走它 |
 | 题库接口 | `server/api/src/main/java/cn/surveyking/server/api/RepoApi.java` | `@PreAuthorize` 与导出守卫；`/repo/pick`、`/repo/import` 也在这里 |
 | 题目接口 | `server/api/src/main/java/cn/surveyking/server/api/TemplateApi.java` | `/template/list` 允许 `template:list`、`repo:detail`、`repo:questions:read` |
-| 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java` | 可见性 `assertReadableRepo`、管理权 `assertManageRepo`、抽题、导入导出 |
-| 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java` | `t_repo_partner` 的增删查；组授权解析走 `UserDeptScopeService`；`hasPracticePermission` 也认班级分配 |
+| 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java` | 可见性 `assertReadableRepo`、管理权 `assertManageRepo`（owner/admin/level>=2）、分类树 `listRepoCategories`、建分类、抽题、导入导出 |
+| 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java` | `t_repo_partner` 增删查/改级别；组授权解析走 `UserDeptScopeService`；成员管理 `assertManagePermission`（owner/admin/level3）；`hasPracticePermission` 也认班级分配 |
 | 题目实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java` | 题目列表、单题更新/删除，以及题库可读性判断（`isReadableRepo` 认班级分配） |
 | 班级分配 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `t_class_resource` 的 repo 行：列表只判断「有没有分配」，`canStudentReadRepo` 校验班级开关 → 题库全局期 → 本班窗口 |
 | 题库全局开放期 | `server/rdbms/.../domain/model/Repo.java`、`server/shared/.../dto/RepoRequest.java`、`RepoView.java`、`init-mysql.sql`、`scripts/nas/migrate/32-repo-open-window.sql` | `t_repo.open_start_at/open_end_at`（datetime，NULL=不限）；`RepoServiceImpl#updateRepo` 显式 set，支持清空 |
 | 统计 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java` | 每个题库的题量、题型分布、标签分布 |
-| 数据表 | `t_repo`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book` | 题库、题目、授权、班级分配、标签、错题本 |
+| 数据表 | `t_repo`、`t_repo_category`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book` | 题库、分类目录、题目、授权（含 access_level）、班级分配、标签、错题本 |
 | Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析，行级安全校验 |
 | Excel 文案 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java` | sheet 名与表头的中英文别名，导入导出共用 |
 
 ## 关键流程
 
-1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权 / 本班在 `t_class_resource` 有 repo 分配」收窄（班级分配只对非管理员生效，实际只影响学员）。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
+1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`category` 是**精确值**（前端传分类树的 path，不做 trim/规范化）；`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权 / 本班在 `t_class_resource` 有 repo 分配」收窄（班级分配只对非管理员生效，实际只影响学员）。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。`/api/repo/detail` 现在接受 `repo:detail` 或 `repo:questions:read`，但服务层仍走 `assertReadableRepo`（管理员/创建者/共享/partner/班级分配），学员只能读可见题库。
 3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=题库导入模板`（白名单与别名见 [files](./files.md)）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
 4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
@@ -144,6 +164,23 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 4. 返回：`ClassResourceView.globalStartAt/globalEndAt` 对 repo 回填题库全局期（不再恒为 null）；前端资源面板显示真实全局时间。
 5. 判断顺序：repo 的 `effectiveStatus` / 学员可读都按 **班级开关 → 题库全局开放期 → 本班窗口（为空用全局）**；任一环节不通过即 `CLOSED/NOT_STARTED/ENDED` 或读接口 403。
 6. 已知限制：题库已有班级窗口超出新设全局期时**不会自动修正**；学生按硬上限判（全局期外直接不可用），老师需重新设班级窗口。题库列表仍不按窗口过滤。
+
+### 题库分类与文件夹（P11）
+
+1. **数据**：新表 `t_repo_category`（`id/name/parent_id/path/create_at/create_by`，`path` 唯一，迁移 `scripts/nas/migrate/35-repo-category.sql`）。它是「目录登记表」，只负责空文件夹和目录名；题库自己的分类仍是 `t_repo.category`（自由文本），两者不是外键关系。表里没有 `is_deleted`，删目录就是真删，题库的 category 不受影响。
+2. **列表接口**：`GET /api/repo/categories`（`repo:list` 或 admin）返回**扁平** `RepoCategoryView`：`id / name / parentId / path / parentPath / count`。数据源 = 登记表全部路径 ∪ 当前用户可见题库的 `category` 去重值；逐段补齐祖先（如 `保育员/初级` 自动补 `保育员`）；同一路径只出现一次。`count` 是该路径下（含子目录）**可见题库数**，由题库所在路径向祖先累加；没有分类的题库归「未分类」（`path=''`，只在真的存在时返回）。返回顺序是父在前、子紧跟的前序，同层按 name 排。
+3. **创建接口**：`POST /api/repo/categories/create`（`repo:create` 或 admin），body `{name, parentId? , parentPath?}`。name 必填、不能含 `/`、trim；parentId 优先于 parentPath（parentPath 给「t_repo.category 已有层级但没登记」用）；path 长度上限 255；同名 path 返回 400「分类已存在」，并发由唯一键兜底。建空文件夹不需要挂题库。
+4. **前端**：`RepoCategoryTree` 按 `/` 拆树，根「全部分类」+ 各路径 count；标题旁「新建分类文件夹」（`repo:create`）；选中节点把 `path` 传给 `/api/repo/list?category=` 过滤，新建成功后重拉树并选中新路径。「未分类」只在有未分类题库时显示数量，节点 `selectable=false`，不能当筛选值（`listRepo` 没有对应的精确 category 值）。
+5. **双栏列表**：题库列表左侧分类树 + 右侧表格，工具栏上移；新建/编辑题库的分类用 `AutoComplete`（候选来自 `/categories` 的 path，可自由输入；`repo.category` 仍按原字段写入）。新建/删除/改名后递增 `treeToken`，树重新拉 counts。
+6. **已知限制**：分类 registry **全局可见**（空文件夹对所有能看分类树的人显示，不按创建者过滤）；`t_repo.category` 是 `varchar(64)`，而登记表 `path` 是 255，深层路径可能能建目录但放不进题库 category；`listRepo` 的 category 过滤是**原始精确值**，不 trim/不把反斜杠转 `/`，手工写库的前后空白/反斜杠会导致树里能看见但筛选不到；目录没有删除接口/前端入口；未分类不能筛选。
+
+### 题库三级授权（P12）
+
+1. **字段/迁移**：`t_repo_partner.access_level tinyint NOT NULL DEFAULT 2`（迁移 36，幂等）；`RepoPartner` / `RepoPartnerRequest` / `RepoPartnerView` 都有 `accessLevel`。1=可查看，2=可编辑（含查看，默认），3=可授权（含编辑/查看）。
+2. **接口**：新增/取消仍是 `/api/repo/partner/create|delete`；调整级别 `POST /api/repo/partner/update {repoId?, id, accessLevel}`（`repo:grant` 或 admin 注解，服务层再判）。列表 `/partner/list` 只要求 `repo:list`，但服务层 `assertManagePermission` 要求 owner/创建者/admin/level3，所以 level1/2 实际打不开授权列表。
+3. **判定**：题库创建者/admin 全权；`RepoServiceImpl.assertManageRepo` 对题库内容写操作要求 access_level>=2（level1 只读）；`RepoPartnerServiceImpl.assertManagePermission` 对「改成员/改级别」要求 access_level>=3。组授权一条 `dept_id` 记录，组员按主组+附加组+祖先链继承级别；个人授权按 `user_id`。
+4. **前端**：`GrantModal` 新增级别下拉（1 可查看/2 可编辑/3 可授权）与成员行级别 Tag/修改；`RepoList` 的授权入口仍按 `repo:grant` 渲染。`RepoView` 没有 `myAccessLevel`，level1/2 仍可能看到全局「授权/编辑」按钮，点下去后端 403 兜底。
+5. **已知**：级别只对 `t_repo_partner` 行有意义，owner 记录迁移/新建写 3；共享题库（`shared=1`）所有能进题库列表的人可读，不受级别限制；班级分配是另一条可见性/读闸门，不参与 partner level；授权级别 2 可改题库内容但不能改成员。
 
 ## 修改指南
 
@@ -175,15 +212,16 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 | 查看题库详情 | `repo:detail` 或 `repo:questions:read` | 管理员 / 创建者 / 共享 / partner / 班级分配；接口注解放宽后仍走 `RepoServiceImpl#assertReadableRepo`，学员只能读自己可见的题库 |
 | 查看题库题目 | `template:list` 或 `repo:detail` 或 `repo:questions:read` | 题库必须可读；学员用 `repo:questions:read`，班级分配在 `isReadableRepo` 放行 |
 | 新建题库 | `repo:create` | 无数据范围限制 |
-| 修改题库/题目 | `repo:update`、`template:update` | 管理员或题库创建者 |
-| 删除题库/题目 | `repo:delete`、`template:delete` | 管理员或题库创建者；删除题库会连带删题目与标签 |
-| 导入题目 | `template:import` | 管理员或题库创建者；导入旁「下载模板」还要 `file:import`/`template:import` |
+| 查看/新建分类 | `repo:list` / `repo:create` | 分类树按当前用户可见题库统计；空目录登记表全局可见；新建目录需要 `repo:create` |
+| 修改题库/题目 | `repo:update`、`template:update` | admin/创建者或 access_level>=2 的成员（含组授权）；level1 只能看 |
+| 删除题库/题目 | `repo:delete`、`template:delete` | admin/创建者或 access_level>=2；删除题库会连带删题目与标签 |
+| 导入题目 | `template:import` | admin/创建者或 access_level>=2；导入旁「下载模板」还要 `file:import`/`template:import` |
 | 导出题库 | `repo:export` | 题库可读即可导出；未配置导出密码时直接下载，配置后需密码换 token |
-| 授权题库 | `repo:grant` 或管理员 | 管理员或题库创建者；可授权到组或到人 |
+| 授权/改级别 | `repo:grant` 或管理员 | 服务层 `assertManagePermission`：owner/创建者/admin/access_level=3；可授权到组或人，`POST /partner/update` 调 1/2/3 |
 | 错题本/收藏 | `repo:book` | 只操作自己的 `t_user_book` 记录 |
 | 抽题组卷/练习抽题 | `repo:detail` 或 `repo:book` 或管理员 | 每个被抽的题库都要可读；班级分配在 `assertReadableRepo` 放行；旧练习入口还要求 `isPractice=true` |
 
-> 角色现状（仅题库域）：老师只有 `repo:list`、`repo:detail`、`repo:grant`、`template:list`、`template:import`，**没有** `repo:create/update/delete`、`repo:export` 与题目写权限；学员只有 `repo:list`、`repo:questions:read`、`repo:book`、`repo:practice`——学员没有 `repo:detail`，但 `/api/repo/detail` 现在也接受 `repo:questions:read`。
+> 角色现状（仅题库域）：老师只有 `repo:list`、`repo:detail`、`repo:grant`、`template:list`、`template:import`，**没有** `repo:create/update/delete`、`repo:export` 与题目写权限；但被授到 access_level>=2 后可编辑题库、>=3 可继续授权（权限串与级别是两层）。学员只有 `repo:list`、`repo:questions:read`、`repo:book`、`repo:practice`——学员没有 `repo:detail`，但 `/api/repo/detail` 现在也接受 `repo:questions:read`。
 
 ## 坑与已知限制
 
@@ -200,13 +238,18 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - 导入是按「序号 + 题型」匹配的 upsert：同一题库里序号相同、题型相同的行会覆盖原题，不是追加。导入前先导出一份当模板最稳。
 - `/api/project/selectRepo`（编辑器选题库）只返回「自己创建 + 共享」，没有管理员放行、也不含组授权/班级分配；但组卷弹窗 `ComposeModal` 用的是 `/api/repo/list`（含组授权与班级分配），不要按 `selectRepo` 的口径判断老师在组卷弹窗里能选到的题库。
 - `shared`（共享题库）在题库列表页没有开关，只能通过接口或直接改库设置；共享后所有能进题库列表的人都能读。
-- 老师虽然有 `repo:grant`，但服务层只允许「题库创建者或管理员」授权；老师没有 `repo:create`，所以授权入口对老师基本不可用（除非库里还有他早期创建的题库）。
+- 老师虽然有 `repo:grant`，但服务层只允许「题库创建者/管理员/access_level=3 的成员」授权；老师没有 `repo:create/update`，只有被授到相应级别后才能编辑/转授。level2 能改题库内容但不能管理成员。
 - `repo/export/token` 的一次性令牌存在进程内存里：后端重启、多实例部署都会导致令牌失效或校验不到。
 - **未配置导出密码时前端直接下载**：`RepoExportModal` 读 `/api/system` 的 `exportPasswordEnabled`；如果系统设置刚被改过，前端可能先按「无需密码」发起，失败后会退回密码输入。不要在系统设置里只清空密码却保留旧的前端缓存。
 - **「下载模板」只认白名单 name**：题库页固定传 `题库导入模板`；改成其它名字会 404（白名单在 files 模块）。
 - 题库名/分类排序用 `CONVERT(... USING gbk)` 近似拼音序；生僻字不在 GBK 里会退化成其他顺序。
 - `RepoQuery` 的注释只写了 `name/updateAt/createAt`，实际 `applyRepoOrder` 还支持 `category/mode/tag/total`；改排序逻辑时以方法实现为准。
 - 列表里的「题量」是逐行实时统计（`t_template` 子查询），题库多时注意 N+1 式开销；标签/题型分布也是每个题库各查一次。
+- **分类树 count 含子目录**：`/api/repo/categories` 的 count 是从题库路径向上累加的「含后代」数量；「未分类」节点不可筛选，只能看数量。
+- **题库分类 registry 全局可见**：`t_repo_category` 的空文件夹不按创建者过滤，任何能看分类树的人都会看到；`t_repo.category` 是自由文本（varchar64），`path` 是 255，深层目录可能能建但无法写进题库。
+- **`listRepo` 的 category 是原始精确值**：前端传分类树 path；手工写库的前后空白/反斜杠不会自动规范化，树里能看见但筛选不到。
+- **三级授权是行级级别，不是权限串**：`access_level>=2` 才能改题库内容，`>=3` 才能改成员/授权；level1 只读。`RepoView` 没有 `myAccessLevel`，level1/2 仍可能看到全局授权/编辑按钮，后端 403 兜底。
+- **owner 记录写 3**：迁移 36 回填 type=1 owner=3；新建题库 owner 由服务层写 3。共享（shared=1）仍对所有能进题库列表的人可读，不受级别限制。
 
 ## 验证
 
@@ -228,6 +271,9 @@ npm run docs:check
 7. 学员直接用 `repo:questions:read` 调 `/api/repo/detail`：对本班被分配且窗口开放的题库应 200；未分配/窗口关闭/未开始/已结束应 403。没有 `repo:detail` 不再直接拦死。
 8. 管理员给题库设全局开放期（例如 09:00~18:00），班级老师把班级窗口设到 08:00 或 19:00 应 400「题库开放时间必须在全局开放时间内」；设到 10:00~17:00 成功。
 9. 把题库全局期改窄后，未重设的旧班级窗口不会自动修正；学生按全局硬上限判断，需老师重设班级窗口。
+10. 题库分类树：新建空文件夹「安全生产/三级」→ 树里父路径自动补齐且可展开；右侧列表按 path 过滤；空文件夹 count 为 0；「未分类」只显示数量不可选；同名 path 再建应 400「分类已存在」。
+11. 给老师授 level1：能看题库/题目，但改题库/导入/删除应 403；授 level2：能改题库内容，但打开授权列表/加成员应 403；授 level3：能打开授权并继续授人/组。owner/admin 不受级别拦截。
+12. 迁移 36 后查库：`t_repo_partner.access_level` 默认 2；项目 owner=3、type=3/4=1；组授权一条 dept_id 记录，组员按主组+附加组+祖先链继承级别。
 
 ## 相关文档
 

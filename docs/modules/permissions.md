@@ -20,6 +20,9 @@ keywords:
   - is_anonymous
   - 匿名清理
   - 保留天数
+  - 三级授权
+  - 教师组
+  - project:partner
   - 审计
   - 403
 source_globs:
@@ -37,7 +40,6 @@ source_globs:
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java
   - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
-  - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/SystemInfo.java
@@ -53,6 +55,15 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
+  - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/RepoApi.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectPartnerRequest.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectPartnerView.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerRequest.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerView.java
+  - scripts/nas/migrate/35-repo-category.sql
+  - scripts/nas/migrate/36-partner-access-level.sql
   - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
   - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
@@ -61,6 +72,8 @@ source_globs:
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
   - client/src/pages/teaching/ClassAnswersDrawer.tsx
   - client/src/pages/answer/AnonymousAnswersDrawer.tsx
+  - client/src/pages/survey/PartnerPanel.tsx
+  - client/src/pages/repo/GrantModal.tsx
   - scripts/nas/migrate/33-anonymous-answer.sql
   - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
   - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
@@ -77,6 +90,8 @@ entrypoints:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditAspect.java
   - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditTargetResolver.java
+  - client/src/pages/survey/PartnerPanel.tsx
+  - client/src/pages/repo/GrantModal.tsx
   - scripts/nas/migrate/23-permission-cleanup.sql
 apis:
   - GET /api/currentUser
@@ -98,6 +113,10 @@ apis:
   - GET /api/public/anonymous/answers
   - POST /api/public/anonymous/claim
   - GET /api/project/tree
+  - POST /api/project/partner/update
+  - POST /api/repo/partner/update
+  - GET /api/repo/categories
+  - POST /api/repo/categories/create
   - POST /api/system/anonymous/cleanup
   - GET /api/system
   - GET /api/system/audit/list
@@ -110,6 +129,9 @@ tables:
   - t_user
   - t_class_partner
   - t_class_resource
+  - t_project_partner
+  - t_repo_partner
+  - t_repo_category
   - t_answer
   - t_anonymous_subject
   - t_sys_info
@@ -118,14 +140,14 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
+verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 ---
 
 # 权限、角色与用户组
 
 ## 30 秒摘要
 
-权限点只有一个来源：代码里的 `PermissionEnum`（当前 77 条、11 个分组），数据库 `t_role.authority` 只记录「某个角色勾了哪些串」。用户最终权限 = 直挂角色（`t_user_role`）∪ 主组/附加组及其祖先链绑定角色（`t_dept_role`）的并集；`code=admin` 的角色在运行时还会注入目录里全部**非学员专属**权限。当前三个内置角色：管理员 71、老师 33、学员 14（含 6 个学员专属）。组织树从本轮起分成两类节点：`dept_type=org` 是**用户组**（只放 staff、可绑角色），`dept_type=class` 是**班级**（只放 student、不绑角色）。前端用 `can()` + `RequirePerm` 决定菜单、路由与按钮，后端用 `@PreAuthorize` 兜底，数据可见范围另由 `@EnableDataPerm`、协作者表与班级资源分配控制。所有写操作落 `t_audit_log`，列表会补中文动作名、目标名与操作人姓名。
+权限点只有一个来源：代码里的 `PermissionEnum`（当前 77 条、11 个分组），数据库 `t_role.authority` 只记录「某个角色勾了哪些串」。用户最终权限 = 直挂角色（`t_user_role`）∪ 主组/附加组及其祖先链绑定角色（`t_dept_role`）的并集；`code=admin` 的角色在运行时还会注入目录里全部**非学员专属**权限。当前三个内置角色：管理员 71、老师 33、学员 14（含 6 个学员专属）。组织树从本轮起分成两类节点：`dept_type=org` 是**用户组**（只放 staff、可绑角色），`dept_type=class` 是**班级**（只放 student、不绑角色）。前端用 `can()` + `RequirePerm` 决定菜单、路由与按钮，后端用 `@PreAuthorize` 兜底，数据可见范围另由 `@EnableDataPerm`、项目/题库协作者表的 access_level（1/2/3）与班级资源分配控制。所有写操作落 `t_audit_log`，列表会补中文动作名、目标名与操作人姓名。
 
 ## 什么时候看这篇
 
@@ -149,6 +171,7 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 | 组织节点类型 | `server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java`、`DeptServiceImpl.java` | `TYPE_ORG`/`TYPE_CLASS`、`dept_type` 校验、用户组绑角色与缓存失效 |
 | 用户组成员约束 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserAdminService.java` | staff 只能进 org、student 只能进 class；建号/改号 |
 | 班级授权级别 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | `assertClassVisible`（看）/`assertClassManage`（改）、`t_class_partner.access_level`（1 只读 / 2 可管理）、`ClassNodeView.manageable` |
+| 项目/题库三级授权 | `ProjectPartnerServiceImpl`、`RepoPartnerServiceImpl`、`t_project_partner`、`t_repo_partner` | `access_level` 1 查看 / 2 编辑 / 3 授权；owner/admin 全权；项目写 `>=2`、成员管理 `>=3`；题库写 `>=2`、成员管理 `>=3`；教师组/用户组按组链继承 |
 | 后端接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemApi.java` | `/system/role/*`、`/system/permission/list`、用户/组/字典接口的 `@PreAuthorize`；`/system/dept/list?deptType=` |
 | 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers` |
 | 按班答卷/导出 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java`、`server/rdbms/.../impl/AnswerServiceImpl.java` | `classService.assertVisible` + `listAnswerByClass`/`downloadByClass`；`/answer/download?classId=` 与 `POST /answer/export/token`；默认 `is_anonymous=0` |
@@ -165,7 +188,7 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 | 页面守卫 | `client/src/components/RequirePerm.tsx` | 无权限直接整页 403，而不是进去后逐页吃 403 |
 | 菜单与路由 | `client/src/layout/BasicLayout.tsx`、`client/src/router.tsx` | 菜单用 `can()` 过滤；路由用 `guard(perm)` |
 | 权限矩阵页 | `client/src/pages/system/Permissions.tsx` | 角色卡 + 左树 + 右侧已选 + 草稿保存；路由 `/system/permissions` |
-| 数据表 | `t_role`、`t_user_role`、`t_dept_role`、`t_dept`、`t_user`、`t_class_partner`、`t_answer`、`t_anonymous_subject`、`t_audit_log` | 建表见 `server/rdbms/src/main/resources/scripts/init-mysql.sql`；匿名主体见迁移 33 |
+| 数据表 | `t_role`、`t_user_role`、`t_dept_role`、`t_dept`、`t_user`、`t_class_partner`、`t_project_partner`、`t_repo_partner`、`t_repo_category`、`t_answer`、`t_anonymous_subject`、`t_audit_log` | 建表见 init-mysql；匿名主体见迁移 33；项目/题库 access_level 见迁移 36；题库分类见迁移 35 |
 
 ## 关键流程
 
@@ -219,6 +242,16 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 4. 自动清理：`AnonymousCleanupService#cleanupDaily` 用 `@Scheduled(cron="0 30 3 * * ?")` 每日 03:30 跑；`SurveyServerApplication` 已加 `@EnableScheduling`；关闭时跳过，异常只记日志。cron 按容器时区解释，不是浏览器时区。
 5. 清理口径：`AnonymousIdentityService#purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷（`@TableLogic` 逻辑删除）；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。登录用户/班级成绩/非匿名答卷不碰；`purgeExpired()` 仍负责 cookie 主体过期清理，两者不是同一条。
 6. 写回：`AnonymousCleanupService#runNow` 更新 last 字段并清 `commonCache`，否则 `GET /api/system` 可能读到旧设置；更新是读整行再写回，极低概率覆盖并发保存的设置。
+
+### 5.2 项目/题库三级授权（P12）
+
+1. 字段：`t_project_partner.access_level` / `t_repo_partner.access_level`（tinyint，1 查看 / 2 编辑（含查看，默认）/ 3 授权（含编辑/查看）），迁移 `scripts/nas/migrate/36-partner-access-level.sql`。两边 Request/View/Model 都有 `accessLevel`；项目 `partner/update`、题库 `partner/update` 用来改级别。
+2. 项目类型：owner（type=1）固定 3；协作者/教师组（type=2）按请求级别；班级/学员答卷人（type=3）与外部导入答卷人（type=4）固定 1。新建项目 owner 由 `addProjectPartner` 写 3；迁移回填 type=1→3、type=3/4→1，其余默认 2。教师组是一条 `group_id` 记录，组员按主组+附加组+祖先链继承级别。
+3. 题库：`t_repo_partner` 的 user/dept 记录都带级别；owner 记录迁移/新建写 3；组授权一条 `dept_id` 记录，组员按组链继承。共享题库（`shared=1`）是另一条可见性，不受 level 限制。
+4. 判定链：项目 `ProjectPartnerService#accessLevel` 返回 0/1/2/3；`assertCanGrant` 允许 owner/admin/level3 改成员；`ProjectServiceImpl#assertCanEditProject` 对 updateProject/updateProjectStatus/deleteProject 要求 level>=2。题库 `RepoServiceImpl#assertManageRepo` 对题库内容写要求 level>=2；`RepoPartnerServiceImpl#assertManagePermission` 对成员/级别管理要求 owner/创建者/admin/level3。
+5. 接口：`POST /api/project/partner/update {projectId?, id, accessLevel}`、`POST /api/repo/partner/update {repoId?, id, accessLevel}`；注解只要求 `project:partner`/`repo:grant`（或 admin），真正级别校验在 Service。`partner/create|delete` 同样从 owner-only 放宽到 owner/admin/level3。
+6. UI：`PartnerPanel`/`GrantModal` 显示级别 Tag（可查看/可编辑/可授权）并允许有权限者改；班级/答卷人只读。`ProjectView`/`RepoView` 当前不返回 `myAccessLevel`，level1/2 仍可能看到全局授权/编辑按钮，点击由后端 403 兜底；要彻底隐藏需补 View 字段。
+7. 已知：level2 能编辑内容但不能改成员/继续授权；level3 才能转授；level1 只读；owner/admin 不受级别限制；项目 owner 记录如果手工插入漏 level，`accessLevel()` 仍按 type=OWNER 返回 3，但库里可能显示默认 2。
 
 ### 6. 审计：动作、目标、操作人都可读
 
@@ -280,7 +313,11 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 |---|---|---|
 | 看题库列表/题目 | `repo:list` + `repo:detail` 或 `repo:questions:read` | 成员/协作者/所属组授权/本班题库分配；管理员全量。列表、`/api/template/list`、`/api/repo/detail` 均认班级分配；详情仍受 `assertReadableRepo` 与题库全局期/本班窗口约束 |
 | 看考试与答卷 | `project:list`、`answer:list` | 所有者、协作者（`t_project_partner`，含组）、班级资源分配或本人答卷 |
-| 删考试 | `project:delete` | 仅自己创建/协作的考试（老师同样受此约束） |
+| 删考试 | `project:delete` + `assertCanEditProject` | owner/admin 或 access_level>=2；level1 只读 |
+| 编辑/发布考试 | `project:update`/`project:publish` + `assertCanEditProject` | owner/admin 或 level>=2；level1 后端 403 |
+| 项目成员/级别 | `project:partner` + `assertCanGrant` | owner/admin/access_level=3；level1/2 只读；`partner/update` 只能改 type=2 |
+| 编辑题库/导入 | `repo:update`/`template:update`/`template:import` + `assertManageRepo` | admin/创建者或 access_level>=2；level1 只读 |
+| 题库成员/级别 | `repo:grant` + `assertManagePermission` | admin/创建者或 access_level=3；level1/2 不能改成员 |
 | 改系统设置 | `system:setting:update` | 全局 |
 | 改匿名清理设置/立即清理 | `system:setting:update` 或 admin | 匿名答卷保留开关/天数；手动清理 `POST /api/system/anonymous/cleanup` |
 | 改水印/防复制 | `content:protect` | 全局，只接受三个字段 |
@@ -334,6 +371,10 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 - **last 字段只读**：`anonymousLastCleanupAt/Count` 由清理任务写，`mergeSysInfo` 不接收客户端值；设置页保存时只提交开关/天数。
 - **清理任务未分批**：`purgeOlderThan` 一次 `select id/subject` + 一次按条件删；匿名答卷很多时可能长事务/锁表，需要按 id 分批或加合适索引（`is_anonymous,create_at`）。
 - **cron 按容器时区**：每日 03:30 是 JVM/容器时区，不是用户本地时区；跨时区部署要显式设置 `TZ` 或改 cron。
+- **项目/题库 access_level 是行级数据，不是权限串**：`project:update`/`repo:grant` 只决定「能不能进这个功能」，level 决定「对这个项目/题库能做什么」。level2 可编辑内容但不能改成员，level3 才能转授；owner/admin 例外。
+- **level1/2 的 UI 仍显示全局按钮**：`ProjectView`/`RepoView` 没有 `myAccessLevel`，列表/面板只能按功能权限渲染；level1/2 点「授权/编辑」由后端 `assertCanEditProject`/`assertManagePermission` 403 兜底，不要把按钮可见当权限。
+- **项目文件夹重名只在前端校验**：`ProjectTree` 只比较当前父级同层 folder；后端 `createProject` 不拦重名，直接调接口可建同名文件夹。
+- **题库分类 registry 全局可见、path 不写回 t_repo.category**：`t_repo_category` 只登记目录，空文件夹所有人可见；`t_repo.category` 是 varchar64，registry path 是 255，深层目录可能建得了但挂不进题库；`listRepo` 的 category 过滤是原始精确值。
 
 ## 验证
 
@@ -390,6 +431,17 @@ curl -s -b admin.txt -X POST https://<host>/api/system/anonymous/cleanup
 # 设置里确认 last 字段（只读）与开关/天数
 curl -s -b admin.txt https://<host>/api/system | python -c \
   "import json,sys; s=json.load(sys.stdin)['data']['setting']; print({k:s.get(k) for k in ['anonymousCleanupEnabled','anonymousRetentionDays','anonymousLastCleanupAt','anonymousLastCleanupCount']})"
+# 项目/题库三级授权：level1 写应 403，level2 可编辑但管成员 403，level3 可继续授权
+curl -s -o /dev/null -w '%{http_code}\n' -b level1.txt -X POST https://<host>/api/project/update \
+  -H 'Content-Type: application/json' -d '{"id":"<projectId>","name":"x"}'
+curl -s -o /dev/null -w '%{http_code}\n' -b level2.txt -X POST https://<host>/api/project/partner/update \
+  -H 'Content-Type: application/json' -d '{"projectId":"<projectId>","id":"<partnerId>","accessLevel":3}'
+curl -s -b admin.txt -X POST https://<host>/api/project/partner/update \
+  -H 'Content-Type: application/json' -d '{"projectId":"<projectId>","id":"<partnerId>","accessLevel":3}'
+# 迁移 36 自检：项目 owner/答卷人级别；题库 partner 默认级别
+docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
+  SELECT type, access_level, COUNT(*) FROM t_project_partner GROUP BY type, access_level ORDER BY type;
+  SELECT COALESCE(access_level, -1) AS lvl, COUNT(*) FROM t_repo_partner GROUP BY access_level;"
 ```
 
 ## 相关文档

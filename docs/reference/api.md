@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 174 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 178 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -48,6 +48,7 @@
 | GET | `${api.prefix}/project/partner/list` | `ProjectApi#listProjectPartner` | `hasAuthority('project:detail')` | 是 |
 | POST | `${api.prefix}/project/partner/create` | `ProjectApi#addProjectPartner` | `hasAuthority('project:partner') or hasRole('admin')` | 是 |
 | POST | `${api.prefix}/project/partner/delete` | `ProjectApi#deleteProjectPartner` | `hasAuthority('project:partner') or hasRole('admin')` | 是 |
+| POST | `${api.prefix}/project/partner/update` | `ProjectApi#updateProjectPartner` | `hasAuthority('project:partner') or hasRole('admin')` | 是 |
 | GET | `${api.prefix}/project/partner/download` | `ProjectApi#downloadPartner` | `hasAuthority('project:partner') or hasRole('admin')` | 是 |
 | POST | `${api.prefix}/project/partner/import` | `ProjectApi#importPartner` | `hasAuthority('project:partner') or hasRole('admin')` | 是 |
 | GET | `${api.prefix}/project/trash` | `ProjectApi#getDeleted` | `hasAuthority('project:list')` | 是 |
@@ -62,6 +63,8 @@
 | POST | `${api.prefix}/project/selectRepo` | `ProjectApi#selectRepo` | — | — |
 | POST | `${api.prefix}/project/selectTag` | `ProjectApi#selectTag` | — | — |
 | GET | `${api.prefix}/repo/list` | `RepoApi#listRepo` | `hasAnyAuthority('repo:list', 'exercise:list')` | — |
+| GET | `${api.prefix}/repo/categories` | `RepoApi#listRepoCategories` | `hasAuthority('repo:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/repo/categories/create` | `RepoApi#createRepoCategory` | `hasAuthority('repo:create') or hasRole('admin')` | — |
 | GET | `${api.prefix}/repo/detail` | `RepoApi#getRpo` | `hasAnyAuthority('repo:detail','repo:questions:read')` | — |
 | POST | `${api.prefix}/repo/create` | `RepoApi#addRepo` | `hasAuthority('repo:create')` | — |
 | POST | `${api.prefix}/repo/update` | `RepoApi#updateRepo` | `hasAuthority('repo:update')` | — |
@@ -69,6 +72,7 @@
 | GET | `${api.prefix}/repo/partner/list` | `RepoApi#listRepoPartner` | `hasAuthority('repo:list')` | — |
 | POST | `${api.prefix}/repo/partner/create` | `RepoApi#addRepoPartner` | `hasAuthority('repo:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/partner/delete` | `RepoApi#deleteRepoPartner` | `hasAuthority('repo:grant') or hasRole('admin')` | — |
+| POST | `${api.prefix}/repo/partner/update` | `RepoApi#updateRepoPartner` | `hasAuthority('repo:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/batchCreate` | `RepoApi#batchAddRepoTemplate` | `hasAuthority('repo:create')` | — |
 | POST | `${api.prefix}/repo/unbind` | `RepoApi#batchUnBindTemplate` | `hasAuthority('repo:update')` | — |
 | POST | `${api.prefix}/repo/pick` | `RepoApi#pickQuestionFromRepo` | `hasAnyAuthority('repo:detail','repo:book') or hasRole('admin')` | — |

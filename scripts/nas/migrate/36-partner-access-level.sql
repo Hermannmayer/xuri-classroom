@@ -37,7 +37,8 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. 答卷人只读：type=3（班级/学员）回填 1；外部导入答卷人（type=4）同样只读
+-- 3. 所有者 = 可授权；答卷人只读：type=3（班级/学员）回填 1；外部导入答卷人（type=4）同样只读
+UPDATE t_project_partner SET access_level = 3 WHERE type = 1;
 UPDATE t_project_partner SET access_level = 1 WHERE type = 3;
 UPDATE t_project_partner SET access_level = 1 WHERE type = 4;
 

@@ -335,6 +335,9 @@ modules:
       - is_anonymous
       - 匿名清理
       - 保留天数
+      - 三级授权
+      - 教师组
+      - project:partner
       - 审计
       - 403
     source_globs:
@@ -352,7 +355,6 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java
       - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
-      - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/SystemInfo.java
@@ -368,6 +370,15 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
+      - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/RepoApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectPartnerRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectPartnerView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerView.java
+      - scripts/nas/migrate/35-repo-category.sql
+      - scripts/nas/migrate/36-partner-access-level.sql
       - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
       - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
@@ -376,6 +387,8 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
       - client/src/pages/teaching/ClassAnswersDrawer.tsx
       - client/src/pages/answer/AnonymousAnswersDrawer.tsx
+      - client/src/pages/survey/PartnerPanel.tsx
+      - client/src/pages/repo/GrantModal.tsx
       - scripts/nas/migrate/33-anonymous-answer.sql
       - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
@@ -392,6 +405,8 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditAspect.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditTargetResolver.java
+      - client/src/pages/survey/PartnerPanel.tsx
+      - client/src/pages/repo/GrantModal.tsx
       - scripts/nas/migrate/23-permission-cleanup.sql
     apis:
       - GET /api/currentUser
@@ -413,6 +428,10 @@ modules:
       - GET /api/public/anonymous/answers
       - POST /api/public/anonymous/claim
       - GET /api/project/tree
+      - POST /api/project/partner/update
+      - POST /api/repo/partner/update
+      - GET /api/repo/categories
+      - POST /api/repo/categories/create
       - POST /api/system/anonymous/cleanup
       - GET /api/system
       - GET /api/system/audit/list
@@ -425,6 +444,9 @@ modules:
       - t_user
       - t_class_partner
       - t_class_resource
+      - t_project_partner
+      - t_repo_partner
+      - t_repo_category
       - t_answer
       - t_anonymous_subject
       - t_sys_info
@@ -433,7 +455,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
+    verified_against: d6dc54f68daad66f319455a951f620bc8f809560
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -460,6 +482,10 @@ modules:
       - 基本信息
       - 批量分类
       - 布局
+      - 新建文件夹
+      - 授权级别
+      - 教师组
+      - access_level
       - 数据范围
       - t_project
       - t_project_partner
@@ -480,6 +506,10 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectView.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectRequest.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Project.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectPartnerRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectPartnerView.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
+      - scripts/nas/migrate/36-partner-access-level.sql
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
     entrypoints:
@@ -487,6 +517,7 @@ modules:
       - client/src/pages/project/List.tsx
       - client/src/pages/project/ProjectTree.tsx
       - client/src/pages/survey/Overview.tsx
+      - client/src/pages/survey/PartnerPanel.tsx
       - client/src/pages/project/ProjectCategoryTree.tsx
       - client/src/pages/project/ComposeModal.tsx
       - client/src/pages/project/BatchSettingModal.tsx
@@ -508,6 +539,7 @@ modules:
       - POST /api/project/destroy
       - GET /api/project/partner/list
       - POST /api/project/partner/create
+      - POST /api/project/partner/update
       - POST /api/project/partner/delete
       - POST /api/project/partner/import
       - GET /api/project/partner/download
@@ -520,7 +552,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 7888d2e5ec24c0865d6607e3881fc3c1e6489ef9
+    verified_against: d6dc54f68daad66f319455a951f620bc8f809560
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -536,8 +568,13 @@ modules:
       - openStartAt
       - openEndAt
       - 学员题库详情
-      - 组卷
+      - 题库分类
+      - 分类文件夹
+      - RepoCategoryTree
       - 题库授权
+      - 授权级别
+      - access_level
+      - 三级授权
       - repo:grant
       - repo:export
       - template:import
@@ -555,13 +592,22 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Repo.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/RepoPartner.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/RepoCategory.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoCategoryMapper.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoCategoryView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoCategoryRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoPartnerView.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoRequest.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoView.java
       - scripts/nas/migrate/32-repo-open-window.sql
+      - scripts/nas/migrate/35-repo-category.sql
+      - scripts/nas/migrate/36-partner-access-level.sql
     entrypoints:
       - client/src/pages/repo/List.tsx
+      - client/src/pages/repo/RepoCategoryTree.tsx
       - client/src/pages/repo/Questions.tsx
       - client/src/pages/repo/RepoExportModal.tsx
       - client/src/pages/repo/GrantModal.tsx
@@ -569,6 +615,8 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
     apis:
       - GET /api/repo/list
+      - GET /api/repo/categories
+      - POST /api/repo/categories/create
       - GET /api/repo/detail
       - POST /api/repo/create
       - POST /api/repo/update
@@ -579,12 +627,14 @@ modules:
       - POST /api/repo/pick
       - GET /api/repo/partner/list
       - POST /api/repo/partner/create
+      - POST /api/repo/partner/update
       - POST /api/repo/partner/delete
       - GET /api/template/list
       - POST /api/template/update
       - POST /api/template/delete
     tables:
       - t_repo
+      - t_repo_category
       - t_template
       - t_repo_partner
       - t_class_resource
@@ -594,7 +644,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
+    verified_against: d6dc54f68daad66f319455a951f620bc8f809560
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md

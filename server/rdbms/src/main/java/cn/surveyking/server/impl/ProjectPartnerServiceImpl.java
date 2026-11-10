@@ -148,8 +148,9 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 			return;
 		}
 		// 添加/更新成员：协作者按请求级别，答卷人固定只读
-		int level = type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
-				? normalizeAccessLevel(request.getAccessLevel()) : ACCESS_LEVEL_VIEW;
+		int level = type == ProjectPartnerTypeEnum.OWNER.getType() ? ACCESS_LEVEL_GRANT
+				: type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
+						? normalizeAccessLevel(request.getAccessLevel()) : ACCESS_LEVEL_VIEW;
 		List<ProjectPartner> existUserIds = list(Wrappers.<ProjectPartner>lambdaQuery()
 				.in(request.getUserIds() != null, ProjectPartner::getUserId, request.getUserIds())
 				.in(request.getUserNames() != null
