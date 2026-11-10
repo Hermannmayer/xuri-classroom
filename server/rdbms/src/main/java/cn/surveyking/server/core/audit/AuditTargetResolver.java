@@ -217,7 +217,10 @@ public class AuditTargetResolver {
 					continue;
 				}
 				try {
-					Method method = arg.getClass().getMethod(getter);
+					// 调用方传的是属性名（id / deptId / getName），反射需要 getId / getDeptId / getName
+					String methodName = getter.startsWith("get") ? getter
+							: "get" + Character.toUpperCase(getter.charAt(0)) + getter.substring(1);
+					Method method = arg.getClass().getMethod(methodName);
 					Object value = method.invoke(arg);
 					if (value == null) {
 						continue;
