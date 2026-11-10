@@ -256,7 +256,7 @@ curl -s -b cookie.txt -o /dev/null -w '%{http_code}\n' \
   "https://<host>/api/file/downloadTemplate?name=%E4%B8%8D%E5%AD%98%E5%9C%A8"
 
 # 6) 库里核对：一条记录、路径与缩略图都在
-docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
+docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT id, original_name, file_path, thumb_file_path, shared, storage_type
   FROM t_file WHERE id='<fileId>';"
 ```

@@ -13,17 +13,17 @@ React SPA + Spring Boot API + MySQL 8；前端只做展示与交互，权限和�
 
 ~~~text
 浏览器
-  │  HTTPS
+  │  HTTP / HTTPS（可选反向代理）
   ▼
-nginx / Lucky 反代
-  ├─ /            → 前端静态产物（client/dist）
-  └─ /api, /files → Spring Boot (7007)
-                        │
-                        ▼
-                     MySQL 8
+Spring Boot（8080，内嵌前端 SPA）
+  ├─ /            → index.html / 静态资源
+  └─ /api, /files → 后端接口
+          │
+          ▼
+       MySQL 8
 ~~~
 
-开发期 Vite 把 `/api` 代理到后端，保证 `sk-token` Cookie 同源。生产由 nginx 容器提供静态文件并反代 API。
+开发期 Vite 把 `/api` 代理到后端，保证 `sk-token` Cookie 同源。发布包由后端直接托管前端，只暴露一个端口。
 
 ## 前后端边界
 
@@ -63,9 +63,9 @@ nginx / Lucky 反代
 
 ## 部署
 
-- 本地：`Deploy-Nas.ps1` 推送到 NAS 裸仓库，运行副本 reset，前端 web-watch 构建，后端 Gradle 编译重启。
-- 生产：Docker compose（db / app / web / web-watch / backup）。
-- 回滚：`git revert` 后重新发布；旧系统容器 `surveyking` 保留为最后底牌。
+- 三种安装方式：Windows 便携包、Linux systemd、Docker compose。
+- 数据只有两样：MySQL 数据库 + 附件目录；升级前先备份。
+- 升级与回滚步骤见 [部署文档](../deploy/index.md)。
 
 ## 文档地图
 

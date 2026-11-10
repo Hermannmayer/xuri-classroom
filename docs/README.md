@@ -1,5 +1,5 @@
 ---
-title: "AI 与开发者的文档入口"
+title: "开发者文档入口"
 description: "先读这一页：任务路由、模块索引、文档维护规则"
 ---
 
@@ -7,16 +7,16 @@ description: "先读这一页：任务路由、模块索引、文档维护规则
 
 这份文档面向两类读者：
 
-- **AI/自动化代理**：先读本页，再读 `docs/ai/modules.yaml` 或对应模块页；不要从根目录开始盲搜。
+- **自动化工具**：先读本页，再读 `docs/ai/modules.yaml` 或对应模块页；不要从根目录开始盲搜。
 - **人**：从 `docs/index.md` 进入站点；本页也是站点的“任务路由表”。
 
-## AI 的三步工作流
+## 三步工作流
 
 1. **定位模块**：运行 `npm run docs:where -- "关键词"`，或直接 grep `docs/ai/modules.yaml`。
 2. **读模块页**：模块页有代码地图、关键流程、修改指南、权限与数据范围、验证命令。
 3. **改代码并更新文档**：改完运行 `npm run docs:impact`；按提示更新模块页/生成参考，再跑 `npm run docs:check`。
 
-> 不要先读整个仓库；也不要只读旧审计文档。`docs/ops/**` 里只有 [版本与发版](ops/版本与发版.md) 是当前事实，其余是内部运维/历史快照；`docs/archive/**` 是已过期基线。
+> 不要先读整个仓库；也不要只读旧审计文档。`docs/ops/**` 是内部运维/历史快照，`docs/archive/**` 是已过期基线。
 
 ## 任务 → 文档 → 代码
 
@@ -33,8 +33,7 @@ description: "先读这一页：任务路由、模块索引、文档维护规则
 | 首页、统计、Dashboard | [modules/dashboard.md](modules/dashboard.md) | `client/src/pages/home/**`、`server/api/.../DashboardApi.java` |
 | 登录、注册、账号设置、会话 | [modules/auth.md](modules/auth.md) | `client/src/pages/user/**`、`UserApi.java`、`OAuthApi.java` |
 | 数据库结构/新增表字段 | [architecture/data-model.md](architecture/data-model.md)、[reference/db-schema.md](reference/db-schema.md) | `init-mysql.sql`、`scripts/nas/migrate/**` |
-| 部署安装、版本发版（Windows / Linux / Docker、VERSION、tag、产物） | [版本与发版](ops/版本与发版.md)（维护者）、[部署文档](deploy/index.md)（用户） | `scripts/release/Release.ps1`、`scripts/release/release.py`、`.github/workflows/release.yml` |
-| 部署、回滚、NAS 工作流 | `docs/ops/NAS-开发工作流.md`（内部） | `scripts/nas/Deploy-Nas.ps1` |
+| 部署安装、版本升级（Windows / Linux / Docker） | [部署文档](deploy/index.md) | `scripts/release/`、`.github/workflows/release.yml` |
 
 ## 常用命令
 
@@ -57,8 +56,7 @@ npm run docs:dev                     # 本地预览
 | 流程 | `docs/flows/*.md` | 跨模块的端到端链路 |
 | 参考 | `docs/reference/*.md` | **生成**，不要手改（`routes/api/permissions/db-schema`） |
 | 决策 | `docs/decisions/ADR-*.md` | 只记“为什么”，不重复实现细节 |
-| 运维 | `docs/ops/版本与发版.md` | 三端安装包与发版流程的事实来源（不在公开站） |
-| 历史 | `docs/archive/**`、`docs/ops/**`（除 `版本与发版.md`） | 不作为当前事实；新会话不要先读 |
+| 历史 | `docs/archive/**`、`docs/ops/**` | 不作为当前事实；新会话不要先读 |
 
 ## 修改代码后的文档规则
 
@@ -80,7 +78,7 @@ npm run docs:dev                     # 本地预览
 
 5. CI 会检查生成文件是否漂移；`docs:impact --strict` 会提示哪个模块文档没更新。
 
-## 模块索引与 AI 上下文
+## 模块索引与上下文
 
 - 机器索引：[ai/modules.yaml](ai/modules.yaml)（由各模块 frontmatter 生成）
 - 常见改动配方：[ai/task-recipes.md](ai/task-recipes.md)
@@ -89,7 +87,7 @@ npm run docs:dev                     # 本地预览
 
 ## 维护边界
 
-- 公开站点不包含 `docs/ops/**`、`docs/archive/**`、`docs/ai/**`；这些目录只给仓库内 AI/运维看。
-- 不要把 NAS IP、SSH、密码、Token 写进 `start/`、`architecture/`、`modules/`。
+- 公开站点不包含 `docs/ops/**`、`docs/archive/**`、`docs/ai/**`；这些目录只在仓库内使用。
+- 不要把内网 IP、SSH、密码、Token 写进 `start/`、`architecture/`、`modules/`。
 - 不要让生成文件手改；改来源代码，再跑 `docs:gen`。
 

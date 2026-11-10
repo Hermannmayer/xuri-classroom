@@ -17,10 +17,10 @@ hero:
       text: "架构总览"
       link: /architecture/overview
 features:
-  - title: "AI 可读的模块索引"
+  - title: "可检索的模块索引"
     details: "每篇模块页都有 source_globs、entrypoints、关键字和最后核对 commit；npm run docs:where 直接定位。"
-  - title: "参考手册自动生成"
-    details: "路由、接口、权限目录、数据库结构由代码生成，CI 检查漂移，不靠手抄。"
+  - title: "参考手册与代码同步"
+    details: "路由、接口、权限目录、数据库结构与代码保持一致，CI 检查漂移。"
   - title: "改代码就更新文档"
     details: "docs:impact 找出受影响模块；docs:check 校验覆盖率、链接和 frontmatter。"
 ---
@@ -35,5 +35,5 @@ features:
 
 ## 文档状态
 
-每篇模块页的 `last_verified` / `verified_against` 记录最后一次核对；[文档状态](status.md) 由脚本生成，显示每个模块的覆盖文件数与核对锚点。
+每篇模块页的 `last_verified` / `verified_against` 记录最后一次核对；[文档状态](status.md) 显示每个模块的覆盖文件数与核对锚点。
 

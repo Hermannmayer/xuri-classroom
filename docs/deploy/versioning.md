@@ -7,7 +7,7 @@ description: "版本号规则、如何查看当前版本、升级与回滚步骤
 
 ## 版本号怎么读
 
-从 2.0.0 起使用语义化版本 `MAJOR.MINOR.PATCH`：
+版本号使用语义化版本 `MAJOR.MINOR.PATCH`：
 
 | 变化 | 含义 | 升级要注意 |
 |---|---|---|
@@ -83,5 +83,3 @@ sha256sum -c SHA256SUMS --ignore-missing
 
 - 关注仓库 Releases 页面（每个版本都有 `RELEASE_NOTES.md`）。
 - 大版本（MAJOR）升级前，先在测试机装一遍再动生产。
-
-> 维护者视角的发版流程（`Release.ps1`、GitHub Actions、产物清单）在仓库内部文档 `docs/ops/版本与发版.md`，不在本站。

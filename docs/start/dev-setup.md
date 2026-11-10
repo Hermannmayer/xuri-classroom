@@ -19,8 +19,8 @@ description: "JDK/Node/MySQL、启动顺序、端口与构建命令"
 ~~~text
 client/    前端（npm run dev）
 server/    后端（Gradle 多模块：api / rdbms / shared / ai）
-scripts/   开发、部署、NAS、迁移脚本
-docs/      文档站与 AI 文档源
+scripts/   开发、部署、迁移脚本
+docs/      文档站与机器索引源
 ~~~
 
 ## 启动顺序
@@ -41,7 +41,7 @@ npm run test:rules   # 规则引擎断言
 npm run test:tree    # 树操作断言
 ~~~
 
-后端没有本地 JDK 时，可通过 NAS 的 Gradle 容器编译；发布脚本会做 :api:bootJar。详细见 docs/ops/NAS-开发工作流.md（内部，不在公开站）。
+后端没有本地 JDK 时，可在构建机或容器里编译；发布脚本会执行 :api:bootJar。
 
 ## 端口与代理
 

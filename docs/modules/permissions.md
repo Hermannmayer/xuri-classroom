@@ -409,7 +409,7 @@ curl -s -b cookie.txt "https://<host>/api/system/dept/list?deptType=class"
 curl -s -b cookie.txt https://<host>/api/system/audit/actions
 
 # 角色点数（在库里核对）
-docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
+docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT code, LENGTH(authority)-LENGTH(REPLACE(authority,',',''))+1 AS n
   FROM t_role WHERE is_deleted=0 ORDER BY n DESC;"
 # 期望：admin 71 / teacher 33 / student(xueyuan) 14
@@ -448,7 +448,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -b level2.txt -X POST https://<host>/ap
 curl -s -b admin.txt -X POST https://<host>/api/project/partner/update \
   -H 'Content-Type: application/json' -d '{"projectId":"<projectId>","id":"<partnerId>","accessLevel":3}'
 # 迁移 36 自检：项目 owner/答卷人级别；题库 partner 默认级别
-docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
+docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT type, access_level, COUNT(*) FROM t_project_partner GROUP BY type, access_level ORDER BY type;
   SELECT COALESCE(access_level, -1) AS lvl, COUNT(*) FROM t_repo_partner GROUP BY access_level;"
 ```

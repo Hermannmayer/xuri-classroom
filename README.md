@@ -4,7 +4,7 @@
 
 ## 🚀 部署安装
 
-**想直接装上用？看 [部署文档（在线）](https://hermannmayer.github.io/xuri-classroom/deploy/)，或仓库内 [docs/deploy/index.md](docs/deploy/index.md)**，三种方式任选：
+**安装文档：[部署总览](docs/deploy/index.md)**，Windows / Linux / Docker 三种方式任选。
 
 | 场景 | 安装方式 | 一句话 |
 |---|---|---|
@@ -12,11 +12,17 @@
 | Linux 服务器 | [Linux 安装包](docs/deploy/linux.md) | `tar -xzf …` → `sudo bash install.sh --port 8080`，装成 systemd 服务 |
 | 已有 Docker | [Docker](docs/deploy/docker.md) | 一行脚本，或 `docker compose -f docker-compose.release.yml up -d` |
 
+### Docker 一行部署
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
+```
+
 - 默认地址 `http://<本机IP>:8080`；默认管理员 `admin / 123456`，**首次登录立即修改**（程序不强制，属运维要求）。
-- 数据库固定 **MySQL 8**（2.0.0 起不再支持 H2，见 [ADR-0004](docs/decisions/ADR-0004-单jar内嵌SPA与MySQL运行时.md)）。
+- 数据库使用 **MySQL 8**。
 - 装不上、起不来、打不开：[部署常见问题](docs/deploy/faq.md)；版本与升级：[版本与升级](docs/deploy/versioning.md)。
 
-> 开发/维护文档：[docs/index.md](docs/index.md)；模块索引、生成参考和 AI 工作流见 [docs/README.md](docs/README.md)。本地预览：`npm run docs:dev`。
+> 开发文档：[docs/index.md](docs/index.md)；模块索引与参考手册见 [docs/README.md](docs/README.md)。本地预览：`npm run docs:dev`。
 
 界面采用蓝图/工程制图风格（0 圆角、无渐变、`--bp-*` 变量），深浅两套主题，并提供 90%～175% 六档字号缩放，照顾年长学员与投影场景。
 
@@ -109,7 +115,7 @@
 |---|---|
 | 前端 | Vite 5 + React 18 + TypeScript + Ant Design 5；开发时由 Vite 提供，发布包内嵌进 jar |
 | 后端 | Spring Boot 2.7.7 + MyBatis-Plus 3.5 + Undertow，端口默认 **7007**（发布包由 `SERVER_PORT` 覆盖为 **8080**） |
-| 数据库 | **MySQL 8**（2.0.0 起唯一支持；H2 初始化脚本已废弃，见 [ADR-0004](docs/decisions/ADR-0004-单jar内嵌SPA与MySQL运行时.md)） |
+| 数据库 | **MySQL 8** |
 | 认证 | JWT + HttpOnly Cookie，权限串 + 数据权限切面 |
 | 部署 | 单 jar 内嵌 SPA（前端不需要 nginx）；Windows 便携包 / Linux systemd / Docker compose 三种安装包 |
 
@@ -155,16 +161,12 @@ docker compose -f docker-compose.release.yml up -d
 - 镜像 `ghcr.io/hermannmayer/xuri-classroom:<版本>` + `mysql:8.0`；端口 `APP_PORT`（默认 8080）；数据卷 `xuri-classroom-db-data`、`xuri-classroom-app-files`；`.env` 里 `DB_PASSWORD`、`JWT_SECRET` 必填。
 - 离线：`docker pull` → `docker save` → 拷到目标机 `docker load`（或直接用部署包里的 `Dockerfile.runtime` 本地构建）。详见 [Docker 部署](docs/deploy/docker.md)。
 
-### 从源码构建
-
-开发环境、构建与检查命令见 [本地开发环境](docs/start/dev-setup.md)。仓库根目录的 `docker-compose.yml`（nginx + app + db 三容器）是维护者的源码构建形态，不面向最终用户。
-
 ---
 
 ## 版本与发版
 
-- 版本从 **2.0.0** 起遵循语义化版本：`feat` 升 MINOR，`fix` / `perf` 升 PATCH，`BREAKING CHANGE` 升 MAJOR。
-- 根目录 `VERSION` 是唯一版本源，`CHANGELOG.md` 由脚本生成，git tag 形如 `v2.0.0`。
+- 版本遵循语义化版本：`feat` 升 MINOR，`fix` / `perf` 升 PATCH，`BREAKING CHANGE` 升 MAJOR。
+- 根目录 `VERSION` 是唯一版本源，`CHANGELOG.md` 随版本更新，git tag 形如 `v2.0.0`。
 - tag `v*` 触发 GitHub Actions 构建，产物挂在仓库 **Releases**：
 
   | 产物 | 说明 |
@@ -175,8 +177,8 @@ docker compose -f docker-compose.release.yml up -d
   | `xuri-classroom-<version>.jar` | 可独立运行的 jar |
   | `SHA256SUMS` / `RELEASE_NOTES.md` | 校验和与版本说明 |
 
-- **发版在云端完成，本地不产出安装包**。维护者本地只做准备：`.\scripts\release\Release.ps1 -Bump auto`（加 `-Push` 才推 GitHub 触发构建）。
-- 用户升级、回滚与版本查看：[版本与升级](docs/deploy/versioning.md)；维护者完整流程见内部文档 `docs/ops/版本与发版.md`。
+- **发版在云端完成**：本地准备版本号、CHANGELOG 与 tag，安装包由 GitHub Actions 构建并挂到 Releases。
+- 用户升级、回滚与版本查看：[版本与升级](docs/deploy/versioning.md)。
 
 ---
 
@@ -214,7 +216,6 @@ docker compose -f docker-compose.release.yml up -d
 | 重启后所有人掉线 | 没配 `SK_JWT_SECRET`，每次启动随机生成；在配置里固定一个 |
 | 升级后接口 500（`Unknown column`） | 数据库没迁移：按发布说明先跑迁移 SQL 再启动 |
 | 忘了 admin 密码 | 用 MySQL 客户端改 `t_account.auth_secret`（BCrypt），或恢复备份 |
-| 能用 H2 吗 | 不能。H2 脚本缺 5 张表 + 8 张表上的 15 个列，见 [ADR-0004](docs/decisions/ADR-0004-单jar内嵌SPA与MySQL运行时.md) |
 | 局域网打不开 | 防火墙没放行端口（Windows 入站规则 / Linux `ufw` 或 `firewall-cmd`） |
 
 更多按现象排查：[部署常见问题](docs/deploy/faq.md)。

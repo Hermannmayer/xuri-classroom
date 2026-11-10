@@ -131,7 +131,7 @@ FROM t_role WHERE is_deleted = 0 ORDER BY code;
 执行约定：
 
 1. 先备份（`scripts/nas/backup-live.sh` 或手动 mysqldump），迁移前不要跳过。
-2. 建库走 `scripts/nas/migrate/04-import.sh`（带空库闸门）；对已有库只执行单个脚本：`docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < NN-xxx.sql`。
+2. 建库走 `scripts/nas/migrate/04-import.sh`（带空库闸门）；对已有库只执行单个脚本：`docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking < NN-xxx.sql`。
 3. 有风险的多语句脚本先 `START TRANSACTION` 试跑再 `ROLLBACK`，确认行数与 token 数符合预期再正式执行。
 4. 脚本命名递增，已应用的脚本不要改内容，新变更另起编号。
 5. 迁移只动 `t_role`（必要时 `t_dept_role` / `t_user_role`），不要顺手改结构；结构变更另起脚本并同步 `init-mysql.sql`。
@@ -144,7 +144,7 @@ cd client && npm run check
 cd .. && npm run docs:gen -- --check && npm run docs:check
 
 # 2) 角色点数
-docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
+docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT code, LENGTH(authority)-LENGTH(REPLACE(authority,',',''))+1 AS n
   FROM t_role WHERE is_deleted=0 ORDER BY n DESC;"
 # 期望：admin 71 / teacher 33 / student(xueyuan) 14
@@ -192,4 +192,3 @@ docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 - [权限与角色审计 2026-11-08](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/ops/权限审计-2026-11-08.md)
 - [权限设计基线（历史推导，部分已过期）](../modules/permissions.md)
 - [用户·用户组·角色·权限的联动设计](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/archive/2026-11-permissions-ia.md)
-- [NAS 开发工作流](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/ops/NAS-开发工作流.md)

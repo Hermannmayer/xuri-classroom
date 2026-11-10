@@ -9,7 +9,7 @@ description: "装不上、起不来、打不开、登录失败、数据恢复—
 
 1. **日志是第一现场**。Windows 看安装目录 `logs/`；Linux 用 `journalctl -u xuri-classroom -n 200`；Docker 用 `docker compose logs -f app`。
 2. **Windows 有自检命令**：`doctor.cmd` 会检查 Java、MySQL、端口、目录权限并打印日志位置。
-3. **数据库只认 MySQL 8**。2.0.0 起不支持 H2（原因见 [ADR-0004](../decisions/ADR-0004-单jar内嵌SPA与MySQL运行时.md)）。
+3. **数据库使用 MySQL 8**。
 
 ## 安装与启动
 
@@ -37,8 +37,7 @@ description: "装不上、起不来、打不开、登录失败、数据恢复—
 | 初始化脚本执行后数据没了 | `init-mysql.sql` 开头 25 处 `DROP TABLE IF EXISTS` | 它只用于**空库**；有数据的库升级只能跑迁移脚本 |
 | `Unknown column xxx` | 库结构落后于程序 | 按发布说明跑对应的迁移 SQL，再启动 |
 | MySQL 连不上 | 地址/端口/账号/权限/bind-address | 先用 `mysql -h <host> -u <user> -p` 手工验证，再查应用配置 |
-| 能否用 MySQL 5.7 / MariaDB | 不支持 | 固定 MySQL 8（`mysql:8.0` 或本机 8.x） |
-| 能否换回 H2 | 不建议 | 缺 5 张表 + 8 张表上的 15 个列，且种子权限数据是旧的，见 [ADR-0004](../decisions/ADR-0004-单jar内嵌SPA与MySQL运行时.md) |
+| 能否用 MySQL 5.7 / MariaDB | 不支持 | 使用 MySQL 8（`mysql:8.0` 或本机 8.x） |
 
 ## 访问与网络
 

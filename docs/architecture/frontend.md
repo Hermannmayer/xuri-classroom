@@ -64,7 +64,7 @@ npm run check
 npm run build
 ~~~
 
-生产构建由 NAS 的 `xuri-live-web-watch` 监听；改 `client/package*.json` 会触发 `npm ci`，耗时更长。
+生产构建由构建任务监听；改 `client/package*.json` 会触发 `npm ci`，耗时更长。
 
 ## 相关文档
 

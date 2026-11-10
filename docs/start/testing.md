@@ -30,7 +30,7 @@ cd server
 ./gradlew :api:bootJar -x test
 ~~~
 
-没有本地 JDK 时使用 NAS 构建；不要跳过编译直接发布。
+没有本地 JDK 时使用构建机编译；不要跳过编译直接发布。
 
 ## 文档
 

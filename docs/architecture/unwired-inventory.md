@@ -135,4 +135,4 @@ Select-String -Path client/src/**/*.tsx -Pattern "/api/具体路径"
 
 - [前台与后台的边界](front-back-boundaries.md)
 - [功能范围](scope.md)
-- [改造目录](refactor-catalog.md)
+- 改造目录（内部维护，不在本站）

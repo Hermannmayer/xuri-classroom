@@ -80,7 +80,7 @@ npm run build         # 生产构建
 
 ## 已知限制
 
-- **数据库只支持 MySQL 8**：代码里 H2 的依赖是注释掉的，没有多库支持与迁移工具。
+- **数据库只支持 MySQL 8**，没有多库支持。
 - **生产部署**：见 `scripts/deploy/README.md`（Docker / Linux systemd / Windows 服务）。
 - **题库导入**：Excel 要按题型分 sheet（单选/多选/判断/填空/简答），列名固定；单 sheet+题型列的格式需要先用 `scripts/dev/convert-repos.py` 转换。
 - **答题导出**：评分题为纯数字时后端曾抛异常导致空文件，已修（`SchemaHelper.parseOptionValue`）。

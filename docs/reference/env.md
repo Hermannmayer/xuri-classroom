@@ -1,11 +1,11 @@
 ---
 title: "环境变量"
-description: "前端、后端、NAS 部署常用变量；不记录真实值"
+description: "前端、后端、Docker 部署常用变量；不记录真实值"
 ---
 
 # 环境变量
 
-> 这里只列变量名和用途；真实值在 `deploy/nas/live/.env` 或运行环境，不入库。
+> 这里只列变量名和用途；真实值在运行环境，不入库。
 
 ## 前端
 
@@ -23,18 +23,15 @@ description: "前端、后端、NAS 部署常用变量；不记录真实值"
 | `SK_JWT_SECRET` | JWT 签名密钥（留空则按应用默认策略） |
 | `JAVA_TOOL_OPTIONS` | JVM 参数（生产默认 `-Xmx768m`） |
 
-## NAS / compose
+## Docker / compose
 
 | 变量 | 用途 |
 |---|---|
-| `APP_PORT` | 对外映射端口（默认 201） |
-| `APP_EXTRA_PORT` | 直连调试端口（默认 1201） |
-| `XURI_SRC` | NAS 运行副本路径 |
-| `XURI_BUILD_DIR` | 后端 jar 产物目录 |
-| `XURI_DATA_DIR` | MySQL/附件数据目录 |
-| `XURI_BACKUP_DIR` | 备份目录 |
-| `XURI_RUNTIME_IMAGE` | 运行时镜像 |
-| `BACKUP_RETENTION` | 备份保留份数 |
+| `APP_PORT` | app 对外端口（默认 8080） |
+| `VERSION` | 镜像 tag（例如 2.0.0） |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | MySQL 库名与账号 |
+| `JWT_SECRET` | 注入 `SK_JWT_SECRET` |
+| `JAVA_OPTS` | JVM 参数（默认 `-Xmx768m`） |
 
 ## 文档
 

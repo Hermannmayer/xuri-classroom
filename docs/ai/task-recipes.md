@@ -51,7 +51,7 @@ description: "新增页面/接口/权限/迁移/流程改动时，按这些清�
 ## 6. 改部署/脚本
 
 1. 脚本在 `scripts/nas/`；发布入口 `Deploy-Nas.ps1`。
-2. 更新 `docs/ops/NAS-开发工作流.md`（内部）或 `start/dev-setup.md`。
+2. 更新对应的 `start/` 页面或部署文档。
 3. 不要改飞牛系统层、不要动旧 `surveyking` 数据。
 4. 发布后跑冒烟；回滚用 `git revert`。
 

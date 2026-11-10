@@ -31,7 +31,7 @@ description: "改代码时如何更新模块页、生成参考和刷新核对锚
 | 新增/修改接口 | 对应模块页 + reference/api.md（生成） |
 | 新增权限点 | PermissionEnum + 模块页 + reference/permissions.md（生成） |
 | 表/字段/迁移 | init-mysql.sql + 迁移 + architecture/data-model.md + reference/db-schema.md（生成） |
-| 部署/脚本 | docs/ops/NAS-开发工作流.md（内部）或对应 start 页 |
+| 部署/脚本 | [部署文档](../deploy/index.md) 或对应 start 页 |
 
 ## Docs-Impact none
 

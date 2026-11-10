@@ -301,7 +301,7 @@ function llmsDoc() {
     }
   }
   pages.sort((a, b) => a.rel.localeCompare(b.rel))
-  const lines = ['# 旭日云课堂 · 开发文档', '', '> AI 可读的站点目录；正文在 Markdown 源文件中，站点只是渲染层。', '']
+  const lines = ['# 旭日云课堂 · 开发文档', '', '> 站点目录；正文在 Markdown 源文件中，站点只是渲染层。', '']
   lines.push('## 文档', '')
   for (const p of pages) lines.push('- [' + p.title + '](' + base + '/' + p.rel + ')' + (p.description ? ': ' + p.description : ''))
   lines.push('', '## 机器索引', '', '- [模块索引](' + base + '/../ai/modules.yaml)', '- [任务配方](' + base + '/../ai/task-recipes.md)', '')

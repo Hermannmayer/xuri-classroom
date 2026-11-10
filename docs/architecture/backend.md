@@ -63,7 +63,7 @@ Controller (server/api/**/api)
 ## 数据库
 
 - 初始化结构：`server/rdbms/src/main/resources/scripts/init-mysql.sql`。
-- 现网增量：`scripts/nas/migrate/*.sql`，按编号顺序、幂等。
+- 增量迁移：`scripts/nas/migrate/*.sql`，按编号顺序、幂等。
 - 改结构必须同时更新 init 脚本和新增迁移；不要让开发库手工列成为唯一事实。
 
 ## 构建
@@ -74,7 +74,7 @@ cd server
 ./gradlew :api:bootJar -x test
 ~~~
 
-没有本地 JDK 时通过 NAS 的 Gradle 容器编译；发布脚本会自动构建并重启。
+没有本地 JDK 时在构建机或容器里编译；发布脚本会自动构建并重启。
 
 ## 相关文档
 

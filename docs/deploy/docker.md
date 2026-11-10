@@ -102,7 +102,7 @@ sudo APP_PORT=9090 VERSION=2.0.0 bash docker-one-line.sh
 ## 访问
 
 - `http://<服务器IP>:8080`（或你设置的 `APP_PORT`）
-- 前面再加一层 Nginx / Lucky 反代也可以，反代目标就是 `http://127.0.0.1:<APP_PORT>`。
+- 前面再加一层 Nginx 或其他反向代理也可以，反代目标就是 `http://127.0.0.1:<APP_PORT>`。
 
 ## 备份
 

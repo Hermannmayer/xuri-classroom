@@ -5,11 +5,11 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 
 # 部署安装
 
-旭日云课堂 2.0.0 起提供三种安装方式。三者跑的是**同一个 jar + MySQL 8**，区别只在"谁来提供运行时"：
+旭日云课堂提供三种安装方式。三者跑的是**同一个 jar + MySQL 8**，区别只在"谁来提供运行时"：
 
 | | [Windows 便携包](windows.md) | [Linux 安装包](linux.md) | [Docker](docker.md) |
 |---|---|---|---|
-| 适合 | 考点单机、教研室、临时机房 | 学校服务器、已有 MySQL 的机器 | 已有 Docker 的服务器、内网统一运维 |
+| 适合 | 考点单机、教研室、临时机房 | 学校服务器、已有 MySQL 的机器 | 已有 Docker 的服务器 |
 | 需要什么 | Windows 10/11 x64 | x86_64 Linux + systemd | Docker Engine 20.10+、Compose v2 |
 | MySQL 从哪来 | 首次向导下载并初始化 | `--init-db` 自动建库，或接外部 MySQL | compose 里的 `mysql:8.0` |
 | Java 从哪来 | 首次向导下载 JRE 8 | 默认用系统 Java，可 `--download-jre` | 镜像内置 |
@@ -24,8 +24,6 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 - **有一台 Linux 服务器，希望开机自启、多人长期使用** → [Linux 安装包](linux.md)。装成 systemd 服务 `xuri-classroom`。
 - **服务器上已经有 Docker / 要做统一编排、离线分发** → [Docker](docker.md)。一条 compose 起 app + mysql，或一行脚本装好。
 - **已经有 MySQL 8，只想要一个 jar** → 任意一种方式都可以，或直接看[环境变量](../reference/env.md)手工起 jar。
-
-> 三种方式都**不支持 H2**。2.0.0 起数据库固定 MySQL 8：H2 初始化脚本缺 5 张表、8 张表上的 15 个列，且 `init-mysql.sql` 用了生成列等 MySQL 专用语法。取舍见 [ADR-0004](../decisions/ADR-0004-单jar内嵌SPA与MySQL运行时.md)。
 
 ## 系统要求
 
@@ -50,4 +48,3 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 - 版本号、升级与回滚：[版本与升级](versioning.md)
 - 装不上、起不来、打不开：[部署常见问题](faq.md)
 - 环境变量清单：[环境变量](../reference/env.md)
-- 从源码构建（开发者）：[本地开发环境](../start/dev-setup.md)
