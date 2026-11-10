@@ -11,6 +11,8 @@ keywords:
   - 回收站
   - 班级
   - 按班学情
+  - 按班导出
+  - classId
   - t_answer
   - t_answer.class_id
   - AnswerScoreEvaluator
@@ -36,6 +38,8 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/DownloadQuery.java
 entrypoints:
   - client/src/pages/answer/PublicAnswer.tsx
   - client/src/pages/answer/ExamResult.tsx
@@ -55,6 +59,7 @@ apis:
   - POST /api/answer/destroy
   - POST /api/answer/restore
   - GET /api/answer/download
+  - POST /api/answer/export/token
   - POST /api/answer/upload
   - GET /api/report/{shortId}
   - POST /api/public/saveAnswer
@@ -65,13 +70,14 @@ tables:
   - t_answer
   - t_project
   - t_class_resource
+  - t_user
   - t_file
 tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-10
-verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 ---
 
 # 答卷、判分与报表
@@ -99,9 +105,10 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 | 答卷回收站 | `client/src/pages/survey/data/TrashDrawer.tsx` | `answer:list` + `answer:restore`/`answer:delete` |
 | 报表页 | `client/src/pages/survey/Report.tsx`、`pages/survey/report/QuestionBlock.tsx` | 每日趋势、逐题选项分布、数值统计 |
 | 数据格式化 | `client/src/pages/survey/data/format.ts` | 答案值 → 表格单元格文本（空值统一 `—`） |
-| 答卷接口 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java` | 管理侧 CRUD、导入导出、回收站 |
+| 答卷接口 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java` | 管理侧 CRUD、导入导出、回收站；`/download` 带 `classId` 走按班导出；`/export/token` 换一次性 token |
+| 按班报表接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | `GET /api/teaching/classes/answers`：班级可见即可看本班答卷（见 [teaching](./teaching.md)） |
 | 报表接口 | `server/api/src/main/java/cn/surveyking/server/api/ReportApi.java` | `GET /api/report/{shortId}`，`project:report` + 数据权限 |
-| 答卷实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 列表范围与回收站；提交前的判分/附件绑定在 `AnswerScoringService`、幂等在 `AnswerSubmitIdempotency`、导出在 `AnswerExporter`、导入在 `AnswerUploadParser`，其余见同目录 |
+| 答卷实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 列表范围与回收站；按班 `listAnswerByClass` / `downloadByClass`；提交前的判分/附件绑定在 `AnswerScoringService`、幂等在 `AnswerSubmitIdempotency`、导出在 `AnswerExporter`、导入在 `AnswerUploadParser`，其余见同目录 |
 | 班级归属 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `resolveForStudent`：按「学生班级 + 班级资源分配」算 `t_answer.class_id`，主班优先 |
 | 判分器 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java` | `onlyOne` / `selectAll` / `selectCorrect` / `select` |
 | 报表实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java` | 逐题选项计数、每日答卷数、数值 min/max/avg |
@@ -117,7 +124,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 5. **判分口径**：`AnswerScoreEvaluator` 按每题的 `attribute.examAnswerMode` 选 evaluator：`onlyOne`（唯一正确项且只选一个）、`selectAll`（全对才得分）、`selectCorrect`（选择类选错整题 0 分，填空类按正确项累加）、`select`（按选中项分值累加）。`manual` / `none` 没有 evaluator，按 0 分或人工处理；自动判分只覆盖 `examType()` 的 7 种题型。结果写 `exam_score` 与 `exam_info.questionScore`。
 6. **成绩单**：`/s/:id/exam-result/:answerId` 调 `POST /api/public/loadExamResult`。只有 `submittedSetting.answerAnalysis=true` 且考试已结束（`examFinished`）才返回答案/schema/examInfo；`transcriptVisible` 控制总分，`rankVisible` 控制排名。随机卷快照若已剥掉正确答案，会回退项目 schema 渲染解析。
 7. **数据页**：`/survey/:id/data`（`answer:list`）用 `pageSize=-1` 拉全量，前端筛选/排序/分页。列由项目 schema 的 `flattenSchema(...).filter(isDataQuestion)` 生成；单元格文本由 `data/format.ts` 统一格式化。补录走 `POST /api/answer/create`，编辑走 `POST /api/answer/update`，删除走 `/delete`（进回收站）。
-8. **导出**：先 `POST /api/repo/export/token { exportPassword }` 换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。
+8. **导出**：先 `POST /api/repo/export/token { exportPassword }`（数据页）或 `POST /api/answer/export/token`（班级答卷抽屉）换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`（按班再加 `classId`）。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。
 9. **报表**：`GET /api/report/{shortId}`（`project:report` + `@EnableDataPerm`）。`ReportServiceImpl.getData` 按 `project_id` 取全部答卷，递归统计选项/数值，再算每日答卷数；前端用项目 schema 或最新答卷快照渲染每题区块。
 10. **回收站**：`POST /api/answer/delete` 只把 `is_deleted` 置 1；`GET /api/answer/trash` 查已删；`/restore` 恢复（`answer:restore` 或 admin），`/destroy` 物理删除（`answer:delete`）。`listAnswer` 默认过滤逻辑删除，回收站列表用 Mapper 的 `selectLogicDeleted`。
 
@@ -127,7 +134,17 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 2. 新建答卷时 `AnswerServiceImpl#createAnswer` 写 `t_answer.class_id`：`resolveForStudent` 先取学生主班，主班没有有效分配时按附加组顺序取任一有效分配的班；查不到/非 student/匿名 → NULL。
 3. **更新答卷不重算 `class_id`**：换班后历史答卷仍算在原班。这是有意的语义，不要改成「每次保存都按当前班级覆盖」。
 4. 班级资源面板的「本班答卷数」= `t_answer` 中 `project_id + class_id + temp_save=1` 的条数；上线前/无 `class_id` 的历史答卷不会计入。
-5. 学情页（`TeachingMapper#listClasses`）本轮改为按 `COALESCE(a.class_id, u.dept_id, '')` 聚合：新答卷按答题时班级，老数据 `class_id` 为空时回退当前主组；`LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id)`，`GROUP BY` 同一表达式。换班后新答卷仍算原班，老答卷会算到当前主班。
+5. 学情页（`TeachingMapper#listClasses`）按答题时班级聚合：新答卷用 `a.class_id`，老数据 `class_id` 为空时回退当前主组；`LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id) AND d.dept_type='class' AND d.is_deleted=0`，输出 `COALESCE(d.id,'')` / `COALESCE(d.name,'未分组')`，`GROUP BY COALESCE(a.class_id,u.dept_id), d.id, d.name`。只有真实 class 节点才算班级，org 组/已删班/找不到的归「未分组」。
+
+### 按班查看与导出（P4）
+
+1. 查询字段：`AnswerQuery.classId` / `DownloadQuery.classId`（`t_answer.class_id`，答题时所在班级）。普通 `GET /api/answer/list` 传 `classId` 时只在原有项目数据范围内再过滤班级；不改变 `listAnswer` 的行级范围。
+2. 按班报表：`AnswerService#listAnswerByClass` 必须同时有 `projectId + classId`；它**不套** `canManageProject`、也不加 `create_by=当前用户`，返回该班全部已提交答卷，并批量回填 `AnswerView.createByName`。可见性由调用方 `ClassService#assertVisible` 负责。
+3. 接口：`GET /api/teaching/classes/answers?projectId=&deptId=&current=&pageSize=`（`project:report` 或 admin + `assertVisible`），返回 `PaginationResponse<AnswerView>`；`deptId` 是班级 id。
+4. 按班导出：`AnswerService#downloadByClass` 只导出该班 `class_id` 命中的答卷，走真源 JSON（不做 `t_answer_item` 投影优化）；只支持 `type=answer`，附件按班导出会报「按班级导出暂只支持答卷」。
+5. `/api/answer/download` 分流：带 `classId` → 先 `classService.assertVisible(classId)` 再 `downloadByClass`（不套项目协作者过滤，也不再使用 `@EnableDataPerm`）；不带 `classId` → 仍按 `projectPartnerService.getProjectPerms()` 校验项目数据范围（等价原注解）。两条路都要先过导出密码/一次性 token。
+6. 新端点：`POST /api/answer/export/token`（`answer:export`）用导出密码换一次性 token，返回 `{exportToken, expiresIn}`；班级答卷抽屉用它。通用数据页导出仍调用旧的 `/api/repo/export/token`（两处共用 `ExportGuardService`，行为一致，但调用路径尚未统一）。
+7. **历史数据**：`t_answer.class_id` 是 P1 之后才写入；`class_id` 为空的历史答卷不会出现在按班列表/导出里（学情概览可能按主组回退显示，两个口径会不一致）。
 
 ## 修改指南
 
@@ -147,7 +164,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 
 ### 改导出/回收站
 
-1. 导出权限在 `AnswerApi#download`（`answer:export` + `@EnableDataPerm`），密码/token 在 `ExportGuardService`；不要只改前端按钮。
+1. 导出权限在 `AnswerApi#download`（`answer:export`）；数据范围分流：带 `classId` 走 `classService.assertVisible` + `downloadByClass`，不带 `classId` 走 `assertProjectExportAllowed`（等价原 `@EnableDataPerm`）。密码/token 在 `ExportGuardService`，班级导出用 `POST /api/answer/export/token`。
 2. 回收站恢复/彻底删除分别在 `AnswerApi#restoreAnswer` / `batchDestroyAnswer`；`batchDestroy` 是物理 DELETE，改动前确认审计与备份要求。
 3. 删除/恢复整批答卷时，`assertAnswersAccess` 会按答卷所属项目逐个校验，不能只校验第一个 id。
 
@@ -162,7 +179,9 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 | 删除 | `answer:delete` | 项目管理者；删除进回收站 |
 | 恢复 | `answer:restore` 或 admin | 项目管理者 |
 | 彻底删除 | `answer:delete` | 项目管理者；物理删除 |
-| 导出 | `answer:export` + 导出密码/token | 项目管理者 |
+| 通用导出（不带 `classId`） | `answer:export` + 导出密码/token | 项目管理者（`getProjectPerms()`，等价原 `@EnableDataPerm`） |
+| 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部，不要求项目协作者 |
+| 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的答卷；只支持 `type=answer` |
 | 导入数据 | `answer:upload` | 项目管理者 |
 | 报表 | `project:report` + `@EnableDataPerm` | 项目管理者/admin |
 
@@ -177,6 +196,12 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 - **彻底删除不清理附件**：`batchDestroyAnswer` 只执行 `DELETE FROM t_answer`，没有看到删除 `t_file` 或物理附件的代码；回收站提示"附件也会一起清掉"与当前实现不完全一致，需另行确认/补清理任务。
 - **导出 token 在内存里**：`ExportGuardService` 的 token 存在 `ConcurrentHashMap`，60 秒过期、用一次即失效、绑定用户；后端重启或多实例部署会失效/互不认。不要把它当持久下载链接。
 - **旧的 `exportPassword` 参数仍兼容**：`AnswerApi#download` 同时接受 `exportToken` 和 `exportPassword`，优先 token。密码出现在 URL 会进访问日志，前端应继续走"先换 token"。
+- **按班查看/导出绕过项目协作者过滤**：`/api/teaching/classes/answers` 与 `/api/answer/download?classId=` 只要求 `project:report`/`answer:export` + 班级可见（`classService.assertVisible`），不要求项目所有者/协作者；任何能看这个班的老师都能看/导出该项目的本班答卷。
+- **按班列表只认精确 `class_id`**：历史答卷 `class_id` 为空时不会出现在按班列表/导出；学情概览可能按 `COALESCE(class_id,dept_id,'')` 回退主组显示，出现「概览有数、抽屉为空」是正常现象。
+- **按班导出只支持答卷**：`downloadByClass` 对 `type != answer` 报「按班级导出暂只支持答卷」；附件按班导出未实现。且它走真源 JSON，不做 `t_answer_item` 投影优化。
+- **班级答卷抽屉没有导出密码输入**：`downloadClassAnswers` 调 `/api/answer/export/token` 时传空 body；系统配置导出密码后会失败，需补密码输入或改走无密码场景。
+- **通用导出仍走旧 token 端点**：数据页 `Data.tsx` 仍调 `/api/repo/export/token`，班级抽屉才用新 `/api/answer/export/token`；两者共用 `ExportGuardService`，行为一致但调用路径尚未统一。
+- **`AnswerQuery.classId` ≠ 按班报表**：普通 `GET /api/answer/list?classId=` 仍在原项目数据范围内过滤；只有 `listAnswerByClass` 才按班级放开到「本班全部」。
 - **`tempSave=0` 的草稿不在列表里**：`listAnswer` 有 `isNotNull(Answer::getAnswer)`，未提交/仅暂存的记录不会出现在数据页；不要用答卷列表判断"有没有人打开过"。
 - **`answer:attach` 没有接到接口**：答题页附件走公开 `POST /api/public/upload`，管理侧导入走 `answer:upload`；权限目录里的 `answer:attach` 目前只是注释约定，改附件权限时要一起确认。
 - **成绩单逐题对错是前端预览**：`ExamResult.tsx` 用 `utils/scoring.ts` 自行比对，最终分数以服务端 `exam_score` 为准；`manual` 模式会标"待人工评分"，不会假装判过。
@@ -184,7 +209,7 @@ verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 - **导出读投影（S2-4）**：`downloadSurvey` 先判断 `t_answer_item` 是否覆盖全部答卷（按 `items_synced`），覆盖时只查瘦列并用 `AnswerItemAnswerRebuilder` 重建 `answer`，未覆盖自动回退 `t_answer.answer` JSON。新增答案字段时 `AnswerItemProjector` 要同步写 `value_json`，否则导出会缺值。
 - **交卷幂等靠数据库唯一键（S1-3）**：`(project_id, create_by, attempt_no)` 唯一，`AnswerAttemptAllocator` 分配序号，`DuplicateKeyException` 时回读赢家；`create_by` 为 NULL 的纯匿名提交不受约束（仍靠设备限频）。
 - **`class_id` 只在新答卷写入**：更新答卷不重算；匿名/教职工/练习伪项目为 NULL。用 `class_id` 做统计时只能覆盖新数据，历史数据要回填或明确排除。
-- **学情改成 class_id 优先、老数据回退主组**：`TeachingMapper#listClasses` 用 `COALESCE(a.class_id, u.dept_id, '')`；新答卷换班后仍算原班，老数据仍会算到当前主组，所以同一场考试的新老答卷可能分到不同班。班被删/找不到时 `d.name` 为空显示「未分组」。
+- **学情改成 class_id 优先、老数据回退主组且只认真实班级**：`TeachingMapper#listClasses` 用 `COALESCE(a.class_id, u.dept_id)` 做 JOIN 条件，但 SELECT 只取 `COALESCE(d.id,'')`；`d.dept_type='class' AND d.is_deleted=0` 不满足时归「未分组」。新答卷换班后仍算原班，老数据算到当前主组（若主组是 org 或已删，归未分组）。
 - **班级资源面板答卷数 ≠ 班级全部答卷数**：只算 `temp_save=1` 且 `class_id` 命中的新答卷；与学情页按 `class_id` 聚合的数字对新数据基本一致，但老数据回退主组、历史 `class_id` 为空时仍可能对不上。
 - **公开链接上的 projectId 不可信**：`PublicQueryService#loadQuery` / `getQueryResult` 与 `PublicSurveyExtrasService#loadExamResult` 拿到不存在的项目时，2026-11-09 之前会直接解引用 `project` 抛 NPE、被全局兜底成 500；现在统一回 7000（查询链接失效）与 4004（项目不存在）。新增公开端点时第一件事也是判 `project == null`。
 
@@ -205,7 +230,10 @@ npm run docs:check
 4. 配置导出密码：错误密码报"导出密码错误"；正确密码换 token 后能下载；同一 token 第二次应失效。
 5. 报表打开不白屏，每日趋势与答卷总数对得上（若开启随机抽题，先确认快照行是否被计入）。
 6. 学生 A 在班级 X 交一份新答卷后查库：`SELECT id, project_id, class_id, temp_save FROM t_answer WHERE id='<answerId>';` 的 `class_id` 应等于 X；把 A 换到班级 Y 后再更新同一份答卷，`class_id` 仍应是 X。
-7. 学情接口按 `COALESCE(a.class_id, u.dept_id, '')` 分组：新答卷跟随答题班级，`class_id` 为空的老答卷回退答题人当前主组；同一场考试有老数据时，班级分布可能同时出现「原班」与「当前主班」两行。
+7. 学情接口按答题时班级分组：新答卷跟随 `class_id`，`class_id` 为空的老答卷回退答题人当前主组；只有真实 `dept_type='class'` 节点才显示为班级，org 组/已删/找不到的归「未分组」。同一场考试有老数据时，班级分布可能同时出现「原班」与「当前主班」两行。
+8. 班级分布行点「查看答卷」：`GET /api/teaching/classes/answers` 返回该班 `class_id` 精确命中的答卷，学员姓名通过 `createByName` 回填；历史 `class_id` 为空的记录不出现。
+9. 班级分布行点「导出」：无导出密码时应下载 xlsx；配置导出密码时当前抽屉会报错（没有密码输入）。只支持 `type=answer`，附件导出会提示不支持。
+10. 不带 `classId` 的 `/api/answer/download` 仍按项目协作者范围校验；用非协作者账号导出应 403，带 `classId` 且班级可见的账号可以导出本班答卷。
 
 ## 相关文档
 

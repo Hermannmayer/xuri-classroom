@@ -13,6 +13,8 @@ keywords:
   - 数据范围
   - 题库分配
   - repo:detail
+  - 按班答卷
+  - 按班导出
   - 审计
   - 403
 source_globs:
@@ -42,6 +44,9 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
+  - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+  - client/src/pages/teaching/ClassAnswersDrawer.tsx
   - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
   - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
   - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
@@ -72,6 +77,9 @@ apis:
   - POST /api/teaching/classes/create
   - POST /api/teaching/classes/update
   - POST /api/teaching/classes/partner/update
+  - GET /api/teaching/classes/answers
+  - GET /api/answer/download
+  - POST /api/answer/export/token
   - GET /api/system/audit/list
   - GET /api/system/audit/actions
 tables:
@@ -82,12 +90,13 @@ tables:
   - t_user
   - t_class_partner
   - t_class_resource
+  - t_answer
   - t_audit_log
 tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
+verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 ---
 
 # 权限、角色与用户组
@@ -116,9 +125,10 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 | 角色写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java` | `getRoles` / `createRole` / `updateRole` / `deleteRole` / `getPermissionCatalog`；`assertRoleMutationAllowed`、`assertBuiltinAdminAuthorityKept` |
 | 组织节点类型 | `server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java`、`DeptServiceImpl.java` | `TYPE_ORG`/`TYPE_CLASS`、`dept_type` 校验、用户组绑角色与缓存失效 |
 | 用户组成员约束 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserAdminService.java` | staff 只能进 org、student 只能进 class；建号/改号 |
-| 班级授权级别 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | `assertClassManage`、`t_class_partner.access_level`（1 只读 / 2 可管理）、`ClassNodeView.manageable` |
+| 班级授权级别 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | `assertClassVisible`（看）/`assertClassManage`（改）、`t_class_partner.access_level`（1 只读 / 2 可管理）、`ClassNodeView.manageable` |
 | 后端接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemApi.java` | `/system/role/*`、`/system/permission/list`、用户/组/字典接口的 `@PreAuthorize`；`/system/dept/list?deptType=` |
-| 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源 |
+| 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers` |
+| 按班答卷/导出 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java`、`server/rdbms/.../impl/AnswerServiceImpl.java` | `classService.assertVisible` + `listAnswerByClass`/`downloadByClass`；`/answer/download?classId=` 与 `POST /answer/export/token` |
 | 内容保护接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java` | `POST /api/system/protection`，`content:protect` 只改三项 |
 | 403 文案 | `server/shared/src/main/java/cn/surveyking/server/core/mvc/advice/GlobalExceptionHandler.java` | `AccessDeniedException` 的 message 原样放进响应体，前端直接展示中文原因 |
 | 审计查询 | `server/api/src/main/java/cn/surveyking/server/api/AuditApi.java`、`service/AuditLogService.java` | `/api/system/audit/list` 返回 `AuditLogView`；`/api/system/audit/actions` 给筛选下拉 |
@@ -173,6 +183,7 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 4. 成员写操作（create/update/delete/import）与班级资源写操作都要求 `assertClassManage`；只读授权能看不能改。
 5. 班级资源支持 `project` 与 `repo` 两类。题库分配放宽「可见/读题/练习/详情」：`RepoServiceImpl#listRepo`、`TemplateServiceImpl#isReadableRepo`、`RepoPartnerServiceImpl#hasPracticePermission` 认班级分配；`/api/repo/detail` 允许 `repo:detail` 或 `repo:questions:read`，但仍走 `RepoServiceImpl#assertReadableRepo`（管理员/创建者/共享/partner/班级分配）。
 6. 题库有全局开放期（`t_repo.open_start_at/open_end_at`，NULL=不限）：班级窗口非空端必须落在全局期内，越界 400「题库开放时间必须在全局开放时间内」；读闸门按「班级开关 → 题库全局期 → 本班窗口」判断。已经存在的班级窗口如果超出后来新设的全局期，不会自动修正，学生侧按硬上限判，需要老师重设。
+7. **班级可见性也决定「按班看答卷/导出」**：`GET /api/teaching/classes/answers` 要 `project:report` + `classService.assertVisible(deptId)`；`GET /api/answer/download?classId=` 要 `answer:export` + `assertVisible`。两者都不要求项目所有者/协作者：任何能看这个班的老师（含只读授权）都能看/导出该项目的本班答卷。不带 `classId` 的通用 `/answer/download` 仍按项目协作者范围（`assertProjectExportAllowed`）。
 
 ### 6. 审计：动作、目标、操作人都可读
 
@@ -241,6 +252,9 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 | 管理用户/组/角色 | `system:user:*`、`system:dept:*`、`system:role:*` | 全局，且受「不能授予高于自己」二次校验 |
 | 新建/修改班级 | `class:list` + `assertClassManage`（修改） | 老师建班后是自己创建；修改还要求本班/祖先班可管理 |
 | 班级成员写 | `class:member:create/update/delete` + `assertClassManage` | 只读授权（access_level=1）403 |
+| 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部，不要求项目协作者 |
+| 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的答卷；只支持 `type=answer` |
+| 通用导出答卷（不带 classId） | `answer:export` + 项目数据权限 | 仍是项目所有者/协作者范围（`getProjectPerms`） |
 | 分配班级老师 | `class:grant` 或 admin | 全部班级；级别 1 只读 / 2 可管理 |
 | 用户组管理 | `system:dept:create/update/delete` | 全局；仅 org 节点可在页面绑角色 |
 
@@ -268,6 +282,10 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - **审计动作名是展示层**：`AuditActionCatalog` 未收录的动作会按 token 拼接或回退原码；新增接口后补一条精确名，别指望兜底永远读得通。
 - **题库班级分配可以读详情，但不绕过数据边界**：`/api/repo/detail` 允许 `repo:detail` 或 `repo:questions:read`，班级分配的学生可以打开本班可见题库；但仍受 `assertReadableRepo`、题库全局开放期与本班窗口约束。排查「能看到题库但打不开详情」时先看这条。
 - **题库列表不按窗口过滤**：班级开关关闭/未开始/已结束时题库仍可能出现在列表里，打开/练习才被 `canStudentReadRepo` 拒绝；与项目列表同一套「列表宽、打开严」的取舍。
+- **按班答卷绕过项目协作者过滤**：`/api/teaching/classes/answers`、`/api/answer/download?classId=` 只校验 `project:report`/`answer:export` + 班级可见；只读班级授权也能看/导出本班全部答卷，不要再以为必须先是项目协作者。
+- **历史 `class_id` 为空不进按班报表**：按班列表/导出只认精确 `t_answer.class_id`；学情概览会按 `COALESCE(class_id,dept_id,'')` 回退主组，出现「概览有数、抽屉为空」是正常现象。
+- **班级答卷导出 UI 没有密码输入**：`ClassAnswersDrawer` 调 `/api/answer/export/token` 时传空 body；系统配置导出密码后会失败，需要补密码输入或走无密码场景。
+- **`AnswerQuery.classId` 不改变普通列表的项目范围**：`GET /api/answer/list?classId=` 仍在原项目数据权限内过滤；只有 `listAnswerByClass` 才按班级放开到本班全部。
 
 ## 验证
 
@@ -305,6 +323,12 @@ docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 
 # 老师删答卷应 403，body.message 是可读中文（不是 Authentication failed）
 curl -s -b teacher.txt -X POST https://<host>/api/answer/delete -d '{"ids":["x"]}'
+
+# 班级可见的老师（非项目协作者）：按班看答卷应 200，通用导出应 403
+curl -s -o /dev/null -w '%{http_code}\n' -b teacher.txt \
+  "https://<host>/api/teaching/classes/answers?projectId=<projectId>&deptId=<classId>&current=1&pageSize=20"
+curl -s -o /dev/null -w '%{http_code}\n' -b teacher.txt \
+  "https://<host>/api/answer/download?projectId=<projectId>&type=answer"
 ```
 
 ## 相关文档

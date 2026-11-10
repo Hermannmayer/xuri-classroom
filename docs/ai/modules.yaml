@@ -13,6 +13,8 @@ modules:
       - 回收站
       - 班级
       - 按班学情
+      - 按班导出
+      - classId
       - t_answer
       - t_answer.class_id
       - AnswerScoreEvaluator
@@ -38,6 +40,8 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/DownloadQuery.java
     entrypoints:
       - client/src/pages/answer/PublicAnswer.tsx
       - client/src/pages/answer/ExamResult.tsx
@@ -57,6 +61,7 @@ modules:
       - POST /api/answer/destroy
       - POST /api/answer/restore
       - GET /api/answer/download
+      - POST /api/answer/export/token
       - POST /api/answer/upload
       - GET /api/report/{shortId}
       - POST /api/public/saveAnswer
@@ -67,13 +72,14 @@ modules:
       - t_answer
       - t_project
       - t_class_resource
+      - t_user
       - t_file
     tests:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-10
-    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
+    verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -296,6 +302,8 @@ modules:
       - 数据范围
       - 题库分配
       - repo:detail
+      - 按班答卷
+      - 按班导出
       - 审计
       - 403
     source_globs:
@@ -325,6 +333,9 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
+      - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+      - client/src/pages/teaching/ClassAnswersDrawer.tsx
       - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
       - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
@@ -355,6 +366,9 @@ modules:
       - POST /api/teaching/classes/create
       - POST /api/teaching/classes/update
       - POST /api/teaching/classes/partner/update
+      - GET /api/teaching/classes/answers
+      - GET /api/answer/download
+      - POST /api/answer/export/token
       - GET /api/system/audit/list
       - GET /api/system/audit/actions
     tables:
@@ -365,12 +379,13 @@ modules:
       - t_user
       - t_class_partner
       - t_class_resource
+      - t_answer
       - t_audit_log
     tests:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
+    verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -591,6 +606,8 @@ modules:
       - 教学页
       - TeachingHome
       - 学情
+      - 班级答卷
+      - 按班导出
       - access_level
       - 分配老师
       - 学员导入
@@ -637,6 +654,7 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java
     entrypoints:
       - client/src/pages/teaching/TeachingHome.tsx
+      - client/src/pages/teaching/ClassAnswersDrawer.tsx
       - client/src/pages/teaching/Classes.tsx
       - client/src/pages/teaching/ClassSettingsModal.tsx
       - client/src/pages/teaching/ClassResourcesPanel.tsx
@@ -651,6 +669,7 @@ modules:
     apis:
       - GET /api/teaching/projects
       - GET /api/teaching/classes
+      - GET /api/teaching/classes/answers
       - GET /api/teaching/classes/tree
       - POST /api/teaching/classes/create
       - POST /api/teaching/classes/update
@@ -688,4 +707,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
+    verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7

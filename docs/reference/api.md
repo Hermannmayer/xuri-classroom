@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 167 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 169 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -14,8 +14,9 @@
 | POST | `${api.prefix}/answer/delete` | `AnswerApi#deleteAnswer` | `hasAuthority('answer:delete')` | — |
 | POST | `${api.prefix}/answer/destroy` | `AnswerApi#batchDestroyAnswer` | `hasAuthority('answer:delete')` | — |
 | POST | `${api.prefix}/answer/restore` | `AnswerApi#restoreAnswer` | `hasAuthority('answer:restore') or hasRole('admin')` | — |
-| GET | `${api.prefix}/answer/download` | `AnswerApi#download` | `hasAuthority('answer:export')` | 是 |
-| POST | `${api.prefix}/answer/upload` | `AnswerApi#upload` | `hasAuthority('answer:upload')` | 是 |
+| GET | `${api.prefix}/answer/download` | `AnswerApi#download` | `hasAuthority('answer:export')` | — |
+| POST | `${api.prefix}/answer/export/token` | `AnswerApi#exportToken` | `hasAuthority('answer:export')` | — |
+| POST | `${api.prefix}/answer/upload` | `AnswerApi#upload` | `hasAuthority('answer:upload')` | — |
 | GET | `${api.prefix}/system/audit/list` | `AuditApi#list` | `hasAuthority('system:log:list')` | — |
 | GET | `${api.prefix}/system/audit/actions` | `AuditApi#actions` | `hasAuthority('system:log:list')` | — |
 | GET | `${api.prefix}/dashboard/list` | `DashboardApi#listDashboard` | — | — |
@@ -136,6 +137,7 @@
 | POST | `${api.prefix}/system/protection` | `SystemProtectionApi#updateProtection` | `hasAuthority('content:protect') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/projects` | `TeachingApi#myProjects` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes` | `TeachingApi#classes` | `hasAuthority('project:report') or hasRole('admin')` | — |
+| GET | `${api.prefix}/teaching/classes/answers` | `TeachingApi#classAnswers` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/tree` | `TeachingApi#classTree` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/create` | `TeachingApi#createClass` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/update` | `TeachingApi#updateClass` | `hasAuthority('class:list') or hasRole('admin')` | — |
