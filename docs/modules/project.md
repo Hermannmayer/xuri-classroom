@@ -26,6 +26,9 @@ keywords:
   - 批量分类
   - 布局
   - 新建文件夹
+  - 批量移动
+  - 所属文件夹
+  - parentId
   - 授权级别
   - 教师组
   - access_level
@@ -95,7 +98,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: d6dc54f68daad66f319455a951f620bc8f809560
+verified_against: 099d38fdf40d483258ea49fe08087a47fbfcf206
 ---
 
 # 考试与问卷（项目）
@@ -115,6 +118,7 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 - 分类树看不到某个项目、文件夹计数不对，或「复制链接」复制出的地址打不开。
 - 想按「保育员 / 养老护理员 / 育婴员」筛考试，或新建/重命名时分类填不进去、清不掉。
 - 在试卷设置页找不到改名称/分类的地方，或批量设置的分类没有生效。
+- 想把考试批量移进文件夹、在设置页改「所属文件夹」，或移动后树里位置不对。
 - 文件夹建不了/重名，或协作者只能看不能改、不能继续授权。
 
 ## 代码地图
@@ -126,9 +130,9 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 | 文件夹树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染 `mode=folder` 的节点与 count；选中文件夹清空分类；标题旁「新建文件夹」（`project:create`）→ `createProject({name,mode:'folder',parentId})` |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list → `/teaching?tab=exam`；其余账号（学员/无门户权限的只读）→ 原 ProjectList |
 | 协作者面板 | `client/src/pages/survey/PartnerPanel.tsx` | 项目所有者/可授权协作者维护教师组/协作者/班级授权；显示并调整 access_level（1 查看/2 编辑/3 授权） |
-| 试卷设置页 | `client/src/pages/survey/Overview.tsx` | `/survey/:id` 概述；基本信息卡编辑名称/分类（分类 AutoComplete），保存 `updateProject({id,name,category,setting})`；卡片重排见 P9 |
+| 试卷设置页 | `client/src/pages/survey/Overview.tsx` | `/survey/:id` 概述；基本信息卡编辑名称/分类/所属文件夹（Folder TreeSelect），保存 `updateProject({id,name,category,parentId,setting})`；卡片重排见 P9/P13 |
 | 组卷弹窗 | `client/src/pages/project/ComposeModal.tsx` | 从题库按题型抽题生成考试，见 [repo-compose](../flows/repo-compose.md) |
-| 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update`；顶部可批量改分类（只更新 category） |
+| 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update`；顶部可批量改文件夹（parentId）与分类（category） |
 | 回收站 | `client/src/pages/project/Trash.tsx` | 只读数组结果；恢复/彻底删除两个动作分别鉴权 |
 | 前端请求 | `client/src/api/index.ts` | `listProjects` / `createProject` / `updateProject` / `updateProjectStatus` / `deleteProject` |
 | 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关独立；`/tree`、`/categories` 走 `project:list`；`/partner/update` 调级别 |
@@ -174,8 +178,8 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 - **入口**：`/survey/:id` 概述页（`Overview.tsx`，`project:detail` 可看，保存按钮只对有 `project:update` 的账号渲染）。新增「基本信息」Card（`lg=16`）：项目名称 Input（必填、trim）+ 分类 AutoComplete（候选 `/api/project/categories`，可自由输入，留空=未分类）。
 - **保存**：`onSave` 调 `updateProject({id, name, category, setting})`；分类空串显式清空为未分类，名称在本页可编辑。保存成功 `refreshSummary` 重新拉 `/api/project`，页头和返回列表后的名称/分类同步。发布状态仍单独走 `POST /api/project/status`，整包 setting 不负责 `t_project.status` 列。
 - **布局重排**：Row1 基本信息（lg16）+ 每日收集（lg8；无数据只显示「还没有答卷数据 / 共 0 份」两行，不撑高）；Row2 答题显示 + 回收限制；Row3 考试控制 + 投放与分享；Row4 协作者（span24）。所有 Card `height:100%`、Row `align=stretch`，`Form.Item` 统一 `margin-bottom:14px`；`xs=24` 移动端单列。
-- **批量分类**：`BatchSettingModal` 顶部新增「分类」行：Checkbox 启用 + AutoComplete（候选 `/api/project/categories`，过滤「未分类」，可自由输入，留空=未分类）。`hasAny` 把 `categoryEnabled` 纳入；应用顺序是 setting → category（逐个项目 `updateProject({id,category})`）→ 班级授权。
-- **批量计数**：`updated` 改成按项目 id 的 `Set`，同一项目既改 setting 又改 category 只算一次；只改分类时 `hasSettingChanges=false`，不会顺带写 setting。授权成功数仍单独统计；`onUpdated` 会关弹窗、清选择、递增项目分类树 `treeToken` 并重载列表。
+- **批量分类**：`BatchSettingModal` 顶部新增「分类」行：Checkbox 启用 + AutoComplete（候选 `/api/project/categories`，过滤「未分类」，可自由输入，留空=未分类）。`hasAny` 把 `categoryEnabled` 纳入；应用顺序是 setting → folder（P13）→ category（逐个项目 `updateProject({id,category})`）→ 班级授权。
+- **批量计数**：`updated` 改成按项目 id 的 `Set`，同一项目既改 setting、folder 或 category 只算一次；只改文件夹/分类时 `hasSettingChanges=false`，不会顺带写 setting。授权成功数仍单独统计；`onUpdated` 会关弹窗、清选择、递增项目分类树 `treeToken` 并重载列表。
 - **已知限制**：分类仍是自由文本，无后端枚举/长度校验；清空分类依赖显式空串；批量分类只更新 `category`、不影响其他设置；批量分类逐个项目 `updateProject`，不是事务，中途失败会保留前面已成功的项目；项目名称在概述页可编辑，改完后列表/页头靠 `refreshSummary` 同步，不实时推给其他标签页。
 
 ### 0.4 项目三级授权（P12）
@@ -186,6 +190,14 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 - **判定**：`ProjectPartnerService#accessLevel` 返回当前用户在该项目的 0/1/2/3；owner/admin/level3 可调成员（`assertCanGrant`），level2 可编辑项目内容（`ProjectServiceImpl#assertCanEditProject` 拦 updateProject/updateProjectStatus/deleteProject），level1 只能看。组授权按主组+附加组+祖先链继承级别。
 - **前端**：`PartnerPanel`/授权弹窗显示级别 Tag 和下拉调整；教师组/协作者可选 1/2/3，班级/答卷人只读。当前 `ProjectView` 不返回 `myAccessLevel`，所以 level1/2 用户仍可能看到「授权」等全局按钮，点下去由后端 403 兜底；彻底隐藏要补 `ProjectView.myAccessLevel`（未做）。
 - **已知**：level2 的协作者能编辑项目，但不能管理成员（成员管理要 3）；level3 才能继续授权；项目所有者删除接口仍受 `assertCanEditProject` 全权通过。
+
+### 0.5 文件夹批量移动与设置页（P13）
+
+- **设置页「所属文件夹」**：`/survey/:id` 基本信息卡新增 TreeSelect，候选来自 `GET /api/project/tree`（只保留 `mode=folder`，根 `'0'`）；回填 `project.parentId || '0'`。当前项目本身是 folder 时，候选会排除自己及整棵子树（`buildFolderOptions(..., project.id)`），防止把文件夹挂到自己下面；普通考试/问卷可挂到任意 folder。
+- **保存**：`onSave` 的 `updateProject({id,name,category,parentId,setting})` 增加 `parentId`；留空/根目录统一传 `'0'`。名称、分类、文件夹、setting 一次保存；保存后 `refreshSummary` 重新拉项目，返回列表/文件夹树按新位置显示。
+- **批量文件夹**：`BatchSettingModal` 顶部新增「文件夹」行：Checkbox + TreeSelect（`/api/project/tree` 仅 folder，根 `'0'`）；`hasAny` 纳入 `folderEnabled`。应用顺序是 setting → folder（逐个项目 `updateProject({id,parentId})`）→ category（逐项 `{id,category}`）→ 班级授权；`folderValue` 为空/根时传 `'0'`。
+- **批量计数**：`updatedIds` 是项目 id 的 `Set`；同一项目同时改 setting/folder/category 只计一次，授权成功数另算。只勾文件夹/分类时 `hasSettingChanges=false`，不会顺带写 setting。
+- **已知限制**：`parentId='0'` 表示根；批量移动是逐项 `updateProject`，非事务，中途失败会保留前面已成功的项目；文件夹重名仍只在前端同父校验，后端不拦；批量移动不改变项目名称/分类/setting（除非同时勾选对应项）；Overview 的文件夹候选只在进入页面时拉一次。
 
 1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），`normalizeCategory` 把分类 trim/空白转 null，生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
 2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`；分类筛选可同时走 `category`（见 0.2，选中分类时前端会清空 parentId）。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
@@ -275,6 +287,9 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 - **项目三级授权不是「权限点」而是行级级别**：`t_project_partner.access_level` 只对 type=2 协作者/教师组有效；type=3 班级/学员与 type=4 导入答卷人固定 1，owner 固定 3。level2 可编辑项目但不能管理成员，level3 才能继续授权；level1 只能看。
 - **level1/2 的 UI 仍显示全局按钮**：`ProjectView` 没有 `myAccessLevel`，列表/面板只能按功能权限渲染「授权/编辑」等按钮，level1/2 点进去由 `ProjectServiceImpl`/`ProjectPartnerService` 返回 403；不要把按钮可见当权限。
 - **项目 owner 的 access_level=3**：迁移 36 回填/新建时写入；如果手工插入 owner 记录漏了 level，`accessLevel()` 仍按 type=OWNER 返回 3，但直接看库会看到默认 2，排查时以服务层判定为准。
+- **文件夹移动的 root 是字符串 '0'**：Overview 留空、批量设置清空 TreeSelect 都会转成 `parentId='0'`；不要把 `null`/空串直接写库，否则列表根级过滤（`parent_id IS NULL OR '0'`）可能看不到。
+- **Overview 排除自身/子树**：当前项目是 folder 时 `buildFolderOptions(..., project.id)` 过滤自己及 children；但后端没有循环校验，绕过前端直接 `updateProject({id,parentId})` 仍可把文件夹挂到自己的子树下。
+- **批量文件夹/分类逐项执行**：setting → folder → category → 授权，每一步都是循环 `updateProject`/partner 调用，不是事务；中途失败保留已成功项目，`updated` 只统计已完成的项目。
 - **分类统计与项目列表可见性不完全一致**：`listCategories` 只认创建者/partner `type IN (1,2)`，而 `/project/list` 还认 `type=3` 与 `t_class_resource` 班级分配；可能出现「列表里有项目、分类统计里没有/少 count」。
 - **项目列表/回收站的 total 已排除匿名答卷**：P6 起 `ProjectServiceImpl` 两处 `t_answer` count 加 `is_anonymous=0`；不要把 total 当「含匿名提交」的总量。
 
@@ -305,6 +320,8 @@ npm run docs:check
 16. 选中多个项目 → 批量设置只勾「分类」并填一个值：只改这些项目的 category（setting 不变），提示的「已更新 N 项」按项目去重；填空保存后项目进入「未分类」；同时勾 setting 与分类时也各只更新一次、计数不翻倍。
 17. 在 `ProjectTree` 当前文件夹下点「新建文件夹」→ 填写名称 → createProject({mode:'folder',parentId}) 成功，树/右侧列表刷新；同一父级输入同名 folder 应前端提示「同一位置已有同名文件夹」；换父级可建同名；后端不拦重名。
 18. 三级授权：给协作者设 level1 → 其能看项目但调 `/project/update`/`/project/status` 应 403；设 level2 → 可编辑但不能加/改成员；设 level3 → 可打开授权面板并继续授权；班级/答卷人记录只读；owner 记录 access_level=3。
+19. 打开一个考试/问卷的 `/survey/:id`：基本信息卡「所属文件夹」TreeSelect 回填当前 parentId；选根目录保存后 parentId='0'，选文件夹后列表/文件夹树位置同步；当前项目是 folder 时，候选不应出现自己/子树。
+20. 批量设置勾「文件夹」并选一个 folder：只移动所选项目的 parentId，名称/分类/setting 不变；选根目录传 '0'；与分类/setting/授权同时勾选时同一项目只计一次；中途失败保留已移动项目，提示计数按成功项目。
 
 ## 相关文档
 

@@ -16,6 +16,8 @@ keywords:
   - 学员题库详情
   - 题库分类
   - 分类文件夹
+  - 批量移动
+  - 移动到分类
   - RepoCategoryTree
   - 题库授权
   - 授权级别
@@ -54,6 +56,7 @@ source_globs:
 entrypoints:
   - client/src/pages/repo/List.tsx
   - client/src/pages/repo/RepoCategoryTree.tsx
+  - client/src/pages/repo/BatchRepoCategoryModal.tsx
   - client/src/pages/repo/Questions.tsx
   - client/src/pages/repo/RepoExportModal.tsx
   - client/src/pages/repo/GrantModal.tsx
@@ -90,7 +93,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: d6dc54f68daad66f319455a951f620bc8f809560
+verified_against: 099d38fdf40d483258ea49fe08087a47fbfcf206
 ---
 
 # 题库与题目
@@ -115,7 +118,8 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 题库列表页 | `client/src/pages/repo/List.tsx` | 双栏：左侧分类树 + 右侧题库表；工具栏上移（新建/搜索/导出等）；新建/编辑含分类 AutoComplete 与「全局开放时间」RangePicker；按钮按 `repo:create/update/delete/grant/export/practice` 渲染 |
+| 题库列表页 | `client/src/pages/repo/List.tsx` | 双栏：左侧分类树 + 右侧题库表；工具栏上移（新建/搜索/导出、选中后「移动到分类(N)」）；`repo:update`/`repo:grant` 时显示 rowSelection；新建/编辑含分类 AutoComplete 与「全局开放时间」RangePicker |
+| 批量移动分类 | `client/src/pages/repo/BatchRepoCategoryModal.tsx` | TreeSelect 扁平分类 path（根「未分类」=空串）+ 可输入新路径；逐个 `POST /repo/update {id,category}`，成功/失败计数，完成后刷新树/列表 |
 | 题库分类树 | `client/src/pages/repo/RepoCategoryTree.tsx` | `GET /api/repo/categories` 扁平列表按 `/` 拆树；根「全部分类」+ 各路径 count；「新建分类文件夹」→ `/categories/create`；选中 path 过滤列表 |
 | 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
@@ -173,6 +177,13 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 4. **前端**：`RepoCategoryTree` 按 `/` 拆树，根「全部分类」+ 各路径 count；标题旁「新建分类文件夹」（`repo:create`）；选中节点把 `path` 传给 `/api/repo/list?category=` 过滤，新建成功后重拉树并选中新路径。「未分类」只在有未分类题库时显示数量，节点 `selectable=false`，不能当筛选值（`listRepo` 没有对应的精确 category 值）。
 5. **双栏列表**：题库列表左侧分类树 + 右侧表格，工具栏上移；新建/编辑题库的分类用 `AutoComplete`（候选来自 `/categories` 的 path，可自由输入；`repo.category` 仍按原字段写入）。新建/删除/改名后递增 `treeToken`，树重新拉 counts。
 6. **已知限制**：分类 registry **全局可见**（空文件夹对所有能看分类树的人显示，不按创建者过滤）；`t_repo.category` 是 `varchar(64)`，而登记表 `path` 是 255，深层路径可能能建目录但放不进题库 category；`listRepo` 的 category 过滤是**原始精确值**，不 trim/不把反斜杠转 `/`，手工写库的前后空白/反斜杠会导致树里能看见但筛选不到；目录没有删除接口/前端入口；未分类不能筛选。
+
+### 题库批量移动分类（P13）
+
+1. **入口**：题库列表 `rowSelection` 在 `repo:grant` 或 `repo:update` 时显示；选中后工具栏出现「移动到分类（N）」，按钮只对 `repo:update` 显示（`canUpdate`）。批量授权按钮仍走 `repo:grant`。
+2. **弹窗**：`BatchRepoCategoryModal` 拉 `/api/repo/categories`，按 `path` 拆树；根节点是「未分类（清空分类）」（内部 sentinel，提交映射为空串），也可直接输入新路径（输入优先于树选择）。选择已有分类只改 `t_repo.category`，不会创建 `t_repo_category` 空目录；新路径要出现在分类树，靠移动后题库的 category 反向汇总。
+3. **提交**：逐个 `POST /api/repo/update {id, category}`（空串=未分类），前端按成功/失败计数，`onDone` 关闭弹窗、清选择、递增 `treeToken` 并重载列表。权限是 `repo:update`，服务层 `RepoServiceImpl.assertManageRepo` 要求 admin/创建者/access_level>=2；level1 不能批量移动。
+4. **已知**：逐个更新不是事务，中途失败保留已成功项目，提示只报成功数和第一条失败；`t_repo.category` 是 varchar64，分类树 path 可到 255，深层路径可能能选但写不进题库；分类是自由文本/原始精确值，不做 trim/反斜杠规范化；根「未分类」不会创建 registry 记录。
 
 ### 题库三级授权（P12）
 
@@ -250,6 +261,9 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 - **`listRepo` 的 category 是原始精确值**：前端传分类树 path；手工写库的前后空白/反斜杠不会自动规范化，树里能看见但筛选不到。
 - **三级授权是行级级别，不是权限串**：`access_level>=2` 才能改题库内容，`>=3` 才能改成员/授权；level1 只读。`RepoView` 没有 `myAccessLevel`，level1/2 仍可能看到全局授权/编辑按钮，后端 403 兜底。
 - **owner 记录写 3**：迁移 36 回填 type=1 owner=3；新建题库 owner 由服务层写 3。共享（shared=1）仍对所有能进题库列表的人可读，不受级别限制。
+- **批量移动到分类不是事务**：`BatchRepoCategoryModal` 逐个 `updateRepo({id,category})`，中途失败保留前面成功的项目；它只改 category，不创建 `t_repo_category` 空目录。
+- **新路径依赖题库反向出现**：弹窗输入的新路径只写进题库的 `t_repo.category`，要等列表/分类树重算后才出现；`t_repo.category` 64 位，分类树 path 255 位，深层路径可能选择成功但保存失败/截断不可用。
+- **批量移动权限看 `repo:update` + level>=2**：仅 `repo:grant` 只能批量授权，不能移动；level1 即使有 `repo:update` 也被 `assertManageRepo` 拦。
 
 ## 验证
 
@@ -274,6 +288,8 @@ npm run docs:check
 10. 题库分类树：新建空文件夹「安全生产/三级」→ 树里父路径自动补齐且可展开；右侧列表按 path 过滤；空文件夹 count 为 0；「未分类」只显示数量不可选；同名 path 再建应 400「分类已存在」。
 11. 给老师授 level1：能看题库/题目，但改题库/导入/删除应 403；授 level2：能改题库内容，但打开授权列表/加成员应 403；授 level3：能打开授权并继续授人/组。owner/admin 不受级别拦截。
 12. 迁移 36 后查库：`t_repo_partner.access_level` 默认 2；项目 owner=3、type=3/4=1；组授权一条 dept_id 记录，组员按主组+附加组+祖先链继承级别。
+13. 题库列表选中多个题库（有 `repo:update`）→「移动到分类（N）」→ 选树里的分类提交：只改这些题库的 category，提示成功数；根「未分类」保存后 category 为空并在分类树「未分类」计数；新路径输入优先于树选择，移动后分类树出现该路径。
+14. 只有 `repo:grant` 的账号应只看到批量授权、不出现「移动到分类」；level1（`repo:update` 但 access_level=1）调 `/api/repo/update` 应 403；批量中途失败时已成功项目保留、提示成功数与首条失败。
 
 ## 相关文档
 

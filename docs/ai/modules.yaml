@@ -483,6 +483,9 @@ modules:
       - 批量分类
       - 布局
       - 新建文件夹
+      - 批量移动
+      - 所属文件夹
+      - parentId
       - 授权级别
       - 教师组
       - access_level
@@ -552,7 +555,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: d6dc54f68daad66f319455a951f620bc8f809560
+    verified_against: 099d38fdf40d483258ea49fe08087a47fbfcf206
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -570,6 +573,8 @@ modules:
       - 学员题库详情
       - 题库分类
       - 分类文件夹
+      - 批量移动
+      - 移动到分类
       - RepoCategoryTree
       - 题库授权
       - 授权级别
@@ -608,6 +613,7 @@ modules:
     entrypoints:
       - client/src/pages/repo/List.tsx
       - client/src/pages/repo/RepoCategoryTree.tsx
+      - client/src/pages/repo/BatchRepoCategoryModal.tsx
       - client/src/pages/repo/Questions.tsx
       - client/src/pages/repo/RepoExportModal.tsx
       - client/src/pages/repo/GrantModal.tsx
@@ -644,7 +650,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: d6dc54f68daad66f319455a951f620bc8f809560
+    verified_against: 099d38fdf40d483258ea49fe08087a47fbfcf206
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
