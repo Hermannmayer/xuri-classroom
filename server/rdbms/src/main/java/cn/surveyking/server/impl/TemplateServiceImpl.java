@@ -15,6 +15,7 @@ import cn.surveyking.server.mapper.TemplateMapper;
 import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.BaseService;
+import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.TemplateService;
 import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -46,6 +47,9 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	private final TemplateViewMapper templateViewMapper;
 
 	private final RepoMapper repoMapper;
+
+	/** 按班级分配的题库：学生被分配到本班也要能读题目/模板 */
+	private final ClassResourceService classResourceService;
 
 	private final RepoPartnerMapper repoPartnerMapper;
 
@@ -247,6 +251,8 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		// 与 RepoServiceImpl#assertReadableRepo 保持一致：管理员 / 创建者 / 逐个授权 / 所在用户组（主组 + 附加组，含祖先链）授权
 		return repo != null && (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())
+				// 按班级分配：本班有 repo 分配就放行（只对 student 生效）
+				|| classResourceService.canStudentReadRepo(repoId)
 				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
 						.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(
 								"dept_id IS NOT NULL AND dept_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",

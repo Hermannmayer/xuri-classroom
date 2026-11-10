@@ -16,18 +16,21 @@ import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.domain.model.ClassResource;
 import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.Project;
+import cn.surveyking.server.domain.model.Repo;
 import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.domain.model.UserDept;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ClassResourceMapper;
 import cn.surveyking.server.mapper.DeptMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
+import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.UserDeptMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -48,13 +51,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 班级资源分配（P1：考试/问卷）。
+ * 班级资源分配（P1 考试/问卷，P2 题库）。
  *
  * <p>规则（用户已确认）：
  * <ul>
- * <li>项目上的 {@code examSetting.startTime/endTime} 是**全局窗口，也是硬上限**；</li>
- * <li>班级窗口（t_class_resource.start_at/end_at）为空表示继承全局，非空必须落在全局窗口内；</li>
- * <li>没有分配到某个班的考试，该班学生完全看不到（连 ProjectNotFound 都不该区分出来）；</li>
+ * <li>project：项目上的 {@code examSetting.startTime/endTime} 是**全局窗口，也是硬上限**；
+ * 班级窗口（t_class_resource.start_at/end_at）为空表示继承全局，非空必须落在全局窗口内；</li>
+ * <li>repo：题库没有全局窗口，班级窗口只校验「开始 &lt;= 结束」，为空表示不限；</li>
+ * <li>没有分配到某个班的考试/题库，该班学生完全看不到（连 ProjectNotFound 都不该区分出来）；</li>
  * <li>学生同时在多个班时，任一班的分配有效即可参加，解析时主组优先。</li>
  * </ul>
  *
@@ -78,11 +82,19 @@ public class ClassResourceService {
 	/** 已经过了结束时间 */
 	public static final String STATUS_ENDED = "ENDED";
 
+	/**
+	 * 资源类型 repo（题库）。t_class_resource 已预留这个类型，但 ClassResource 模型不归本任务管，
+	 * 先在服务里放一份常量，避免跨文件改模型。
+	 */
+	public static final String RESOURCE_TYPE_REPO = "repo";
+
 	private final ClassResourceMapper classResourceMapper;
 
 	private final DeptMapper deptMapper;
 
 	private final ProjectMapper projectMapper;
+
+	private final RepoMapper repoMapper;
 
 	private final AnswerMapper answerMapper;
 
@@ -94,7 +106,7 @@ public class ClassResourceService {
 	private final ClassService classService;
 
 	/**
-	 * 班级资源面板：某个班已分配的资源（P1 只有 project）。
+	 * 班级资源面板：某个班已分配的资源（project 考试/问卷，repo 题库）。
 	 * @param classId 班级 id（dept_type=class）
 	 * @param resourceType 资源类型；为空按 project 处理
 	 */
@@ -111,34 +123,32 @@ public class ClassResourceService {
 		}
 		List<String> resourceIds = resources.stream().map(ClassResource::getResourceId)
 				.filter(StringUtils::hasText).distinct().collect(Collectors.toList());
-		Map<String, Project> projects = loadProjects(resourceIds);
-		Map<String, Long> answerCounts = countAnswersByProject(id, resourceIds);
 		Map<String, User> assigners = loadUsers(resources.stream().map(ClassResource::getAssignedBy)
 				.filter(StringUtils::hasText).distinct().collect(Collectors.toList()));
+		if (RESOURCE_TYPE_REPO.equals(type)) {
+			return toRepoViews(id, dept, resources, resourceIds, assigners);
+		}
+		return toProjectViews(id, dept, resources, resourceIds, assigners);
+	}
+
+	/** project 面板：带项目全局窗口、本班答卷数与「全局停用」状态 */
+	private List<ClassResourceView> toProjectViews(String classId, Dept dept, List<ClassResource> resources,
+			List<String> resourceIds, Map<String, User> assigners) {
+		Map<String, Project> projects = loadProjects(resourceIds);
+		Map<String, Long> answerCounts = countAnswersByProject(classId, resourceIds);
 		List<ClassResourceView> result = new ArrayList<>();
 		for (ClassResource resource : resources) {
 			if (resource == null) {
 				continue;
 			}
 			Project project = projects.get(resource.getResourceId());
-			ClassResourceView view = new ClassResourceView();
-			view.setId(resource.getId());
-			view.setClassId(id);
-			view.setClassName(dept.getName());
-			view.setResourceType(resource.getResourceType());
-			view.setResourceId(resource.getResourceId());
+			ClassResourceView view = baseView(classId, dept, resource, assigners);
 			if (project != null) {
 				view.setResourceName(project.getName());
 				view.setResourceMode(project.getMode());
 			}
-			view.setStatus(resource.getStatus() == null ? 1 : resource.getStatus());
-			view.setStartAt(resource.getStartAt());
-			view.setEndAt(resource.getEndAt());
 			view.setGlobalStartAt(toDate(globalStart(project)));
 			view.setGlobalEndAt(toDate(globalEnd(project)));
-			view.setAssignedBy(resource.getAssignedBy());
-			User assigner = assigners.get(resource.getAssignedBy());
-			view.setAssignedByName(assigner == null ? null : assigner.getName());
 			Long answerCount = answerCounts.get(resource.getResourceId());
 			view.setAnswerCount(answerCount == null ? 0L : answerCount);
 			view.setEffectiveStatus(effectiveStatus(resource, project));
@@ -147,10 +157,54 @@ public class ClassResourceService {
 		return result;
 	}
 
+	/** repo 面板：题库没有全局窗口、不产生答卷，状态只看「班级开关 + 本班窗口」 */
+	private List<ClassResourceView> toRepoViews(String classId, Dept dept, List<ClassResource> resources,
+			List<String> resourceIds, Map<String, User> assigners) {
+		Map<String, Repo> repos = loadRepos(resourceIds);
+		List<ClassResourceView> result = new ArrayList<>();
+		for (ClassResource resource : resources) {
+			if (resource == null) {
+				continue;
+			}
+			Repo repo = repos.get(resource.getResourceId());
+			ClassResourceView view = baseView(classId, dept, resource, assigners);
+			if (repo != null) {
+				view.setResourceName(repo.getName());
+				// repo.mode 是自由字符串，转不进 ProjectModeEnum 就留空；前端按 resourceType 显示「题库」
+				view.setResourceMode(toProjectMode(repo.getMode()));
+			}
+			view.setGlobalStartAt(null);
+			view.setGlobalEndAt(null);
+			view.setAnswerCount(0L);
+			view.setEffectiveStatus(repoEffectiveStatus(resource));
+			result.add(view);
+		}
+		return result;
+	}
+
+	/** 两类资源共用的字段 */
+	private ClassResourceView baseView(String classId, Dept dept, ClassResource resource,
+			Map<String, User> assigners) {
+		ClassResourceView view = new ClassResourceView();
+		view.setId(resource.getId());
+		view.setClassId(classId);
+		view.setClassName(dept == null ? null : dept.getName());
+		view.setResourceType(resource.getResourceType());
+		view.setResourceId(resource.getResourceId());
+		view.setStatus(resource.getStatus() == null ? 1 : resource.getStatus());
+		view.setStartAt(resource.getStartAt());
+		view.setEndAt(resource.getEndAt());
+		view.setAssignedBy(resource.getAssignedBy());
+		User assigner = assigners.get(resource.getAssignedBy());
+		view.setAssignedByName(assigner == null ? null : assigner.getName());
+		return view;
+	}
+
 	/**
 	 * 给班级分配资源：按 (class_id, resource_type, resource_id) upsert。
 	 *
-	 * <p>已存在时更新窗口与班级开关，不改 assignedBy（谁先分的就记谁）；班级窗口必须在全局窗口内。
+	 * <p>已存在时更新窗口与班级开关，不改 assignedBy（谁先分的就记谁）。project 的班级窗口必须在
+	 * 项目全局窗口内；repo（题库）没有全局窗口，只校验开始不晚于结束。
 	 */
 	@Transactional(rollbackFor = Exception.class)
 	public void assign(ClassResourceAssignRequest request) {
@@ -163,17 +217,27 @@ public class ClassResourceService {
 		String type = normalizeResourceType(request.getResourceType());
 		List<String> resourceIds = normalizeResourceIds(request.getResourceIds());
 		if (resourceIds.isEmpty()) {
-			throw new ValidationException("请选择要分配的考试");
+			throw new ValidationException(RESOURCE_TYPE_REPO.equals(type) ? "请选择要分配的题库" : "请选择要分配的考试");
 		}
-		Map<String, Project> projects = loadProjects(resourceIds);
-		if (projects.size() != resourceIds.size()) {
-			throw new ValidationException("部分考试不存在，请刷新后重试");
-		}
-		// 前端传 epoch 毫秒，统一转 Date；空 = 继承全局
+		// 前端传 epoch 毫秒，统一转 Date；空 = 继承全局 / 不限
 		Date startAt = toDate(request.getStartAt());
 		Date endAt = toDate(request.getEndAt());
-		for (String resourceId : resourceIds) {
-			assertAssignable(projects.get(resourceId), startAt, endAt);
+		if (RESOURCE_TYPE_REPO.equals(type)) {
+			// 题库没有全局窗口：只校验班级窗口自身合法
+			Map<String, Repo> repos = loadRepos(resourceIds);
+			if (repos.size() != resourceIds.size()) {
+				throw new ValidationException("部分题库不存在，请刷新后重试");
+			}
+			assertWindowOrder(startAt, endAt);
+		}
+		else {
+			Map<String, Project> projects = loadProjects(resourceIds);
+			if (projects.size() != resourceIds.size()) {
+				throw new ValidationException("部分考试不存在，请刷新后重试");
+			}
+			for (String resourceId : resourceIds) {
+				assertAssignable(projects.get(resourceId), startAt, endAt);
+			}
 		}
 		int status = normalizeStatus(request.getStatus(), 1);
 		String currentUserId = SecurityContextUtils.getUserId();
@@ -209,10 +273,19 @@ public class ClassResourceService {
 			throw new ValidationException("分配记录不存在，请刷新后重试");
 		}
 		classService.assertManage(record.getClassId());
-		Project project = projectMapper.selectById(record.getResourceId());
 		Date startAt = toDate(request.getStartAt());
 		Date endAt = toDate(request.getEndAt());
-		assertAssignable(project, startAt, endAt);
+		if (RESOURCE_TYPE_REPO.equals(record.getResourceType())) {
+			// 题库：没有全局窗口，只校验班级窗口自身合法
+			if (repoMapper.selectById(record.getResourceId()) == null) {
+				throw new ValidationException("题库不存在，请刷新后重试");
+			}
+			assertWindowOrder(startAt, endAt);
+		}
+		else {
+			Project project = projectMapper.selectById(record.getResourceId());
+			assertAssignable(project, startAt, endAt);
+		}
 		Integer status = request.getStatus() == null ? null : Integer.valueOf(normalizeStatus(request.getStatus(), 1));
 		updateWindow(record.getId(), startAt, endAt, status);
 	}
@@ -249,7 +322,7 @@ public class ClassResourceService {
 		if (classIds.isEmpty()) {
 			return null;
 		}
-		List<ClassResource> rows = loadAssignments(projectId.trim(), classIds);
+		List<ClassResource> rows = loadAssignments(ClassResource.TYPE_PROJECT, projectId.trim(), classIds);
 		if (rows.isEmpty()) {
 			return null;
 		}
@@ -284,7 +357,7 @@ public class ClassResourceService {
 		if (classIds.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
-		List<ClassResource> rows = loadAssignments(project.getId(), classIds);
+		List<ClassResource> rows = loadAssignments(ClassResource.TYPE_PROJECT, project.getId(), classIds);
 		if (rows.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
@@ -299,6 +372,92 @@ public class ClassResourceService {
 			}
 		}
 		throw new ErrorCodeException(reason == null ? ErrorCode.ProjectNotFound : reason);
+	}
+
+	/**
+	 * 资源本身被删除时清理它的班级分配（例如题库删除）。
+	 *
+	 * <p>只按类型 + id 精确删；非法类型直接忽略，避免误删。逻辑删除即可：这些行不会再被列出，
+	 * 资源已经不存在，也不存在「重新分配同一个 id」的场景。
+	 */
+	@Transactional(rollbackFor = Exception.class)
+	public void removeByResource(String resourceType, String resourceId) {
+		if (!StringUtils.hasText(resourceId) || !StringUtils.hasText(resourceType)) {
+			return;
+		}
+		String type = resourceType.trim().toLowerCase(Locale.ROOT);
+		if (!ClassResource.TYPE_PROJECT.equals(type) && !RESOURCE_TYPE_REPO.equals(type)) {
+			return;
+		}
+		classResourceMapper.delete(Wrappers.<ClassResource>lambdaQuery()
+				.eq(ClassResource::getResourceType, type).eq(ClassResource::getResourceId, resourceId.trim()));
+	}
+
+	/**
+	 * 解析某个学生对某个题库的有效分配班级：返回命中的 classId；非学生 / 无有效分配返回 null。
+	 *
+	 * <p>题库没有全局窗口，只看「班级开关 + 本班窗口」，主组优先。
+	 */
+	public String resolveForStudentRepo(String repoId, String userId) {
+		if (!StringUtils.hasText(repoId)) {
+			return null;
+		}
+		User student = loadStudent(userId);
+		if (student == null) {
+			return null;
+		}
+		List<String> classIds = studentClassIds(student);
+		if (classIds.isEmpty()) {
+			return null;
+		}
+		for (ClassResource row : loadAssignments(RESOURCE_TYPE_REPO, repoId.trim(), classIds)) {
+			if (invalidRepoReason(row) == null) {
+				return row.getClassId();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 当前登录学生能否通过「班级分配」读这个题库（非学生 / 无有效分配 = false）。
+	 *
+	 * <p>给 RepoServiceImpl 的读闸门用：只做判定、不抛错，调用方决定抛什么。
+	 */
+	public boolean canStudentReadRepo(String repoId) {
+		return resolveForStudentRepo(repoId, SecurityContextUtils.getUserId()) != null;
+	}
+
+	/**
+	 * 题库练习入口用：学生只能访问分配给自己班的题库。
+	 *
+	 * <p>没分配 → 「无权限访问该题库」；分配了但关闭 / 未开始 / 已结束 → 对应业务错误；
+	 * 非学生（教职工 / 管理员 / 匿名）直接放行。
+	 */
+	public void assertStudentCanAccessRepo(String repoId) {
+		if (!StringUtils.hasText(repoId)) {
+			return;
+		}
+		User student = loadStudent(SecurityContextUtils.getUserId());
+		if (student == null) {
+			return;
+		}
+		List<String> classIds = studentClassIds(student);
+		List<ClassResource> rows = classIds.isEmpty() ? new ArrayList<>()
+				: loadAssignments(RESOURCE_TYPE_REPO, repoId.trim(), classIds);
+		if (rows.isEmpty()) {
+			throw new AccessDeniedException("无权限访问该题库");
+		}
+		ErrorCode reason = null;
+		for (ClassResource row : rows) {
+			ErrorCode invalid = invalidRepoReason(row);
+			if (invalid == null) {
+				return;
+			}
+			if (reason == null) {
+				reason = invalid;
+			}
+		}
+		throw new ErrorCodeException(reason == null ? ErrorCode.SurveySuspend : reason);
 	}
 
 	// ------ 内部
@@ -318,14 +477,14 @@ public class ClassResourceService {
 		return dept;
 	}
 
-	/** P1 只支持 project；为空按 project 处理，其它类型直接拒绝 */
+	/** P2：支持 project（考试/问卷）与 repo（题库）；为空按 project 处理，其它类型直接拒绝 */
 	private String normalizeResourceType(String resourceType) {
 		if (!StringUtils.hasText(resourceType)) {
 			return ClassResource.TYPE_PROJECT;
 		}
 		String normalized = resourceType.trim().toLowerCase(Locale.ROOT);
-		if (!ClassResource.TYPE_PROJECT.equals(normalized)) {
-			throw new ValidationException("暂只支持考试/问卷");
+		if (!ClassResource.TYPE_PROJECT.equals(normalized) && !RESOURCE_TYPE_REPO.equals(normalized)) {
+			throw new ValidationException("暂只支持考试/问卷与题库");
 		}
 		return normalized;
 	}
@@ -346,6 +505,13 @@ public class ClassResourceService {
 		return status == 0 ? 0 : 1;
 	}
 
+	/** 班级窗口自身合法：开始不能晚于结束（project 的全局上限另由 assertAssignable 校验） */
+	private void assertWindowOrder(Date startAt, Date endAt) {
+		if (startAt != null && endAt != null && startAt.getTime() > endAt.getTime()) {
+			throw new ValidationException("班级开始时间不能晚于结束时间");
+		}
+	}
+
 	private void assertAssignable(Project project, Date startAt, Date endAt) {
 		if (project == null) {
 			throw new ValidationException("考试不存在，请刷新后重试");
@@ -355,9 +521,7 @@ public class ClassResourceService {
 		}
 		Long globalStartAt = globalStart(project);
 		Long globalEndAt = globalEnd(project);
-		if (startAt != null && endAt != null && startAt.getTime() > endAt.getTime()) {
-			throw new ValidationException("班级开始时间不能晚于结束时间");
-		}
+		assertWindowOrder(startAt, endAt);
 		// 全局窗口是硬上限：班级窗口只能在它里面，不能借班级设置把窗口放宽
 		if (startAt != null && globalStartAt != null && startAt.getTime() < globalStartAt) {
 			throw new ValidationException("班级开放时间必须在全局开放时间内");
@@ -384,6 +548,27 @@ public class ClassResourceService {
 		}
 		return projectMapper.selectBatchIds(projectIds).stream().filter(Objects::nonNull)
 				.collect(Collectors.toMap(Project::getId, project -> project, (a, b) -> a));
+	}
+
+	private Map<String, Repo> loadRepos(List<String> repoIds) {
+		if (CollectionUtils.isEmpty(repoIds)) {
+			return Collections.emptyMap();
+		}
+		return repoMapper.selectBatchIds(repoIds).stream().filter(Objects::nonNull)
+				.collect(Collectors.toMap(Repo::getId, repo -> repo, (a, b) -> a));
+	}
+
+	/** repo.mode 是自由字符串，转不进 ProjectModeEnum 就返回 null（前端按 resourceType 显示「题库」） */
+	private ProjectModeEnum toProjectMode(String mode) {
+		if (!StringUtils.hasText(mode)) {
+			return null;
+		}
+		try {
+			return ProjectModeEnum.valueOf(mode.trim().toLowerCase(Locale.ROOT));
+		}
+		catch (Exception e) {
+			return null;
+		}
 	}
 
 	private Map<String, User> loadUsers(List<String> userIds) {
@@ -460,6 +645,43 @@ public class ClassResourceService {
 			return ErrorCode.ExamFinished;
 		}
 		return null;
+	}
+
+	/** 题库行的不可用原因：只有「班级开关 + 本班窗口」，不读项目全局状态（题库没有全局窗口） */
+	private ErrorCode invalidRepoReason(ClassResource row) {
+		if (row == null) {
+			return ErrorCode.ProjectNotFound;
+		}
+		if (!Integer.valueOf(1).equals(row.getStatus())) {
+			return ErrorCode.SurveySuspend;
+		}
+		Long start = safeTime(row.getStartAt());
+		Long end = safeTime(row.getEndAt());
+		long now = System.currentTimeMillis();
+		if (start != null && now < start) {
+			return ErrorCode.ExamUnStarted;
+		}
+		if (end != null && now > end) {
+			return ErrorCode.ExamFinished;
+		}
+		return null;
+	}
+
+	/** 题库面板状态：只按「班级开关 + 本班窗口」算，不读 project 的全局开关 */
+	private String repoEffectiveStatus(ClassResource resource) {
+		if (resource == null || !Integer.valueOf(1).equals(resource.getStatus())) {
+			return STATUS_CLOSED;
+		}
+		Long start = safeTime(resource.getStartAt());
+		Long end = safeTime(resource.getEndAt());
+		long now = System.currentTimeMillis();
+		if (start != null && now < start) {
+			return STATUS_NOT_STARTED;
+		}
+		if (end != null && now > end) {
+			return STATUS_ENDED;
+		}
+		return STATUS_OPEN;
 	}
 
 	private Long globalStart(Project project) {
@@ -558,15 +780,15 @@ public class ClassResourceService {
 		return new ArrayList<>(classIds);
 	}
 
-	/** 学生班级上、这个项目的全部分配行（主班在前；含 status=0 的行，用来区分「关闭」与「未分配」） */
-	private List<ClassResource> loadAssignments(String projectId, List<String> classIds) {
-		if (!StringUtils.hasText(projectId) || CollectionUtils.isEmpty(classIds)) {
+	/** 学生班级上、某个资源的全部分配行（主班在前；含 status=0 的行，用来区分「关闭」与「未分配」） */
+	private List<ClassResource> loadAssignments(String resourceType, String resourceId, List<String> classIds) {
+		if (!StringUtils.hasText(resourceId) || CollectionUtils.isEmpty(classIds)) {
 			return new ArrayList<>();
 		}
 		List<ClassResource> rows = classResourceMapper
 				.selectList(Wrappers.<ClassResource>lambdaQuery()
-						.eq(ClassResource::getResourceType, ClassResource.TYPE_PROJECT)
-						.eq(ClassResource::getResourceId, projectId).in(ClassResource::getClassId, classIds));
+						.eq(ClassResource::getResourceType, resourceType)
+						.eq(ClassResource::getResourceId, resourceId).in(ClassResource::getClassId, classIds));
 		if (rows.size() > 1) {
 			Map<String, Integer> order = new HashMap<>();
 			for (int index = 0; index < classIds.size(); index++) {

@@ -12,6 +12,7 @@ import cn.surveyking.server.domain.model.RepoPartner;
 import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.BaseService;
+import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.RepoPartnerService;
 import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -42,6 +43,9 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 	private final cn.surveyking.server.mapper.DeptMapper deptMapper;
 
 	private final UserDeptScopeService userDeptScopeService;
+
+	/** 按班级分配的题库：学生练习入口也要认 */
+	private final ClassResourceService classResourceService;
 
 	@Override
 	public PaginationResponse<RepoPartnerView> listRepoPartner(RepoPartnerQuery query) {
@@ -120,6 +124,10 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 			return false;
 		}
 		if (Objects.equals(repo.getCreateBy(), userId)) {
+			return true;
+		}
+		// 按班级分配：学生被分配到本班即可练习（只对 student 生效，不影响教职工口径）
+		if (classResourceService.canStudentReadRepo(repoId)) {
 			return true;
 		}
 		// 可见组 = 主组 + 附加组 + 祖先链（一次解析；原来只认 t_user.dept_id）

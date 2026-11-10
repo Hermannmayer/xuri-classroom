@@ -111,7 +111,7 @@ public class TeachingApi {
 		classService.updateClass(request);
 	}
 
-	/* ------ 班级资源分配（P1：考试/问卷，按班级开放窗口） */
+	/* ------ 班级资源分配（P1 考试/问卷、P2 题库，按班级开放窗口） */
 
 	/**
 	 * 某班已分配的资源面板。
@@ -128,8 +128,9 @@ public class TeachingApi {
 	/**
 	 * 给班级分配考试/问卷。
 	 *
-	 * <p>body {@code {classId, resourceType:"project", resourceIds, startAt?, endAt?, status?}}。
-	 * 班级窗口为空表示继承全局；非空必须落在项目全局窗口内（全局是硬上限）。已存在是 upsert。
+	 * <p>body {@code {classId, resourceType:"project"|"repo", resourceIds, startAt?, endAt?, status?}}。
+	 * project 的班级窗口为空表示继承全局，非空必须落在项目全局窗口内（全局是硬上限）；
+	 * repo（题库）没有全局窗口，只校验开始不晚于结束。已存在是 upsert。
 	 */
 	@PostMapping("/classes/resources/assign")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")

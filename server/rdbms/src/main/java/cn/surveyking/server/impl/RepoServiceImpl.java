@@ -17,6 +17,7 @@ import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.BaseService;
+import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.RepoService;
 import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -62,6 +63,19 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	private final RepoPartnerMapper repoPartnerMapper;
 
 	private final UserDeptScopeService userDeptScopeService;
+
+	/** 按班级分配的题库存取：可见性与读权限都要认 t_class_resource 上的 repo 分配 */
+	private final ClassResourceService classResourceService;
+
+	/**
+	 * 「本班被分配了这个题库」的 EXISTS 条件（占位符 {0} = 当前用户 id）。
+	 *
+	 * <p>t_class_resource 有真实的 is_deleted 列，必须显式过滤；class_id 复用 DEPT_SCOPE_SQL
+	 * （主组 + 附加组 + 祖先链），与题库授权弹窗、考试可见性同一份口径。
+	 */
+	private static final String CLASS_REPO_ASSIGN_SQL = "EXISTS (SELECT 1 FROM t_class_resource cr"
+			+ " WHERE cr.resource_id = t_repo.id AND cr.resource_type = 'repo' AND cr.is_deleted = 0"
+			+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + "))";
 
 	/**
 	 * 题库列表排序：只接受白名单字段，避免前端传任意列造成 SQL 注入式排序。
@@ -118,10 +132,14 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 					x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
 							"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
 									+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
-							currentUserId);
+							currentUserId)
+							// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
+							.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
 				}
 				else {
-					x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true));
+					x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true))
+							// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
+							.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
 				}
 			});
 		}
@@ -167,6 +185,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		assertManageRepo(request.getId());
 		String id = request.getId();
 		removeById(id);
+		// 题库没了，按班级的分配也要清掉，否则 t_class_resource 留下指向已删题库的孤儿行
+		classResourceService.removeByResource(ClassResourceService.RESOURCE_TYPE_REPO, id);
 		// 删除题库下面的所有题
 		templateService.remove(Wrappers.<Template>lambdaUpdate().eq(Template::getRepoId, id));
 		// 取消题库标签
@@ -1068,6 +1088,11 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		// 其余人只能读自己创建的、被逐个授权的、或所在用户组被授权的。
 		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())) {
+			return;
+		}
+		// 按班级分配：学生被分配到本班的题库也要能打开（否则列表能看到、点进去 403；练习 /repo/pick 也走这里）。
+		// 非学生一律 false，不会放宽教职工的口径。
+		if (classResourceService.canStudentReadRepo(repoId)) {
 			return;
 		}
 		// 可见组 = 主组 + 附加组 + 祖先链（一次解析，不在循环里查）

@@ -8,6 +8,7 @@ import {
   Form,
   Modal,
   Popconfirm,
+  Segmented,
   Select,
   Space,
   Switch,
@@ -18,10 +19,21 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
-import { get, listProjects, post } from '../../api';
+import { get, getWithPagination, listProjects, post } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
+
+/** 与后端 RepoView 对齐（面板只用展示字段） */
+interface RepoView {
+  id: string;
+  name?: string;
+  mode?: string;
+  isPractice?: boolean;
+}
+
+/** 资源类型：project=考试/问卷，repo=题库 */
+type ResourceKind = 'project' | 'repo';
 
 /** 与后端 ClassResourceView 对齐 */
 interface ClassResource {
@@ -34,10 +46,11 @@ interface ClassResource {
   resourceMode?: ProjectMode;
   /** 0 关闭 / 1 开放 */
   status?: number | null;
-  startAt?: string;
-  endAt?: string;
-  globalStartAt?: string;
-  globalEndAt?: string;
+  /** 后端 Date 序列化为字符串；兼容以后可能的 epoch 毫秒 */
+  startAt?: string | number;
+  endAt?: string | number;
+  globalStartAt?: string | number;
+  globalEndAt?: string | number;
   assignedBy?: string;
   assignedByName?: string;
   answerCount?: number;
@@ -66,20 +79,29 @@ const MODE_META: Partial<Record<ProjectMode, { label: string; color: string }>> 
   survey: { label: '问卷', color: 'blue' },
 };
 
-function rangeText(start?: string, end?: string, emptyLabel = '不限') {
+/** 题库的类型文案：练习库优先，其次按 mode 显示考试/问卷 */
+function repoTypeLabel(repo: RepoView) {
+  if (repo.isPractice) return '练习库';
+  if (repo.mode === 'exam') return '考试';
+  if (repo.mode === 'survey') return '问卷';
+  return '题库';
+}
+
+function rangeText(start?: string | number, end?: string | number, emptyLabel = '不限') {
   if (!start && !end) {
     return <span style={{ color: 'var(--bp-text-soft)' }}>{emptyLabel}</span>;
   }
-  const fmt = (value?: string) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '不限');
+  const fmt = (value?: string | number) =>
+    value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '不限';
   return `${fmt(start)} ~ ${fmt(end)}`;
 }
 
 /**
- * 班级「考试与问卷」资源面板。
+ * 班级资源面板：考试/问卷（project）与题库（repo）两类。
  *
- * <p>管理员/可管理的任课老师给本班分配考试/问卷，并设置本班开放窗口：
- * 全局窗口是硬上限，本班窗口留空表示继承全局，关闭开关后本班学员看不到。
- * 只读老师只能看列表（写操作按钮不渲染）。
+ * <p>管理员/可管理的任课老师给本班分配资源，并设置本班开放窗口：
+ * 考试/问卷的全局窗口是硬上限，本班窗口留空表示继承全局；题库暂无全局窗口，留空=不限。
+ * 关闭开关后本班学员看不到。只读老师只能看列表（写操作按钮不渲染）。
  */
 export default function ClassResourcesPanel({
   classId,
@@ -90,12 +112,16 @@ export default function ClassResourcesPanel({
   manageable: boolean;
 }) {
   const { message } = App.useApp();
+  /** 当前资源类型：考试/问卷 or 题库 */
+  const [kind, setKind] = useState<ResourceKind>('project');
   const [rows, setRows] = useState<ClassResource[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string>();
 
   const [projects, setProjects] = useState<ProjectView[]>([]);
   const [projectLoading, setProjectLoading] = useState(false);
+  const [repos, setRepos] = useState<RepoView[]>([]);
+  const [repoLoading, setRepoLoading] = useState(false);
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
@@ -115,22 +141,31 @@ export default function ClassResourcesPanel({
     try {
       const list = await get<ClassResource[]>('/api/teaching/classes/resources', {
         deptId: classId,
-        resourceType: 'project',
+        resourceType: kind,
       });
       setRows(Array.isArray(list) ? list : []);
     } catch (e) {
-      const text = (e as Error).message || '读取班级考试/问卷失败';
+      const text = (e as Error).message || '读取班级资源失败';
       setLoadError(text);
       message.error(text);
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [classId, message]);
+  }, [classId, kind, message]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 切换资源类型：清空上一类的列表/选项/弹窗，已分配缓存由新列表重算
+  useEffect(() => {
+    setRows([]);
+    setProjects([]);
+    setRepos([]);
+    setAssignOpen(false);
+    setEditing(null);
+  }, [kind]);
 
   /** 已分配的项目：添加时禁用，避免重复分配 */
   const assignedIds = useMemo(
@@ -138,9 +173,10 @@ export default function ClassResourcesPanel({
     [rows],
   );
 
-  const projectOptions = useMemo(
-    () =>
-      projects
+  /** 当前类型的可选项：project=考试/问卷，repo=题库 */
+  const resourceOptions = useMemo(() => {
+    if (kind === 'project') {
+      return projects
         .filter((project) => project.mode !== 'folder')
         .map((project) => {
           const meta = project.mode ? MODE_META[project.mode] : undefined;
@@ -149,9 +185,16 @@ export default function ClassResourcesPanel({
             label: `${project.name || '(未命名)'}（${meta?.label ?? '项目'}）`,
             disabled: assignedIds.has(project.id),
           };
-        }),
-    [projects, assignedIds],
-  );
+        });
+    }
+    return repos.map((repo) => ({
+      value: repo.id,
+      label: `${repo.name || '(未命名题库)'}（${repoTypeLabel(repo)}）`,
+      disabled: assignedIds.has(repo.id),
+    }));
+  }, [kind, projects, repos, assignedIds]);
+
+  const optionLoading = kind === 'project' ? projectLoading : repoLoading;
 
   const loadProjects = useCallback(async () => {
     setProjectLoading(true);
@@ -166,13 +209,29 @@ export default function ClassResourcesPanel({
     }
   }, [message]);
 
-  // 打开添加弹窗后再拉项目：避免每次进班级都请求一遍全量项目
+  const loadRepos = useCallback(async () => {
+    setRepoLoading(true);
+    try {
+      const res = await getWithPagination<RepoView>('/api/repo/list', { current: 1, pageSize: 200 });
+      const list = Array.isArray(res?.data) ? res.data : [];
+      // 过滤掉无 id / 空的脏数据，避免下拉出现无法提交的选项
+      setRepos(list.filter((repo) => Boolean(repo?.id)));
+    } catch (e) {
+      message.error((e as Error).message);
+      setRepos([]);
+    } finally {
+      setRepoLoading(false);
+    }
+  }, [message]);
+
+  // 打开添加弹窗后再拉候选：避免每次进班级都请求一遍全量项目/题库
   useEffect(() => {
     if (!assignOpen) return;
     assignForm.resetFields();
     assignForm.setFieldsValue({ status: true, resourceIds: [] });
-    void loadProjects();
-  }, [assignOpen, assignForm, loadProjects]);
+    if (kind === 'project') void loadProjects();
+    else void loadRepos();
+  }, [assignOpen, kind, assignForm, loadProjects, loadRepos]);
 
   // 编辑弹窗：等表单挂载后再回填，避免 destroyOnClose 下 setFieldsValue 失效
   useEffect(() => {
@@ -196,7 +255,7 @@ export default function ClassResourcesPanel({
     }
     const ids = values.resourceIds ?? [];
     if (ids.length === 0) {
-      message.warning('请选择要分配的考试或问卷');
+      message.warning(kind === 'repo' ? '请选择要分配的题库' : '请选择要分配的考试或问卷');
       return;
     }
     const [from, to] = values.window ?? [];
@@ -204,14 +263,14 @@ export default function ClassResourcesPanel({
     try {
       await post('/api/teaching/classes/resources/assign', {
         classId,
-        resourceType: 'project',
+        resourceType: kind,
         resourceIds: ids,
         // 留空=继承全局；后端接收 epoch 毫秒
         startAt: from ? from.valueOf() : null,
         endAt: to ? to.valueOf() : null,
         status: values.status === false ? 0 : 1,
       });
-      message.success('已分配 ' + ids.length + ' 个考试/问卷');
+      message.success('已分配 ' + ids.length + ' 个' + (kind === 'repo' ? '题库' : '考试/问卷'));
       setAssignOpen(false);
       await load();
     } catch (e) {
@@ -251,7 +310,7 @@ export default function ClassResourcesPanel({
   const remove = async (row: ClassResource) => {
     try {
       await post('/api/teaching/classes/resources/delete', { id: row.id });
-      message.success('已移除「' + (row.resourceName || '该考试/问卷') + '」');
+      message.success('已移除「' + (row.resourceName || (kind === 'repo' ? '该题库' : '该考试/问卷')) + '」');
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -270,6 +329,7 @@ export default function ClassResourcesPanel({
       dataIndex: 'resourceMode',
       width: 84,
       render: (mode?: ProjectMode) => {
+        if (kind === 'repo') return <Tag color="purple">题库</Tag>;
         const meta = mode ? MODE_META[mode] : undefined;
         return <Tag color={meta?.color ?? 'default'}>{meta?.label ?? '—'}</Tag>;
       },
@@ -299,7 +359,7 @@ export default function ClassResourcesPanel({
       title: '答卷数',
       dataIndex: 'answerCount',
       width: 90,
-      render: (value?: number) => `${value ?? 0} 份`,
+      render: (value?: number) => (kind === 'repo' ? '—' : `${value ?? 0} 份`),
     },
     ...(manageable
       ? [
@@ -311,8 +371,12 @@ export default function ClassResourcesPanel({
               <Space size={12}>
                 <LinkAction onClick={() => setEditing(row)}>编辑</LinkAction>
                 <Popconfirm
-                  title={'移除「' + (row.resourceName || '该考试/问卷') + '」？'}
-                  description="只解除本班的分配，不会删除考试/问卷本身。"
+                  title={'移除「' + (row.resourceName || (kind === 'repo' ? '该题库' : '该考试/问卷')) + '」？'}
+                  description={
+                    kind === 'repo'
+                      ? '只解除本班的分配，不会删除题库本身。'
+                      : '只解除本班的分配，不会删除考试/问卷本身。'
+                  }
                   okText="移除"
                   okButtonProps={{ danger: true }}
                   cancelText="取消"
@@ -331,15 +395,26 @@ export default function ClassResourcesPanel({
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <span className="bp-title" style={{ fontSize: 13 }}>
-          考试与问卷
+          考试与问卷 / 题库
         </span>
+        <Segmented
+          size="small"
+          value={kind}
+          onChange={(value) => setKind(value as ResourceKind)}
+          options={[
+            { label: '考试/问卷', value: 'project' },
+            { label: '题库', value: 'repo' },
+          ]}
+        />
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
-          给本班分配考试/问卷并设置开放窗口；全局窗口是硬上限
+          {kind === 'repo'
+            ? '给本班分配题库并设置开放窗口；题库暂无全局窗口'
+            : '给本班分配考试/问卷并设置开放窗口；全局窗口是硬上限'}
         </span>
         <div style={{ flex: 1 }} />
         {manageable && (
           <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setAssignOpen(true)}>
-            添加考试/问卷
+            {kind === 'repo' ? '添加题库' : '添加考试/问卷'}
           </Button>
         )}
       </div>
@@ -348,7 +423,7 @@ export default function ClassResourcesPanel({
         <Alert type="warning" showIcon style={{ marginBottom: 10 }} message={loadError} />
       )}
 
-      <TableScrollRegion label="班级考试与问卷（可横向滚动）">
+      <TableScrollRegion label="班级考试/问卷与题库（可横向滚动）">
         <Table<ClassResource>
           rowKey="id"
           size="small"
@@ -361,7 +436,9 @@ export default function ClassResourcesPanel({
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="还没有给这个班分配考试/问卷"
+                description={
+                  kind === 'repo' ? '还没有给这个班分配题库' : '还没有给这个班分配考试/问卷'
+                }
               />
             ),
           }}
@@ -369,7 +446,7 @@ export default function ClassResourcesPanel({
       </TableScrollRegion>
 
       <Modal
-        title="添加考试 / 问卷"
+        title={kind === 'repo' ? '添加题库' : '添加考试 / 问卷'}
         open={assignOpen}
         onCancel={() => setAssignOpen(false)}
         onOk={() => void submitAssign()}
@@ -382,8 +459,13 @@ export default function ClassResourcesPanel({
         <Form form={assignForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
           <Form.Item
             name="resourceIds"
-            label="考试 / 问卷"
-            rules={[{ required: true, message: '请选择要分配的考试或问卷' }]}
+            label={kind === 'repo' ? '题库' : '考试 / 问卷'}
+            rules={[
+              {
+                required: true,
+                message: kind === 'repo' ? '请选择要分配的题库' : '请选择要分配的考试或问卷',
+              },
+            ]}
           >
             <Select
               mode="multiple"
@@ -391,16 +473,26 @@ export default function ClassResourcesPanel({
               allowClear
               optionFilterProp="label"
               placeholder="搜索并选择，可多选"
-              loading={projectLoading}
-              options={projectOptions}
-              notFoundContent={projectLoading ? '加载中…' : '没有可分配的考试/问卷'}
+              loading={optionLoading}
+              options={resourceOptions}
+              notFoundContent={
+                optionLoading
+                  ? '加载中…'
+                  : kind === 'repo'
+                    ? '没有可分配的题库'
+                    : '没有可分配的考试/问卷'
+              }
             />
           </Form.Item>
 
           <Form.Item
             name="window"
             label="本班开放窗口"
-            extra="全局窗口是硬上限，本班窗口必须落在其内；留空=继承全局"
+            extra={
+              kind === 'repo'
+                ? '题库暂无全局窗口，本班窗口留空=不限'
+                : '全局窗口是硬上限，本班窗口必须落在其内；留空=继承全局'
+            }
           >
             <DatePicker.RangePicker
               showTime={{ format: 'HH:mm' }}
@@ -414,7 +506,7 @@ export default function ClassResourcesPanel({
             name="status"
             label="状态"
             valuePropName="checked"
-            extra="关闭后本班学员看不到这些考试/问卷"
+            extra={kind === 'repo' ? '关闭后本班学员看不到这些题库' : '关闭后本班学员看不到这些考试/问卷'}
           >
             <Switch checkedChildren="开放" unCheckedChildren="关闭" />
           </Form.Item>
@@ -433,7 +525,9 @@ export default function ClassResourcesPanel({
         destroyOnClose
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 10 }}>
-          全局窗口是硬上限，本班窗口必须落在其内；留空=继承全局。
+          {kind === 'repo'
+            ? '题库暂无全局窗口，本班窗口留空=不限。'
+            : '全局窗口是硬上限，本班窗口必须落在其内；留空=继承全局。'}
         </div>
         <Form form={editForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
           <Form.Item name="window" label="本班开放窗口">
