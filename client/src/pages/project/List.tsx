@@ -611,30 +611,13 @@ function ManagerProjectList({
 
   return (
     <>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: 'flex-start',
-          gap: 12,
-        }}
-      >
-        <div style={{ width: isMobile ? '100%' : 220, flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 0 }}>
-          <ProjectTree
-            selectedId={parentId}
-            selectedCategory={category}
-            refreshToken={treeToken}
-            onSelect={(_id, path) => {
-              setCrumbs(path);
-              setPage(1);
-            }}
-            onSelectCategory={(next) => {
-              setCategory(next);
-              setPage(1);
-            }}
-          />
-        </div>
-        <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
+      <style>{`
+        .survey-project-table .ant-table-thead > tr > th { padding: 8px 8px !important; }
+        .survey-project-table .ant-table-tbody > tr > td { padding: 6px 8px !important; }
+        .survey-project-table .ant-table-tbody > tr { height: 42px; }
+      `}</style>
+
+      {/* 工具条全宽放在两栏上方：左树与右侧表格从同一 y 开始，表头不再被压下去 */}
       <div
         style={{
           marginBottom: embedded ? 12 : 18,
@@ -712,6 +695,31 @@ function ManagerProjectList({
           }}
         />
       </div>
+
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: 'flex-start',
+          gap: 12,
+        }}
+      >
+        <div style={{ width: isMobile ? '100%' : 220, flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 0 }}>
+          <ProjectTree
+            selectedId={parentId}
+            selectedCategory={category}
+            refreshToken={treeToken}
+            onSelect={(_id, path) => {
+              setCrumbs(path);
+              setPage(1);
+            }}
+            onSelectCategory={(next) => {
+              setCategory(next);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
 
       {selectedKeys.length > 0 && (
         <div
@@ -927,6 +935,7 @@ function ManagerProjectList({
       ) : (
       <Table<ProjectRow>
         rowKey="id"
+        className="survey-project-table"
         size="small"
         loading={loading}
         dataSource={rows}
