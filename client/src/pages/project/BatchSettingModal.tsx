@@ -10,6 +10,7 @@ import {
   Select,
   Switch,
   Tabs,
+  TreeSelect,
 } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { get, post } from '../../api';
@@ -32,6 +33,30 @@ export interface BatchProject {
 interface Dept {
   id: string;
   name?: string;
+}
+
+interface ProjectTreeNode {
+  id: string;
+  name?: string;
+  mode?: string;
+  children?: ProjectTreeNode[];
+}
+
+interface FolderOption {
+  value: string;
+  title: string;
+  children?: FolderOption[];
+}
+
+/** /api/project/tree 同时返回文件夹和考试/问卷，这里只保留文件夹 */
+function buildFolderOptions(nodes: ProjectTreeNode[]): FolderOption[] {
+  return nodes
+    .filter((node) => node.mode === 'folder')
+    .map((node) => ({
+      value: node.id,
+      title: node.name || '(未命名文件夹)',
+      children: node.children?.length ? buildFolderOptions(node.children) : undefined,
+    }));
 }
 
 type AnswerBool =
@@ -305,6 +330,10 @@ export default function BatchSettingModal({
   const [categoryEnabled, setCategoryEnabled] = useState(false);
   const [categoryValue, setCategoryValue] = useState('');
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  /** 批量移动文件夹：勾选后把所有选中项目挂到同一文件夹（'0'=根目录） */
+  const [folderEnabled, setFolderEnabled] = useState(false);
+  const [folderValue, setFolderValue] = useState('0');
+  const [folderOptions, setFolderOptions] = useState<FolderOption[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -325,6 +354,8 @@ export default function BatchSettingModal({
     setAuthDeptIds([]);
     setCategoryEnabled(false);
     setCategoryValue('');
+    setFolderEnabled(false);
+    setFolderValue('0');
   }, [open]);
 
   useEffect(() => {
@@ -342,6 +373,10 @@ export default function BatchSettingModal({
         ),
       )
       .catch(() => setCategoryOptions([]));
+    // 文件夹候选：失败不影响其它批量设置
+    get<ProjectTreeNode[]>('/api/project/tree')
+      .then((list) => setFolderOptions(buildFolderOptions(Array.isArray(list) ? list : [])))
+      .catch(() => setFolderOptions([]));
   }, [open]);
 
   const setFlagEnabled = (key: BoolField, enabled: boolean) => {
@@ -368,6 +403,7 @@ export default function BatchSettingModal({
     statusEnabled ||
     hasValueFields ||
     categoryEnabled ||
+    folderEnabled ||
     authDeptIds.length > 0 ||
     ALL_BOOL_FIELDS.some((key) => flags[key].enabled);
   const hasSettingChanges =
@@ -461,7 +497,16 @@ export default function BatchSettingModal({
         }
       }
 
-      // 分类更新放在 setting 之后、授权之前；空串=未分类
+      // 文件夹更新放在 setting 之后、分类之前；空值/根目录统一传 '0'
+      if (folderEnabled) {
+        const nextParentId = (folderValue || '0').trim() || '0';
+        for (const project of projects) {
+          await post('/api/project/update', { id: project.id, parentId: nextParentId });
+          updatedIds.add(project.id);
+        }
+      }
+
+      // 分类更新放在文件夹之后、授权之前；空串=未分类
       if (categoryEnabled) {
         const nextCategory = categoryValue.trim();
         for (const project of projects) {
@@ -696,6 +741,37 @@ export default function BatchSettingModal({
       </div>
       <div className="bp-dim" style={{ fontSize: 11, margin: '6px 0 10px' }}>
         只改分类，不影响其他设置。
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '7px 0',
+          borderBottom: '1px dashed var(--bp-line-soft)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Checkbox checked={folderEnabled} onChange={(e) => setFolderEnabled(e.target.checked)}>
+          文件夹
+        </Checkbox>
+        <div style={{ flex: 1 }} />
+        <TreeSelect
+          value={folderValue}
+          disabled={!folderEnabled}
+          treeData={[{ value: '0', title: '根目录', children: folderOptions }]}
+          onChange={(value) => setFolderValue(value || '0')}
+          placeholder="根目录"
+          showSearch
+          treeNodeFilterProp="title"
+          treeDefaultExpandAll
+          allowClear
+          style={{ width: 260, maxWidth: '100%' }}
+        />
+      </div>
+      <div className="bp-dim" style={{ fontSize: 11, margin: '6px 0 10px' }}>
+        只移动所属文件夹；不选或选「根目录」表示移到最外层，不影响其他设置。
       </div>
 
       <Tabs activeKey={tab} onChange={setTab} items={tabItems} />

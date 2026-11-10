@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import {
   AutoComplete,
   Button,
+  Checkbox,
   DatePicker,
   Empty,
   Form,
@@ -29,6 +30,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
 import RepoCategoryTree from './RepoCategoryTree';
+import BatchRepoCategoryModal from './BatchRepoCategoryModal';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
@@ -100,6 +102,7 @@ export default function RepoList() {
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
   const [granting, setGranting] = useState<RepoView | null>(null);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [exportTarget, setExportTarget] = useState<RepoExportTarget | null>(null);
   const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
   /** 新建/编辑题库的分类候选（来自 /api/repo/categories，值用 path） */
@@ -425,6 +428,9 @@ export default function RepoList() {
               : '浏览题库题目；练习记录在「我的练习」。'}
           </div>
         </div>
+        {canUpdate && selectedIds.length > 0 && (
+          <Button onClick={() => setMoveOpen(true)}>移动到分类（{selectedIds.length}）</Button>
+        )}
         {canGrant && selectedIds.length > 0 && (
           <Button icon={<TeamOutlined />} onClick={() => setBatchGrantIds(selectedIds)}>
             批量授权（{selectedIds.length}）
@@ -487,6 +493,16 @@ export default function RepoList() {
                     style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {(canGrant || canUpdate) && (
+                        <Checkbox
+                          checked={selectedIds.includes(row.id)}
+                          onChange={(e) =>
+                            setSelectedIds((prev) =>
+                              e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id),
+                            )
+                          }
+                        />
+                      )}
                       {canOpen ? (
                         <LinkAction
                           style={{
@@ -676,7 +692,11 @@ export default function RepoList() {
       <TableScrollRegion label="题库列表（可横向滚动）">
       <Table<RepoView>
         rowKey="id"
-        rowSelection={canGrant ? { selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) } : undefined}
+        rowSelection={
+          canGrant || canUpdate
+            ? { selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) }
+            : undefined
+        }
         onChange={(_pagination, _filters, sorter) => {
           const single = Array.isArray(sorter) ? sorter[0] : sorter;
           const key = single && (single.field || single.columnKey) ? String(single.field ?? single.columnKey) : '';
@@ -985,6 +1005,17 @@ export default function RepoList() {
         onClose={() => setGranting(null)}
         // 授权/取消后刷新列表：题库的可见范围变了，列表里的「已授权」状态也要跟着变
         onChanged={() => void load()}
+      />
+      <BatchRepoCategoryModal
+        open={moveOpen}
+        ids={selectedIds}
+        onCancel={() => setMoveOpen(false)}
+        onDone={() => {
+          setMoveOpen(false);
+          setSelectedIds([]);
+          setTreeToken((token) => token + 1);
+          void load();
+        }}
       />
       <RepoExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
     </>

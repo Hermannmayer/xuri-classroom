@@ -16,6 +16,7 @@ import {
   Spin,
   Switch,
   Tag,
+  TreeSelect,
 } from 'antd';
 import {
   CopyOutlined,
@@ -39,6 +40,30 @@ import type {
 } from '../../schema/project';
 import PartnerPanel from './PartnerPanel';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
+
+interface ProjectTreeNode {
+  id: string;
+  name?: string;
+  mode?: string;
+  children?: ProjectTreeNode[];
+}
+
+interface FolderOption {
+  value: string;
+  title: string;
+  children?: FolderOption[];
+}
+
+/** 文件夹候选：只保留 folder；当前项目本身是文件夹时排除它和它的子树 */
+function buildFolderOptions(nodes: ProjectTreeNode[], excludeId?: string): FolderOption[] {
+  return nodes
+    .filter((node) => node.mode === 'folder' && node.id !== excludeId)
+    .map((node) => ({
+      value: node.id,
+      title: node.name || '(未命名文件夹)',
+      children: node.children?.length ? buildFolderOptions(node.children, excludeId) : undefined,
+    }));
+}
 
 interface ReportStat {
   min?: number;
@@ -72,6 +97,7 @@ export default function SurveyOverview() {
   // category 是后端 Project 新增字段，schema 暂未包含，这里用局部交叉类型
   const [project, setProject] = useState<Project & { category?: string }>();
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [folderNodes, setFolderNodes] = useState<ProjectTreeNode[]>([]);
   const [report, setReport] = useState<ReportData>();
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [qr, setQr] = useState<string>();
@@ -98,6 +124,11 @@ export default function SurveyOverview() {
   const canManagePartner = can(authorities ?? [], PERMISSION_CODES.projectPartner);
 
   const shareUrl = useMemo(() => `${location.origin}/s/${id}`, [id]);
+
+  const folderOptions = useMemo(
+    () => buildFolderOptions(folderNodes, project?.mode === 'folder' ? project.id : undefined),
+    [folderNodes, project],
+  );
 
   /** 把后端 setting 铺进表单；「交卷后显示排名」兼容旧数据里只写了 rankVisible 的情况 */
   const applySetting = useCallback(
@@ -161,8 +192,8 @@ export default function SurveyOverview() {
       setReport(r);
       setAnswers(list.data);
       applySetting(setting ?? {});
-      // 基本信息不在 setting 里，单独回填
-      form.setFieldsValue({ name: p.name, category: p.category ?? '' });
+      // 基本信息不在 setting 里，单独回填；根目录统一为 '0'
+      form.setFieldsValue({ name: p.name, category: p.category ?? '', parentId: p.parentId || '0' });
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -182,6 +213,13 @@ export default function SurveyOverview() {
   }, [shareUrl]);
 
   // 分类候选：可自由输入，拿不到候选项也不影响保存
+  // 文件夹候选：失败不影响保存，表单仍可只改名称/分类
+  useEffect(() => {
+    get<ProjectTreeNode[]>('/api/project/tree')
+      .then((list) => setFolderNodes(Array.isArray(list) ? list : []))
+      .catch(() => setFolderNodes([]));
+  }, []);
+
   useEffect(() => {
     get<{ name?: string }[]>('/api/project/categories')
       .then((list) =>
@@ -222,6 +260,7 @@ export default function SurveyOverview() {
 
     const name = String(v.name ?? '').trim();
     const category = String(v.category ?? '').trim();
+    const parentId = String(v.parentId ?? '').trim() || '0';
 
     const answerSetting: AnswerSetting = {
       ...(current.answerSetting ?? {}),
@@ -291,8 +330,8 @@ export default function SurveyOverview() {
 
     setSaving(true);
     try {
-      // 分类空串=清空（未分类）；名称在本页可编辑，一并保存
-      await updateProject({ id, name, category, setting });
+      // 分类空串=清空（未分类）；parentId '0'=根目录；名称在本页可编辑，一并保存
+      await updateProject({ id, name, category, parentId, setting });
       // 发布开关走独立端点 POST /api/project/status（project:publish）；
       // 整包 setting 不会同步 t_project.status 列，所以状态变了要单独补一次。
       // 没有 project:publish 的人不碰这个端点，状态保持后端原值。
@@ -420,6 +459,23 @@ export default function SurveyOverview() {
                       allowClear
                       placeholder="例如：保育员 / 养老护理员 / 育婴员"
                       options={categoryOptions.map((name) => ({ value: name }))}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="parentId"
+                    label="所属文件夹"
+                    extra="留空/根目录表示最外层；不能选自己或自己的子文件夹"
+                  >
+                    <TreeSelect
+                      allowClear
+                      treeData={[{ value: '0', title: '根目录', children: folderOptions }]}
+                      placeholder="根目录"
+                      showSearch
+                      treeNodeFilterProp="title"
+                      treeDefaultExpandAll
+                      style={{ width: '100%' }}
                     />
                   </Form.Item>
                 </Col>
