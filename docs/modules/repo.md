@@ -6,6 +6,8 @@ keywords:
   - 题库
   - 题目
   - 导入导出
+  - 导出弹窗
+  - 导入模板
   - 组卷
   - 题库授权
   - repo:grant
@@ -30,6 +32,7 @@ source_globs:
 entrypoints:
   - client/src/pages/repo/List.tsx
   - client/src/pages/repo/Questions.tsx
+  - client/src/pages/repo/RepoExportModal.tsx
   - client/src/pages/repo/GrantModal.tsx
   - server/api/src/main/java/cn/surveyking/server/api/RepoApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
@@ -56,10 +59,10 @@ tables:
   - t_tag
   - t_user_book
 tests:
-  - 'client:npx tsc --noEmit'
-  - 'docs:npm run docs:check'
-last_verified: '2026-11-09'
-verified_against: '765fc89'
+  - client:npx tsc --noEmit
+  - docs:npm run docs:check
+last_verified: 2026-11-10
+verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 ---
 
 # 题库与题目
@@ -81,8 +84,9 @@ verified_against: '765fc89'
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 题库列表页 | `client/src/pages/repo/List.tsx` | 列表、新建/改名/删除、练习入口、批量授权；按钮按 `repo:create/update/delete/grant/practice` 渲染 |
-| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、导入 Excel、导出 xlsx；读取权限与导入/导出权限分开判定 |
+| 题库列表页 | `client/src/pages/repo/List.tsx` | 列表、新建/改名/删除、练习入口、批量授权、行内「导出」；按钮按 `repo:create/update/delete/grant/export/practice` 渲染 |
+| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
+| 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | 按用户组或按人授权；组树来自 `/api/system/dept/list`，人来自 `/api/system/user/options` |
 | 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book` |
 | 前端请求 | `client/src/api/index.ts` | `getWithPagination`、`post`、`download`；导出/导入都走它 |
@@ -100,8 +104,11 @@ verified_against: '765fc89'
 
 1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权」收窄。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。
-3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
-4. **导出题目**：`Questions.tsx` 先 `POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效），再 `GET /api/repo/export?id=...&exportToken=...`。`ExportGuardService` 校验密码/令牌，`RepoServiceImpl.exportRepoQuestions` 用 fastexcel 生成「单选/多选/判断/填空/简答」多个 sheet，最后写一条 `EXPORT_REPO` 审计。
+3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=卷王题库导入模板`（白名单与别名见 [files](./files.md)）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
+4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
+   - 打开弹窗先读 `GET /api/system` 的 `setting.exportPasswordEnabled`：为 `false` 时**直接自动开始下载**，不再让用户对着空密码框猜；为 `true` 才显示密码输入。
+   - 下载流程：`POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效）→ `GET /api/repo/export?id=...&exportToken=...`。密码只走 POST body，URL 里只出现 token。
+   - `ExportGuardService` 校验密码/令牌（系统未配置密码时直接放行），`RepoServiceImpl.exportRepoQuestions` 用 fastexcel 生成「单选/多选/判断/填空/简答」多个 sheet，最后写一条 `EXPORT_REPO` 审计。
 5. **授权题库**：`GrantModal.tsx` 调 `GET /api/repo/partner/list` 展示已有授权；新增走 `POST /api/repo/partner/create`，传 `deptId` 表示按组、传 `userIds` 表示按人；取消走 `/partner/delete`。组授权只存一条 `dept_id` 记录，组员靠「主组 + 附加组 + 祖先链」自动继承；接口要求 `repo:grant` 或管理员，服务层再要求调用者是题库创建者或管理员。
 6. **抽题**：`POST /api/repo/pick` 的请求体是 `ProjectSetting.RandomSurveyCondition` 列表（`repoId`、`types`、`questionsNum`、`examScore`、可选 `tags`）。`pickQuestionFromRepo` 对每个条件先 `assertReadableRepo`，按题型/标签过滤，`Collections.shuffle` 后截断到 `questionsNum`，给每道题写入 `examScore`，跨条件按题目 id 去重，最后按题型排序返回 `SurveySchema` 列表。
 
@@ -137,8 +144,8 @@ verified_against: '765fc89'
 | 新建题库 | `repo:create` | 无数据范围限制 |
 | 修改题库/题目 | `repo:update`、`template:update` | 管理员或题库创建者 |
 | 删除题库/题目 | `repo:delete`、`template:delete` | 管理员或题库创建者；删除题库会连带删题目与标签 |
-| 导入题目 | `template:import` | 管理员或题库创建者 |
-| 导出题库 | `repo:export` | 题库可读即可导出；需通过导出密码/令牌 |
+| 导入题目 | `template:import` | 管理员或题库创建者；导入旁「下载模板」还要 `file:import`/`template:import` |
+| 导出题库 | `repo:export` | 题库可读即可导出；未配置导出密码时直接下载，配置后需密码换 token |
 | 授权题库 | `repo:grant` 或管理员 | 管理员或题库创建者；可授权到组或到人 |
 | 错题本/收藏 | `repo:book` | 只操作自己的 `t_user_book` 记录 |
 | 抽题组卷/练习抽题 | `repo:detail` 或 `repo:book` 或管理员 | 每个被抽的题库都要可读 |
@@ -155,6 +162,8 @@ verified_against: '765fc89'
 - `shared`（共享题库）在题库列表页没有开关，只能通过接口或直接改库设置；共享后所有能进题库列表的人都能读。
 - 老师虽然有 `repo:grant`，但服务层只允许「题库创建者或管理员」授权；老师没有 `repo:create`，所以授权入口对老师基本不可用（除非库里还有他早期创建的题库）。
 - `repo/export/token` 的一次性令牌存在进程内存里：后端重启、多实例部署都会导致令牌失效或校验不到。
+- **未配置导出密码时前端直接下载**：`RepoExportModal` 读 `/api/system` 的 `exportPasswordEnabled`；如果系统设置刚被改过，前端可能先按「无需密码」发起，失败后会退回密码输入。不要在系统设置里只清空密码却保留旧的前端缓存。
+- **「下载模板」只认白名单 name**：题库页固定传 `卷王题库导入模板`；改成 `题库导入模板` 等别名会 404（白名单在 files 模块）。
 - 题库名/分类排序用 `CONVERT(... USING gbk)` 近似拼音序；生僻字不在 GBK 里会退化成其他顺序。
 - `RepoQuery` 的注释只写了 `name/updateAt/createAt`，实际 `applyRepoOrder` 还支持 `category/mode/tag/total`；改排序逻辑时以方法实现为准。
 - 列表里的「题量」是逐行实时统计（`t_template` 子查询），题库多时注意 N+1 式开销；标签/题型分布也是每个题库各查一次。
@@ -174,6 +183,7 @@ npm run docs:check
 2. 导出该题库 → 再导入同一文件 → 题量不翻倍（同序号同题型被更新）。
 3. 把题库授权给一个用户组 → 组内学员在「题库列表」能看到，能点开题目但看不到新建/编辑/删除/导入/导出。
 4. 在「教学管理 → 新建考试 → 从题库组卷」里选择该题库，能抽到题并生成试卷。
+5. 管理员在系统设置里清空导出密码 → 题库列表/题目页点「导出」应直接开始下载；设置导出密码后 → 弹窗要求输入，错误密码提示「导出密码错误」，正确密码能下载。
 
 ## 相关文档
 

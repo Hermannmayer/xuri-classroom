@@ -7,6 +7,11 @@ keywords:
   - 上传
   - 文件存储
   - 导入模板
+  - 学员导入模板
+  - XlsxWriter
+  - sharedStrings
+  - 模板白名单
+  - 404
   - 缩略图
   - 配额
 source_globs:
@@ -14,7 +19,10 @@ source_globs:
   - client/src/api/request.ts
   - server/api/src/main/java/cn/surveyking/server/api/FileApi.java
   - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/api/src/main/resources/template/*
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java
+  - server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java
   - server/shared/src/main/java/cn/surveyking/server/storage/**
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/UploadFileRequest.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/FileQuery.java
@@ -34,6 +42,7 @@ entrypoints:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
   - server/shared/src/main/java/cn/surveyking/server/storage/LocalStorageService.java
   - server/api/src/main/resources/template/卷王用户导入模板.xlsx
+  - server/api/src/main/resources/template/学员导入模板.xlsx
 apis:
   - POST /api/file/create
   - GET /api/file
@@ -42,20 +51,24 @@ apis:
   - GET /api/file/downloadTemplate
   - POST /api/public/upload
   - GET /api/public/preview/{attachmentId}
+  - POST /api/teaching/classes/member/import
+  - GET /api/teaching/classes/member/template
 tables:
   - t_file
+  - t_user
+  - t_account
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-09
-verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+last_verified: 2026-11-10
+verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 ---
 
 # 文件、附件与导入模板
 
 ## 30 秒摘要
 
-文件能力只有一套实现：本地磁盘 + `t_file` 元数据表，没有对象存储分支（`StorageService` 只由 `LocalStorageService` 实现）。后台上传走 `POST /api/file/create`，要 `file:upload` 或 `file:import`；答题附件走公开的 `POST /api/public/upload`，匿名可传，但受「题目类型 + 扩展名 + 大小 + 频率 + 项目配额」五重限制。读取统一走 `FileService#loadUserFile`（本人或 `shared=1`），预览有 inline 白名单。导入模板从 classpath 的 `template/*.xlsx` 直接下发。答卷提交时 `validateAndBindAnswerFiles` 会把附件与题目/答卷绑定，绑定后不能被别的答卷复用。
+文件能力只有一套实现：本地磁盘 + `t_file` 元数据表，没有对象存储分支（`StorageService` 只由 `LocalStorageService` 实现）。后台上传走 `POST /api/file/create`，要 `file:upload` 或 `file:import`；答题附件走公开的 `POST /api/public/upload`，匿名可传，但受「题目类型 + 扩展名 + 大小 + 频率 + 项目配额」五重限制。读取统一走 `FileService#loadUserFile`（本人或 `shared=1`），预览有 inline 白名单。导入模板走**白名单映射**后从 classpath 的 `template/*.xlsx` 下发：未知 name / 资源缺失统一 `FileNotExists`（404），不再把请求参数拼进路径。答卷提交时 `validateAndBindAnswerFiles` 会把附件与题目/答卷绑定，绑定后不能被别的答卷复用。
 
 ## 什么时候看这篇
 
@@ -69,7 +82,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 后台接口 | `server/api/src/main/java/cn/surveyking/server/api/FileApi.java` | `/create`、`/list`、`GET /api/file`、`/delete`、`/downloadTemplate` |
+| 后台接口 | `server/api/src/main/java/cn/surveyking/server/api/FileApi.java` | `/create`、`/list`、`GET /api/file`、`/delete`、`/downloadTemplate`（白名单 + 404） |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `POST /api/public/upload`（置 `publicUpload=true`）、`GET /api/public/preview/{id}` |
 | 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java` | 校验、命名、路径、缩略图、条码、配额、绑定、读取、删除 |
 | 存储抽象 | `server/shared/src/main/java/cn/surveyking/server/storage/` | `StorageService`、`AbstractStorageService`、`LocalStorageService`、`StorageProperties`、`StorageAutoConfiguration` |
@@ -79,7 +92,9 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 | 答卷侧 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java` | 导出时打 zip（整卷 Excel / 单份附件 / 批量附件）、按 `AttachmentNameVariableEnum` 命名 |
 | 前端上传 | `client/src/pages/system/Setting.tsx` | 系统 Logo：`FormData` → `/api/file/create` → 存 `/api/public/preview/<id>` |
 | 前端下载 | `client/src/api/request.ts`（`download`） | 先看 `content-type`，是 JSON 就按 `code/message` 抛中文错误，只有二进制才落盘 |
-| 导入模板文件 | `server/api/src/main/resources/template/` | `卷王用户导入模板.xlsx`、`卷王题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx` |
+| 导入模板文件 | `server/api/src/main/resources/template/` | `卷王用户导入模板.xlsx`、`学员导入模板.xlsx`、`卷王题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx` |
+| 学员导入 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java`、`server/rdbms/.../impl/ClassStudentImportService.java` | `POST /api/teaching/classes/member/import`（multipart：deptId + file）；行级校验、整批事务 |
+| Excel 安全限制 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java` | 文件 ≤20MB、解压 ≤100MB、行数 ≤20000、列数 ≤500 等 |
 | 数据表 | `t_file` | `original_name`、`file_path`、`thumb_file_path`、`storage_type`、`shared`、`project_id`、`question_id`、`answer_id`、`file_size` |
 
 ## 关键流程
@@ -120,9 +135,29 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 提交答卷时 `AnswerScoringService#beforeSaveAnswer` 调 `FileService#validateAndBindAnswerFiles`：对 `Upload` / `Signature` 题，收集答案里的文件 id，默认上限 20 个（`maxFileCount` 可覆盖），要求全部存在、`storage_type=ANSWER_ATTACHMENT`、属于本项目本题（或历史未绑定但在上一版答案里出现过），且答案为本答卷或尚未绑定；随后写 `answer_id`。绑定后该文件不能被别的答卷复用。
 
-### 6. 导入模板
+### 6. 导入模板（白名单）
 
-`GET /api/file/downloadTemplate?name=…` 要 `file:import` 或 `template:import`（或 admin），实现就是把 `name + ".xlsx"` 当 classpath 资源 `template/<name>.xlsx` 返回。当前 React 端只用 `name=用户导入模板`（`client/src/pages/system/User.tsx` 的 `downloadTemplate`）。
+1. `GET /api/file/downloadTemplate?name=…` 要 `file:import` 或 `template:import`（或 admin）。
+2. `FileServiceImpl` 只接受 5 个固定 name，映射到真实文件：
+
+   | 请求 name | classpath 文件 |
+   |---|---|
+   | `用户导入模板` | `卷王用户导入模板.xlsx`（历史别名） |
+   | `学员导入模板` | `学员导入模板.xlsx` |
+   | `卷王题库导入模板` | `卷王题库导入模板.xlsx` |
+   | `字典导入模板` | `字典导入模板.xlsx` |
+   | `白名单导入模板` | `白名单导入模板.xlsx` |
+
+3. 其它 name、空 name、资源不存在都抛 `ErrorCodeException(ErrorCode.FileNotExists)` → HTTP 404（不会 200 返回空 Resource，也不会 500）。`name` 只用于查表，**绝不拼进 classpath 路径**。
+4. 当前前端调用：用户导入 `client/src/pages/system/User.tsx`（`name=用户导入模板`）；题库导入 `client/src/pages/repo/Questions.tsx`（`name=卷王题库导入模板`）；学员导入走 `GET /api/teaching/classes/member/template`（`ImportMembersModal.tsx`），不经过 `/api/file/downloadTemplate`。
+
+### 7. 学员导入模板与批量导入
+
+1. 模板文件：`server/api/src/main/resources/template/学员导入模板.xlsx`；下载接口 `GET /api/teaching/classes/member/template`（`class:member:create` 或 admin）。
+2. 格式：只有一张表，第一行表头；数据列依次为 **姓名（必填）、手机号（必填，同时是登录账号）、初始密码（可空，默认 `12345678`）、邮箱（可空）**。密码 8~32 位；手机号匹配 `^1[3-9]\d{9}$`，文件内/库里都不能重复。
+3. 模板必须带 `xl/sharedStrings.xml`：当前用 XlsxWriter 生成，因为后端 fastexcel reader 读不到 sharedStrings 会解析失败。不要用会省略 sharedStrings 的库重新生成。
+4. 导入接口：`POST /api/teaching/classes/member/import`（multipart：`deptId` + `file`；权限 `class:member:create` 或 admin，服务层再 `assertClassManage`）。任一行失败整批回滚，异常统一「第 N 行：原因」。
+5. 导入前先过 `ExcelImportSecurity`：文件 ≤20MB、解压后 ≤100MB、ZIP 条目 ≤1000、行数 ≤20000、列数 ≤500、单元格 ≤32767 字符；损坏/非 xlsx 提示「Excel 文件解析失败，请确认使用模板且文件未损坏」。
 
 ## 修改指南
 
@@ -148,7 +183,10 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 ### 加导入模板
 
-把 `xxx导入模板.xlsx` 放进 `server/api/src/main/resources/template/`，前端用 `download('/api/file/downloadTemplate', { name: 'xxx导入模板' }, 'xxx导入模板.xlsx')`。不要给 `name` 传用户可控的任意串。
+1. 把 `xxx导入模板.xlsx` 放进 `server/api/src/main/resources/template/`（不要重命名/删除已有模板）。
+2. 在 `FileServiceImpl.TEMPLATE_WHITELIST` 加「请求 name → 真实文件名」映射；前端用 `download('/api/file/downloadTemplate', { name: 'xxx导入模板' }, 'xxx导入模板.xlsx')`。
+3. 不要给 `name` 传用户可控的任意串；白名单外的 name 一律 404。
+4. 需要被 fastexcel 读取的模板要带 `xl/sharedStrings.xml`（可用 XlsxWriter 生成）。
 
 ## 权限与数据范围
 
@@ -158,7 +196,9 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 | `GET /api/file/list` | `file:list` | 默认只返回本人上传；传 `ids` 时按 id 查，`projectId`/`questionId` 只做二次收窄 |
 | `GET /api/file` | `file:detail` | 本人或 `shared=1` |
 | `POST /api/file/delete` | `file:delete` | 仅本人上传的文件；老师可删自己传的，删不了别人的 |
-| `GET /api/file/downloadTemplate` | `file:import` 或 `template:import`（或 admin） | classpath 模板，无用户数据 |
+| `GET /api/file/downloadTemplate` | `file:import` 或 `template:import`（或 admin） | 白名单 5 个固定 name；未知/缺失 404 |
+| `POST /api/teaching/classes/member/import` | `class:member:create` + `assertClassManage` | 目标班可管理；整批事务，逐行校验 |
+| `GET /api/teaching/classes/member/template` | `class:member:create` 或 admin | 固定 classpath 学员模板 |
 | `POST /api/public/upload` | 无（匿名） | 题型白名单 + 项目状态 + 扩展名 + 大小 + 频率 + 配额 |
 | `GET /api/public/preview/{id}` | 无（匿名） | 仅 `shared=1`；Response 缓存 30 天 |
 
@@ -176,7 +216,9 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 - `fileCache` TTL 1 小时（`custom-cache.entries.fileCache`），`FileMapper` 的 `@Cacheable` 只在按 id 取文件时命中；删除会 `allEntries` 清空。
 - 改 `file-storage.local.root-path` 不会迁移旧文件；开发环境是相对路径 `./files`，取决于进程工作目录（仓库里那份 `server/files/` 就是它）。
 - 上传错误文案统一是 `ErrorCode.FileUploadError`，前端 `humanizeApiError` 会把非中文/内部异常兜底成「服务器内部错误」，排查要看后端日志里的具体分支。
-- `downloadTemplate` 的 `name` 直接拼进 classpath 路径，没有白名单；请只在前端写死常量，别把用户输入透传进来。
+- `downloadTemplate` 只认白名单里的 5 个 name；旧别名/拼写不一致（例如 `题库导入模板`）会 404，不要在前端临时改 name。
+- 学员导入模板必须带 `xl/sharedStrings.xml`：fastexcel reader 依赖 sharedStrings，用会省略它的库重生成会导致「Excel 文件解析失败」。
+- 学员导入是整批事务：任一行失败全部回滚，不会出现「导入一半」；第 N 行提示里的序号是 Excel 行号（表头是第 1 行）。
 - 当前 React 端没有「附件列表」页面，也没有 `Upload` / `Signature` / `Barcode` 题的作答组件（`client/src/renderer/questions/` 里没有对应文件）；答题附件上传仍由公开接口与旧版页面承担，新页面要接就得补渲染组件。
 - 导出附件 zip 的条目名会做 `sanitizeZipEntryName`（去 `..`、去控制字符、截断 200 字符），改命名逻辑时别把这一步去掉。
 
@@ -205,13 +247,21 @@ curl -s -o /dev/null -w '%{http_code}\n' https://<host>/api/public/preview/<file
 curl -s -b cookie.txt -o t.xlsx -w '%{http_code} %{content_type}\n' \
   "https://<host>/api/file/downloadTemplate?name=%E7%94%A8%E6%88%B7%E5%AF%BC%E5%85%A5%E6%A8%A1%E6%9D%BF"
 
-# 4) 库里核对：一条记录、路径与缩略图都在
+# 4) 学员导入模板：应 200 且是 xlsx
+curl -s -b cookie.txt -o stu.xlsx -w '%{http_code} %{content_type}\n' \
+  https://<host>/api/teaching/classes/member/template
+
+# 5) 未知模板名：应 404（JSON body 里 code=4040），而不是 500
+curl -s -b cookie.txt -o /dev/null -w '%{http_code}\n' \
+  "https://<host>/api/file/downloadTemplate?name=%E4%B8%8D%E5%AD%98%E5%9C%A8"
+
+# 6) 库里核对：一条记录、路径与缩略图都在
 docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT id, original_name, file_path, thumb_file_path, shared, storage_type
   FROM t_file WHERE id='<fileId>';"
 ```
 
-预期：1) 返回 `id`；2) `shared=1` 时 200、否则 403；3) 200 且 `content_type` 为 Excel；4) 行存在且 `file_path` 落在 `file-storage.local.root-path` 之下。
+预期：1) 返回 `id`；2) `shared=1` 时 200、否则 403；3) 200 且 `content_type` 为 Excel；4) 学员模板 200、xlsx；5) 未知模板 404；6) 行存在且 `file_path` 落在 `file-storage.local.root-path` 之下。
 
 ## 相关文档
 

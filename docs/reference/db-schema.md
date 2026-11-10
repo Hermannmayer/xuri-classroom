@@ -14,8 +14,9 @@
 | `t_comm_dict` | id:varchar(64)<br>code:varchar(256)<br>name:varchar(256)<br>remark:varchar(256)<br>dict_type:int<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_comm_dict_item` | id:varchar(64)<br>dict_code:varchar(256)<br>item_name:varchar(256)<br>item_value:varchar(256)<br>item_order:int<br>item_level:int<br>parent_item_value:varchar(64)<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_dashboard` | id:varchar(64)<br>key:varchar(256)<br>type:int<br>project_id:varchar(64)<br>setting:varchar(1024)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
-| `t_dept` | id:varchar(64)<br>parent_id:varchar(64)<br>name:varchar(64)<br>short_name:varchar(64)<br>code:varchar(64)<br>manager_id:varchar(64)<br>valid_from:timestamp<br>valid_to:timestamp<br>sort_code:int<br>property_json:varchar(256)<br>status:varchar(20)<br>remark:varchar(256) |
-| `t_class_partner` | id:varchar(64)<br>dept_id:varchar(64)<br>user_id:varchar(64)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
+| `t_dept` | id:varchar(64)<br>parent_id:varchar(64)<br>dept_type:varchar(16)<br>name:varchar(64)<br>short_name:varchar(64)<br>code:varchar(64)<br>manager_id:varchar(64)<br>valid_from:timestamp<br>valid_to:timestamp<br>sort_code:int<br>property_json:varchar(256)<br>status:varchar(20) |
+| `t_class_partner` | id:varchar(64)<br>dept_id:varchar(64)<br>user_id:varchar(64)<br>access_level:tinyint<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
+| `t_class_resource` | id:varchar(64)<br>class_id:varchar(64)<br>resource_type:varchar(16)<br>resource_id:varchar(64)<br>status:tinyint<br>start_at:datetime<br>end_at:datetime<br>assigned_by:varchar(64)<br>settings:text<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256) |
 | `t_file` | id:varchar(64)<br>original_name:varchar(256)<br>file_name:varchar(256)<br>file_path:varchar(512)<br>thumb_file_path:varchar(512)<br>storage_type:int<br>shared:int<br>project_id:varchar(64)<br>question_id:varchar(64)<br>answer_id:varchar(64)<br>file_size:bigint<br>is_deleted:tinyint(1) |
 | `t_position` | id:varchar(64)<br>name:varchar(50)<br>code:varchar(20)<br>is_virtual:tinyint(1)<br>data_permission_type:varchar(256)<br>property_json:varchar(20)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_project` | id:varchar(64)<br>parent_id:varchar(64)<br>name:text<br>survey:longtext<br>setting:text<br>status:int<br>mode:varchar(32)<br>priority:int<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp |
@@ -61,3 +62,6 @@
 - `scripts/nas/migrate/26-answer-items-synced.sql`
 - `scripts/nas/migrate/27-answer-attempt-no.sql`
 - `scripts/nas/migrate/28-answer-item-value.sql`
+- `scripts/nas/migrate/29-class-partner-access-level.sql`
+- `scripts/nas/migrate/30-dept-type.sql`
+- `scripts/nas/migrate/31-class-resource.sql`

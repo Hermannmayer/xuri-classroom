@@ -10,6 +10,8 @@ keywords:
   - 预览
   - 设计器
   - 随机题
+  - 班级分配
+  - 按班窗口
   - t_project.survey
 source_globs:
   - client/src/pages/survey/**
@@ -20,6 +22,7 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicProjectLoader.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicAnswerSubmitter.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/LoginFormValidator.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
@@ -61,8 +64,8 @@ tests:
   - client:npm run test:rules
   - client:npm run test:tree
   - docs:npm run docs:check
-last_verified: 2026-11-09
-verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+last_verified: 2026-11-10
+verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 ---
 
 # 考试编辑器与题型
@@ -105,10 +108,17 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 3. **题型盘点**：设计器面板 `QUESTION_META` 共 **17 项**：选择类 8 项（单选、多选、下拉、NPS、矩阵单选/多选、级联、判断），填写类 6 项（填空、多空填空、多行文本、矩阵填空、地址、评分），结构类 3 项（题组、说明、分割线）。渲染器实际注册 **14 个组件**；后端 `SurveySchema.QuestionType` 有 33 个枚举值，其中 `dataType()` 24 个、`examType()` 7 个。README 说的"18 种"来自"面板 17 + 未进面板的 `Pagination` 容器"，`docs/scope.md` 的"14 种"是更早的旧口径。
 4. **规则**：属性里的 `visibleRule` / `requiredRule` / `finishRule` 等是 JSON 字符串，内容形如 `{ conditionLogic: 'AND', conditionItem: [...] }`。`buildExpression` 把它拼成 `AND(#{q1.o1} ,NOT(#{+q2}))`（分隔符是空格+逗号，不能改成纯逗号），`engine.evaluateRule` 求值。规则只在**前端**求值，后端只负责存取；解析失败的规则返回 `success=false`，表现为"规则不生效"而不是报错。
 5. **预览**：`preview` 切换后同一棵 schema 交给 `SchemaRenderer`，并把 `values` 传进去；显隐规则只在预览/答题态应用，编辑态全部显示，否则隐藏题会在设计器里消失。预览不写答案，只用于检查题面与联动。
-6. **首屏与逐题下发**：答题页先 `POST /api/public/projectOutline`，后端 `loadProjectOutline` 只返回 `outline`（题号/题型/必填）和一个不含题干/选项的 shell；前端再按题 id 调 `POST /api/public/question` 取单题。`loadPublicQuestion` 会重新走 `loadProject` 校验项目访问权限，并校验题目确实属于当前问卷/当前随机卷快照。
+6. **首屏与逐题下发**：答题页先 `POST /api/public/projectOutline`，后端 `loadProjectOutline` 只返回 `outline`（题号/题型/必填）和一个不含题干/选项的 shell；前端再按题 id 调 `POST /api/public/question` 取单题。`loadPublicQuestion` 会重新走 `loadProject` 校验项目访问权限（**包括班级分配**），并校验题目确实属于当前问卷/当前随机卷快照。
 7. **答案剥离**：公开视图由 `ProjectViewMapper.toPublicProjectView` 生成，考试模式且非练习模式时会 `trimExamAnswerInfo` 去掉 `examCorrectAnswer`、`examScore`、`examMatchRule`；`loadPublicQuestion` 默认再剥一次正确答案/解析/分值。只有 `examSetting.exerciseMode=true` 时保留正确答案与解析给前端即时判题，分值仍然不下发。
 8. **随机题**：`RandomSurveyProcessor.processRandomSurvey` 在考试模式下处理两种来源：编辑器里的 `RandomSurvey` 节点，以及 `examSetting.randomSurvey` 配置。抽出的卷子会写进 `t_answer.survey` 快照，并用 `rd_answer_id_<projectId>` Cookie（7 天）复用；`examSetting.randomOrder=true` 时 `ProjectViewMapper.randomSchemaOrder` 会打乱非填空/非简答题目，填空题顺序保持不变。
 9. **交卷**：答题页 `POST /api/public/saveAnswer`，`SurveyServiceImpl.saveAnswer`（门面只做委托，实现在 impl 包组件里：校验走 `AnswerValidationService`，落库走 `PublicAnswerSubmitter`）先校验项目可提交（状态/截止/回收上限）、答案门槛（密码/登录/白名单/开始时间/限次），再交给 `AnswerServiceImpl` 保存、判分、写错题本。闯关模式的超时裁决在 `ExamControlService#applyPassModePenalty` 里完成（由 `PublicAnswerSubmitter` 调用）。
+
+### 按班级分配（学生准入）
+
+1. 公开链路的所有入口最终都会走 `ProjectAnswerValidator#validateProject`（`loadProject` / outline / 逐题 / 上传），交卷再走 `validateAnswerGate`；两处都会先调 `ClassResourceService#assertStudentCanAnswer`。
+2. 登录用户是 `student` 时：没有班级、或所在班没有这场考试的 `t_class_resource` 分配 → `ProjectNotFound`（404，不泄露标题）；班级/全局未开始 → `ExamUnStarted`；已结束 → `ExamFinished`；班级开关关闭/项目停用 → `SurveySuspend`。
+3. 全局窗口 `ProjectSetting.examSetting.startTime/endTime` 是硬上限；班级窗口为空继承全局，非空必须落在全局窗口内（由班级管理页维护，见 [teaching](./teaching.md)）。
+4. 匿名、staff、管理员直接放行；练习/错题本伪项目（`ExerciseProjectTemplate.EXERCISE_PROJECT_ID`）也直接放行，不参与班级分配。
 
 ## 修改指南
 
@@ -138,7 +148,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 |---|---|---|
 | 打开编辑器 | `project:update` + `@EnableDataPerm` | 只有 OWNER/COLLABORATOR/admin 能改 |
 | 打开概述/发布设置 | `project:detail` | 保存设置还要 `project:update` |
-| 公开加载/逐题/交卷 | 无 `@PreAuthorize` | `/api/public/**` 放行，由 Service 校验项目状态、密码、登录、白名单、限次 |
+| 公开加载/逐题/交卷 | 无 `@PreAuthorize` | `/api/public/**` 放行，由 Service 校验项目状态、密码、登录、白名单、限次；student 还要通过班级分配/窗口校验 |
 | 查看统计 | 无（公开统计） | `statProject` 只统计配置了 `statEnabled` 或 `quota` 的题 |
 | 查看成绩单/解析 | 无（凭 answerId） | 是否返回答案/排名由 `submittedSetting` 决定 |
 
@@ -155,6 +165,8 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 - **`Remark` 用 `dangerouslySetInnerHTML`**：说明文字由设计者/老师录入，直接按 HTML 渲染；如果以后允许学员或外部来源写 `attribute.content`，必须先消毒。
 - **`randomSurvey` 没有前端入口**：`ExamSetting.randomSurvey` 只能通过接口/直接改 JSON 配置；编辑器只提供 `randomSurveyWrong` 开关。
 - **逐题下发依赖服务端重新校验**：`/api/public/question` 不接受任意 `answerId` 绕过；但每次取题都会重新跑 `loadProject`，题目多时首屏请求数会明显上升。
+- **按班准入只在 Service 层**：`/api/public/**` 没有 `@PreAuthorize`，班级分配/窗口全靠 `ProjectAnswerValidator`；新增公开入口时必须复用 `validateProject`/`validateAnswerGate`，否则拿到 projectId 就能绕过。
+- **未分配是 404 不是 403**：`assertStudentCanAnswer` 对「没有班级 / 班级没有分配」统一抛 `ProjectNotFound`，避免泄露考试存在；排查「学生说打不开」时先查 `t_class_resource`，不要只看项目状态。
 
 ## 验证
 

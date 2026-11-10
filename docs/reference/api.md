@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 156 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 167 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -17,6 +17,7 @@
 | GET | `${api.prefix}/answer/download` | `AnswerApi#download` | `hasAuthority('answer:export')` | 是 |
 | POST | `${api.prefix}/answer/upload` | `AnswerApi#upload` | `hasAuthority('answer:upload')` | 是 |
 | GET | `${api.prefix}/system/audit/list` | `AuditApi#list` | `hasAuthority('system:log:list')` | — |
+| GET | `${api.prefix}/system/audit/actions` | `AuditApi#actions` | `hasAuthority('system:log:list')` | — |
 | GET | `${api.prefix}/dashboard/list` | `DashboardApi#listDashboard` | — | — |
 | GET | `${api.prefix}/exercise/list` | `ExerciseApi#historyExercise` | `hasAuthority('exercise:list')` | — |
 | POST | `${api.prefix}/exercise/delete` | `ExerciseApi#deleteExercise` | `hasAuthority('exercise:list')` | — |
@@ -120,6 +121,7 @@
 | GET | `${api.prefix}/system/dept/list` | `SystemApi#listDept` | `hasAnyAuthority('system:dept:list','org:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/system/dept/create` | `SystemApi#addOrg` | `hasAuthority('system:dept:create')` | — |
 | POST | `${api.prefix}/system/dept/update` | `SystemApi#updateOrg` | `hasAuthority('system:dept:update')` | — |
+| GET | `${api.prefix}/system/dept/delete-check` | `SystemApi#deleteCheck` | `hasAuthority('system:dept:delete') or hasRole('admin')` | — |
 | POST | `${api.prefix}/system/dept/delete` | `SystemApi#deleteOrg` | `hasAuthority('system:dept:delete')` | — |
 | POST | `${api.prefix}/system/dept/sort` | `SystemApi#sortOrg` | `hasAuthority('system:dept:create')` | — |
 | GET | `${api.prefix}/system/dict/list` | `SystemApi#listDict` | `hasAuthority('system:dict:list')` | — |
@@ -135,14 +137,23 @@
 | GET | `${api.prefix}/teaching/projects` | `TeachingApi#myProjects` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes` | `TeachingApi#classes` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/tree` | `TeachingApi#classTree` | `hasAuthority('class:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/create` | `TeachingApi#createClass` | `hasAuthority('class:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/update` | `TeachingApi#updateClass` | `hasAuthority('class:list') or hasRole('admin')` | — |
+| GET | `${api.prefix}/teaching/classes/resources` | `TeachingApi#classResources` | `hasAuthority('class:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/resources/assign` | `TeachingApi#assignClassResource` | `hasAuthority('class:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/resources/update` | `TeachingApi#updateClassResource` | `hasAuthority('class:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/resources/delete` | `TeachingApi#deleteClassResource` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/members` | `TeachingApi#classMembers` | `hasAuthority('class:detail') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/teachers` | `TeachingApi#classTeachers` | `hasAuthority('class:grant') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/teacher-options` | `TeachingApi#classTeacherOptions` | `hasAuthority('class:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/partner/create` | `TeachingApi#addClassPartners` | `hasAuthority('class:grant') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/partner/update` | `TeachingApi#updateClassPartner` | `hasAuthority('class:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/partner/delete` | `TeachingApi#deleteClassPartner` | `hasAuthority('class:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/member/create` | `TeachingApi#createClassMember` | `hasAuthority('class:member:create') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/member/update` | `TeachingApi#updateClassMember` | `hasAuthority('class:member:update') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/member/delete` | `TeachingApi#deleteClassMember` | `hasAuthority('class:member:delete') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching` | `TeachingApi#importClassMembers` | `hasAuthority('class:member:create') or hasRole('admin')` | — |
+| GET | `${api.prefix}/teaching/classes/member/template` | `TeachingApi#classMemberTemplate` | `hasAuthority('class:member:create') or hasRole('admin')` | — |
 | GET | `${api.prefix}/template/list` | `TemplateApi#listQuestionTemplate` | `hasAnyAuthority('template:list','repo:detail','repo:questions:read') or hasRole('admin')` | — |
 | GET | `${api.prefix}/template/get` | `TemplateApi#getTemplate` | `hasAuthority('template:list')` | — |
 | POST | `${api.prefix}/template/create` | `TemplateApi#addTemplate` | `hasAuthority('template:create')` | — |

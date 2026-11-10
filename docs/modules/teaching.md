@@ -5,115 +5,219 @@ status: current
 keywords:
   - 班级
   - 用户组
-  - 班主任
+  - dept_type
+  - 班级资源
+  - 按班窗口
+  - access_level
   - 分配老师
-  - 班级成员
+  - 学员导入
+  - 手机号账号
   - 学情
   - class:grant
   - t_dept
   - t_class_partner
+  - t_class_resource
 source_globs:
   - client/src/pages/teaching/**
+  - client/src/pages/system/Group.tsx
   - client/src/pages/system/GroupEntry.tsx
+  - client/src/pages/system/User.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
+  - server/shared/src/main/java/cn/surveyking/server/service/ClassService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassResource.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassNodeView.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassMemberView.java
-  - server/shared/src/main/java/cn/surveyking/server/domain/dto/TeachingClassView.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassTeacherView.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassResourceView.java
+  - server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java
 entrypoints:
   - client/src/pages/teaching/Classes.tsx
   - client/src/pages/teaching/ClassSettingsModal.tsx
+  - client/src/pages/teaching/ClassResourcesPanel.tsx
+  - client/src/pages/teaching/ImportMembersModal.tsx
+  - client/src/pages/teaching/DeleteDeptDialog.tsx
   - client/src/pages/teaching/Workbench.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
 apis:
   - GET /api/teaching/projects
   - GET /api/teaching/classes
   - GET /api/teaching/classes/tree
+  - POST /api/teaching/classes/create
+  - POST /api/teaching/classes/update
+  - GET /api/teaching/classes/resources
+  - POST /api/teaching/classes/resources/assign
+  - POST /api/teaching/classes/resources/update
+  - POST /api/teaching/classes/resources/delete
   - GET /api/teaching/classes/members
-  - GET /api/teaching/classes/teachers
-  - GET /api/teaching/classes/teacher-options
-  - POST /api/teaching/classes/partner/create
-  - POST /api/teaching/classes/partner/delete
   - POST /api/teaching/classes/member/create
   - POST /api/teaching/classes/member/update
   - POST /api/teaching/classes/member/delete
+  - POST /api/teaching/classes/member/import
+  - GET /api/teaching/classes/member/template
+  - GET /api/teaching/classes/teachers
+  - GET /api/teaching/classes/teacher-options
+  - POST /api/teaching/classes/partner/create
+  - POST /api/teaching/classes/partner/update
+  - POST /api/teaching/classes/partner/delete
   - GET /api/system/dept/list
-  - POST /api/system/dept/create
-  - POST /api/system/dept/update
+  - GET /api/system/dept/delete-check
   - POST /api/system/dept/delete
 tables:
   - t_dept
   - t_dept_role
   - t_class_partner
+  - t_class_resource
   - t_user
   - t_user_dept
+  - t_account
+  - t_user_role
   - t_project
   - t_answer
 tests:
-  - client:npx tsc --noEmit
+  - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-09
-verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+last_verified: 2026-11-10
+verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 ---
 
 # 班级与教学工作台
 
 ## 30 秒摘要
 
-「班级」就是用户组（`t_dept`），不是另一张表：班级管理页和原「系统管理 → 用户组」维护的是同一棵树，v6 起前者成为唯一入口。这个模块负责班级树/成员名单、把班级查看权限分配给老师（`t_class_partner`）、班主任在自己班里建学员账号，以及老师视角的「班级学情」（按考试聚合每个班的交卷数与平均分）。它**不负责**权限点与角色（见 `PermissionEnum` / 权限模块），也**不负责**考试内容和答卷明细。后端入口是 `TeachingApi` 与 `ClassServiceImpl`；前端入口在 `client/src/pages/teaching/`。
+「班级」不是独立的表，而是 `t_dept` 里 `dept_type=class` 的节点；同一个组织树里的 `dept_type=org` 节点是「用户组」，用于教职工组织与角色绑定。两者用途严格分开：**用户组（org）只放 staff、可绑角色；班级（class）只放 student、不绑角色**。这个模块负责班级树/成员、任课老师与授权级别（`t_class_partner.access_level`）、按班级分配考试/问卷及开放窗口（`t_class_resource`）、学员手机号账号与 Excel 批量导入，以及老师视角的「班级学情」。它**不负责**权限点与角色定义（见 [permissions](./permissions.md)），也不负责考试内容、答卷明细与按班窗口的具体校验（分别在 [project](./project.md)、[answer](./answer.md)、[survey](./survey.md)）。
 
 ## 什么时候看这篇
 
-- 班主任登录后看不到自己的班，或看到「（上级）」灰节点却点不开。
-- 「添加学员」报账号已存在、密码不合规，或提示不能把学员放进某个组。
-- 想删除一个班级却被拒绝，提示「下面还有子分组」或「还有 N 个成员」。
-- 「分配老师」按钮不出现，或老师反馈看不到被授权的班。
-- 班级学情里某场考试/某个班不出现，或平均分与答卷页对不上。
-- 侧栏的「用户组」菜单消失，或被重定向到班级管理。
+- 班级树看不到自己建的班，或用户组页里混进了班级。
+- 老师要自己建班/改班；或「班级设置」里找不到角色绑定。
+- 添加学员提示「请填写手机号 / 手机号格式不正确 / 该手机号已被其他账号使用」。
+- 批量导入学员报「第 N 行：……」或模板打不开、导入解析失败。
+- 任课老师只能看不能改，或「可管理」授权没有生效。
+- 给班级分配考试/问卷后，学生看不到、提示页面不存在、未开始或已结束。
+- 删除班级/用户组时不知道成员会去哪，或「最后一个组」仍然删不掉。
+- 班级学情/答卷数与预期对不上。
 
 ## 代码地图
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 班级管理页 | `client/src/pages/teaching/Classes.tsx` | 左树右表：班级树、成员、添加/编辑/删除学员、分配老师、删除分组 |
-| 班级设置弹窗 | `client/src/pages/teaching/ClassSettingsModal.tsx` | 新建/编辑班级：名称、上级、绑定角色、有效期；删除入口也在这里 |
-| 教学工作台 | `client/src/pages/teaching/Workbench.tsx` | 「我的考试」+ 选中考试后的班级分布（交卷数/平均分） |
-| 用户组兼容入口 | `client/src/pages/system/GroupEntry.tsx` | 有 `class:list` 时重定向到 `/teaching/classes`，否则渲染旧用户组页 |
-| 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 树、成员、老师、学情；每个方法都写了 `@PreAuthorize` |
-| 班级实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | 可见范围、树组装、成员/老师授权、学员增删改 |
+| 班级管理页 | `client/src/pages/teaching/Classes.tsx` | 左树右表：班级树、成员、任课老师、班级资源、删除分组；`class:list` 即可建班 |
+| 班级设置弹窗 | `client/src/pages/teaching/ClassSettingsModal.tsx` | 新建/编辑只维护名称、上级、有效期；走 `/api/teaching/classes/create` / `update`，不再绑角色 |
+| 班级资源面板 | `client/src/pages/teaching/ClassResourcesPanel.tsx` | 给本班分配考试/问卷、设置班级窗口与开关；只有 `manageable=true` 的班才渲染 |
+| 学员导入 | `client/src/pages/teaching/ImportMembersModal.tsx` | 下载 `学员导入模板.xlsx`、上传 xlsx 批量建号；逐行报错 |
+| 统一删除弹窗 | `client/src/pages/teaching/DeleteDeptDialog.tsx` | 三个入口共用：先 `delete-check`，有成员时二选一 MOVE / UNASSIGN |
+| 用户组页 | `client/src/pages/system/Group.tsx`、`GroupEntry.tsx` | 只维护 `dept_type=org` 的教职工组；入口不再重定向到班级页 |
+| 教学工作台 | `client/src/pages/teaching/Workbench.tsx` | 「我的考试」+ 按班分布的交卷数与平均分 |
+| 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 树、建班/改班、成员、导入、老师授权、班级资源；每方法都有 `@PreAuthorize` |
+| 班级实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | 可见范围、树组装、建班/改班、成员/老师授权、`assertClassManage` |
+| 班级资源 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `t_class_resource` 的增删改查、窗口/状态校验、学生可参加性判定 |
+| 学员账号 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java` | 建号/改号/删除学员；手机号即登录账号，改号同步 `t_account.auth_account` |
+| 批量导入 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java` | 解析 xlsx、逐行校验、整批事务；行错误统一「第 N 行：原因」 |
+| 组织写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java` | 用户组/班级共用 `t_dept` 写路径；`dept_type` 校验、删除预检与成员迁移 |
 | 学情 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java` | 两条只读聚合 SQL，不拉答卷内容 |
-| 组织写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java` | 建组/改组/删组、组绑角色与缓存失效 |
-| 学员账号 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java` | `createClassStudent`、`updateClassStudent`、`deleteClassStudent` |
 | 组数据范围 | `server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java` | 「主组 + 附加组 + 祖先链」的唯一解析出口 |
-| 数据表 | `t_dept`、`t_dept_role`、`t_class_partner`、`t_user`、`t_user_dept`、`t_project`、`t_answer` | 班级、组角色、老师授权、成员、附加组、学情来源 |
+| 数据表 | `t_dept`、`t_dept_role`、`t_class_partner`、`t_class_resource`、`t_user`、`t_user_dept`、`t_account`、`t_user_role`、`t_project`、`t_answer` | 组织树、组角色、老师授权、班级资源、成员、账号、项目与答卷 |
 
 ## 关键流程
 
-1. **班级树**：`Classes.tsx` 调 `GET /api/teaching/classes/tree`（`class:list`）。`ClassServiceImpl.listClassTree` 先取全部未删除的 `t_dept`，按 `visibleDeptIds` 算可见集合：管理员 / `class:grant` 看全部；其他人取「自己创建（`create_by`）或负责（`manager_id`）的班 + `t_class_partner` 里的班」，再把这些班的后代一起并入。随后 `withAncestors` 补祖先节点保证树有路径，`toNode` 写入成员数、负责人、组角色、有效期，`accessible` 标记该节点能否直接打开（补出来的祖先为 `false`，前端灰显且不可选）。
-2. **班级成员**：`GET /api/teaching/classes/members?deptId=`（`class:detail`）→ `listClassMembers` 先 `assertClassVisible`，再只查 `user_type='student'`，条件是主组 `t_user.dept_id` 或附加组 `t_user_dept` 命中该班；回填登录账号与角色名。新增走 `POST /api/teaching/classes/member/create`（`class:member:create`）→ `createClassMember` 校验班级可见、姓名/账号/初始密码必填、账号不重复 → `ClassStudentService#createClassStudent`：角色固定为内置学员角色（`student` 或 `xueyuan`）、状态置为有效、`user_type=student`，并通过 `assertClassDeptRoleSafe` 阻止把学员放进绑定了更高权限角色的组。编辑/删除同理，只允许 `student` 且必须属于当前班。
-3. **分配老师**：`GET /api/teaching/classes/teachers?deptId=` 与 `teacher-options` 都要求 `class:grant`；新增走 `POST /api/teaching/classes/partner/create`，`addClassPartners` 校验班级存在、用户存在并去重后写入 `t_class_partner`；取消走 `/partner/delete`，`ClassPartnerMapper.hardDelete` 做物理删除（表上有 `(dept_id,user_id)` 唯一键，逻辑删除会挡住重新授权）。老师候选只列 `user_type='staff'`，服务端上限 200 条。
-4. **班级设置**：`ClassSettingsModal` 直接调 `/api/system/dept/create`、`/update`、`/delete`（`system:dept:create/update/delete`）。`DeptServiceImpl.addDept` 补 `short_name`（库里有 NOT NULL 约束）并按兄弟节点数排 `sort_code`；`updateDept` 改上级时校验不成环、且非管理员不能把组挂到「绑定了更高权限角色」的祖先下；`deleteDept` 见「坑与已知限制」。
-5. **班级学情**：`Workbench.tsx` 先调 `GET /api/teaching/projects`（`project:report`）→ `TeachingMapper.listMyProjects` 查「自己是所有者，或是 `type` 1/2 协作者」的考试，附带已交卷数与平均分；再调 `GET /api/teaching/classes?projectId=` → `listClasses` 按答卷人的主组 `t_user.dept_id` 聚合交卷数与平均分，空组显示「未分组」。
+### 1. 两类组织节点：用户组（org）与班级（class）
+
+1. `t_dept.dept_type` 取值 `org` / `class`，默认 `org`；历史数据为空时一律按 `org` 解释（`DeptServiceImpl#deptTypeOf`）。
+2. `GET /api/system/dept/list?deptType=org|class` 按类型筛选；不带参数仍是全量组织树（保留原缓存语义）。用户组页只请求 `org`，班级树/班级页只请求 `class`。
+3. 新建节点时 `DeptServiceImpl#addDept` 规范化类型并校验「上级必须同类型」；`updateDept` 不允许修改 `deptType`，只有真的换上级时才校验父节点类型。
+4. 成员类型也被卡住：`UserAdminService` 对 staff 只接受 `org` 主组/附加组，对 student 只接受 `class`，消息分别是「教职工只能加入用户组（org）」「学员只能加入班级（class）」。
+
+### 2. 老师建班 / 改班
+
+1. 新建班级：班级管理页「新建班级」（有 `class:list` 即显示）→ `POST /api/teaching/classes/create` → `ClassServiceImpl#createClass`。
+2. 服务端强制 `deptType=class`、`roleIds=null`，写库复用 `DeptServiceImpl#addDept`（补 `short_name`、同级排序、清 `deptCache`/`userCache`）；`create_by` 由框架写当前用户，所以建完就能在自己的班级树里看到。
+3. 修改班级：`POST /api/teaching/classes/update`，先 `assertClassManage`；只改名称、上级、有效期，类型固定 `class`，角色字段被置空。
+4. 管理员仍可用 `/api/system/dept/create|update` 维护 `org` 用户组；**删除班级仍要求 `system:dept:delete`**，老师即使能建班，默认也删不了班。
+5. 权限口径：两个 teaching 接口的注解都是 `class:list or admin`，真正的写权限在 `assertClassManage`（见第 5 节）。
+
+### 3. 班级树与成员
+
+1. `GET /api/teaching/classes/tree`（`class:list`）只查 `dept_type=class`。可见集合 = 管理员 / `class:grant` 全量；其他人 = 自己创建/负责的班 + `t_class_partner` 授权的班，再向下展开全部子班，最后补祖先节点保证树有路径。
+2. 节点上的 `accessible=false` 表示只是补出来的路径祖先（点开会 403）；`manageable` 表示当前用户能不能改这个班（见第 5 节）。
+3. `GET /api/teaching/classes/members?deptId=`（`class:detail`）先 `assertClassVisible`，再只查 `user_type='student'`，条件是主组 `t_user.dept_id` 或附加组 `t_user_dept` 命中该班；回填登录账号（`t_account`）、手机号、邮箱、角色名。
+4. 成员数按「主组 + 附加组」统计，同一学员同时在两个班会在两个班各出现一次。
+
+### 4. 学员账号 = 手机号 / 批量导入
+
+1. 新增学员：`POST /api/teaching/classes/member/create`（`class:member:create`），先 `assertClassManage`；姓名、手机号、初始密码必填，手机号必须匹配 `^1[3-9]\d{9}$`。
+2. 服务端强制 `username = phone`（请求里的 `username` 字段已废弃、一律忽略），写 `t_user`（`user_type=student`）、`t_account`（密码加密，账号=手机号）、`t_user_role`（内置学员角色 `student`/`xueyuan`）。
+3. 编辑学员：手机号必填；手机号变化时先做唯一性校验，再同步 `t_account.auth_account`，否则学员还能用旧号登录。重复手机号统一提示「该手机号已被其他账号使用」。
+4. 批量导入：`POST /api/teaching/classes/member/import`（multipart：`deptId` + `file`，权限 `class:member:create` 或 admin，服务层再 `assertClassManage`）。模板由 `GET /api/teaching/classes/member/template` 下载。
+5. 模板格式：第一行表头，数据列依次为 **姓名（必填）、手机号（必填，登录账号）、初始密码（可空，默认 `12345678`）、邮箱（可空）**；密码 8~32 位；手机号在文件内/库里都不能重复。任一行失败整批回滚，异常是「第 N 行：原因」。
+6. 导入前先过 `ExcelImportSecurity`：文件 ≤20MB、解压后 ≤100MB、条目 ≤1000、行数 ≤20000、列数 ≤500、单元格 ≤32767 字符；文件损坏/非 xlsx 统一提示「Excel 文件解析失败，请确认使用模板且文件未损坏」。
+
+### 5. 任课老师与授权级别（access_level）
+
+1. 分配老师：`POST /api/teaching/classes/partner/create`（`class:grant` 或 admin），body `{deptId, userIds, accessLevel?}`；`accessLevel` 缺省 1（只读）。
+2. 对已存在的 `(dept_id,user_id)` 是 upsert：显式传 `accessLevel` 时更新级别；不传则保持原级别，避免老客户端把「可管理」降成只读。
+3. 单独改级别：`POST /api/teaching/classes/partner/update`，body `{deptId, id, accessLevel}`；`id` 必须是这个班的授权记录，否则拒绝。级别只接受 1（只读）/2（可管理）。
+4. 查看：`GET /api/teaching/classes/teachers`（`class:grant`）返回 `ClassTeacherView`，含 `accessLevel`；`GET /api/teaching/classes/teacher-options` 只列 `user_type='staff'`，上限 200。
+5. `manageable` 判定（`ClassServiceImpl#assertClassManage` 与树上的 `ClassNodeView.manageable` 同一口径）：管理员 / `class:grant`；本班或任一祖先班是自己创建/负责；本班或任一祖先班有 `access_level=2` 的授权。只读授权能看成员，但成员写操作会返回 403「你对该班级只有查看权限，不能修改」。
+6. 成员新建、编辑、删除、批量导入以及班级资源写操作都走 `assertClassManage`；查看成员仍只要求 `class:detail`。授权一个父班，默认覆盖其全部下级班。
+
+### 6. 班级资源：按班级分配考试/问卷与开放窗口（P1）
+
+1. 入口：班级详情 →「考试与问卷」面板（只有 `manageable=true` 才渲染，后端 `list` 也要求 `assertManage`）。
+2. 列表：`GET /api/teaching/classes/resources?deptId=&resourceType=project`，返回 `ClassResourceView`（资源名/类型、班级窗口、全局窗口、状态、分配人、本班答卷数、`effectiveStatus`）。
+3. 分配：`POST /api/teaching/classes/resources/assign`，body `{classId, resourceType:"project", resourceIds[], startAt?, endAt?, status?}`；按 `(class_id, resource_type, resource_id)` upsert，已存在时只更新窗口与开关，不改 `assignedBy`。
+4. 修改/取消：`/resources/update` 传 `{id,startAt?,endAt?,status?}`（`startAt/endAt` 传 null = 回退继承全局）；`/resources/delete` 传 `{id}`，物理删除分配行。
+5. 窗口规则：项目 `ProjectSetting.examSetting.startTime/endTime` 是**全局窗口，也是硬上限**；班级窗口为空表示继承全局，非空必须落在全局窗口内（全局未设置时不限制）。时间统一用 epoch 毫秒传输。
+6. 状态：`status=0` 手动关闭；学生侧有效状态 `CLOSED / NOT_STARTED / OPEN / ENDED` 由「班级开关 + 项目发布状态 + 班级窗口/全局窗口」共同计算。
+7. P1 只支持 `resourceType=project`（考试/问卷）；题库 `repo` 的班级窗口留 P2，当前传其它类型会报「暂只支持考试/问卷」。
+
+### 7. 学生按班进入与答卷班级
+
+1. 学生能否看到某场考试：项目列表可见性新增一条 `t_class_resource` EXISTS（`resource_id=项目`、`resource_type='project'`、`is_deleted=0`、`class_id` 命中主组/附加组/祖先链）；未分配到他所在班的考试不出现在列表里。
+2. 打开答题页/交卷时 `ProjectAnswerValidator` 还会再判一次（见 [project](./project.md)、[survey](./survey.md)）：没有分配 → `ProjectNotFound`（404）；班级/全局未开始 → `ExamUnStarted`；已结束 → `ExamFinished`；手动关闭或项目停用 → `SurveySuspend`。匿名、staff、管理员不受班级分配限制。
+3. 新建答卷时 `AnswerServiceImpl` 调 `ClassResourceService#resolveForStudent` 写 `t_answer.class_id`（主班优先，主班没有有效分配时取任一有效班级）；更新答卷不改 `class_id`。匿名/教职工答卷为 NULL。
+4. 班级资源面板的「答卷数」= `t_answer` 中该 `project_id + class_id + temp_save=1` 的条数；只有带 `class_id` 的**新答卷**才计入。
+
+### 8. 班级学情
+
+`Workbench.tsx` 先 `GET /api/teaching/projects`（`project:report`）→ `TeachingMapper.listMyProjects` 查「自己是所有者，或 type 1/2 协作者」的考试，附带已交卷数与平均分；再 `GET /api/teaching/classes?projectId=` → `listClasses` 仍按答卷人**主组** `t_user.dept_id` 聚合，不读 `t_answer.class_id`。所以换班后历史答卷会算到新班，和班级资源面板的按班答卷数口径不同。
 
 ## 修改指南
 
-### 改行为
+### 改班级 / 用户组行为
 
-1. 先分清是「谁能看到哪个班」（`ClassServiceImpl.visibleDeptIds`、`assertClassVisible`）还是「页面怎么展示」（`Classes.tsx` 的 `accessible`、`firstSelectable`）。两者的口径必须一致，否则会出现「树里有、点开 403」。
-2. 改班级口径时同步检查三处：`listClassTree` 的可见集合、`assertClassVisible` 的祖先链授权、`UserDeptScopeService`（题库/考试授权用的组范围）。
-3. 改学员增删改时，记住账号操作在 `ClassStudentService`，班级校验在 `ClassServiceImpl`；不要把「移出班级」和「删除账号」混成一个动作。
-4. 改学情 SQL 时只动 `TeachingMapper`，保持「只返回聚合、不回传答卷内容」的约定。
+1. 先分清节点类型：org 的写路径在 `SystemApi#addOrg/updateOrg` + `DeptServiceImpl`；class 的写路径在 `TeachingApi#createClass/updateClass` + `ClassServiceImpl`，最终都落到 `DeptServiceImpl`。
+2. 改类型/上级规则时同步 `DeptServiceImpl#normalizeDeptType`、`assertParentDeptType`、`UserAdminService#assertUserDeptTypes` 与前端两个页面（`Group.tsx` 只传 org，`ClassSettingsModal` 只传 class）。
+3. 改可见/可管理口径时同步三处：`listClassTree` 的可见集合、`assertClassVisible`（查看）、`assertClassManage` / `manageableDeptIds`（写）。树上的 `accessible` / `manageable` 必须与接口判定一致。
+4. 改班级成员字段：`User`/`Account` → `ClassMemberView` → `listClassMembers` → `Classes.tsx` 的成员表格；手机号同时是登录账号，别忘了 `t_account` 同步。
+
+### 改班级资源 / 按班窗口
+
+1. `t_class_resource` 的 DTO/接口在 `ClassResourceAssignRequest`、`ClassResourceUpdateRequest`、`ClassResourceDeleteRequest`、`ClassResourceView`；实现集中在 `ClassResourceService`。
+2. 改窗口规则只改 `assertAssignable` / `effectiveStatus` / `invalidReason`，并同步 `ProjectAnswerValidator` 的两处 `assertStudentCanAnswer`（打开与交卷）。
+3. 新增资源类型（P2 题库）时：先扩 `ClassResource.TYPE_*` 与 `normalizeResourceType`，再在项目/题库的可见性 SQL、学生准入判定、前端面板里各补一条；不要只放开写入。
+4. 改分配可见性时同时看 `ProjectServiceImpl#listProject` 的 EXISTS 子查询与 `t_class_resource.is_deleted=0`（这张表是真实逻辑删，必须显式过滤）。
+
+### 改导入 / 模板
+
+1. 模板文件在 `server/api/src/main/resources/template/学员导入模板.xlsx`；列顺序改动必须同步 `ClassStudentImportService` 的 `COL_*`。
+2. 模板必须带 `xl/sharedStrings.xml`（用 XlsxWriter 等生成）；fastexcel 读不到 sharedStrings 会解析失败。
+3. 文件限制在 `ExcelImportSecurity`；改上限时同步前端提示与接口文档。
 
 ### 新增字段/接口
 
 1. 班级节点字段：`Dept` → `ClassNodeView` → `ClassServiceImpl.toNode` → `Classes.tsx` 的 `ClassNode` interface。
-2. 新接口：在 `TeachingApi` 加映射并选对权限（看班级用 `class:list/detail`，分配老师用 `class:grant`，成员写用 `class:member:*`）；服务层必须再调 `assertClassVisible`，不能只靠注解。
+2. 新接口：在 `TeachingApi` 加映射并选对权限（看班级 `class:list/detail`，分配老师 `class:grant`，成员写 `class:member:*`，资源写 `class:list` + 服务层 `assertManage`）；服务层必须再校验，不能只靠注解。
 3. 改组织写操作：`DeptServiceImpl` 的四个写方法都带 `@Caching` 同时清 `deptCache` 与 `userCache`，新写方法别漏。
 4. 最后更新本页 frontmatter 的 `source_globs`、`apis` 与 [class-grant](../flows/class-grant.md)。
 
@@ -122,38 +226,50 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
 | 进入班级管理 | `class:list` | 自己创建/负责的班 + 被授权的班（含下级班）；管理员与 `class:grant` 看全部 |
+| 新建班级 | `class:list` 或 admin | 任何人建完都是自己的班（`create_by`） |
+| 修改班级 | `class:list` 或 admin + `assertClassManage` | 本班/祖先班是自己创建/负责，或有 `access_level=2` 授权 |
 | 查看班级成员 | `class:detail` | 逐班校验：本班或任一祖先班是自己创建/负责/被授权 |
+| 新增/编辑/删除学员 | `class:member:create/update/delete` + `assertClassManage` | 只读授权（`access_level=1`）会被 403 |
+| 批量导入学员 | `class:member:create` + `assertClassManage` | 同上；整批事务 |
+| 下载学员导入模板 | `class:member:create` 或 admin | 固定 classpath 模板 |
 | 查看已授权老师 | `class:grant` | 全部班级（用于分配） |
-| 分配/取消老师 | `class:grant` 或管理员 | 全部班级；被授权老师获得该班及下级班的只读查看 |
-| 新增学员 | `class:member:create` 或管理员 | 自己可见的班；角色固定为学员，不能指定角色 |
-| 编辑/删除学员 | `class:member:update/delete` 或管理员 | 自己可见的班，且目标必须是该班学员 |
-| 新建/修改/删除班级 | `system:dept:create/update/delete` | 组织树；删除还受子组/成员限制 |
+| 分配/改级别/取消老师 | `class:grant` 或 admin | 全部班级；级别 1 只读 / 2 可管理 |
+| 查看/分配/修改/取消班级资源 | `class:list` 或 admin + `assertClassManage` | 只有可管理该班的人能看面板与写入 |
+| 删除班级/用户组 | `system:dept:delete`（或 admin） | 组织树；有子组先处理；成员可 MOVE / UNASSIGN |
+| 维护用户组（org） | `system:dept:create/update/delete` | 全局；org 可绑角色、放 staff |
 | 班级学情 | `project:report`（页面还要求 `portal:teacher`） | 自己参与（所有者/协作者）的考试；接口本身不校验 `projectId` 归属 |
 
-> 角色现状：管理员拥有 `class:*` 与 `system:dept:*`；老师只有 `class:list`、`class:detail`、`class:member:create/update/delete`，**没有** `class:grant` 与 `system:dept:*`。
+> 角色现状：管理员拥有 `class:*` 与 `system:dept:*`；老师有 `class:list`、`class:detail`、`class:member:create/update/delete`，**没有** `class:grant`、`system:dept:*`，所以老师能建班/管自己班，但不能分配老师或删除班级。
 
 ## 坑与已知限制
 
-- **班级 = 用户组**：`t_dept` 一棵树，两套界面已合并。有 `class:list` 的账号访问 `/system/group` 会重定向到 `/teaching/classes`；只有 `system:dept:list`、没有班级入口的角色才保留旧用户组页。
-- **删除分组有三个前置条件**：没有子分组、没有成员（主组 `t_user.dept_id` 与附加组 `t_user_dept` 都算）、并且调用者有 `system:dept:delete`。删除是逻辑删 `t_dept`，同时清 `t_user_dept`、`t_repo_partner`、`t_project_partner.group_id`、`t_class_partner`、`t_user_position`、`t_dept_role`；**不会删除账号**。`Classes.tsx` 里 `removeClass` 的注释写「成员会变成未分组」，与后端当前行为不符，以 Popconfirm 文案和后端异常为准。
-- **删除学员 = 删除账号**：`deleteClassStudent` 删用户、登录账号、角色绑定与附加组，不可恢复；它不是「把学员移出班级」。要保留账号只能改到别的组（目前班级页没有「转班」入口）。
-- **老师默认没有建班/分配老师权限**：`新建班级`、`班级设置`、`删除分组` 需要 `system:dept:*`，`分配老师` 需要 `class:grant`；老师默认只有查看与被授权班内的学员维护。班级通常由管理员创建后再把老师加为负责人或授权该班。
-- **负责人（`manager_id`）没有前端编辑入口**：班级设置弹窗只有名称、上级、角色、有效期；`ClassNodeView` 会显示负责人，但要设置只能直接改库或调 `/api/system/dept/update`（传 `managerId`）。因此「班主任看到自己的班」目前主要靠 `create_by` 或 `t_class_partner` 授权。
-- **授权父班覆盖子班**：`assertClassVisible` 会沿祖先链找授权记录，所以给父班授权后，子班成员/老师也可见；树上补出的祖先节点 `accessible=false`，点它会 403。
-- **成员数口径**：`countMembers` 统计主组 + 附加组，一个学员同时在两个组会在两个班各计一次；班级成员列表也会在两个班各出现一次。
+- **P1 只做考试/问卷**：班级资源只接受 `resourceType=project`；题库（repo）的班级窗口是 P2，当前分配会报「暂只支持考试/问卷」。
+- **未分配班级的学生看不到考试**：列表不出现，直接打接口/打开链接按 `ProjectNotFound`（404）处理，不泄露标题；未开始/已结束/关闭分别是 `ExamUnStarted` / `ExamFinished` / `SurveySuspend`。
+- **班级分配只约束 student**：匿名公开问卷、staff、管理员走原逻辑；练习/错题本伪项目（`ExerciseProjectTemplate.EXERCISE_PROJECT_ID`）直接放行，不参与班级分配。
+- **班级资源面板的答卷数只统计新答卷**：按 `t_answer.class_id + temp_save=1` 计数；上线前的历史答卷 `class_id` 为 NULL，不会计入，也不是「本班全部答卷数」。
+- **分配资源不校验调用者对项目的可见性**：`ClassResourceService#assign` 只校验班级可管理、项目存在且不是文件夹；拿到 `projectId` 就能分配给自己的班（P1 的服务端缺口，改时应在分配前复用 `assertReadableProject` 之类判定）。
+- **项目列表的班级可见性不按窗口/开关过滤**：只要有一行 `t_class_resource`（即使 `status=0`、已结束），项目仍可能出现在学生列表里，打开时才报错；要隐藏得在 SQL 里补窗口/状态条件。
+- **只读老师看不到资源面板**：面板只在 `manageable=true` 时渲染，后端 `list` 也 `assertManage`；只读授权只能看成员/学情。
+- **删除文案与类型**：`DeleteDeptDialog` 的标题/提示仍统一写「用户组」（班级也复用它），以弹窗里的实际名称与后端错误为准；`lastDept` 后端按**同类型**计算（org 与 class 各算一套），前端文案仍写「最后一个用户组」。
+- **老师能建班但不能删班**：删除按钮只按 `system:dept:delete` 显示；老师默认没有该权限。要删班需要管理员，或给自定义角色加 `system:dept:delete`。
+- **删除班级会清掉班级资源**：`DeptServiceImpl#deleteDept` 会 `hardDeleteByClassId` 清 `t_class_resource`，并清 `t_class_partner`、`t_repo_partner`、`t_project_partner.group_id`、`t_user_dept`、`t_user_position`、`t_dept_role`；不会删账号。
+- **班级不绑角色只是页面约定**：`createClass/updateClass` 会把 `roleIds` 置空，但管理员直接调 `/api/system/dept/update` 仍可给 class 节点写 `t_dept_role`；不要把「班级无角色」当成数据库强约束。
+- **历史数据按 org 解释**：`dept_type` 为空的老节点按用户组处理；存量学员如果还在 org 组里，会因为没有班级分配而看不到按班考试，需要先迁到 class 班。
+- **负责人（`manager_id`）没有前端编辑入口**：`ClassSettingsModal` 只有名称、上级、有效期；「班主任看到自己的班」主要靠 `create_by`、`manager_id`（改库/接口）或 `t_class_partner` 授权。
+- **授权父班覆盖子班**：`assertClassVisible` / `assertClassManage` 都沿祖先链判断，授权/负责一个父班等于覆盖全部下级班。
+- **成员数口径**：`countMembers` 统计主组 + 附加组，一个学员同时在两个班会在两个班各计一次；班级成员列表也会在两个班各出现一次。
 - **班级只列学员**：`listClassMembers` 固定 `user_type='student'`，老师/职工在「用户管理」，不会混进班级名单。
-- **`ClassMemberView` 的注释与实现不一致**：DTO 注释称「不返回手机号、邮箱」，实际字段与 `listClassMembers` 都返回 `phone/email`，成员表格也展示手机号；做数据脱敏时别被注释误导。
-- **`addClassPartners` 不校验用户类型**：接口只校验用户存在，不要求 `staff`；候选列表只列教职工，但直接调接口可以授权任意用户 id。
-- **学情按主组聚合**：`TeachingMapper.listClasses` 只用 `t_user.dept_id`，附加组与班级树层级不参与；学员换主组后历史答卷会算到新班，未交卷（`temp_save=1` 之外）不计入。
-- **学情只认所有者/协作者**：`listMyProjects` 只按 `t_project_partner.user_id` 查 `type` 1/2，按班级组授权（`type=3`）或按组添加的协作者都不会出现在工作台。
-- **`/api/teaching/classes` 不校验项目归属**：只要持有 `project:report`，传任意 `projectId` 都能拿到该考试的班级聚合（不含答卷明细）；这是当前的数据范围缺口。
-- **组有效期只在登录时校验**：`UserDeptMembershipService#assertDeptValid` 在登录链路执行，`loadUserById` 未校验；组过期后已登录会话仍可继续用，直到重新登录。
-- **`class:grant` 的人能看到全部班级**：`visibleDeptIds` 与 `listClassTeachers` 都对 `class:grant` 放行全量，用于分配；这不是「只能看自己负责的班」。
+- **学情仍按主组聚合**：`TeachingMapper.listClasses` 只用 `t_user.dept_id`，不读 `t_answer.class_id`；换班后历史答卷会算到新班，附加组与班级树层级不参与。
+- **学情只认所有者/协作者**：`listMyProjects` 只按 `t_project_partner.user_id` 查 `type` 1/2，按班级组授权（`type=3`）或按组添加的协作者不会出现在工作台。
+- **`/api/teaching/classes` 不校验项目归属**：只要持有 `project:report`，传任意 `projectId` 都能拿到该考试的班级聚合（不含答卷明细）。
+- **添加老师不校验用户类型**：`addClassPartners` 只校验用户存在，不要求 `staff`；候选列表只列教职工，直接调接口可以授权任意用户 id。
+- **组有效期只在登录时校验**：`UserDeptMembershipService#assertDeptValid` 在登录链路执行；过期后已登录会话仍可继续用，直到重新登录。
+- **`class:grant` 能看到全部班级**：`visibleDeptIds` 与 `listClassTeachers` 都对 `class:grant` 放行全量，用于分配；这不是「只能看自己负责的班」。
 
 ## 验证
 
 ```bash
-cd client && npx tsc --noEmit
+cd client && npm run check
 npm run docs:check
 ```
 
@@ -161,16 +277,19 @@ npm run docs:check
 
 手工冒烟：
 
-1. 管理员建「父班 → 子班」两级、给父班绑一个低权限角色，再把子班授权给老师 A；A 登录后树里能看到父班（灰）与子班（可点），能看子班成员。
-2. 老师在子班添加学员：账号重复会被拒；密码少于 8 位会被拒；添加成功后学员能登录。
-3. 给班级绑一个高权限角色，再由非管理员尝试往该班加学员，应被拒（组角色提权保护）。
-4. 删除有成员的班级应失败并给出中文原因；清空成员、删除子班后再删才成功，且题库/考试授权记录一并消失。
-5. 教学工作台能看到自己参与的考试；选一场已有人交卷的考试，班级分布的交卷数与答卷列表一致。
+1. 老师（只有 `class:list`）在班级管理页新建一个班，刷新后树里能看到；用户组页看不到这个班。
+2. 在班里添加学员：手机号格式错、重复手机号应被拒；成功后学员用手机号登录；改手机号后旧号登录失败、新号成功。
+3. 下载学员导入模板，填两行（一行合法、一行手机号重复）导入：整批失败并提示「第 N 行：该手机号已被其他账号使用」；修正后成功，导入行数正确。
+4. 管理员给老师授权：只读 → 老师能看成员但不能添加/导入（403 提示「你对该班级只有查看权限，不能修改」）；改为可管理 → 能添加/导入。
+5. 给班级分配一场考试并设置班级窗口：学生登录能在考试列表看到；未分配该班的学生打开链接 404；窗口未开始/已结束分别提示对应错误。
+6. 删除一个有成员的班：`delete-check` 能看到成员；选 UNASSIGN 删除后学员变成未分组、仍能登录；选 MOVE 只能选同类型 `class` 节点，删除后 `t_class_resource` 无孤儿行。
+7. 教学工作台能看到自己参与的考试；选一场已有人交卷的考试，班级分布的交卷数与答卷列表核对（注意历史答卷 `class_id` 为空时不会出现在资源面板计数里）。
 
 ## 相关文档
 
-- [题库与题目](./repo.md)：题库授权弹窗里的组树、按组授权的继承口径。
-- [建班与授权](../flows/class-grant.md)：建班 → 加学员 → 分配老师 → 数据可见范围的完整链路。
-- [权限与角色](./permissions.md)：`class:*`、`system:dept:*` 与角色现状。
-- [功能范围](../architecture/scope.md)：班级/用户组在 v6 的合并说明。
-- [文档入口](../start/docs-workflow.md)：按任务定位其他模块。
+- [建班与授权](../flows/class-grant.md)：建班 → 加学员 → 分配老师 → 分配考试/题库 → 学生按班进入的完整链路。
+- [考试与问卷（项目）](./project.md)：项目列表可见性、按班准入与全局窗口。
+- [答卷、判分与报表](./answer.md)：`t_answer.class_id` 的写入与统计口径。
+- [权限、角色与用户组](./permissions.md)：org/class 分离、`class:*`、`system:dept:*` 与审计。
+- [题库与题目](./repo.md)：题库授权与题库导出（班级窗口留 P2）。
+- [文档入口与维护规则](../start/docs-workflow.md)

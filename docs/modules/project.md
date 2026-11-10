@@ -8,15 +8,20 @@ keywords:
   - 项目
   - 发布
   - 协作者
+  - 班级分配
+  - 按班窗口
   - 数据范围
   - t_project
   - t_project_partner
+  - t_class_resource
 source_globs:
   - client/src/pages/project/**
   - client/src/api/index.ts
   - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
 entrypoints:
@@ -45,19 +50,20 @@ apis:
 tables:
   - t_project
   - t_project_partner
+  - t_class_resource
   - t_answer
 tests:
-  - 'client:npm run check'
-  - 'docs:npm run docs:check'
-last_verified: '2026-11-09'
-verified_against: '765fc89'
+  - client:npm run check
+  - docs:npm run docs:check
+last_verified: 2026-11-10
+verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 ---
 
 # 考试与问卷（项目）
 
 ## 30 秒摘要
 
-一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` 和 `t_project_partner`。
+一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（学生视角，P1 只做考试/问卷）。
 
 ## 什么时候看这篇
 
@@ -79,17 +85,30 @@ verified_against: '765fc89'
 | 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关是独立端点 |
 | 生命周期 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java` | `addProject` / `updateProject` / `updateProjectStatus` / `deleteProject` / `getDeleted` / `restoreProject` |
 | 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java` | `assertProjectOwner`、`addProjectPartner`、`getProjectPerms`、缓存失效 |
+| 班级分配/准入 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java`、`ProjectAnswerValidator.java` | `t_class_resource` 分配、按班窗口、`assertStudentCanAnswer` |
 | 设置结构 | `server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java` | `AnswerSetting` / `SubmittedSetting` / `ExamSetting` |
-| 数据表 | `t_project`、`t_project_partner`、`t_answer` | 项目本体、参与者、答卷数统计 |
+| 数据表 | `t_project`、`t_project_partner`、`t_class_resource`、`t_answer` | 项目本体、参与者、班级分配、答卷数统计 |
 
 ## 关键流程
 
 1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
-2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`。可见性写在 SQL 的 EXISTS 子查询里：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`），且 `type IN (1,2,3)`。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
+2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
+   注意：班级资源这条只判断「有没有分配」，不判断 `status` 与班级窗口；关闭/已结束的考试仍可能出现在列表里，打开时才报错。
 3. **改名/保存设置**：`POST /api/project/update`。整页保存直接传 `setting` 或 `survey`；只改单项时传 `settingKey` + `settingValue`，`ProjectServiceImpl.validateSettingKey` 用 SpEL 白名单限制可写路径。方法内按 `id.intern()` 串行化，避免并发整包覆盖。
 4. **发布/关闭**：`POST /api/project/status`（`project:publish` 或 admin）。`updateProjectStatus` 同时写 `t_project.status` 和 `setting.status`，两处必须一致：列表读列，答题页读 setting。非 1 的状态一律归 0。
 5. **协作者/班级授权**：`POST /api/project/partner/create`，`type=1 OWNER`、`2 COLLABORATOR`、`3 RESPONDENT_SYS_USER`、`4 RESPONDENT_IMP_USER`。传 `groupId` 时只写一条组记录，组员自动继承；传 `userIds` 时逐人写。新增/删除/导入在控制器和 Service 双重校验 `assertProjectOwner`，且变更后会清 `projectPermissionCache`（组授权清全量）。
 6. **回收站**：`POST /api/project/delete` 是逻辑删除（`is_deleted=1`）。`GET /api/project/trash` 返回数组而不是分页对象，且只查 `create_by=当前用户` 的已删项目；恢复 `POST /api/project/restore` 需要 `project:create`，彻底删除 `POST /api/project/destroy` 需要 `project:delete`，后者物理删除 `t_project` 并清掉该项目的全部参与者。
+
+### 按班级分配与开放窗口（学生视角）
+
+1. 分配数据在 `t_class_resource`（一行 = 班级 + `project` + 考试），由班级管理页的「考试与问卷」面板维护；写入与窗口规则见 [teaching](./teaching.md)。
+2. **全局窗口**：`ProjectSetting.examSetting.startTime/endTime`（epoch 毫秒）是硬上限；班级窗口 `t_class_resource.start_at/end_at` 为空继承全局，非空必须落在全局窗口内。
+3. **准入闸门**：`ProjectAnswerValidator#validateProject`（打开/大纲/逐题/上传）与 `validateAnswerGate`（交卷）都会调 `ClassResourceService#assertStudentCanAnswer`：
+   - 登录用户是 `student` 且不在任何班，或所在班没有这场考试的分配 → `ProjectNotFound`（404，不泄露标题）；
+   - 班级/全局未开始 → `ExamUnStarted`（6000）；已结束 → `ExamFinished`（6010）；班级开关关闭或项目停用 → `SurveySuspend`（4000）。
+   - 匿名、staff、管理员直接放行；练习/错题本伪项目（`ExerciseProjectTemplate.EXERCISE_PROJECT_ID`）也直接放行。
+4. **多班**：学生同时在多个班时，任一班的分配有效即可参加；解析「答题时所在班」时主班优先。新建答卷写 `t_answer.class_id`，更新答卷不改（换班后历史答卷仍算原班）。
+5. **项目列表 vs 打开**：列表只按「有分配」放行，不按窗口/开关过滤；打开时才做完整窗口校验，所以会出现「列表里看得到、点开提示未开始/已结束/已关闭」。
 
 ## 修改指南
 
@@ -124,6 +143,7 @@ verified_against: '765fc89'
 | 发布开关 | `project:publish` + `@EnableDataPerm` | OWNER/COLLABORATOR；admin 绕过数据权限 |
 | 删除/彻底删除 | `project:delete` + `@EnableDataPerm` | OWNER/COLLABORATOR |
 | 成员增删/导入/下载 | `project:partner` 或 admin；成员变更额外要求 OWNER | 仅项目所有者可改成员；下载名单不再对普通 `project:detail` 开放 |
+| 学生按班参加 | 无额外权限（有 `project:answer`） | 必须被分到学生所在班；未分配 404，未开始/已结束/关闭分别报对应错误 |
 
 ## 坑与已知限制
 
@@ -135,6 +155,11 @@ verified_against: '765fc89'
 - **`getSetting` 会清空访问密码**：`ProjectServiceImpl.getSetting` 把 `answerSetting.password` 置 null 再返回；设置页打开时看不到已配置的密码，只能重新输入覆盖。
 - **`selectTemplate` / `selectRepo` / `selectTag` 没有 `@PreAuthorize`**：只靠 `/api/**` 的登录拦截，任何登录用户都能拿到题库/模板/标签候选；如果这些数据敏感，需要补权限点。
 - **文件夹子项计数与答卷数共用 `total`**：文件夹返回子项目数，普通项目返回"已提交答卷数"（`temp_save=1`），前端不要把它当"题目数"。
+- **班级分配只约束 student**：匿名公开问卷、staff、管理员不走 `assertStudentCanAnswer`；练习伪项目也不参与。不要把「未分配 404」套到所有登录用户。
+- **列表可见性不按窗口/开关过滤**：`t_class_resource` EXISTS 只判断有没有分配；`status=0`、未开始、已结束的考试仍可能出现在学生列表里，打开时才报错。要隐藏得在 SQL 里补窗口/状态条件。
+- **分配资源不校验项目可见性**：班级资源写入只校验班级可管理 + 项目存在/非文件夹，不校验调用者是否能看到该项目；拿 `projectId` 即可分配（P1 服务端缺口）。
+- **全局窗口未设置 = 不限制**：`examSetting.startTime/endTime` 为空时，班级窗口可以任意设；「硬上限」只在全局有值时成立。
+- **`t_class_resource` 是逻辑删表**：手写 SQL 必须显式加 `is_deleted=0`；`t_project_partner` 没有 `is_deleted`，两者不要混。
 
 ## 验证
 
@@ -149,6 +174,8 @@ npm run docs:check
 2. 老师建考试 → 列表出现 → 发布 → 学员能打开 `/s/:id`；关闭收集后再打开应提示"问卷已暂停回收"。
 3. 协作者账号能看列表和答卷但改不了成员；项目所有者能加/删成员，组授权后组员能看到。
 4. 删除项目 → 回收站能看到 → 恢复后回到列表；彻底删除后列表和回收站都不再出现。
+5. 学生 A 在班级 X：给 X 分配一场考试后，A 的列表出现该考试；未分配该班的 B 打开链接应 404；把班级窗口设到未来/过去，A 打开分别提示未开始/已结束。
+6. 把班级开关关掉（`t_class_resource.status=0`）→ A 打开提示「问卷已暂停回收」；重新打开后可正常进入。
 
 ## 相关文档
 

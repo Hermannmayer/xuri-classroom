@@ -11,7 +11,9 @@ modules:
       - 报表
       - 导出
       - 回收站
+      - 班级
       - t_answer
+      - t_answer.class_id
       - AnswerScoreEvaluator
     source_globs:
       - client/src/pages/answer/**
@@ -26,6 +28,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSubmitIdempotency.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerUploadParser.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSchemaDecorator.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerMetaEnricher.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
@@ -61,13 +64,14 @@ modules:
     tables:
       - t_answer
       - t_project
+      - t_class_resource
       - t_file
     tests:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-09
-    verified_against: fa9ed5bf5b68d539afcc4f561c6eeee5240d7af5
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -219,6 +223,11 @@ modules:
       - 上传
       - 文件存储
       - 导入模板
+      - 学员导入模板
+      - XlsxWriter
+      - sharedStrings
+      - 模板白名单
+      - 404
       - 缩略图
       - 配额
     source_globs:
@@ -226,7 +235,10 @@ modules:
       - client/src/api/request.ts
       - server/api/src/main/java/cn/surveyking/server/api/FileApi.java
       - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/api/src/main/resources/template/*
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java
+      - server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java
       - server/shared/src/main/java/cn/surveyking/server/storage/**
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/UploadFileRequest.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/FileQuery.java
@@ -246,6 +258,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
       - server/shared/src/main/java/cn/surveyking/server/storage/LocalStorageService.java
       - server/api/src/main/resources/template/卷王用户导入模板.xlsx
+      - server/api/src/main/resources/template/学员导入模板.xlsx
     apis:
       - POST /api/file/create
       - GET /api/file
@@ -254,13 +267,17 @@ modules:
       - GET /api/file/downloadTemplate
       - POST /api/public/upload
       - GET /api/public/preview/{attachmentId}
+      - POST /api/teaching/classes/member/import
+      - GET /api/teaching/classes/member/template
     tables:
       - t_file
+      - t_user
+      - t_account
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md
@@ -268,11 +285,16 @@ modules:
       - 权限
       - 角色
       - 用户组
+      - 班级
+      - dept_type
+      - access_level
       - 权限矩阵
       - 数据范围
       - 审计
+      - 403
     source_globs:
       - client/src/pages/system/**
+      - client/src/pages/teaching/**
       - client/src/auth/permissions.ts
       - client/src/components/RequirePerm.tsx
       - client/src/layout/BasicLayout.tsx
@@ -280,27 +302,34 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/core/constant/PermissionEnum.java
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/SecurityContextUtils.java
       - server/shared/src/main/java/cn/surveyking/server/core/aop/DataPermAspect.java
+      - server/shared/src/main/java/cn/surveyking/server/core/mvc/advice/GlobalExceptionHandler.java
       - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java
       - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAdminService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/ExportGuardService.java
       - server/rdbms/src/main/resources/scripts/init-mysql.sql
       - scripts/nas/migrate/**
     entrypoints:
       - client/src/pages/system/Permissions.tsx
+      - client/src/pages/system/Group.tsx
       - client/src/auth/permissions.ts
       - server/shared/src/main/java/cn/surveyking/server/core/constant/PermissionEnum.java
       - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditAspect.java
+      - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditTargetResolver.java
       - scripts/nas/migrate/23-permission-cleanup.sql
     apis:
       - GET /api/currentUser
@@ -310,19 +339,27 @@ modules:
       - POST /api/system/role/update
       - POST /api/system/role/delete
       - POST /api/system/protection
+      - GET /api/system/dept/list
+      - GET /api/system/dept/delete-check
+      - POST /api/system/dept/delete
+      - POST /api/teaching/classes/create
+      - POST /api/teaching/classes/update
+      - POST /api/teaching/classes/partner/update
       - GET /api/system/audit/list
+      - GET /api/system/audit/actions
     tables:
       - t_role
       - t_user_role
       - t_dept_role
       - t_dept
       - t_user
+      - t_class_partner
       - t_audit_log
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -332,15 +369,20 @@ modules:
       - 项目
       - 发布
       - 协作者
+      - 班级分配
+      - 按班窗口
       - 数据范围
       - t_project
       - t_project_partner
+      - t_class_resource
     source_globs:
       - client/src/pages/project/**
       - client/src/api/index.ts
       - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
     entrypoints:
@@ -369,12 +411,13 @@ modules:
     tables:
       - t_project
       - t_project_partner
+      - t_class_resource
       - t_answer
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: 765fc89
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -382,6 +425,8 @@ modules:
       - 题库
       - 题目
       - 导入导出
+      - 导出弹窗
+      - 导入模板
       - 组卷
       - 题库授权
       - repo:grant
@@ -406,6 +451,7 @@ modules:
     entrypoints:
       - client/src/pages/repo/List.tsx
       - client/src/pages/repo/Questions.tsx
+      - client/src/pages/repo/RepoExportModal.tsx
       - client/src/pages/repo/GrantModal.tsx
       - server/api/src/main/java/cn/surveyking/server/api/RepoApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
@@ -434,8 +480,8 @@ modules:
     tests:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: 765fc89
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -447,6 +493,8 @@ modules:
       - 预览
       - 设计器
       - 随机题
+      - 班级分配
+      - 按班窗口
       - t_project.survey
     source_globs:
       - client/src/pages/survey/**
@@ -457,6 +505,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicProjectLoader.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicAnswerSubmitter.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/LoginFormValidator.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
@@ -498,66 +547,95 @@ modules:
       - client:npm run test:rules
       - client:npm run test:tree
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
     keywords:
       - 班级
       - 用户组
-      - 班主任
+      - dept_type
+      - 班级资源
+      - 按班窗口
+      - access_level
       - 分配老师
-      - 班级成员
+      - 学员导入
+      - 手机号账号
       - 学情
       - class:grant
       - t_dept
       - t_class_partner
+      - t_class_resource
     source_globs:
       - client/src/pages/teaching/**
+      - client/src/pages/system/Group.tsx
       - client/src/pages/system/GroupEntry.tsx
+      - client/src/pages/system/User.tsx
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
+      - server/shared/src/main/java/cn/surveyking/server/service/ClassService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassResource.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassNodeView.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassMemberView.java
-      - server/shared/src/main/java/cn/surveyking/server/domain/dto/TeachingClassView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassTeacherView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ClassResourceView.java
+      - server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java
     entrypoints:
       - client/src/pages/teaching/Classes.tsx
       - client/src/pages/teaching/ClassSettingsModal.tsx
+      - client/src/pages/teaching/ClassResourcesPanel.tsx
+      - client/src/pages/teaching/ImportMembersModal.tsx
+      - client/src/pages/teaching/DeleteDeptDialog.tsx
       - client/src/pages/teaching/Workbench.tsx
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
     apis:
       - GET /api/teaching/projects
       - GET /api/teaching/classes
       - GET /api/teaching/classes/tree
+      - POST /api/teaching/classes/create
+      - POST /api/teaching/classes/update
+      - GET /api/teaching/classes/resources
+      - POST /api/teaching/classes/resources/assign
+      - POST /api/teaching/classes/resources/update
+      - POST /api/teaching/classes/resources/delete
       - GET /api/teaching/classes/members
-      - GET /api/teaching/classes/teachers
-      - GET /api/teaching/classes/teacher-options
-      - POST /api/teaching/classes/partner/create
-      - POST /api/teaching/classes/partner/delete
       - POST /api/teaching/classes/member/create
       - POST /api/teaching/classes/member/update
       - POST /api/teaching/classes/member/delete
+      - POST /api/teaching/classes/member/import
+      - GET /api/teaching/classes/member/template
+      - GET /api/teaching/classes/teachers
+      - GET /api/teaching/classes/teacher-options
+      - POST /api/teaching/classes/partner/create
+      - POST /api/teaching/classes/partner/update
+      - POST /api/teaching/classes/partner/delete
       - GET /api/system/dept/list
-      - POST /api/system/dept/create
-      - POST /api/system/dept/update
+      - GET /api/system/dept/delete-check
       - POST /api/system/dept/delete
     tables:
       - t_dept
       - t_dept_role
       - t_class_partner
+      - t_class_resource
       - t_user
       - t_user_dept
+      - t_account
+      - t_user_role
       - t_project
       - t_answer
     tests:
-      - client:npx tsc --noEmit
+      - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-09
-    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+    last_verified: 2026-11-10
+    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
