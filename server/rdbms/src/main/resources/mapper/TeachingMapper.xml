@@ -21,7 +21,7 @@
         FROM t_answer a JOIN t_user u ON u.id = a.create_by
         LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id)
         WHERE a.project_id = #{projectId} AND a.temp_save = 1 AND a.is_deleted = 0
-        GROUP BY COALESCE(a.class_id, u.dept_id), d.name ORDER BY answerCount DESC
+        GROUP BY COALESCE(a.class_id, u.dept_id, ''), d.name ORDER BY answerCount DESC
     </select>
 
 </mapper>
