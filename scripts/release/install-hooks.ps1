@@ -1,4 +1,4 @@
-# 安装仓库自带的 git hooks（commit-msg 格式校验 + 去掉 AI 署名）。
+﻿# 安装仓库自带的 git hooks（commit-msg 格式校验 + 去掉 AI 署名）。
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $Source = Join-Path $Root '.githooks\commit-msg'

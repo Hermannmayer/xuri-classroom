@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   准备一个 GitHub Release：写版本、生成 CHANGELOG、提交、打 tag；-Push 推到 GitHub 后由 Actions 构建并发布。
 
@@ -138,5 +138,5 @@ else {
     Write-Host ''
     Write-Host "本地已提交并打 tag v$Version。推 GitHub 触发发版："
     Write-Host "  .\scripts\release\Release.ps1 -Version $Version -Push"
-    Write-Host '（版本文件已提交时可直接：git push origin main; git push origin ' + "v$Version")
+    Write-Host ('（版本文件已提交时可直接：git push origin main; git push origin ' + "v$Version")
 }
