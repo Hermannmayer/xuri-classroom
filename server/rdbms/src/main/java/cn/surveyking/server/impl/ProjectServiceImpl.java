@@ -69,6 +69,10 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		// 分类过滤：普通值精确匹配；__UNCATEGORIZED__ 表示「未分类」（NULL 或空串）；空不过滤
 		String category = isBlank(query.getCategory()) ? null : query.getCategory().trim();
 		boolean uncategorized = ProjectQuery.UNCATEGORIZED.equals(category);
+		// 分类筛选是跨文件夹的：选了分类时不能再按「根目录」限制 parentId，
+		// 否则移到文件夹里的考试会从分类结果里消失（分类与文件夹是两套维度）。
+		boolean categoryActive = category != null;
+		boolean rootLevel = isBlank(query.getParentId()) && !categoryActive;
 		// 说明：项目列表的可见性判定全部落在下面的 EXISTS 子查询里，
 		// 依赖 t_user_dept（附加组）与 t_dept 的祖先链，改这段务必跑一次
 		// scripts/nas/Deploy-Nas.ps1 让冒烟测试覆盖到「试卷能列出来」。
@@ -76,7 +80,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				.like(isNotBlank(query.getName()), Project::getName, query.getName())
 				.eq(isNotBlank(query.getParentId()), Project::getParentId, query.getParentId())
 				// 父id为空或者为 0 表示一级目录
-				.and(isBlank(query.getParentId()),
+				.and(rootLevel,
 						c -> c.isNull(Project::getParentId).or().eq(Project::getParentId, "0"))
 				.eq(query.getMode() != null, Project::getMode, query.getMode())
 				// 可见性：本人被授权(type 1/2/3)，或所在用户组被授权（group_id 存 dept id；主组 + 附加组，含祖先链）
@@ -96,10 +100,20 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 						.exists("SELECT 1 FROM t_class_resource cr WHERE cr.resource_id = t_project.id"
 								+ " AND cr.resource_type = 'project' AND cr.is_deleted = 0"
 								+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",
+								SecurityContextUtils.getUserId())
+						// 父文件夹被授权：直接子项目继承可见/可读权限（文件夹授权）
+						.or()
+						.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
+								+ " ON pt.project_id = child.parent_id WHERE child.id = t_project.id"
+								+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
+								+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
+								+ " AND pt.type IN (1, 2, 3)",
 								SecurityContextUtils.getUserId()))
 				// 分类过滤（放在可见性条件之后）：未分类是「NULL 或空串」，用 and(...) 包住避免 OR 串味
 				.and(uncategorized, c -> c.isNull(Project::getCategory).or().eq(Project::getCategory, ""))
 				.eq(category != null && !uncategorized, Project::getCategory, category)
+				// 文件夹不参与分类（既不属于某个分类，也不进「未分类」）
+				.ne(categoryActive, Project::getMode, ProjectModeEnum.folder)
 				// 文件夹排在前面，然后按创建时间从近到远排序
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));
 		PaginationResponse<ProjectView> result = new PaginationResponse<>(page.getTotal(),
@@ -136,6 +150,14 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 							+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
 							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 							+ " AND t.type IN (1, 2)",
+							userId)
+					// 父文件夹授权：子项目继承（文件夹授权）
+					.or()
+					.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
+							+ " ON pt.project_id = child.parent_id WHERE child.id = t_project.id"
+							+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
+							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
+							+ " AND pt.type IN (1, 2, 3)",
 							userId));
 		}
 		List<Project> projects = list(wrapper);
@@ -179,7 +201,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	public List<ProjectCategoryView> listCategories() {
 		String userId = SecurityContextUtils.getUserId();
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Project> wrapper = Wrappers
-				.<Project>lambdaQuery().select(Project::getId, Project::getCategory);
+				.<Project>lambdaQuery().select(Project::getId, Project::getCategory)
+				// 文件夹不是分类项：不参与分类统计与「未分类」
+				.ne(Project::getMode, ProjectModeEnum.folder);
 		// 可见性与 listProject 同一口径：管理员全量；其余人只看自己创建的或被授权（type 1/2）
 		if (!SecurityContextUtils.isAdmin()) {
 			// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
@@ -188,6 +212,14 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 							+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
 							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 							+ " AND t.type IN (1, 2)",
+							userId)
+					// 父文件夹授权：子项目继承（文件夹授权）
+					.or()
+					.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
+							+ " ON pt.project_id = child.parent_id WHERE child.id = t_project.id"
+							+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
+							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
+							+ " AND pt.type IN (1, 2, 3)",
 							userId));
 		}
 		List<Project> projects = list(wrapper);

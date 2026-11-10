@@ -1084,6 +1084,9 @@ function ManagerProjectList({
                       ))}
                   </>
                 )}
+                {canPartner && (
+                  <LinkAction onClick={() => navigate('/survey/' + row.id)}>授权</LinkAction>
+                )}
                 {canUpdate && <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>}
                 {canDelete && (
                   <Popconfirm
