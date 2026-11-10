@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import {
-  BarChartOutlined,
   DatabaseOutlined,
   HomeOutlined,
   ProjectOutlined,
@@ -38,25 +37,17 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
     },
   ];
   // 三个视角和桌面端一致：
-  // - 老师/管理员：教学管理 + 班级学情（分别叠加接口要求的 project:list / project:report）
+  // - 老师/管理员：教学（考试/问卷 + 班级学情），入口叠加 project:list / project:report
   // - 学员：我的任务（考试安排 / 练习记录 / 我的成绩）
-  if (canTeach && can(authorities, PERMISSION_CODES.projectList)) {
-    tabs.push({
-      key: 'project',
-      path: '/project',
-      label: '教学',
-      icon: <ProjectOutlined />,
-      active: (p) => under(p, '/project') || under(p, '/survey'),
-    });
-  }
-  if (canTeach && can(authorities, PERMISSION_CODES.projectReport)) {
+  // 教学管理 + 班级学情合并成一个「教学」tab；班级管理是独立 tab
+  if (canTeach && (can(authorities, PERMISSION_CODES.projectList) || can(authorities, PERMISSION_CODES.projectReport))) {
     tabs.push({
       key: 'teaching',
       path: '/teaching',
-      label: '学情',
-      icon: <BarChartOutlined />,
-      // 精确匹配：/teaching/classes 属于下面的「班级」tab，不能再把「学情」点亮
-      active: (p) => p === '/teaching' || p === '/teaching/',
+      label: '教学',
+      icon: <ProjectOutlined />,
+      // /teaching/classes 属于下面的「班级」tab，不能把「教学」点亮
+      active: (p) => under(p, '/teaching') && !under(p, '/teaching/classes'),
     });
   }
   // 班级管理与教学视角无关：有 class:list 就该有入口（桌面端菜单也是独立判定）

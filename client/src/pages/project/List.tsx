@@ -78,7 +78,13 @@ const STUDENT_MAX_PAGES = 10;
  * 管理端那一套（新建、回收站、编辑、设置、数据、删除、授权、批量操作）一个都不渲染，
  * 唯一动作是「开始答题」——直接跳公开答题页 /s/:id，这条路不需要任何管理权限，学员不会 403。
  */
-function StudentProjectList({ authorities }: { authorities: string[] }) {
+function StudentProjectList({
+  authorities,
+  embedded = false,
+}: {
+  authorities: string[];
+  embedded?: boolean;
+}) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   // 开始答题是独立权限：没有 project:answer 的账号（比如误配的只读协作者）不再看到入口
@@ -163,19 +169,23 @@ function StudentProjectList({ authorities }: { authorities: string[] }) {
 
   return (
     <>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-          EXAMS / 考试安排
-        </div>
-        <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
-          考试安排
-        </h2>
-        <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-          这里是被分配给你参加的考试；点「开始答题」直接进入答题页。
-        </div>
-      </div>
+      {!embedded && (
+        <>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+              EXAMS / 考试安排
+            </div>
+            <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
+              考试安排
+            </h2>
+            <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+              这里是被分配给你参加的考试；点「开始答题」直接进入答题页。
+            </div>
+          </div>
 
-      <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
+          <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
+        </>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {filtered.length} 项</span>
@@ -320,7 +330,13 @@ function StudentProjectList({ authorities }: { authorities: string[] }) {
  * 管理端 / 老师视图：增删改、批量、回收站、文件夹都还在这里，
  * 但每个动作都按 authorities 逐项渲染，没权限的入口不出现（而不是点了才 403）。
  */
-function ManagerProjectList({ authorities }: { authorities: string[] }) {
+function ManagerProjectList({
+  authorities,
+  embedded = false,
+}: {
+  authorities: string[];
+  embedded?: boolean;
+}) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -537,25 +553,28 @@ function ManagerProjectList({ authorities }: { authorities: string[] }) {
     <>
       <div
         style={{
-          marginBottom: 18,
+          marginBottom: embedded ? 12 : 18,
           display: 'flex',
           alignItems: isMobile ? 'flex-start' : 'flex-end',
-          justifyContent: 'space-between',
+          // embedded 时页头（标题区）隐藏，只留「回收站 / 新建」工具条，靠右排列
+          justifyContent: embedded ? 'flex-end' : 'space-between',
           flexWrap: 'wrap',
           gap: 10,
         }}
       >
-        <div style={{ minWidth: 0, flex: isMobile ? '1 1 100%' : '1 1 auto' }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-            EXAMS / 考试管理
+        {!embedded && (
+          <div style={{ minWidth: 0, flex: isMobile ? '1 1 100%' : '1 1 auto' }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+              EXAMS / 考试管理
+            </div>
+            <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
+              我的考试与问卷
+            </h2>
+            <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+              这里是你创建和参与协作的考试/问卷；题库在「题库中心」，不在此列表。
+            </div>
           </div>
-          <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
-            我的考试与问卷
-          </h2>
-          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-            这里是你创建和参与协作的考试/问卷；题库在「题库中心」，不在此列表。
-          </div>
-        </div>
+        )}
         <Button icon={<DeleteOutlined />} onClick={() => navigate('/project/trash')}>
           回收站
         </Button>
@@ -566,7 +585,7 @@ function ManagerProjectList({ authorities }: { authorities: string[] }) {
         )}
       </div>
 
-      <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
+      {!embedded && <hr className="bp-dim" style={{ margin: '0 0 16px' }} />}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <Breadcrumb
@@ -1024,7 +1043,7 @@ function ManagerProjectList({ authorities }: { authorities: string[] }) {
  * - 没有 project:update、但有 project:list（学员 / 只读协作者）：学员视图，
  *   只有「开始答题」，不出现任何管理入口，避免每点一次都是 403。
  */
-export default function ProjectList() {
+export default function ProjectList({ embedded = false }: { embedded?: boolean }) {
   const [authorities, setAuthorities] = useState<string[]>();
 
   useEffect(() => {
@@ -1044,8 +1063,8 @@ export default function ProjectList() {
   const canList = can(authorities, PERMISSION_CODES.projectList);
 
   if (!isManager && canList) {
-    return <StudentProjectList authorities={authorities} />;
+    return <StudentProjectList authorities={authorities} embedded={embedded} />;
   }
 
-  return <ManagerProjectList authorities={authorities} />;
+  return <ManagerProjectList authorities={authorities} embedded={embedded} />;
 }

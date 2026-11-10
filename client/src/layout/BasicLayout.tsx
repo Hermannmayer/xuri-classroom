@@ -8,7 +8,6 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MoonOutlined,
-  BarChartOutlined,
   ProjectOutlined,
   SettingOutlined,
   SunOutlined,
@@ -110,17 +109,14 @@ export default function BasicLayout() {
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
     // 三个视角分开：
-    // - 老师/管理员：教学管理 + 班级学情；不做题，所以没有「我的任务」
+    // - 老师/管理员：教学（考试/问卷 + 班级学情）；不做题，所以没有「我的任务」
     // - 学员：只有「我的任务」（考试安排 / 练习记录 / 我的成绩）
-    // 门户权限只决定「有没有教学视角」，具体入口还要和接口/路由守卫对齐：
-    // - 教学管理 → 项目列表接口要 project:list
-    // - 班级学情 → TeachingApi 要 project:report（学员预设也带 report，所以必须再叠 portal:teacher）
+    // 门户权限只决定「有没有教学视角」；/teaching 的入口要 project:list，
+    // 「学情」tab 再按 project:report 控制（学员预设也带 report，所以必须再叠 portal:teacher）。
     const canTeach = allow(PERMISSION_CODES.portalTeacher);
-    if (canTeach && allow(PERMISSION_CODES.projectList)) {
-      menu.push({ key: '/project', icon: <ProjectOutlined />, label: '教学管理' });
-    }
-    if (canTeach && allow(PERMISSION_CODES.projectReport)) {
-      menu.push({ key: '/teaching', icon: <BarChartOutlined />, label: '班级学情' });
+    // 教学管理 + 班级学情合并为一个「教学」入口：/teaching 内分「考试/问卷」「学情」两个 tab
+    if (canTeach && (allow(PERMISSION_CODES.projectList) || allow(PERMISSION_CODES.projectReport))) {
+      menu.push({ key: '/teaching', icon: <ProjectOutlined />, label: '教学' });
     }
     // 班级管理：班主任/管理员维护自己负责的班；条件用 class:list 与路由守卫一致
     if (allow(PERMISSION_CODES.classList)) {

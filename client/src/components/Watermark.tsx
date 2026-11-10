@@ -25,7 +25,7 @@ export type WatermarkMode = 'name_phone' | 'name' | 'phone';
 export const WATERMARK_EVENT = 'sk:watermark-changed';
 
 /** 需要水印的登录后路由前缀；不在白名单里的（/user/login、/s/*、/setup、未知路径）一律不渲染 */
-const AUTH_PREFIXES = ['/home', '/project', '/survey', '/repo', '/exercise', '/system', '/account'];
+const AUTH_PREFIXES = ['/home', '/project', '/teaching', '/survey', '/repo', '/exercise', '/system', '/account'];
 
 /** 手机号中间四位打码：改成 false 就显示完整号码（便于截图外流后精确定位到人） */
 const MASK_PHONE = true;

@@ -184,7 +184,7 @@ export function TeacherHome() {
         <Col xs={12} md={6}>
           <Card className="bp-corners" size="small">
             <Statistic title="班级学情" value="查看" valueStyle={{ fontSize: 18 }} />
-            <a style={{ fontSize: 12 }} onClick={() => navigate('/teaching')}>
+            <a style={{ fontSize: 12 }} onClick={() => navigate('/teaching?tab=insight')}>
               按班级看作答 →
             </a>
           </Card>
@@ -220,7 +220,7 @@ export function TeacherHome() {
                   <>
                     <a onClick={() => navigate(`/survey/${r.projectId}`)}>数据</a>
                     <span style={{ margin: '0 6px', color: 'var(--bp-line)' }}>|</span>
-                    <a onClick={() => navigate('/teaching')}>按班级</a>
+                    <a onClick={() => navigate('/teaching?tab=insight')}>按班级</a>
                   </>
                 ),
               },
@@ -265,8 +265,8 @@ export function AdminHome() {
         {[
           { title: '用户', value: stat.users, to: '/system/user' },
           { title: '题库', value: stat.repos, to: '/repo/index' },
-          { title: '考试 / 问卷', value: stat.projects, to: '/project' },
-          { title: '累计答卷', value: stat.answers, to: '/teaching' },
+          { title: '考试 / 问卷', value: stat.projects, to: '/teaching?tab=exam' },
+          { title: '累计答卷', value: stat.answers, to: '/teaching?tab=insight' },
         ].map((item) => (
           <Col xs={12} md={6} key={item.title}>
             <Card className="bp-corners" size="small" hoverable onClick={() => navigate(item.to)}>
@@ -283,7 +283,7 @@ export function AdminHome() {
             { label: '用户组', to: '/system/group' },
             { label: '系统设置', to: '/system/setting' },
             { label: '操作日志', to: '/system/audit' },
-            { label: '教学管理', to: '/project' },
+            { label: '教学管理', to: '/teaching?tab=exam' },
           ].map((item) => (
             <Col xs={12} md={8} key={item.to}>
               <a onClick={() => navigate(item.to)}>{item.label} →</a>

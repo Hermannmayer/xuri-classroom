@@ -15,9 +15,9 @@ import { PERMISSION_CODES } from './auth/permission-codes';
 const Login = lazy(() => import('./pages/user/Login'));
 const Register = lazy(() => import('./pages/user/Register'));
 const Home = lazy(() => import('./pages/Home'));
-const ProjectList = lazy(() => import('./pages/project/List'));
+const ProjectEntry = lazy(() => import('./pages/project/Entry'));
 const TaskCenter = lazy(() => import('./pages/tasks/TaskCenter'));
-const TeachingWorkbench = lazy(() => import('./pages/teaching/Workbench'));
+const TeachingHome = lazy(() => import('./pages/teaching/TeachingHome'));
 const TeachingClasses = lazy(() => import('./pages/teaching/Classes'));
 const ProjectTrash = lazy(() => import('./pages/project/Trash'));
 const SurveyEditor = lazy(() => import('./pages/survey/Editor'));
@@ -71,13 +71,14 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
-      // 教学视角 = 门户权限 + 报表权限：TeachingApi（/api/teaching/*）要 project:report，
-      // 只配 portal:teacher 的角色进来会 403；学员预设也带 project:report，所以不能只判 report。
-      { path: 'teaching', element: guard(PERMISSION_CODES.portalTeacher, guard(PERMISSION_CODES.projectReport, <TeachingWorkbench />)) },
+      // 教学管理与班级学情合并：/teaching 内用 Tabs 分「考试/问卷」「学情」；
+      // 页面本身的入口是 project:list，学情 tab 再按 project:report 单独控制。
+      { path: 'teaching', element: guard(PERMISSION_CODES.portalTeacher, guard(PERMISSION_CODES.projectList, <TeachingHome />)) },
       { path: 'teaching/classes', element: guard(PERMISSION_CODES.classList, <TeachingClasses />) },
       // 「我的任务」是学员入口：没有 project:answer 的教职工不再能直接打开答题列表
       { path: 'tasks', element: guard(PERMISSION_CODES.projectAnswer, <TaskCenter />) },
-      { path: 'project', element: guard(PERMISSION_CODES.projectList, <ProjectList />) },
+      // /project 只保留给学员/只读协作者；老师与管理员由 Entry 重定向到 /teaching?tab=exam
+      { path: 'project', element: guard(PERMISSION_CODES.projectList, <ProjectEntry />) },
       { path: 'project/trash', element: guard(PERMISSION_CODES.projectList, <ProjectTrash />) },
       { path: 'project/:id', element: <Placeholder title="项目详情" /> },
       { path: 'exercise', element: guard(PERMISSION_CODES.exerciseList, <ExerciseList />) },
