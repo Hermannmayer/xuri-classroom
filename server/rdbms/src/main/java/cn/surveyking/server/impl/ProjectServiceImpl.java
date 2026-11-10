@@ -104,7 +104,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 						// 父文件夹被授权：直接子项目继承可见/可读权限（文件夹授权）
 						.or()
 						.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
-								+ " ON pt.project_id = child.parent_id WHERE child.id = t_project.id"
+								+ " ON pt.project_id = child.parent_id OR pt.project_id = (SELECT p2.parent_id FROM t_project p2 WHERE p2.id = child.parent_id) WHERE child.id = t_project.id"
 								+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
 								+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 								+ " AND pt.type IN (1, 2, 3)",
@@ -154,7 +154,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 					// 父文件夹授权：子项目继承（文件夹授权）
 					.or()
 					.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
-							+ " ON pt.project_id = child.parent_id WHERE child.id = t_project.id"
+							+ " ON pt.project_id = child.parent_id OR pt.project_id = (SELECT p2.parent_id FROM t_project p2 WHERE p2.id = child.parent_id) WHERE child.id = t_project.id"
 							+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
 							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 							+ " AND pt.type IN (1, 2, 3)",
@@ -216,7 +216,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 					// 父文件夹授权：子项目继承（文件夹授权）
 					.or()
 					.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
-							+ " ON pt.project_id = child.parent_id WHERE child.id = t_project.id"
+							+ " ON pt.project_id = child.parent_id OR pt.project_id = (SELECT p2.parent_id FROM t_project p2 WHERE p2.id = child.parent_id) WHERE child.id = t_project.id"
 							+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
 							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 							+ " AND pt.type IN (1, 2, 3)",
@@ -441,7 +441,12 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		if (level < 2 && isNotBlank(projectId)) {
 			Project current = getById(projectId);
 			if (current != null && isNotBlank(current.getParentId()) && !"0".equals(current.getParentId())) {
-				level = Math.max(level, projectPartnerService.accessLevel(current.getParentId()));
+				String parentId = current.getParentId();
+				level = Math.max(level, projectPartnerService.accessLevel(parentId));
+				Project parent = getById(parentId);
+				if (parent != null && isNotBlank(parent.getParentId()) && !"0".equals(parent.getParentId())) {
+					level = Math.max(level, projectPartnerService.accessLevel(parent.getParentId()));
+				}
 			}
 		}
 		if (level < 2) {

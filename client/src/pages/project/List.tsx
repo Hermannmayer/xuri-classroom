@@ -27,6 +27,7 @@ import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
 import ComposeModal from './ComposeModal';
+import FolderAuthModal from './FolderAuthModal';
 import ProjectTree from './ProjectTree';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
@@ -382,6 +383,7 @@ function ManagerProjectList({
   /** 从题库组卷时先记下分类，创建成功后再补写（CompuseModal 只负责建项目） */
   const [composeCategory, setComposeCategory] = useState('');
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
+  const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
   // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
@@ -608,7 +610,9 @@ function ManagerProjectList({
 
   /** 移动端卡片同样逐项 gate：一个动作都没有时整行按钮不渲染 */
   const mobileHasActions = (row: ProjectRow) =>
-    row.mode === 'folder' ? canUpdate || canDelete : canDetail || canPublish || canUpdate || canData;
+    row.mode === 'folder'
+      ? canUpdate || canDelete || canPartner
+      : canDetail || canPublish || canUpdate || canData || canPartner;
 
   return (
     <>
@@ -854,6 +858,14 @@ function ManagerProjectList({
                                 </Button>
                               </Popconfirm>
                             )}
+                            {canPartner && (
+                              <Button
+                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                onClick={() => setFolderAuth(row)}
+                              >
+                                授权
+                              </Button>
+                            )}
                           </>
                         ) : (
                           <>
@@ -1064,9 +1076,6 @@ function ManagerProjectList({
                     {canData && (
                       <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
                     )}
-                    {canPartner && (
-                      <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>授权</LinkAction>
-                    )}
                     <LinkAction onClick={() => void copyLink(row)}>{copyLinkLabel(row)}</LinkAction>
                     {canPublish &&
                       (row.status === 1 ? (
@@ -1085,7 +1094,13 @@ function ManagerProjectList({
                   </>
                 )}
                 {canPartner && (
-                  <LinkAction onClick={() => navigate('/survey/' + row.id)}>授权</LinkAction>
+                  <LinkAction
+                    onClick={() =>
+                      row.mode === 'folder' ? setFolderAuth(row) : navigate(`/survey/${row.id}`)
+                    }
+                  >
+                    授权
+                  </LinkAction>
                 )}
                 {canUpdate && <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>}
                 {canDelete && (
@@ -1164,6 +1179,14 @@ function ManagerProjectList({
           }
           navigate(`/survey/${id}/edit`);
         }}
+      />
+
+      <FolderAuthModal
+        open={Boolean(folderAuth)}
+        folderId={folderAuth?.id}
+        folderName={folderAuth?.name}
+        canManage={canPartner}
+        onClose={() => setFolderAuth(null)}
       />
 
       <BatchSettingModal
