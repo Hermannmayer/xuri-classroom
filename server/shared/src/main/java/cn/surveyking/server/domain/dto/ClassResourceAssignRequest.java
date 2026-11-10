@@ -21,11 +21,11 @@ public class ClassResourceAssignRequest {
 
 	private List<String> resourceIds;
 
-	/** 本班开始时间；空=继承全局 */
-	private Date startAt;
+	/** 本班开始时间（epoch 毫秒）；空=继承全局 */
+	private Long startAt;
 
-	/** 本班结束时间；空=继承全局 */
-	private Date endAt;
+	/** 本班结束时间（epoch 毫秒）；空=继承全局 */
+	private Long endAt;
 
 	/** 0=关闭 1=开放；不传默认 1 */
 	private Integer status;

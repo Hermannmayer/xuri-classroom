@@ -19,4 +19,8 @@ public interface ClassResourceMapper extends BaseMapper<ClassResource> {
 	@Delete("DELETE FROM t_class_resource WHERE id = #{id}")
 	int hardDelete(@Param("id") String id);
 
+	/** 班级删除时清掉它的全部资源分配，避免孤儿行 */
+	@Delete("DELETE FROM t_class_resource WHERE class_id = #{classId}")
+	int hardDeleteByClassId(@Param("classId") String classId);
+
 }

@@ -206,9 +206,9 @@ export default function ClassResourcesPanel({
         classId,
         resourceType: 'project',
         resourceIds: ids,
-        // 留空=继承全局
-        startAt: from ? from.toISOString() : null,
-        endAt: to ? to.toISOString() : null,
+        // 留空=继承全局；后端接收 epoch 毫秒
+        startAt: from ? from.valueOf() : null,
+        endAt: to ? to.valueOf() : null,
         status: values.status === false ? 0 : 1,
       });
       message.success('已分配 ' + ids.length + ' 个考试/问卷');
@@ -234,8 +234,8 @@ export default function ClassResourcesPanel({
     try {
       await post('/api/teaching/classes/resources/update', {
         id: editing.id,
-        startAt: from ? from.toISOString() : null,
-        endAt: to ? to.toISOString() : null,
+        startAt: from ? from.valueOf() : null,
+        endAt: to ? to.valueOf() : null,
         status: values.status === false ? 0 : 1,
       });
       message.success('已更新开放窗口');

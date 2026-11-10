@@ -20,6 +20,7 @@ import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.domain.model.UserDept;
 import cn.surveyking.server.domain.model.UserPosition;
 import cn.surveyking.server.mapper.ClassPartnerMapper;
+import cn.surveyking.server.mapper.ClassResourceMapper;
 import cn.surveyking.server.mapper.DeptMapper;
 import cn.surveyking.server.mapper.DeptRoleMapper;
 import cn.surveyking.server.mapper.ProjectPartnerMapper;
@@ -100,6 +101,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	private final ProjectPartnerMapper projectPartnerMapper;
 
 	private final ClassPartnerMapper classPartnerMapper;
+
+	private final ClassResourceMapper classResourceMapper;
 
 	private final CacheManager cacheManager;
 
@@ -464,6 +467,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		repoPartnerMapper.delete(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getDeptId, id));
 		projectPartnerMapper.delete(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getGroupId, id));
 		classPartnerMapper.delete(Wrappers.<ClassPartner>lambdaQuery().eq(ClassPartner::getDeptId, id));
+		// 班级资源分配（考试/问卷窗口）也要跟着走，不能留孤儿行
+		classResourceMapper.hardDeleteByClassId(id);
 		userPositionMapper.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getDeptId, id));
 		// 组没了，组与角色的绑定也要一起清，否则 t_dept_role 会留下孤儿行
 		deptRoleMapper.deleteByDeptId(id);

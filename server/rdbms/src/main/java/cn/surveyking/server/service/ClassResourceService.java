@@ -27,6 +27,7 @@ import cn.surveyking.server.mapper.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -60,6 +61,7 @@ import java.util.stream.Collectors;
  * <p>写操作统一走 {@link ClassService#assertManage(String)}（管理员 / class:grant / 班主任 /
  * access_level=2 授权），读面板也要求可管理：资源面板只对能管理这个班的老师开放。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClassResourceService {
@@ -115,6 +117,9 @@ public class ClassResourceService {
 				.filter(StringUtils::hasText).distinct().collect(Collectors.toList()));
 		List<ClassResourceView> result = new ArrayList<>();
 		for (ClassResource resource : resources) {
+			if (resource == null) {
+				continue;
+			}
 			Project project = projects.get(resource.getResourceId());
 			ClassResourceView view = new ClassResourceView();
 			view.setId(resource.getId());
@@ -164,8 +169,11 @@ public class ClassResourceService {
 		if (projects.size() != resourceIds.size()) {
 			throw new ValidationException("部分考试不存在，请刷新后重试");
 		}
+		// 前端传 epoch 毫秒，统一转 Date；空 = 继承全局
+		Date startAt = toDate(request.getStartAt());
+		Date endAt = toDate(request.getEndAt());
 		for (String resourceId : resourceIds) {
-			assertAssignable(projects.get(resourceId), request.getStartAt(), request.getEndAt());
+			assertAssignable(projects.get(resourceId), startAt, endAt);
 		}
 		int status = normalizeStatus(request.getStatus(), 1);
 		String currentUserId = SecurityContextUtils.getUserId();
@@ -179,14 +187,14 @@ public class ClassResourceService {
 				resource.setResourceType(type);
 				resource.setResourceId(resourceId);
 				resource.setStatus(status);
-				resource.setStartAt(request.getStartAt());
-				resource.setEndAt(request.getEndAt());
+				resource.setStartAt(startAt);
+				resource.setEndAt(endAt);
 				resource.setAssignedBy(currentUserId);
 				classResourceMapper.insert(resource);
 				continue;
 			}
 			// 已分配过：只更新窗口与开关（assign 传 null = 继承全局，必须真的写 NULL）
-			updateWindow(exist.getId(), request.getStartAt(), request.getEndAt(), status);
+			updateWindow(exist.getId(), startAt, endAt, status);
 		}
 	}
 
@@ -202,9 +210,11 @@ public class ClassResourceService {
 		}
 		classService.assertManage(record.getClassId());
 		Project project = projectMapper.selectById(record.getResourceId());
-		assertAssignable(project, request.getStartAt(), request.getEndAt());
+		Date startAt = toDate(request.getStartAt());
+		Date endAt = toDate(request.getEndAt());
+		assertAssignable(project, startAt, endAt);
 		Integer status = request.getStatus() == null ? null : Integer.valueOf(normalizeStatus(request.getStatus(), 1));
-		updateWindow(record.getId(), request.getStartAt(), request.getEndAt(), status);
+		updateWindow(record.getId(), startAt, endAt, status);
 	}
 
 	/** 取消一条分配 */
@@ -399,14 +409,20 @@ public class ClassResourceService {
 	}
 
 	private String effectiveStatus(ClassResource resource, Project project) {
-		if (!Integer.valueOf(1).equals(resource.getStatus())) {
+		if (resource == null || !Integer.valueOf(1).equals(resource.getStatus())) {
 			return STATUS_CLOSED;
 		}
 		if (project == null || !Integer.valueOf(1).equals(project.getStatus())) {
 			return STATUS_CLOSED;
 		}
-		Long start = resource.getStartAt() != null ? resource.getStartAt().getTime() : globalStart(project);
-		Long end = resource.getEndAt() != null ? resource.getEndAt().getTime() : globalEnd(project);
+		Long start = safeTime(resource.getStartAt());
+		if (start == null) {
+			start = globalStart(project);
+		}
+		Long end = safeTime(resource.getEndAt());
+		if (end == null) {
+			end = globalEnd(project);
+		}
 		long now = System.currentTimeMillis();
 		if (start != null && now < start) {
 			return STATUS_NOT_STARTED;
@@ -419,14 +435,23 @@ public class ClassResourceService {
 
 	/** 这一行对学生的不可用原因；null 表示可以参加 */
 	private ErrorCode invalidReason(ClassResource row, Integer projectStatus, ProjectSetting setting) {
+		if (row == null) {
+			return ErrorCode.ProjectNotFound;
+		}
 		if (!Integer.valueOf(1).equals(row.getStatus())) {
 			return ErrorCode.SurveySuspend;
 		}
 		if (projectStatus == null || projectStatus != 1) {
 			return ErrorCode.SurveySuspend;
 		}
-		Long start = row.getStartAt() != null ? row.getStartAt().getTime() : examStart(setting);
-		Long end = row.getEndAt() != null ? row.getEndAt().getTime() : examEnd(setting);
+		Long start = safeTime(row.getStartAt());
+		if (start == null) {
+			start = examStart(setting);
+		}
+		Long end = safeTime(row.getEndAt());
+		if (end == null) {
+			end = examEnd(setting);
+		}
 		long now = System.currentTimeMillis();
 		if (start != null && now < start) {
 			return ErrorCode.ExamUnStarted;
@@ -438,25 +463,63 @@ public class ClassResourceService {
 	}
 
 	private Long globalStart(Project project) {
-		return examStart(project == null ? null : project.getSetting());
+		try {
+			return examStart(project == null ? null : project.getSetting());
+		}
+		catch (Exception e) {
+			log.warn("读取项目全局开始时间失败 projectId={}", project == null ? null : project.getId(), e);
+			return null;
+		}
 	}
 
 	private Long globalEnd(Project project) {
-		return examEnd(project == null ? null : project.getSetting());
+		try {
+			return examEnd(project == null ? null : project.getSetting());
+		}
+		catch (Exception e) {
+			log.warn("读取项目全局结束时间失败 projectId={}", project == null ? null : project.getId(), e);
+			return null;
+		}
 	}
 
 	private Long examStart(ProjectSetting setting) {
-		ProjectSetting.ExamSetting examSetting = setting == null ? null : setting.getExamSetting();
-		return examSetting == null ? null : examSetting.getStartTime();
+		try {
+			ProjectSetting.ExamSetting examSetting = setting == null ? null : setting.getExamSetting();
+			return examSetting == null ? null : examSetting.getStartTime();
+		}
+		catch (Exception e) {
+			log.warn("读取考试全局开始时间失败", e);
+			return null;
+		}
 	}
 
 	private Long examEnd(ProjectSetting setting) {
-		ProjectSetting.ExamSetting examSetting = setting == null ? null : setting.getExamSetting();
-		return examSetting == null ? null : examSetting.getEndTime();
+		try {
+			ProjectSetting.ExamSetting examSetting = setting == null ? null : setting.getExamSetting();
+			return examSetting == null ? null : examSetting.getEndTime();
+		}
+		catch (Exception e) {
+			log.warn("读取考试全局结束时间失败", e);
+			return null;
+		}
 	}
 
 	private Date toDate(Long millis) {
 		return millis == null ? null : new Date(millis);
+	}
+
+	/** 时间字段的空安全取值：Date 本身或 getTime 异常都按 null 处理 */
+	private Long safeTime(Date date) {
+		if (date == null) {
+			return null;
+		}
+		try {
+			return date.getTime();
+		}
+		catch (Exception e) {
+			log.warn("读取班级资源时间失败", e);
+			return null;
+		}
 	}
 
 	private String trim(String value) {
