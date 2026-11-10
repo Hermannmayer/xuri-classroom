@@ -40,4 +40,15 @@ public interface AnonymousIdentityService {
 	 */
 	void purgeExpired();
 
+	/**
+	 * 清理「创建时间早于 N 天前」的匿名答卷，并删掉不再有匿名答卷的匿名主体。
+	 *
+	 * <p>只动 {@code is_anonymous=1} 的答卷：登录用户的答卷（is_anonymous=0，哪怕
+	 * anonymous_subject_id 非空的历史数据）一律不碰。答卷走 @TableLogic 逻辑删除，
+	 * 主体表没有逻辑删除，直接物理删。
+	 * @param retentionDays 保留天数；小于 1 按 1 处理
+	 * @return 逻辑删除的匿名答卷条数
+	 */
+	int purgeOlderThan(int retentionDays);
+
 }

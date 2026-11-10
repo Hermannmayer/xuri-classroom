@@ -3,6 +3,7 @@ package cn.surveyking.server.api;
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
+import cn.surveyking.server.impl.AnonymousCleanupService;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.service.*;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import javax.validation.ValidationException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +41,9 @@ public class SystemApi {
 	private final DictService dictService;
 
 	private final MessageSource messageSource;
+
+	/** 匿名答卷清理（手动触发） */
+	private final AnonymousCleanupService anonymousCleanupService;
 
 	/**
 	 * @return 当前系统信息
@@ -380,6 +386,20 @@ public class SystemApi {
 	@PreAuthorize("hasAuthority('system:dept:create')")
 	public void sortOrg(@RequestBody DeptSortRequest request) {
 		deptService.sortDept(request);
+	}
+
+	/**
+	 * 手动清理过期的匿名答卷（按系统设置里的保留天数）。
+	 *
+	 * <p>定时任务每天 03:30 自动跑一次；这里是管理员在「系统设置」里点「立即清理」的入口。
+	 * 返回 {@code {deleted: n}}，前端用它提示清理了多少条。
+	 */
+	@PostMapping("/anonymous/cleanup")
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
+	public Map<String, Object> cleanupAnonymousAnswers() {
+		Map<String, Object> result = new HashMap<>();
+		result.put("deleted", anonymousCleanupService.runNow());
+		return result;
 	}
 
 	/**

@@ -6,6 +6,7 @@ import {
   Card,
   Form,
   Input,
+  InputNumber,
   message,
   Modal,
   Segmented,
@@ -16,6 +17,7 @@ import {
   Upload,
 } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { get, getSystem, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
@@ -53,16 +55,26 @@ const DEFAULT_PROTECTION: ProtectionSetting = {
   copyProtected: true,
 };
 
+/** 匿名答卷清理：SystemInfo.setting 的新增字段（api 层类型还没跟上，这里局部声明） */
+interface AnonymousCleanupSetting {
+  anonymousCleanupEnabled?: boolean;
+  anonymousRetentionDays?: number;
+  /** 上次清理时间：后端 Date 序列化，字符串或 epoch 毫秒 */
+  anonymousLastCleanupAt?: string | number;
+  anonymousLastCleanupCount?: number;
+}
+
 /** 后端 watermarkMode 是 string；老数据 / 脏值（含 null）一律回落到默认的「姓名+手机号」 */
 function normalizeMode(value?: string | null): WatermarkMode {
   return value === 'name' || value === 'phone' ? value : 'name_phone';
 }
 
-type TabKey = 'basic' | 'access' | 'ai';
+type TabKey = 'basic' | 'access' | 'anonymous' | 'ai';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
   basic: ['name', 'description', 'avatar', 'copyright', 'recordNum', 'favicon'],
   access: ['captchaEnabled', 'registerEnabled', 'roles'],
+  anonymous: ['anonymousCleanupEnabled', 'anonymousRetentionDays'],
   ai: ['aiEnabled', 'baseUrl', 'apiKey', 'models', 'defaultModel', 'prompt'],
 };
 
@@ -106,6 +118,10 @@ export default function SystemSetting() {
   const [exportPassword, setExportPassword] = useState('');
   const [hasExportPassword, setHasExportPassword] = useState(false);
   const [savingExportPassword, setSavingExportPassword] = useState(false);
+  // 匿名答卷清理：上次清理时间/条数由 load 从 SystemInfo.setting 读入；立即清理时单独 loading
+  const [lastCleanupAt, setLastCleanupAt] = useState<string | number>();
+  const [lastCleanupCount, setLastCleanupCount] = useState<number>();
+  const [cleaning, setCleaning] = useState(false);
 
   /**
    * 路由守卫只要求 system:role:list，所以「能进页面」不等于「能保存」。
@@ -139,6 +155,9 @@ export default function SystemSetting() {
     ]);
     setRoleOptions(roleRes?.list ?? []);
     setDepts(Array.isArray(deptRes) ? deptRes : []);
+    const anonymous = (sys?.setting ?? {}) as unknown as AnonymousCleanupSetting;
+    setLastCleanupAt(anonymous.anonymousLastCleanupAt);
+    setLastCleanupCount(anonymous.anonymousLastCleanupCount);
     form.setFieldsValue({
       name: sys?.name,
       description: sys?.description,
@@ -151,6 +170,9 @@ export default function SystemSetting() {
       registerDeptId: sys?.registerInfo?.deptId,
       // 注册默认角色存的是角色 id；没配置时是空数组
       roles: sys?.registerInfo?.roles ?? [],
+      // 缺省与后端一致：开启 + 90 天；只有显式 false 才关闭
+      anonymousCleanupEnabled: anonymous.anonymousCleanupEnabled !== false,
+      anonymousRetentionDays: anonymous.anonymousRetentionDays ?? 90,
       aiEnabled: Boolean(ai?.enabled),
       baseUrl: ai?.baseUrl,
       apiKey: ai?.apiKey,
@@ -261,6 +283,34 @@ export default function SystemSetting() {
     }
   };
 
+  /** 立即清理：删除超过保留天数的匿名答卷（不可恢复）；成功后 re-load 拿最新「上次清理」信息 */
+  const runCleanup = async () => {
+    if (cleaning) return;
+    setCleaning(true);
+    try {
+      // 后端契约是 { deleted }；返回裸数字时也兼容
+      const res = await post<{ deleted?: number } | number>('/api/system/anonymous/cleanup');
+      const deleted = typeof res === 'number' ? res : (res?.deleted ?? 0);
+      message.success('已清理 ' + deleted + ' 份匿名答卷');
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setCleaning(false);
+    }
+  };
+
+  const confirmCleanup = () => {
+    Modal.confirm({
+      title: '立即清理匿名答卷？',
+      content: '会删除超过保留天数的匿名答卷，且不可恢复；登录用户与班级成绩不受影响。',
+      okText: '立即清理',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => runCleanup(),
+    });
+  };
+
   const save = async (key: TabKey) => {
     let v: Record<string, unknown>;
     try {
@@ -291,6 +341,13 @@ export default function SystemSetting() {
         await post('/api/system/update', {
           setting: { captchaEnabled: Boolean(v.captchaEnabled) },
           registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles: selectedRoles, deptId: v.registerDeptId },
+        });
+      } else if (key === 'anonymous') {
+        await post('/api/system/update', {
+          setting: {
+            anonymousCleanupEnabled: Boolean(v.anonymousCleanupEnabled),
+            anonymousRetentionDays: Number(v.anonymousRetentionDays),
+          },
         });
       } else {
         await post('/api/system/update', {
@@ -552,6 +609,50 @@ export default function SystemSetting() {
                         )}
                       </ProtectionRow>
                     </div>
+                  </>
+                ),
+              },
+              {
+                key: 'anonymous',
+                label: '匿名答卷',
+                forceRender: true,
+                children: (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
+                      匿名答卷是未登录访客提交的答卷；按保留天数自动清理可以控制数据量，登录用户与班级成绩不受影响。
+                    </div>
+                    <Form.Item
+                      name="anonymousCleanupEnabled"
+                      label="自动清理"
+                      valuePropName="checked"
+                      extra="每日 03:30 清理超过保留天数的匿名答卷"
+                    >
+                      <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                    </Form.Item>
+                    <Form.Item
+                      name="anonymousRetentionDays"
+                      label="保留天数"
+                      rules={[{ required: true, message: '请填写保留天数' }]}
+                      extra="只清理匿名答卷，不影响登录用户/班级成绩"
+                    >
+                      <InputNumber min={1} max={3650} addonAfter="天" style={{ width: 200 }} />
+                    </Form.Item>
+
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16 }}>
+                      {lastCleanupAt
+                        ? `上次清理：${dayjs(lastCleanupAt).format('YYYY-MM-DD HH:mm')}，共 ${lastCleanupCount ?? 0} 份`
+                        : '还没有清理记录'}
+                    </div>
+
+                    {canUpdate && (
+                      <Button loading={cleaning} danger onClick={confirmCleanup} style={{ marginBottom: 16 }}>
+                        立即清理
+                      </Button>
+                    )}
+
+                    {canUpdate && (
+                      <SaveBar loading={saving === 'anonymous'} onSave={() => void save('anonymous')} />
+                    )}
                   </>
                 ),
               },

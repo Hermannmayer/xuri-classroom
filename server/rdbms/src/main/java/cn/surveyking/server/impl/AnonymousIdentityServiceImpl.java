@@ -28,8 +28,10 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -164,6 +166,40 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 				.eq(Answer::getIsAnonymous, true));
 		anonymousSubjectMapper.deleteBatchIds(subjectIds);
 		log.info("清理过期匿名主体: subjects={}", subjectIds.size());
+	}
+
+	@Override
+	public int purgeOlderThan(int retentionDays) {
+		int days = Math.max(1, retentionDays);
+		Date cutoff = new Date(System.currentTimeMillis() - Duration.ofDays(days).toMillis());
+		// 先只取 id / 主体 id：一是拿到要检查的主体，二是删除后用来回收孤儿主体
+		List<Answer> expired = answerMapper.selectList(Wrappers.<Answer>lambdaQuery()
+				.select(Answer::getId, Answer::getAnonymousSubjectId).eq(Answer::getIsAnonymous, true)
+				.lt(Answer::getCreateAt, cutoff));
+		if (expired == null || expired.isEmpty()) {
+			return 0;
+		}
+		Set<String> subjectIds = new LinkedHashSet<>();
+		for (Answer answer : expired) {
+			if (answer != null && StringUtils.hasText(answer.getAnonymousSubjectId())) {
+				subjectIds.add(answer.getAnonymousSubjectId());
+			}
+		}
+		// 按同一条件删除（@TableLogic 逻辑删除），比 in(id...) 更省：匿名答卷可能很多
+		int deleted = answerMapper.delete(Wrappers.<Answer>lambdaQuery().eq(Answer::getIsAnonymous, true)
+				.lt(Answer::getCreateAt, cutoff));
+		// 主体下已经没有未删除的匿名答卷，就把主体也删掉（主体表无逻辑删除，物理删）
+		int removedSubjects = 0;
+		for (String subjectId : subjectIds) {
+			long remaining = answerMapper.selectCount(Wrappers.<Answer>lambdaQuery()
+					.eq(Answer::getAnonymousSubjectId, subjectId).eq(Answer::getIsAnonymous, true));
+			if (remaining == 0) {
+				anonymousSubjectMapper.deleteById(subjectId);
+				removedSubjects++;
+			}
+		}
+		log.info("清理过期匿名答卷: retentionDays={}, deleted={}, subjects={}", days, deleted, removedSubjects);
+		return deleted;
 	}
 
 	private AnonymousSubject findValidSubject(String token) {

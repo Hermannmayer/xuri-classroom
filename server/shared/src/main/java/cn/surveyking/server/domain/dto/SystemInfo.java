@@ -3,6 +3,7 @@ package cn.surveyking.server.domain.dto;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -144,6 +145,23 @@ public class SystemInfo {
 
 		/** 是否已设置导出密码（只读派生字段，不回显密码本身） */
 		private Boolean exportPasswordEnabled;
+
+		/**
+		 * 是否开启匿名答卷自动清理（默认开启）。
+		 *
+		 * <p>匿名答题的 cookie 90 天过期；这里按「创建时间早于 N 天」清理匿名答卷，
+		 * 避免长期堆积（答卷里可能有个人隐私）。
+		 */
+		private Boolean anonymousCleanupEnabled;
+
+		/** 匿名答卷保留天数（1~3650，默认 90） */
+		private Integer anonymousRetentionDays;
+
+		/** 最近一次清理时间（只读：由清理任务写，客户端传来的值会被忽略） */
+		private Date anonymousLastCleanupAt;
+
+		/** 最近一次清理删除的匿名答卷条数（只读：由清理任务写） */
+		private Integer anonymousLastCleanupCount;
 
 	}
 

@@ -576,6 +576,20 @@ public class SystemServiceImpl implements SystemService {
 		return isNotBlank(value) ? value.trim() : null;
 	}
 
+	/** 匿名答卷保留天数：夹到 1~3650（与清理任务的口径一致，避免写入 0 或负数） */
+	private Integer clampAnonymousRetentionDays(Integer days) {
+		if (days == null) {
+			return null;
+		}
+		if (days < 1) {
+			return 1;
+		}
+		if (days > 3650) {
+			return 3650;
+		}
+		return days;
+	}
+
 	private void mergeSysInfo(SysInfo target, SystemInfoRequest request) {
 		if (isNotBlank(request.getName())) {
 			target.setName(request.getName());
@@ -652,6 +666,14 @@ public class SystemServiceImpl implements SystemService {
 			// 导出密码：留空表示清空（不启用）
 			if (source.getExportPassword() != null) {
 				setting.setExportPassword(source.getExportPassword().trim());
+			}
+			// 匿名答卷清理：开关与保留天数可以改；anonymousLastCleanupAt / Count 是清理任务写的
+			// 只读字段，这里刻意不复制（客户端传了也不生效）
+			if (source.getAnonymousCleanupEnabled() != null) {
+				setting.setAnonymousCleanupEnabled(source.getAnonymousCleanupEnabled());
+			}
+			if (source.getAnonymousRetentionDays() != null) {
+				setting.setAnonymousRetentionDays(clampAnonymousRetentionDays(source.getAnonymousRetentionDays()));
 			}
 		}
 		if (request.getAiSetting() != null) {
