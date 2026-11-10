@@ -16,12 +16,13 @@
     <!-- 班级分布：优先用「答题时所在班级」（a.class_id），老数据为空时回退答题人当前主组。
          这样学员换班后，历史答卷仍算在原班；再按答题班级聚合，不再按当前主组重新洗牌。 -->
     <select id="listClasses" resultType="cn.surveyking.server.domain.dto.TeachingClassView">
-        SELECT COALESCE(a.class_id, u.dept_id, '') AS deptId, COALESCE(d.name, '未分组') AS deptName,
+        SELECT COALESCE(d.id, '') AS deptId, COALESCE(d.name, '未分组') AS deptName,
         COUNT(*) AS answerCount, AVG(a.exam_score) AS avgScore
         FROM t_answer a JOIN t_user u ON u.id = a.create_by
         LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id)
+        AND d.dept_type = 'class' AND d.is_deleted = 0
         WHERE a.project_id = #{projectId} AND a.temp_save = 1 AND a.is_deleted = 0
-        GROUP BY COALESCE(a.class_id, u.dept_id, ''), d.name ORDER BY answerCount DESC
+        GROUP BY COALESCE(a.class_id, u.dept_id), d.id, d.name ORDER BY answerCount DESC
     </select>
 
 </mapper>
