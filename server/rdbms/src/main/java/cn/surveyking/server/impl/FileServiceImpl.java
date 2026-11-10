@@ -594,16 +594,16 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 	 * 导入模板白名单：请求里的 name → classpath {@code template/} 下的真实文件名（不带 .xlsx）。
 	 *
 	 * <p>前端只传固定常量；这里用白名单而不是「name 拼路径」，既修正历史别名
-	 * （{@code 用户导入模板} 实际资源叫 {@code 卷王用户导入模板.xlsx}），也避免任意串
+	 * （{@code 用户导入模板} 实际资源叫 {@code 旭日云课堂用户导入模板.xlsx}），也避免任意串
 	 * 拼进 classpath 造成路径穿越 / 资源探测。
 	 */
 	private static final Map<String, String> TEMPLATE_WHITELIST = buildTemplateWhitelist();
 
 	private static Map<String, String> buildTemplateWhitelist() {
 		Map<String, String> templates = new LinkedHashMap<>();
-		templates.put("用户导入模板", "卷王用户导入模板");
+		templates.put("用户导入模板", "旭日云课堂用户导入模板");
 		templates.put("学员导入模板", "学员导入模板");
-		templates.put("卷王题库导入模板", "卷王题库导入模板");
+		templates.put("题库导入模板", "旭日云课堂题库导入模板");
 		templates.put("字典导入模板", "字典导入模板");
 		templates.put("白名单导入模板", "白名单导入模板");
 		return Collections.unmodifiableMap(templates);

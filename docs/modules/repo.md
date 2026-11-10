@@ -118,7 +118,7 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 
 1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权 / 本班在 `t_class_resource` 有 repo 分配」收窄（班级分配只对非管理员生效，实际只影响学员）。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。`/api/repo/detail` 现在接受 `repo:detail` 或 `repo:questions:read`，但服务层仍走 `assertReadableRepo`（管理员/创建者/共享/partner/班级分配），学员只能读可见题库。
-3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=卷王题库导入模板`（白名单与别名见 [files](./files.md)）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
+3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=题库导入模板`（白名单与别名见 [files](./files.md)）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
 4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
    - 打开弹窗先读 `GET /api/system` 的 `setting.exportPasswordEnabled`：为 `false` 时**直接自动开始下载**，不再让用户对着空密码框猜；为 `true` 才显示密码输入。
    - 下载流程：`POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效）→ `GET /api/repo/export?id=...&exportToken=...`。密码只走 POST body，URL 里只出现 token。
@@ -203,7 +203,7 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - 老师虽然有 `repo:grant`，但服务层只允许「题库创建者或管理员」授权；老师没有 `repo:create`，所以授权入口对老师基本不可用（除非库里还有他早期创建的题库）。
 - `repo/export/token` 的一次性令牌存在进程内存里：后端重启、多实例部署都会导致令牌失效或校验不到。
 - **未配置导出密码时前端直接下载**：`RepoExportModal` 读 `/api/system` 的 `exportPasswordEnabled`；如果系统设置刚被改过，前端可能先按「无需密码」发起，失败后会退回密码输入。不要在系统设置里只清空密码却保留旧的前端缓存。
-- **「下载模板」只认白名单 name**：题库页固定传 `卷王题库导入模板`；改成 `题库导入模板` 等别名会 404（白名单在 files 模块）。
+- **「下载模板」只认白名单 name**：题库页固定传 `题库导入模板`；改成其它名字会 404（白名单在 files 模块）。
 - 题库名/分类排序用 `CONVERT(... USING gbk)` 近似拼音序；生僻字不在 GBK 里会退化成其他顺序。
 - `RepoQuery` 的注释只写了 `name/updateAt/createAt`，实际 `applyRepoOrder` 还支持 `category/mode/tag/total`；改排序逻辑时以方法实现为准。
 - 列表里的「题量」是逐行实时统计（`t_template` 子查询），题库多时注意 N+1 式开销；标签/题型分布也是每个题库各查一次。

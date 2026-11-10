@@ -41,7 +41,7 @@ entrypoints:
   - server/api/src/main/java/cn/surveyking/server/api/FileApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
   - server/shared/src/main/java/cn/surveyking/server/storage/LocalStorageService.java
-  - server/api/src/main/resources/template/卷王用户导入模板.xlsx
+  - server/api/src/main/resources/template/旭日云课堂用户导入模板.xlsx
   - server/api/src/main/resources/template/学员导入模板.xlsx
 apis:
   - POST /api/file/create
@@ -92,7 +92,7 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 | 答卷侧 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java` | 导出时打 zip（整卷 Excel / 单份附件 / 批量附件）、按 `AttachmentNameVariableEnum` 命名 |
 | 前端上传 | `client/src/pages/system/Setting.tsx` | 系统 Logo：`FormData` → `/api/file/create` → 存 `/api/public/preview/<id>` |
 | 前端下载 | `client/src/api/request.ts`（`download`） | 先看 `content-type`，是 JSON 就按 `code/message` 抛中文错误，只有二进制才落盘 |
-| 导入模板文件 | `server/api/src/main/resources/template/` | `卷王用户导入模板.xlsx`、`学员导入模板.xlsx`、`卷王题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx` |
+| 导入模板文件 | `server/api/src/main/resources/template/` | `旭日云课堂用户导入模板.xlsx`、`学员导入模板.xlsx`、`旭日云课堂题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx` |
 | 学员导入 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java`、`server/rdbms/.../impl/ClassStudentImportService.java` | `POST /api/teaching/classes/member/import`（multipart：deptId + file）；行级校验、整批事务 |
 | Excel 安全限制 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java` | 文件 ≤20MB、解压 ≤100MB、行数 ≤20000、列数 ≤500 等 |
 | 数据表 | `t_file` | `original_name`、`file_path`、`thumb_file_path`、`storage_type`、`shared`、`project_id`、`question_id`、`answer_id`、`file_size` |
@@ -142,14 +142,14 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 
    | 请求 name | classpath 文件 |
    |---|---|
-   | `用户导入模板` | `卷王用户导入模板.xlsx`（历史别名） |
+   | `用户导入模板` | `旭日云课堂用户导入模板.xlsx` |
    | `学员导入模板` | `学员导入模板.xlsx` |
-   | `卷王题库导入模板` | `卷王题库导入模板.xlsx` |
+   | `题库导入模板` | `旭日云课堂题库导入模板.xlsx` |
    | `字典导入模板` | `字典导入模板.xlsx` |
    | `白名单导入模板` | `白名单导入模板.xlsx` |
 
 3. 其它 name、空 name、资源不存在都抛 `ErrorCodeException(ErrorCode.FileNotExists)` → HTTP 404（不会 200 返回空 Resource，也不会 500）。`name` 只用于查表，**绝不拼进 classpath 路径**。
-4. 当前前端调用：用户导入 `client/src/pages/system/User.tsx`（`name=用户导入模板`）；题库导入 `client/src/pages/repo/Questions.tsx`（`name=卷王题库导入模板`）；学员导入走 `GET /api/teaching/classes/member/template`（`ImportMembersModal.tsx`），不经过 `/api/file/downloadTemplate`。
+4. 当前前端调用：用户导入 `client/src/pages/system/User.tsx`（`name=用户导入模板`）；题库导入 `client/src/pages/repo/Questions.tsx`（`name=题库导入模板`）；学员导入走 `GET /api/teaching/classes/member/template`（`ImportMembersModal.tsx`），不经过 `/api/file/downloadTemplate`。
 
 ### 7. 学员导入模板与批量导入
 

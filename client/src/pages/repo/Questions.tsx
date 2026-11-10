@@ -537,7 +537,7 @@ export default function RepoQuestions() {
             <Button
               icon={<DownloadOutlined />}
               onClick={() =>
-                void download('/api/file/downloadTemplate', { name: '卷王题库导入模板' }, '题库导入模板.xlsx').catch(
+                void download('/api/file/downloadTemplate', { name: '题库导入模板' }, '题库导入模板.xlsx').catch(
                   (e) => message.error((e as Error).message),
                 )
               }
