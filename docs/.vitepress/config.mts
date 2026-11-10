@@ -25,6 +25,7 @@ export default defineConfig({
   markdown: { lineNumbers: true },
   themeConfig: {
     nav: [
+      { text: '部署', link: '/deploy/' },
       { text: '开始', link: '/start/dev-setup' },
       { text: '架构', link: '/architecture/overview' },
       { text: '模块', link: '/modules/project' },
@@ -33,6 +34,17 @@ export default defineConfig({
       { text: '文档状态', link: '/status' },
     ],
     sidebar: [
+      {
+        text: '部署',
+        items: [
+          { text: '部署总览', link: '/deploy/' },
+          { text: 'Windows 便携包', link: '/deploy/windows' },
+          { text: 'Linux 服务器', link: '/deploy/linux' },
+          { text: 'Docker', link: '/deploy/docker' },
+          { text: '版本与升级', link: '/deploy/versioning' },
+          { text: '部署常见问题', link: '/deploy/faq' },
+        ],
+      },
       {
         text: '开始',
         items: [
@@ -92,6 +104,7 @@ export default defineConfig({
           { text: 'ADR-0001 权限模型', link: '/decisions/ADR-0001-rbac' },
           { text: 'ADR-0002 管理员权限全集', link: '/decisions/ADR-0002-admin-catalog' },
           { text: 'ADR-0003 老师考试与题库边界', link: '/decisions/ADR-0003-teacher-exam-vs-repo' },
+          { text: 'ADR-0004 单 jar 内嵌 SPA 与 MySQL 运行时', link: '/decisions/ADR-0004-单jar内嵌SPA与MySQL运行时' },
         ],
       },
     ],

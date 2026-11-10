@@ -19,6 +19,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.security.access.AccessDeniedException;
@@ -63,6 +64,10 @@ public class SystemServiceImpl implements SystemService {
 
 	private final DeptRoleMapper deptRoleMapper;
 
+	/** 构建版本号（Gradle 从根目录 VERSION 注入）；数据库里的旧版本号不再作为展示来源。 */
+	@Value("${version:dev}")
+	private String buildVersion;
+
 	@Override
 	public SystemInfo getSystemInfo() {
 		SystemInfo systemInfo = new SystemInfo();
@@ -76,6 +81,9 @@ public class SystemServiceImpl implements SystemService {
 				systemInfo.setAiEnabled(info.getAiSetting().getEnabled());
 			}
 			systemInfo.setOauthProviders(toAvailability(info.getOauthSetting()));
+		}
+		if (org.springframework.util.StringUtils.hasText(buildVersion)) {
+			systemInfo.setVersion(buildVersion);
 		}
 		if (systemInfo.getOauthProviders() == null) {
 			systemInfo.setOauthProviders(new OAuthProviderAvailability());

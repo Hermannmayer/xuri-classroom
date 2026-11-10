@@ -1,0 +1,334 @@
+name: Release
+
+# 推 tag vX.Y.Z 触发：校验版本 -> 构建 SPA jar -> Windows/Linux/Docker 产物 -> GHCR -> GitHub Release。
+# 本地只负责写版本/CHANGELOG/打 tag（scripts/release/Release.ps1），安装包全部在这里构建。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '已存在的 tag 版本，例如 2.0.0'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  JAVA_VERSION: '8'
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  verify:
+    name: 校验版本
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 解析版本
+        id: ver
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 版本一致性（VERSION / CHANGELOG / package.json / pom.xml / tag）
+        run: python scripts/release/release.py check --tag
+
+  build:
+    name: 构建 SPA jar
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: 安装前端依赖
+        working-directory: client
+        run: npm ci --no-audit --no-fund
+
+      - name: 前端类型检查
+        working-directory: client
+        run: npm run check
+
+      - name: 前端规则测试
+        working-directory: client
+        run: npm run test:rules
+
+      - name: 构建前端
+        working-directory: client
+        run: npm run build
+
+      - name: 后端测试
+        working-directory: server
+        run: ./gradlew :api:test --no-daemon
+
+      - name: 构建内嵌前端的 bootJar
+        working-directory: server
+        run: ./gradlew :api:bootJar -Ppro -PwithSpa -x test --no-daemon
+
+      - name: 上传 jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: server/api/build/libs/xuri-classroom-*.jar
+          if-no-files-found: error
+
+  package-windows:
+    name: Windows 包
+    runs-on: windows-latest
+    needs: [verify, build]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: server/api/build/libs
+
+      - name: 解析版本
+        id: ver
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 组装 Windows 包
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          python scripts/release/package.py --version $v --jar "server/api/build/libs/xuri-classroom-$v.jar" --target windows
+
+      - name: 上传 Windows 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/v${{ steps.ver.outputs.version }}/*.zip
+          if-no-files-found: error
+
+  package-linux:
+    name: Linux 包
+    runs-on: ubuntu-latest
+    needs: [verify, build]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: server/api/build/libs
+
+      - name: 解析版本
+        id: ver
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 组装 Linux 包
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          python3 scripts/release/package.py --version "$VERSION" --jar "server/api/build/libs/xuri-classroom-$VERSION.jar" --target linux
+          cp "server/api/build/libs/xuri-classroom-$VERSION.jar" "dist/v$VERSION/"
+
+      - name: 上传 Linux 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: |
+            dist/v${{ steps.ver.outputs.version }}/*.tar.gz
+            dist/v${{ steps.ver.outputs.version }}/*.jar
+          if-no-files-found: error
+
+  package-docker:
+    name: Docker 部署包
+    runs-on: ubuntu-latest
+    needs: [verify, build]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: server/api/build/libs
+
+      - name: 解析版本
+        id: ver
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 组装 Docker 部署包
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          python3 scripts/release/package.py --version "$VERSION" --jar "server/api/build/libs/xuri-classroom-$VERSION.jar" --target docker
+
+      - name: 上传 Docker 部署包
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-docker
+          path: dist/v${{ steps.ver.outputs.version }}/*.tar.gz
+          if-no-files-found: error
+
+  docker-image:
+    name: GHCR 镜像
+    runs-on: ubuntu-latest
+    needs: [verify, build]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: server/api/build/libs
+
+      - name: 解析版本
+        id: ver
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 准备构建上下文
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          mkdir -p .release/docker
+          cp docker/Dockerfile.runtime .release/docker/Dockerfile
+          cp "server/api/build/libs/xuri-classroom-$VERSION.jar" .release/docker/xuri-classroom.jar
+
+      - name: 构建并推送多架构镜像
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --file .release/docker/Dockerfile \
+            --tag "ghcr.io/$OWNER/xuri-classroom:$VERSION" \
+            --tag "ghcr.io/$OWNER/xuri-classroom:latest" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --push .release/docker
+
+  release:
+    name: 创建 GitHub Release
+    runs-on: ubuntu-latest
+    needs: [package-windows, package-linux, package-docker, docker-image]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 解析版本
+        id: ver
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 生成 Release 说明
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          python scripts/release/release.py notes --version "$VERSION" --out RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: 生成 SHA256SUMS
+        shell: bash
+        run: |
+          cd dist
+          sha256sum *.zip *.tar.gz *.jar > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: 创建或更新 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: v${{ steps.ver.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.jar
+            dist/SHA256SUMS
+            RELEASE_NOTES.md
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

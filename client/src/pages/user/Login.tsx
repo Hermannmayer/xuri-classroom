@@ -11,7 +11,7 @@ import { t } from '../../i18n';
 import LoginCaptcha from '../../components/LoginCaptcha';
 
 function versionTag(version?: string) {
-  return version && /^\d/.test(version) ? `v${version}` : 'BUILD 1.13.0';
+  return version && /^\d/.test(version) ? `v${version}` : 'BUILD DEV';
 }
 
 export default function Login() {

@@ -13,13 +13,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $java = "$env:LOCALAPPDATA\jdk8\jdk8u504-b01\bin\java.exe"
-$jar = "$root\server\api\build\libs\xuri-classroom-v1.13.0.jar"
+$jar = Get-ChildItem "$root\server\api\build\libs\xuri-classroom-*.jar" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 $logDir = "$root\server"
 $outLog = "$logDir\backend.log"
 $errLog = "$logDir\backend.err.log"
 
 if (-not (Test-Path $java)) { throw "java not found: $java" }
-if (-not (Test-Path $jar)) { throw "jar not found: $jar (run server\gradlew.bat :api:bootJar first)" }
+if (-not $jar) { throw "jar not found (run server\gradlew.bat :api:bootJar first)" }
 
 # 只清理自己占用的那个端口，别误杀别的 80/7007 进程
 $busy = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue

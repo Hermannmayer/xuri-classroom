@@ -15,9 +15,16 @@ bootJar {
     enabled = false
 }
 
+// 版本唯一真源：仓库根目录 VERSION（由 scripts/release/release.py 维护）
+def appVersionFile = rootProject.file('../VERSION')
+if (!appVersionFile.exists()) {
+    throw new GradleException('缺少 VERSION 文件：' + appVersionFile)
+}
+def appVersion = appVersionFile.text.trim()
+
 allprojects {
     group = 'cn.surveyking'
-    version = 'v1.13.0'
+    version = appVersion
 }
 
 subprojects {

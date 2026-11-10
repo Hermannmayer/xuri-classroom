@@ -57,6 +57,25 @@ processResources {
     }
     // 仅替换 Maven 同样使用的 profile 标记，保留 Spring 环境变量占位符
     filesMatching('application.yml') {
-        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [activeProfile: activeProfile])
+        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [activeProfile: activeProfile, projectVersion: project.version.toString()])
+    }
+}
+
+// 单 jar 内嵌前端：./gradlew :api:bootJar -PwithSpa
+// 只有显式传 -PwithSpa 才把 client/dist 打进 BOOT-INF/classes/static；
+// Docker 构建仍走独立 nginx，不传这个参数，行为不变。
+def spaDir = rootProject.file('../client/dist')
+def spaStage = layout.buildDirectory.dir('spa-static')
+tasks.register('copySpa', Copy) {
+    onlyIf { spaDir.exists() }
+    from spaDir
+    into spaStage
+}
+if (project.hasProperty('withSpa')) {
+    bootJar {
+        dependsOn tasks.named('copySpa')
+        from(spaStage) {
+            into 'BOOT-INF/classes/static'
+        }
     }
 }

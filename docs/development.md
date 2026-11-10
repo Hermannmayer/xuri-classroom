@@ -57,7 +57,7 @@ docs/             文档
 |---|---|---|
 | JDK 8 | `%LOCALAPPDATA%\jdk8\jdk8u504-b01` | Temurin 免安装版 |
 | MySQL 8.0.24 | `%LOCALAPPDATA%\mysql\mysql-8.0.24-winx64` | 便携版，3306，root；口令见本地私密记录，**不要写进仓库** |
-| 后端 | `server/api/build/libs/xuri-classroom-v1.13.0.jar` | `gradlew :api:bootJar -x test`，默认端口 7007（内部） |
+| 后端 | `server/api/build/libs/xuri-classroom-<version>.jar` | `gradlew :api:bootJar -x test`，默认端口 7007（内部）；版本取自根目录 `VERSION` |
 | 前端 | `client/` → `npm run dev` | **对外 80**，`/api` 代理到后端 7007 |
 
 启动顺序：`scripts/dev/start-mysql.ps1` → `scripts/dev/start-backend.ps1` → `npm run dev`（均在仓库根目录执行）。

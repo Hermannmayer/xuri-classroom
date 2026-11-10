@@ -531,7 +531,7 @@ CREATE TABLE `t_sys_info` (
 -- Records of t_sys_info
 -- ----------------------------
 BEGIN;
-INSERT INTO `t_sys_info` (`id`, `name`, `description`, `avatar`, `locale`, `version`, `setting`, `ai_setting`, `oauth_setting`, `register_info`, `is_default`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '1.13.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":false,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
+INSERT INTO `t_sys_info` (`id`, `name`, `description`, `avatar`, `locale`, `version`, `setting`, `ai_setting`, `oauth_setting`, `register_info`, `is_default`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '2.0.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":false,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
 COMMIT;
 
 -- ----------------------------

@@ -1,0 +1,49 @@
+#!/bin/sh
+# 旭日云课堂 commit-msg 守卫：
+#   1. 校验 conventional commits 格式（feat/fix/perf/...），保证语义化发版能算版本；
+#   2. 删除 AI 署名尾注（Claude / Anthropic 等）。
+#
+# 安装：pwsh scripts/release/install-hooks.ps1
+# 临时绕过：git commit --no-verify
+msgfile="$1"
+[ -f "$msgfile" ] || exit 0
+
+# 去掉注释行后的第一条非空行
+subject=$(grep -v '^#' "$msgfile" | sed '/^[[:space:]]*$/d' | head -n 1)
+
+case "$subject" in
+  Merge*|Revert*|fixup!*|squash!*|amend!*) ;;
+  *)
+    if ! printf '%s' "$subject" | grep -Eq '^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([^)]+\))?!?: .+'; then
+      echo "" >&2
+      echo "提交信息不符合 Conventional Commits 格式：" >&2
+      echo "  $subject" >&2
+      echo "" >&2
+      echo "正确示例：" >&2
+      echo "  feat(考试): 支持按班级设置试卷状态" >&2
+      echo "  fix(题库): 修复导入模板 500" >&2
+      echo "  docs: 补充部署文档" >&2
+      echo "" >&2
+      echo "允许的类型：feat fix perf refactor docs test build ci chore style revert" >&2
+      echo "临时绕过：git commit --no-verify" >&2
+      exit 1
+    fi
+    ;;
+esac
+
+# 删除 AI 署名尾注，并去掉末尾空行
+LC_ALL=C awk '
+{
+  low = tolower($0)
+  if (low ~ /^[ \t]*co-authored-by:.*(claude|anthropic)/) next
+  if (low ~ /^[ \t]*claude-session:/)                      next
+  if (low ~ /^[ \t]*generated with.*claude/)               next
+  if (low ~ /generated with \[claude code\]/)              next
+  n++; out[n] = $0
+}
+END {
+  while (n > 0 && out[n] ~ /^[ \t\r]*$/) n--
+  for (i = 1; i <= n; i++) print out[i]
+}
+' "$msgfile" > "$msgfile.xuri-strip.tmp" && mv "$msgfile.xuri-strip.tmp" "$msgfile"
+exit 0

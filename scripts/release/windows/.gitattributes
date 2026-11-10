@@ -1,0 +1,10 @@
+# 发布包里的脚本必须在 Windows 上直接可用：
+#   · .cmd 必须是 CRLF（LF 的 .cmd 双击会报错/行为异常）
+#   · .ps1 / .txt 需要 UTF-8 BOM（文件里已带）+ CRLF
+# 这几条同时保证在 Linux 上打包（GitHub Actions）时，检出的工作区也是 CRLF，
+# 否则 zip 里的 .cmd 会变成 LF。
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+*.txt     text eol=crlf
+*.env     text eol=crlf
+*.example text eol=crlf

@@ -8,6 +8,9 @@ hero:
   tagline: "先定位模块，再读代码；文档与代码同仓库、同提交。"
   actions:
     - theme: brand
+      text: "部署安装"
+      link: /deploy/
+    - theme: alt
       text: "开始阅读"
       link: /start/dev-setup
     - theme: alt
@@ -24,6 +27,7 @@ features:
 
 ## 从这里开始
 
+- 要把系统装起来用：读 [部署总览](deploy/index.md)（Windows / Linux / Docker）。
 - 第一次接触项目：读 [架构总览](architecture/overview.md)，再读 [本地开发环境](start/dev-setup.md)。
 - 要改一个功能：用仓库根目录的 `docs/README.md` 任务路由表，或 `npm run docs:where -- "关键词"`。
 - 要改权限：先读 [权限与角色](modules/permissions.md)，再读 [新增/修改权限点](flows/permission-change.md)。

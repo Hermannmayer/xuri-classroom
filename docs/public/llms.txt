@@ -15,6 +15,7 @@
 - [ADR-0001 权限模型：权限点 → 角色 → 用户组/用户](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0001-rbac): 为什么组只绑角色、不直接挂权限；最终权限如何计算
 - [ADR-0002 管理员 = 管理权限全集，不是所有权限串](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0002-admin-catalog): 为什么管理员不自动拥有学员能力；前端 can() 如何配合
 - [ADR-0003 老师可以编辑/删除考试，但不能改题库](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0003-teacher-exam-vs-repo): 老师保留考试与问卷生命周期；题库只读；答卷删除归管理员
+- [ADR-0004 单 jar 内嵌 SPA 与 MySQL 运行时](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0004-单jar内嵌SPA与MySQL运行时): 为什么安装包只发一个 jar、为什么放弃 H2、为什么 Windows 只出一个包
 - [建班、加学员、分配老师、分配考试/题库与数据可见范围](https://hermannmayer.github.io/xuri-classroom/flows/class-grant)
 - [从建卷/组卷到发布、答题、判分与报表](https://hermannmayer.github.io/xuri-classroom/flows/exam-publish-answer)
 - [RSA 登录、sk-token 会话、注册与会话失效](https://hermannmayer.github.io/xuri-classroom/flows/login-auth)

@@ -1,0 +1,39 @@
+# ============================================================
+# 旭日云课堂 · 运行时镜像
+#
+# 只负责跑 jar：前端 SPA 已打包在 jar 内（SK_WEB_SPA_ENABLED=true），
+# 因此不再需要单独的 nginx 容器。
+#
+# 构建（在 docker/ 目录，先把发布 jar 放进来）：
+#   cp <linux包>/app/xuri-classroom-<version>.jar ./xuri-classroom.jar
+#   docker build -f Dockerfile.runtime -t ghcr.io/hermannmayer/xuri-classroom:local .
+#
+# 只想用官方镜像时无需构建：直接 docker compose pull。
+# ============================================================
+FROM eclipse-temurin:8-jre-alpine
+
+# 时区 + 健康检查用的 curl（基础镜像里没有）
+RUN apk add --no-cache tzdata curl \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+WORKDIR /app
+
+# 默认值即可跑起来；具体数据库/密钥由 compose 注入
+ENV TZ=Asia/Shanghai \
+    SK_WEB_SPA_ENABLED=true \
+    FILE_STORAGE_LOCAL_ROOT_PATH=/app/files
+
+# 发布流程把 jar 复制为 docker/xuri-classroom.jar；也可 --build-arg JAR_FILE=xxx.jar
+ARG JAR_FILE=xuri-classroom.jar
+COPY ${JAR_FILE} /app/app.jar
+
+RUN mkdir -p /app/files
+
+EXPOSE 8080
+
+# 启动期 Spring Boot 初始化较慢，给 90 秒
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
+  CMD curl -fsS http://127.0.0.1:8080/api/system >/dev/null || exit 1
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar", "--server.port=8080"]

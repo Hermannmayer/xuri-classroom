@@ -130,3 +130,6 @@ scripts/dev/*.bak
 node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+
+# 发版产物（GitHub Actions / scripts/release/package.py 生成，不入库）
+/dist/

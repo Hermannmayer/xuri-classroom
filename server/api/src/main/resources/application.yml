@@ -1,4 +1,4 @@
-version: 1.13.0
+version: @projectVersion@
 spring:
   application:
     name: survey
@@ -34,6 +34,9 @@ file-storage:
   max-total-public-storage-mb: 5120
   max-image-pixels: 16000000
 sk:
+  web:
+    spa:
+      enabled: ${SK_WEB_SPA_ENABLED:false}
   security:
     url-token-authentication:
       enabled: false # 默认关闭 url token 认证，避免令牌出现在 URL、日志或 Referer 中

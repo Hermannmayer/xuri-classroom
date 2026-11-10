@@ -1,0 +1,93 @@
+# ============================================================
+# 旭日云课堂 · Docker 发布编排（GHCR 镜像 + MySQL 8.0）
+#
+# 组件只有两个：
+#   db  ：mysql:8.0，数据落命名卷
+#   app ：GHCR 镜像，jar 内已打包前端 SPA，直接对外提供 8080
+# 不需要 nginx 容器；需要反代/HTTPS 时在宿主机或上层网关做。
+#
+# 用法（在 docker/ 目录）：
+#   cp .env.example .env && vi .env
+#   docker compose --env-file .env -f docker-compose.release.yml up -d
+#
+# 注意：要传给容器内 shell 的变量一律写 $${VAR}，单个 $ 会被 Compose 当插值吃掉。
+# ============================================================
+name: xuri-classroom
+
+services:
+  # ---------- 数据库 ----------
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+    environment:
+      # root 密码与应用账号共用 DB_PASSWORD（首次初始化时生效）
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-surveyking}
+      MYSQL_USER: ${DB_USER:-xuri}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - db-data:/var/lib/mysql
+      # 仅在数据卷为空（首次启动）时执行一次。
+      # init-mysql.sql 含 25 处 DROP TABLE：已有数据的卷不要替换/修改这里。
+      - ${INIT_SQL_FILE:-./init-mysql.sql}:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ---------- 应用 ----------
+  app:
+    # XURI_IMAGE 只写“镜像名（不含 tag）”，tag 由 VERSION 决定。
+    # 例：XURI_IMAGE=ghcr.nju.edu.cn/hermannmayer/xuri-classroom VERSION=latest
+    image: ${XURI_IMAGE:-ghcr.io/hermannmayer/xuri-classroom}:${VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: ${DB_NAME:-surveyking}
+      DB_USER: ${DB_USER:-xuri}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      # pro 配置包不含 application-dev.yml，必须显式给数据源；
+      # useSSL=false 是故意的：JDK8 的 connector 与 MySQL 8 的 TLS 握手会失败。
+      SPRING_DATASOURCE_URL: "jdbc:mysql://db:3306/${DB_NAME:-surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-xuri}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      SK_JWT_SECRET: ${JWT_SECRET:?请在 .env 里设置 JWT_SECRET}
+      # 由后端托管前端 SPA
+      SK_WEB_SPA_ENABLED: 'true'
+      FILE_STORAGE_LOCAL_ROOT_PATH: /app/files
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
+      TZ: Asia/Shanghai
+    volumes:
+      - app-files:/app/files
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  # 固定卷名，备份/恢复时不用猜项目前缀
+  db-data:
+    name: xuri-classroom-db-data
+  app-files:
+    name: xuri-classroom-app-files
