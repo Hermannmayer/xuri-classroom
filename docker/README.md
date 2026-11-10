@@ -107,7 +107,7 @@ docker compose -f docker-compose.release.yml start
 
 ~~~bash
 cd /opt/xuri-classroom
-# 改 .env 里的 VERSION（例如 v1.13.1）
+# 改 .env 里的 VERSION（例如 2.0.1）
 vi .env
 docker compose --env-file .env -f docker-compose.release.yml pull app
 docker compose --env-file .env -f docker-compose.release.yml up -d app
