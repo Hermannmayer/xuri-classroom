@@ -177,6 +177,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	public void updateRepo(RepoRequest request) {
 		assertManageRepo(request.getId());
 		updateById(repoViewMapper.fromRequest(request));
+		// MyBatis-Plus 的 updateById 会跳过 null 字段，「清空全局开放期」（前端传 null）会静默不生效。
+		// 这两列显式 set 一次：题库编辑弹窗是整表单保存，总会带上这两个字段（不传=清空）。
+		getBaseMapper().update(null, Wrappers.<Repo>lambdaUpdate().eq(Repo::getId, request.getId())
+				.set(Repo::getOpenStartAt, request.getOpenStartAt()).set(Repo::getOpenEndAt, request.getOpenEndAt()));
 		tagService.batchAddTag(request.getId(), TagCategoryEnum.repo, request.getTag());
 	}
 

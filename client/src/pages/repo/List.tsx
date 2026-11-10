@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Button,
+  DatePicker,
   Empty,
   Form,
   Input,
@@ -19,6 +20,8 @@ import {
 } from 'antd';
 import { DatabaseOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
@@ -41,6 +44,9 @@ interface RepoView {
   shared?: boolean;
   category?: string;
   isPractice?: boolean;
+  /** 全局开放时间（后端 Date 序列化为字符串）；空=不限 */
+  openStartAt?: string;
+  openEndAt?: string;
 }
 
 const MODE_LABEL: Record<string, string> = {
@@ -103,8 +109,15 @@ export default function RepoList() {
     category: string;
     mode: 'exam' | 'survey';
     description?: string;
+    window?: [Dayjs | null, Dayjs | null];
   }>();
-  const [renameForm] = Form.useForm<{ name: string; category?: string; tag?: string; description?: string }>();
+  const [renameForm] = Form.useForm<{
+    name: string;
+    category?: string;
+    tag?: string;
+    description?: string;
+    window?: [Dayjs | null, Dayjs | null];
+  }>();
 
   const [authorities, setAuthorities] = useState<string[]>([]);
   useEffect(() => {
@@ -231,13 +244,19 @@ export default function RepoList() {
   }, [load]);
 
   const openCreate = () => {
-    createForm.setFieldsValue({ name: '', category: '', mode: 'exam', description: '' });
+    createForm.setFieldsValue({ name: '', category: '', mode: 'exam', description: '', window: undefined });
     setCreateOpen(true);
   };
 
   const submitCreate = async () => {
     if (creating) return;
-    let v: { name: string; category: string; mode: 'exam' | 'survey'; description?: string };
+    let v: {
+      name: string;
+      category: string;
+      mode: 'exam' | 'survey';
+      description?: string;
+      window?: [Dayjs | null, Dayjs | null];
+    };
     try {
       v = await createForm.validateFields();
     } catch {
@@ -250,6 +269,9 @@ export default function RepoList() {
         category: v.category.trim(),
         mode: v.mode,
         description: v.description?.trim() || undefined,
+        // 全局开放时间：epoch 毫秒；null=不限
+        openStartAt: v.window?.[0]?.valueOf() ?? null,
+        openEndAt: v.window?.[1]?.valueOf() ?? null,
       });
       setCreateOpen(false);
       message.success('已创建题库');
@@ -263,7 +285,13 @@ export default function RepoList() {
 
   const submitRename = async () => {
     if (!renaming || renameSaving) return;
-    let values: { name: string; category?: string; tag?: string; description?: string };
+    let values: {
+      name: string;
+      category?: string;
+      tag?: string;
+      description?: string;
+      window?: [Dayjs | null, Dayjs | null];
+    };
     try {
       values = await renameForm.validateFields();
     } catch {
@@ -284,6 +312,9 @@ export default function RepoList() {
         isPractice: renaming.isPractice,
         priority: renaming.priority,
         setting: renaming.setting,
+        // 沿用表单回填值：没改就原样提交，不清掉题库已有的全局窗口
+        openStartAt: values.window?.[0]?.valueOf() ?? null,
+        openEndAt: values.window?.[1]?.valueOf() ?? null,
       });
       message.success('已保存');
       setRenaming(null);
@@ -341,6 +372,13 @@ export default function RepoList() {
       category: row.category,
       tag: (row.tag || []).join(','),
       description: row.description,
+      window:
+        row.openStartAt || row.openEndAt
+          ? [
+              row.openStartAt ? dayjs(row.openStartAt) : null,
+              row.openEndAt ? dayjs(row.openEndAt) : null,
+            ]
+          : undefined,
     });
     setRenaming(row);
   };
@@ -833,6 +871,18 @@ export default function RepoList() {
               ]}
             />
           </Form.Item>
+          <Form.Item
+            name="window"
+            label="全局开放时间"
+            extra="班级窗口必须落在全局开放时间内；全局窗口是硬上限，班级老师只能收紧；留空=不限"
+          >
+            <DatePicker.RangePicker
+              showTime={{ format: 'HH:mm' }}
+              format="YYYY-MM-DD HH:mm"
+              allowEmpty={[true, true]}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
           <Form.Item name="description" label="描述">
             <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} placeholder="选填" />
           </Form.Item>
@@ -862,6 +912,18 @@ export default function RepoList() {
           </Form.Item>
           <Form.Item name="tag" label="标签" extra="多个标签用英文逗号分隔">
             <Input maxLength={200} placeholder="例如：三级,重点,2025" />
+          </Form.Item>
+          <Form.Item
+            name="window"
+            label="全局开放时间"
+            extra="班级窗口必须落在全局开放时间内；全局窗口是硬上限，班级老师只能收紧；留空=不限"
+          >
+            <DatePicker.RangePicker
+              showTime={{ format: 'HH:mm' }}
+              format="YYYY-MM-DD HH:mm"
+              allowEmpty={[true, true]}
+              style={{ width: '100%' }}
+            />
           </Form.Item>
           <Form.Item name="description" label="描述">
             <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} placeholder="选填" />

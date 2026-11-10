@@ -57,7 +57,8 @@ import java.util.stream.Collectors;
  * <ul>
  * <li>project：项目上的 {@code examSetting.startTime/endTime} 是**全局窗口，也是硬上限**；
  * 班级窗口（t_class_resource.start_at/end_at）为空表示继承全局，非空必须落在全局窗口内；</li>
- * <li>repo：题库没有全局窗口，班级窗口只校验「开始 &lt;= 结束」，为空表示不限；</li>
+ * <li>repo：题库有全局开放期（t_repo.open_start_at/open_end_at），是班级窗口的硬上限；
+ * 班级窗口为空表示继承全局，非空时必须落在全局开放期内；</li>
  * <li>没有分配到某个班的考试/题库，该班学生完全看不到（连 ProjectNotFound 都不该区分出来）；</li>
  * <li>学生同时在多个班时，任一班的分配有效即可参加，解析时主组优先。</li>
  * </ul>
@@ -157,7 +158,7 @@ public class ClassResourceService {
 		return result;
 	}
 
-	/** repo 面板：题库没有全局窗口、不产生答卷，状态只看「班级开关 + 本班窗口」 */
+	/** repo 面板：题库不产生答卷；全局开放期是班级窗口的硬上限，状态按「班级开关 + 全局 + 本班窗口」算 */
 	private List<ClassResourceView> toRepoViews(String classId, Dept dept, List<ClassResource> resources,
 			List<String> resourceIds, Map<String, User> assigners) {
 		Map<String, Repo> repos = loadRepos(resourceIds);
@@ -173,10 +174,11 @@ public class ClassResourceService {
 				// repo.mode 是自由字符串，转不进 ProjectModeEnum 就留空；前端按 resourceType 显示「题库」
 				view.setResourceMode(toProjectMode(repo.getMode()));
 			}
-			view.setGlobalStartAt(null);
-			view.setGlobalEndAt(null);
+			// 题库的全局开放期（硬上限）；题库不存在时为空
+			view.setGlobalStartAt(repo == null ? null : repo.getOpenStartAt());
+			view.setGlobalEndAt(repo == null ? null : repo.getOpenEndAt());
 			view.setAnswerCount(0L);
-			view.setEffectiveStatus(repoEffectiveStatus(resource));
+			view.setEffectiveStatus(effectiveStatusForRepo(resource, repo));
 			result.add(view);
 		}
 		return result;
@@ -223,12 +225,14 @@ public class ClassResourceService {
 		Date startAt = toDate(request.getStartAt());
 		Date endAt = toDate(request.getEndAt());
 		if (RESOURCE_TYPE_REPO.equals(type)) {
-			// 题库没有全局窗口：只校验班级窗口自身合法
+			// 题库：全局开放期是硬上限，班级窗口非空时必须落在里面
 			Map<String, Repo> repos = loadRepos(resourceIds);
 			if (repos.size() != resourceIds.size()) {
 				throw new ValidationException("部分题库不存在，请刷新后重试");
 			}
-			assertWindowOrder(startAt, endAt);
+			for (String resourceId : resourceIds) {
+				assertRepoAssignable(repos.get(resourceId), startAt, endAt);
+			}
 		}
 		else {
 			Map<String, Project> projects = loadProjects(resourceIds);
@@ -276,11 +280,8 @@ public class ClassResourceService {
 		Date startAt = toDate(request.getStartAt());
 		Date endAt = toDate(request.getEndAt());
 		if (RESOURCE_TYPE_REPO.equals(record.getResourceType())) {
-			// 题库：没有全局窗口，只校验班级窗口自身合法
-			if (repoMapper.selectById(record.getResourceId()) == null) {
-				throw new ValidationException("题库不存在，请刷新后重试");
-			}
-			assertWindowOrder(startAt, endAt);
+			// 题库：全局开放期是硬上限，班级窗口非空时必须落在里面
+			assertRepoAssignable(repoMapper.selectById(record.getResourceId()), startAt, endAt);
 		}
 		else {
 			Project project = projectMapper.selectById(record.getResourceId());
@@ -394,12 +395,16 @@ public class ClassResourceService {
 	}
 
 	/**
-	 * 解析某个学生对某个题库的有效分配班级：返回命中的 classId；非学生 / 无有效分配返回 null。
+	 * 解析某个学生对某个题库的有效分配班级：返回命中的 classId；非学生 / 题库不存在 / 无有效分配返回 null。
 	 *
-	 * <p>题库没有全局窗口，只看「班级开关 + 本班窗口」，主组优先。
+	 * <p>有效 = 班级分配 status=1 + 题库全局开放期有效 + 本班窗口（为空继承全局）有效；主组优先。
 	 */
 	public String resolveForStudentRepo(String repoId, String userId) {
 		if (!StringUtils.hasText(repoId)) {
+			return null;
+		}
+		Repo repo = repoMapper.selectById(repoId.trim());
+		if (repo == null) {
 			return null;
 		}
 		User student = loadStudent(userId);
@@ -411,7 +416,7 @@ public class ClassResourceService {
 			return null;
 		}
 		for (ClassResource row : loadAssignments(RESOURCE_TYPE_REPO, repoId.trim(), classIds)) {
-			if (invalidRepoReason(row) == null) {
+			if (invalidRepoReason(row, repo) == null) {
 				return row.getClassId();
 			}
 		}
@@ -441,15 +446,16 @@ public class ClassResourceService {
 		if (student == null) {
 			return;
 		}
+		Repo repo = repoMapper.selectById(repoId.trim());
 		List<String> classIds = studentClassIds(student);
-		List<ClassResource> rows = classIds.isEmpty() ? new ArrayList<>()
+		List<ClassResource> rows = classIds.isEmpty() || repo == null ? new ArrayList<>()
 				: loadAssignments(RESOURCE_TYPE_REPO, repoId.trim(), classIds);
 		if (rows.isEmpty()) {
 			throw new AccessDeniedException("无权限访问该题库");
 		}
 		ErrorCode reason = null;
 		for (ClassResource row : rows) {
-			ErrorCode invalid = invalidRepoReason(row);
+			ErrorCode invalid = invalidRepoReason(row, repo);
 			if (invalid == null) {
 				return;
 			}
@@ -528,6 +534,26 @@ public class ClassResourceService {
 		}
 		if (endAt != null && globalEndAt != null && endAt.getTime() > globalEndAt) {
 			throw new ValidationException("班级开放时间必须在全局开放时间内");
+		}
+	}
+
+	/**
+	 * 题库的班级窗口校验：题库全局开放期是硬上限。
+	 *
+	 * <p>start / end 都为空 = 继承全局；非空时先保证开始不晚于结束，再保证非空的那一端不越出全局开放期。
+	 */
+	private void assertRepoAssignable(Repo repo, Date startAt, Date endAt) {
+		if (repo == null) {
+			throw new ValidationException("题库不存在，请刷新后重试");
+		}
+		assertWindowOrder(startAt, endAt);
+		Long globalStartAt = safeTime(repo.getOpenStartAt());
+		Long globalEndAt = safeTime(repo.getOpenEndAt());
+		if (startAt != null && globalStartAt != null && startAt.getTime() < globalStartAt) {
+			throw new ValidationException("题库开放时间必须在全局开放时间内");
+		}
+		if (endAt != null && globalEndAt != null && endAt.getTime() > globalEndAt) {
+			throw new ValidationException("题库开放时间必须在全局开放时间内");
 		}
 	}
 
@@ -647,17 +673,36 @@ public class ClassResourceService {
 		return null;
 	}
 
-	/** 题库行的不可用原因：只有「班级开关 + 本班窗口」，不读项目全局状态（题库没有全局窗口） */
-	private ErrorCode invalidRepoReason(ClassResource row) {
-		if (row == null) {
+	/**
+	 * 题库行的不可用原因：班级开关 + 题库全局开放期（硬上限）+ 本班窗口（为空继承全局）。
+	 *
+	 * <p>题库不存在（已删除）视为不可访问；不读 project 的任何状态。
+	 */
+	private ErrorCode invalidRepoReason(ClassResource row, Repo repo) {
+		if (row == null || repo == null) {
 			return ErrorCode.ProjectNotFound;
 		}
 		if (!Integer.valueOf(1).equals(row.getStatus())) {
 			return ErrorCode.SurveySuspend;
 		}
-		Long start = safeTime(row.getStartAt());
-		Long end = safeTime(row.getEndAt());
 		long now = System.currentTimeMillis();
+		Long globalStart = safeTime(repo.getOpenStartAt());
+		Long globalEnd = safeTime(repo.getOpenEndAt());
+		// 先判题库全局开放期：它是硬上限，班级窗口只能在里面
+		if (globalStart != null && now < globalStart) {
+			return ErrorCode.ExamUnStarted;
+		}
+		if (globalEnd != null && now > globalEnd) {
+			return ErrorCode.ExamFinished;
+		}
+		Long start = safeTime(row.getStartAt());
+		if (start == null) {
+			start = globalStart;
+		}
+		Long end = safeTime(row.getEndAt());
+		if (end == null) {
+			end = globalEnd;
+		}
 		if (start != null && now < start) {
 			return ErrorCode.ExamUnStarted;
 		}
@@ -667,14 +712,32 @@ public class ClassResourceService {
 		return null;
 	}
 
-	/** 题库面板状态：只按「班级开关 + 本班窗口」算，不读 project 的全局开关 */
-	private String repoEffectiveStatus(ClassResource resource) {
+	/**
+	 * 题库面板状态：班级开关 → 题库全局开放期（硬上限）→ 本班窗口（为空用全局）。
+	 *
+	 * <p>不读 project 的任何状态（题库与考试是两套窗口模型）。
+	 */
+	private String effectiveStatusForRepo(ClassResource resource, Repo repo) {
 		if (resource == null || !Integer.valueOf(1).equals(resource.getStatus())) {
 			return STATUS_CLOSED;
 		}
-		Long start = safeTime(resource.getStartAt());
-		Long end = safeTime(resource.getEndAt());
 		long now = System.currentTimeMillis();
+		Long globalStart = repo == null ? null : safeTime(repo.getOpenStartAt());
+		Long globalEnd = repo == null ? null : safeTime(repo.getOpenEndAt());
+		if (globalStart != null && now < globalStart) {
+			return STATUS_NOT_STARTED;
+		}
+		if (globalEnd != null && now > globalEnd) {
+			return STATUS_ENDED;
+		}
+		Long start = safeTime(resource.getStartAt());
+		if (start == null) {
+			start = globalStart;
+		}
+		Long end = safeTime(resource.getEndAt());
+		if (end == null) {
+			end = globalEnd;
+		}
 		if (start != null && now < start) {
 			return STATUS_NOT_STARTED;
 		}

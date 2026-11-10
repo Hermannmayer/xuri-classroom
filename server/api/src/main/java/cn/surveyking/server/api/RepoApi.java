@@ -45,7 +45,8 @@ public class RepoApi {
 	}
 
 	@GetMapping("/detail")
-	@PreAuthorize("hasAuthority('repo:detail')")
+	// 学员用 repo:questions:read / repo:book 进练习页，也要能读到题库详情（读闸门仍在 RepoServiceImpl#assertReadableRepo）
+	@PreAuthorize("hasAnyAuthority('repo:detail','repo:questions:read')")
 	public RepoView getRpo(@RequestParam String id) {
 		return repoService.getRpo(id);
 	}

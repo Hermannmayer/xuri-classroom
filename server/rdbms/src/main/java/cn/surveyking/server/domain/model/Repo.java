@@ -9,6 +9,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.apache.ibatis.type.JdbcType;
 
+import java.util.Date;
+
 /**
  * 模板组
  *
@@ -58,6 +60,17 @@ public class Repo extends BaseModel {
 	private String category;
 
 	private Boolean isPractice;
+
+	/**
+	 * 全局开放期开始；为空表示不限。
+	 *
+	 * <p>按班级分配的窗口（t_class_resource.start_at/end_at）非空时必须落在
+	 * [openStartAt, openEndAt] 内，这里是硬上限。
+	 */
+	private Date openStartAt;
+
+	/** 全局开放期结束；为空表示不限 */
+	private Date openEndAt;
 
 	@JsonIgnore
 	@TableField(exist = false)

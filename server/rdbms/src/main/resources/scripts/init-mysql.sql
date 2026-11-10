@@ -368,6 +368,8 @@ CREATE TABLE `t_repo` (
   `tag` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '标签',
   `priority` int DEFAULT NULL COMMENT '排序优先级',
   `setting` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '设置',
+  `open_start_at` datetime DEFAULT NULL COMMENT '全局开放期开始，留空=不限',
+  `open_end_at` datetime DEFAULT NULL COMMENT '全局开放期结束，留空=不限',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

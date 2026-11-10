@@ -3,6 +3,7 @@ package cn.surveyking.server.domain.dto;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
+import java.util.Date;
 
 /**
  * @author javahuang
@@ -55,5 +56,11 @@ public class RepoRequest {
 	 * 是否是练习题库
 	 */
 	private Boolean isPractice;
+
+	/** 全局开放期开始；为空表示不限（前端传 epoch 毫秒） */
+	private Date openStartAt;
+
+	/** 全局开放期结束；为空表示不限（前端传 epoch 毫秒） */
+	private Date openEndAt;
 
 }

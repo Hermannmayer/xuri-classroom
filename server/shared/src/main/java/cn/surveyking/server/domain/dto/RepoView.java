@@ -2,6 +2,7 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -60,6 +61,12 @@ public class RepoView {
 	private String category;
 
 	private Boolean isPractice;
+
+	/** 全局开放期开始；为空表示不限（前端按 epoch 毫秒展示/回填） */
+	private Date openStartAt;
+
+	/** 全局开放期结束；为空表示不限 */
+	private Date openEndAt;
 
 	private String createBy;
 
