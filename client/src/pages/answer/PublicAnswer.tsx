@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
-import { ArrowLeftOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { ApiError, post } from '../../api';
@@ -25,6 +25,7 @@ import {
   writeMarks,
 } from '../../utils/answerStorage';
 import { buildView, QuestionCard } from './ExamResult';
+import AnonymousAnswersDrawer from './AnonymousAnswersDrawer';
 import '../../styles/answer.css';
 
 /** 后端 ErrorCode.AnswerChangeDisabled = 4020：发布方没开「允许修改答案」时拒绝修改已有答卷 */
@@ -218,6 +219,8 @@ export default function PublicAnswer() {
   const [fontScale, setFontScale] = useState<number>(() => Number(localStorage.getItem(FONT_KEY)) || 1);
   const [page, setPage] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** 「我的答卷」抽屉（匿名/登录都可用；登录后可绑定匿名答卷） */
+  const [answersOpen, setAnswersOpen] = useState(false);
   const [nearBottom, setNearBottom] = useState(false);
   const [remainMs, setRemainMs] = useState<number>();
   const [switchCount, setSwitchCount] = useState(0);
@@ -518,6 +521,13 @@ export default function PublicAnswer() {
   };
   /** 已登录才给返回入口；null（查询中）按未登录处理，按钮不会闪 */
   const canGoBack = loggedIn === true;
+
+  /** 从「我的答卷」里选一条：考试走现有成绩单路由，问卷走答题页的 answerId 路由 */
+  const openPickedAnswer = (pickedId: string) => {
+    setAnswersOpen(false);
+    if (project?.mode === 'exam') navigate(`/s/${id}/exam-result/${pickedId}`);
+    else navigate(`/s/${id}/${pickedId}`);
+  };
   const flatQuestions = useMemo(() => {
     if (project?.survey?.children?.length) return flattenSchema(project.survey);
     return (project?.outline ?? []).map((item: PublicQuestionOutline, index) => {
@@ -1128,6 +1138,14 @@ export default function PublicAnswer() {
 
     return (
       <div style={{ maxWidth: 780, margin: '48px auto', padding: 16 }}>
+        <AnonymousAnswersDrawer
+          open={answersOpen}
+          projectId={id}
+          projectName={project.name}
+          loggedIn={loggedIn === true}
+          onClose={() => setAnswersOpen(false)}
+          onPick={openPickedAnswer}
+        />
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 40, color: 'var(--bp-orange)' }}>✓</div>
           <div className="bp-title" style={{ fontSize: 18, margin: '12px 0' }}>
@@ -1148,6 +1166,9 @@ export default function PublicAnswer() {
               修改答案
             </Button>
           )}
+          <Button style={{ marginTop: 16, marginRight: 8 }} onClick={() => setAnswersOpen(true)}>
+            我的答卷
+          </Button>
           {/* 错题练习（examSetting.randomSurveyWrong）：交卷后给「练本场错题」入口，练习页由 repo/book/practice 负责 */}
           {wrongPracticeEnabled && (
             <Button
@@ -1230,6 +1251,14 @@ export default function PublicAnswer() {
         backgroundPosition: 'center',
       }}
     >
+      <AnonymousAnswersDrawer
+        open={answersOpen}
+        projectId={id}
+        projectName={project.name}
+        loggedIn={loggedIn === true}
+        onClose={() => setAnswersOpen(false)}
+        onPick={openPickedAnswer}
+      />
       {/* 发布设置「显示题目序号」（answerSetting.questionNumber）关闭：答题页隐藏题号徽标。
           徽标由共用组件 QuestionFrame 渲染（.bp-tag），这里用页面级样式隐藏，不影响设计器/预览。 */}
       {!showQuestionNumber && <style>{'.sk-answer .bp-tag{display:none!important}'}</style>}
@@ -1256,6 +1285,16 @@ export default function PublicAnswer() {
             {project.name}
           </div>
         </div>
+        <Button
+          size="small"
+          className="sk-answer-back"
+          icon={<FileTextOutlined />}
+          onClick={() => setAnswersOpen(true)}
+          title="我的答卷"
+          aria-label="我的答卷"
+        >
+          <span className="sk-answer-back-label">我的答卷</span>
+        </Button>
         {remainMs !== undefined && (
           <span
             title="剩余答题时间"

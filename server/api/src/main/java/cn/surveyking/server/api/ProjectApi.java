@@ -53,6 +53,17 @@ public class ProjectApi {
 	}
 
 	/**
+	 * 考试/问卷分类树：文件夹 + 其下的考试/问卷，count 是子树里的项目数。
+	 *
+	 * <p>可见性与 /list 一致；父文件夹不可见的项目会作为根节点返回。
+	 */
+	@GetMapping("/tree")
+	@PreAuthorize("hasAuthority('project:list') or hasRole('admin')")
+	public List<ProjectTreeNode> tree() {
+		return projectService.tree();
+	}
+
+	/**
 	 * 获取项目信息
 	 * @param id 项目 id
 	 * @return

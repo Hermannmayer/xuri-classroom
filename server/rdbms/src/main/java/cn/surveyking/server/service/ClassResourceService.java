@@ -136,7 +136,7 @@ public class ClassResourceService {
 	private List<ClassResourceView> toProjectViews(String classId, Dept dept, List<ClassResource> resources,
 			List<String> resourceIds, Map<String, User> assigners) {
 		Map<String, Project> projects = loadProjects(resourceIds);
-		Map<String, Long> answerCounts = countAnswersByProject(classId, resourceIds);
+		Map<String, AnswerStat> answerStats = loadClassAnswerStats(classId, resourceIds);
 		List<ClassResourceView> result = new ArrayList<>();
 		for (ClassResource resource : resources) {
 			if (resource == null) {
@@ -150,8 +150,10 @@ public class ClassResourceService {
 			}
 			view.setGlobalStartAt(toDate(globalStart(project)));
 			view.setGlobalEndAt(toDate(globalEnd(project)));
-			Long answerCount = answerCounts.get(resource.getResourceId());
-			view.setAnswerCount(answerCount == null ? 0L : answerCount);
+			AnswerStat stat = answerStats.get(resource.getResourceId());
+			view.setAnswerCount(stat == null ? 0L : stat.count);
+			// 平均分：没有带分数的答卷就是 null（题库行不会走到这里，天然为 null）
+			view.setAvgScore(stat == null ? null : stat.average());
 			view.setEffectiveStatus(effectiveStatus(resource, project));
 			result.add(view);
 		}
@@ -605,18 +607,48 @@ public class ClassResourceService {
 				.collect(Collectors.toMap(User::getId, user -> user, (a, b) -> a));
 	}
 
-	/** 本班已交卷数：t_answer 按 project_id + class_id + temp_save=1（逻辑删除由 @TableLogic 处理） */
-	private Map<String, Long> countAnswersByProject(String classId, List<String> projectIds) {
-		Map<String, Long> counts = new HashMap<>();
+	/**
+	 * 本班每个项目的答卷数与平均分：一次查询把 project_id + exam_score 取回来在内存里聚合，
+	 * 避免每个项目各查一次库。口径：t_answer 的 project_id + class_id + temp_save=1
+	 * （逻辑删除由 @TableLogic 处理），平均分等价于 AVG(exam_score)（忽略 null 分数）。
+	 */
+	private Map<String, AnswerStat> loadClassAnswerStats(String classId, List<String> projectIds) {
+		Map<String, AnswerStat> stats = new HashMap<>();
 		if (CollectionUtils.isEmpty(projectIds)) {
-			return counts;
+			return stats;
 		}
 		answerMapper
-				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getProjectId)
-						.eq(Answer::getTempSave, 1).eq(Answer::getClassId, classId)
-						.in(Answer::getProjectId, projectIds))
-				.forEach(answer -> counts.merge(answer.getProjectId(), 1L, Long::sum));
-		return counts;
+				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getProjectId, Answer::getExamScore)
+						.eq(Answer::getTempSave, 1).eq(Answer::getIsAnonymous, false)
+						.eq(Answer::getClassId, classId).in(Answer::getProjectId, projectIds))
+				.forEach(answer -> {
+					if (answer == null || !StringUtils.hasText(answer.getProjectId())) {
+						return;
+					}
+					AnswerStat stat = stats.computeIfAbsent(answer.getProjectId(), key -> new AnswerStat());
+					stat.count++;
+					if (answer.getExamScore() != null) {
+						stat.scoreSum += answer.getExamScore();
+						stat.scoredCount++;
+					}
+				});
+		return stats;
+	}
+
+	/** 单个项目的班级答卷统计：答卷数 + 有分数的答卷数与总分 */
+	private static final class AnswerStat {
+
+		private long count;
+
+		private double scoreSum;
+
+		private long scoredCount;
+
+		/** 平均分：没有带分数的答卷就返回 null（问卷模式 / 未判分） */
+		private Double average() {
+			return scoredCount == 0 ? null : scoreSum / scoredCount;
+		}
+
 	}
 
 	private String effectiveStatus(ClassResource resource, Project project) {

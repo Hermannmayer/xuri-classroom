@@ -9,6 +9,7 @@ import cn.surveyking.server.impl.DictItemServiceImpl;
 import cn.surveyking.server.impl.ExamControlService;
 import cn.surveyking.server.impl.PublicSurveyExtrasService;
 import cn.surveyking.server.impl.WechatAccessGuard;
+import cn.surveyking.server.service.AnonymousIdentityService;
 import cn.surveyking.server.service.ProjectService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +36,7 @@ class PublicSurveyExtrasServiceTest {
 		when(projectService.getProject("missing")).thenReturn(null);
 		PublicSurveyExtrasService service = new PublicSurveyExtrasService(projectService, mock(AnswerServiceImpl.class),
 				mock(DictItemServiceImpl.class), mock(ExamControlService.class), mock(WechatAccessGuard.class),
-				mock(AnswerLookup.class), mock(ObjectMapper.class));
+				mock(AnswerLookup.class), mock(ObjectMapper.class), mock(AnonymousIdentityService.class));
 		PublicExamRequest request = new PublicExamRequest();
 		request.setId("missing");
 		request.setAnswerId("a1");

@@ -3,6 +3,7 @@ import {
   Breadcrumb,
   Button,
   Checkbox,
+  Dropdown,
   Empty,
   Form,
   Input,
@@ -16,6 +17,7 @@ import {
   Table,
   Tag,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
@@ -26,6 +28,7 @@ import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
 import ComposeModal from './ComposeModal';
+import ProjectTree from './ProjectTree';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 type Crumb = { id: string; name: string };
@@ -358,6 +361,8 @@ function ManagerProjectList({
   const [batchSettingOpen, setBatchSettingOpen] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
+  /** 新建/删除/重命名后递增，让左侧分类树重新拉 counts */
+  const [treeToken, setTreeToken] = useState(0);
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -433,6 +438,7 @@ function ManagerProjectList({
       });
       setCreateOpen(false);
       message.success('已创建');
+      setTreeToken((token) => token + 1);
       navigate(`/survey/${created.id}/edit`);
     } catch (e) {
       message.error((e as Error).message);
@@ -454,7 +460,10 @@ function ManagerProjectList({
     try {
       await updateProject({ id: renaming.id, name });
       message.success('已重命名');
+      // 当前面包屑可能正停在这个文件夹上，同步改名，避免继续显示旧名称
+      setCrumbs((prev) => prev.map((crumb) => (crumb.id === renaming.id ? { ...crumb, name } : crumb)));
       setRenaming(null);
+      setTreeToken((token) => token + 1);
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -478,6 +487,7 @@ function ManagerProjectList({
     try {
       await deleteProject(row.id);
       message.success('已移入回收站');
+      setTreeToken((token) => token + 1);
       await load();
     } catch (e) {
       message.error((e as Error).message);
@@ -500,6 +510,7 @@ function ManagerProjectList({
         await deleteProject(id);
       }
       message.success(`已删除 ${ids.length} 项`);
+      setTreeToken((token) => token + 1);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -526,24 +537,93 @@ function ManagerProjectList({
     setRenaming(row);
   };
 
+  /** 复制答题链接：优先 clipboard；非安全上下文/失败时退回 prompt 手动复制 */
+  const copyLink = async (row: ProjectView) => {
+    const url = `${window.location.origin}/s/${row.id}`;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        window.prompt('请手动复制答题链接', url);
+        return;
+      }
+      message.success('已复制答题链接');
+    } catch {
+      window.prompt('请手动复制答题链接', url);
+    }
+  };
+
+  const copyLinkLabel = (row: ProjectRow) =>
+    row.setting?.answerSetting?.loginRequired === true ? '复制链接（需登录）' : '复制链接';
+
+  /** 行操作收进「更多」下拉：按权限逐项渲染，文件夹只有重命名/删除 */
+  const buildOpsMenu = (row: ProjectRow): NonNullable<MenuProps['items']> => {
+    const items: NonNullable<MenuProps['items']> = [];
+    if (row.mode !== 'folder') {
+      if (canDetail) items.push({ key: 'settings', label: '设置' });
+      if (canUpdate) items.push({ key: 'edit', label: '编辑' });
+      if (canData) items.push({ key: 'data', label: '数据' });
+      items.push({ key: 'copy', label: copyLinkLabel(row) });
+      if (canPublish) {
+        items.push({
+          key: 'toggle',
+          label: row.status === 1 ? '关闭' : '开启',
+          danger: row.status === 1,
+        });
+      }
+    }
+    if (canUpdate) items.push({ key: 'rename', label: '重命名' });
+    if (canDelete) items.push({ key: 'delete', label: '删除', danger: true });
+    return items;
+  };
+
+  const handleOps = (row: ProjectRow, key: string) => {
+    switch (key) {
+      case 'settings':
+        navigate(`/survey/${row.id}`);
+        break;
+      case 'edit':
+        navigate(`/survey/${row.id}/edit`);
+        break;
+      case 'data':
+        navigate(`/survey/${row.id}/data`);
+        break;
+      case 'copy':
+        void copyLink(row);
+        break;
+      case 'toggle':
+        if (row.status === 1) {
+          Modal.confirm({
+            title: '关闭后学员将无法打开答题链接',
+            content: '已收集的答卷不受影响，可随时重新开启。',
+            okText: '关闭',
+            cancelText: '取消',
+            onOk: () => setStatus(row, 0),
+          });
+        } else {
+          void setStatus(row, 1);
+        }
+        break;
+      case 'rename':
+        openRename(row);
+        break;
+      case 'delete':
+        Modal.confirm({
+          title: `删除「${row.name || ''}」？`,
+          content: '删除后可在回收站找回。',
+          okText: '删除',
+          okButtonProps: { danger: true },
+          cancelText: '取消',
+          onOk: () => remove(row),
+        });
+        break;
+      default:
+        break;
+    }
+  };
+
   /** 批量操作（批量设置 / 批量删除）至少要有一个权限，否则选择框没有意义 */
   const canBatch = canUpdate || canDelete;
-
-  /**
-   * 操作列宽度不写死：按当前页「实际会渲染的动作数」算，
-   * 权限少的账号不会留一大片空白，动作多时也只占实际需要的宽度。
-   */
-  const desktopActionCount = (row: ProjectRow) =>
-    row.mode === 'folder'
-      ? Number(canUpdate) + Number(canDelete)
-      : Number(canDetail) +
-        Number(canPublish) +
-        Number(canUpdate) +
-        Number(canData) +
-        Number(canUpdate) +
-        Number(canDelete);
-  const opsActionCount = rows.length ? Math.max(...rows.map(desktopActionCount)) : 0;
-  const opsColumnWidth = Math.max(1, opsActionCount) * 56 + 16;
 
   /** 移动端卡片同样逐项 gate：一个动作都没有时整行按钮不渲染 */
   const mobileHasActions = (row: ProjectRow) =>
@@ -551,6 +631,25 @@ function ManagerProjectList({
 
   return (
     <>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: 'flex-start',
+          gap: 12,
+        }}
+      >
+        <div style={{ width: isMobile ? '100%' : 220, flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 0 }}>
+          <ProjectTree
+            selectedId={parentId}
+            refreshToken={treeToken}
+            onSelect={(_id, path) => {
+              setCrumbs(path);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
       <div
         style={{
           marginBottom: embedded ? 12 : 18,
@@ -722,6 +821,8 @@ function ManagerProjectList({
                             {row.status === 1 ? '收集中' : '未发布'}
                           </Tag>
                           <span>{row.total ?? 0} 份答卷</span>
+                          <div style={{ flex: 1 }} />
+                          <LinkAction onClick={() => void copyLink(row)}>{copyLinkLabel(row)}</LinkAction>
                         </>
                       )}
                     </div>
@@ -839,9 +940,10 @@ function ManagerProjectList({
       ) : (
       <Table<ProjectRow>
         rowKey="id"
-        size="middle"
+        size="small"
         loading={loading}
         dataSource={rows}
+        scroll={{ x: 860 }}
         rowSelection={
           canBatch
             ? {
@@ -864,14 +966,31 @@ function ManagerProjectList({
           {
             title: '名称',
             dataIndex: 'name',
+            ellipsis: true,
             render: (_: unknown, row) =>
               row.mode === 'folder' ? (
-                <Space style={{ cursor: 'pointer' }} onClick={() => enterFolder(row)}>
+                <Space style={{ cursor: 'pointer', maxWidth: '100%' }} onClick={() => enterFolder(row)}>
                   <FolderOutlined style={{ color: 'var(--bp-text-soft)' }} />
-                  <span>{row.name}</span>
+                  <span
+                    title={row.name}
+                    style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {row.name}
+                  </span>
                 </Space>
               ) : (
-                <LinkAction onClick={() => navigate(canUpdate ? `/survey/${row.id}/edit` : `/survey/${row.id}`)}>
+                <LinkAction
+                  title={row.name}
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'bottom',
+                  }}
+                  onClick={() => navigate(canUpdate ? `/survey/${row.id}/edit` : `/survey/${row.id}`)}
+                >
                   {row.name || '(未命名)'}
                 </LinkAction>
               ),
@@ -879,7 +998,7 @@ function ManagerProjectList({
           {
             title: '类型',
             dataIndex: 'mode',
-            width: 90,
+            width: 78,
             render: (mode: ProjectMode) => (
               <Tag color={MODE_COLOR[mode] ?? 'default'}>{MODE_LABEL[mode] ?? mode}</Tag>
             ),
@@ -887,7 +1006,7 @@ function ManagerProjectList({
           {
             title: '状态',
             dataIndex: 'status',
-            width: 90,
+            width: 86,
             render: (status: number, row) =>
               row.mode === 'folder' ? (
                 <span style={{ color: 'var(--bp-text-soft)' }}>{row.total ?? 0} 项</span>
@@ -898,67 +1017,41 @@ function ManagerProjectList({
           {
             title: '答卷',
             dataIndex: 'total',
-            width: 90,
+            width: 76,
             render: (v: number, row) => (row.mode === 'folder' ? '—' : `${v ?? 0} 份`),
           },
           {
             title: '创建时间',
             dataIndex: 'createAt',
-            width: 170,
+            width: 150,
           },
           {
             title: '操作',
-            // 宽度按实际渲染的动作数算，不写死：权限少的账号不会留一大片空白
-            width: opsColumnWidth,
-            render: (_: unknown, row) => (
-              <Space size={4} wrap={false} style={{ whiteSpace: 'nowrap' }}>
-                {row.mode !== 'folder' && (
-                  <>
-                    {/* 「设置」作为唯一入口，进入概述页（含分享链接/打开答题页/发布设置）；
-                        原来单独的「打开」按钮已删除，避免两个按钮功能重叠 */}
-                    {canDetail && (
-                      <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>设置</LinkAction>
-                    )}
-                    {canPublish &&
-                      (row.status === 1 ? (
-                        <Popconfirm
-                          title="关闭后学员将无法打开答题链接"
-                          description="已收集的答卷不受影响，可随时重新开启。"
-                          okText="关闭"
-                          cancelText="取消"
-                          onConfirm={() => setStatus(row, 0)}
-                        >
-                          <LinkAction style={{ color: 'var(--bp-orange)' }}>关闭</LinkAction>
-                        </Popconfirm>
-                      ) : (
-                        <LinkAction onClick={() => setStatus(row, 1)}>开启</LinkAction>
-                      ))}
-                    {canUpdate && (
-                      <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
-                    )}
-                    {canData && (
-                      <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
-                    )}
-                  </>
-                )}
-                {canUpdate && <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>}
-                {canDelete && (
-                  <Popconfirm
-                    title={`删除「${row.name || ''}」？`}
-                    description="删除后可在回收站找回（本页暂未接入回收站）。"
-                    okText="删除"
-                    cancelText="取消"
-                    onConfirm={() => remove(row)}
-                  >
-                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
-                  </Popconfirm>
-                )}
-              </Space>
-            ),
+            width: 84,
+            render: (_: unknown, row) => {
+              const items = buildOpsMenu(row);
+              if (items.length === 0) return '—';
+              return (
+                <Dropdown
+                  trigger={['click']}
+                  menu={{
+                    items,
+                    onClick: ({ key, domEvent }) => {
+                      domEvent.stopPropagation();
+                      handleOps(row, String(key));
+                    },
+                  }}
+                >
+                  <Button size="small">更多</Button>
+                </Dropdown>
+              );
+            },
           },
         ]}
       />
       )}
+        </div>
+      </div>
 
       <Modal
         title="新建"

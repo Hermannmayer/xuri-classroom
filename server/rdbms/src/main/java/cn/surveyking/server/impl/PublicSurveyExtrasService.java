@@ -18,6 +18,7 @@ import cn.surveyking.server.domain.dto.PublicLinkResult;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.domain.model.CommDictItem;
+import cn.surveyking.server.service.AnonymousIdentityService;
 import cn.surveyking.server.service.ProjectService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,6 +65,9 @@ public class PublicSurveyExtrasService {
 	private final AnswerLookup answerLookup;
 
 	private final ObjectMapper objectMapper;
+
+	/** 匿名浏览器的 sk-anon 主体：未登录时按 anonymous_subject_id 找回历次作答 */
+	private final AnonymousIdentityService anonymousIdentityService;
 
 	/**
 	 * 成绩查询页面获取成绩信息
@@ -135,23 +139,37 @@ public class PublicSurveyExtrasService {
 
 	/** 切屏计数的按键锁：同一份答卷的读-改-写串行化，避免并发丢更新 */
 
-	/** 当前登录用户在这份试卷/问卷上的历次已提交答卷（按时间倒序），供「再考一次」的成绩列表使用 */
+	/**
+	 * 当前浏览器/登录用户在这份试卷上的历次已提交答卷（按时间倒序）。
+	 * <p>登录用户按 create_by；未登录且带 sk-anon 主体时按 anonymous_subject_id + is_anonymous=1；
+	 * 两者都没有返回空。
+	 */
 	public List<PublicAttemptView> listPublicAttempts(PublicAttemptRequest request) {
-		String userId = SecurityContextUtils.getUserId();
-		if (request == null || isBlank(request.getProjectId()) || isBlank(userId)) {
+		if (request == null || isBlank(request.getProjectId())) {
 			return Collections.emptyList();
 		}
-		return answerService
-				.list(Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, request.getProjectId())
-						.eq(Answer::getCreateBy, userId).eq(Answer::getTempSave, 1).isNotNull(Answer::getAnswer)
-						.orderByDesc(Answer::getCreateAt))
-				.stream().map(answer -> {
-					PublicAttemptView view = new PublicAttemptView();
-					view.setAnswerId(answer.getId());
-					view.setExamScore(answer.getExamScore());
-					view.setCreateAt(answer.getCreateAt() == null ? null : answer.getCreateAt().getTime());
-					return view;
-				}).collect(Collectors.toList());
+		boolean authenticated = SecurityContextUtils.isAuthenticated();
+		String userId = authenticated ? SecurityContextUtils.getUserId() : null;
+		String subjectId = authenticated ? null : anonymousIdentityService.currentSubjectId();
+		if (isBlank(userId) && isBlank(subjectId)) {
+			return Collections.emptyList();
+		}
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Answer> wrapper = Wrappers
+				.<Answer>lambdaQuery().eq(Answer::getProjectId, request.getProjectId()).eq(Answer::getTempSave, 1)
+				.isNotNull(Answer::getAnswer);
+		if (isNotBlank(subjectId)) {
+			wrapper.eq(Answer::getAnonymousSubjectId, subjectId).eq(Answer::getIsAnonymous, true);
+		}
+		else {
+			wrapper.eq(Answer::getCreateBy, userId).eq(Answer::getIsAnonymous, false);
+		}
+		return answerService.list(wrapper.orderByDesc(Answer::getCreateAt)).stream().map(answer -> {
+			PublicAttemptView view = new PublicAttemptView();
+			view.setAnswerId(answer.getId());
+			view.setExamScore(answer.getExamScore());
+			view.setCreateAt(answer.getCreateAt() == null ? null : answer.getCreateAt().getTime());
+			return view;
+		}).collect(Collectors.toList());
 	}
 
 	public List<PublicDictView> loadDict(PublicDictRequest request) {

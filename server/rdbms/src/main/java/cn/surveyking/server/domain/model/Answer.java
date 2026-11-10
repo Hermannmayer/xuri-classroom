@@ -38,6 +38,16 @@ public class Answer extends BaseModel {
 	private String classId;
 
 	/**
+	 * 匿名答题主体 id（t_anonymous_subject.id）；登录用户为 null。
+	 * <p>匿名答卷不写 create_by，只能靠这个字段找回/认领；登录后 claim 会把它清空。
+	 */
+	private String anonymousSubjectId;
+
+	/** 是否匿名答卷：1 是 0 否；报表默认只统计 0 */
+	@TableField("is_anonymous")
+	private Boolean isAnonymous = false;
+
+	/**
 	 * 暂存的答案
 	 */
 	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)

@@ -6,8 +6,8 @@
 <mapper namespace="cn.surveyking.server.mapper.TeachingMapper">
     <select id="listMyProjects" resultType="cn.surveyking.server.domain.dto.TeachingProjectView">
         SELECT p.id AS projectId, p.name AS projectName, p.status AS status,
-        (SELECT COUNT(*) FROM t_answer a WHERE a.project_id = p.id AND a.temp_save = 1 AND a.is_deleted = 0) AS answerCount,
-        (SELECT AVG(a.exam_score) FROM t_answer a WHERE a.project_id = p.id AND a.temp_save = 1 AND a.is_deleted = 0) AS avgScore
+        (SELECT COUNT(*) FROM t_answer a WHERE a.project_id = p.id AND a.temp_save = 1 AND a.is_deleted = 0 AND a.is_anonymous = 0) AS answerCount,
+        (SELECT AVG(a.exam_score) FROM t_answer a WHERE a.project_id = p.id AND a.temp_save = 1 AND a.is_deleted = 0 AND a.is_anonymous = 0) AS avgScore
         FROM t_project p WHERE p.is_deleted = 0
         AND (p.create_by = #{userId} OR EXISTS (SELECT 1 FROM t_project_partner pp WHERE pp.project_id = p.id AND pp.user_id = #{userId} AND pp.type IN (1,2)))
         ORDER BY p.create_at DESC
@@ -21,7 +21,7 @@
         FROM t_answer a JOIN t_user u ON u.id = a.create_by
         LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id)
         AND d.dept_type = 'class' AND d.is_deleted = 0
-        WHERE a.project_id = #{projectId} AND a.temp_save = 1 AND a.is_deleted = 0
+        WHERE a.project_id = #{projectId} AND a.temp_save = 1 AND a.is_deleted = 0 AND a.is_anonymous = 0
         GROUP BY COALESCE(a.class_id, u.dept_id), d.id, d.name ORDER BY answerCount DESC
     </select>
 

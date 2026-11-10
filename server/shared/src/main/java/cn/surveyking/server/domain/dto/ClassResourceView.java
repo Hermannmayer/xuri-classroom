@@ -58,6 +58,9 @@ public class ClassResourceView {
 	/** 本班已交卷数（t_answer 按 project_id + class_id + temp_save=1） */
 	private long answerCount;
 
+	/** 本班该考试的平均分（同上口径，AVG(exam_score)）；无答卷或题库（repo）恒为 null */
+	private Double avgScore;
+
 	/** 当前对学生而言的实际状态：CLOSED / NOT_STARTED / OPEN / ENDED */
 	private String effectiveStatus;
 

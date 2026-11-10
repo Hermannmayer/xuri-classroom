@@ -6,6 +6,7 @@ import cn.surveyking.server.domain.dto.ProjectQuery;
 import cn.surveyking.server.domain.dto.ProjectRequest;
 import cn.surveyking.server.domain.dto.ProjectSetting;
 import cn.surveyking.server.domain.dto.ProjectStatusRequest;
+import cn.surveyking.server.domain.dto.ProjectTreeNode;
 import cn.surveyking.server.domain.dto.ProjectView;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -19,6 +20,14 @@ import java.util.List;
 public interface ProjectService {
 
 	PaginationResponse<ProjectView> listProject(ProjectQuery filter);
+
+	/**
+	 * 考试/问卷分类树（文件夹 + 叶子项目）。
+	 *
+	 * <p>可见性与 {@link #listProject(ProjectQuery)} 一致：管理员全量；其余人只看自己创建的、
+	 * 或被授权（t_project_partner type 1/2）的项目；父文件夹不可见时，子项目会退化成根节点返回。
+	 */
+	List<ProjectTreeNode> tree();
 
 	@Cacheable(value = CacheConsts.projectCache, key = "#id", condition = "#p0!=null", unless = "#result == null")
 	ProjectView getProject(String id);

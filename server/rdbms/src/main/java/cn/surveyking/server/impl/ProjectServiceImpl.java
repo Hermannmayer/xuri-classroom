@@ -30,7 +30,12 @@ import javax.validation.ValidationException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -96,10 +101,81 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			}
 			else {
 				view.setTotal(answerMapper.selectCount(Wrappers.<Answer>lambdaQuery().eq(Answer::getTempSave, 1)
-						.eq(Answer::getProjectId, view.getId())));
+						.eq(Answer::getIsAnonymous, false).eq(Answer::getProjectId, view.getId())));
 			}
 		});
 		return result;
+	}
+
+	/**
+	 * 考试/问卷分类树：可见性与 {@link #listProject(ProjectQuery)} 同一口径，一次查出、内存组树。
+	 *
+	 * <p>父文件夹不可见（或 parentId 为空 / "0" / 指向不存在的节点）的项目直接作为根返回，
+	 * 保证「不要把根项目丢掉」。{@code count} 是子树里非 folder 项目数（folder 自身不计）。
+	 */
+	@Override
+	public List<ProjectTreeNode> tree() {
+		String userId = SecurityContextUtils.getUserId();
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Project> wrapper = Wrappers
+				.<Project>lambdaQuery().select(Project::getId, Project::getName, Project::getParentId, Project::getMode,
+						Project::getCreateAt);
+		// 可见性：管理员全量；其余人只看自己创建的、或被授权（t_project_partner type 1/2，含按用户组授权）
+		if (!SecurityContextUtils.isAdmin()) {
+			// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
+			wrapper.and(w -> w.eq(Project::getCreateBy, userId).or()
+					.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
+							+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
+							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
+							+ " AND t.type IN (1, 2)",
+							userId));
+		}
+		List<Project> projects = list(wrapper);
+		if (projects.isEmpty()) {
+			return new ArrayList<>();
+		}
+		// 同层排序：文件夹优先，其次创建时间从近到远、名称兜底（先排好序再组树，children 直接按顺序追加）
+		projects.sort(Comparator
+				.comparingInt((Project project) -> ProjectModeEnum.folder.equals(project.getMode()) ? 0 : 1)
+				.thenComparing(Project::getCreateAt, Comparator.nullsLast(Comparator.<Date>reverseOrder()))
+				.thenComparing(Project::getName, Comparator.nullsLast(Comparator.<String>naturalOrder())));
+		Map<String, Project> byId = new HashMap<>();
+		Map<String, ProjectTreeNode> nodes = new LinkedHashMap<>();
+		for (Project project : projects) {
+			byId.put(project.getId(), project);
+			ProjectTreeNode node = new ProjectTreeNode();
+			node.setId(project.getId());
+			node.setName(project.getName());
+			node.setParentId(project.getParentId());
+			node.setMode(project.getMode());
+			nodes.put(project.getId(), node);
+		}
+		List<ProjectTreeNode> roots = new ArrayList<>();
+		for (Project project : projects) {
+			ProjectTreeNode node = nodes.get(project.getId());
+			String parentId = project.getParentId();
+			Project parent = isNotBlank(parentId) && !"0".equals(parentId) ? byId.get(parentId) : null;
+			// 父节点为空 / "0" / 不在可见集合里（父文件夹不可见）：都当成根，不要把项目丢掉
+			if (parent == null || Objects.equals(parent.getId(), project.getId())) {
+				roots.add(node);
+				continue;
+			}
+			nodes.get(parent.getId()).getChildren().add(node);
+		}
+		// 自底向上统计：folder 计子树里的非 folder 数量，叶子项目自身计 1
+		roots.forEach(this::fillTreeNodeCount);
+		return roots;
+	}
+
+	/** 递归回填 count，返回该子树里的非 folder 项目数 */
+	private int fillTreeNodeCount(ProjectTreeNode node) {
+		int total = ProjectModeEnum.folder.equals(node.getMode()) ? 0 : 1;
+		if (node.getChildren() != null) {
+			for (ProjectTreeNode child : node.getChildren()) {
+				total += fillTreeNodeCount(child);
+			}
+		}
+		node.setCount(total);
+		return total;
 	}
 
 	public ProjectView getProject(String id) {
@@ -281,8 +357,8 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				.toView(getBaseMapper().selectLogicDeleted(SecurityContextUtils.getUserId()));
 		list.forEach(view -> {
 			if (!ProjectModeEnum.folder.equals(view.getMode())) {
-				view.setTotal(answerMapper
-						.selectCount(Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, view.getId())));
+				view.setTotal(answerMapper.selectCount(Wrappers.<Answer>lambdaQuery()
+						.eq(Answer::getIsAnonymous, false).eq(Answer::getProjectId, view.getId())));
 			}
 		});
 		return list;

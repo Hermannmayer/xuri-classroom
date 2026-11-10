@@ -48,6 +48,7 @@ public class ProjectStatisticsService {
 		AnswerQuery answerQuery = new AnswerQuery();
 		answerQuery.setProjectId(query.getId());
 		answerQuery.setPageSize(-1);
+		answerQuery.setExcludeAnonymous(true);
 		// 统计是「全部答卷进内存做聚合」：先计数，超过保护阈值直接拒绝，
 		// 让调用方按班级/时间段分批，避免一次统计把堆打满（-Xmx768m 下这是最容易 OOM 的读接口）。
 		long statTotal = answerService.count(answerQuery);

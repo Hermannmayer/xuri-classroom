@@ -57,12 +57,31 @@ CREATE TABLE `t_answer` (
   `items_synced` tinyint(1) NOT NULL DEFAULT '0' COMMENT '明细投影是否已同步',
   `attempt_no` int NOT NULL DEFAULT '0' COMMENT '同项目同答题人的第几次作答（从 0 开始）',
   `class_id` varchar(64) DEFAULT NULL COMMENT '答题时所在班级',
+  `anonymous_subject_id` varchar(64) DEFAULT NULL COMMENT '匿名答题主体（t_anonymous_subject.id）；登录用户为 NULL',
+  `is_anonymous` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否匿名答卷：1 是 0 否',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `key_answer_pid` (`project_id`) USING BTREE,
   KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE,
   KEY `idx_answer_class` (`class_id`) USING BTREE,
+  KEY `idx_answer_anon_subject` (`anonymous_subject_id`) USING BTREE,
+  KEY `idx_answer_project_anon` (`project_id`,`is_anonymous`) USING BTREE,
   UNIQUE KEY `uk_answer_pid_user_attempt` (`project_id`,`create_by`,`attempt_no`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
+
+-- ------
+-- Table structure for t_anonymous_subject
+-- ------
+DROP TABLE IF EXISTS `t_anonymous_subject`;
+CREATE TABLE `t_anonymous_subject` (
+  `id` varchar(64) NOT NULL COMMENT 'ID',
+  `token_hash` varchar(128) NOT NULL COMMENT '匿名 cookie token 的 SHA-256 十六进制',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `last_seen_at` timestamp NULL DEFAULT NULL COMMENT '最近访问时间',
+  `expires_at` timestamp NOT NULL COMMENT '过期时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_anonymous_token_hash` (`token_hash`),
+  KEY `idx_anonymous_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='匿名答题主体';
 
 -- ------
 -- Table structure for t_answer_item

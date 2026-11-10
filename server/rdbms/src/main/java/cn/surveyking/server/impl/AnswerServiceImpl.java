@@ -1,6 +1,7 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.core.uitls.ContextHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.AnswerViewMapper;
@@ -12,6 +13,7 @@ import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.mapper.UserMapper;
+import cn.surveyking.server.service.AnonymousIdentityService;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.ClassResourceService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -24,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -72,6 +76,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	/** 新建答卷时解析「答题时所在班级」（按班级分配的考试窗口） */
 	private final ClassResourceService classResourceService;
 
+	/** 匿名答题身份：公开问卷未登录时写 sk-anon，答卷挂 anonymous_subject_id */
+	private final AnonymousIdentityService anonymousIdentityService;
+
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
 		PaginationResponse<AnswerView> result = listAnswer(query, true);
@@ -95,6 +102,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.eq(Answer::getProjectId, query.getProjectId())
 				// 答题时所在班级：学员换班后历史答卷仍算在原班
 				.eq(Answer::getClassId, query.getClassId())
+				// 班级报表默认不含匿名答卷：匿名答卷没有 class_id，也不能把匿名数据混进班级统计
+				.eq(Answer::getIsAnonymous, false)
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
@@ -148,7 +157,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,
 						Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
 						Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt)
-				.eq(Answer::getProjectId, projectId).isNotNull(Answer::getAnswer));
+				.eq(Answer::getProjectId, projectId).eq(Answer::getIsAnonymous, false)
+				.isNotNull(Answer::getAnswer));
 		return answerViewMapper.toView(answers);
 	}
 
@@ -165,10 +175,14 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 数据范围：管理员 / 项目所有者或协作者（含组授权）看全部；其他人（学员）只能看自己的答卷。
 		// 之前只靠 @PreAuthorize('answer:list')，学员知道 projectId 就能列出全班答卷。
 		boolean canSeeAll = answerAccessGuard.canManageProject(query.getProjectId());
+		// 只有能看到项目全部答卷的管理者才允许显式包含匿名；普通学员即使传了也按默认过滤
+		boolean includeAnonymous = canSeeAll && Boolean.TRUE.equals(query.getIncludeAnonymous());
 		String currentUserId = SecurityContextUtils.getUserId();
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Answer> wrapper = Wrappers
 				.<Answer>lambdaQuery().isNotNull(Answer::getAnswer) // 暂存题答案会为空
 				.eq(query.getProjectId() != null, Answer::getProjectId, query.getProjectId())
+				// 报表默认只统计非匿名答卷；管理员/项目管理者显式 includeAnonymous 才放开
+				.eq(!includeAnonymous, Answer::getIsAnonymous, false)
 				// 按班级过滤（答题时所在班级）；为空不过滤
 				.eq(StringUtils.hasText(query.getClassId()), Answer::getClassId, query.getClassId())
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
@@ -289,15 +303,30 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 新前端不再上传 metaInfo，「每 IP / 每台设备限次」会永远统计为 0：
 		// 这里在服务端补齐真实 IP 与限次 cookie 标识。
 		answer.setMetaInfo(answerMetaEnricher.enrichMetaInfo(answer.getMetaInfo()));
+		// 匿名答卷：未登录、没有请求里的伪身份、且项目不要求登录时，挂到 sk-anon 主体上。
+		// 登录用户/教职工（以及白名单导入的伪 createBy）保持原来的 create_by 逻辑。
+		boolean anonymous = false;
+		String anonymousSubjectId = null;
+		if (!SecurityContextUtils.isAuthenticated() && !StringUtils.hasText(answer.getCreateBy())
+				&& !StringUtils.hasText(request.getWhitelistName()) && !isLoginRequired(answer.getProjectId())) {
+			HttpServletRequest httpRequest = ContextHelper.getCurrentHttpRequest();
+			HttpServletResponse httpResponse = ContextHelper.getCurrentHttpResponse();
+			if (httpRequest != null && httpResponse != null) {
+				anonymousSubjectId = anonymousIdentityService.ensureSubject(httpRequest, httpResponse);
+				anonymous = StringUtils.hasText(anonymousSubjectId);
+			}
+		}
 		// S1-3：先确定答题人再分配作答序号。createBy 由 MetaObjectHandler 兜底填当前登录用户，
 		// 这里提前算出来，保证 attempt_no 和最终写进库的 create_by 是同一个值。
-		String actor = StringUtils.hasText(answer.getCreateBy()) ? answer.getCreateBy()
-				: SecurityContextUtils.getUserId();
+		String actor = anonymous ? null
+				: (StringUtils.hasText(answer.getCreateBy()) ? answer.getCreateBy() : SecurityContextUtils.getUserId());
 		answer.setCreateBy(actor);
+		answer.setAnonymousSubjectId(anonymous ? anonymousSubjectId : null);
+		answer.setIsAnonymous(anonymous);
 		answer.setAttemptNo(answerAttemptAllocator.next(answer.getProjectId(), actor));
 		// 答题时所在班级：学员按「自己的班 + 班级资源分配」解析，主班优先；匿名/教职工拿不到就是 null。
 		// 更新答案不走这里，class_id 保持首次答题时的值（换班后历史答卷仍算在原班）。
-		answer.setClassId(classResourceService.resolveForStudent(answer.getProjectId(), actor));
+		answer.setClassId(actor == null ? null : classResourceService.resolveForStudent(answer.getProjectId(), actor));
 		Answer scored = answerScoringService.beforeSaveAnswer(answer, previousAnswerFor(answer));
 		try {
 			save(scored);
@@ -314,6 +343,16 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		}
 		rebuildAnswerItems(scored);
 		return answerViewMapper.toView(scored);
+	}
+
+	/** 项目是否要求登录才能作答；项目/设置缺失按「不要求」处理，避免匿名入口被误判 */
+	private boolean isLoginRequired(String projectId) {
+		if (!StringUtils.hasText(projectId)) {
+			return false;
+		}
+		Project project = projectMapper.selectById(projectId);
+		return project != null && project.getSetting() != null && project.getSetting().getAnswerSetting() != null
+				&& Boolean.TRUE.equals(project.getSetting().getAnswerSetting().getLoginRequired());
 	}
 
 	/** 唯一键冲突后按 (project_id, create_by, attempt_no) 找回赢家 */
@@ -347,13 +386,21 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.eq(query.getCreateBy() != null, Answer::getCreateBy, query.getCreateBy())
 				.like(query.getIp() != null, Answer::getMetaInfo, query.getIp())
 				.like(query.getValueQuery() != null, Answer::getAnswer, query.getValueQuery())
-				.like(query.getCookie() != null, Answer::getMetaInfo, query.getCookie()));
+				.like(query.getCookie() != null, Answer::getMetaInfo, query.getCookie())
+				.eq(Boolean.TRUE.equals(query.getExcludeAnonymous()), Answer::getIsAnonymous, false));
 	}
 
 	@Override
 	public AnswerView updateAnswer(AnswerRequest request) {
 		Answer answer = answerViewMapper.fromRequest(request);
-		answer = answerScoringService.beforeSaveAnswer(answer, previousAnswerFor(answer));
+		// 匿名标识与 class_id 同一原则：更新答案不重算。fromRequest 会把 isAnonymous 初始成 false，
+		// 若不显式回填，匿名答卷保存第二次就会被 updateById 改成非匿名。
+		Answer previous = previousAnswerFor(answer);
+		if (previous != null) {
+			answer.setIsAnonymous(previous.getIsAnonymous());
+			answer.setAnonymousSubjectId(previous.getAnonymousSubjectId());
+		}
+		answer = answerScoringService.beforeSaveAnswer(answer, previous);
 		updateById(answer);
 		rebuildAnswerItems(answer);
 		return answerViewMapper.toView(answer);

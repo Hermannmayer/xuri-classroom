@@ -33,7 +33,8 @@ public class ReportServiceImpl implements ReportService {
 	public ReportData getData(String shortId) {
 		List<Answer> answerList = answerMapper.selectList(
 				Wrappers.<Answer>lambdaQuery().select(Answer::getAnswer, Answer::getCreateAt, Answer::getProjectId)
-						.eq(Answer::getProjectId, shortId).orderByAsc(Answer::getCreateAt));
+						.eq(Answer::getProjectId, shortId).eq(Answer::getIsAnonymous, false)
+						.orderByAsc(Answer::getCreateAt));
 		ReportData result = new ReportData();
 		result.setTotal(answerList.size());
 		Map<String, ReportData.Data> data = new HashMap<>();
