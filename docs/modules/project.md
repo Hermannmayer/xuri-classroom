@@ -29,6 +29,9 @@ keywords:
   - 批量移动
   - 所属文件夹
   - parentId
+  - FolderAuthModal
+  - 子文件夹继承
+  - 文件夹授权
   - 授权级别
   - 教师组
   - access_level
@@ -61,6 +64,7 @@ source_globs:
 entrypoints:
   - client/src/pages/project/Entry.tsx
   - client/src/pages/project/List.tsx
+  - client/src/pages/project/FolderAuthModal.tsx
   - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/survey/Overview.tsx
   - client/src/pages/survey/PartnerPanel.tsx
@@ -98,7 +102,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
+verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
 ---
 
 # 考试与问卷（项目）
@@ -130,6 +134,7 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 | 文件夹树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染 `mode=folder` 的节点与 count；选中文件夹清空分类；标题旁「新建文件夹」（`project:create`）→ `createProject({name,mode:'folder',parentId})` |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list → `/teaching?tab=exam`；其余账号（学员/无门户权限的只读）→ 原 ProjectList |
 | 协作者面板 | `client/src/pages/survey/PartnerPanel.tsx` | 项目所有者/可授权协作者维护教师组/协作者/班级授权；显示并调整 access_level（1 查看/2 编辑/3 授权） |
+| 文件夹授权弹窗 | `client/src/pages/project/FolderAuthModal.tsx` | 文件夹行「授权」打开 Modal，内嵌 `PartnerPanel(projectId=folderId)`；不再跳 `/survey/:id`；非文件夹仍进项目概述 |
 | 试卷设置页 | `client/src/pages/survey/Overview.tsx` | `/survey/:id` 概述；基本信息卡编辑名称/分类/所属文件夹（Folder TreeSelect），保存 `updateProject({id,name,category,parentId,setting})`；卡片重排见 P9/P13 |
 | 组卷弹窗 | `client/src/pages/project/ComposeModal.tsx` | 从题库按题型抽题生成考试，见 [repo-compose](../flows/repo-compose.md) |
 | 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update`；顶部可批量改文件夹（parentId）与分类（category） |
@@ -156,11 +161,12 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 ### 0.1 双栏列表与文件夹树（P5）
 
 - **树接口**：`GET /api/project/tree`（`project:list` 或 admin），返回 `List<ProjectTreeNode>`。节点字段：`id / name / parentId / mode / count / children`；`mode` 仍是 `folder|survey|exam`，`count` 是该节点子树里**非 folder** 的项目数（folder 自身不计，叶子项目计 1）。
-- **树可见性**：管理员全量；其余人看 `create_by=当前用户`、`t_project_partner` 里 `user_id/组链` 且 `type IN (1,2)` 的项目，以及**父文件夹被授权（type 1/2/3）的直接子项目**。自身授权不认 `type=3 RESPONDENT`，也不认 `t_class_resource` 的按班分配（学生端不用树，老师端以自己创建/协作为主）；父文件夹授权是例外。父文件夹不可见/不存在时，子项目直接作为根返回，不丢项目。
+- **树可见性**：管理员全量；其余人看 `create_by=当前用户`、`t_project_partner` 里 `user_id/组链` 且 `type IN (1,2)` 的项目，以及**父文件夹或祖父文件夹被授权（type 1/2/3）的子项目**。自身授权不认 `type=3 RESPONDENT`，也不认 `t_class_resource` 的按班分配（学生端不用树，老师端以自己创建/协作为主）；文件夹授权是例外。父文件夹不可见/不存在时，子项目直接作为根返回，不丢项目。
 - **前端树**：`ProjectTree` 只渲染 folder 节点（叶子考试/问卷在右侧列表），根固定「全部」，标题旁显示 `count`；选中文件夹通过路径回传面包屑，右侧列表用 `parentId` 只查该层。新建/重命名/删除后父组件递增 `refreshToken`，树重新拉 counts；改名时同步更新面包屑。
 - **新建文件夹（P11）**：树标题旁 `+`（有 `project:create` 才显示）打开弹窗；提交 `createProject({name, mode:'folder', parentId:当前选中文件夹})`。前端只校验「同一父级下不能同名 folder」，后端不会因重名拒绝；成功后 `load()` + `treeToken`/列表刷新，若当前按分类筛选则清空分类（新文件夹是根级，否则右侧看不到）。
-- **文件夹授权**：文件夹行在有 `project:partner` 时显示「授权」，进入 `/survey/:id` 的协作面板；可像普通项目一样加教师组/协作者/班级（type 1/2/3）。被授权文件夹的**直接子项目**会在 `/project/list`、`/project/tree`、`/project/categories` 中继承可见性；只继承一层，深层嵌套不递归；只影响可见性，不把文件夹的 access_level 继承给子项目的写权限。
+- **文件夹授权**：文件夹行（含移动端卡片）在有 `project:partner` 时显示「授权」，打开 `FolderAuthModal`（Modal 内嵌 `PartnerPanel(projectId=folderId)`），不再跳 `/survey/:id`；非文件夹仍进项目概述。可像普通项目一样加教师组/协作者/班级（type 1/2/3）。被授权文件夹的**子项目**会在 `/project/list`、`/project/tree`、`/project/categories` 中继承可见性（父/祖父两层，见 0.4）；`assertCanEditProject` 也会向上看父/祖父 `accessLevel`，所以文件夹 level>=2 能让子项目过编辑闸门。
 - **右侧紧凑列表**：管理视图为 `size=small`、名称省略、横向滚动的列表；保留「新建/回收站/批量」工具条和文件夹进入。行操作不再收进「更多」下拉，而是按权限一级显示：设置/编辑/数据/复制链接/开启关闭/授权/重命名/删除；文件夹显示授权/重命名/删除（有 `project:partner` 才有授权）。
+- **存储**：文件夹不是独立表，仍是 `t_project` 行（`mode='folder'`），只是不参与题目/答卷；分类是 `t_project.category` 文本，文件夹是 `t_project.parent_id` 层级，两者互不影响。
 - **复制链接**：行内和移动端卡片都有「复制链接」，地址是 `window.location.origin + '/s/' + id`；`answerSetting.loginRequired === true` 时文案变成「复制链接（需登录）」。非安全上下文或 Clipboard API 失败时退回 `window.prompt` 让用户手动复制。
 - **入口范围**：这套双栏只在 `ProjectList` 的管理视图（以及 `/teaching` 的考试/问卷 Tab）出现；学员访问 `/project` 仍是原「考试安排」列表，不加载分类树。创建/回收站/批量/文件夹等原有能力不因双栏改接口。
 
@@ -168,10 +174,10 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 
 - **字段**：`t_project.category varchar(64)`（`name` 后，`NULL`/空串=未分类），迁移 `scripts/nas/migrate/34-project-category.sql`（幂等加列）。`Project` / `ProjectView` / `ProjectRequest` 都有 `category`；`ProjectQuery.category` 用于筛选。
 - **筛选**：`GET /api/project/list?category=` 普通值按 `category` 精确匹配（先 trim）；`__UNCATEGORIZED__`（`ProjectQuery.UNCATEGORIZED`）翻译成 `category IS NULL OR category = ''`；不传/空串不过滤。**分类筛选跨文件夹**：`categoryActive` 时不再套「根目录 parent_id IS NULL/0」限制，而是全层级找；同时 `.ne(mode, folder)` 把文件夹排除，避免文件夹行混进分类结果。
-- **分类列表**：`GET /api/project/categories`（`project:list` 或 admin）返回 `List<ProjectCategoryView>`，元素 `{name,count}`；空/空白分类归「未分类」，按 count 降序、name 升序。**文件夹不参与分类**：查询显式 `.ne(mode, folder)`，所以文件夹既不进分类统计，也不进「未分类」；`count` 只统计非 folder 的可见项目（含父文件夹授权可见的直接子项目）。可见性自身仍只认创建者/partner `type IN (1,2)`，不含 type3/班级分配。
+- **分类列表**：`GET /api/project/categories`（`project:list` 或 admin）返回 `List<ProjectCategoryView>`，元素 `{name,count}`；空/空白分类归「未分类」，按 count 降序、name 升序。**文件夹不参与分类**：查询显式 `.ne(mode, folder)`，所以文件夹既不进分类统计，也不进「未分类」；`count` 只统计非 folder 的可见项目（含父/祖父文件夹授权可见的子项目）。可见性自身仍只认创建者/partner `type IN (1,2)`，不含 type3/班级分配。
 - **前端分类树**：`ProjectCategoryTree` 调 `/api/project/categories`，根「全部分类」+ 各分类 count；与文件夹树**互斥**：选分类时清空 `parentId`/面包屑，选文件夹或根「全部」时清空分类。分类筛选与文件夹筛选不会叠加成两个条件。窗口重新获得焦点/`visibilitychange` 时静默刷新（1s 节流），从设置页返回能看到新分类/新 count；批量改分类成功后父组件也递增 `treeToken`。
 - **新建/编辑**：新建弹窗与重命名弹窗都用 `AutoComplete` 填分类（候选取自 `/api/project/categories`，也可自由输入；留空=未分类）；新建时若当前正按某分类筛选，默认沿用该分类。从题库组卷创建的项目，先创建再补写分类；失败只提示，不挡进编辑器。
-- **列表列与操作**：列表新增「分类」列（文件夹显示「—」）；操作列改为一级链接，按权限渲染设置/编辑/数据/复制链接/开启关闭/重命名/删除；不再有「更多」下拉。
+- **列表列与操作**：列表新增「分类」列（文件夹显示「—」）；操作列改为一级链接，按权限渲染设置/编辑/数据/复制链接/开启关闭/授权/重命名/删除；不再有「更多」下拉。文件夹行只显示授权/重命名/删除（授权要 `project:partner`）。
 - **已知限制**：后端不做分类枚举/长度校验，只有 DB `varchar(64)` 兜底，超 64 会报数据库错误；保存时会 trim 首尾空白，大小写与**内部空格**不同算不同分类；清空分类依赖显式传空串（`undefined`/不传表示不改）；**分类是文本维度、文件夹是 parent_id 维度**，两者互不影响；分类筛选会跨文件夹，文件夹行不参与分类/未分类。
 
 ### 0.3 试卷设置页与批量分类（P9）
@@ -188,9 +194,10 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 - **字段/迁移**：`t_project_partner.access_level tinyint NOT NULL DEFAULT 2`（迁移 `scripts/nas/migrate/36-partner-access-level.sql`，幂等）；`ProjectPartner` / `ProjectPartnerRequest` / `ProjectPartnerView` 都有 `accessLevel`。1=可查看，2=可编辑（含查看，默认），3=可授权（含编辑/查看）。
 - **类型口径**：owner（type=1）固定 3；协作者/教师组（type=2）按请求级别；班级/学员答卷人（type=3）与外部导入答卷人（type=4）固定 1。迁移把历史 type=1 回填 3、type=3/4 回填 1，其余默认 2；新建项目的 owner 记录由 `addProjectPartner` 写 3。
 - **接口**：授权/取消仍是 `/api/project/partner/create|delete`，调整级别是 `POST /api/project/partner/update {projectId?, id, accessLevel}`（只允许 type=2；`ProjectApi` 只做 `project:partner` 注解，真正闸门在 `ProjectPartnerService#assertCanGrant`）。
-- **判定**：`ProjectPartnerService#accessLevel` 返回当前用户在该项目的 0/1/2/3；owner/admin/level3 可调成员（`assertCanGrant`），level2 可编辑项目内容（`ProjectServiceImpl#assertCanEditProject` 拦 updateProject/updateProjectStatus/deleteProject），level1 只能看。组授权按主组+附加组+祖先链继承级别。
+- **判定**：`ProjectPartnerService#accessLevel` 返回当前用户在该项目的 0/1/2/3；owner/admin/level3 可调成员（`assertCanGrant`），level2 可编辑项目内容（`ProjectServiceImpl#assertCanEditProject` 拦 updateProject/updateProjectStatus/deleteProject），level1 只能看。`assertCanEditProject` 在自身 level<2 时会继续看直接父文件夹、祖父文件夹的 `accessLevel`；所以文件夹 level>=2 能让子项目过编辑闸门。组授权按主组+附加组+祖先链继承级别。
 - **前端**：`PartnerPanel`/授权弹窗显示级别 Tag 和下拉调整；教师组/协作者可选 1/2/3，班级/答卷人只读。当前 `ProjectView` 不返回 `myAccessLevel`，所以 level1/2 用户仍可能看到「授权」等全局按钮，点下去由后端 403 兜底；彻底隐藏要补 `ProjectView.myAccessLevel`（未做）。
 - **已知**：level2 的协作者能编辑项目，但不能管理成员（成员管理要 3）；level3 才能继续授权；项目所有者删除接口仍受 `assertCanEditProject` 全权通过。
+- **文件夹授权**：`FolderAuthModal` 复用 `PartnerPanel`，folder 记录同样是 `t_project` 行（`mode='folder'`）；可加教师组/协作者/班级。子项目继承父/祖父文件夹授权（最多两层），`assertCanEditProject` 也看父/祖父 level；更深嵌套不递归，答题入口的完整继承未补齐。
 
 ### 0.5 文件夹批量移动与设置页（P13）
 
@@ -246,9 +253,9 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
 | 列表 | `project:list` 或 `exercise:list` | 本人/本组被授权为 OWNER、COLLABORATOR、RESPONDENT（含组链） |
-| 分类树 `/project/tree` | `project:list` 或 admin | 自身授权只认创建者/partner `type IN (1,2)`；另加父文件夹授权（type 1/2/3）的直接子项目；不含 type3 自身与班级分配 |
-| 分类列表/筛选 `/project/categories` | `project:list` 或 admin | 分类统计只统计非 folder；可见性同树（含父文件夹授权直接子项目）；空白归「未分类」 |
-| 文件夹授权 | `project:partner` + `assertCanGrant` | 给 folder 加 type 1/2/3；只让**直接子项目**在 list/tree/categories 可见，不递归、不继承写级别 |
+| 分类树 `/project/tree` | `project:list` 或 admin | 自身授权只认创建者/partner `type IN (1,2)`；另加父/祖父文件夹授权（type 1/2/3）的子项目；不含 type3 自身与班级分配 |
+| 分类列表/筛选 `/project/categories` | `project:list` 或 admin | 分类统计只统计非 folder；可见性同树（含父/祖父文件夹授权子项目）；空白归「未分类」 |
+| 文件夹授权 | `project:partner` + `assertCanGrant` | `FolderAuthModal` 内嵌 PartnerPanel；folder type 1/2/3；父/祖父两层使子项目在 list/tree/categories 可见，level>=2 也可过子项目编辑闸门；更深不递归 |
 | 访问 `/project` 入口 | `project:list` | 有 `portal:teacher` 的账号重定向 `/teaching?tab=exam`；学员/无门户权限的只读账号渲染原列表 |
 | 查看详情/设置 | `project:detail` + `@EnableDataPerm` | OWNER/COLLABORATOR（含组授权）或 admin |
 | 新建/恢复 | `project:create` | 恢复还要求项目在 `getProjectPerms` 里 |
@@ -277,7 +284,7 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 - **`/project` 现在只是学员入口**：老师访问会被 `Entry` 重定向到 `/teaching?tab=exam`；`/project/trash` 没有重定向，老师仍可直接访问（侧栏不再给入口）。
 - **嵌入列表的页头只由外层负责**：`<ProjectList embedded />` 会隐藏自己的标题/分隔线，但保留工具条；外层 `TeachingHome` 已有标题，别再套第二份。
 - **菜单「教学」与路由守卫不完全一致**：菜单是 `portal:teacher && (project:list || project:report)`，`/teaching` 路由还要 `project:list`；只有 report、没有 list 的自定义角色会看到入口但进不去。
-- **分类树与项目列表不是同一套可见性**：`/api/project/tree` 自身授权只查 `create_by` + partner `type IN (1,2)`，不认 `type=3 RESPONDENT` 自身，也不认 `t_class_resource` 的班级分配；但父文件夹授权（type1/2/3）的直接子项目会额外可见。因此「/project/list 能看到、树里没有」仍可能出现。不要把班级分配直接补进树：学生端本来就不用树，老师端补了会把学生可见项目混进教学树。
+- **分类树与项目列表不是同一套可见性**：`/api/project/tree` 自身授权只查 `create_by` + partner `type IN (1,2)`，不认 `type=3 RESPONDENT` 自身，也不认 `t_class_resource` 的班级分配；但父/祖父文件夹授权（type1/2/3）的子项目会额外可见。因此「/project/list 能看到、树里没有」仍可能出现。不要把班级分配直接补进树：学生端本来就不用树，老师端补了会把学生可见项目混进教学树。
 - **树只展示文件夹，叶子项目不在树节点里**：叶子考试/问卷通过右侧 `parentId` 列表展示；`count` 是子树非 folder 数，不要把 folder 的 count 当答卷数。父文件夹不可见时子项目会退化成根，目录层级看起来会「少一层」。
 - **根级考试/问卷的边界**：如果项目本身是考试/问卷、父文件夹不可见而退化成根，`ProjectTree` 会跳过它（树只渲染 folder），右侧「全部」又只查 `parent_id IS NULL/0`，所以这类项目可能只能靠搜索/直接 URL 找到。API 已按根返回，UI 尚未为「根级叶子」补入口。
 - **复制链接不校验发布状态/权限**：地址是 `/s/:id`；`loginRequired` 只影响文案（「需登录」），不代表链接一定可打开。关闭/未发布/窗口未开的项目复制出去仍会失败；需要分享前先确认状态。
@@ -292,9 +299,10 @@ verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 - **文件夹移动的 root 是字符串 '0'**：Overview 留空、批量设置清空 TreeSelect 都会转成 `parentId='0'`；不要把 `null`/空串直接写库，否则列表根级过滤（`parent_id IS NULL OR '0'`）可能看不到。
 - **Overview 排除自身/子树**：当前项目是 folder 时 `buildFolderOptions(..., project.id)` 过滤自己及 children；但后端没有循环校验，绕过前端直接 `updateProject({id,parentId})` 仍可把文件夹挂到自己的子树下。
 - **批量文件夹/分类逐项执行**：setting → folder → category → 授权，每一步都是循环 `updateProject`/partner 调用，不是事务；中途失败保留已成功项目，`updated` 只统计已完成的项目。
-- **文件夹授权只继承一层可见性**：`listProject`/`tree`/`listCategories` 的父文件夹 EXISTS 只查 `child.parent_id` 的直接父级，不会沿祖先链递归；孙项目看不到。它也不把文件夹的 access_level 继承给子项目，子项目要编辑仍需在子项目上单独授 level>=2。
+- **文件夹授权只继承父/祖父两层**：`listProject`/`tree`/`listCategories` 的 EXISTS 同时查 `child.parent_id` 和 `parent.parent_id`；更上层不递归。`assertCanEditProject` 也会向上看父/祖父 `accessLevel`，所以文件夹 level>=2 能让子项目过编辑闸门；但成员管理（`assertCanGrant`）不继承，子项目要改成员仍需在自己项目上 level3。
+- **文件夹不是独立表**：底层仍是 `t_project.mode='folder'`；FolderAuthModal 只是把 PartnerPanel 内嵌，folder 的授权记录仍写 `t_project_partner`。
 - **文件夹不参与分类**：`listCategories` 显式排除 `mode=folder`；分类筛选 `.ne(mode, folder)`，所以文件夹既不会出现在分类结果，也不会进「未分类」。这和「文件夹按 parent_id 组织」是两套维度。
-- **分类统计与项目列表可见性不完全一致**：`listCategories` 自身只认创建者/partner `type IN (1,2)`（另加父文件夹授权的直接子项目），而 `/project/list` 还认 `type=3` 与 `t_class_resource` 班级分配；可能出现「列表里有项目、分类统计里没有/少 count」。
+- **分类统计与项目列表可见性不完全一致**：`listCategories` 自身只认创建者/partner `type IN (1,2)`（另加父/祖父文件夹授权的子项目），而 `/project/list` 还认 `type=3` 与 `t_class_resource` 班级分配；可能出现「列表里有项目、分类统计里没有/少 count」。
 - **项目列表/回收站的 total 已排除匿名答卷**：P6 起 `ProjectServiceImpl` 两处 `t_answer` count 加 `is_anonymous=0`；不要把 total 当「含匿名提交」的总量。
 
 ## 验证
@@ -327,7 +335,7 @@ npm run docs:check
 19. 打开一个考试/问卷的 `/survey/:id`：基本信息卡「所属文件夹」TreeSelect 回填当前 parentId；选根目录保存后 parentId='0'，选文件夹后列表/文件夹树位置同步；当前项目是 folder 时，候选不应出现自己/子树。
 20. 批量设置勾「文件夹」并选一个 folder：只移动所选项目的 parentId，名称/分类/setting 不变；选根目录传 '0'；与分类/setting/授权同时勾选时同一项目只计一次；中途失败保留已移动项目，提示计数按成功项目。
 21. 把一场考试放进文件夹并设分类「保育员」→ 在分类树选「保育员」：即使考试不在根目录也应出现在右侧列表；文件夹行不应混进分类结果。把文件夹分类留空也不会出现在「未分类」。
-22. 对文件夹行点「授权」→ 给某老师/组授权 type=1/2/3：该文件夹的**直接子考试**应出现在其 `/project/list`/tree/categories；孙项目不应出现；子项目写入是否被允许仍看子项目自己的 access_level，不继承文件夹级别。
+22. 对文件夹行点「授权」应打开 FolderAuthModal（不再跳 `/survey/:id`）；给某老师/组授权 type=1/2/3：该文件夹的子考试、孙考试（父/祖父两层）应出现在其 `/project/list`/tree/categories；曾孙项目不应出现。文件夹 level>=2 时子项目编辑闸门应放行；成员管理仍只看子项目自己的 level3。
 
 ## 相关文档
 

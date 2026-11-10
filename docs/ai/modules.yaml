@@ -455,7 +455,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
+    verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -486,6 +486,9 @@ modules:
       - 批量移动
       - 所属文件夹
       - parentId
+      - FolderAuthModal
+      - 子文件夹继承
+      - 文件夹授权
       - 授权级别
       - 教师组
       - access_level
@@ -518,6 +521,7 @@ modules:
     entrypoints:
       - client/src/pages/project/Entry.tsx
       - client/src/pages/project/List.tsx
+      - client/src/pages/project/FolderAuthModal.tsx
       - client/src/pages/project/ProjectTree.tsx
       - client/src/pages/survey/Overview.tsx
       - client/src/pages/survey/PartnerPanel.tsx
@@ -555,7 +559,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
+    verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
