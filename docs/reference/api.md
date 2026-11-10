@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 169 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 172 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -37,6 +37,7 @@
 | GET | `${api.prefix}/oauth/bindings` | `OAuthApi#bindings` | `isAuthenticated()` | — |
 | DELETE | `${api.prefix}/oauth/bindings/{bindingId}` | `OAuthApi#unbind` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/project/list` | `ProjectApi#listProject` | `hasAuthority('project:list') or hasAuthority('exercise:list')` | — |
+| GET | `${api.prefix}/project/tree` | `ProjectApi#tree` | `hasAuthority('project:list') or hasRole('admin')` | — |
 | GET | `${api.prefix}/project` | `ProjectApi#getProject` | `hasAuthority('project:detail')` | 是 |
 | GET | `${api.prefix}/project/setting` | `ProjectApi#getSetting` | `hasAuthority('project:detail')` | 是 |
 | POST | `${api.prefix}/project/create` | `ProjectApi#addProject` | `hasAuthority('project:create')` | 是 |
@@ -96,6 +97,8 @@
 | POST | `${api.prefix}/public/loadLinkResult` | `SurveyApi#loadLinkResult` | — | — |
 | POST | `${api.prefix}/public/exam/switch-screen` | `SurveyApi#recordSwitchScreen` | — | — |
 | POST | `${api.prefix}/public/attempts` | `SurveyApi#listAttempts` | — | — |
+| GET | `${api.prefix}/public/anonymous/answers` | `SurveyApi#anonymousAnswers` | — | — |
+| POST | `${api.prefix}/public/anonymous/claim` | `SurveyApi#claimAnonymousAnswers` | — | — |
 | GET | `${api.prefix}/system` | `SystemApi#getSystemInfo` | — | — |
 | GET | `${api.prefix}/system/aiSetting` | `SystemApi#getSystemAiSetting` | `hasRole('admin')` | — |
 | GET | `${api.prefix}/system/oauthSetting` | `SystemApi#getOAuthSetting` | `hasRole('admin')` | — |

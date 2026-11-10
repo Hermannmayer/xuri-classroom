@@ -15,6 +15,11 @@ modules:
       - 按班学情
       - 按班导出
       - classId
+      - 匿名答卷
+      - sk-anon
+      - is_anonymous
+      - anonymous_subject_id
+      - PublicAttemptView
       - t_answer
       - t_answer.class_id
       - AnswerScoreEvaluator
@@ -42,8 +47,17 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/DownloadQuery.java
+      - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AnonymousIdentityService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnonymousSubject.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/AnonymousSubjectMapper.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Answer.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
+      - scripts/nas/migrate/33-anonymous-answer.sql
     entrypoints:
       - client/src/pages/answer/PublicAnswer.tsx
+      - client/src/pages/answer/AnonymousAnswersDrawer.tsx
       - client/src/pages/answer/ExamResult.tsx
       - client/src/pages/answer/PublicQuery.tsx
       - client/src/pages/survey/Data.tsx
@@ -65,6 +79,8 @@ modules:
       - POST /api/answer/upload
       - GET /api/report/{shortId}
       - POST /api/public/saveAnswer
+      - GET /api/public/anonymous/answers
+      - POST /api/public/anonymous/claim
       - POST /api/public/loadExamResult
       - POST /api/public/attempts
       - POST /api/public/exam/switch-screen
@@ -73,13 +89,14 @@ modules:
       - t_project
       - t_class_resource
       - t_user
+      - t_anonymous_subject
       - t_file
     tests:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-10
-    verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
+    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -304,6 +321,9 @@ modules:
       - repo:detail
       - 按班答卷
       - 按班导出
+      - 匿名答卷
+      - sk-anon
+      - is_anonymous
       - 审计
       - 403
     source_globs:
@@ -334,8 +354,14 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
       - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnonymousSubject.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
       - client/src/pages/teaching/ClassAnswersDrawer.tsx
+      - client/src/pages/answer/AnonymousAnswersDrawer.tsx
+      - scripts/nas/migrate/33-anonymous-answer.sql
       - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
       - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
@@ -369,6 +395,9 @@ modules:
       - GET /api/teaching/classes/answers
       - GET /api/answer/download
       - POST /api/answer/export/token
+      - GET /api/public/anonymous/answers
+      - POST /api/public/anonymous/claim
+      - GET /api/project/tree
       - GET /api/system/audit/list
       - GET /api/system/audit/actions
     tables:
@@ -380,12 +409,13 @@ modules:
       - t_class_partner
       - t_class_resource
       - t_answer
+      - t_anonymous_subject
       - t_audit_log
     tests:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
+    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -400,6 +430,10 @@ modules:
       - 教学页
       - embedded
       - 入口重定向
+      - 分类树
+      - ProjectTree
+      - 复制链接
+      - 紧凑列表
       - 数据范围
       - t_project
       - t_project_partner
@@ -414,11 +448,13 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectTreeNode.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
     entrypoints:
       - client/src/pages/project/Entry.tsx
       - client/src/pages/project/List.tsx
+      - client/src/pages/project/ProjectTree.tsx
       - client/src/pages/project/ComposeModal.tsx
       - client/src/pages/project/BatchSettingModal.tsx
       - client/src/pages/project/Trash.tsx
@@ -426,6 +462,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
     apis:
       - GET /api/project/list
+      - GET /api/project/tree
       - GET /api/project
       - GET /api/project/setting
       - POST /api/project/create
@@ -449,7 +486,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
+    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -612,7 +649,9 @@ modules:
       - 分配老师
       - 学员导入
       - 手机号账号
-      - 学情
+      - 班级树
+      - avgScore
+      - 学员页签
       - class:grant
       - t_dept
       - t_class_partner
@@ -620,6 +659,7 @@ modules:
     source_globs:
       - client/src/pages/teaching/**
       - client/src/pages/project/List.tsx
+      - client/src/pages/project/ProjectTree.tsx
       - client/src/pages/project/Entry.tsx
       - client/src/router.tsx
       - client/src/layout/BasicLayout.tsx
@@ -662,6 +702,7 @@ modules:
       - client/src/pages/teaching/DeleteDeptDialog.tsx
       - client/src/pages/teaching/Workbench.tsx
       - client/src/pages/project/List.tsx
+      - client/src/pages/project/ProjectTree.tsx
       - client/src/pages/project/Entry.tsx
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
@@ -707,4 +748,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
+    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99

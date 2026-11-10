@@ -16,12 +16,17 @@ keywords:
   - 按班窗口
   - 题库窗口
   - 题库全局期
+  - 班级学情
+  - avgScore
+  - 匿名答卷
+  - sk-anon
   - 数据范围
   - 未分配 404
   - class:grant
   - t_class_resource
 source_globs:
   - client/src/pages/teaching/**
+  - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/system/Group.tsx
   - client/src/pages/system/GroupEntry.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
@@ -40,12 +45,18 @@ source_globs:
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoView.java
   - scripts/nas/migrate/32-repo-open-window.sql
   - server/rdbms/src/main/resources/mapper/TeachingMapper.xml
+  - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnonymousSubject.java
+  - scripts/nas/migrate/33-anonymous-answer.sql
   - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
 entrypoints:
   - client/src/pages/teaching/Classes.tsx
   - client/src/pages/teaching/ClassSettingsModal.tsx
   - client/src/pages/teaching/ClassResourcesPanel.tsx
+  - client/src/pages/teaching/Workbench.tsx
+  - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/teaching/ImportMembersModal.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
@@ -54,6 +65,7 @@ apis:
   - POST /api/teaching/classes/create
   - POST /api/teaching/classes/update
   - GET /api/teaching/classes/tree
+  - GET /api/teaching/classes/answers
   - GET /api/teaching/classes/members
   - POST /api/teaching/classes/member/create
   - POST /api/teaching/classes/member/update
@@ -88,11 +100,12 @@ tables:
   - t_answer
   - t_repo_partner
   - t_project_partner
+  - t_anonymous_subject
 tests:
   - 'client:npm run check'
   - 'docs:npm run docs:check'
 last_verified: 2026-11-10
-verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
+verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 ---
 
 # 建班、加学员、分配老师、分配考试/题库与数据可见范围
@@ -106,6 +119,7 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 3. 管理员或持有 `class:grant` 的角色给老师分配班级权限（`t_class_partner.access_level`：1 只读 / 2 可管理）。
 4. 可管理老师给班级分配考试/问卷并设置班级窗口（`t_class_resource`），全局 `examSetting` 是硬上限。
 5. 学生只能看到并参加分配给自己班的考试；答卷落 `t_answer.class_id`。
+6. 老师在 `/teaching?tab=insight` 按班级看资源/学员/答卷；匿名公开答卷不进入班级报表，登录 claim 后才按当前班级归入。
 
 ## 端到端步骤
 
@@ -141,7 +155,7 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 ### 4. 分配考试/问卷与题库到班级（P1/P2/P3）
 
 - 入口：班级详情 →「考试与问卷 / 题库」面板；只有 `manageable=true` 的班才渲染，后端 `list` 也 `assertManage`。面板顶部 `Segmented` 切换「考试/问卷」与「题库」。
-- 列表：`GET /api/teaching/classes/resources?deptId=&resourceType=project|repo`，返回资源名/类型、班级窗口、全局窗口、开关状态、分配人、本班答卷数、`effectiveStatus`。
+- 列表：`GET /api/teaching/classes/resources?deptId=&resourceType=project|repo`，返回资源名/类型、班级窗口、全局窗口、开关状态、分配人、本班答卷数、`avgScore`、`effectiveStatus`；project 的 `avgScore` 由 `ClassResourceService#loadClassAnswerStats` 按 `class_id + temp_save=1 + is_anonymous=0` 计算，无分数为 null。
 - 分配：`POST /api/teaching/classes/resources/assign`，`{ classId, resourceType:"project"|"repo", resourceIds[], startAt?, endAt?, status? }`；按 `(class_id,resource_type,resource_id)` upsert，已存在时只更新窗口/开关，不改 `assignedBy`。
 - 修改：`POST /api/teaching/classes/resources/update`，`{ id, startAt?, endAt?, status? }`；窗口传 null = 回退继承/不限。取消：`/resources/delete` 传 `{ id }`，物理删除。
 - 窗口：project 的 `ProjectSetting.examSetting.startTime/endTime` 是全局窗口，也是硬上限；班级窗口为空 = 继承全局，非空必须落在全局窗口内（全局未设则不限制）。**repo 的全局开放期在题库新建/编辑弹窗维护（`t_repo.open_start_at/open_end_at`，留空=不限）**，同样是班级窗口的硬上限；班级窗口非空端越界会 400「题库开放时间必须在全局开放时间内」。时间用 epoch 毫秒。
@@ -158,7 +172,15 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - **题库详情**：`/api/repo/detail` 接受 `repo:detail` 或 `repo:questions:read`；学员可调，但服务层 `assertReadableRepo` 仍只放行自己可见（共享/partner/班级分配）的题库。
 - **题库窗口**：列表只判断「有没有分配」；打开/练习时 `canStudentReadRepo` 才校验「班级开关 → 题库全局期 → 本班窗口（为空用全局）」，关闭/未开始/已结束会失败。
 - **多班**：学生同时在多个班时，任一班的分配有效即可参加；解析「答题时所在班级」时主班优先，其次按附加组绑定时间。
-- **答卷**：新建答卷时 `AnswerServiceImpl` 写 `t_answer.class_id`；更新答卷不改 `class_id`，换班后历史答卷仍算在原班。学情按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组。
+- **答卷**：新建答卷时 `AnswerServiceImpl` 写 `t_answer.class_id`；更新答卷不改 `class_id`，换班后历史答卷仍算在原班。旧的 `/api/teaching/classes` 学情接口按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组；Workbench 新路径见 5.1。
+
+### 5.1 老师按班看学情与答卷（Workbench）
+
+- 入口：`/teaching?tab=insight`。左侧班级树来自 `GET /api/teaching/classes/tree`（`class:list` 或 admin），选中班级写入 `?classId=`；没有有效 id 时默认第一个 `accessible=true` 的叶子班，`accessible=false` 的祖先只能显示路径、不能选。
+- 右侧「考试/问卷」Tab：`GET /api/teaching/classes/resources?deptId=&resourceType=project`，服务层 `assertManage`；列显示分配状态、本班窗口、交卷、平均分，行内可「查看答卷/导出」。只读授权能看班级/成员，但打不开资源 Tab（403）。
+- 右侧「学员」Tab：`GET /api/teaching/classes/members?deptId=`（`class:detail` + `assertVisible`），只读名单，不提供增删改。
+- 答卷下钻/导出：`ClassAnswersDrawer` 走 `GET /api/teaching/classes/answers` 与 `/api/answer/download?classId=`；按 `t_answer.class_id` 精确过滤，历史 `class_id` 为空不进抽屉；只支持 `type=answer`。
+- **匿名不进入班级报表**：公开匿名答卷 `class_id=NULL`、`is_anonymous=1`，不进入按班资源统计/班级答卷抽屉/项目 total/公开统计；匿名用户登录 claim 后才会重算 `class_id` 并按 `is_anonymous=0` 进入常规报表。
 
 ### 6. 退场
 
@@ -182,6 +204,10 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 | 下载学员模板 | `class:member:create` 或 admin | 固定 classpath 模板 |
 | 分配/改级别/取消老师 | `class:grant` 或管理员 | 全部班级；级别 1 只读 / 2 可管理 |
 | 查看/写班级资源 | `class:list` + `assertClassManage` | 只有可管理该班的人能看面板与写入 |
+| Workbench 班级树 | `class:list` 或 admin | 自己创建/负责 + 被授权；`accessible=false` 祖先只显示路径 |
+| Workbench 资源 Tab | `class:list` + `assertClassManage` | 只读授权可看学员但不能看资源（403） |
+| Workbench 学员/按班答卷 | `class:detail` / `project:report` + `assertVisible` | 成员只读；答卷/导出另要 `answer:export` |
+| 匿名公开答卷 | 无（`/api/public/**`） | `sk-anon` cookie；`is_anonymous=1`、`class_id=NULL`，不进班级报表 |
 | 删除班级/用户组 | `system:dept:delete`（或 admin） | 有子组先处理；成员 MOVE/UNASSIGN |
 | 读组树（选组） | `system:dept:list` 或 `org:list` | 只读；传 `deptType=org/class` 过滤 |
 | 题库组授权 | `repo:grant`（服务层再限创建者/管理员） | 写 `t_repo_partner.dept_id` |
@@ -204,7 +230,10 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - **题库编辑整表单保存**：清空全局开放时间（null）=不限；只提交 `id+name` 的脚本会连带清空全局期。
 - **项目/题库列表的班级可见性不按窗口/开关过滤**：只要有一行 `t_class_resource`，资源仍可能出现在学生列表里，打开/练习时才报错；要隐藏得在 SQL 里补窗口/状态条件。
 - **分配资源不校验调用者对资源的可见性**：`ClassResourceService#assign` 只校验班级可管理、资源存在且不是文件夹；拿到 `projectId`/`repoId` 就能分配给自己的班（P1/P2/P3 服务端缺口）。
-- **只读老师看不到资源面板**：面板只在 `manageable=true` 时渲染，后端 `list` 也 `assertManage`；只读授权只能看成员/学情。
+- **只读老师看不到资源面板**：班级管理页资源面板与 Workbench「考试/问卷」Tab 都走 `assertManage`；只读授权只能看成员/学员名单，Workbench 资源 Tab 会 403。
+- **Workbench 的 avgScore 只覆盖 P1 后按班新答卷**：`ClassResourceService#loadClassAnswerStats` 用 `class_id + temp_save=1 + is_anonymous=0` 聚合，`AVG(exam_score)` 忽略 null；历史 `class_id` 为空、问卷/未判分、题库行都没有平均分。
+- **匿名答卷不进入班级报表**：匿名答卷 `class_id=NULL`、`is_anonymous=1`，按班资源统计/班级答卷抽屉/项目 total/公开统计都排除；班级可见老师也不能通过按班接口看到。匿名历史/跨设备无法找回，claim 不自动合并。
+- **claim 会重算班级**：登录后认领当前 `sk-anon` 主体时，按 `ClassResourceService#resolveForStudent` 重算 `class_id`、重新分配 `attempt_no`；没有有效班级分配就落 NULL。
 - **删除文案仍写「用户组」**：`DeleteDeptDialog` 被班级页复用，标题/提示未区分类型；`lastDept` 后端按同类型计算，前端提示仍写「最后一个用户组」。
 - **老师能建班但不能删班**：删除按钮只按 `system:dept:delete` 显示，老师默认没有该权限。
 - **班级不绑角色是页面约定**：`createClass/updateClass` 会置空 `roleIds`，但管理员直接调 `/api/system/dept/update` 仍可给 class 写 `t_dept_role`。
@@ -212,7 +241,7 @@ verified_against: f74f37ad5a91a2982bd66854555659a0c875d530
 - **删除班级会丢授权**：`t_repo_partner` / `t_project_partner.group_id` / `t_class_resource` 会随班删除被清掉；重建同名班不会恢复授权。
 - **负责人（manager_id）没有前端编辑入口**：只能改库或调 `/api/system/dept/update`；「班主任看到自己的班」主要靠 `create_by`、`manager_id` 或 `t_class_partner`。
 - **成员数按主组 + 附加组统计**：同一学员在两个班会各计一次、在两个班名单里各出现一次。
-- **学情新数据按答题班级、老数据回退主组**：`TeachingMapper#listClasses` 用 `COALESCE(a.class_id, u.dept_id, '')`；新答卷按答题时班级，老数据（`class_id` 为空）回退当前主组，换班后老答卷会算到新班。
+- **学情新数据按答题班级、老数据回退主组**：`TeachingMapper#listClasses` 用 `COALESCE(a.class_id, u.dept_id, '')`；新答卷按答题时班级，老数据（`class_id` 为空）回退当前主组，换班后老答卷会算到新班。Workbench 新路径改用班级树 + 资源/成员，不再调用 `listClasses`。
 - **添加老师不校验用户类型**：`addClassPartners` 只校验用户存在，不要求 `staff`；页面候选只列教职工，直接调接口可以授权任意用户 id。
 - **导入模板必须带 sharedStrings**：学员模板用 XlsxWriter 生成；fastexcel 读不到 `xl/sharedStrings.xml` 会解析失败。模板列为姓名/手机号/初始密码/邮箱，任一行失败整批回滚。
 - **密码规则文案过期**：后端实际只校验长度 8~32，但 i18n 文案仍写「8-16 位且包含大小写字母和数字」；接口提示以实际校验为准。
@@ -234,7 +263,9 @@ npm run docs:check
 6. 删除一个有成员的班：`delete-check` 能看到成员；UNASSIGN 后学员变未分组仍可登录；MOVE 只能选同类型班级，删除后 `t_class_resource` 无孤儿行。
 7. 给班级分配一个题库（面板切到「题库」）：本班学生能在题库列表看到；未分配该班的学生看不到；关闭/未开始/已结束窗口时学生读题或练习应被拒；学员用 `repo:questions:read` 调 `/api/repo/detail` 对可见题库应 200，未分配题库应 403。
 8. 管理员把题库全局开放期设为 09:00~18:00；班级老师把班级窗口设到 08:00/19:00 应 400，设 10:00~17:00 成功；学员只在 10:00~17:00 可读题/练习。把全局期改窄后，旧班级窗口不会自动修正，需老师重设。
-8. 学生交卷后查 `t_answer.class_id` 是否等于其主班（主班无有效分配时才取其它班）；学情页的班级分布应按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组。
+9. 学生交卷后查 `t_answer.class_id` 是否等于其主班（主班无有效分配时才取其它班）；旧学情接口的班级分布按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组。
+10. 老师进入 `/teaching?tab=insight`：左侧班级树可选；右侧「考试/问卷」显示该班项目/窗口/交卷/平均分，「学员」显示名单；只读授权打开资源 Tab 应 403。
+11. 未登录填一份 `loginRequired=false` 的问卷：应拿到 `sk-anon`，登录后 `POST /api/public/anonymous/claim` 能认领；claim 前该答卷不出现在班级资源统计/班级答卷抽屉/项目报表，claim 后按当前班级重算 `class_id` 并进入常规报表。
 
 ## 相关文档
 

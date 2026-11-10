@@ -13,6 +13,11 @@ keywords:
   - 按班学情
   - 按班导出
   - classId
+  - 匿名答卷
+  - sk-anon
+  - is_anonymous
+  - anonymous_subject_id
+  - PublicAttemptView
   - t_answer
   - t_answer.class_id
   - AnswerScoreEvaluator
@@ -40,8 +45,17 @@ source_globs:
   - server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/DownloadQuery.java
+  - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/AnonymousIdentityService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnonymousSubject.java
+  - server/rdbms/src/main/java/cn/surveyking/server/mapper/AnonymousSubjectMapper.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Answer.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
+  - scripts/nas/migrate/33-anonymous-answer.sql
 entrypoints:
   - client/src/pages/answer/PublicAnswer.tsx
+  - client/src/pages/answer/AnonymousAnswersDrawer.tsx
   - client/src/pages/answer/ExamResult.tsx
   - client/src/pages/answer/PublicQuery.tsx
   - client/src/pages/survey/Data.tsx
@@ -63,6 +77,8 @@ apis:
   - POST /api/answer/upload
   - GET /api/report/{shortId}
   - POST /api/public/saveAnswer
+  - GET /api/public/anonymous/answers
+  - POST /api/public/anonymous/claim
   - POST /api/public/loadExamResult
   - POST /api/public/attempts
   - POST /api/public/exam/switch-screen
@@ -71,20 +87,21 @@ tables:
   - t_project
   - t_class_resource
   - t_user
+  - t_anonymous_subject
   - t_file
 tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-10
-verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
+verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 ---
 
 # 答卷、判分与报表
 
 ## 30 秒摘要
 
-一份答卷是一行 `t_answer`：`answer` 存最终作答、`temp_answer` 存草稿、`survey` 存随机卷快照、`exam_score` / `exam_info` 存总分与逐题得分；本轮新增 `class_id` 记录「答题时所在班级」，用于按班统计与班级资源面板的答卷数。这个模块覆盖"公开答题 → 交卷判分 → 成绩单 → 数据页 → 报表 → 导出/回收站"，后端入口是 `AnswerApi`、`ReportApi`，大部分规则在 `AnswerServiceImpl` 及其 impl 包下的组件与 `AnswerScoreEvaluator`。题目结构在 [survey](./survey.md)，项目生命周期在 [project](./project.md)。
+一份答卷是一行 `t_answer`：`answer` 存最终作答、`temp_answer` 存草稿、`survey` 存随机卷快照、`exam_score` / `exam_info` 存总分与逐题得分；本轮新增 `class_id` 记录「答题时所在班级」，并加入匿名答卷主体 `t_anonymous_subject` / `sk-anon` / `is_anonymous`。这个模块覆盖"公开答题 → 交卷判分 → 成绩单 → 数据页 → 报表 → 导出/回收站"，后端入口是 `AnswerApi`、`ReportApi`，大部分规则在 `AnswerServiceImpl` 及其 impl 包下的组件与 `AnswerScoreEvaluator`。题目结构在 [survey](./survey.md)，项目生命周期在 [project](./project.md)。
 
 ## 什么时候看这篇
 
@@ -93,12 +110,15 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 - 导出 Excel 空文件、提示导出密码错误、导出 token 失效。
 - 报表 500、总数比实际交卷多、逐题统计不准。
 - 要确认学员能不能看到别人的答卷。
+- 匿名答卷刷新/换设备后找不回、登录后认领不到，或报表里匿名数对不上。
 
 ## 代码地图
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 公开答题页 | `client/src/pages/answer/PublicAnswer.tsx` | 首屏大纲、逐题加载、本地草稿、提交、倒计时/切屏/闯关 |
+| 公开答题页 | `client/src/pages/answer/PublicAnswer.tsx` | 首屏大纲、逐题加载、本地草稿、提交、倒计时/切屏/闯关；交卷后「我的答卷」抽屉（匿名/登录都可看） |
+| 匿名答卷抽屉 | `client/src/pages/answer/AnonymousAnswersDrawer.tsx` | `GET /public/anonymous/answers` 列本设备/本人答卷；登录后 `POST /public/anonymous/claim` 认领 |
+| 匿名身份 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java` | `sk-anon` cookie、SHA-256 主体、ensure/current/claim/purge；匿名答卷不写 `create_by` |
 | 成绩单/解析 | `client/src/pages/answer/ExamResult.tsx` | `/api/public/loadExamResult`；逐题对错只是前端预览 |
 | 公开查询 | `client/src/pages/answer/PublicQuery.tsx` | 按条件查询/修改答卷，走 `/api/public/loadQuery` / `getQueryResult` |
 | 数据页 | `client/src/pages/survey/Data.tsx` | 全量答卷表格、筛选/排序、详情、补录/编辑、导入、导出、回收站入口 |
@@ -106,14 +126,15 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 报表页 | `client/src/pages/survey/Report.tsx`、`pages/survey/report/QuestionBlock.tsx` | 每日趋势、逐题选项分布、数值统计 |
 | 数据格式化 | `client/src/pages/survey/data/format.ts` | 答案值 → 表格单元格文本（空值统一 `—`） |
 | 答卷接口 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java` | 管理侧 CRUD、导入导出、回收站；`/download` 带 `classId` 走按班导出；`/export/token` 换一次性 token |
+| 公开匿名接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `loadProject` 在未登录且不要求登录时建匿名主体；`GET /anonymous/answers`、`POST /anonymous/claim` |
 | 按班报表接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | `GET /api/teaching/classes/answers`：班级可见即可看本班答卷（见 [teaching](./teaching.md)） |
 | 报表接口 | `server/api/src/main/java/cn/surveyking/server/api/ReportApi.java` | `GET /api/report/{shortId}`，`project:report` + 数据权限 |
-| 答卷实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 列表范围与回收站；按班 `listAnswerByClass` / `downloadByClass`；提交前的判分/附件绑定在 `AnswerScoringService`、幂等在 `AnswerSubmitIdempotency`、导出在 `AnswerExporter`、导入在 `AnswerUploadParser`，其余见同目录 |
+| 答卷实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java` | 列表范围与回收站；匿名新建/更新保留标识；按班 `listAnswerByClass` / `downloadByClass`；提交前的判分/附件绑定在 `AnswerScoringService`、幂等在 `AnswerSubmitIdempotency`、导出在 `AnswerExporter`、导入在 `AnswerUploadParser`，其余见同目录 |
 | 班级归属 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `resolveForStudent`：按「学生班级 + 班级资源分配」算 `t_answer.class_id`，主班优先 |
 | 判分器 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/AnswerScoreEvaluator.java` | `onlyOne` / `selectAll` / `selectCorrect` / `select` |
 | 报表实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ReportServiceImpl.java` | 逐题选项计数、每日答卷数、数值 min/max/avg |
 | 公开统计 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/ProjectStatHelper.java` | 投票/配额用的轻量统计 |
-| 数据表 | `t_answer`、`t_project`、`t_class_resource`、`t_file` | 答卷（含 `class_id`）、项目/题目树、班级分配、附件引用 |
+| 数据表 | `t_answer`、`t_anonymous_subject`、`t_project`、`t_class_resource`、`t_file` | 答卷（含 `class_id`/匿名列）、匿名主体、项目/题目树、班级分配、附件引用 |
 
 ## 关键流程
 
@@ -146,6 +167,16 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 6. 新端点：`POST /api/answer/export/token`（`answer:export`）用导出密码换一次性 token，返回 `{exportToken, expiresIn}`；班级答卷抽屉用它。通用数据页导出仍调用旧的 `/api/repo/export/token`（两处共用 `ExportGuardService`，行为一致，但调用路径尚未统一）。
 7. **历史数据**：`t_answer.class_id` 是 P1 之后才写入；`class_id` 为空的历史答卷不会出现在按班列表/导出里（学情概览可能按主组回退显示，两个口径会不一致）。
 
+### 匿名答卷（P6）
+
+1. 数据：`t_answer` 新增 `anonymous_subject_id`（`t_anonymous_subject.id`，登录用户为 NULL）与 `is_anonymous`（1/0，默认 0）；新表 `t_anonymous_subject` 只有 `id / token_hash / create_at / last_seen_at / expires_at`，迁移见 `scripts/nas/migrate/33-anonymous-answer.sql`。
+2. 身份：`AnonymousIdentityServiceImpl` 在公开答题页未登录且项目 `answerSetting.loginRequired != true` 时写 `sk-anon` cookie（HttpOnly、SameSite=Lax、Secure=request.isSecure、path=/、90 天）；cookie 只放 32 字节随机 token，库里只存 SHA-256，过期主体靠 `purgeExpired()` 清理。
+3. 提交：`SurveyApi#loadProject` 先 ensureSubject；`AnswerServiceImpl#createAnswer` 再兜底 ensure，并写 `create_by=null`、`is_anonymous=1`、`anonymous_subject_id=<subject>`；已登录、教职工、白名单伪身份保持原 `create_by` 逻辑。`updateAnswer` 不重算匿名标识（与 `class_id` 同原则），否则第二次保存会把匿名改成非匿名。
+4. 找回/认领：`GET /api/public/anonymous/answers?projectId=` 未登录按 `sk-anon` 主体、登录按 `create_by` 返回 `List<PublicAttemptView>`（`answerId / examScore / createAt`），没有身份返回空。`POST /api/public/anonymous/claim` 必须登录；把当前 cookie 主体的匿名答卷改成 `create_by=userId`、`is_anonymous=0`、`anonymous_subject_id=null`，按 `ClassResourceService#resolveForStudent` 重算 `class_id`、重新分配 `attempt_no`（避免撞唯一键），返回认领条数。
+5. 报表过滤：`listAnswer` 默认 `is_anonymous=0`（管理员/项目管理者可显式 `includeAnonymous`）；`listAnswerByClass`、`listAnswersForStat`、`downloadSurvey`/`downloadAttachment` 默认排除匿名；`AnswerQuery.excludeAnonymous` 专供 `AnswerServiceImpl#count`（统计/项目 total 用，答题限次不传）；`TeachingMapper.listMyProjects/listClasses`、`ProjectServiceImpl` 两处 total、`ProjectStatisticsService`、`ReportServiceImpl`、`ClassResourceService#loadClassAnswerStats` 都已加过滤。
+6. 班级/项目统计：匿名答卷 `class_id` 为 NULL，按班资源面板的答卷数/平均分、按班答卷抽屉、班级学情都不会包含；项目列表/回收站 total、项目报表、公开统计也只统计 `is_anonymous=0`。
+7. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体；`purgeExpired()` 未接调度；匿名答卷没有 `create_by`，数据页/通用导出看不到，需登录 claim 后才进入常规报表。
+
 ## 修改指南
 
 ### 改判分规则
@@ -172,7 +203,10 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
-| 答卷列表/回收站 | `answer:list` + `@EnableDataPerm` | 管理员/项目 OWNER/COLLABORATOR（含组授权）看全部；其他登录用户只看 `create_by=自己` |
+| 匿名提交公开问卷 | 无（`/api/public/**` permitAll） | 未登录 + 项目 `loginRequired!=true`；写 `sk-anon` 主体与 `is_anonymous=1`，不写 `create_by` |
+| 匿名找回 | 无（公开） | 只按当前 `sk-anon` cookie 主体；返回 `PublicAttemptView`，不返回主体 id/token |
+| 匿名 claim | 登录（无额外权限点） | 只认当前 cookie 主体；重算 `class_id`/`attempt_no`，不合并其他主体 |
+| 答卷列表/回收站 | `answer:list` + `@EnableDataPerm` | 管理员/项目 OWNER/COLLABORATOR（含组授权）看全部；其他登录用户只看 `create_by=自己`；默认 `is_anonymous=0` |
 | 查看单份 | `answer:detail` | `assertAnswerAccess`：本人 / 项目管理者 / admin |
 | 补录 | `answer:create` + `@EnableDataPerm` | 项目管理者 |
 | 修改 | `answer:update` | 本人或项目管理者；后台编辑会强制沿用原 `projectId` |
@@ -181,9 +215,9 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 彻底删除 | `answer:delete` | 项目管理者；物理删除 |
 | 通用导出（不带 `classId`） | `answer:export` + 导出密码/token | 项目管理者（`getProjectPerms()`，等价原 `@EnableDataPerm`） |
 | 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部，不要求项目协作者 |
-| 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的答卷；只支持 `type=answer` |
+| 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的**非匿名**答卷；只支持 `type=answer` |
 | 导入数据 | `answer:upload` | 项目管理者 |
-| 报表 | `project:report` + `@EnableDataPerm` | 项目管理者/admin |
+| 报表 | `project:report` + `@EnableDataPerm` | 项目管理者/admin；匿名答卷不计入 |
 
 ## 坑与已知限制
 
@@ -196,6 +230,12 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 - **彻底删除不清理附件**：`batchDestroyAnswer` 只执行 `DELETE FROM t_answer`，没有看到删除 `t_file` 或物理附件的代码；回收站提示"附件也会一起清掉"与当前实现不完全一致，需另行确认/补清理任务。
 - **导出 token 在内存里**：`ExportGuardService` 的 token 存在 `ConcurrentHashMap`，60 秒过期、用一次即失效、绑定用户；后端重启或多实例部署会失效/互不认。不要把它当持久下载链接。
 - **旧的 `exportPassword` 参数仍兼容**：`AnswerApi#download` 同时接受 `exportToken` 和 `exportPassword`，优先 token。密码出现在 URL 会进访问日志，前端应继续走"先换 token"。
+- **匿名答卷默认不可见**：`listAnswer` / `listAnswerByClass` / `listAnswersForStat` / `downloadSurvey` / `downloadAttachment` / 班级资源统计都带 `is_anonymous=0`；只有管理员/项目管理者在 `AnswerQuery.includeAnonymous=true` 时 `listAnswer` 才放开。数据页、通用导出、按班导出、项目报表、班级报表都不会出现匿名答卷。
+- **匿名身份只靠 cookie + localStorage**：`sk-anon` 只存在当前浏览器；换设备/清 cookie/隐私模式/历史匿名数据都找不回。`claim` 只处理当前 cookie 主体，不自动合并多个匿名主体；TTL 过期后主体和匿名答卷由 `purgeExpired()` 清理，但该方法目前没有接调度。
+- **`purgeExpired` 删除匿名答卷走逻辑删**：`answerMapper.delete` 会给 `t_answer.is_deleted=1`，但不会清 `t_answer_item` 投影；需要物理清理时另做任务。
+- **`class_id` 与匿名互斥**：匿名答卷 `class_id` 为 NULL，按班报表/资源面板/班级答卷抽屉都不会包含；claim 时才按当前班级资源重算。
+- **公开匿名接口没有权限注解**：`/api/public/anonymous/*` 依赖 `/api/public/**` permitAll；只校验 cookie/登录态，不要把它们当管理接口，也不要在返回体里暴露 token_hash/subject 内部字段。
+- **新增 `t_answer` 统计 SQL 必须带匿名过滤**：默认 `is_anonymous=0`；答题限次/幂等统计用 `AnswerQuery.excludeAnonymous` 按需关闭，不能把默认过滤直接塞进通用 `count`。
 - **按班查看/导出绕过项目协作者过滤**：`/api/teaching/classes/answers` 与 `/api/answer/download?classId=` 只要求 `project:report`/`answer:export` + 班级可见（`classService.assertVisible`），不要求项目所有者/协作者；任何能看这个班的老师都能看/导出该项目的本班答卷。
 - **按班列表只认精确 `class_id`**：历史答卷 `class_id` 为空时不会出现在按班列表/导出；学情概览可能按 `COALESCE(class_id,dept_id,'')` 回退主组显示，出现「概览有数、抽屉为空」是正常现象。
 - **按班导出只支持答卷**：`downloadByClass` 对 `type != answer` 报「按班级导出暂只支持答卷」；附件按班导出未实现。且它走真源 JSON，不做 `t_answer_item` 投影优化。
@@ -231,9 +271,13 @@ npm run docs:check
 5. 报表打开不白屏，每日趋势与答卷总数对得上（若开启随机抽题，先确认快照行是否被计入）。
 6. 学生 A 在班级 X 交一份新答卷后查库：`SELECT id, project_id, class_id, temp_save FROM t_answer WHERE id='<answerId>';` 的 `class_id` 应等于 X；把 A 换到班级 Y 后再更新同一份答卷，`class_id` 仍应是 X。
 7. 学情接口按答题时班级分组：新答卷跟随 `class_id`，`class_id` 为空的老答卷回退答题人当前主组；只有真实 `dept_type='class'` 节点才显示为班级，org 组/已删/找不到的归「未分组」。同一场考试有老数据时，班级分布可能同时出现「原班」与「当前主班」两行。
-8. 班级分布行点「查看答卷」：`GET /api/teaching/classes/answers` 返回该班 `class_id` 精确命中的答卷，学员姓名通过 `createByName` 回填；历史 `class_id` 为空的记录不出现。
-9. 班级分布行点「导出」：无导出密码时应下载 xlsx；配置导出密码时当前抽屉会报错（没有密码输入）。只支持 `type=answer`，附件导出会提示不支持。
+8. 学情 Tab 的班级资源行点「查看答卷」：`GET /api/teaching/classes/answers` 返回该班 `class_id` 精确命中的答卷，学员姓名通过 `createByName` 回填；历史 `class_id` 为空的记录不出现。
+9. 资源行点「导出」：无导出密码时应下载 xlsx；配置导出密码时当前抽屉会报错（没有密码输入）。只支持 `type=answer`，附件导出会提示不支持。
 10. 不带 `classId` 的 `/api/answer/download` 仍按项目协作者范围校验；用非协作者账号导出应 403，带 `classId` 且班级可见的账号可以导出本班答卷。
+11. 未登录打开一个 `loginRequired=false` 的问卷并交卷：响应应写 `sk-anon` cookie；刷新后 `GET /api/public/anonymous/answers?projectId=` 能看到这次答卷（`answerId/examScore/createAt`），`/api/public/attempts` 同样能看到。清 cookie 或换浏览器后列表为空。
+12. 同一浏览器登录后点「绑定到我的账号」：`POST /api/public/anonymous/claim` 返回认领条数；随后 `/api/public/anonymous/answers` 按 `create_by` 返回，数据页/报表仍默认看不到匿名（claim 后 `is_anonymous=0` 才可见）。
+13. 匿名答卷不进入班级报表：学情资源面板的交卷/平均分、班级答卷抽屉、项目列表/回收站 total、`/api/report/{shortId}` 都不应包含它；管理员显式 `includeAnonymous=true` 时 `/answer/list` 才可看到。
+14. 构造过期 `t_anonymous_subject` 后调用 `purgeExpired()`：主体和其匿名答卷应被清理（答卷逻辑删）；当前没有调度，需手工触发。
 
 ## 相关文档
 

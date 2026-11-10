@@ -15,6 +15,9 @@ keywords:
   - repo:detail
   - 按班答卷
   - 按班导出
+  - 匿名答卷
+  - sk-anon
+  - is_anonymous
   - 审计
   - 403
 source_globs:
@@ -45,8 +48,14 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
   - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnonymousSubject.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/AnswerQuery.java
   - client/src/pages/teaching/ClassAnswersDrawer.tsx
+  - client/src/pages/answer/AnonymousAnswersDrawer.tsx
+  - scripts/nas/migrate/33-anonymous-answer.sql
   - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
   - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
   - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
@@ -80,6 +89,9 @@ apis:
   - GET /api/teaching/classes/answers
   - GET /api/answer/download
   - POST /api/answer/export/token
+  - GET /api/public/anonymous/answers
+  - POST /api/public/anonymous/claim
+  - GET /api/project/tree
   - GET /api/system/audit/list
   - GET /api/system/audit/actions
 tables:
@@ -91,12 +103,13 @@ tables:
   - t_class_partner
   - t_class_resource
   - t_answer
+  - t_anonymous_subject
   - t_audit_log
 tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
+verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 ---
 
 # 权限、角色与用户组
@@ -113,6 +126,7 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 - 改完角色或用户组，怀疑「权限没生效」。
 - 用户组页/班级页互相看不到对方的数据，或「老师能不能自己建班」说不清。
 - 班级分配了题库，学员仍打不开详情/题目，要确认是缺 `repo:detail`/`repo:questions:read`，还是题库全局期/本班窗口未开放。
+- 匿名答卷能提交但找不回、登录后认领不到，或班级/项目报表里匿名数据混进来。
 - 要查谁导出了题库/答卷、谁改了权限，或要把审计接到新接口上。
 - 403 只看到英文 / 不知道是权限不足还是业务拒绝。
 
@@ -128,7 +142,8 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 班级授权级别 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | `assertClassVisible`（看）/`assertClassManage`（改）、`t_class_partner.access_level`（1 只读 / 2 可管理）、`ClassNodeView.manageable` |
 | 后端接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemApi.java` | `/system/role/*`、`/system/permission/list`、用户/组/字典接口的 `@PreAuthorize`；`/system/dept/list?deptType=` |
 | 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers` |
-| 按班答卷/导出 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java`、`server/rdbms/.../impl/AnswerServiceImpl.java` | `classService.assertVisible` + `listAnswerByClass`/`downloadByClass`；`/answer/download?classId=` 与 `POST /answer/export/token` |
+| 按班答卷/导出 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java`、`server/rdbms/.../impl/AnswerServiceImpl.java` | `classService.assertVisible` + `listAnswerByClass`/`downloadByClass`；`/answer/download?classId=` 与 `POST /answer/export/token`；默认 `is_anonymous=0` |
+| 匿名答卷/主体 | `server/api/.../SurveyApi.java`、`server/rdbms/.../impl/AnonymousIdentityServiceImpl.java`、`t_anonymous_subject` | `sk-anon` cookie（HttpOnly/Lax/90d/SHA-256）；`/public/anonymous/answers`、`/claim`；匿名答卷不写 `create_by` |
 | 内容保护接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java` | `POST /api/system/protection`，`content:protect` 只改三项 |
 | 403 文案 | `server/shared/src/main/java/cn/surveyking/server/core/mvc/advice/GlobalExceptionHandler.java` | `AccessDeniedException` 的 message 原样放进响应体，前端直接展示中文原因 |
 | 审计查询 | `server/api/src/main/java/cn/surveyking/server/api/AuditApi.java`、`service/AuditLogService.java` | `/api/system/audit/list` 返回 `AuditLogView`；`/api/system/audit/actions` 给筛选下拉 |
@@ -140,7 +155,7 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 页面守卫 | `client/src/components/RequirePerm.tsx` | 无权限直接整页 403，而不是进去后逐页吃 403 |
 | 菜单与路由 | `client/src/layout/BasicLayout.tsx`、`client/src/router.tsx` | 菜单用 `can()` 过滤；路由用 `guard(perm)` |
 | 权限矩阵页 | `client/src/pages/system/Permissions.tsx` | 角色卡 + 左树 + 右侧已选 + 草稿保存；路由 `/system/permissions` |
-| 数据表 | `t_role`、`t_user_role`、`t_dept_role`、`t_dept`、`t_user`、`t_class_partner`、`t_audit_log` | 建表见 `server/rdbms/src/main/resources/scripts/init-mysql.sql` |
+| 数据表 | `t_role`、`t_user_role`、`t_dept_role`、`t_dept`、`t_user`、`t_class_partner`、`t_answer`、`t_anonymous_subject`、`t_audit_log` | 建表见 `server/rdbms/src/main/resources/scripts/init-mysql.sql`；匿名主体见迁移 33 |
 
 ## 关键流程
 
@@ -184,6 +199,7 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 5. 班级资源支持 `project` 与 `repo` 两类。题库分配放宽「可见/读题/练习/详情」：`RepoServiceImpl#listRepo`、`TemplateServiceImpl#isReadableRepo`、`RepoPartnerServiceImpl#hasPracticePermission` 认班级分配；`/api/repo/detail` 允许 `repo:detail` 或 `repo:questions:read`，但仍走 `RepoServiceImpl#assertReadableRepo`（管理员/创建者/共享/partner/班级分配）。
 6. 题库有全局开放期（`t_repo.open_start_at/open_end_at`，NULL=不限）：班级窗口非空端必须落在全局期内，越界 400「题库开放时间必须在全局开放时间内」；读闸门按「班级开关 → 题库全局期 → 本班窗口」判断。已经存在的班级窗口如果超出后来新设的全局期，不会自动修正，学生侧按硬上限判，需要老师重设。
 7. **班级可见性也决定「按班看答卷/导出」**：`GET /api/teaching/classes/answers` 要 `project:report` + `classService.assertVisible(deptId)`；`GET /api/answer/download?classId=` 要 `answer:export` + `assertVisible`。两者都不要求项目所有者/协作者：任何能看这个班的老师（含只读授权）都能看/导出该项目的本班答卷。不带 `classId` 的通用 `/answer/download` 仍按项目协作者范围（`assertProjectExportAllowed`）。
+8. **匿名答卷不是一个权限主体**：`/api/public/**` 全部 permitAll；`loadProject` 在未登录且项目不要求登录时写 `sk-anon`，`saveAnswer` 写 `is_anonymous=1`/`create_by=null`。`GET /public/anonymous/answers` 只按当前 cookie 主体（或登录用户）返回摘要；`POST /public/anonymous/claim` 只要求已登录（没有额外权限点），claim 后重算 `class_id`/`attempt_no`。匿名数据默认 `is_anonymous=0` 过滤，班级可见老师也看不到；管理员/项目管理者显式 `includeAnonymous` 才能在答卷列表看到。
 
 ### 6. 审计：动作、目标、操作人都可读
 
@@ -252,9 +268,12 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 管理用户/组/角色 | `system:user:*`、`system:dept:*`、`system:role:*` | 全局，且受「不能授予高于自己」二次校验 |
 | 新建/修改班级 | `class:list` + `assertClassManage`（修改） | 老师建班后是自己创建；修改还要求本班/祖先班可管理 |
 | 班级成员写 | `class:member:create/update/delete` + `assertClassManage` | 只读授权（access_level=1）403 |
-| 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部，不要求项目协作者 |
-| 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的答卷；只支持 `type=answer` |
-| 通用导出答卷（不带 classId） | `answer:export` + 项目数据权限 | 仍是项目所有者/协作者范围（`getProjectPerms`） |
+| 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部（默认 `is_anonymous=0`），不要求项目协作者 |
+| 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的非匿名答卷；只支持 `type=answer` |
+| 通用导出答卷（不带 classId） | `answer:export` + 项目数据权限 | 仍是项目所有者/协作者范围（`getProjectPerms`）；匿名默认排除 |
+| 匿名提交/找回 | 无（`/api/public/**`） | 只认 `sk-anon` cookie；匿名 `is_anonymous=1`、`create_by=null` |
+| 匿名 claim | 登录（无额外权限点） | 只认当前 cookie 主体；重算 `class_id`/`attempt_no`，不合并其他主体 |
+| 匿名数据可见性 | 管理员/项目管理者 `includeAnonymous` | 默认 `is_anonymous=0`；班级报表、项目 total、导出、公开统计都不含匿名 |
 | 分配班级老师 | `class:grant` 或 admin | 全部班级；级别 1 只读 / 2 可管理 |
 | 用户组管理 | `system:dept:create/update/delete` | 全局；仅 org 节点可在页面绑角色 |
 
@@ -286,6 +305,10 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 - **历史 `class_id` 为空不进按班报表**：按班列表/导出只认精确 `t_answer.class_id`；学情概览会按 `COALESCE(class_id,dept_id,'')` 回退主组，出现「概览有数、抽屉为空」是正常现象。
 - **班级答卷导出 UI 没有密码输入**：`ClassAnswersDrawer` 调 `/api/answer/export/token` 时传空 body；系统配置导出密码后会失败，需要补密码输入或走无密码场景。
 - **`AnswerQuery.classId` 不改变普通列表的项目范围**：`GET /api/answer/list?classId=` 仍在原项目数据权限内过滤；只有 `listAnswerByClass` 才按班级放开到本班全部。
+- **匿名不是角色/权限点**：公开提交与找回都走 `/api/public/**`，没有 `answer:*` 权限要求；`claim` 只检查登录。匿名主体的 `token_hash` 只在库里，响应只返回答卷摘要，不要把 subject id/token 暴露给前端。
+- **匿名数据默认被报表过滤**：`is_anonymous=1` 的答卷不进入班级报表/项目 total/公开统计/导出；管理员在 `/answer/list` 显式 `includeAnonymous=true` 才放开。班级可见老师也不能通过按班接口看到匿名答卷（`listAnswerByClass` 固定 `is_anonymous=false`）。
+- **匿名只靠 cookie**：清 cookie、换设备、历史 P1 前数据都找不回；claim 不自动合并多个匿名主体；`purgeExpired()` 未接调度。
+- **项目树不是班级分配树**：`/api/project/tree` 只认创建者/partner type 1/2，不含 `t_class_resource` 分配与 type 3；学生端不用树，别把它当班级可见性接口。
 
 ## 验证
 
@@ -329,6 +352,14 @@ curl -s -o /dev/null -w '%{http_code}\n' -b teacher.txt \
   "https://<host>/api/teaching/classes/answers?projectId=<projectId>&deptId=<classId>&current=1&pageSize=20"
 curl -s -o /dev/null -w '%{http_code}\n' -b teacher.txt \
   "https://<host>/api/answer/download?projectId=<projectId>&type=answer"
+# 匿名：未登录先拿 sk-anon（访问 /public/loadProject 后 cookie jar 会变），再查自己的答卷摘要
+curl -s -c anon.txt -b anon.txt -X POST https://<host>/api/public/loadProject \
+  -H 'Content-Type: application/json' -d '{"id":"<projectId>"}'
+curl -s -b anon.txt "https://<host>/api/public/anonymous/answers?projectId=<projectId>"
+# 登录后认领：返回数字（认领条数）
+curl -s -b teacher.txt -X POST https://<host>/api/public/anonymous/claim
+# 项目分类树：只认创建者/partner type 1/2，不是班级分配树
+curl -s -b teacher.txt https://<host>/api/project/tree
 ```
 
 ## 相关文档

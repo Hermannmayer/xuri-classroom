@@ -10,6 +10,7 @@
 |---|---|
 | `t_account` | id:varchar(64)<br>user_type:varchar(100)<br>user_id:varchar(64)<br>auth_type:varchar(20)<br>auth_account:varchar(100)<br>auth_secret:varchar(64)<br>secret_salt:varchar(32)<br>status:int<br>is_deleted:tinyint(1)<br>oauth_identity_key:varchar(220)<br>create_at:timestamp<br>create_by:varchar(256) |
 | `t_answer` | id:varchar(64)<br>project_id:varchar(64)<br>temp_answer:text<br>survey:longtext<br>answer:text<br>attachment:varchar(1024)<br>meta_info:text<br>temp_save:int<br>exam_info:text<br>exam_exercise_type:varchar(4)<br>exam_score:float<br>is_deleted:tinyint(1) |
+| `t_anonymous_subject` | id:varchar(64)<br>token_hash:varchar(128)<br>create_at:timestamp<br>last_seen_at:timestamp<br>expires_at:timestamp |
 | `t_answer_item` | id:varchar(64)<br>answer_id:varchar(64)<br>project_id:varchar(64)<br>question_id:varchar(64)<br>question_type:varchar(32)<br>option_id:varchar(64)<br>value_json:text<br>value_key:varchar(64)<br>score:double<br>create_at:timestamp |
 | `t_comm_dict` | id:varchar(64)<br>code:varchar(256)<br>name:varchar(256)<br>remark:varchar(256)<br>dict_type:int<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_comm_dict_item` | id:varchar(64)<br>dict_code:varchar(256)<br>item_name:varchar(256)<br>item_value:varchar(256)<br>item_order:int<br>item_level:int<br>parent_item_value:varchar(64)<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
@@ -66,3 +67,4 @@
 - `scripts/nas/migrate/30-dept-type.sql`
 - `scripts/nas/migrate/31-class-resource.sql`
 - `scripts/nas/migrate/32-repo-open-window.sql`
+- `scripts/nas/migrate/33-anonymous-answer.sql`

@@ -20,7 +20,9 @@ keywords:
   - 分配老师
   - 学员导入
   - 手机号账号
-  - 学情
+  - 班级树
+  - avgScore
+  - 学员页签
   - class:grant
   - t_dept
   - t_class_partner
@@ -28,6 +30,7 @@ keywords:
 source_globs:
   - client/src/pages/teaching/**
   - client/src/pages/project/List.tsx
+  - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/project/Entry.tsx
   - client/src/router.tsx
   - client/src/layout/BasicLayout.tsx
@@ -70,6 +73,7 @@ entrypoints:
   - client/src/pages/teaching/DeleteDeptDialog.tsx
   - client/src/pages/teaching/Workbench.tsx
   - client/src/pages/project/List.tsx
+  - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/project/Entry.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
@@ -115,7 +119,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
+verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 ---
 
 # 班级与教学工作台
@@ -147,9 +151,10 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 学员导入 | `client/src/pages/teaching/ImportMembersModal.tsx` | 下载 `学员导入模板.xlsx`、上传 xlsx 批量建号；逐行报错 |
 | 统一删除弹窗 | `client/src/pages/teaching/DeleteDeptDialog.tsx` | 三个入口共用：先 `delete-check`，有成员时二选一 MOVE / UNASSIGN |
 | 用户组页 | `client/src/pages/system/Group.tsx`、`GroupEntry.tsx` | 只维护 `dept_type=org` 的教职工组；入口不再重定向到班级页 |
-| 学情 Tab | `client/src/pages/teaching/Workbench.tsx` | 考试 Select（名称/状态/交卷/平均分）+ 班级分布表；每行「查看答卷/导出」；无考试时 Empty + 去考试/问卷 |
+| 学情 Tab | `client/src/pages/teaching/Workbench.tsx` | 左班级树（`/classes/tree`、`?classId=`）+ 右侧「考试/问卷」「学员」Tabs；资源行看本班窗口/交卷/平均分，可查看答卷/导出；成员只读名单 |
 | 班级答卷抽屉 | `client/src/pages/teaching/ClassAnswersDrawer.tsx` | 按 projectId + deptId 分页看学员/交卷时间/分数/状态；导出本班 xlsx（先换 exportToken） |
-| 考试/问卷 Tab | `client/src/pages/project/List.tsx`（`embedded`） | 复用 ProjectList 管理/学员视图；嵌入时隐藏页头，保留搜索/新建/回收站/批量工具条 |
+| 考试/问卷 Tab | `client/src/pages/project/List.tsx`（`embedded`） | 复用 ProjectList 管理视图；嵌入时隐藏页头，保留分类树/搜索/新建/回收站/批量工具条 |
+| 考试分类树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染文件夹，选中后右侧列表按 `parentId` 过滤（见 [project](./project.md)） |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list 的账号重定向 `/teaching?tab=exam`；其余账号渲染原 ProjectList |
 | 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 树、建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers`；每方法都有 `@PreAuthorize` |
 | 班级实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | 可见范围、树组装、建班/改班、成员/老师授权、`assertClassManage` |
@@ -157,7 +162,8 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 学员账号 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentService.java` | 建号/改号/删除学员；手机号即登录账号，改号同步 `t_account.auth_account` |
 | 批量导入 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java` | 解析 xlsx、逐行校验、整批事务；行错误统一「第 N 行：原因」 |
 | 组织写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java` | 用户组/班级共用 `t_dept` 写路径；`dept_type` 校验、删除预检与成员迁移 |
-| 学情 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java` | 两条只读聚合 SQL，不拉答卷内容 |
+| 学情 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java` | 两条只读聚合 SQL（`listMyProjects` / `listClasses`），不拉答卷内容；Workbench 新路径不再调用 `/teaching/classes` |
+| 班级资源统计 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `loadClassAnswerStats` 按 `class_id + temp_save=1 + is_anonymous=0` 一次算答卷数与平均分（null 分数忽略） |
 | 组数据范围 | `server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java` | 「主组 + 附加组 + 祖先链」的唯一解析出口 |
 | 数据表 | `t_dept`、`t_dept_role`、`t_class_partner`、`t_class_resource`、`t_user`、`t_user_dept`、`t_account`、`t_user_role`、`t_project`、`t_answer` | 组织树、组角色、老师授权、班级资源、成员、账号、项目与答卷 |
 
@@ -166,7 +172,7 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 ### 0. 教学页（/teaching）与入口
 
 1. 路由：`/teaching` 守卫是 `portal:teacher` + `project:list`（缺一个都进不来）；页面是 `TeachingHome`，班级管理仍在独立的 `/teaching/classes`（`class:list`）。
-2. 两个 Tab：`exam` = 考试/问卷（渲染 `ProjectList embedded`，隐藏 ProjectList 自己的页头，保留搜索/新建/回收站/批量等工具条）；`insight` = 学情（紧凑版 `Workbench`：考试 Select + 班级分布表，不再有「我的考试」大表和 BackButton）。
+2. 两个 Tab：`exam` = 考试/问卷（渲染 `ProjectList embedded`，隐藏 ProjectList 自己的页头，保留分类树/搜索/新建/回收站/批量等工具条）；`insight` = 学情（`Workbench`：左班级树 + 右「考试/问卷/学员」Tabs，不再有「我的考试」大表和 BackButton）。
 3. URL 同步：`?tab=exam|insight`，默认 `exam`；刷新/前进后退保持。`insight` 只在有 `project:report` 时出现；没权限时即使 URL 写了 `insight` 也会回退 `exam`（用 replace 改 URL）。
 4. `/project` 入口：`ProjectEntry` 在 `portal:teacher + project:list` 时重定向到 `/teaching?tab=exam`；学员、以及没有 `portal:teacher` 的只读账号仍渲染原 `ProjectList`「考试安排」。
 5. 菜单：桌面侧栏与移动底栏都只保留一个「教学」`/teaching`（条件 `portal:teacher && (project:list || project:report)`）+ 独立「班级管理」`/teaching/classes`（`class:list`）。原来的「教学管理 /project」「班级学情 /teaching」两个菜单不再出现。
@@ -240,20 +246,20 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 8. **答卷班级**：新建答卷时 `AnswerServiceImpl` 调 `ClassResourceService#resolveForStudent` 写 `t_answer.class_id`（主班优先，主班没有有效分配时取任一有效班级）；更新答卷不改 `class_id`。匿名/教职工答卷为 NULL。
 9. **资源面板答卷数**：只在 project 面板有意义（`t_answer` 中 `project_id + class_id + temp_save=1` 的条数，仅新答卷）；repo 面板恒为 0。
 
-### 8. 班级学情（按答题时班级聚合）
+### 8. 班级学情（按班级树看资源与学员）
 
-`TeachingHome` 的「学情」Tab 挂 `Workbench.tsx`：进入时 `GET /api/teaching/projects`（`project:report`）→ `TeachingMapper.listMyProjects` 查「自己是所有者，或 type 1/2 协作者」的考试，填入考试 Select（选项里带状态/交卷/平均分摘要）；选中后 `GET /api/teaching/classes?projectId=` → `TeachingMapper.listClasses` 按答题时班级聚合（只认 `dept_type='class'` 的真实班级，非班级/找不到的统一归「未分组」）。页面不再有 BackButton、大标题和「我的考试」Table；没有考试时显示 Empty + 「去考试/问卷」链接。
+`TeachingHome` 的「学情」Tab 挂 `Workbench.tsx`，**不再以「选一场考试」为主入口**，而是左侧班级树 + 右侧班级详情：
 
-- 新答卷优先用 `t_answer.class_id`（答题时所在班级），换班后历史答卷仍算在原班；
-- 老数据 `class_id` 为空时回退 `t_user.dept_id`（当前主组）；
-- `LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id) AND d.dept_type = 'class' AND d.is_deleted = 0`；非班级（org 用户组）、班级被删/找不到时 `d.id` 为 NULL，输出 `deptId=''`、`deptName='未分组'`。
-- `SELECT COALESCE(d.id, '') AS deptId, COALESCE(d.name, '未分组') AS deptName`；`GROUP BY COALESCE(a.class_id, u.dept_id), d.id, d.name`（与 SELECT 的 `d.id/d.name` 一致，only_full_group_by 兼容）。
-
-因此新数据下学情与班级资源面板的按班口径基本一致；老数据仍按当前主组回退且必须能落到真实 class 节点，否则归「未分组」，两个数字可能对不上。
+1. 左树：`GET /api/teaching/classes/tree`（`class:list` 或 admin）→ `ClassServiceImpl.listClassTree`；节点含 `id/name/accessible/manageable/children`。选中班级写入 URL `?classId=`；没有有效 classId 时默认选第一个 `accessible=true` 的叶子班。祖先节点可能 `accessible=false`（只为路径显示），不可选，点它查成员/资源会 403。
+2. 右侧「考试/问卷」Tab：`GET /api/teaching/classes/resources?deptId=&resourceType=project`（服务层 `assertManage`）→ `ClassResourceView`；列显示名称/类型/状态/本班窗口/交卷/平均分，行内「查看答卷/导出」。**只读授权能看班级和成员，但打不开这个资源面板**（需要 `manageable=true`）。
+3. 右侧「学员」Tab：`GET /api/teaching/classes/members?deptId=`（`class:detail` + `assertVisible`）→ 姓名/手机号/加入时间，只读名单，不提供增删改。
+4. 平均分：`ClassResourceService#loadClassAnswerStats` 一次查 `t_answer` 的 `project_id + exam_score`，在内存里按项目聚合；口径是 `class_id + temp_save=1 + is_anonymous=0`，`AVG(exam_score)` 忽略 null 分数。问卷/未判分/题库行没有分数时 `avgScore=null`（前端显示「—」）；只有 P1 之后 `class_id` 非空的新答卷会计入。
+5. 旧接口仍保留：`GET /api/teaching/projects`（老师参与的考试）与 `GET /api/teaching/classes?projectId=`（`TeachingMapper#listClasses` 按答题时班级聚合）还在，但 Workbench 已不调用；看首页「我的教学」仍用 `/teaching/projects`，老学情页/报表工具可能仍用 `/teaching/classes`。
+6. 老数据的 `listClasses` 口径：`COALESCE(a.class_id, u.dept_id)` 做 JOIN，只认真实 `dept_type='class'` 且未删的班；org 组/已删/找不到时归「未分组」，`deptId=''`。新答卷优先用答题时班级，换班后历史答卷仍算原班；老数据回退当前主组。
 
 ### 8.1 按班查看答卷与导出（P4）
 
-1. 入口：学情 Tab 的班级分布表每行（有 `deptId` 时）显示「查看答卷」「导出」；无 `deptId` 的「未分组」行不可操作。
+1. 入口：学情 Tab 左侧选中班级后，右侧「考试/问卷」Tab 的每个资源行显示「查看答卷」「导出」；只有分配了项目（`resourceId` 有值）的行可操作。
 2. 查看：`ClassAnswersDrawer` 调 `GET /api/teaching/classes/answers?projectId=&deptId=&current=&pageSize=`，返回 `PaginationResponse<AnswerView>`；列表字段是学员（`createByName`，由后端批量回填）、交卷时间、分数、状态（已交卷/暂存）。
 3. 接口契约：`@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")`；方法内再 `classService.assertVisible(deptId)`——管理员/`class:grant` 全量，其他要求本班或祖先班是自己创建/负责/被授权（只读授权也算可见）。**不要求是项目协作者**。
 4. 数据：`AnswerServiceImpl#listAnswerByClass` 按 `project_id + class_id` 精确查，`answer IS NOT NULL`；不套 `canManageProject`、不加 `create_by=当前用户`，所以班级可见即可看本班全部。历史答卷 `class_id` 为空时**不会**出现在这个抽屉（即使学情概览按主组回退显示了它）。
@@ -276,6 +282,7 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 3. 扩展资源类型时：先确认 `ClassResource` 的 `TYPE_*`/常量与 `normalizeResourceType`，再在 `RepoServiceImpl#listRepo`/`assertReadableRepo`、`TemplateServiceImpl#isReadableRepo`、`RepoPartnerServiceImpl#hasPracticePermission`、前端 `ClassResourcesPanel` 里各补一条；不要只放开写入。
 4. 改分配可见性时同时看 `ProjectServiceImpl#listProject`、`RepoServiceImpl#listRepo` 的 EXISTS 子查询与 `t_class_resource.is_deleted=0`；同一张表同时存 `project` 与 `repo`，SQL 必须带 `resource_type`。
 5. 删除资源时清分配：project 走班级删除/资源表清理；repo 走 `RepoServiceImpl#deleteRepo` → `removeByResource("repo", id)`，新增资源删除路径别漏。
+6. 改平均分/答卷数口径：`ClassResourceService#loadClassAnswerStats` 必须同时带 `class_id`、`temp_save=1`、`is_anonymous=0`；新增分数列要同步 `ClassResourceView.avgScore` 与 Workbench 表格，不要改回 `TeachingMapper#listClasses`。
 
 ### 改按班答卷 / 导出
 
@@ -303,6 +310,9 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 |---|---|---|
 | 进入教学页 `/teaching` | `portal:teacher` + `project:list` | 两个条件缺一不可；考试/问卷 Tab 用 ProjectList 的可见范围 |
 | 学情 Tab | `project:report` | 没权限时 Tab 不渲染，URL 的 `tab=insight` 回退 `exam` |
+| Workbench 班级树 | `class:list` 或 admin | 自己创建/负责 + 被授权（含下级）；`accessible=false` 的祖先只显示路径，不可选 |
+| Workbench 考试/问卷 Tab | `class:list` + `assertClassManage` | 只有 `manageable=true` 的班能看资源；只读授权会 403 |
+| Workbench 学员 Tab | `class:detail` + `assertVisible` | 只读名单；只读授权也能看 |
 | 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部（不要求项目协作者）；只读授权也算可见 |
 | 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 用 `classId` 导出；只支持 `type=answer` |
 | 进入班级管理 | `class:list` | 自己创建/负责的班 + 被授权的班（含下级班）；管理员与 `class:grant` 看全部 |
@@ -317,7 +327,7 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 | 查看/分配/修改/取消班级资源 | `class:list` 或 admin + `assertClassManage` | 只有可管理该班的人能看面板与写入；支持 project 与 repo |
 | 删除班级/用户组 | `system:dept:delete`（或 admin） | 组织树；有子组先处理；成员可 MOVE / UNASSIGN |
 | 维护用户组（org） | `system:dept:create/update/delete` | 全局；org 可绑角色、放 staff |
-| 学情 Tab / 班级分布 | `project:report`（页面入口还要求 `portal:teacher` + `project:list`） | 自己参与（所有者/协作者）的考试；接口本身不校验 `projectId` 归属 |
+| 学情 Tab 页面 | `project:report`（页面入口还要求 `portal:teacher` + `project:list`） | 没权限时 Tab 不渲染；进入后按可见班级树取数，资源/成员另有上面两行权限 |
 
 > 角色现状：管理员拥有 `class:*` 与 `system:dept:*`；老师有 `class:list`、`class:detail`、`class:member:create/update/delete`，**没有** `class:grant`、`system:dept:*`，所以老师能建班/管自己班，但不能分配老师或删除班级。
 
@@ -338,14 +348,19 @@ verified_against: 25bfef8d8c0f28f8c9ee820c81d007d17cc0f5a7
 - **菜单条件与路由守卫不完全一致**：菜单是 `portal:teacher && (project:list || project:report)`，路由是 `portal:teacher + project:list`。只有 `project:report`、没有 `project:list` 的自定义角色会看到「教学」入口但点进去 403；要避免就得让菜单也只认 `project:list`，或给这类角色补 list。
 - **`/project` 只对老师重定向**：`Entry` 的重定向条件是 `portal:teacher + project:list`；学员、以及没有 `portal:teacher` 的只读账号仍看原 `ProjectList`。老师直接访问 `/project/trash` 仍可用（`project:list` 守卫），只是侧栏不再有入口。
 - **`embedded` 只是隐藏页头**：ProjectList 嵌入教学页时仍保留搜索/新建/回收站/批量工具条；不要在外层再套一层标题/工具条，否则会出现两份。
-- **学情不再有「我的考试」表**：`Workbench` 现在只有考试 Select + 班级分布；找「我参与的考试列表」请切到考试/问卷 Tab。无考试时的 Empty 链接也是去 `?tab=exam`。
+- **Workbench 已改为班级树 + 资源/学员**：不再有考试 Select 和「我的考试」表；找「我参与的考试」去考试/问卷 Tab，或在首页「我的教学」看。
+- **学情资源面板仍要 `assertManage`**：Workbench 班级树能选到只读授权的班（`accessible=true`），但「考试/问卷」Tab 的 `/classes/resources` 会 403；只读老师只能看「学员」Tab。不要把 Workbench 当成只读资源视图。
+- **班级树祖先节点不可选**：`ClassNodeView.accessible=false` 的节点只是路径（上级不可见/不可管理），前端置灰不可选；直接传它的 id 查成员/资源会 403。默认选中第一个 `accessible=true` 的叶子班，URL `?classId=` 失效时会自动回退。
+- **avgScore 只覆盖 P1 后按班新答卷**：`ClassResourceService#loadClassAnswerStats` 用 `class_id + temp_save=1 + is_anonymous=0` 聚合，`AVG(exam_score)` 忽略 null；历史 `class_id` 为空、问卷/未判分、题库行都没有平均分（显示「—」）。
+- **Workbench 不再调用 `/teaching/projects` / `/teaching/classes`**：这两个接口仍保留给首页「我的教学」/旧报表工具；新学情页走 `/classes/tree`、`/classes/resources`、`/classes/members`。
+- **学情不再按项目聚合**：老 `TeachingMapper#listClasses` 仍按 `COALESCE(class_id,dept_id)` 只认真实 class 节点，但 Workbench 已不调用；两套口径不要混。
 - **旧 `/teaching` 书签**：以前 `/teaching` 是独立学情页，现在默认落到考试/问卷 Tab；要看学情需带 `?tab=insight`（首页的「班级学情/按班级」已改成这个地址）。
 - **班级可见即可看本班全部答卷**：`/api/teaching/classes/answers` 只校验 `project:report` + `classService.assertVisible`，不要求项目所有者/协作者；班主任/只读授权都能看本班答卷明细。
 - **历史答卷不进按班抽屉**：`listAnswerByClass` 按 `t_answer.class_id` 精确过滤，P1 之前/`class_id` 为空的答卷不会出现；学情概览按 `COALESCE(class_id,dept_id,'')` 回退主组时可能显示，所以「概览有数字、抽屉为空」是正常现象。
 - **按班导出只支持答卷**：`downloadByClass` 对 `type != answer` 直接报「按班级导出暂只支持答卷」；附件按班导出未实现。
 - **班级答卷抽屉没有导出密码输入**：`downloadClassAnswers` 调 `/api/answer/export/token` 时传空 body；如果系统设置了导出密码，这里会失败（提示导出密码错误），需要补密码输入或走无密码场景。
 - **按班导出不校验项目协作者**：`/answer/download?classId=` 只要求 `answer:export` + 班级可见；任何能看这个班的老师都能导出该项目的本班答卷。
-- **只读老师看不到资源面板**：面板只在 `manageable=true` 时渲染，后端 `list` 也 `assertManage`；只读授权只能看成员/学情。
+- **只读老师看不到资源面板**：班级管理页的资源面板与 Workbench 的「考试/问卷」Tab 都走 `assertManage`；只读授权只能看成员/学员名单。
 - **删除文案与类型**：`DeleteDeptDialog` 的标题/提示仍统一写「用户组」（班级也复用它），以弹窗里的实际名称与后端错误为准；`lastDept` 后端按**同类型**计算（org 与 class 各算一套），前端文案仍写「最后一个用户组」。
 - **老师能建班但不能删班**：删除按钮只按 `system:dept:delete` 显示；老师默认没有该权限。要删班需要管理员，或给自定义角色加 `system:dept:delete`。
 - **删除班级会清掉班级资源**：`DeptServiceImpl#deleteDept` 会 `hardDeleteByClassId` 清 `t_class_resource`，并清 `t_class_partner`、`t_repo_partner`、`t_project_partner.group_id`、`t_user_dept`、`t_user_position`、`t_dept_role`；不会删账号。
@@ -384,9 +399,11 @@ npm run docs:check
 9. 管理员给题库设全局开放期（如 09:00~18:00），班级老师把班级窗口设到 08:00/19:00 应 400「题库开放时间必须在全局开放时间内」；设 10:00~17:00 成功，学员在该窗口内可读题/练习。
 10. 老师访问 `/teaching` 默认落在「考试/问卷」Tab，页头只出现一次（ProjectList embedded）；切到「学情」后 URL 变 `?tab=insight`，刷新仍保持；没有 `project:report` 的账号看不到「学情」Tab，手改 URL 会回退 exam。
 11. 老师访问 `/project` 应重定向到 `/teaching?tab=exam`；学员/没有 `portal:teacher` 的只读账号访问 `/project` 仍看到「考试安排」原列表。
-12. 「学情」Tab 能看到自己参与的考试下拉；选一场已有人交卷的考试，班级分布按答题时班级聚合；历史答卷 `class_id` 为空时应落在答题人当前主组，资源面板答卷数只算新答卷。
-13. 学情 Tab 的班级分布行点「查看答卷」：抽屉分页显示学员/交卷时间/分数/状态，数据与 `t_answer.class_id` 命中该班的记录一致；历史 `class_id` 为空的记录不出现。
-14. 点「导出」：无导出密码时应开始下载 xlsx；系统配置导出密码时当前抽屉会报错（无密码输入框）。只导出 `type=answer`，附件导出未支持。
+12. 「学情」Tab 打开后左侧出现班级树；没有 `classId` 时自动选第一个可访问的叶子班并写入 URL，刷新后仍保持；点 `accessible=false` 的祖先节点应不可选。
+13. 右侧「考试/问卷」Tab 显示该班已分配项目：状态/本班窗口/交卷/平均分；选一场已有人交卷的考试，交卷数与 `t_answer.class_id` 命中该班的新答卷一致，平均分与 `AVG(exam_score)` 一致（无分数显示「—」）。只读授权打开该 Tab 应 403。
+14. 右侧「学员」Tab 显示姓名/手机号/加入时间，只读授权也能看；没有学员时显示空态。
+15. 资源行点「查看答卷」：抽屉分页显示学员/交卷时间/分数/状态，数据与 `t_answer.class_id` 命中该班的记录一致；历史 `class_id` 为空的记录不出现。
+16. 点「导出」：无导出密码时应开始下载 xlsx；系统配置导出密码时当前抽屉会报错（无密码输入框）。只导出 `type=answer`，附件导出未支持。
 
 ## 相关文档
 
