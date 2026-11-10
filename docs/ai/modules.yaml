@@ -12,6 +12,7 @@ modules:
       - 导出
       - 回收站
       - 班级
+      - 按班学情
       - t_answer
       - t_answer.class_id
       - AnswerScoreEvaluator
@@ -29,6 +30,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerUploadParser.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
+      - server/rdbms/src/main/resources/mapper/TeachingMapper.xml
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSchemaDecorator.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerMetaEnricher.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
@@ -71,7 +73,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-10
-    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -290,6 +292,8 @@ modules:
       - access_level
       - 权限矩阵
       - 数据范围
+      - 题库分配
+      - repo:detail
       - 审计
       - 403
     source_globs:
@@ -315,6 +319,10 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
       - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
       - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
@@ -354,12 +362,13 @@ modules:
       - t_dept
       - t_user
       - t_class_partner
+      - t_class_resource
       - t_audit_log
     tests:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -417,7 +426,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -427,6 +436,8 @@ modules:
       - 导入导出
       - 导出弹窗
       - 导入模板
+      - 班级分配
+      - 题库窗口
       - 组卷
       - 题库授权
       - repo:grant
@@ -442,6 +453,7 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Repo.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/RepoPartner.java
@@ -475,13 +487,14 @@ modules:
       - t_repo
       - t_template
       - t_repo_partner
+      - t_class_resource
       - t_tag
       - t_user_book
     tests:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -557,7 +570,9 @@ modules:
       - 用户组
       - dept_type
       - 班级资源
+      - 题库分配
       - 按班窗口
+      - 题库窗口
       - access_level
       - 分配老师
       - 学员导入
@@ -580,7 +595,11 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassStudentImportService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
+      - server/rdbms/src/main/resources/mapper/TeachingMapper.xml
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassPartner.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ClassResource.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
@@ -633,9 +652,10 @@ modules:
       - t_account
       - t_user_role
       - t_project
+      - t_repo
       - t_answer
     tests:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+    verified_against: a14784b16e026ee8f8e48f9876533b98e5623806

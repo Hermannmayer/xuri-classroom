@@ -56,14 +56,14 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 ---
 
 # 考试与问卷（项目）
 
 ## 30 秒摘要
 
-一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（学生视角，P1 只做考试/问卷）。
+一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（项目只关心 `resource_type='project'`；同表也存题库 repo 分配，但不参与项目可见性）。
 
 ## 什么时候看这篇
 
@@ -85,7 +85,7 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 | 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关是独立端点 |
 | 生命周期 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java` | `addProject` / `updateProject` / `updateProjectStatus` / `deleteProject` / `getDeleted` / `restoreProject` |
 | 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java` | `assertProjectOwner`、`addProjectPartner`、`getProjectPerms`、缓存失效 |
-| 班级分配/准入 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java`、`ProjectAnswerValidator.java` | `t_class_resource` 分配、按班窗口、`assertStudentCanAnswer` |
+| 班级分配/准入 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java`、`ProjectAnswerValidator.java` | `t_class_resource` 的 `project` 行、按班窗口、`assertStudentCanAnswer`；`repo` 行不参与项目可见性 |
 | 设置结构 | `server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java` | `AnswerSetting` / `SubmittedSetting` / `ExamSetting` |
 | 数据表 | `t_project`、`t_project_partner`、`t_class_resource`、`t_answer` | 项目本体、参与者、班级分配、答卷数统计 |
 
@@ -101,7 +101,7 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 
 ### 按班级分配与开放窗口（学生视角）
 
-1. 分配数据在 `t_class_resource`（一行 = 班级 + `project` + 考试），由班级管理页的「考试与问卷」面板维护；写入与窗口规则见 [teaching](./teaching.md)。
+1. 分配数据在 `t_class_resource`（一行 = 班级 + `resource_type` + 资源 id）。本项目只关心 `resource_type='project'` 的考试/问卷；同一张表还存 `repo`（题库，P2），由班级管理页「考试与问卷 / 题库」面板维护。项目列表/准入 SQL 必须带 `resource_type='project'`，否则题库分配会被误当成考试。写入与窗口规则见 [teaching](./teaching.md)。
 2. **全局窗口**：`ProjectSetting.examSetting.startTime/endTime`（epoch 毫秒）是硬上限；班级窗口 `t_class_resource.start_at/end_at` 为空继承全局，非空必须落在全局窗口内。
 3. **准入闸门**：`ProjectAnswerValidator#validateProject`（打开/大纲/逐题/上传）与 `validateAnswerGate`（交卷）都会调 `ClassResourceService#assertStudentCanAnswer`：
    - 登录用户是 `student` 且不在任何班，或所在班没有这场考试的分配 → `ProjectNotFound`（404，不泄露标题）；
@@ -157,9 +157,9 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 - **文件夹子项计数与答卷数共用 `total`**：文件夹返回子项目数，普通项目返回"已提交答卷数"（`temp_save=1`），前端不要把它当"题目数"。
 - **班级分配只约束 student**：匿名公开问卷、staff、管理员不走 `assertStudentCanAnswer`；练习伪项目也不参与。不要把「未分配 404」套到所有登录用户。
 - **列表可见性不按窗口/开关过滤**：`t_class_resource` EXISTS 只判断有没有分配；`status=0`、未开始、已结束的考试仍可能出现在学生列表里，打开时才报错。要隐藏得在 SQL 里补窗口/状态条件。
-- **分配资源不校验项目可见性**：班级资源写入只校验班级可管理 + 项目存在/非文件夹，不校验调用者是否能看到该项目；拿 `projectId` 即可分配（P1 服务端缺口）。
+- **分配资源不校验项目可见性**：班级资源写入只校验班级可管理 + 项目存在/非文件夹，不校验调用者是否能看到该项目；拿 `projectId` 即可分配（P1/P2 服务端缺口，题库同理）。
 - **全局窗口未设置 = 不限制**：`examSetting.startTime/endTime` 为空时，班级窗口可以任意设；「硬上限」只在全局有值时成立。
-- **`t_class_resource` 是逻辑删表**：手写 SQL 必须显式加 `is_deleted=0`；`t_project_partner` 没有 `is_deleted`，两者不要混。
+- **`t_class_resource` 是逻辑删表且混存两类资源**：手写 SQL 必须显式加 `is_deleted=0` **和** `resource_type='project'`（题库 repo 也在这张表里）；`t_project_partner` 没有 `is_deleted`，两者不要混。
 
 ## 验证
 

@@ -10,6 +10,7 @@ keywords:
   - 导出
   - 回收站
   - 班级
+  - 按班学情
   - t_answer
   - t_answer.class_id
   - AnswerScoreEvaluator
@@ -27,6 +28,7 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerUploadParser.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
   - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
+  - server/rdbms/src/main/resources/mapper/TeachingMapper.xml
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSchemaDecorator.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerMetaEnricher.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ExerciseAnswerService.java
@@ -69,7 +71,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-10
-verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 ---
 
 # 答卷、判分与报表
@@ -125,7 +127,7 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 2. 新建答卷时 `AnswerServiceImpl#createAnswer` 写 `t_answer.class_id`：`resolveForStudent` 先取学生主班，主班没有有效分配时按附加组顺序取任一有效分配的班；查不到/非 student/匿名 → NULL。
 3. **更新答卷不重算 `class_id`**：换班后历史答卷仍算在原班。这是有意的语义，不要改成「每次保存都按当前班级覆盖」。
 4. 班级资源面板的「本班答卷数」= `t_answer` 中 `project_id + class_id + temp_save=1` 的条数；上线前/无 `class_id` 的历史答卷不会计入。
-5. 学情页（`TeachingMapper#listClasses`）仍按 `t_user.dept_id` 聚合，不读 `class_id`；两个口径暂时不一致，改统计前先确认产品要哪一种。
+5. 学情页（`TeachingMapper#listClasses`）本轮改为按 `COALESCE(a.class_id, u.dept_id, '')` 聚合：新答卷按答题时班级，老数据 `class_id` 为空时回退当前主组；`LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id)`，`GROUP BY` 同一表达式。换班后新答卷仍算原班，老答卷会算到当前主班。
 
 ## 修改指南
 
@@ -182,7 +184,8 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 - **导出读投影（S2-4）**：`downloadSurvey` 先判断 `t_answer_item` 是否覆盖全部答卷（按 `items_synced`），覆盖时只查瘦列并用 `AnswerItemAnswerRebuilder` 重建 `answer`，未覆盖自动回退 `t_answer.answer` JSON。新增答案字段时 `AnswerItemProjector` 要同步写 `value_json`，否则导出会缺值。
 - **交卷幂等靠数据库唯一键（S1-3）**：`(project_id, create_by, attempt_no)` 唯一，`AnswerAttemptAllocator` 分配序号，`DuplicateKeyException` 时回读赢家；`create_by` 为 NULL 的纯匿名提交不受约束（仍靠设备限频）。
 - **`class_id` 只在新答卷写入**：更新答卷不重算；匿名/教职工/练习伪项目为 NULL。用 `class_id` 做统计时只能覆盖新数据，历史数据要回填或明确排除。
-- **班级资源面板答卷数 ≠ 班级全部答卷数**：只算 `temp_save=1` 且 `class_id` 命中的新答卷；与学情页按主组聚合的数字可能对不上，排查时先确认口径。
+- **学情改成 class_id 优先、老数据回退主组**：`TeachingMapper#listClasses` 用 `COALESCE(a.class_id, u.dept_id, '')`；新答卷换班后仍算原班，老数据仍会算到当前主组，所以同一场考试的新老答卷可能分到不同班。班被删/找不到时 `d.name` 为空显示「未分组」。
+- **班级资源面板答卷数 ≠ 班级全部答卷数**：只算 `temp_save=1` 且 `class_id` 命中的新答卷；与学情页按 `class_id` 聚合的数字对新数据基本一致，但老数据回退主组、历史 `class_id` 为空时仍可能对不上。
 - **公开链接上的 projectId 不可信**：`PublicQueryService#loadQuery` / `getQueryResult` 与 `PublicSurveyExtrasService#loadExamResult` 拿到不存在的项目时，2026-11-09 之前会直接解引用 `project` 抛 NPE、被全局兜底成 500；现在统一回 7000（查询链接失效）与 4004（项目不存在）。新增公开端点时第一件事也是判 `project == null`。
 
 ## 验证
@@ -202,6 +205,7 @@ npm run docs:check
 4. 配置导出密码：错误密码报"导出密码错误"；正确密码换 token 后能下载；同一 token 第二次应失效。
 5. 报表打开不白屏，每日趋势与答卷总数对得上（若开启随机抽题，先确认快照行是否被计入）。
 6. 学生 A 在班级 X 交一份新答卷后查库：`SELECT id, project_id, class_id, temp_save FROM t_answer WHERE id='<answerId>';` 的 `class_id` 应等于 X；把 A 换到班级 Y 后再更新同一份答卷，`class_id` 仍应是 X。
+7. 学情接口按 `COALESCE(a.class_id, u.dept_id, '')` 分组：新答卷跟随答题班级，`class_id` 为空的老答卷回退答题人当前主组；同一场考试有老数据时，班级分布可能同时出现「原班」与「当前主班」两行。
 
 ## 相关文档
 

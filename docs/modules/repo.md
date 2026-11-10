@@ -8,6 +8,8 @@ keywords:
   - 导入导出
   - 导出弹窗
   - 导入模板
+  - 班级分配
+  - 题库窗口
   - 组卷
   - 题库授权
   - repo:grant
@@ -23,6 +25,7 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Repo.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/RepoPartner.java
@@ -56,20 +59,21 @@ tables:
   - t_repo
   - t_template
   - t_repo_partner
+  - t_class_resource
   - t_tag
   - t_user_book
 tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 ---
 
 # 题库与题目
 
 ## 30 秒摘要
 
-题库（`t_repo`）是题目的容器，题目（`t_template`）挂在题库下。这一层负责：题库列表与增删改、题目浏览与单题编辑、Excel 导入导出、从题库抽题组卷、按用户组或按人授权题库，以及学员的错题本（`t_user_book`）。它**不负责**考试的生命周期（创建、发布、作答、判分）——那是 project/answer 模块；也**不负责**练习作答页——那是 exercise 模块。后端入口是 `RepoApi`，绝大部分规则落在 `RepoServiceImpl` 与 `RepoPartnerServiceImpl`；前端入口在 `client/src/pages/repo/`。
+题库（`t_repo`）是题目的容器，题目（`t_template`）挂在题库下。这一层负责：题库列表与增删改、题目浏览与单题编辑、Excel 导入导出、从题库抽题组卷、按用户组/按人授权题库、按班级分配题库（P2），以及学员的错题本（`t_user_book`）。它**不负责**考试的生命周期（创建、发布、作答、判分）——那是 project/answer 模块；也**不负责**练习作答页——那是 exercise 模块。后端入口是 `RepoApi`，绝大部分规则落在 `RepoServiceImpl` 与 `RepoPartnerServiceImpl`；前端入口在 `client/src/pages/repo/`。
 
 ## 什么时候看这篇
 
@@ -78,6 +82,7 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 - 导入 Excel 报错、导入后题目被覆盖、导出文件为空或缺少某种题型。
 - 「从题库组卷」抽不到题、抽到的题不对、总分和预期不一致（详细链路见 [repo-compose](../flows/repo-compose.md)）。
 - 要把题库授权给班级/个人，或排查「授权了但看不到」。
+- 班级分配了题库，学员列表能看到但打不开题目或练习。
 - 需要确认老师、学员分别能对题库做什么（老师题库只读，见下）。
 
 ## 代码地图
@@ -93,16 +98,17 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 | 题库接口 | `server/api/src/main/java/cn/surveyking/server/api/RepoApi.java` | `@PreAuthorize` 与导出守卫；`/repo/pick`、`/repo/import` 也在这里 |
 | 题目接口 | `server/api/src/main/java/cn/surveyking/server/api/TemplateApi.java` | `/template/list` 允许 `template:list`、`repo:detail`、`repo:questions:read` |
 | 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java` | 可见性 `assertReadableRepo`、管理权 `assertManageRepo`、抽题、导入导出 |
-| 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java` | `t_repo_partner` 的增删查；组授权解析走 `UserDeptScopeService` |
-| 题目实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java` | 题目列表、单题更新/删除，以及题库可读性判断 |
+| 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java` | `t_repo_partner` 的增删查；组授权解析走 `UserDeptScopeService`；`hasPracticePermission` 也认班级分配 |
+| 题目实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java` | 题目列表、单题更新/删除，以及题库可读性判断（`isReadableRepo` 认班级分配） |
+| 班级分配 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `t_class_resource` 的 repo 行：列表只判断「有没有分配」，`canStudentReadRepo` 校验班级开关/本班窗口 |
 | 统计 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java` | 每个题库的题量、题型分布、标签分布 |
-| 数据表 | `t_repo`、`t_template`、`t_repo_partner`、`t_tag`、`t_user_book` | 题库、题目、授权、标签、错题本 |
+| 数据表 | `t_repo`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book` | 题库、题目、授权、班级分配、标签、错题本 |
 | Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析，行级安全校验 |
 | Excel 文案 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java` | sheet 名与表头的中英文别名，导入导出共用 |
 
 ## 关键流程
 
-1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权」收窄。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
+1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权 / 本班在 `t_class_resource` 有 repo 分配」收窄（班级分配只对非管理员生效，实际只影响学员）。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。
 3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=卷王题库导入模板`（白名单与别名见 [files](./files.md)）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
 4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
@@ -110,14 +116,24 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
    - 下载流程：`POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效）→ `GET /api/repo/export?id=...&exportToken=...`。密码只走 POST body，URL 里只出现 token。
    - `ExportGuardService` 校验密码/令牌（系统未配置密码时直接放行），`RepoServiceImpl.exportRepoQuestions` 用 fastexcel 生成「单选/多选/判断/填空/简答」多个 sheet，最后写一条 `EXPORT_REPO` 审计。
 5. **授权题库**：`GrantModal.tsx` 调 `GET /api/repo/partner/list` 展示已有授权；新增走 `POST /api/repo/partner/create`，传 `deptId` 表示按组、传 `userIds` 表示按人；取消走 `/partner/delete`。组授权只存一条 `dept_id` 记录，组员靠「主组 + 附加组 + 祖先链」自动继承；接口要求 `repo:grant` 或管理员，服务层再要求调用者是题库创建者或管理员。
-6. **抽题**：`POST /api/repo/pick` 的请求体是 `ProjectSetting.RandomSurveyCondition` 列表（`repoId`、`types`、`questionsNum`、`examScore`、可选 `tags`）。`pickQuestionFromRepo` 对每个条件先 `assertReadableRepo`，按题型/标签过滤，`Collections.shuffle` 后截断到 `questionsNum`，给每道题写入 `examScore`，跨条件按题目 id 去重，最后按题型排序返回 `SurveySchema` 列表。
+6. **抽题**：`POST /api/repo/pick` 的请求体是 `ProjectSetting.RandomSurveyCondition` 列表（`repoId`、`types`、`questionsNum`、`examScore`、可选 `tags`）。`pickQuestionFromRepo` 对每个条件先 `assertReadableRepo`（认班级分配），按题型/标签过滤，`Collections.shuffle` 后截断到 `questionsNum`，给每道题写入 `examScore`，跨条件按题目 id 去重，最后按题型排序返回 `SurveySchema` 列表。
+
+### 按班级分配题库（P2）
+
+1. 数据：`t_class_resource` 一行 = 班级 + `resource_type='repo'` + 题库；由班级管理页「考试与问卷 / 题库」面板的「题库」页签维护（见 [teaching](./teaching.md)）。
+2. 可见性：`RepoServiceImpl#listRepo` 的非管理员分支追加 `CLASS_REPO_ASSIGN_SQL`——本班（主组 + 附加组 + 祖先链）在 `t_class_resource` 上有该题库的分配就可见；`t_class_resource.is_deleted=0` 必须显式过滤。
+3. 题库列表/资源面板只判断「有没有分配」，不判断状态/窗口；真正打开时 `ClassResourceService#canStudentReadRepo` 会校验「班级开关 + 本班窗口」，关闭/未开始/已结束返回 false。
+4. 读题目/模板：`TemplateServiceImpl#isReadableRepo` 放行班级分配，`/api/template/list` 接受 `repo:questions:read`（学员有）；因此学员能看被分配题库的题目。
+5. 练习入口：`/api/repo/pick` 接受 `repo:detail` 或 `repo:book`，`RepoServiceImpl#assertReadableRepo` 认班级分配；旧 `PublicProjectLoader` 的练习入口走 `RepoPartnerServiceImpl#hasPracticePermission`，同样认班级分配，但要求 `repo.isPractice=true`。
+6. **`/api/repo/detail` 仍需 `repo:detail`**：班级分配不改变 Controller 注解；学员没有 `repo:detail`，不能直接调详情。
+7. 删除题库：`RepoServiceImpl#deleteRepo` 调 `ClassResourceService#removeByResource("repo", id)` 清掉该题库的 `t_class_resource` 行（逻辑删），但**仍不清理 `t_repo_partner`**。
 
 ## 修改指南
 
 ### 改行为
 
 1. 先判断改的是「可见性/管理权」还是「数据本身」：前者在 `RepoServiceImpl.assertReadableRepo`、`assertManageRepo`、`RepoPartnerServiceImpl.assertManagePermission`，后者在列表、导入、导出、抽题的具体方法里。
-2. 改可见性口径时，必须同时检查 `TemplateServiceImpl.isReadableRepo`（题目读取）和 `UserDeptScopeService`（组链解析），否则会出现「列表能看见、点进去 403」。
+2. 改可见性口径时，必须同时检查 `TemplateServiceImpl.isReadableRepo`（题目读取）、`RepoPartnerServiceImpl.hasPracticePermission`（旧练习入口）、`ClassResourceService.canStudentReadRepo`（班级分配）、`UserDeptScopeService`（组链解析）和 `TeachingMapper.listClasses`（学情聚合），否则会出现「列表能看见、点进去 403」。
 3. 改权限串时同步四处：`PermissionEnum`、`init-mysql.sql` 的角色种子、`scripts/nas/migrate/` 的新迁移、前端 `can(authorities, '...')` 判定。
 4. 改前端按钮权限时只认`can()`，不要手写 `ROLE_admin` 放行；管理员对学员专属权限（`repo:practice`、`repo:book`）不应因此出现练习入口。
 
@@ -138,9 +154,9 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
-| 查看题库列表 | `repo:list`（或 `exercise:list` 兜底） | 管理员全量；其他人 = 自己创建 + 共享 + 按人授权 + 所属组授权（主组 + 附加组 + 祖先链）；无 `repo:list` 时强制只查练习库且只查成员范围 |
-| 查看题库详情 | `repo:detail` | 同上（管理员 / 创建者 / 共享 / 被授权） |
-| 查看题库题目 | `template:list` 或 `repo:detail` 或 `repo:questions:read` | 题库必须可读；学员用 `repo:questions:read` |
+| 查看题库列表 | `repo:list`（或 `exercise:list` 兜底） | 管理员全量；其他人 = 自己创建 + 共享 + 按人授权 + 所属组授权（主组 + 附加组 + 祖先链）+ 本班在 `t_class_resource` 有 repo 分配；无 `repo:list` 时强制只查练习库且只查成员范围 |
+| 查看题库详情 | `repo:detail` | 同上（管理员 / 创建者 / 共享 / 被授权）；**班级分配不放宽这个接口**，学员没有 `repo:detail` |
+| 查看题库题目 | `template:list` 或 `repo:detail` 或 `repo:questions:read` | 题库必须可读；学员用 `repo:questions:read`，班级分配在 `isReadableRepo` 放行 |
 | 新建题库 | `repo:create` | 无数据范围限制 |
 | 修改题库/题目 | `repo:update`、`template:update` | 管理员或题库创建者 |
 | 删除题库/题目 | `repo:delete`、`template:delete` | 管理员或题库创建者；删除题库会连带删题目与标签 |
@@ -148,17 +164,22 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 | 导出题库 | `repo:export` | 题库可读即可导出；未配置导出密码时直接下载，配置后需密码换 token |
 | 授权题库 | `repo:grant` 或管理员 | 管理员或题库创建者；可授权到组或到人 |
 | 错题本/收藏 | `repo:book` | 只操作自己的 `t_user_book` 记录 |
-| 抽题组卷/练习抽题 | `repo:detail` 或 `repo:book` 或管理员 | 每个被抽的题库都要可读 |
+| 抽题组卷/练习抽题 | `repo:detail` 或 `repo:book` 或管理员 | 每个被抽的题库都要可读；班级分配在 `assertReadableRepo` 放行；旧练习入口还要求 `isPractice=true` |
 
 > 角色现状（仅题库域）：老师只有 `repo:list`、`repo:detail`、`repo:grant`、`template:list`、`template:import`，**没有** `repo:create/update/delete`、`repo:export` 与题目写权限；学员只有 `repo:list`、`repo:questions:read`、`repo:book`、`repo:practice`。
 
 ## 坑与已知限制
 
 - `updateRepo` 会先按 `entity_id` 删光题库标签，再用请求里的 `tag` 重建。只传 `id + name` 的调用会把标签清空；前端改名时必须把 `tag/category/mode/shared/isPractice/...` 原样带回。
-- `deleteRepo` 只删题库、题目、标签，不清理 `t_repo_partner`，会留下指向已删题库的授权行；目前只有删除用户组时才会清理组授权。
+- `deleteRepo` 只删题库、题目、标签，并清理 `t_class_resource` 的 repo 分配；**仍不清理 `t_repo_partner`**，会留下指向已删题库的授权行（目前只有删除用户组时才会清理组授权）。
+- **班级分配只放宽读，不放宽详情接口**：`/api/repo/detail` 的 `@PreAuthorize` 仍是 `repo:detail`；学员没有这个权限，班级分配只让他们在列表看到、通过 `/api/template/list` 看题、通过 `/api/repo/pick`/旧练习入口练习。
+- **题库列表不按窗口/开关过滤**：`CLASS_REPO_ASSIGN_SQL` 只判断分配存在；班级开关关闭、未开始、已结束时列表仍可能显示，点开/练习才被 `canStudentReadRepo` 拒绝。
+- **题库没有全局窗口**：`t_class_resource.start_at/end_at` 对 repo 只校验 `start <= end`；不要照搬 project 的全局上限逻辑。
+- **班级分配只对 student 生效**：`canStudentReadRepo` 对 staff/管理员/匿名返回 false，不会放宽教职工口径。
+- **`ClassResourceService#assertStudentCanAccessRepo` 目前没有调用方**：实际读闸门是 `canStudentReadRepo`（RepoServiceImpl / TemplateServiceImpl / RepoPartnerServiceImpl 各自调用）；新增入口时不要误以为它已兜底。
 - 导出不含「多空填空」（`MultipleBlank`）：`exportRepoQuestions` 只处理单选、多选、判断、填空（单空）、简答；多空填空会丢。空题库导出会因 fastexcel 不允许 0 个 sheet 而 500，前端已提前拦截并提示。
 - 导入是按「序号 + 题型」匹配的 upsert：同一题库里序号相同、题型相同的行会覆盖原题，不是追加。导入前先导出一份当模板最稳。
-- `/api/project/selectRepo`（编辑器选题库）只返回「自己创建 + 共享」，没有管理员放行、也不含组授权；被授权的题库在编辑器里看不到，但组卷弹窗用的是 `/api/repo/list`，口径同样不含组授权（详见 [repo-compose](../flows/repo-compose.md)）。
+- `/api/project/selectRepo`（编辑器选题库）只返回「自己创建 + 共享」，没有管理员放行、也不含组授权/班级分配；但组卷弹窗 `ComposeModal` 用的是 `/api/repo/list`（含组授权与班级分配），不要按 `selectRepo` 的口径判断老师在组卷弹窗里能选到的题库。
 - `shared`（共享题库）在题库列表页没有开关，只能通过接口或直接改库设置；共享后所有能进题库列表的人都能读。
 - 老师虽然有 `repo:grant`，但服务层只允许「题库创建者或管理员」授权；老师没有 `repo:create`，所以授权入口对老师基本不可用（除非库里还有他早期创建的题库）。
 - `repo/export/token` 的一次性令牌存在进程内存里：后端重启、多实例部署都会导致令牌失效或校验不到。
@@ -184,6 +205,8 @@ npm run docs:check
 3. 把题库授权给一个用户组 → 组内学员在「题库列表」能看到，能点开题目但看不到新建/编辑/删除/导入/导出。
 4. 在「教学管理 → 新建考试 → 从题库组卷」里选择该题库，能抽到题并生成试卷。
 5. 管理员在系统设置里清空导出密码 → 题库列表/题目页点「导出」应直接开始下载；设置导出密码后 → 弹窗要求输入，错误密码提示「导出密码错误」，正确密码能下载。
+6. 给班级分配一个题库（班级资源面板切到「题库」）：该班学生列表能看到；未分配该班的学生看不到；关闭/未开始/已结束窗口时学生打开题目或练习应被拒。
+7. 学员直接调 `/api/repo/detail` 仍应 403（无 `repo:detail`），但从 `/api/template/list` 能看到被分配题库的题目、从 `/api/repo/pick` 能练习。
 
 ## 相关文档
 

@@ -1,6 +1,6 @@
 ---
 id: flow-class-grant
-title: 建班、加学员、分配老师、分配考试与数据可见范围
+title: 建班、加学员、分配老师、分配考试/题库与数据可见范围
 status: current
 keywords:
   - 建班
@@ -12,7 +12,9 @@ keywords:
   - 分配老师
   - access_level
   - 班级资源
+  - 题库分配
   - 按班窗口
+  - 题库窗口
   - 数据范围
   - 未分配 404
   - class:grant
@@ -29,6 +31,10 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/DeptServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
   - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/TemplateServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/RepoPartnerServiceImpl.java
+  - server/rdbms/src/main/resources/mapper/TeachingMapper.xml
   - server/rdbms/src/main/java/cn/surveyking/server/service/UserDeptScopeService.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java
 entrypoints:
@@ -60,6 +66,8 @@ apis:
   - GET /api/system/dept/list
   - GET /api/system/dept/delete-check
   - POST /api/system/dept/delete
+  - GET /api/repo/list
+  - POST /api/repo/pick
 tables:
   - t_dept
   - t_dept_role
@@ -70,6 +78,8 @@ tables:
   - t_class_partner
   - t_class_resource
   - t_project
+  - t_repo
+  - t_template
   - t_answer
   - t_repo_partner
   - t_project_partner
@@ -77,10 +87,10 @@ tests:
   - 'client:npm run check'
   - 'docs:npm run docs:check'
 last_verified: 2026-11-10
-verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+verified_against: a14784b16e026ee8f8e48f9876533b98e5623806
 ---
 
-# 建班、加学员、分配老师、分配考试与数据可见范围
+# 建班、加学员、分配老师、分配考试/题库与数据可见范围
 
 ## 目标
 
@@ -123,22 +133,27 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 - 取消：`POST /api/teaching/classes/partner/delete`，`{ deptId, id }`；`ClassPartnerMapper#hardDelete` 物理删除（表上有 `(dept_id,user_id)` 唯一键，逻辑删除会挡住重新授权）。
 - 授权一个父班默认覆盖其全部下级班；`ClassNodeView.manageable` / `assertClassManage` 沿祖先链判断，只读授权能看不能改。
 
-### 4. 分配考试/问卷到班级（P1）
+### 4. 分配考试/问卷与题库到班级（P1/P2）
 
-- 入口：班级详情 →「考试与问卷」面板；只有 `manageable=true` 的班才渲染，后端 `list` 也 `assertManage`。
-- 列表：`GET /api/teaching/classes/resources?deptId=&resourceType=project`，返回资源名/类型、班级窗口、全局窗口、开关状态、分配人、本班答卷数、`effectiveStatus`。
-- 分配：`POST /api/teaching/classes/resources/assign`，`{ classId, resourceType:"project", resourceIds[], startAt?, endAt?, status? }`；按 `(class_id,resource_type,resource_id)` upsert，已存在时只更新窗口/开关，不改 `assignedBy`。
-- 修改：`POST /api/teaching/classes/resources/update`，`{ id, startAt?, endAt?, status? }`；窗口传 null = 回退继承全局。取消：`/resources/delete` 传 `{ id }`，物理删除。
-- 窗口：项目 `ProjectSetting.examSetting.startTime/endTime` 是全局窗口，也是硬上限；班级窗口为空 = 继承全局，非空必须落在全局窗口内（全局未设则不限制）。时间用 epoch 毫秒。
-- 状态：`status=0` 手动关闭；学生侧有效状态由「班级开关 + 项目发布状态 + 班级/全局窗口」算出 `CLOSED / NOT_STARTED / OPEN / ENDED`。
-- P1 只支持 `project`；题库 `repo` 的班级窗口留 P2。
+- 入口：班级详情 →「考试与问卷 / 题库」面板；只有 `manageable=true` 的班才渲染，后端 `list` 也 `assertManage`。面板顶部 `Segmented` 切换「考试/问卷」与「题库」。
+- 列表：`GET /api/teaching/classes/resources?deptId=&resourceType=project|repo`，返回资源名/类型、班级窗口、全局窗口、开关状态、分配人、本班答卷数、`effectiveStatus`。
+- 分配：`POST /api/teaching/classes/resources/assign`，`{ classId, resourceType:"project"|"repo", resourceIds[], startAt?, endAt?, status? }`；按 `(class_id,resource_type,resource_id)` upsert，已存在时只更新窗口/开关，不改 `assignedBy`。
+- 修改：`POST /api/teaching/classes/resources/update`，`{ id, startAt?, endAt?, status? }`；窗口传 null = 回退继承/不限。取消：`/resources/delete` 传 `{ id }`，物理删除。
+- 窗口：project 的 `ProjectSetting.examSetting.startTime/endTime` 是全局窗口，也是硬上限；班级窗口为空 = 继承全局，非空必须落在全局窗口内（全局未设则不限制）。**repo 没有全局窗口**，只校验开始 ≤ 结束，为空 = 不限。时间用 epoch 毫秒。
+- 状态：`status=0` 手动关闭；project 有效状态由「班级开关 + 项目发布状态 + 班级/全局窗口」算出，repo 只看「班级开关 + 本班窗口」。
+- 面板展示：repo 行类型显示「题库」、全局窗口「不限」、答卷数「—」（`answerCount=0`）。
+- 删除题库：`RepoServiceImpl#deleteRepo` 会清 `t_class_resource` 的 repo 分配，避免孤儿行。
 
-### 5. 学生按班进入
+### 5. 学生按班进入（考试与题库）
 
-- 列表：`GET /api/project/list` 的可见性在原有 `t_project_partner`（本人/组协作者）之外，新增 `t_class_resource` EXISTS：本班（主组 + 附加组 + 祖先链）有这场考试的分配就可见。
-- 打开/交卷：`ProjectAnswerValidator#validateProject` 与 `validateAnswerGate` 都调 `ClassResourceService#assertStudentCanAnswer`——没分配给学生所在班 → `ProjectNotFound`（404，不泄露标题）；未开始 → `ExamUnStarted`；已结束 → `ExamFinished`；手动关闭/项目停用 → `SurveySuspend`。匿名、staff、管理员不受班级分配限制；练习伪项目直接放行。
-- 多班：学生同时在多个班时，任一班的分配有效即可参加；解析「答题时所在班级」时主班优先，其次按附加组绑定时间。
-- 答卷：新建答卷时 `AnswerServiceImpl` 写 `t_answer.class_id`；更新答卷不改 `class_id`，换班后历史答卷仍算在原班。
+- **考试列表**：`GET /api/project/list` 在原有 `t_project_partner`（本人/组协作者）之外，新增 `t_class_resource` EXISTS（`resource_type='project'`）：本班（主组 + 附加组 + 祖先链）有这场考试的分配就可见。
+- **考试打开/交卷**：`ProjectAnswerValidator#validateProject` 与 `validateAnswerGate` 都调 `ClassResourceService#assertStudentCanAnswer`——没分配给学生所在班 → `ProjectNotFound`（404，不泄露标题）；未开始 → `ExamUnStarted`；已结束 → `ExamFinished`；手动关闭/项目停用 → `SurveySuspend`。匿名、staff、管理员不受班级分配限制；练习伪项目直接放行。
+- **题库列表**：`RepoServiceImpl#listRepo` 的非管理员分支追加 `t_class_resource` repo 分配 EXISTS；学员只要 `repo:list`（或 `exercise:list` 练习分支）就能看到本班被分配的题库。
+- **题库读题/练习**：`TemplateServiceImpl#isReadableRepo` 放行班级分配（`/api/template/list` 接受 `repo:questions:read`）；`/api/repo/pick` 走 `assertReadableRepo` 也认班级分配；旧 `PublicProjectLoader` 练习入口走 `RepoPartnerServiceImpl#hasPracticePermission`，但要求 `repo.isPractice=true`。
+- **题库详情仍受限**：`/api/repo/detail` 注解仍是 `repo:detail`，学员没有该权限；班级分配只放行列表/模板/练习，不放宽详情。
+- **题库窗口**：列表只判断「有没有分配」；打开/练习时 `canStudentReadRepo` 才校验班级开关 + 本班窗口，关闭/未开始/已结束会失败。
+- **多班**：学生同时在多个班时，任一班的分配有效即可参加；解析「答题时所在班级」时主班优先，其次按附加组绑定时间。
+- **答卷**：新建答卷时 `AnswerServiceImpl` 写 `t_answer.class_id`；更新答卷不改 `class_id`，换班后历史答卷仍算在原班。学情按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组。
 
 ### 6. 退场
 
@@ -167,17 +182,21 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 | 题库组授权 | `repo:grant`（服务层再限创建者/管理员） | 写 `t_repo_partner.dept_id` |
 | 考试组授权 | `project:partner`（服务层要求项目所有者） | 写 `t_project_partner.group_id` |
 | 学生参加考试 | 无额外权限（有 `project:answer`） | 必须被分到学生所在班；窗口/状态校验 |
+| 学生看/练题库 | `repo:list` / `repo:questions:read` / `repo:book` | 本班在 `t_class_resource` 有 repo 分配；`/api/repo/detail` 仍要 `repo:detail`（学员没有） |
 
 > 角色现状：管理员拥有 `class:*` 与 `system:dept:*`；老师有 `class:list`、`class:detail`、`class:member:*`，没有 `class:grant` 与 `system:dept:*`——老师能建班、管自己班的学员，但不能分配老师或删除班级。
 
 ## 坑与已知限制
 
-- **P1 只做考试/问卷**：`t_class_resource.resource_type` 目前只接受 `project`；题库班级窗口是 P2，传 `repo` 会报「暂只支持考试/问卷」。
+- **P2 支持考试/问卷 + 题库**：`t_class_resource.resource_type` 接受 `project|repo`；题库没有全局窗口，P2 暂不做。
 - **未分配学生 404**：列表不出现、直接打接口/链接按 `ProjectNotFound` 处理，不泄露标题；不是 403。未开始/已结束/关闭分别是 `ExamUnStarted` / `ExamFinished` / `SurveySuspend`。
 - **班级分配只约束 student**：匿名公开问卷、staff、管理员走原逻辑；练习/错题本伪项目不参与班级分配。
-- **班级资源面板的答卷数只统计新答卷**：按 `t_answer.class_id + temp_save=1` 计数；上线前的历史答卷 `class_id` 为 NULL，不会计入。
-- **项目列表的班级可见性不按窗口/开关过滤**：只要有一行 `t_class_resource`，项目仍可能出现在学生列表里，打开时才报错；要隐藏得在 SQL 里补窗口/状态条件。
-- **分配资源不校验调用者对项目的可见性**：`ClassResourceService#assign` 只校验班级可管理、项目存在且不是文件夹；拿到 `projectId` 就能分配给自己的班（P1 服务端缺口）。
+- **班级资源面板的答卷数只统计新答卷**：project 按 `t_answer.class_id + temp_save=1` 计数；上线前的历史答卷 `class_id` 为 NULL，不会计入；repo 面板恒为 0。
+- **题库分配不放宽详情接口**：`/api/repo/detail` 仍要 `repo:detail`，学员没有；班级分配只放行 `/api/repo/list`、`/api/template/list`、`/api/repo/pick` 与旧练习入口。
+- **题库窗口只在打开/练习时判断**：列表不按窗口/开关过滤；关闭/未开始/已结束时学生能看到题库但读题/练习会被拒。
+- **题库没有全局窗口**：`t_class_resource.start_at/end_at` 对 repo 只校验开始 ≤ 结束；不要照搬 project 的全局上限。
+- **项目/题库列表的班级可见性不按窗口/开关过滤**：只要有一行 `t_class_resource`，资源仍可能出现在学生列表里，打开/练习时才报错；要隐藏得在 SQL 里补窗口/状态条件。
+- **分配资源不校验调用者对资源的可见性**：`ClassResourceService#assign` 只校验班级可管理、资源存在且不是文件夹；拿到 `projectId`/`repoId` 就能分配给自己的班（P1/P2 服务端缺口）。
 - **只读老师看不到资源面板**：面板只在 `manageable=true` 时渲染，后端 `list` 也 `assertManage`；只读授权只能看成员/学情。
 - **删除文案仍写「用户组」**：`DeleteDeptDialog` 被班级页复用，标题/提示未区分类型；`lastDept` 后端按同类型计算，前端提示仍写「最后一个用户组」。
 - **老师能建班但不能删班**：删除按钮只按 `system:dept:delete` 显示，老师默认没有该权限。
@@ -186,7 +205,7 @@ verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
 - **删除班级会丢授权**：`t_repo_partner` / `t_project_partner.group_id` / `t_class_resource` 会随班删除被清掉；重建同名班不会恢复授权。
 - **负责人（manager_id）没有前端编辑入口**：只能改库或调 `/api/system/dept/update`；「班主任看到自己的班」主要靠 `create_by`、`manager_id` 或 `t_class_partner`。
 - **成员数按主组 + 附加组统计**：同一学员在两个班会各计一次、在两个班名单里各出现一次。
-- **学情仍按主组聚合**：`TeachingMapper#listClasses` 只用 `t_user.dept_id`，不读 `t_answer.class_id`；换班后历史答卷算到新班。
+- **学情新数据按答题班级、老数据回退主组**：`TeachingMapper#listClasses` 用 `COALESCE(a.class_id, u.dept_id, '')`；新答卷按答题时班级，老数据（`class_id` 为空）回退当前主组，换班后老答卷会算到新班。
 - **添加老师不校验用户类型**：`addClassPartners` 只校验用户存在，不要求 `staff`；页面候选只列教职工，直接调接口可以授权任意用户 id。
 - **导入模板必须带 sharedStrings**：学员模板用 XlsxWriter 生成；fastexcel 读不到 `xl/sharedStrings.xml` 会解析失败。模板列为姓名/手机号/初始密码/邮箱，任一行失败整批回滚。
 - **密码规则文案过期**：后端实际只校验长度 8~32，但 i18n 文案仍写「8-16 位且包含大小写字母和数字」；接口提示以实际校验为准。
@@ -206,7 +225,8 @@ npm run docs:check
 4. 管理员给老师授权只读：老师能看成员但不能添加/导入；改成可管理后能添加/导入。
 5. 给班级分配一场考试并设置班级窗口：该班学生能在考试列表看到；未分配该班的学生打开链接 404；窗口未开始/已结束提示对应错误。
 6. 删除一个有成员的班：`delete-check` 能看到成员；UNASSIGN 后学员变未分组仍可登录；MOVE 只能选同类型班级，删除后 `t_class_resource` 无孤儿行。
-7. 学生交卷后查 `t_answer.class_id` 是否等于其主班（主班无有效分配时才取其它班）。
+7. 给班级分配一个题库（面板切到「题库」）：本班学生能在题库列表看到；未分配该班的学生看不到；关闭/未开始/已结束窗口时学生读题或练习应被拒；学员直接调 `/api/repo/detail` 仍 403，但 `/api/template/list` 能看到题目、`/api/repo/pick` 能练习。
+8. 学生交卷后查 `t_answer.class_id` 是否等于其主班（主班无有效分配时才取其它班）；学情页的班级分布应按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组。
 
 ## 相关文档
 
