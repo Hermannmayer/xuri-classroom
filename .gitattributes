@@ -16,6 +16,7 @@ frontend-recon/web/*.css -diff
 #   bash: line N: $'\r': command not found
 # 这条能兜住，不需要每次手工 sed。
 *.sh        text eol=lf
+.githooks/commit-msg text eol=lf
 *.py        text eol=lf
 *.yml       text eol=lf
 *.yaml      text eol=lf
