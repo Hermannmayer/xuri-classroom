@@ -1,6 +1,7 @@
 import BackButton from '../../components/BackButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AutoComplete,
   Button,
   Card,
   Col,
@@ -68,7 +69,9 @@ export default function SurveyOverview() {
   const navigate = useNavigate();
   const [form] = Form.useForm();
 
-  const [project, setProject] = useState<Project>();
+  // category 是后端 Project 新增字段，schema 暂未包含，这里用局部交叉类型
+  const [project, setProject] = useState<Project & { category?: string }>();
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [report, setReport] = useState<ReportData>();
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [qr, setQr] = useState<string>();
@@ -143,7 +146,7 @@ export default function SurveyOverview() {
     setLoading(true);
     try {
       const [p, setting, r, list] = await Promise.all([
-        get<Project>('/api/project', { id }),
+        get<Project & { category?: string }>('/api/project', { id }),
         get<ProjectSetting>('/api/project/setting', { id }).catch(() => ({}) as ProjectSetting),
         // 没有 project:report 就不请求报表，免得每次都拿一个必 403 的请求去刷错误提示
         canReport ? get<ReportData>(`/api/report/${id}`).catch(() => undefined) : Promise.resolve(undefined),
@@ -158,12 +161,14 @@ export default function SurveyOverview() {
       setReport(r);
       setAnswers(list.data);
       applySetting(setting ?? {});
+      // 基本信息不在 setting 里，单独回填
+      form.setFieldsValue({ name: p.name, category: p.category ?? '' });
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [id, applySetting, canReport, canViewAnswers]);
+  }, [id, applySetting, canReport, canViewAnswers, form]);
 
   useEffect(() => {
     // 等权限落地再发请求：否则会先按「无权限」跑一遍，拿到权限后又跑一遍
@@ -175,6 +180,19 @@ export default function SurveyOverview() {
       .then(setQr)
       .catch(() => undefined);
   }, [shareUrl]);
+
+  // 分类候选：可自由输入，拿不到候选项也不影响保存
+  useEffect(() => {
+    get<{ name?: string }[]>('/api/project/categories')
+      .then((list) =>
+        setCategoryOptions(
+          (Array.isArray(list) ? list : [])
+            .map((item) => (item.name || '').trim())
+            .filter((name) => name && name !== '__UNCATEGORIZED__' && name !== '未分类'),
+        ),
+      )
+      .catch(() => setCategoryOptions([]));
+  }, []);
 
   /** 保存后只刷新概览数据（不复位表单，避免把用户刚填的内容刷掉）；没权限的数据源直接跳过 */
   const refreshSummary = async () => {
@@ -201,6 +219,9 @@ export default function SurveyOverview() {
     } catch {
       return; // 校验提示已经在字段上
     }
+
+    const name = String(v.name ?? '').trim();
+    const category = String(v.category ?? '').trim();
 
     const answerSetting: AnswerSetting = {
       ...(current.answerSetting ?? {}),
@@ -270,7 +291,8 @@ export default function SurveyOverview() {
 
     setSaving(true);
     try {
-      await updateProject({ id, setting });
+      // 分类空串=清空（未分类）；名称在本页可编辑，一并保存
+      await updateProject({ id, name, category, setting });
       // 发布开关走独立端点 POST /api/project/status（project:publish）；
       // 整包 setting 不会同步 t_project.status 列，所以状态变了要单独补一次。
       // 没有 project:publish 的人不碰这个端点，状态保持后端原值。
@@ -327,7 +349,9 @@ export default function SurveyOverview() {
   ];
 
   return (
-    <div style={{ maxWidth: 1200 }}>
+    <div className="survey-overview" style={{ maxWidth: 1200 }}>
+      {/* 统一本页 Form.Item 间距：左右两列标签/控件节奏一致，避免一张卡松一张卡紧 */}
+      <style>{'.survey-overview .ant-form-item{margin-bottom:14px}'}</style>
       <BackButton
         to={canAnswer ? '/tasks' : '/project'}
         label={canAnswer ? '返回我的任务' : '返回项目列表'}
@@ -371,12 +395,44 @@ export default function SurveyOverview() {
         disabled={!canEdit}
         initialValues={{ progressBar: true, autoSave: true }}
       >
-        <Row gutter={[14, 14]}>
-          {/* ① 概览：收集趋势 */}
-          <Col span={24}>
+        <Row gutter={[14, 14]} align="stretch">
+          {/* ① 基本信息：名称 + 分类（分类不再只藏在列表里） */}
+          <Col xs={24} lg={16}>
+            <Card
+              className="bp-corners bp-card"
+              title={cardTitle('BASIC', '基本信息')}
+              style={{ height: '100%' }}
+              styles={{ body: { padding: 16 } }}
+            >
+              <Row gutter={[12, 0]}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="name"
+                    label="项目名称"
+                    rules={[{ required: true, whitespace: true, message: '请填写项目名称' }]}
+                  >
+                    <Input maxLength={120} placeholder="例如：2026 年第一季度安全培训考试" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="category" label="分类" extra="可自由输入；留空表示未分类">
+                    <AutoComplete
+                      allowClear
+                      placeholder="例如：保育员 / 养老护理员 / 育婴员"
+                      options={categoryOptions.map((name) => ({ value: name }))}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Card>
+          </Col>
+
+          {/* ② 概览：收集趋势（与基本信息同排；无数据时紧凑） */}
+          <Col xs={24} lg={8}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('DAILY', '每日收集')}
+              style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
               {/* 每日收集来自 /api/report，最近答卷来自 /api/answer/list；缺任一权限都不渲染数据 */}
@@ -385,40 +441,47 @@ export default function SurveyOverview() {
               ) : (
                 <>
                   {daily.entries.length === 0 ? (
-                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有答卷数据</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {daily.entries.map(([day, count]) => (
-                        <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                          <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
-                          <div style={{ flex: 1, height: 8, background: 'var(--bp-fill-soft)' }}>
-                            <div
-                              style={{
-                                width: `${(count / daily.max) * 100}%`,
-                                height: 8,
-                                background: 'var(--bp-blue)',
-                              }}
-                            />
-                          </div>
-                          <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
-                        </div>
-                      ))}
+                    // 无数据时只占两行，不再撑出一大块空白
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                      <div>还没有答卷数据</div>
+                      <div style={{ marginTop: 6, fontSize: 11 }}>共 0 份</div>
                     </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {daily.entries.map(([day, count]) => (
+                          <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                            <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
+                            <div style={{ flex: 1, height: 8, background: 'var(--bp-fill-soft)' }}>
+                              <div
+                                style={{
+                                  width: `${(count / daily.max) * 100}%`,
+                                  height: 8,
+                                  background: 'var(--bp-blue)',
+                                }}
+                              />
+                            </div>
+                            <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                        共 <span style={{ color: 'var(--bp-orange)' }}>{answerTotal}</span> 份答卷 · 最近 5 份
+                        {answers.length > 0 ? `（最新 ${answers[0].createAt || ''}）` : ''}
+                      </div>
+                    </>
                   )}
-                  <div style={{ marginTop: 12, fontSize: 11, color: 'var(--bp-text-soft)' }}>
-                    共 <span style={{ color: 'var(--bp-orange)' }}>{answerTotal}</span> 份答卷 · 最近 5 份
-                    {answers.length > 0 ? `（最新 ${answers[0].createAt || ''}）` : ''}
-                  </div>
                 </>
               )}
             </Card>
           </Col>
 
-          {/* ② 答题显示（「自动暂存」取代旧概述页的「自动保存」，只此一处） */}
+          {/* ③ 答题显示（「自动暂存」取代旧概述页的「自动保存」，只此一处） */}
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('DISPLAY', '答题显示')}
+              style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
               <Row gutter={[12, 0]}>
@@ -432,58 +495,12 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ③ 考试控制（「交卷后显示排名」取代投放里的「显示排名」，只此一处） */}
-          <Col xs={24} lg={12}>
-            <Card
-              className="bp-corners bp-card"
-              title={cardTitle('EXAM', '考试控制')}
-              styles={{ body: { padding: 16 } }}
-            >
-              <Row gutter={[12, 0]}>
-                <Col xs={24} md={12}>
-                  <Form.Item name="examStartTime" label="考试开始时间">
-                    <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item name="examEndTime" label="考试结束时间" extra="考试窗口的结束时间">
-                    <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item name="minSubmitMinutes" label="最短交卷（分钟）">
-                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item name="maxSubmitMinutes" label="最长交卷（分钟）">
-                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item name="maxSwitchScreenTimes" label="最大切屏次数">
-                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item name="passModePerSeconds" label="闯关每题限时（秒）">
-                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
-                  </Form.Item>
-                </Col>
-                {switchItem('rankingEnabled', '交卷后显示排名')}
-                {switchItem('exerciseMode', '练习模式')}
-                {switchItem('randomSurveyWrong', '错题练习')}
-                {switchItem('randomOrder', '随机题目顺序')}
-                {switchItem('passMode', '闯关模式')}
-              </Row>
-            </Card>
-          </Col>
-
           {/* ④ 回收限制 */}
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('COLLECT', '回收限制')}
+              style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
               <Row gutter={[12, 0]}>
@@ -537,11 +554,60 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ⑤ 投放与分享：链接/二维码 + 发布状态（取代旧概述页的「开启收集」） */}
+          {/* ⑤ 考试控制（「交卷后显示排名」取代投放里的「显示排名」，只此一处） */}
+          <Col xs={24} lg={12}>
+            <Card
+              className="bp-corners bp-card"
+              title={cardTitle('EXAM', '考试控制')}
+              style={{ height: '100%' }}
+              styles={{ body: { padding: 16 } }}
+            >
+              <Row gutter={[12, 0]}>
+                <Col xs={24} md={12}>
+                  <Form.Item name="examStartTime" label="考试开始时间">
+                    <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="examEndTime" label="考试结束时间" extra="考试窗口的结束时间">
+                    <DatePicker showTime style={{ width: '100%' }} placeholder="不限制" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="minSubmitMinutes" label="最短交卷（分钟）">
+                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="maxSubmitMinutes" label="最长交卷（分钟）">
+                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="maxSwitchScreenTimes" label="最大切屏次数">
+                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="passModePerSeconds" label="闯关每题限时（秒）">
+                    <InputNumber min={0} style={{ width: '100%' }} placeholder="不限" />
+                  </Form.Item>
+                </Col>
+                {switchItem('rankingEnabled', '交卷后显示排名')}
+                {switchItem('exerciseMode', '练习模式')}
+                {switchItem('randomSurveyWrong', '错题练习')}
+                {switchItem('randomOrder', '随机题目顺序')}
+                {switchItem('passMode', '闯关模式')}
+              </Row>
+            </Card>
+          </Col>
+
+          {/* ⑥ 投放与分享：链接/二维码 + 发布状态（取代旧概述页的「开启收集」） */}
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('PUBLISH', '投放与分享')}
+              style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -614,11 +680,12 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ⑥ 协作者 */}
+          {/* ⑦ 协作者 */}
           <Col span={24}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('COLLABORATORS', '协作管理员')}
+              style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
               <PartnerPanel projectId={id} canManage={canManagePartner} />

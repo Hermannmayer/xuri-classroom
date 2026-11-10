@@ -450,6 +450,10 @@ modules:
       - 入口重定向
       - 分类树
       - ProjectTree
+      - 项目分类
+      - 未分类
+      - ProjectCategoryTree
+      - 行内操作
       - 复制链接
       - 紧凑列表
       - 数据范围
@@ -467,12 +471,17 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectTreeNode.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectCategoryView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectRequest.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Project.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
     entrypoints:
       - client/src/pages/project/Entry.tsx
       - client/src/pages/project/List.tsx
       - client/src/pages/project/ProjectTree.tsx
+      - client/src/pages/project/ProjectCategoryTree.tsx
       - client/src/pages/project/ComposeModal.tsx
       - client/src/pages/project/BatchSettingModal.tsx
       - client/src/pages/project/Trash.tsx
@@ -481,6 +490,7 @@ modules:
     apis:
       - GET /api/project/list
       - GET /api/project/tree
+      - GET /api/project/categories
       - GET /api/project
       - GET /api/project/setting
       - POST /api/project/create
@@ -504,7 +514,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+    verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md

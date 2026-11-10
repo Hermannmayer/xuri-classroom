@@ -15,6 +15,10 @@ keywords:
   - 入口重定向
   - 分类树
   - ProjectTree
+  - 项目分类
+  - 未分类
+  - ProjectCategoryTree
+  - 行内操作
   - 复制链接
   - 紧凑列表
   - 数据范围
@@ -32,12 +36,17 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
   - server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectTreeNode.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectCategoryView.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectView.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectRequest.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Project.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectQuery.java
 entrypoints:
   - client/src/pages/project/Entry.tsx
   - client/src/pages/project/List.tsx
   - client/src/pages/project/ProjectTree.tsx
+  - client/src/pages/project/ProjectCategoryTree.tsx
   - client/src/pages/project/ComposeModal.tsx
   - client/src/pages/project/BatchSettingModal.tsx
   - client/src/pages/project/Trash.tsx
@@ -46,6 +55,7 @@ entrypoints:
 apis:
   - GET /api/project/list
   - GET /api/project/tree
+  - GET /api/project/categories
   - GET /api/project
   - GET /api/project/setting
   - POST /api/project/create
@@ -69,14 +79,14 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
 ---
 
 # 考试与问卷（项目）
 
 ## 30 秒摘要
 
-一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；老师侧的列表并入 `/teaching` 的「考试/问卷」Tab（ProjectList embedded），并采用「左侧文件夹分类树 + 右侧紧凑列表」的双栏布局（P5），`/project` 入口对「有 portal:teacher + project:list」的账号重定向、对其余账号（学员/无门户权限的只读账号）保留原「考试安排」；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（项目只关心 `resource_type='project'`；同表也存题库 repo 分配，但不参与项目可见性）。
+一份考试和一份问卷在数据库里是同一张表的不同 `mode`：`t_project` 行同时保存整棵题目树（`survey` JSON）和全部发布设置（`setting` JSON）。"项目"这一层负责创建、列表、改名、发布开关、协作者/班级授权和回收站；老师侧的列表并入 `/teaching` 的「考试/问卷」Tab（ProjectList embedded），采用「左侧项目分类树 + 文件夹树 + 右侧紧凑列表」的双栏布局（P5/P8），`/project` 入口对「有 portal:teacher + project:list」的账号重定向、对其余账号（学员/无门户权限的只读账号）保留原「考试安排」；题目编辑在 [survey](./survey.md)，答卷与判分在 [answer](./answer.md)。后端入口是 `ProjectApi`，生命周期规则落在 `ProjectServiceImpl`，授权与可见性落在 `ProjectPartnerServiceImpl` / `t_project_partner`，按班级分配与准入在 `ClassResourceService` / `t_class_resource`（项目只关心 `resource_type='project'`；同表也存题库 repo 分配，但不参与项目可见性）。
 
 ## 什么时候看这篇
 
@@ -87,20 +97,22 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 - 列表里某份试卷的答卷数、文件夹子项数不对。
 - 老师点「教学管理」被带到 `/teaching`，或 `/project` 打不开/重定向循环。
 - 分类树看不到某个项目、文件夹计数不对，或「复制链接」复制出的地址打不开。
+- 想按「保育员 / 养老护理员 / 育婴员」筛考试，或新建/重命名时分类填不进去、清不掉。
 
 ## 代码地图
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 项目列表 | `client/src/pages/project/List.tsx` | 管理视图与学员视图二选一；管理视图 = 左 `ProjectTree` + 右紧凑列表（`size=small`、行内「更多」）；创建/改名/发布/删除/批量/回收站保留；`embedded` 时隐藏自己的页头，保留工具条 |
-| 分类树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；根固定「全部」，只渲染 `mode=folder` 的节点与 count；选中文件夹回传面包屑，右侧列表按 `parentId` 过滤 |
+| 项目列表 | `client/src/pages/project/List.tsx` | 管理视图与学员视图二选一；管理视图 = 左「项目分类 + 文件夹」双树 + 右紧凑列表（`size=small`、行内一级操作）；创建/改名/发布/删除/批量/回收站保留；`embedded` 时隐藏自己的页头，保留工具条 |
+| 项目分类树 | `client/src/pages/project/ProjectCategoryTree.tsx` | `GET /api/project/categories`；根「全部分类」+ 各分类 count；选中分类与文件夹互斥，右侧列表按 `category` 过滤 |
+| 文件夹树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染 `mode=folder` 的节点与 count；选中文件夹清空分类，右侧列表按 `parentId` 过滤 |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list → `/teaching?tab=exam`；其余账号（学员/无门户权限的只读）→ 原 ProjectList |
 | 组卷弹窗 | `client/src/pages/project/ComposeModal.tsx` | 从题库按题型抽题生成考试，见 [repo-compose](../flows/repo-compose.md) |
 | 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update` |
 | 回收站 | `client/src/pages/project/Trash.tsx` | 只读数组结果；恢复/彻底删除两个动作分别鉴权 |
 | 前端请求 | `client/src/api/index.ts` | `listProjects` / `createProject` / `updateProject` / `updateProjectStatus` / `deleteProject` |
-| 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关是独立端点；`/tree` 走 `project:list` |
-| 生命周期 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java` | `addProject` / `updateProject` / `updateProjectStatus` / `deleteProject` / `getDeleted` / `restoreProject`；`tree()` 一次查出可见项目并在内存组树/回填 count |
+| 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关是独立端点；`/tree`、`/categories` 走 `project:list` |
+| 生命周期 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java` | `addProject` / `updateProject` / `updateProjectStatus` / `deleteProject` / `getDeleted` / `restoreProject`；`tree()` 组文件夹树；`listCategories()` 统计可见项目分类 |
 | 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java` | `assertProjectOwner`、`addProjectPartner`、`getProjectPerms`、缓存失效 |
 | 班级分配/准入 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java`、`ProjectAnswerValidator.java` | `t_class_resource` 的 `project` 行、按班窗口、`assertStudentCanAnswer`；`repo` 行不参与项目可见性 |
 | 设置结构 | `server/shared/src/main/java/cn/surveyking/server/domain/dto/ProjectSetting.java` | `AnswerSetting` / `SubmittedSetting` / `ExamSetting` |
@@ -112,21 +124,31 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 
 - `/project` 路由守卫仍是 `project:list`，但组件换成 `ProjectEntry`：有 `portal:teacher + project:list` 的账号重定向到 `/teaching?tab=exam`；学员、以及没有 `portal:teacher` 的只读账号继续渲染 `ProjectList` 的「考试安排」。
 - `/teaching` 守卫是 `portal:teacher + project:list`；「考试/问卷」Tab 渲染 `<ProjectList embedded />`，隐藏 ProjectList 自己的页头/分隔线，保留搜索、新建、回收站、批量等工具条。
-- 「学情」Tab 是另一套 `Workbench`（考试 Select + 班级分布），不是 ProjectList；没有 `project:report` 时不渲染该 Tab。
+- 「学情」Tab 是另一套 `Workbench`（左班级树 + 右「考试/问卷/学员」Tabs），不是 ProjectList；没有 `project:report` 时不渲染该 Tab。
 - 菜单只剩一个「教学」`/teaching`（`portal:teacher && (project:list || project:report)`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
 - 学员侧不变：菜单/首页仍走「我的任务」，`/project` 是可访问的「考试安排」，不会被重定向。
 
-### 0.1 双栏列表与分类树（P5）
+### 0.1 双栏列表与文件夹树（P5）
 
 - **树接口**：`GET /api/project/tree`（`project:list` 或 admin），返回 `List<ProjectTreeNode>`。节点字段：`id / name / parentId / mode / count / children`；`mode` 仍是 `folder|survey|exam`，`count` 是该节点子树里**非 folder** 的项目数（folder 自身不计，叶子项目计 1）。
 - **树可见性**：管理员全量；其余人只查 `create_by=当前用户` 或 `t_project_partner` 里 `user_id/组链` 且 `type IN (1,2)` 的项目。**这条和 /project/list 不完全一致**：树不认 `type=3 RESPONDENT`，也不认 `t_class_resource` 的按班分配（学生端不用树，老师端以自己创建/协作为主）。父文件夹不可见/不存在时，子项目直接作为根返回，不丢项目。
 - **前端树**：`ProjectTree` 只渲染 folder 节点（叶子考试/问卷在右侧列表），根固定「全部」，标题旁显示 `count`；选中文件夹通过路径回传面包屑，右侧列表用 `parentId` 只查该层。新建/重命名/删除后父组件递增 `refreshToken`，树重新拉 counts；改名时同步更新面包屑。
-- **右侧紧凑列表**：管理视图把原来的宽操作列收进「更多」下拉，表格 `size=small`、名称省略、横向滚动；保留「新建/回收站/批量」工具条和文件夹进入。操作项按权限逐项渲染（设置/编辑/数据/复制链接/开关/重命名/删除），文件夹只有重命名/删除。
-- **复制链接**：行内「更多」和移动端卡片都有「复制链接」，地址是 `window.location.origin + '/s/' + id`；`answerSetting.loginRequired === true` 时文案变成「复制链接（需登录）」。非安全上下文或 Clipboard API 失败时退回 `window.prompt` 让用户手动复制。
+- **右侧紧凑列表**：管理视图为 `size=small`、名称省略、横向滚动的列表；保留「新建/回收站/批量」工具条和文件夹进入。行操作不再收进「更多」下拉，而是按权限一级显示：设置/编辑/数据/复制链接/开启关闭/重命名/删除；文件夹只有重命名/删除。
+- **复制链接**：行内和移动端卡片都有「复制链接」，地址是 `window.location.origin + '/s/' + id`；`answerSetting.loginRequired === true` 时文案变成「复制链接（需登录）」。非安全上下文或 Clipboard API 失败时退回 `window.prompt` 让用户手动复制。
 - **入口范围**：这套双栏只在 `ProjectList` 的管理视图（以及 `/teaching` 的考试/问卷 Tab）出现；学员访问 `/project` 仍是原「考试安排」列表，不加载分类树。创建/回收站/批量/文件夹等原有能力不因双栏改接口。
 
-1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
-2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
+### 0.2 项目分类与行内操作（P8）
+
+- **字段**：`t_project.category varchar(64)`（`name` 后，`NULL`/空串=未分类），迁移 `scripts/nas/migrate/34-project-category.sql`（幂等加列）。`Project` / `ProjectView` / `ProjectRequest` 都有 `category`；`ProjectQuery.category` 用于筛选。
+- **筛选**：`GET /api/project/list?category=` 普通值按 `category` 精确匹配（先 trim）；`__UNCATEGORIZED__`（`ProjectQuery.UNCATEGORIZED`）翻译成 `category IS NULL OR category = ''`；不传/空串不过滤。分类过滤加在可见性条件之后，文件夹也参与筛选。
+- **分类列表**：`GET /api/project/categories`（`project:list` 或 admin）返回 `List<ProjectCategoryView>`，元素 `{name,count}`；空/空白分类归「未分类」，按 count 降序、name 升序。可见性沿用 `listCategories` 自己的口径：管理员全量，其他只认 `create_by` + partner `type IN (1,2)`（**不含 type 3 与 t_class_resource 班级分配**）；`count` 统计所有可见项目（**包含文件夹**）。
+- **前端分类树**：`ProjectCategoryTree` 调 `/api/project/categories`，根「全部分类」+ 各分类 count；与文件夹树**互斥**：选分类时清空 `parentId`/面包屑，选文件夹或根「全部」时清空分类。分类筛选与文件夹筛选不会叠加成两个条件。
+- **新建/编辑**：新建弹窗与重命名弹窗都用 `AutoComplete` 填分类（候选取自 `/api/project/categories`，也可自由输入；留空=未分类）；新建时若当前正按某分类筛选，默认沿用该分类。从题库组卷创建的项目，先创建再补写分类；失败只提示，不挡进编辑器。
+- **列表列与操作**：列表新增「分类」列（文件夹显示「—」）；操作列改为一级链接，按权限渲染设置/编辑/数据/复制链接/开启关闭/重命名/删除；不再有「更多」下拉。
+- **已知限制**：后端不做分类枚举/长度校验，只有 DB `varchar(64)` 兜底，超 64 会报数据库错误；保存时会 trim 首尾空白，大小写与**内部空格**不同算不同分类；清空分类依赖显式传空串（`undefined`/不传表示不改）；分类 count 含文件夹，与右侧非 folder 列表的条数可能不同。
+
+1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），`normalizeCategory` 把分类 trim/空白转 null，生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
+2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`；分类筛选可同时走 `category`（见 0.2，选中分类时前端会清空 parentId）。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
    注意：班级资源这条只判断「有没有分配」，不判断 `status` 与班级窗口；关闭/已结束的考试仍可能出现在列表里，打开时才报错。
 3. **改名/保存设置**：`POST /api/project/update`。整页保存直接传 `setting` 或 `survey`；只改单项时传 `settingKey` + `settingValue`，`ProjectServiceImpl.validateSettingKey` 用 SpEL 白名单限制可写路径。方法内按 `id.intern()` 串行化，避免并发整包覆盖。
 4. **发布/关闭**：`POST /api/project/status`（`project:publish` 或 admin）。`updateProjectStatus` 同时写 `t_project.status` 和 `setting.status`，两处必须一致：列表读列，答题页读 setting。非 1 的状态一律归 0。
@@ -172,6 +194,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 |---|---|---|
 | 列表 | `project:list` 或 `exercise:list` | 本人/本组被授权为 OWNER、COLLABORATOR、RESPONDENT（含组链） |
 | 分类树 `/project/tree` | `project:list` 或 admin | 只认创建者或 partner `type IN (1,2)`；不含 type 3 与班级分配 |
+| 分类列表/筛选 `/project/categories` | `project:list` 或 admin | 分类统计同样只认创建者/partner `type IN (1,2)`；count 含文件夹；空白归「未分类」 |
 | 访问 `/project` 入口 | `project:list` | 有 `portal:teacher` 的账号重定向 `/teaching?tab=exam`；学员/无门户权限的只读账号渲染原列表 |
 | 查看详情/设置 | `project:detail` + `@EnableDataPerm` | OWNER/COLLABORATOR（含组授权）或 admin |
 | 新建/恢复 | `project:create` | 恢复还要求项目在 `getProjectPerms` 里 |
@@ -204,6 +227,10 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 - **根级考试/问卷的边界**：如果项目本身是考试/问卷、父文件夹不可见而退化成根，`ProjectTree` 会跳过它（树只渲染 folder），右侧「全部」又只查 `parent_id IS NULL/0`，所以这类项目可能只能靠搜索/直接 URL 找到。API 已按根返回，UI 尚未为「根级叶子」补入口。
 - **复制链接不校验发布状态/权限**：地址是 `/s/:id`；`loginRequired` 只影响文案（「需登录」），不代表链接一定可打开。关闭/未发布/窗口未开的项目复制出去仍会失败；需要分享前先确认状态。
 - **分类树/紧凑列表不改变接口**：创建、回收站、批量、文件夹仍走原端点；树只是导航。学员 `/project` 仍是原列表。
+- **分类 count 含文件夹**：`/api/project/categories` 统计的是所有可见项目（包括 folder），而右侧列表按分类筛选后可能包含 folder 行；不要把 count 当成「考试/问卷数」。
+- **分类是自由文本，不是枚举**：后端只 trim 首尾空白，大小写与内部空格不同算不同分类；没有长度/枚举校验，超过 `varchar(64)` 由数据库报错。清空分类必须显式传空串（`category: ''`）；只传 `id+name` 的部分更新不会清空。
+- **分类与文件夹互斥**：前端选中分类会清 `parentId`/面包屑，选中文件夹会清分类；后端本身可同时接受 `parentId + category`，如果绕过前端同时传，列表会按两个条件一起过滤（可能空列表）。
+- **分类统计与项目列表可见性不完全一致**：`listCategories` 只认创建者/partner `type IN (1,2)`，而 `/project/list` 还认 `type=3` 与 `t_class_resource` 班级分配；可能出现「列表里有项目、分类统计里没有/少 count」。
 - **项目列表/回收站的 total 已排除匿名答卷**：P6 起 `ProjectServiceImpl` 两处 `t_answer` count 加 `is_anonymous=0`；不要把 total 当「含匿名提交」的总量。
 
 ## 验证
@@ -216,14 +243,18 @@ npm run docs:check
 手工回归：
 
 1. 学员账号（只有 `project:list`/`project:answer`）打开 `/project` 仍看到"考试安排"，没有被重定向；只看到被授权的项目，没有"新建/回收站"入口，也不出现分类树。
-2. 老师/管理员访问 `/project` 应重定向到 `/teaching?tab=exam`；`/teaching` 的「考试/问卷」Tab 只出现一份页头（ProjectList embedded），左侧分类树只列文件夹、右侧列表随选中文件夹切换。
+2. 老师/管理员访问 `/project` 应重定向到 `/teaching?tab=exam`；`/teaching` 的「考试/问卷」Tab 只出现一份页头（ProjectList embedded），左侧是「分类 + 文件夹」双树，右侧列表随选中分类/文件夹切换。
 3. 新建一个文件夹 → 再建一场考试放进该文件夹 → 树里文件夹 count 变为 1；重命名文件夹后面包屑同步、count 不丢；删除后树刷新。
-4. 对一场 `loginRequired=true` 的考试点「更多 → 复制链接」，文案应为「复制链接（需登录）」，粘贴出的地址是当前 origin 的 `/s/:id`；非 HTTPS 本地环境应弹出手动复制提示。
+4. 对一场 `loginRequired=true` 的考试点行内「复制链接」，文案应为「复制链接（需登录）」，粘贴出的地址是当前 origin 的 `/s/:id`；非 HTTPS 本地环境应弹出手动复制提示。
 5. 老师建考试 → 列表出现 → 发布 → 学员能打开 `/s/:id`；关闭收集后再打开应提示"问卷已暂停回收"。
 6. 协作者账号能看列表和答卷但改不了成员；项目所有者能加/删成员，组授权后组员能看到。
 7. 删除项目 → 回收站能看到 → 恢复后回到列表；彻底删除后列表和回收站都不再出现。
 8. 学生 A 在班级 X：给 X 分配一场考试后，A 的列表出现该考试；未分配该班的 B 打开链接应 404；把班级窗口设到未来/过去，A 打开分别提示未开始/已结束。
 9. 把班级开关关掉（`t_class_resource.status=0`）→ A 打开提示「问卷已暂停回收」；重新打开后可正常进入。
+10. 新建考试时填分类「保育员」→ 列表出现分类列；左侧「分类」树出现「保育员」且 count=1；点它右侧只剩该分类项目，点文件夹/「全部」会清空分类。
+11. 选中「未分类」→ 只看到 `category` 为 NULL/空串的项目；把某项目分类清空（重命名弹窗留空保存）后它进入未分类；分类大小写/内部空格不同的值应分成不同项。
+12. 分类树选择一个分类后，列表的「新建」默认沿用该分类；从题库组卷创建项目时分类应在创建成功后被补写；失败只提示、不挡编辑器。
+13. 列表操作列不再出现「更多」；有权限的账号直接看到设置/编辑/数据/复制链接/开关/重命名/删除，文件夹只有重命名/删除。
 
 ## 相关文档
 

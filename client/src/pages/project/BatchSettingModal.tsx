@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  AutoComplete,
   Checkbox,
   DatePicker,
   InputNumber,
@@ -300,6 +301,10 @@ export default function BatchSettingModal({
   const [depts, setDepts] = useState<Dept[]>([]);
   const [authDeptIds, setAuthDeptIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  /** 批量改分类：勾选后对所有选中项目写入同一个分类（空=未分类） */
+  const [categoryEnabled, setCategoryEnabled] = useState(false);
+  const [categoryValue, setCategoryValue] = useState('');
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -318,6 +323,8 @@ export default function BatchSettingModal({
     setMaxSwitchScreenTimes(valueState(null));
     setPassModePerSeconds(valueState(null));
     setAuthDeptIds([]);
+    setCategoryEnabled(false);
+    setCategoryValue('');
   }, [open]);
 
   useEffect(() => {
@@ -325,6 +332,16 @@ export default function BatchSettingModal({
     get<Dept[]>('/api/system/dept/list')
       .then((list) => setDepts(Array.isArray(list) ? list : []))
       .catch((e: Error) => message.error(e.message));
+    // 分类候选：可自由输入，所以拿不到选项也不影响提交
+    get<{ name?: string }[]>('/api/project/categories')
+      .then((list) =>
+        setCategoryOptions(
+          (Array.isArray(list) ? list : [])
+            .map((item) => (item.name || '').trim())
+            .filter((name) => name && name !== '__UNCATEGORIZED__' && name !== '未分类'),
+        ),
+      )
+      .catch(() => setCategoryOptions([]));
   }, [open]);
 
   const setFlagEnabled = (key: BoolField, enabled: boolean) => {
@@ -347,7 +364,12 @@ export default function BatchSettingModal({
     maxSubmitMinutes.enabled ||
     maxSwitchScreenTimes.enabled ||
     passModePerSeconds.enabled;
-  const hasAny = statusEnabled || hasValueFields || authDeptIds.length > 0 || ALL_BOOL_FIELDS.some((key) => flags[key].enabled);
+  const hasAny =
+    statusEnabled ||
+    hasValueFields ||
+    categoryEnabled ||
+    authDeptIds.length > 0 ||
+    ALL_BOOL_FIELDS.some((key) => flags[key].enabled);
   const hasSettingChanges =
     statusEnabled || hasValueFields || ALL_BOOL_FIELDS.some((key) => flags[key].enabled);
 
@@ -405,7 +427,8 @@ export default function BatchSettingModal({
     if (passModePerSeconds.enabled) examPatch.passModePerSeconds = passModePerSeconds.value ?? undefined;
 
     setSaving(true);
-    let updated = 0;
+    // 按「项目」去重计数：同一项目既改 setting 又改 category 时只算一次
+    const updatedIds = new Set<string>();
     let authDone = 0;
     try {
       if (hasSettingChanges) {
@@ -434,7 +457,16 @@ export default function BatchSettingModal({
             setting: next,
             ...(statusEnabled ? { status: statusValue } : {}),
           });
-          updated += 1;
+          updatedIds.add(project.id);
+        }
+      }
+
+      // 分类更新放在 setting 之后、授权之前；空串=未分类
+      if (categoryEnabled) {
+        const nextCategory = categoryValue.trim();
+        for (const project of projects) {
+          await post('/api/project/update', { id: project.id, category: nextCategory });
+          updatedIds.add(project.id);
         }
       }
 
@@ -453,16 +485,16 @@ export default function BatchSettingModal({
 
       const parts: string[] = [];
       if (authDeptIds.length > 0) {
-        parts.push(`已更新 ${hasSettingChanges ? updated : 0} 项`);
+        parts.push(`已更新 ${updatedIds.size} 项`);
         parts.push(`${authDeptIds.length} 个班级授权`);
       } else {
-        parts.push(`已更新 ${updated} 项`);
+        parts.push(`已更新 ${updatedIds.size} 项`);
       }
       message.success(parts.join('，'));
       onUpdated();
     } catch (e) {
       message.error((e as Error).message);
-      if (updated > 0 || authDone > 0) onUpdated();
+      if (updatedIds.size > 0 || authDone > 0) onUpdated();
     } finally {
       setSaving(false);
     }
@@ -637,6 +669,35 @@ export default function BatchSettingModal({
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
         只应用勾选的设置，未勾选的字段保持原值。
       </div>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '7px 0',
+          borderBottom: '1px dashed var(--bp-line-soft)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Checkbox checked={categoryEnabled} onChange={(e) => setCategoryEnabled(e.target.checked)}>
+          分类
+        </Checkbox>
+        <div style={{ flex: 1 }} />
+        <AutoComplete
+          value={categoryValue}
+          disabled={!categoryEnabled}
+          allowClear
+          options={categoryOptions.map((name) => ({ value: name }))}
+          onChange={(value) => setCategoryValue(value)}
+          placeholder="留空=未分类，可自由输入"
+          style={{ width: 260, maxWidth: '100%' }}
+        />
+      </div>
+      <div className="bp-dim" style={{ fontSize: 11, margin: '6px 0 10px' }}>
+        只改分类，不影响其他设置。
+      </div>
+
       <Tabs activeKey={tab} onChange={setTab} items={tabItems} />
     </Modal>
   );
