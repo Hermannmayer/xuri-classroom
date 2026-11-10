@@ -53,6 +53,17 @@ public class ProjectApi {
 	}
 
 	/**
+	 * 考试/问卷分类列表（分类名 + 数量），用于列表页的分类筛选。
+	 *
+	 * <p>只统计当前用户可见的项目；空/空白分类归到「未分类」，按数量降序返回。
+	 */
+	@GetMapping("/categories")
+	@PreAuthorize("hasAuthority('project:list') or hasRole('admin')")
+	public List<ProjectCategoryView> categories() {
+		return projectService.listCategories();
+	}
+
+	/**
 	 * 考试/问卷分类树：文件夹 + 其下的考试/问卷，count 是子树里的项目数。
 	 *
 	 * <p>可见性与 /list 一致；父文件夹不可见的项目会作为根节点返回。

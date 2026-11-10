@@ -18,6 +18,9 @@ keywords:
   - is_anonymous
   - anonymous_subject_id
   - PublicAttemptView
+  - 匿名清理
+  - 保留天数
+  - purgeOlderThan
   - t_answer
   - t_answer.class_id
   - AnswerScoreEvaluator
@@ -52,6 +55,10 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/AnonymousSubjectMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Answer.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java
+  - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/SystemInfo.java
+  - client/src/pages/system/Setting.tsx
   - scripts/nas/migrate/33-anonymous-answer.sql
 entrypoints:
   - client/src/pages/answer/PublicAnswer.tsx
@@ -79,6 +86,7 @@ apis:
   - POST /api/public/saveAnswer
   - GET /api/public/anonymous/answers
   - POST /api/public/anonymous/claim
+  - POST /api/system/anonymous/cleanup
   - POST /api/public/loadExamResult
   - POST /api/public/attempts
   - POST /api/public/exam/switch-screen
@@ -88,13 +96,14 @@ tables:
   - t_class_resource
   - t_user
   - t_anonymous_subject
+  - t_sys_info
   - t_file
 tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-10
-verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 ---
 
 # 答卷、判分与报表
@@ -119,6 +128,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 | 公开答题页 | `client/src/pages/answer/PublicAnswer.tsx` | 首屏大纲、逐题加载、本地草稿、提交、倒计时/切屏/闯关；交卷后「我的答卷」抽屉（匿名/登录都可看） |
 | 匿名答卷抽屉 | `client/src/pages/answer/AnonymousAnswersDrawer.tsx` | `GET /public/anonymous/answers` 列本设备/本人答卷；登录后 `POST /public/anonymous/claim` 认领 |
 | 匿名身份 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java` | `sk-anon` cookie、SHA-256 主体、ensure/current/claim/purge；匿名答卷不写 `create_by` |
+| 匿名清理 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java` | `purgeOlderThan(days)`：只删 `is_anonymous=1` 且过期答卷（逻辑删），主体无剩余匿名答卷时物理删；每日 03:30 + 手动 `/system/anonymous/cleanup` |
 | 成绩单/解析 | `client/src/pages/answer/ExamResult.tsx` | `/api/public/loadExamResult`；逐题对错只是前端预览 |
 | 公开查询 | `client/src/pages/answer/PublicQuery.tsx` | 按条件查询/修改答卷，走 `/api/public/loadQuery` / `getQueryResult` |
 | 数据页 | `client/src/pages/survey/Data.tsx` | 全量答卷表格、筛选/排序、详情、补录/编辑、导入、导出、回收站入口 |
@@ -175,7 +185,8 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 4. 找回/认领：`GET /api/public/anonymous/answers?projectId=` 未登录按 `sk-anon` 主体、登录按 `create_by` 返回 `List<PublicAttemptView>`（`answerId / examScore / createAt`），没有身份返回空。`POST /api/public/anonymous/claim` 必须登录；把当前 cookie 主体的匿名答卷改成 `create_by=userId`、`is_anonymous=0`、`anonymous_subject_id=null`，按 `ClassResourceService#resolveForStudent` 重算 `class_id`、重新分配 `attempt_no`（避免撞唯一键），返回认领条数。
 5. 报表过滤：`listAnswer` 默认 `is_anonymous=0`（管理员/项目管理者可显式 `includeAnonymous`）；`listAnswerByClass`、`listAnswersForStat`、`downloadSurvey`/`downloadAttachment` 默认排除匿名；`AnswerQuery.excludeAnonymous` 专供 `AnswerServiceImpl#count`（统计/项目 total 用，答题限次不传）；`TeachingMapper.listMyProjects/listClasses`、`ProjectServiceImpl` 两处 total、`ProjectStatisticsService`、`ReportServiceImpl`、`ClassResourceService#loadClassAnswerStats` 都已加过滤。
 6. 班级/项目统计：匿名答卷 `class_id` 为 NULL，按班资源面板的答卷数/平均分、按班答卷抽屉、班级学情都不会包含；项目列表/回收站 total、项目报表、公开统计也只统计 `is_anonymous=0`。
-7. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体；`purgeExpired()` 未接调度；匿名答卷没有 `create_by`，数据页/通用导出看不到，需登录 claim 后才进入常规报表。
+7. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体；匿名答卷没有 `create_by`，数据页/通用导出看不到，需登录 claim 后才进入常规报表。
+8. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
 
 ## 修改指南
 
@@ -206,6 +217,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 | 匿名提交公开问卷 | 无（`/api/public/**` permitAll） | 未登录 + 项目 `loginRequired!=true`；写 `sk-anon` 主体与 `is_anonymous=1`，不写 `create_by` |
 | 匿名找回 | 无（公开） | 只按当前 `sk-anon` cookie 主体；返回 `PublicAttemptView`，不返回主体 id/token |
 | 匿名 claim | 登录（无额外权限点） | 只认当前 cookie 主体；重算 `class_id`/`attempt_no`，不合并其他主体 |
+| 匿名清理设置/立即清理 | `system:setting:update` 或 admin | 开关/保留天数；`POST /api/system/anonymous/cleanup` 返回删除条数；只删匿名答卷 |
 | 答卷列表/回收站 | `answer:list` + `@EnableDataPerm` | 管理员/项目 OWNER/COLLABORATOR（含组授权）看全部；其他登录用户只看 `create_by=自己`；默认 `is_anonymous=0` |
 | 查看单份 | `answer:detail` | `assertAnswerAccess`：本人 / 项目管理者 / admin |
 | 补录 | `answer:create` + `@EnableDataPerm` | 项目管理者 |
@@ -231,8 +243,11 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 - **导出 token 在内存里**：`ExportGuardService` 的 token 存在 `ConcurrentHashMap`，60 秒过期、用一次即失效、绑定用户；后端重启或多实例部署会失效/互不认。不要把它当持久下载链接。
 - **旧的 `exportPassword` 参数仍兼容**：`AnswerApi#download` 同时接受 `exportToken` 和 `exportPassword`，优先 token。密码出现在 URL 会进访问日志，前端应继续走"先换 token"。
 - **匿名答卷默认不可见**：`listAnswer` / `listAnswerByClass` / `listAnswersForStat` / `downloadSurvey` / `downloadAttachment` / 班级资源统计都带 `is_anonymous=0`；只有管理员/项目管理者在 `AnswerQuery.includeAnonymous=true` 时 `listAnswer` 才放开。数据页、通用导出、按班导出、项目报表、班级报表都不会出现匿名答卷。
-- **匿名身份只靠 cookie + localStorage**：`sk-anon` 只存在当前浏览器；换设备/清 cookie/隐私模式/历史匿名数据都找不回。`claim` 只处理当前 cookie 主体，不自动合并多个匿名主体；TTL 过期后主体和匿名答卷由 `purgeExpired()` 清理，但该方法目前没有接调度。
-- **`purgeExpired` 删除匿名答卷走逻辑删**：`answerMapper.delete` 会给 `t_answer.is_deleted=1`，但不会清 `t_answer_item` 投影；需要物理清理时另做任务。
+- **匿名身份只靠 cookie + localStorage**：`sk-anon` 只存在当前浏览器；换设备/清 cookie/隐私模式/历史匿名数据都找不回。`claim` 只处理当前 cookie 主体，不自动合并多个匿名主体；`purgeExpired()` 仍负责 cookie 主体过期清理，但未接调度；按保留天数的清理由 P7 的 `purgeOlderThan`/`AnonymousCleanupService` 负责。
+- **匿名清理只做逻辑删**：`purgeOlderThan` 与 `purgeExpired` 都走 `@TableLogic`，给 `t_answer.is_deleted=1`，不物理清 `t_answer`，也不清 `t_answer_item` 投影/附件；需要释放空间要另做物理清理。
+- **保留期清理的配置默认/边界**：`anonymousCleanupEnabled` 默认开启（缺省/空也视为开），`anonymousRetentionDays` 默认 90、夹到 1~3650；`anonymousLastCleanupAt/Count` 只由任务写，`mergeSysInfo` 不接收客户端值。
+- **清理任务没有分批/索引保障**：`purgeOlderThan` 一次查 id/subject + 一次按 `is_anonymous/create_at` 删，量大时可能长事务/锁表；要按 id 分批或补 `(is_anonymous, create_at)` 索引。
+- **定时任务是容器时区**：cron `0 30 3 * * ?` 按 JVM/容器时区，不是用户本地时区；跨时区部署要设 `TZ` 或改 cron。`runNow` 读整行再写回 last 字段，极低概率覆盖并发保存的设置。
 - **`class_id` 与匿名互斥**：匿名答卷 `class_id` 为 NULL，按班报表/资源面板/班级答卷抽屉都不会包含；claim 时才按当前班级资源重算。
 - **公开匿名接口没有权限注解**：`/api/public/anonymous/*` 依赖 `/api/public/**` permitAll；只校验 cookie/登录态，不要把它们当管理接口，也不要在返回体里暴露 token_hash/subject 内部字段。
 - **新增 `t_answer` 统计 SQL 必须带匿名过滤**：默认 `is_anonymous=0`；答题限次/幂等统计用 `AnswerQuery.excludeAnonymous` 按需关闭，不能把默认过滤直接塞进通用 `count`。
@@ -277,7 +292,9 @@ npm run docs:check
 11. 未登录打开一个 `loginRequired=false` 的问卷并交卷：响应应写 `sk-anon` cookie；刷新后 `GET /api/public/anonymous/answers?projectId=` 能看到这次答卷（`answerId/examScore/createAt`），`/api/public/attempts` 同样能看到。清 cookie 或换浏览器后列表为空。
 12. 同一浏览器登录后点「绑定到我的账号」：`POST /api/public/anonymous/claim` 返回认领条数；随后 `/api/public/anonymous/answers` 按 `create_by` 返回，数据页/报表仍默认看不到匿名（claim 后 `is_anonymous=0` 才可见）。
 13. 匿名答卷不进入班级报表：学情资源面板的交卷/平均分、班级答卷抽屉、项目列表/回收站 total、`/api/report/{shortId}` 都不应包含它；管理员显式 `includeAnonymous=true` 时 `/answer/list` 才可看到。
-14. 构造过期 `t_anonymous_subject` 后调用 `purgeExpired()`：主体和其匿名答卷应被清理（答卷逻辑删）；当前没有调度，需手工触发。
+14. 构造过期 `t_anonymous_subject` 后调用 `purgeExpired()`：主体和其匿名答卷应被清理（答卷逻辑删）；`purgeExpired` 当前没有调度，需手工触发。
+15. 系统设置「匿名答卷」Tab：改开关/保留天数后保存；点「立即清理」应调用 `POST /api/system/anonymous/cleanup` 并提示删除条数；`GET /api/system` 的 `anonymousLastCleanupAt/Count` 应更新（只读字段客户端改不动）。
+16. 把保留天数设为 1，构造一条 2 天前的 `is_anonymous=1` 答卷和一条登录用户答卷：手动/定时清理只删匿名那条（`is_deleted=1`），登录答卷不受影响；主体下无剩余匿名答卷时应被物理删除。
 
 ## 相关文档
 

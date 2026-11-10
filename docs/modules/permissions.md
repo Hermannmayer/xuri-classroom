@@ -18,6 +18,8 @@ keywords:
   - 匿名答卷
   - sk-anon
   - is_anonymous
+  - 匿名清理
+  - 保留天数
   - 审计
   - 403
 source_globs:
@@ -35,7 +37,11 @@ source_globs:
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java
   - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java
+  - server/shared/src/main/java/cn/surveyking/server/domain/dto/SystemInfo.java
+  - client/src/pages/system/Setting.tsx
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAdminService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
@@ -92,6 +98,8 @@ apis:
   - GET /api/public/anonymous/answers
   - POST /api/public/anonymous/claim
   - GET /api/project/tree
+  - POST /api/system/anonymous/cleanup
+  - GET /api/system
   - GET /api/system/audit/list
   - GET /api/system/audit/actions
 tables:
@@ -104,12 +112,13 @@ tables:
   - t_class_resource
   - t_answer
   - t_anonymous_subject
+  - t_sys_info
   - t_audit_log
 tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 ---
 
 # 权限、角色与用户组
@@ -144,6 +153,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 | 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers` |
 | 按班答卷/导出 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java`、`server/rdbms/.../impl/AnswerServiceImpl.java` | `classService.assertVisible` + `listAnswerByClass`/`downloadByClass`；`/answer/download?classId=` 与 `POST /answer/export/token`；默认 `is_anonymous=0` |
 | 匿名答卷/主体 | `server/api/.../SurveyApi.java`、`server/rdbms/.../impl/AnonymousIdentityServiceImpl.java`、`t_anonymous_subject` | `sk-anon` cookie（HttpOnly/Lax/90d/SHA-256）；`/public/anonymous/answers`、`/claim`；匿名答卷不写 `create_by` |
+| 匿名清理 | `server/rdbms/.../impl/AnonymousCleanupService.java`、`AnonymousIdentityService#purgeOlderThan` | `t_sys_info.setting` 的开关/天数；每日 03:30 `@Scheduled`；`POST /api/system/anonymous/cleanup` 手动触发 |
 | 内容保护接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java` | `POST /api/system/protection`，`content:protect` 只改三项 |
 | 403 文案 | `server/shared/src/main/java/cn/surveyking/server/core/mvc/advice/GlobalExceptionHandler.java` | `AccessDeniedException` 的 message 原样放进响应体，前端直接展示中文原因 |
 | 审计查询 | `server/api/src/main/java/cn/surveyking/server/api/AuditApi.java`、`service/AuditLogService.java` | `/api/system/audit/list` 返回 `AuditLogView`；`/api/system/audit/actions` 给筛选下拉 |
@@ -200,6 +210,15 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 6. 题库有全局开放期（`t_repo.open_start_at/open_end_at`，NULL=不限）：班级窗口非空端必须落在全局期内，越界 400「题库开放时间必须在全局开放时间内」；读闸门按「班级开关 → 题库全局期 → 本班窗口」判断。已经存在的班级窗口如果超出后来新设的全局期，不会自动修正，学生侧按硬上限判，需要老师重设。
 7. **班级可见性也决定「按班看答卷/导出」**：`GET /api/teaching/classes/answers` 要 `project:report` + `classService.assertVisible(deptId)`；`GET /api/answer/download?classId=` 要 `answer:export` + `assertVisible`。两者都不要求项目所有者/协作者：任何能看这个班的老师（含只读授权）都能看/导出该项目的本班答卷。不带 `classId` 的通用 `/answer/download` 仍按项目协作者范围（`assertProjectExportAllowed`）。
 8. **匿名答卷不是一个权限主体**：`/api/public/**` 全部 permitAll；`loadProject` 在未登录且项目不要求登录时写 `sk-anon`，`saveAnswer` 写 `is_anonymous=1`/`create_by=null`。`GET /public/anonymous/answers` 只按当前 cookie 主体（或登录用户）返回摘要；`POST /public/anonymous/claim` 只要求已登录（没有额外权限点），claim 后重算 `class_id`/`attempt_no`。匿名数据默认 `is_anonymous=0` 过滤，班级可见老师也看不到；管理员/项目管理者显式 `includeAnonymous` 才能在答卷列表看到。
+
+### 5.1 系统设置：匿名答卷清理
+
+1. 字段：`SystemInfo.SystemSetting` 增加 `anonymousCleanupEnabled`（默认开启）、`anonymousRetentionDays`（默认 90，夹到 1~3650）、`anonymousLastCleanupAt`/`anonymousLastCleanupCount`（只读，清理任务写）。`SystemServiceImpl#mergeSysInfo` 只复制开关与天数并 clamp；客户端传 last 字段不会生效。
+2. 入口：系统设置页「匿名答卷」Tab（`client/src/pages/system/Setting.tsx`）有自动清理 Switch、保留天数 InputNumber、立即清理按钮、上次清理时间/条数；保存走 `POST /api/system/update {setting:{anonymousCleanupEnabled,anonymousRetentionDays}}`。
+3. 手动清理：`POST /api/system/anonymous/cleanup`，权限 `hasRole('admin')` 或 `hasAuthority('system:setting:update')`，返回 `{deleted:n}`；前端立即清理按钮同样按 `system:setting:update`/admin 渲染。
+4. 自动清理：`AnonymousCleanupService#cleanupDaily` 用 `@Scheduled(cron="0 30 3 * * ?")` 每日 03:30 跑；`SurveyServerApplication` 已加 `@EnableScheduling`；关闭时跳过，异常只记日志。cron 按容器时区解释，不是浏览器时区。
+5. 清理口径：`AnonymousIdentityService#purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷（`@TableLogic` 逻辑删除）；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。登录用户/班级成绩/非匿名答卷不碰；`purgeExpired()` 仍负责 cookie 主体过期清理，两者不是同一条。
+6. 写回：`AnonymousCleanupService#runNow` 更新 last 字段并清 `commonCache`，否则 `GET /api/system` 可能读到旧设置；更新是读整行再写回，极低概率覆盖并发保存的设置。
 
 ### 6. 审计：动作、目标、操作人都可读
 
@@ -263,6 +282,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 | 看考试与答卷 | `project:list`、`answer:list` | 所有者、协作者（`t_project_partner`，含组）、班级资源分配或本人答卷 |
 | 删考试 | `project:delete` | 仅自己创建/协作的考试（老师同样受此约束） |
 | 改系统设置 | `system:setting:update` | 全局 |
+| 改匿名清理设置/立即清理 | `system:setting:update` 或 admin | 匿名答卷保留开关/天数；手动清理 `POST /api/system/anonymous/cleanup` |
 | 改水印/防复制 | `content:protect` | 全局，只接受三个字段 |
 | 看操作日志 | `system:log:list` | 全局 |
 | 管理用户/组/角色 | `system:user:*`、`system:dept:*`、`system:role:*` | 全局，且受「不能授予高于自己」二次校验 |
@@ -309,6 +329,11 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 - **匿名数据默认被报表过滤**：`is_anonymous=1` 的答卷不进入班级报表/项目 total/公开统计/导出；管理员在 `/answer/list` 显式 `includeAnonymous=true` 才放开。班级可见老师也不能通过按班接口看到匿名答卷（`listAnswerByClass` 固定 `is_anonymous=false`）。
 - **匿名只靠 cookie**：清 cookie、换设备、历史 P1 前数据都找不回；claim 不自动合并多个匿名主体；`purgeExpired()` 未接调度。
 - **项目树不是班级分配树**：`/api/project/tree` 只认创建者/partner type 1/2，不含 `t_class_resource` 分配与 type 3；学生端不用树，别把它当班级可见性接口。
+- **匿名清理是逻辑删，不是物理删**：`purgeOlderThan` 只把 `t_answer.is_deleted` 置 1，`t_answer_item` 投影与附件不清理；需要彻底释放空间要另做物理清理/分批任务。
+- **匿名清理的权限是系统设置权限**：手动接口与设置页保存都要求 `system:setting:update`（或 admin），不是 `answer:delete`；不要把它挂到答卷删除入口。
+- **last 字段只读**：`anonymousLastCleanupAt/Count` 由清理任务写，`mergeSysInfo` 不接收客户端值；设置页保存时只提交开关/天数。
+- **清理任务未分批**：`purgeOlderThan` 一次 `select id/subject` + 一次按条件删；匿名答卷很多时可能长事务/锁表，需要按 id 分批或加合适索引（`is_anonymous,create_at`）。
+- **cron 按容器时区**：每日 03:30 是 JVM/容器时区，不是用户本地时区；跨时区部署要显式设置 `TZ` 或改 cron。
 
 ## 验证
 
@@ -360,6 +385,11 @@ curl -s -b anon.txt "https://<host>/api/public/anonymous/answers?projectId=<proj
 curl -s -b teacher.txt -X POST https://<host>/api/public/anonymous/claim
 # 项目分类树：只认创建者/partner type 1/2，不是班级分配树
 curl -s -b teacher.txt https://<host>/api/project/tree
+# 手动清理匿名答卷：admin 或 system:setting:update；返回 {deleted:n}
+curl -s -b admin.txt -X POST https://<host>/api/system/anonymous/cleanup
+# 设置里确认 last 字段（只读）与开关/天数
+curl -s -b admin.txt https://<host>/api/system | python -c \
+  "import json,sys; s=json.load(sys.stdin)['data']['setting']; print({k:s.get(k) for k in ['anonymousCleanupEnabled','anonymousRetentionDays','anonymousLastCleanupAt','anonymousLastCleanupCount']})"
 ```
 
 ## 相关文档

@@ -17,6 +17,9 @@ public class ProjectView {
 
 	private String name;
 
+	/** 分类名（如 保育员/养老护理员/育婴员）；为空表示未分类 */
+	private String category;
+
 	private ProjectModeEnum mode;
 
 	private Integer status;

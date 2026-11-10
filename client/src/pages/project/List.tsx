@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  AutoComplete,
   Breadcrumb,
   Button,
   Checkbox,
-  Dropdown,
   Empty,
   Form,
   Input,
@@ -17,11 +17,10 @@ import {
   Table,
   Tag,
 } from 'antd';
-import type { MenuProps } from 'antd';
 import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
-import { createProject, deleteProject, listProjects, updateProject, updateProjectStatus } from '../../api';
+import { createProject, deleteProject, get, listProjects, updateProject, updateProjectStatus } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { ProjectSetting } from '../../schema/project';
@@ -32,7 +31,14 @@ import ProjectTree from './ProjectTree';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 type Crumb = { id: string; name: string };
-type ProjectRow = ProjectView & { setting?: ProjectSetting };
+/** category 是后端 ProjectView 新增字段（api 层类型暂未包含，这里补在行类型上） */
+type ProjectRow = ProjectView & { setting?: ProjectSetting; category?: string };
+
+/** /api/project/categories 的返回项 */
+interface CategoryCount {
+  name?: string;
+  count?: number;
+}
 
 const MODE_LABEL: Record<ProjectMode, string> = {
   survey: '问卷',
@@ -361,6 +367,10 @@ function ManagerProjectList({
   const [batchSettingOpen, setBatchSettingOpen] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
+  /** 分类筛选（与文件夹 parentId 互斥）；__UNCATEGORIZED__ = 未分类 */
+  const [category, setCategory] = useState<string>();
+  /** 新建/重命名表单里的分类候选（来自 /api/project/categories，可自由输入） */
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   /** 新建/删除/重命名后递增，让左侧分类树重新拉 counts */
   const [treeToken, setTreeToken] = useState(0);
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
@@ -368,7 +378,9 @@ function ManagerProjectList({
   const [createOpen, setCreateOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeName, setComposeName] = useState('');
-  const [renaming, setRenaming] = useState<ProjectView | null>(null);
+  /** 从题库组卷时先记下分类，创建成功后再补写（CompuseModal 只负责建项目） */
+  const [composeCategory, setComposeCategory] = useState('');
+  const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
@@ -376,15 +388,18 @@ function ManagerProjectList({
     name: string;
     mode: 'survey' | 'exam';
     source?: 'blank' | 'compose';
+    category?: string;
   }>();
-  const [renameForm] = Form.useForm<{ name: string }>();
+  const [renameForm] = Form.useForm<{ name: string; category?: string }>();
   const createMode = Form.useWatch('mode', createForm);
   const createSource = Form.useWatch('source', createForm);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listProjects({ current: page, pageSize, name: keyword, parentId });
+      // listProjects 的 query 类型还没加 category（api 层不在本任务范围），这里按可变参数传入
+      const query = { current: page, pageSize, name: keyword, parentId, category };
+      const res = await listProjects(query as Parameters<typeof listProjects>[0]);
       setRows(res.data);
       setTotal(res.total);
     } catch (e) {
@@ -392,7 +407,7 @@ function ManagerProjectList({
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword, parentId]);
+  }, [page, pageSize, keyword, parentId, category]);
 
   useEffect(() => {
     void load();
@@ -401,20 +416,44 @@ function ManagerProjectList({
   // 翻页/搜索/进文件夹后旧选中项可能已不在当前列表，直接清空避免误操作
   useEffect(() => {
     setSelectedKeys([]);
-  }, [page, pageSize, keyword, parentId]);
+  }, [page, pageSize, keyword, parentId, category]);
+
+  // 分类候选取自服务端（已含未分类，但「未分类」不是可选分类名，过滤掉）
+  useEffect(() => {
+    get<CategoryCount[]>('/api/project/categories')
+      .then((list) =>
+        setCategoryOptions(
+          (Array.isArray(list) ? list : [])
+            .map((item) => (item.name || '').trim())
+            .filter((name) => name && name !== '__UNCATEGORIZED__' && name !== '未分类'),
+        ),
+      )
+      .catch(() => setCategoryOptions([]));
+  }, [treeToken]);
 
   const selectedProjects = rows.filter(
     (row) => selectedKeys.includes(row.id) && row.mode !== 'folder',
   );
 
   const openCreate = () => {
-    createForm.setFieldsValue({ name: '', mode: 'exam', source: 'blank' });
+    createForm.setFieldsValue({
+      name: '',
+      mode: 'exam',
+      source: 'blank',
+      // 当前正按某个分类筛选时，新建默认沿用该分类
+      category: category && category !== '__UNCATEGORIZED__' ? category : '',
+    });
     setCreateOpen(true);
   };
 
   const submitCreate = async () => {
     if (creating) return;
-    let v: { name: string; mode: 'survey' | 'exam'; source?: 'blank' | 'compose' };
+    let v: {
+      name: string;
+      mode: 'survey' | 'exam';
+      source?: 'blank' | 'compose';
+      category?: string;
+    };
     try {
       v = await createForm.validateFields();
     } catch {
@@ -423,19 +462,23 @@ function ManagerProjectList({
     if (v.mode === 'exam' && v.source === 'compose') {
       setCreateOpen(false);
       setComposeName(v.name.trim());
+      setComposeCategory(v.category?.trim() || '');
       setComposeOpen(true);
       return;
     }
     setCreating(true);
     try {
-      const created = await createProject({
+      const payload = {
         name: v.name,
         mode: v.mode,
+        category: v.category?.trim() || undefined,
         parentId,
         setting: DEFAULT_SETTING,
         // 先给一份空表，设计器打开时不会拿到 null
         survey: { title: v.name, type: 'Survey', attribute: { mode: v.mode }, children: [] },
-      });
+      };
+      // CreateProjectRequest 类型还没加 category（api 层不在本任务范围）
+      const created = await createProject(payload as Parameters<typeof createProject>[0]);
       setCreateOpen(false);
       message.success('已创建');
       setTreeToken((token) => token + 1);
@@ -449,16 +492,17 @@ function ManagerProjectList({
 
   const submitRename = async () => {
     if (!renaming || renameSaving) return;
-    let name: string;
+    let values: { name: string; category?: string };
     try {
-      const values = await renameForm.validateFields();
-      name = values.name;
+      values = await renameForm.validateFields();
     } catch {
       return; // 校验提示已经在字段上
     }
+    const { name, category: nextCategory } = values;
     setRenameSaving(true);
     try {
-      await updateProject({ id: renaming.id, name });
+      // 空串表示清空分类（未分类）；undefined 会被后端当成「不改」
+      await updateProject({ id: renaming.id, name, category: nextCategory?.trim() ?? '' });
       message.success('已重命名');
       // 当前面包屑可能正停在这个文件夹上，同步改名，避免继续显示旧名称
       setCrumbs((prev) => prev.map((crumb) => (crumb.id === renaming.id ? { ...crumb, name } : crumb)));
@@ -522,6 +566,8 @@ function ManagerProjectList({
 
   const enterFolder = (row: ProjectView) => {
     setCrumbs((prev) => [...prev, { id: row.id, name: row.name || '未命名文件夹' }]);
+    // 文件夹与分类互斥：进文件夹时清掉分类筛选
+    setCategory(undefined);
     setPage(1);
   };
 
@@ -532,8 +578,8 @@ function ManagerProjectList({
     />
   );
 
-  const openRename = (row: ProjectView) => {
-    renameForm.setFieldsValue({ name: row.name || '' });
+  const openRename = (row: ProjectRow) => {
+    renameForm.setFieldsValue({ name: row.name || '', category: row.category ?? '' });
     setRenaming(row);
   };
 
@@ -556,72 +602,6 @@ function ManagerProjectList({
   const copyLinkLabel = (row: ProjectRow) =>
     row.setting?.answerSetting?.loginRequired === true ? '复制链接（需登录）' : '复制链接';
 
-  /** 行操作收进「更多」下拉：按权限逐项渲染，文件夹只有重命名/删除 */
-  const buildOpsMenu = (row: ProjectRow): NonNullable<MenuProps['items']> => {
-    const items: NonNullable<MenuProps['items']> = [];
-    if (row.mode !== 'folder') {
-      if (canDetail) items.push({ key: 'settings', label: '设置' });
-      if (canUpdate) items.push({ key: 'edit', label: '编辑' });
-      if (canData) items.push({ key: 'data', label: '数据' });
-      items.push({ key: 'copy', label: copyLinkLabel(row) });
-      if (canPublish) {
-        items.push({
-          key: 'toggle',
-          label: row.status === 1 ? '关闭' : '开启',
-          danger: row.status === 1,
-        });
-      }
-    }
-    if (canUpdate) items.push({ key: 'rename', label: '重命名' });
-    if (canDelete) items.push({ key: 'delete', label: '删除', danger: true });
-    return items;
-  };
-
-  const handleOps = (row: ProjectRow, key: string) => {
-    switch (key) {
-      case 'settings':
-        navigate(`/survey/${row.id}`);
-        break;
-      case 'edit':
-        navigate(`/survey/${row.id}/edit`);
-        break;
-      case 'data':
-        navigate(`/survey/${row.id}/data`);
-        break;
-      case 'copy':
-        void copyLink(row);
-        break;
-      case 'toggle':
-        if (row.status === 1) {
-          Modal.confirm({
-            title: '关闭后学员将无法打开答题链接',
-            content: '已收集的答卷不受影响，可随时重新开启。',
-            okText: '关闭',
-            cancelText: '取消',
-            onOk: () => setStatus(row, 0),
-          });
-        } else {
-          void setStatus(row, 1);
-        }
-        break;
-      case 'rename':
-        openRename(row);
-        break;
-      case 'delete':
-        Modal.confirm({
-          title: `删除「${row.name || ''}」？`,
-          content: '删除后可在回收站找回。',
-          okText: '删除',
-          okButtonProps: { danger: true },
-          cancelText: '取消',
-          onOk: () => remove(row),
-        });
-        break;
-      default:
-        break;
-    }
-  };
-
   /** 批量操作（批量设置 / 批量删除）至少要有一个权限，否则选择框没有意义 */
   const canBatch = canUpdate || canDelete;
 
@@ -642,9 +622,14 @@ function ManagerProjectList({
         <div style={{ width: isMobile ? '100%' : 220, flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 0 }}>
           <ProjectTree
             selectedId={parentId}
+            selectedCategory={category}
             refreshToken={treeToken}
             onSelect={(_id, path) => {
               setCrumbs(path);
+              setPage(1);
+            }}
+            onSelectCategory={(next) => {
+              setCategory(next);
               setPage(1);
             }}
           />
@@ -693,6 +678,7 @@ function ManagerProjectList({
               title: (
                 <LinkAction onClick={() => {
                   setCrumbs([]);
+                  setCategory(undefined);
                   setPage(1);
                 }}>
                   全部
@@ -706,6 +692,7 @@ function ManagerProjectList({
                 ) : (
                   <LinkAction onClick={() => {
                     setCrumbs(crumbs.slice(0, i + 1));
+                    setCategory(undefined);
                     setPage(1);
                   }}>
                     {c.name}
@@ -943,7 +930,7 @@ function ManagerProjectList({
         size="small"
         loading={loading}
         dataSource={rows}
-        scroll={{ x: 860 }}
+        scroll={{ x: 1040 }}
         rowSelection={
           canBatch
             ? {
@@ -1004,6 +991,18 @@ function ManagerProjectList({
             ),
           },
           {
+            title: '分类',
+            dataIndex: 'category',
+            width: 110,
+            ellipsis: true,
+            render: (value: string | undefined, row) =>
+              row.mode === 'folder' ? (
+                <span style={{ color: 'var(--bp-text-soft)' }}>—</span>
+              ) : (
+                value || <span style={{ color: 'var(--bp-text-soft)' }}>未分类</span>
+              ),
+          },
+          {
             title: '状态',
             dataIndex: 'status',
             width: 86,
@@ -1027,25 +1026,51 @@ function ManagerProjectList({
           },
           {
             title: '操作',
-            width: 84,
-            render: (_: unknown, row) => {
-              const items = buildOpsMenu(row);
-              if (items.length === 0) return '—';
-              return (
-                <Dropdown
-                  trigger={['click']}
-                  menu={{
-                    items,
-                    onClick: ({ key, domEvent }) => {
-                      domEvent.stopPropagation();
-                      handleOps(row, String(key));
-                    },
-                  }}
-                >
-                  <Button size="small">更多</Button>
-                </Dropdown>
-              );
-            },
+            width: 360,
+            render: (_: unknown, row) => (
+              <Space size={10} wrap={false} style={{ whiteSpace: 'nowrap' }}>
+                {row.mode !== 'folder' && (
+                  <>
+                    {canDetail && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>设置</LinkAction>
+                    )}
+                    {canUpdate && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
+                    )}
+                    {canData && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
+                    )}
+                    <LinkAction onClick={() => void copyLink(row)}>{copyLinkLabel(row)}</LinkAction>
+                    {canPublish &&
+                      (row.status === 1 ? (
+                        <Popconfirm
+                          title="关闭后学员将无法打开答题链接"
+                          description="已收集的答卷不受影响，可随时重新开启。"
+                          okText="关闭"
+                          cancelText="取消"
+                          onConfirm={() => setStatus(row, 0)}
+                        >
+                          <LinkAction style={{ color: 'var(--bp-orange)' }}>关闭</LinkAction>
+                        </Popconfirm>
+                      ) : (
+                        <LinkAction onClick={() => setStatus(row, 1)}>开启</LinkAction>
+                      ))}
+                  </>
+                )}
+                {canUpdate && <LinkAction onClick={() => openRename(row)}>重命名</LinkAction>}
+                {canDelete && (
+                  <Popconfirm
+                    title={`删除「${row.name || ''}」？`}
+                    description="删除后可在回收站找回。"
+                    okText="删除"
+                    cancelText="取消"
+                    onConfirm={() => remove(row)}
+                  >
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                  </Popconfirm>
+                )}
+              </Space>
+            ),
           },
         ]}
       />
@@ -1075,6 +1100,13 @@ function ManagerProjectList({
               ]}
             />
           </Form.Item>
+          <Form.Item name="category" label="分类" extra="可自由输入；留空表示未分类">
+            <AutoComplete
+              allowClear
+              placeholder="例如：保育员 / 养老护理员 / 育婴员"
+              options={categoryOptions.map((name) => ({ value: name }))}
+            />
+          </Form.Item>
           {createMode === 'exam' && (
             <Form.Item name="source" label="新建方式">
               <Segmented
@@ -1094,6 +1126,12 @@ function ManagerProjectList({
         onCancel={() => setComposeOpen(false)}
         onCreated={(id) => {
           setComposeOpen(false);
+          // 组卷创建的项目补写分类（失败只提示，不挡住进编辑器）
+          if (composeCategory) {
+            void updateProject({ id, category: composeCategory }).catch((e: Error) =>
+              message.error(e.message),
+            );
+          }
           navigate(`/survey/${id}/edit`);
         }}
       />
@@ -1123,6 +1161,15 @@ function ManagerProjectList({
           <Form.Item name="name" label="名称" rules={[{ required: true, message: '请填写名称' }]}>
             <Input maxLength={120} />
           </Form.Item>
+          {renaming?.mode !== 'folder' && (
+            <Form.Item name="category" label="分类" extra="可自由输入；留空表示未分类">
+              <AutoComplete
+                allowClear
+                placeholder="例如：保育员 / 养老护理员 / 育婴员"
+                options={categoryOptions.map((name) => ({ value: name }))}
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </>

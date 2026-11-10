@@ -322,6 +322,7 @@ CREATE TABLE `t_project` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `parent_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT '0' COMMENT '父ID',
   `name` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '项目名称',
+  `category` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '分类名（如 保育员/养老护理员/育婴员）',
   `survey` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷',
   `setting` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷设置',
   `status` int DEFAULT '0' COMMENT '0未发布 1已发布',

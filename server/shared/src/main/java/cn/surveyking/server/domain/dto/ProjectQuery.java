@@ -15,6 +15,9 @@ import java.util.LinkedHashMap;
 @EqualsAndHashCode(callSuper = false)
 public class ProjectQuery extends PageQuery {
 
+	/** 「未分类」的查询哨兵：后端翻译成 category IS NULL OR category = '' */
+	public static final String UNCATEGORIZED = "__UNCATEGORIZED__";
+
 	private String id;
 
 	private String repoId;
@@ -22,6 +25,9 @@ public class ProjectQuery extends PageQuery {
 	private String password;
 
 	private String name;
+
+	/** 分类过滤：普通值精确匹配；__UNCATEGORIZED__ = 未分类；空 = 不过滤 */
+	private String category;
 
 	private String parentId;
 

@@ -26,6 +26,11 @@ public class Project extends BaseModel {
 	private String name;
 
 	/**
+	 * 分类名（自由文本，如 保育员 / 养老护理员 / 育婴员）；为空表示未分类。
+	 */
+	private String category;
+
+	/**
 	 * 父id，0表示不存在父id
 	 */
 	private String parentId;

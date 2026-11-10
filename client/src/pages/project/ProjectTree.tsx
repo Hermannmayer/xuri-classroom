@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Empty, Spin, Tree, message } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { get } from '../../api';
+import ProjectCategoryTree from './ProjectCategoryTree';
 
 /** 与后端 ProjectTreeNode 对齐 */
 interface ProjectTreeNode {
@@ -61,11 +62,15 @@ function buildFolderNodes(nodes: ProjectTreeNode[], parentPath: Crumb[], paths: 
  */
 export default function ProjectTree({
   selectedId,
+  selectedCategory,
   onSelect,
+  onSelectCategory,
   refreshToken = 0,
 }: {
   selectedId?: string;
+  selectedCategory?: string;
   onSelect: (parentId: string | undefined, path: Crumb[]) => void;
+  onSelectCategory: (category?: string) => void;
   /** 父组件在新建/删除/重命名后递增，触发 counts 重新拉取 */
   refreshToken?: number;
 }) {
@@ -102,26 +107,42 @@ export default function ProjectTree({
     if (keys.length === 0) return;
     const key = String(keys[0]);
     if (key === ALL_KEY) {
+      // 根「全部」：文件夹与分类两个筛选都清空
+      onSelectCategory(undefined);
       onSelect(undefined, []);
       return;
     }
     const path = built.paths.get(key);
-    if (path) onSelect(key, path);
+    if (path) {
+      // 选文件夹时清空分类，避免两个条件叠加导致空列表
+      onSelectCategory(undefined);
+      onSelect(key, path);
+    }
   };
 
   return (
-    <Card
-      className="bp-card bp-corners"
-      size="small"
-      title={
-        <span className="bp-title" style={{ fontSize: 13 }}>
-          分类
-        </span>
-      }
-      style={{ width: '100%' }}
-      styles={{ body: { padding: '8px 6px' } }}
-    >
-      {loading ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <ProjectCategoryTree
+        selectedCategory={selectedCategory}
+        refreshToken={refreshToken}
+        onSelect={(category) => {
+          // 分类与文件夹互斥：选分类时清空文件夹路径（根「全部」例外，由子组件传 undefined）
+          onSelectCategory(category);
+          onSelect(undefined, []);
+        }}
+      />
+      <Card
+        className="bp-card bp-corners"
+        size="small"
+        title={
+          <span className="bp-title" style={{ fontSize: 13 }}>
+            文件夹
+          </span>
+        }
+        style={{ width: '100%' }}
+        styles={{ body: { padding: '8px 6px' } }}
+      >
+        {loading ? (
         <div style={{ padding: '24px 0', textAlign: 'center' }}>
           <Spin />
         </div>
@@ -147,6 +168,7 @@ export default function ProjectTree({
           )}
         </>
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }

@@ -20,6 +20,9 @@ modules:
       - is_anonymous
       - anonymous_subject_id
       - PublicAttemptView
+      - 匿名清理
+      - 保留天数
+      - purgeOlderThan
       - t_answer
       - t_answer.class_id
       - AnswerScoreEvaluator
@@ -54,6 +57,10 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/AnonymousSubjectMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Answer.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/PublicSurveyExtrasService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java
+      - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/SystemInfo.java
+      - client/src/pages/system/Setting.tsx
       - scripts/nas/migrate/33-anonymous-answer.sql
     entrypoints:
       - client/src/pages/answer/PublicAnswer.tsx
@@ -81,6 +88,7 @@ modules:
       - POST /api/public/saveAnswer
       - GET /api/public/anonymous/answers
       - POST /api/public/anonymous/claim
+      - POST /api/system/anonymous/cleanup
       - POST /api/public/loadExamResult
       - POST /api/public/attempts
       - POST /api/public/exam/switch-screen
@@ -90,13 +98,14 @@ modules:
       - t_class_resource
       - t_user
       - t_anonymous_subject
+      - t_sys_info
       - t_file
     tests:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-10
-    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+    verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -324,6 +333,8 @@ modules:
       - 匿名答卷
       - sk-anon
       - is_anonymous
+      - 匿名清理
+      - 保留天数
       - 审计
       - 403
     source_globs:
@@ -341,7 +352,11 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/api/src/main/java/cn/surveyking/server/api/SystemProtectionApi.java
       - server/api/src/main/java/cn/surveyking/server/api/AuditApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/SystemInfo.java
+      - client/src/pages/system/Setting.tsx
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAdminService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
@@ -398,6 +413,8 @@ modules:
       - GET /api/public/anonymous/answers
       - POST /api/public/anonymous/claim
       - GET /api/project/tree
+      - POST /api/system/anonymous/cleanup
+      - GET /api/system
       - GET /api/system/audit/list
       - GET /api/system/audit/actions
     tables:
@@ -410,12 +427,13 @@ modules:
       - t_class_resource
       - t_answer
       - t_anonymous_subject
+      - t_sys_info
       - t_audit_log
     tests:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+    verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md

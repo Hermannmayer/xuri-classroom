@@ -16,6 +16,9 @@ public class ProjectRequest {
 
 	private String name;
 
+	/** 分类名（如 保育员/养老护理员/育婴员）；空串表示清空分类 */
+	private String category;
+
 	private ProjectModeEnum mode;
 
 	private SurveySchema survey;

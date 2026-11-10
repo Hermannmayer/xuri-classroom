@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 172 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 174 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -37,6 +37,7 @@
 | GET | `${api.prefix}/oauth/bindings` | `OAuthApi#bindings` | `isAuthenticated()` | — |
 | DELETE | `${api.prefix}/oauth/bindings/{bindingId}` | `OAuthApi#unbind` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/project/list` | `ProjectApi#listProject` | `hasAuthority('project:list') or hasAuthority('exercise:list')` | — |
+| GET | `${api.prefix}/project/categories` | `ProjectApi#categories` | `hasAuthority('project:list') or hasRole('admin')` | — |
 | GET | `${api.prefix}/project/tree` | `ProjectApi#tree` | `hasAuthority('project:list') or hasRole('admin')` | — |
 | GET | `${api.prefix}/project` | `ProjectApi#getProject` | `hasAuthority('project:detail')` | 是 |
 | GET | `${api.prefix}/project/setting` | `ProjectApi#getSetting` | `hasAuthority('project:detail')` | 是 |
@@ -128,6 +129,7 @@
 | GET | `${api.prefix}/system/dept/delete-check` | `SystemApi#deleteCheck` | `hasAuthority('system:dept:delete') or hasRole('admin')` | — |
 | POST | `${api.prefix}/system/dept/delete` | `SystemApi#deleteOrg` | `hasAuthority('system:dept:delete')` | — |
 | POST | `${api.prefix}/system/dept/sort` | `SystemApi#sortOrg` | `hasAuthority('system:dept:create')` | — |
+| POST | `${api.prefix}/system/anonymous/cleanup` | `SystemApi#cleanupAnonymousAnswers` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/dict/list` | `SystemApi#listDict` | `hasAuthority('system:dict:list')` | — |
 | POST | `${api.prefix}/system/dict/create` | `SystemApi#addDict` | `hasAuthority('system:dict:create')` | — |
 | POST | `${api.prefix}/system/dict/update` | `SystemApi#updateDict` | `hasAuthority('system:dict:update')` | — |

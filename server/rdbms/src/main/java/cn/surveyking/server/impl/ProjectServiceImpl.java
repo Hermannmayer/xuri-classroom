@@ -51,6 +51,9 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 @RequiredArgsConstructor
 public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> implements ProjectService {
 
+	/** 分类列表里「未分类」的展示名 */
+	private static final String UNCATEGORIZED_NAME = "未分类";
+
 	private final AnswerMapper answerMapper;
 
 	private final ProjectViewMapper projectViewMapper;
@@ -63,6 +66,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public PaginationResponse<ProjectView> listProject(ProjectQuery query) {
+		// 分类过滤：普通值精确匹配；__UNCATEGORIZED__ 表示「未分类」（NULL 或空串）；空不过滤
+		String category = isBlank(query.getCategory()) ? null : query.getCategory().trim();
+		boolean uncategorized = ProjectQuery.UNCATEGORIZED.equals(category);
 		// 说明：项目列表的可见性判定全部落在下面的 EXISTS 子查询里，
 		// 依赖 t_user_dept（附加组）与 t_dept 的祖先链，改这段务必跑一次
 		// scripts/nas/Deploy-Nas.ps1 让冒烟测试覆盖到「试卷能列出来」。
@@ -91,6 +97,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 								+ " AND cr.resource_type = 'project' AND cr.is_deleted = 0"
 								+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",
 								SecurityContextUtils.getUserId()))
+				// 分类过滤（放在可见性条件之后）：未分类是「NULL 或空串」，用 and(...) 包住避免 OR 串味
+				.and(uncategorized, c -> c.isNull(Project::getCategory).or().eq(Project::getCategory, ""))
+				.eq(category != null && !uncategorized, Project::getCategory, category)
 				// 文件夹排在前面，然后按创建时间从近到远排序
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));
 		PaginationResponse<ProjectView> result = new PaginationResponse<>(page.getTotal(),
@@ -166,6 +175,52 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		return roots;
 	}
 
+	@Override
+	public List<ProjectCategoryView> listCategories() {
+		String userId = SecurityContextUtils.getUserId();
+		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Project> wrapper = Wrappers
+				.<Project>lambdaQuery().select(Project::getId, Project::getCategory);
+		// 可见性与 listProject 同一口径：管理员全量；其余人只看自己创建的或被授权（type 1/2）
+		if (!SecurityContextUtils.isAdmin()) {
+			// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
+			wrapper.and(w -> w.eq(Project::getCreateBy, userId).or()
+					.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
+							+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
+							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
+							+ " AND t.type IN (1, 2)",
+							userId));
+		}
+		List<Project> projects = list(wrapper);
+		Map<String, Integer> counts = new LinkedHashMap<>();
+		for (Project project : projects) {
+			if (project == null) {
+				continue;
+			}
+			// 空白分类统一归到「未分类」，与 __UNCATEGORIZED__ 的查询口径一致
+			String name = isBlank(project.getCategory()) ? UNCATEGORIZED_NAME : project.getCategory().trim();
+			counts.merge(name, 1, Integer::sum);
+		}
+		List<ProjectCategoryView> result = new ArrayList<>();
+		counts.forEach((name, count) -> {
+			ProjectCategoryView view = new ProjectCategoryView();
+			view.setName(name);
+			view.setCount(count);
+			result.add(view);
+		});
+		result.sort(Comparator.comparing(ProjectCategoryView::getCount).reversed()
+				.thenComparing(ProjectCategoryView::getName, Comparator.nullsLast(String::compareTo)));
+		return result;
+	}
+
+	/** 分类名：trim，空白转 null（长度由前端限制 64，后端只做规范化） */
+	private String normalizeCategory(String category) {
+		if (category == null) {
+			return null;
+		}
+		String trimmed = category.trim();
+		return trimmed.isEmpty() ? null : trimmed;
+	}
+
 	/** 递归回填 count，返回该子树里的非 folder 项目数 */
 	private int fillTreeNodeCount(ProjectTreeNode node) {
 		int total = ProjectModeEnum.folder.equals(node.getMode()) ? 0 : 1;
@@ -188,6 +243,8 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	@Override
 	public ProjectView addProject(ProjectRequest request) {
 		Project project = projectViewMapper.fromRequest(request);
+		// 分类：trim，空白转 null（不做长度校验，前端限制 64）
+		project.setCategory(normalizeCategory(project.getCategory()));
 		// 第三方/脚本建项目通常不传 setting。setting 为 null 时，后续
 		// /project/update(settingKey) 会在 SpEL setValue 处 NPE、/public/loadProject 与
 		// /public/saveAnswer 会走 getSetting().getXxx() NPE / 4004（见 docs/audit/concurrency-test.md §3）。
@@ -295,6 +352,11 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	@Override
 	@SneakyThrows
 	public void updateProject(ProjectRequest request) {
+		// 分类：显式传空串表示「清空分类」。MyBatis-Plus 的 updateById 会跳过 null 字段，
+		// 所以清空要单独 set 一次；不带 category 的部分更新（settingKey 单字段、批量设置）
+		// 传的是 null，不会走到这里，不会被误清空。
+		boolean clearCategory = request.getCategory() != null && isBlank(request.getCategory());
+		request.setCategory(normalizeCategory(request.getCategory()));
 		synchronized (request.getId().intern()) {
 			Project project = projectViewMapper.fromRequest(request);
 			if (request.getSettingKey() != null) {
@@ -312,6 +374,10 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				}
 			}
 			updateById(project);
+			if (clearCategory) {
+				getBaseMapper().update(null, Wrappers.<Project>lambdaUpdate().eq(Project::getId, request.getId())
+						.set(Project::getCategory, null));
+			}
 		}
 	}
 
