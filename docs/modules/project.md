@@ -21,12 +21,17 @@ keywords:
   - 行内操作
   - 复制链接
   - 紧凑列表
+  - 概述页
+  - 基本信息
+  - 批量分类
+  - 布局
   - 数据范围
   - t_project
   - t_project_partner
   - t_class_resource
 source_globs:
   - client/src/pages/project/**
+  - client/src/pages/survey/Overview.tsx
   - client/src/router.tsx
   - client/src/layout/BasicLayout.tsx
   - client/src/api/index.ts
@@ -46,6 +51,7 @@ entrypoints:
   - client/src/pages/project/Entry.tsx
   - client/src/pages/project/List.tsx
   - client/src/pages/project/ProjectTree.tsx
+  - client/src/pages/survey/Overview.tsx
   - client/src/pages/project/ProjectCategoryTree.tsx
   - client/src/pages/project/ComposeModal.tsx
   - client/src/pages/project/BatchSettingModal.tsx
@@ -79,7 +85,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
+verified_against: 7888d2e5ec24c0865d6607e3881fc3c1e6489ef9
 ---
 
 # 考试与问卷（项目）
@@ -98,6 +104,7 @@ verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
 - 老师点「教学管理」被带到 `/teaching`，或 `/project` 打不开/重定向循环。
 - 分类树看不到某个项目、文件夹计数不对，或「复制链接」复制出的地址打不开。
 - 想按「保育员 / 养老护理员 / 育婴员」筛考试，或新建/重命名时分类填不进去、清不掉。
+- 在试卷设置页找不到改名称/分类的地方，或批量设置的分类没有生效。
 
 ## 代码地图
 
@@ -107,8 +114,9 @@ verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
 | 项目分类树 | `client/src/pages/project/ProjectCategoryTree.tsx` | `GET /api/project/categories`；根「全部分类」+ 各分类 count；选中分类与文件夹互斥，右侧列表按 `category` 过滤 |
 | 文件夹树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染 `mode=folder` 的节点与 count；选中文件夹清空分类，右侧列表按 `parentId` 过滤 |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list → `/teaching?tab=exam`；其余账号（学员/无门户权限的只读）→ 原 ProjectList |
+| 试卷设置页 | `client/src/pages/survey/Overview.tsx` | `/survey/:id` 概述；基本信息卡编辑名称/分类（分类 AutoComplete），保存 `updateProject({id,name,category,setting})`；卡片重排见 P9 |
 | 组卷弹窗 | `client/src/pages/project/ComposeModal.tsx` | 从题库按题型抽题生成考试，见 [repo-compose](../flows/repo-compose.md) |
-| 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update` |
+| 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update`；顶部可批量改分类（只更新 category） |
 | 回收站 | `client/src/pages/project/Trash.tsx` | 只读数组结果；恢复/彻底删除两个动作分别鉴权 |
 | 前端请求 | `client/src/api/index.ts` | `listProjects` / `createProject` / `updateProject` / `updateProjectStatus` / `deleteProject` |
 | 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关是独立端点；`/tree`、`/categories` 走 `project:list` |
@@ -146,6 +154,15 @@ verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
 - **新建/编辑**：新建弹窗与重命名弹窗都用 `AutoComplete` 填分类（候选取自 `/api/project/categories`，也可自由输入；留空=未分类）；新建时若当前正按某分类筛选，默认沿用该分类。从题库组卷创建的项目，先创建再补写分类；失败只提示，不挡进编辑器。
 - **列表列与操作**：列表新增「分类」列（文件夹显示「—」）；操作列改为一级链接，按权限渲染设置/编辑/数据/复制链接/开启关闭/重命名/删除；不再有「更多」下拉。
 - **已知限制**：后端不做分类枚举/长度校验，只有 DB `varchar(64)` 兜底，超 64 会报数据库错误；保存时会 trim 首尾空白，大小写与**内部空格**不同算不同分类；清空分类依赖显式传空串（`undefined`/不传表示不改）；分类 count 含文件夹，与右侧非 folder 列表的条数可能不同。
+
+### 0.3 试卷设置页与批量分类（P9）
+
+- **入口**：`/survey/:id` 概述页（`Overview.tsx`，`project:detail` 可看，保存按钮只对有 `project:update` 的账号渲染）。新增「基本信息」Card（`lg=16`）：项目名称 Input（必填、trim）+ 分类 AutoComplete（候选 `/api/project/categories`，可自由输入，留空=未分类）。
+- **保存**：`onSave` 调 `updateProject({id, name, category, setting})`；分类空串显式清空为未分类，名称在本页可编辑。保存成功 `refreshSummary` 重新拉 `/api/project`，页头和返回列表后的名称/分类同步。发布状态仍单独走 `POST /api/project/status`，整包 setting 不负责 `t_project.status` 列。
+- **布局重排**：Row1 基本信息（lg16）+ 每日收集（lg8；无数据只显示「还没有答卷数据 / 共 0 份」两行，不撑高）；Row2 答题显示 + 回收限制；Row3 考试控制 + 投放与分享；Row4 协作者（span24）。所有 Card `height:100%`、Row `align=stretch`，`Form.Item` 统一 `margin-bottom:14px`；`xs=24` 移动端单列。
+- **批量分类**：`BatchSettingModal` 顶部新增「分类」行：Checkbox 启用 + AutoComplete（候选 `/api/project/categories`，过滤「未分类」，可自由输入，留空=未分类）。`hasAny` 把 `categoryEnabled` 纳入；应用顺序是 setting → category（逐个项目 `updateProject({id,category})`）→ 班级授权。
+- **批量计数**：`updated` 改成按项目 id 的 `Set`，同一项目既改 setting 又改 category 只算一次；只改分类时 `hasSettingChanges=false`，不会顺带写 setting。授权成功数仍单独统计。
+- **已知限制**：分类仍是自由文本，无后端枚举/长度校验；清空分类依赖显式空串；批量分类只更新 `category`、不影响其他设置；批量分类逐个项目 `updateProject`，不是事务，中途失败会保留前面已成功的项目；项目名称在概述页可编辑，改完后列表/页头靠 `refreshSummary` 同步，不实时推给其他标签页。
 
 1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），`normalizeCategory` 把分类 trim/空白转 null，生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
 2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`；分类筛选可同时走 `category`（见 0.2，选中分类时前端会清空 parentId）。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
@@ -255,6 +272,9 @@ npm run docs:check
 11. 选中「未分类」→ 只看到 `category` 为 NULL/空串的项目；把某项目分类清空（重命名弹窗留空保存）后它进入未分类；分类大小写/内部空格不同的值应分成不同项。
 12. 分类树选择一个分类后，列表的「新建」默认沿用该分类；从题库组卷创建项目时分类应在创建成功后被补写；失败只提示、不挡编辑器。
 13. 列表操作列不再出现「更多」；有权限的账号直接看到设置/编辑/数据/复制链接/开关/重命名/删除，文件夹只有重命名/删除。
+14. 打开 `/survey/:id` 概述页：Row1 左侧「基本信息」可改项目名称/分类（AutoComplete 有候选项），保存后页头名称/分类更新，返回列表也同步；分类清空保存后变成「未分类」。
+15. 概述页布局：基本信息(16)+每日收集(8) 同排且等高；无答卷时每日收集只显示两行；答题显示/回收限制、考试控制/投放与分享各占一排，协作者整行；窄屏（<lg）应单列，卡片不出现高低不齐。
+16. 选中多个项目 → 批量设置只勾「分类」并填一个值：只改这些项目的 category（setting 不变），提示的「已更新 N 项」按项目去重；填空保存后项目进入「未分类」；同时勾 setting 与分类时也各只更新一次、计数不翻倍。
 
 ## 相关文档
 

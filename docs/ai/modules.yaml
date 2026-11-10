@@ -456,12 +456,17 @@ modules:
       - 行内操作
       - 复制链接
       - 紧凑列表
+      - 概述页
+      - 基本信息
+      - 批量分类
+      - 布局
       - 数据范围
       - t_project
       - t_project_partner
       - t_class_resource
     source_globs:
       - client/src/pages/project/**
+      - client/src/pages/survey/Overview.tsx
       - client/src/router.tsx
       - client/src/layout/BasicLayout.tsx
       - client/src/api/index.ts
@@ -481,6 +486,7 @@ modules:
       - client/src/pages/project/Entry.tsx
       - client/src/pages/project/List.tsx
       - client/src/pages/project/ProjectTree.tsx
+      - client/src/pages/survey/Overview.tsx
       - client/src/pages/project/ProjectCategoryTree.tsx
       - client/src/pages/project/ComposeModal.tsx
       - client/src/pages/project/BatchSettingModal.tsx
@@ -514,7 +520,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-10
-    verified_against: 2c5612c5fca709638c26a95dd1446c8a9d15e976
+    verified_against: 7888d2e5ec24c0865d6607e3881fc3c1e6489ef9
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
