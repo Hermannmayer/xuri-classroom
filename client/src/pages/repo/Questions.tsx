@@ -30,6 +30,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
+import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
 interface TemplateView {
@@ -156,10 +157,8 @@ export default function RepoQuestions() {
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [authorities, setAuthorities] = useState<string[]>([]);
-  // 导出密码弹窗（管理员没配密码时留空即可）
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exportPwd, setExportPwd] = useState('');
-  const [exporting, setExporting] = useState(false);
+  // 导出：列表页与题目页共用 RepoExportModal
+  const [exportTarget, setExportTarget] = useState<RepoExportTarget | null>(null);
 
   useEffect(() => {
     void loadAuthorities().then((a) => setAuthorities(a));
@@ -289,38 +288,13 @@ export default function RepoQuestions() {
     }
   };
 
-  /** 导出题目：先弹密码框（系统设置没配密码时留空即可），密码换一次性 token 后随下载 query 传递 */
+  /** 导出题目：先挡掉空题库/加载失败，再打开共用导出弹窗 */
   const openExport = () => {
-    // ponytail: 空题库导出后端会 500（fastexcel 不允许 0 个 sheet），先在前端挡掉
     if (!loading && total === 0 && !hasFilter) {
       message.warning(loadError ? '题目列表没有加载成功，先点「重新加载」' : '题库还没有题目，先导入再操作');
       return;
     }
-    setExportPwd('');
-    setExportOpen(true);
-  };
-
-  const submitExport = async () => {
-    setExporting(true);
-    try {
-      // 密码只走 POST body 换一次性 token，避免出现在下载 URL 与服务器日志里
-      const tokenRes = await post<{ exportToken?: string }>('/api/repo/export/token', {
-        exportPassword: exportPwd.trim() || undefined,
-      });
-      // 公共 download()：content-type 为 JSON 时按后端错误抛中文，不再把错误存成 .xlsx
-      await download(
-        '/api/repo/export',
-        { id: repoId, exportToken: tokenRes?.exportToken },
-        `${repoName || '题库'}题目.xlsx`,
-      );
-      setExportOpen(false);
-      setExportPwd('');
-      message.success('导出已开始');
-    } catch (e) {
-      message.error((e as Error).message);
-    } finally {
-      setExporting(false);
-    }
+    setExportTarget({ id: repoId, name: repoName, total });
   };
 
   const batchDelete = async () => {
@@ -558,6 +532,18 @@ export default function RepoQuestions() {
                 导入 Excel
               </Button>
             </Upload>
+          )}
+          {canImport && (
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() =>
+                void download('/api/file/downloadTemplate', { name: '卷王题库导入模板' }, '题库导入模板.xlsx').catch(
+                  (e) => message.error((e as Error).message),
+                )
+              }
+            >
+              下载模板
+            </Button>
           )}
           {canExport && (
             <Button icon={<DownloadOutlined />} onClick={openExport}>
@@ -884,28 +870,7 @@ export default function RepoQuestions() {
         </Form>
       </Modal>
 
-      {/* 导出密码：系统设置里没配密码时留空直接导出 */}
-      <Modal
-        title="导出题目"
-        open={exportOpen}
-        onCancel={() => setExportOpen(false)}
-        onOk={() => void submitExport()}
-        okText="导出"
-        cancelText="取消"
-        confirmLoading={exporting}
-        destroyOnClose
-      >
-        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.7, marginBottom: 10 }}>
-          管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
-        </div>
-        <Input.Password
-          value={exportPwd}
-          onChange={(e) => setExportPwd(e.target.value)}
-          onPressEnter={() => void submitExport()}
-          placeholder="导出密码"
-          autoComplete="off"
-        />
-      </Modal>
+      <RepoExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
     </>
   );
 }

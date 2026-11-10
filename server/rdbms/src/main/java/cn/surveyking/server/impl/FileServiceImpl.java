@@ -590,13 +590,44 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		return StringUtils.isNotBlank(extName) && SAFE_INLINE_EXTENSIONS.contains(extName.toLowerCase(Locale.ROOT));
 	}
 
+	/**
+	 * 导入模板白名单：请求里的 name → classpath {@code template/} 下的真实文件名（不带 .xlsx）。
+	 *
+	 * <p>前端只传固定常量；这里用白名单而不是「name 拼路径」，既修正历史别名
+	 * （{@code 用户导入模板} 实际资源叫 {@code 卷王用户导入模板.xlsx}），也避免任意串
+	 * 拼进 classpath 造成路径穿越 / 资源探测。
+	 */
+	private static final Map<String, String> TEMPLATE_WHITELIST = buildTemplateWhitelist();
+
+	private static Map<String, String> buildTemplateWhitelist() {
+		Map<String, String> templates = new LinkedHashMap<>();
+		templates.put("用户导入模板", "卷王用户导入模板");
+		templates.put("学员导入模板", "学员导入模板");
+		templates.put("卷王题库导入模板", "卷王题库导入模板");
+		templates.put("字典导入模板", "字典导入模板");
+		templates.put("白名单导入模板", "白名单导入模板");
+		return Collections.unmodifiableMap(templates);
+	}
+
 	@Override
 	public ResponseEntity<Resource> downloadTemplate(String name) {
-		String templateName = name + ".xlsx";
+		// name 只用于白名单查表，绝不拼进 classpath 路径
+		String templateName = StringUtils.isBlank(name) ? null : TEMPLATE_WHITELIST.get(name.trim());
+		if (StringUtils.isBlank(templateName)) {
+			throw new ErrorCodeException(ErrorCode.FileNotExists);
+		}
+		String location = "template/" + templateName + ".xlsx";
+		ClassPathResource resource = new ClassPathResource(location);
+		if (!resource.exists()) {
+			// 直接返回不存在的 Resource 会在消息转换阶段抛 IOException，最终变成 500；这里按 404 处理
+			log.warn("导入模板不存在: {}", location);
+			throw new ErrorCodeException(ErrorCode.FileNotExists);
+		}
+		String downloadName = templateName + ".xlsx";
 		return ResponseEntity.ok()
-				.header(HttpHeaders.CONTENT_DISPOSITION, HTTPUtils.getContentDispositionValue(templateName))
+				.header(HttpHeaders.CONTENT_DISPOSITION, HTTPUtils.getContentDispositionValue(downloadName))
 				.contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
-				.body(new ClassPathResource("template/" + templateName));
+				.body(resource);
 	}
 
 	private static final class UploadRateWindow {

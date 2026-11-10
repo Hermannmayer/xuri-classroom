@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, DatePicker, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
+import { Button, Card, DatePicker, Form, Input, message, Modal, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
+import DeleteDeptDialog from '../teaching/DeleteDeptDialog';
 import { ApiError, get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
@@ -87,6 +88,8 @@ export default function SystemGroup() {
   // 打开编辑弹窗时该组已有的角色，用于判断用户是否真的改动了角色选择
   const [originalRoleIds, setOriginalRoleIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  /** 删除统一走 DeleteDeptDialog（预检子组/成员，成员二选一：移出或迁移） */
+  const [deleteTarget, setDeleteTarget] = useState<Dept | null>(null);
   const [form] = Form.useForm<{
     name: string;
     parentId?: string;
@@ -111,7 +114,8 @@ export default function SystemGroup() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await get<Dept[]>('/api/system/dept/list');
+      // 用户组页只维护教职工组；班级（学员）由班级管理页维护，不混进来
+      const list = await get<Dept[]>('/api/system/dept/list', { deptType: 'org' });
       setTree(buildTree(Array.isArray(list) ? list : []));
     } catch (e) {
       message.error((e as Error).message);
@@ -140,7 +144,7 @@ export default function SystemGroup() {
       });
   }, [load]);
 
-  /** 默认展开全部：组树不应折叠，否则多层班级找不到 */
+  /** 默认展开全部：组树不应折叠，否则多层用户组找不到 */
   const allKeys = useMemo(() => collectIds(tree), [tree]);
 
   /**
@@ -204,6 +208,8 @@ export default function SystemGroup() {
     const payload = {
       name: values.name,
       parentId: values.parentId,
+      // 用户组（教职工组织）与班级（学员）分开存：本页新建/编辑一律写 org
+      deptType: 'org',
       ...(omitRoleIds ? {} : { roleIds: nextRoleIds }),
       validFrom: from ? from.startOf('day').toISOString() : null,
       validTo: to ? to.endOf('day').toISOString() : null,
@@ -226,16 +232,6 @@ export default function SystemGroup() {
     }
   };
 
-  const remove = async (row: Dept) => {
-    try {
-      await post('/api/system/dept/delete', { id: row.id });
-      message.success('已删除');
-      await load();
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  };
-
   /** 桌面端「操作」列：三个动作都没权限时整列不渲染 */
   const opsColumn: ColumnsType<Dept>[number] = {
     title: '操作',
@@ -246,15 +242,9 @@ export default function SystemGroup() {
         {canCreate && <LinkAction onClick={() => openCreate(row)}>加子组</LinkAction>}
         {canUpdate && <LinkAction onClick={() => openEdit(row)}>编辑</LinkAction>}
         {canDelete && (
-          <Popconfirm
-            title={`删除「${row.name}」？`}
-            okText="删除"
-            okButtonProps={{ danger: true }}
-            cancelText="取消"
-            onConfirm={() => remove(row)}
-          >
-            <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
-          </Popconfirm>
+          <LinkAction style={{ color: 'var(--bp-orange)' }} onClick={() => setDeleteTarget(row)}>
+            删除
+          </LinkAction>
         )}
       </Space>
     ),
@@ -266,11 +256,10 @@ export default function SystemGroup() {
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>GROUP / 用户组</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-            班级与分组
+            用户组
           </div>
           <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            组决定「哪些人 + 拥有哪些角色 + 有效期」；组内成员的最终权限 = 直挂角色 ∪ 组链上绑定的角色，
-            具体权限点在「权限配置」里按角色维护（旧的组级权限串机制已下线）。
+            教职工组织与角色：组内成员继承绑定角色的权限；班级与学员在「班级管理」维护。
           </div>
           {roleError && (
             <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginTop: 4 }}>
@@ -283,7 +272,7 @@ export default function SystemGroup() {
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
         {canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
-            新建分组
+            新建用户组
           </Button>
         )}
       </div>
@@ -346,7 +335,7 @@ export default function SystemGroup() {
 
       <Modal
         width={640}
-        title={editing ? '编辑分组' : '新建分组'}
+        title={editing ? '编辑用户组' : '新建用户组'}
         open={open}
         onCancel={() => setOpen(false)}
         onOk={submit}
@@ -356,10 +345,10 @@ export default function SystemGroup() {
         destroyOnClose
       >
         <Form form={form} layout="vertical" size="small" requiredMark={false}>
-          <Form.Item name="name" label="分组名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input placeholder="例如：育婴五级 2026 春季班" />
+          <Form.Item name="name" label="用户组名称" rules={[{ required: true, message: '请输入名称' }]}>
+            <Input placeholder="例如：教务处 / 护理教研组" />
           </Form.Item>
-          <Form.Item name="parentId" label="上级分组" extra="留空表示顶层">
+          <Form.Item name="parentId" label="上级用户组" extra="留空表示顶层">
             <Select
               allowClear
               placeholder="顶层（不选）"
@@ -393,6 +382,15 @@ export default function SystemGroup() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <DeleteDeptDialog
+        open={Boolean(deleteTarget)}
+        deptId={deleteTarget?.id ?? ''}
+        deptName={deleteTarget?.name}
+        deptType="org"
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={() => void load()}
+      />
     </div>
   );
 }

@@ -4,11 +4,14 @@ import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
+import cn.surveyking.server.domain.dto.ClassMemberImportRequest;
+import cn.surveyking.server.domain.dto.ClassMemberImportResult;
 import cn.surveyking.server.domain.dto.ClassMemberUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberView;
 import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
+import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.UserOptionView;
 import cn.surveyking.server.domain.dto.UserRequest;
 import cn.surveyking.server.domain.model.Account;
@@ -28,6 +31,7 @@ import cn.surveyking.server.mapper.UserDeptMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.mapper.UserRoleMapper;
 import cn.surveyking.server.service.ClassService;
+import cn.surveyking.server.service.DeptService;
 import cn.surveyking.server.service.UserService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
@@ -72,6 +76,15 @@ public class ClassServiceImpl implements ClassService {
 
 	private static final int TEACHER_OPTION_LIMIT = 200;
 
+	/** 只读授权：能看班级与成员，不能改 */
+	public static final int ACCESS_READ_ONLY = 1;
+
+	/** 可管理授权：能增删改本班/下级班学员、批量导入 */
+	public static final int ACCESS_MANAGE = 2;
+
+	/** 只有查看权限时的统一提示（assertClassManage 抛出） */
+	private static final String MANAGE_DENIED_MESSAGE = "你对该班级只有查看权限，不能修改";
+
 	private final DeptMapper deptMapper;
 
 	private final DeptRoleMapper deptRoleMapper;
@@ -90,9 +103,16 @@ public class ClassServiceImpl implements ClassService {
 
 	private final UserService userService;
 
+	/** 班级也是 t_dept 的一行，建班/改班复用组织树的写路径（缓存失效、上级校验都在那里） */
+	private final DeptService deptService;
+
+	private final ClassStudentImportService classStudentImportService;
+
 	@Override
 	public List<ClassNodeView> listClassTree(String keyword) {
-		List<Dept> depts = deptMapper.selectList(Wrappers.<Dept>lambdaQuery().orderByAsc(Dept::getSortCode));
+		// 班级树只装班级：用户组（org）是教职工的组织，不进班级页
+		List<Dept> depts = deptMapper.selectList(
+				Wrappers.<Dept>lambdaQuery().eq(Dept::getDeptType, Dept.TYPE_CLASS).orderByAsc(Dept::getSortCode));
 		if (depts.isEmpty()) {
 			return Collections.emptyList();
 		}
@@ -108,6 +128,8 @@ public class ClassServiceImpl implements ClassService {
 		Set<String> include = withAncestors(visible, byId);
 		Map<String, Long> counts = countMembers(visible);
 		Map<String, List<String>> roleIdsByDept = loadDeptRoleIds(include);
+		// 能不能改这个班（增删改学员）：与 assertClassManage 同一套口径，只是这里一次算完整棵树
+		Set<String> manageable = manageableDeptIds(depts, byId);
 		Map<String, String> managerNames = new HashMap<>();
 		List<ClassNodeView> roots = new ArrayList<>();
 		for (Dept dept : depts) {
@@ -117,13 +139,48 @@ public class ClassServiceImpl implements ClassService {
 			// 父节点不在结果里 → 这是当前可见子树的根
 			if (!StringUtils.hasText(dept.getParentId()) || !include.contains(dept.getParentId())
 					|| ROOT_DEPT_PARENT_ID.equals(dept.getParentId())) {
-				roots.add(toNode(dept, childMap, include, visible, counts, managerNames, roleIdsByDept));
+				roots.add(toNode(dept, childMap, include, visible, manageable, counts, managerNames, roleIdsByDept));
 			}
 		}
 		if (!StringUtils.hasText(keyword)) {
 			return roots;
 		}
 		return filterByKeyword(roots, keyword.trim());
+	}
+
+	/**
+	 * 新建班级：老师有 class:list 就能建（权限在 TeachingApi 上），这里只保证落库的是班级。
+	 *
+	 * <p>班级不绑角色：角色是用户组（教职工）的能力，班级里只有学员；create_by 由框架自动填当前用户，
+	 * 班级树的可见范围据此判定，所以建完就能看到自己的班。
+	 */
+	@Override
+	public void createClass(DeptRequest request) {
+		if (request == null) {
+			throw new ValidationException("缺少班级信息");
+		}
+		if (!StringUtils.hasText(request.getName())) {
+			throw new ValidationException("请填写班级名称");
+		}
+		request.setDeptType(Dept.TYPE_CLASS);
+		request.setRoleIds(null);
+		deptService.addDept(request);
+	}
+
+	/**
+	 * 修改班级：只允许改自己「可管理」的班（管理员 / class:grant / 班主任 / 可管理授权）。
+	 *
+	 * <p>只改名称、上级、有效期；类型固定 class，不允许通过更新把班级改成用户组。
+	 */
+	@Override
+	public void updateClass(DeptRequest request) {
+		if (request == null || !StringUtils.hasText(request.getId())) {
+			throw new ValidationException("缺少班级 id");
+		}
+		assertClassManage(request.getId());
+		request.setDeptType(Dept.TYPE_CLASS);
+		request.setRoleIds(null);
+		deptService.updateDept(request);
 	}
 
 	@Override
@@ -181,6 +238,7 @@ public class ClassServiceImpl implements ClassService {
 			ClassTeacherView view = new ClassTeacherView();
 			view.setId(partner.getId());
 			view.setUserId(partner.getUserId());
+			view.setAccessLevel(partner.getAccessLevel() == null ? ACCESS_READ_ONLY : partner.getAccessLevel());
 			view.setCreateAt(partner.getCreateAt());
 			User user = users.get(partner.getUserId());
 			if (user != null) {
@@ -227,7 +285,7 @@ public class ClassServiceImpl implements ClassService {
 
 	@Override
 	public void addClassPartners(ClassPartnerRequest request) {
-		if (!StringUtils.hasText(request.getDeptId())) {
+		if (request == null || !StringUtils.hasText(request.getDeptId())) {
 			throw new ValidationException("缺少班级 id");
 		}
 		if (deptMapper.selectById(request.getDeptId()) == null) {
@@ -246,19 +304,72 @@ public class ClassServiceImpl implements ClassService {
 		if (existUsers.size() != userIds.size()) {
 			throw new ValidationException("部分用户不存在，请刷新后重试");
 		}
-		Set<String> granted = classPartnerMapper
+		// accessLevel 不传时：新增按只读，已存在的保持原级别（避免老客户端把「可管理」降成只读）
+		Integer requestedLevel = request.getAccessLevel();
+		int accessLevel = requestedLevel == null ? ACCESS_READ_ONLY : normalizeAccessLevel(requestedLevel);
+		Map<String, ClassPartner> granted = classPartnerMapper
 				.selectList(Wrappers.<ClassPartner>lambdaQuery().eq(ClassPartner::getDeptId, request.getDeptId())
 						.in(ClassPartner::getUserId, userIds))
-				.stream().map(ClassPartner::getUserId).collect(Collectors.toSet());
+				.stream().filter(partner -> StringUtils.hasText(partner.getUserId()))
+				.collect(Collectors.toMap(ClassPartner::getUserId, partner -> partner, (a, b) -> a));
 		for (String userId : userIds) {
-			if (granted.contains(userId)) {
+			ClassPartner exist = granted.get(userId);
+			if (exist == null) {
+				ClassPartner partner = new ClassPartner();
+				partner.setDeptId(request.getDeptId());
+				partner.setUserId(userId);
+				partner.setAccessLevel(accessLevel);
+				classPartnerMapper.insert(partner);
 				continue;
 			}
-			ClassPartner partner = new ClassPartner();
-			partner.setDeptId(request.getDeptId());
-			partner.setUserId(userId);
-			classPartnerMapper.insert(partner);
+			// 已授权过的老师再次提交 = 改级别（upsert）：以前这里直接 continue，级别永远改不动。
+			// 本次没显式传 accessLevel 时不动原级别，只补人。
+			if (requestedLevel != null
+					&& !Objects.equals(exist.getAccessLevel() == null ? ACCESS_READ_ONLY : exist.getAccessLevel(), accessLevel)) {
+				ClassPartner update = new ClassPartner();
+				update.setId(exist.getId());
+				update.setAccessLevel(accessLevel);
+				classPartnerMapper.updateById(update);
+			}
 		}
+	}
+
+	/**
+	 * 修改某条授权的级别（1=只读 / 2=可管理）。
+	 *
+	 * <p>不在 {@code ClassService} 接口里：本次改动不允许动 {@code server/shared} 的接口文件，
+	 * 由 {@code TeachingApi} 直接注入本实现类调用（与 {@code SystemProtectionApi} 注入
+	 * {@code SystemServiceImpl} 同一写法）。
+	 */
+	@Override
+	public void updateClassPartner(ClassPartnerRequest request) {
+		if (request == null || !StringUtils.hasText(request.getDeptId()) || !StringUtils.hasText(request.getId())) {
+			throw new ValidationException("缺少授权记录 id");
+		}
+		if (request.getAccessLevel() == null) {
+			throw new ValidationException("请选择授权级别");
+		}
+		int accessLevel = normalizeAccessLevel(request.getAccessLevel());
+		ClassPartner partner = classPartnerMapper.selectById(request.getId());
+		// 必须属于这个班：否则可以拿 A 班的授权 id 去改 B 班，越权改掉别人的授权
+		if (partner == null || !Objects.equals(partner.getDeptId(), request.getDeptId())) {
+			throw new ValidationException("授权记录不存在，请刷新后重试");
+		}
+		ClassPartner update = new ClassPartner();
+		update.setId(partner.getId());
+		update.setAccessLevel(accessLevel);
+		classPartnerMapper.updateById(update);
+	}
+
+	/** 授权级别只接受 1=只读 / 2=可管理；为空按只读处理 */
+	private int normalizeAccessLevel(Integer accessLevel) {
+		if (accessLevel == null) {
+			return ACCESS_READ_ONLY;
+		}
+		if (accessLevel != ACCESS_READ_ONLY && accessLevel != ACCESS_MANAGE) {
+			throw new ValidationException("授权级别只能是 1（只读）或 2（可管理）");
+		}
+		return accessLevel;
 	}
 
 	@Override
@@ -274,24 +385,30 @@ public class ClassServiceImpl implements ClassService {
 		if (request == null || !StringUtils.hasText(request.getDeptId())) {
 			throw new ValidationException("缺少班级 id");
 		}
-		assertClassVisible(request.getDeptId());
+		// 写操作走「可管理」判定：只有查看权限（access_level=1）的老师不能加人
+		assertClassManage(request.getDeptId());
 		if (!StringUtils.hasText(request.getName())) {
 			throw new ValidationException("请填写学员姓名");
 		}
-		if (!StringUtils.hasText(request.getUsername())) {
-			throw new ValidationException("请填写登录账号");
+		// 学员的登录账号就是手机号：必填 + 格式校验；request.username 仅为兼容旧前端，一律忽略
+		String phone = request.getPhone() == null ? null : request.getPhone().trim();
+		if (!StringUtils.hasText(phone)) {
+			throw new ValidationException("请填写手机号");
+		}
+		if (!ClassStudentService.PHONE_PATTERN.matcher(phone).matches()) {
+			throw new ValidationException("手机号格式不正确");
 		}
 		if (!StringUtils.hasText(request.getPassword())) {
 			throw new ValidationException("请填写初始密码");
 		}
-		if (userService.checkUsernameExist(request.getUsername().trim())) {
-			throw new ValidationException("登录账号已存在");
+		if (userService.checkUsernameExist(phone)) {
+			throw new ValidationException(ClassStudentService.PHONE_EXISTS_MESSAGE);
 		}
 		UserRequest userRequest = new UserRequest();
 		userRequest.setName(request.getName().trim());
-		userRequest.setUsername(request.getUsername().trim());
+		userRequest.setUsername(phone);
 		userRequest.setPassword(request.getPassword());
-		userRequest.setPhone(request.getPhone());
+		userRequest.setPhone(phone);
 		userRequest.setEmail(request.getEmail());
 		userRequest.setDeptId(request.getDeptId());
 		userRequest.setDeptIds(Collections.emptyList());
@@ -300,7 +417,7 @@ public class ClassServiceImpl implements ClassService {
 		}
 		catch (org.springframework.dao.DuplicateKeyException ex) {
 			// 并发下 checkUsernameExist 可能漏掉，唯一键冲突统一给用户可读提示
-			throw new ValidationException("登录账号已存在");
+			throw new ValidationException(ClassStudentService.PHONE_EXISTS_MESSAGE);
 		}
 	}
 
@@ -309,7 +426,7 @@ public class ClassServiceImpl implements ClassService {
 		if (request == null || !StringUtils.hasText(request.getDeptId()) || !StringUtils.hasText(request.getId())) {
 			throw new ValidationException("缺少班级或学员 id");
 		}
-		assertClassVisible(request.getDeptId());
+		assertClassManage(request.getDeptId());
 		User user = userMapper.selectById(request.getId());
 		if (user == null || !"student".equals(user.getUserType())) {
 			throw new ValidationException("只能编辑学员账号");
@@ -320,10 +437,18 @@ public class ClassServiceImpl implements ClassService {
 		if (!StringUtils.hasText(request.getName())) {
 			throw new ValidationException("请填写学员姓名");
 		}
+		// 手机号是登录账号，编辑时同样必填：清空手机号等于把学员的登录名弄没
+		String phone = request.getPhone() == null ? null : request.getPhone().trim();
+		if (!StringUtils.hasText(phone)) {
+			throw new ValidationException("请填写手机号");
+		}
+		if (!ClassStudentService.PHONE_PATTERN.matcher(phone).matches()) {
+			throw new ValidationException("手机号格式不正确");
+		}
 		UserRequest update = new UserRequest();
 		update.setId(user.getId());
 		update.setName(request.getName().trim());
-		update.setPhone(request.getPhone());
+		update.setPhone(phone);
 		update.setEmail(request.getEmail());
 		update.setStatus(request.getStatus());
 		update.setPassword(request.getPassword());
@@ -335,7 +460,7 @@ public class ClassServiceImpl implements ClassService {
 		if (!StringUtils.hasText(deptId) || !StringUtils.hasText(userId)) {
 			throw new ValidationException("缺少班级或学员 id");
 		}
-		assertClassVisible(deptId);
+		assertClassManage(deptId);
 		User user = userMapper.selectById(userId);
 		if (user == null || !"student".equals(user.getUserType())) {
 			throw new ValidationException("只能删除学员账号");
@@ -344,6 +469,22 @@ public class ClassServiceImpl implements ClassService {
 			throw new AccessDeniedException("这个学员不在当前班级");
 		}
 		userService.deleteClassStudent(userId);
+	}
+
+	/** 批量导入学员（见 {@link ClassStudentImportService}） */
+	@Override
+	public ClassMemberImportResult importClassMembers(ClassMemberImportRequest request) {
+		if (request == null || !StringUtils.hasText(request.getDeptId())) {
+			throw new ValidationException("缺少班级 id");
+		}
+		// 批量导入是写操作：先判「可管理」，再谈文件格式
+		assertClassManage(request.getDeptId());
+		if (request.getFile() == null || request.getFile().isEmpty()) {
+			throw new ValidationException("请选择要导入的 Excel 文件");
+		}
+		// 逐行校验与建号在 ClassStudentImportService；事务由本类的 @Transactional(rollbackFor = Exception.class) 开启，
+		// 任一行失败整批回滚，异常信息统一是「第 N 行：原因」
+		return classStudentImportService.importMembers(request.getDeptId(), request.getFile());
 	}
 
 	private boolean isMemberOfClass(User user, String deptId) {
@@ -381,20 +522,60 @@ public class ClassServiceImpl implements ClassService {
 		if (roots.isEmpty()) {
 			return Collections.emptySet();
 		}
+		return expandDescendants(roots, depts);
+	}
+
+	/**
+	 * 当前用户能「管理」的班级：自己创建/负责的班 + 被授了 access_level=2 的班，并向下覆盖所有下级班。
+	 *
+	 * <p>与 {@link #assertClassManage(String)} 同一套口径（那里是单班向上查祖先，这里是一棵树向下展开），
+	 * 树上的 {@code manageable} 字段就来自这个集合。
+	 */
+	private Set<String> manageableDeptIds(List<Dept> depts, Map<String, Dept> byId) {
+		if (SecurityContextUtils.isAdmin() || SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode())) {
+			return depts.stream().map(Dept::getId).filter(StringUtils::hasText)
+					.collect(Collectors.toCollection(LinkedHashSet::new));
+		}
+		String currentUserId = SecurityContextUtils.getUserId();
+		if (!StringUtils.hasText(currentUserId)) {
+			return Collections.emptySet();
+		}
+		Set<String> roots = new LinkedHashSet<>();
+		for (Dept dept : depts) {
+			if (Objects.equals(currentUserId, dept.getCreateBy()) || Objects.equals(currentUserId, dept.getManagerId())) {
+				roots.add(dept.getId());
+			}
+		}
+		classPartnerMapper
+				.selectList(Wrappers.<ClassPartner>lambdaQuery().eq(ClassPartner::getUserId, currentUserId)
+						.eq(ClassPartner::getAccessLevel, ACCESS_MANAGE))
+				.forEach(partner -> {
+					if (StringUtils.hasText(partner.getDeptId()) && byId.containsKey(partner.getDeptId())) {
+						roots.add(partner.getDeptId());
+					}
+				});
+		if (roots.isEmpty()) {
+			return Collections.emptySet();
+		}
+		return expandDescendants(roots, depts);
+	}
+
+	/** 从 roots 出发沿 parent_id 向下展开（授权/负责一个班包含它的全部下级班） */
+	private Set<String> expandDescendants(Set<String> roots, List<Dept> depts) {
 		Map<String, List<Dept>> childMap = depts.stream()
 				.filter(d -> StringUtils.hasText(d.getParentId()))
 				.collect(Collectors.groupingBy(Dept::getParentId));
-		Set<String> visible = new LinkedHashSet<>(roots);
+		Set<String> result = new LinkedHashSet<>(roots);
 		Deque<String> queue = new ArrayDeque<>(roots);
 		while (!queue.isEmpty()) {
 			String parent = queue.poll();
 			for (Dept child : childMap.getOrDefault(parent, Collections.emptyList())) {
-				if (visible.add(child.getId())) {
+				if (result.add(child.getId())) {
 					queue.add(child.getId());
 				}
 			}
 		}
-		return visible;
+		return result;
 	}
 
 	/**
@@ -422,7 +603,7 @@ public class ClassServiceImpl implements ClassService {
 	}
 
 	private ClassNodeView toNode(Dept dept, Map<String, List<Dept>> childMap, Set<String> include,
-			Set<String> visible, Map<String, Long> counts, Map<String, String> managerNames,
+			Set<String> visible, Set<String> manageable, Map<String, Long> counts, Map<String, String> managerNames,
 			Map<String, List<String>> roleIdsByDept) {
 		ClassNodeView view = new ClassNodeView();
 		view.setId(dept.getId());
@@ -431,6 +612,7 @@ public class ClassServiceImpl implements ClassService {
 		view.setManagerId(dept.getManagerId());
 		view.setMemberCount(counts.getOrDefault(dept.getId(), 0L));
 		view.setAccessible(visible.contains(dept.getId()));
+		view.setManageable(manageable.contains(dept.getId()));
 		view.setRoleIds(roleIdsByDept.getOrDefault(dept.getId(), Collections.emptyList()));
 		view.setValidFrom(dept.getValidFrom());
 		view.setValidTo(dept.getValidTo());
@@ -442,7 +624,7 @@ public class ClassServiceImpl implements ClassService {
 		}
 		view.setChildren(childMap.getOrDefault(dept.getId(), Collections.emptyList()).stream()
 				.filter(child -> include.contains(child.getId()))
-				.map(child -> toNode(child, childMap, include, visible, counts, managerNames, roleIdsByDept))
+				.map(child -> toNode(child, childMap, include, visible, manageable, counts, managerNames, roleIdsByDept))
 				.collect(Collectors.toList()));
 		return view;
 	}
@@ -506,6 +688,7 @@ public class ClassServiceImpl implements ClassService {
 		if (dept == null) {
 			throw new ValidationException("班级不存在");
 		}
+		assertDeptIsClass(dept);
 		if (SecurityContextUtils.isAdmin() || SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode())) {
 			return dept;
 		}
@@ -527,6 +710,59 @@ public class ClassServiceImpl implements ClassService {
 			return dept;
 		}
 		throw new AccessDeniedException("没有权限查看该班级，请联系管理员分配");
+	}
+
+	/**
+	 * 判断当前用户能否修改这个班（增删改学员、批量导入）。比查看多一档：
+	 * <ul>
+	 * <li>管理员 / class:grant：全部班级；</li>
+	 * <li>本班或任一祖先班由自己创建（create_by）/负责（manager_id）；</li>
+	 * <li>本班或任一祖先班上有 access_level=2（可管理）的授权。</li>
+	 * </ul>
+	 * 只读授权（access_level=1）能看能打开，但写操作会在这里被挡下。
+	 * @return 班级实体，供调用方复用
+	 */
+	public Dept assertClassManage(String deptId) {
+		if (!StringUtils.hasText(deptId)) {
+			throw new ValidationException("缺少班级 id");
+		}
+		Dept dept = deptMapper.selectById(deptId);
+		if (dept == null) {
+			throw new ValidationException("班级不存在");
+		}
+		assertDeptIsClass(dept);
+		if (canManageDept(dept)) {
+			return dept;
+		}
+		throw new AccessDeniedException(MANAGE_DENIED_MESSAGE);
+	}
+
+	/** 只有 dept_type=class 的节点才是班级；用户组（org）不能走班级的读写接口 */
+	private void assertDeptIsClass(Dept dept) {
+		if (!Dept.TYPE_CLASS.equals(dept.getDeptType())) {
+			throw new ValidationException("该用户组不是班级");
+		}
+	}
+
+	private boolean canManageDept(Dept dept) {
+		if (SecurityContextUtils.isAdmin() || SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode())) {
+			return true;
+		}
+		String currentUserId = SecurityContextUtils.getUserId();
+		if (!StringUtils.hasText(currentUserId)) {
+			return false;
+		}
+		List<String> chain = ancestorChain(dept.getId());
+		for (String id : chain) {
+			Dept current = Objects.equals(id, dept.getId()) ? dept : deptMapper.selectById(id);
+			if (current != null && (Objects.equals(currentUserId, current.getCreateBy())
+					|| Objects.equals(currentUserId, current.getManagerId()))) {
+				return true;
+			}
+		}
+		return classPartnerMapper
+				.selectCount(Wrappers.<ClassPartner>lambdaQuery().eq(ClassPartner::getUserId, currentUserId)
+						.eq(ClassPartner::getAccessLevel, ACCESS_MANAGE).in(ClassPartner::getDeptId, chain)) > 0;
 	}
 
 	/** 自身 + 祖先链（不含根 "0"），用于「授权一个班含下级班」的向上匹配 */

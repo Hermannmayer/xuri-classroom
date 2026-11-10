@@ -6,7 +6,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * 组织机构
+ * 组织机构（t_dept 一棵树，靠 dept_type 分成两类节点）。
+ *
+ * <p>{@link #TYPE_ORG} 用户组：教职工的组织单位，可以绑定角色、放 staff；
+ * {@link #TYPE_CLASS} 班级：学员的教学单位，不绑角色、只放 student。
  *
  * @author javahuang
  * @date 2021/11/2
@@ -16,7 +19,16 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = false)
 public class Dept extends BaseModel {
 
+	/** 用户组：教职工的组织单位，可绑定角色，可放 staff */
+	public static final String TYPE_ORG = "org";
+
+	/** 班级：学员的教学单位，不绑角色，只放 student */
+	public static final String TYPE_CLASS = "class";
+
 	private String parentId;
+
+	/** org=用户组(教职工) class=班级(学员)；历史数据为空时按 org 处理 */
+	private String deptType;
 
 	private String name;
 

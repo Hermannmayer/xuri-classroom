@@ -1,33 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, App, DatePicker, Form, Input, Modal, Popconfirm, Select, TreeSelect } from 'antd';
+import { App, DatePicker, Form, Input, Modal, TreeSelect } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { get, post } from '../../api';
+import { post } from '../../api';
+import LinkAction from '../../components/LinkAction';
+import DeleteDeptDialog from './DeleteDeptDialog';
 
 /** 与后端 ClassNodeView 对齐（班级设置弹窗只用其中一部分） */
 export interface DeptNode {
   id: string;
   name: string;
   parentId?: string;
-  managerId?: string;
-  managerName?: string;
-  memberCount?: number;
-  roleIds?: string[];
   validFrom?: string;
   validTo?: string;
   children?: DeptNode[];
 }
 
-interface Role {
-  id: string;
-  name?: string;
-  code?: string;
-}
-
 interface DeptFormValues {
   name: string;
   parentId?: string;
-  roleIds?: string[];
   validity?: [Dayjs, Dayjs] | undefined;
 }
 
@@ -57,10 +48,10 @@ function toParentTree(nodes: DeptNode[], exclude: Set<string>): { value: string;
 }
 
 /**
- * 班级设置：把原「用户组」页的建组 / 改名 / 上级 / 角色 / 有效期搬进班级管理，
- * 避免管理员在两棵树上重复操作。
+ * 班级设置：只维护班级本身（名称、上级、有效期）。
  *
- * <p>仅由班级管理页在拥有 system:dept:create/update/delete 时渲染；老师不会看到这个入口。
+ * <p>角色绑定属于「用户组（教职工）」，不在班级里做；学员与任课老师在班级管理页维护。
+ * 新建/编辑走 teaching/classes/create|update；删除仍走 system/dept/delete（入口由班级管理页按权限控制）。
  */
 export default function ClassSettingsModal({
   open,
@@ -84,21 +75,13 @@ export default function ClassSettingsModal({
 }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<DeptFormValues>();
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [roleError, setRoleError] = useState<string>();
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  /** 删除统一走 DeleteDeptDialog（预检子组/成员，成员二选一：移出或迁移） */
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setRoleError(undefined);
-    get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 })
-      .then((res) => setRoles(res?.list ?? []))
-      .catch((e: Error) => {
-        // 没有 system:role:list 的角色仍可改名称/上级，只是不能改绑定角色
-        setRoles([]);
-        setRoleError(e.message || '没有权限读取角色列表');
-      });
+    setDeleteOpen(false);
   }, [open]);
 
   useEffect(() => {
@@ -108,7 +91,6 @@ export default function ClassSettingsModal({
       form.setFieldsValue({
         name: node.name || '',
         parentId: parentInTree ? node.parentId : undefined,
-        roleIds: node.roleIds ?? [],
         validity:
           node.validFrom || node.validTo
             ? [
@@ -121,7 +103,6 @@ export default function ClassSettingsModal({
       form.setFieldsValue({
         name: '',
         parentId: defaultParentId,
-        roleIds: [],
         validity: undefined,
       });
     }
@@ -144,17 +125,16 @@ export default function ClassSettingsModal({
     const payload = {
       name: values.name.trim(),
       parentId: values.parentId || undefined,
-      roleIds: values.roleIds ?? [],
       validFrom: from ? from.startOf('day').toISOString() : null,
       validTo: to ? to.endOf('day').toISOString() : null,
     };
     setSaving(true);
     try {
       if (mode === 'edit' && node) {
-        await post('/api/system/dept/update', { id: node.id, ...payload });
+        await post('/api/teaching/classes/update', { id: node.id, ...payload });
         message.success('已保存班级设置');
       } else {
-        await post('/api/system/dept/create', payload);
+        await post('/api/teaching/classes/create', payload);
         message.success('已创建班级');
       }
       onSaved();
@@ -166,26 +146,15 @@ export default function ClassSettingsModal({
     }
   };
 
-  const remove = async () => {
-    if (!node || deleting) return;
-    setDeleting(true);
-    try {
-      await post('/api/system/dept/delete', { id: node.id });
-      message.success('已删除班级');
-      onSaved();
-      onClose();
-    } catch (e) {
-      message.error((e as Error).message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
     <Modal
       title={mode === 'edit' ? `班级设置：${node?.name || ''}` : '新建班级'}
       open={open}
-      onCancel={onClose}
+      onCancel={() => {
+        // 关掉设置弹窗时顺手收起删除弹窗，避免下次打开时它还开着
+        setDeleteOpen(false);
+        onClose();
+      }}
       onOk={() => void submit()}
       confirmLoading={saving}
       okText={mode === 'edit' ? '保存' : '创建'}
@@ -195,8 +164,8 @@ export default function ClassSettingsModal({
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 12 }}>
         {mode === 'edit'
-          ? '这里的名称、上级、角色和有效期就是原「用户组」页的设置；成员和任课老师在班级管理页维护。'
-          : '新建的班级会出现在左侧班级树里；建好后可以继续分配老师和添加学员。'}
+          ? '这里维护班级名称、上级和有效期；学员与任课老师在班级管理页维护。'
+          : '新建的班级会出现在左侧班级树里；建好后可以继续添加学员、分配任课老师。'}
       </div>
 
       <Form form={form} layout="vertical" size="small" preserve={false} requiredMark={false}>
@@ -204,67 +173,43 @@ export default function ClassSettingsModal({
           <Input placeholder="例如：2025 级护理 1 班" maxLength={64} autoComplete="off" />
         </Form.Item>
 
-        <Form.Item name="parentId" label="上级班级 / 用户组" extra="留空表示放在根级">
+        <Form.Item name="parentId" label="上级班级" extra="留空表示放在根级">
           <TreeSelect
             allowClear
             showSearch
             treeNodeFilterProp="title"
             treeDefaultExpandAll
-            placeholder="选择上级（可留空）"
+            placeholder="选择上级班级（可留空）"
             treeData={parentTreeData}
             dropdownStyle={{ maxHeight: 360, overflow: 'auto' }}
           />
         </Form.Item>
 
-        <Form.Item
-          name="roleIds"
-          label="绑定角色"
-          extra={
-            roleError
-              ? undefined
-              : '组内成员会继承这里的角色；只影响权限，不影响班级成员名单'
-          }
-        >
-          <Select
-            mode="multiple"
-            allowClear
-            placeholder={roleError ? '读不到角色列表' : '选择角色（可留空）'}
-            options={roles.map((role) => ({
-              value: role.id,
-              label: role.name || role.code || role.id,
-            }))}
-            disabled={Boolean(roleError)}
-          />
-        </Form.Item>
-
-        {roleError && (
-          <Alert
-            style={{ marginBottom: 12 }}
-            type="warning"
-            showIcon
-            message="读不到角色列表"
-            description={`${roleError}；本次仍可修改名称/上级/有效期，角色绑定请让管理员处理。`}
-          />
-        )}
-
-        <Form.Item name="validity" label="组有效期" extra="留空表示永久有效">
+        <Form.Item name="validity" label="班级有效期" extra="留空表示永久有效">
           <DatePicker.RangePicker style={{ width: '100%' }} allowEmpty={[true, true]} />
         </Form.Item>
       </Form>
 
       {mode === 'edit' && node && canDelete && (
         <div style={{ marginTop: 4 }}>
-          <Popconfirm
-            title={`删除「${node.name || '该班级'}」？`}
-            description="班级下的子班与成员关系会一起受影响，删除前请确认。"
-            okText="删除"
-            okButtonProps={{ danger: true }}
-            cancelText="取消"
-            onConfirm={() => void remove()}
-          >
-            <a style={{ color: 'var(--bp-orange)', fontSize: 12 }}>{deleting ? '删除中…' : '删除这个班级'}</a>
-          </Popconfirm>
+          <LinkAction style={{ color: 'var(--bp-orange)', fontSize: 12 }} onClick={() => setDeleteOpen(true)}>
+            删除这个班级
+          </LinkAction>
         </div>
+      )}
+
+      {node && (
+        <DeleteDeptDialog
+          open={deleteOpen}
+          deptId={node.id}
+          deptName={node.name}
+          deptType="class"
+          onClose={() => setDeleteOpen(false)}
+          onDeleted={() => {
+            onSaved();
+            onClose();
+          }}
+        />
       )}
     </Modal>
   );

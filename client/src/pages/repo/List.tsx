@@ -25,6 +25,7 @@ import { getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { pager, TABLE_COMPONENTS } from './table';
 import GrantModal from './GrantModal';
+import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 与后端 RepoView 对齐（只取列表要用的字段） */
@@ -92,6 +93,7 @@ export default function RepoList() {
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
   const [granting, setGranting] = useState<RepoView | null>(null);
+  const [exportTarget, setExportTarget] = useState<RepoExportTarget | null>(null);
   const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
   // 分类下拉候选：从已加载数据累积，翻页/筛选后不丢（只在当前页取会越筛越少）
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
@@ -126,6 +128,8 @@ export default function RepoList() {
   // 授权入口只认 repo:grant：repo:update 管的是题库内容，不该顺带把可见范围也放出去
   const canGrant = hasPermission(PERMISSION_CODES.repoGrant);
   const canDetail = hasPermission(PERMISSION_CODES.repoDetail);
+  // 导出是独立权限：有 repo:export 才显示入口；没有的人不该看到按钮再吃 403
+  const canExport = hasPermission(PERMISSION_CODES.repoExport);
   // 能不能进题库看题：与后端 /api/template/list 的守卫对齐。
   // 管理端用 repo:detail；学员用独立的 repo:questions:read。
   // 不再用 repo:book（错题本）/repo:import/template:list/repo:update 推断「能看题目」——
@@ -146,6 +150,7 @@ export default function RepoList() {
       canPractice ? '开始练习' : '',
       canPractice ? '随机练习' : '',
       canPractice ? '继续练习' : '',
+      canExport ? '导出' : '',
       canGrant ? '授权' : '',
       canUpdate ? '编辑' : '',
       canDelete ? '删除' : '',
@@ -477,6 +482,20 @@ export default function RepoList() {
                           题目
                         </Button>
                       )}
+                      {canExport && (
+                        <Button
+                          style={{
+                            flex: 1,
+                            minWidth: 96,
+                            height: 38,
+                            paddingInline: 0,
+                            whiteSpace: 'nowrap',
+                          }}
+                          onClick={() => setExportTarget({ id: row.id, name: row.name, total: row.total })}
+                        >
+                          导出
+                        </Button>
+                      )}
                       {canGrant && (
                         <Button
                           style={{
@@ -684,7 +703,7 @@ export default function RepoList() {
                 '—'
               ),
           },
-          ...(canOpen || canPractice || canGrant || canUpdate || canDelete
+          ...(canOpen || canPractice || canExport || canGrant || canUpdate || canDelete
             ? [
                 {
                   title: '操作',
@@ -695,6 +714,14 @@ export default function RepoList() {
                       {canOpen && (
                         <LinkAction style={NOWRAP} onClick={() => openRepo(row)}>
                           题目
+                        </LinkAction>
+                      )}
+                      {canExport && (
+                        <LinkAction
+                          style={NOWRAP}
+                          onClick={() => setExportTarget({ id: row.id, name: row.name, total: row.total })}
+                        >
+                          导出
                         </LinkAction>
                       )}
                       {canPractice && (
@@ -859,6 +886,7 @@ export default function RepoList() {
         // 授权/取消后刷新列表：题库的可见范围变了，列表里的「已授权」状态也要跟着变
         onChanged={() => void load()}
       />
+      <RepoExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
     </>
   );
 }

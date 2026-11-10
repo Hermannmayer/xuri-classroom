@@ -13,6 +13,9 @@ public class DeptView {
 
 	private String parentId;
 
+	/** org=用户组(教职工) class=班级(学员) */
+	private String deptType;
+
 	private String name;
 
 	private String shortName;

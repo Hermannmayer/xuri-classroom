@@ -166,6 +166,7 @@ DROP TABLE IF EXISTS `t_dept`;
 CREATE TABLE `t_dept` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `parent_id` varchar(64) NOT NULL,
+  `dept_type` varchar(16) NOT NULL DEFAULT 'org' COMMENT 'org=用户组(教职工) class=班级(学员)',
   `name` varchar(64) DEFAULT NULL COMMENT '名称',
   `short_name` varchar(64) NOT NULL COMMENT '简称',
   `code` varchar(64) DEFAULT NULL COMMENT '数据权限类型',
@@ -182,7 +183,8 @@ CREATE TABLE `t_dept` (
   `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `update_by` varchar(256) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_dept_parent` (`parent_id`)
+  KEY `idx_dept_parent` (`parent_id`),
+  KEY `idx_dept_type` (`dept_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='组织机构';
 
 -- ----------------------------
@@ -199,6 +201,7 @@ CREATE TABLE IF NOT EXISTS `t_class_partner` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `dept_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id）',
   `user_id` varchar(64) NOT NULL COMMENT '被授权的老师（t_user.id）',
+  `access_level` tinyint NOT NULL DEFAULT '1' COMMENT '1=只读 2=可管理',
   `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `create_by` varchar(256) DEFAULT NULL,

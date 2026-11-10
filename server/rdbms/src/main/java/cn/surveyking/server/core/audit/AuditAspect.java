@@ -21,6 +21,8 @@ public class AuditAspect {
 
 	private final AuditRecorder auditRecorder;
 
+	private final AuditTargetResolver targetResolver;
+
 	@Around("within(cn.surveyking.server.api..*) && ("
 			+ "@annotation(org.springframework.web.bind.annotation.PostMapping) || "
 			+ "@annotation(org.springframework.web.bind.annotation.PutMapping) || "
@@ -39,15 +41,17 @@ public class AuditAspect {
 		String method = request.getMethod();
 		String action = AuditRecorder.actionOf(uri);
 		String targetId = AuditRecorder.targetIdOf(joinPoint.getArgs());
+		// 删除类必须在 proceed 之前解析目标名称：执行完对象就查不到了
+		String targetName = targetResolver.resolve(uri, joinPoint.getArgs());
 		String detail = method + " " + uri + " · " + where;
 
 		try {
 			Object result = joinPoint.proceed();
-			auditRecorder.record(action, targetId, detail + " · 成功", true, null);
+			auditRecorder.record(action, targetId, targetName, detail + " · 成功", true, null);
 			return result;
 		}
 		catch (Throwable t) {
-			auditRecorder.record(action, targetId, detail, false, t.getClass().getSimpleName());
+			auditRecorder.record(action, targetId, targetName, detail, false, t.getClass().getSimpleName());
 			throw t;
 		}
 	}

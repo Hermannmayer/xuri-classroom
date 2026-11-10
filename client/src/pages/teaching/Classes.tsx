@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -8,6 +10,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Radio,
   Select,
   Space,
   Spin,
@@ -24,6 +27,7 @@ import {
   SearchOutlined,
   SettingOutlined,
   TeamOutlined,
+  UploadOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
 import { get, post } from '../../api';
@@ -31,6 +35,8 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import ClassSettingsModal from './ClassSettingsModal';
+import DeleteDeptDialog from './DeleteDeptDialog';
+import ImportMembersModal from './ImportMembersModal';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 与后端 ClassNodeView 对齐 */
@@ -41,16 +47,20 @@ interface ClassNode {
   managerId?: string;
   managerName?: string;
   memberCount?: number;
-  /** 班级设置回显：组绑定角色与有效期 */
-  roleIds?: string[];
+  /** 班级设置回显：有效期 */
   validFrom?: string;
   validTo?: string;
   /** false = 只是路径祖先（后端为了显示被授权的子班补出来的），点它会 403 */
   accessible?: boolean;
+  /**
+   * 当前登录人对本班是否有写权限（后端按「本人对这个班的授权」下发）。
+   * false = 只有查看权限，不能用全局 class:member:* 代替。
+   */
+  manageable?: boolean;
   children?: ClassNode[];
 }
 
-/** 与后端 ClassMemberView 对齐（有意不返回手机号/邮箱） */
+/** 与后端 ClassMemberView 对齐：学员的手机号就是登录账号，username 与 phone 同值 */
 interface ClassMember {
   id: string;
   name?: string;
@@ -70,6 +80,8 @@ interface ClassTeacher {
   userId?: string;
   userName?: string;
   deptName?: string;
+  /** 1 = 只读，2 = 可管理 */
+  accessLevel?: number;
   createAt?: string;
 }
 
@@ -83,9 +95,9 @@ interface TeacherOption {
 
 interface MemberFormValues {
   name: string;
-  username: string;
+  /** 手机号即登录账号，必填 */
+  phone: string;
   password: string;
-  phone?: string;
   email?: string;
 }
 
@@ -218,22 +230,29 @@ function MemberStatus({ status }: { status?: number | null }) {
  * - class:grant         → 看全部班级、给老师分配查看权限
  * - class:member:create → 在自己管的班里添加学员
  *
- * 数据全部来自后端（班级树 = 用户组 dept），没有班级时显示引导而不是假数据。
+ * 数据全部来自后端（/api/teaching/classes/tree 只返回班级节点），没有班级时显示引导而不是假数据。
  */
 export default function TeachingClasses() {
   const { message } = App.useApp();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
+  /** ?create=1 只处理一次：ref 防重复，参数用 replace 去掉，避免刷新再弹 */
+  const createFromQuery = useRef(false);
 
   /* ---------------- 按钮级权限 ---------------- */
   const [authorities, setAuthorities] = useState<string[]>([]);
+  const [authoritiesReady, setAuthoritiesReady] = useState(false);
   useEffect(() => {
-    void loadAuthorities().then((list) => setAuthorities(list));
+    void loadAuthorities()
+      .then((list) => setAuthorities(list))
+      .finally(() => setAuthoritiesReady(true));
   }, []);
+  // 班级页入口权限：老师有 class:list 就能自己建班（不再要求 system:dept:create）
+  const canList = can(authorities, PERMISSION_CODES.classList);
   const canDetail = can(authorities, PERMISSION_CODES.classDetail);
   const canGrant = can(authorities, PERMISSION_CODES.classGrant);
   const canCreateMember = can(authorities, PERMISSION_CODES.classMemberCreate);
-  // 原「用户组」页的组织设置权限：只有管理员/组织管理员有，老师默认没有
-  const canDeptCreate = can(authorities, PERMISSION_CODES.systemDeptCreate);
+  // 组织设置权限（system:dept:*）留给管理员：设置弹窗可见性、删除分组
   const canDeptUpdate = can(authorities, PERMISSION_CODES.systemDeptUpdate);
   const canDeptDelete = can(authorities, PERMISSION_CODES.systemDeptDelete);
   const canMemberUpdate = can(authorities, PERMISSION_CODES.classMemberUpdate);
@@ -285,6 +304,12 @@ export default function TeachingClasses() {
 
   const selected = useMemo(() => (selectedId ? findNode(tree, selectedId) : undefined), [tree, selectedId]);
 
+  /**
+   * 后端按「本人对这个班的授权」下发 manageable；false 时只读。
+   * 不能拿全局 class:member:* 代替：老师可能对整个模块有写权限，但只被授予了某个班的查看权。
+   */
+  const readOnlyClass = selected?.manageable === false;
+
   /* ---------------- 班级成员 ---------------- */
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [memberLoading, setMemberLoading] = useState(false);
@@ -321,15 +346,19 @@ export default function TeachingClasses() {
     if (nextId && nextId === before) await loadMembers(nextId);
   };
 
-  /* ---------------- 班级设置（原用户组页） ---------------- */
+  /* ---------------- 班级设置 ---------------- */
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMode, setSettingsMode] = useState<'create' | 'edit'>('create');
   const [settingsNode, setSettingsNode] = useState<ClassNode | null>(null);
-  const [deletingClass, setDeletingClass] = useState(false);
+  /** 新建时的默认上级：页头按钮沿用「挂在当前选中组下」，从用户管理 ?create=1 进来时默认根级 */
+  const [settingsParentId, setSettingsParentId] = useState<string>();
+  /** 统一删除弹窗：本页 / 班级设置 / 用户组页三个入口共用 DeleteDeptDialog */
+  const [deleteTarget, setDeleteTarget] = useState<ClassNode | null>(null);
 
-  const openCreateClass = () => {
+  const openCreateClass = (parentId?: string) => {
     setSettingsMode('create');
     setSettingsNode(null);
+    setSettingsParentId(parentId);
     setSettingsOpen(true);
   };
 
@@ -340,33 +369,39 @@ export default function TeachingClasses() {
     setSettingsOpen(true);
   };
 
-  /** 删除分组：后端会把组内成员变成「未分组」并清掉授权，不会删账号 */
-  const removeClass = async () => {
-    if (!selected || deletingClass) return;
-    setDeletingClass(true);
-    try {
-      await post('/api/system/dept/delete', { id: selected.id });
-      message.success('已删除分组');
-      await loadTree();
-      await loadMembers(undefined);
-    } catch (e) {
-      message.error((e as Error).message);
-    } finally {
-      setDeletingClass(false);
-    }
+  /**
+   * 从其它入口带 ?create=1 进来：首次加载完成后自动打开新建弹窗。
+   * 等 authoritiesReady（canList 依赖它）和 treeLoading（首次树加载）都结束再判断，
+   * 否则会在权限还没拉到时就误判成「无权限」。
+   */
+  useEffect(() => {
+    if (createFromQuery.current) return;
+    if (searchParams.get('create') !== '1') return;
+    if (!authoritiesReady || treeLoading) return;
+    createFromQuery.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('create');
+    setSearchParams(next, { replace: true });
+    if (canList) openCreateClass();
+  }, [searchParams, setSearchParams, authoritiesReady, treeLoading, canList]);
+
+  /** 删除成功后刷新树和成员；选中项由 loadTree 重新挑，选中没变时它会补刷成员 */
+  const handleClassDeleted = () => {
+    void refreshAll();
   };
 
-  /* ---------------- 添加学员 ---------------- */
+  /* ---------------- 添加学员 / 批量导入 ---------------- */
   const [memberOpen, setMemberOpen] = useState(false);
   const [memberSaving, setMemberSaving] = useState(false);
   const [memberForm] = Form.useForm<MemberFormValues>();
+  const [importOpen, setImportOpen] = useState(false);
 
   /* ---------------- 编辑/删除学员 ---------------- */
   const [editingMember, setEditingMember] = useState<ClassMember | null>(null);
   const [memberEditSaving, setMemberEditSaving] = useState(false);
   const [memberEditForm] = Form.useForm<{
     name: string;
-    phone?: string;
+    phone: string;
     email?: string;
     status: number;
     password?: string;
@@ -390,9 +425,9 @@ export default function TeachingClasses() {
       await post('/api/teaching/classes/member/create', {
         deptId: selected.id,
         name: values.name.trim(),
-        username: values.username.trim(),
+        // 手机号即登录账号：后端不再接收 username
+        phone: values.phone.trim(),
         password: values.password,
-        phone: values.phone?.trim() || undefined,
         email: values.email?.trim() || undefined,
       });
       message.success('已添加学员 ' + values.name.trim());
@@ -411,7 +446,7 @@ export default function TeachingClasses() {
 
   const submitEditMember = async () => {
     if (!selected || !editingMember || memberEditSaving) return;
-    let values: { name: string; phone?: string; email?: string; status: number; password?: string };
+    let values: { name: string; phone: string; email?: string; status: number; password?: string };
     try {
       values = await memberEditForm.validateFields();
     } catch {
@@ -423,7 +458,7 @@ export default function TeachingClasses() {
         deptId: selected.id,
         id: editingMember.id,
         name: values.name.trim(),
-        phone: values.phone?.trim() || undefined,
+        phone: values.phone.trim(),
         email: values.email?.trim() || undefined,
         status: values.status,
         password: values.password || undefined,
@@ -449,7 +484,7 @@ export default function TeachingClasses() {
     }
   };
 
-  /* ---------------- 分配老师 ---------------- */
+  /* ---------------- 任课老师 ---------------- */
   const [grantOpen, setGrantOpen] = useState(false);
   const [grantSaving, setGrantSaving] = useState(false);
   const [teachers, setTeachers] = useState<ClassTeacher[]>([]);
@@ -457,6 +492,8 @@ export default function TeachingClasses() {
   const [options, setOptions] = useState<TeacherOption[]>([]);
   const [optionLoading, setOptionLoading] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  /** 本次授权使用的级别：1 只读（默认）/ 2 可管理 */
+  const [grantAccessLevel, setGrantAccessLevel] = useState<number>(1);
   const optionTimer = useRef<number | undefined>(undefined);
 
   useEffect(
@@ -473,7 +510,7 @@ export default function TeachingClasses() {
         const list = await get<ClassTeacher[]>('/api/teaching/classes/teachers', { deptId });
         setTeachers(Array.isArray(list) ? list : []);
       } catch (e) {
-        message.error((e as Error).message || '读取已授权老师失败');
+        message.error((e as Error).message || '读取已授权任课老师失败');
         setTeachers([]);
       } finally {
         setTeacherLoading(false);
@@ -509,6 +546,7 @@ export default function TeachingClasses() {
   const openGrantModal = () => {
     if (!selected) return;
     setSelectedUserIds([]);
+    setGrantAccessLevel(1);
     setGrantOpen(true);
     void loadTeachers(selected.id);
     void loadTeacherOptions('');
@@ -538,14 +576,37 @@ export default function TeachingClasses() {
     }
     setGrantSaving(true);
     try {
-      await post('/api/teaching/classes/partner/create', { deptId: selected.id, userIds: selectedUserIds });
-      message.success('已授权 ' + selectedUserIds.length + ' 位老师');
+      await post('/api/teaching/classes/partner/create', {
+        deptId: selected.id,
+        userIds: selectedUserIds,
+        accessLevel: grantAccessLevel,
+      });
+      message.success(
+        '已授权 ' + selectedUserIds.length + ' 位老师（' + (grantAccessLevel === 2 ? '可管理' : '只读') + '）',
+      );
       setSelectedUserIds([]);
       await Promise.all([loadTeachers(selected.id), loadTeacherOptions('')]);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setGrantSaving(false);
+    }
+  };
+
+  /** 切换已授权任课老师的级别：1 只读 / 2 可管理，成功后刷新列表 */
+  const updateTeacherLevel = async (row: ClassTeacher) => {
+    if (!selected) return;
+    const next = row.accessLevel === 2 ? 1 : 2;
+    try {
+      await post('/api/teaching/classes/partner/update', {
+        deptId: selected.id,
+        id: row.id,
+        accessLevel: next,
+      });
+      message.success('已把「' + (row.userName || '该老师') + '」设为' + (next === 2 ? '可管理' : '只读'));
+      await loadTeachers(selected.id);
+    } catch (e) {
+      message.error((e as Error).message);
     }
   };
 
@@ -565,8 +626,13 @@ export default function TeachingClasses() {
 
   const memberColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 120, render: (v?: string) => v || '—' },
-    { title: '账号', dataIndex: 'username', width: 140, render: (v?: string) => v || '—' },
-    { title: '手机号', dataIndex: 'phone', width: 130, render: (v?: string) => v || '—' },
+    // 手机号即登录账号，两列同值：合并成一列，避免重复展示
+    {
+      title: '手机号 / 登录账号',
+      key: 'account',
+      width: 170,
+      render: (_: unknown, row: ClassMember) => row.phone || row.username || '—',
+    },
     { title: '状态', dataIndex: 'status', width: 100, render: (v?: number | null) => <MemberStatus status={v} /> },
     {
       title: '角色',
@@ -586,7 +652,7 @@ export default function TeachingClasses() {
         ),
     },
     { title: '加入时间', dataIndex: 'createAt', width: 160, render: (v?: string) => v || '—' },
-    ...(canMemberUpdate || canMemberDelete
+    ...((canMemberUpdate || canMemberDelete) && !readOnlyClass
       ? [
           {
             title: '操作',
@@ -616,22 +682,33 @@ export default function TeachingClasses() {
 
   const teacherColumns: ColumnsType<ClassTeacher> = [
     { title: '老师', dataIndex: 'userName', render: (v?: string) => v || '—' },
-    { title: '所属组', dataIndex: 'deptName', width: 150, render: (v?: string) => v || '—' },
+    { title: '所属组', dataIndex: 'deptName', width: 130, render: (v?: string) => v || '—' },
+    {
+      title: '权限',
+      dataIndex: 'accessLevel',
+      width: 100,
+      render: (v?: number) => <Tag color={v === 2 ? 'orange' : 'blue'}>{v === 2 ? '可管理' : '只读'}</Tag>,
+    },
     { title: '授权时间', dataIndex: 'createAt', width: 160, render: (v?: string) => v || '—' },
     {
       title: '操作',
       key: 'ops',
-      width: 100,
+      width: 170,
       render: (_: unknown, row) => (
-        <Popconfirm
-          title={'取消「' + (row.userName || '该老师') + '」的查看权限？'}
-          okText="取消授权"
-          okButtonProps={{ danger: true }}
-          cancelText="保留"
-          onConfirm={() => removeTeacher(row)}
-        >
-          <LinkAction style={{ color: 'var(--bp-orange)' }}>取消授权</LinkAction>
-        </Popconfirm>
+        <Space size={12}>
+          <LinkAction onClick={() => void updateTeacherLevel(row)}>
+            {row.accessLevel === 2 ? '设为只读' : '设为可管理'}
+          </LinkAction>
+          <Popconfirm
+            title={'取消「' + (row.userName || '该老师') + '」的查看权限？'}
+            okText="取消授权"
+            okButtonProps={{ danger: true }}
+            cancelText="保留"
+            onConfirm={() => removeTeacher(row)}
+          >
+            <LinkAction style={{ color: 'var(--bp-orange)' }}>取消授权</LinkAction>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -649,17 +726,19 @@ export default function TeachingClasses() {
         }}
       >
         <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>CLASS / 班级管理</div>
+          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+            CLASS / 班级管理
+          </div>
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
             班级管理
           </h2>
           <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
-            班主任默认看到自己创建/负责的班级；管理员可在「班级设置」里维护组织并分配查看权限
+            班级是学员的教学单位：维护学员、任课老师；题库/考试/问卷在资源授权里分配
           </div>
         </div>
         <Space wrap>
-          {canDeptCreate && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateClass}>
+          {canList && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreateClass(selected?.id)}>
               新建班级
             </Button>
           )}
@@ -777,37 +856,44 @@ export default function TeachingClasses() {
                   </div>
                 </div>
                 <Space wrap>
-                  {canCreateMember && (
+                  {canCreateMember && !readOnlyClass && (
                     <Button type="primary" icon={<UserAddOutlined />} onClick={openMemberModal}>
                       添加学员
                     </Button>
                   )}
-                  {canGrant && (
-                    <Button icon={<TeamOutlined />} onClick={openGrantModal}>
-                      分配老师
+                  {canCreateMember && !readOnlyClass && (
+                    <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
+                      批量导入
                     </Button>
                   )}
-                  {canDeptUpdate && (
+                  {canGrant && (
+                    <Button icon={<TeamOutlined />} onClick={openGrantModal}>
+                      任课老师
+                    </Button>
+                  )}
+                  {/* 管理员，或老师自己建/被授「可管理」的班（manageable=true）都能改班级设置 */}
+                  {(canDeptUpdate || selected.manageable === true) && (
                     <Button icon={<SettingOutlined />} onClick={openClassSettings}>
                       班级设置
                     </Button>
                   )}
                   {canDeptDelete && (
-                    <Popconfirm
-                      title={`删除分组「${selected.name || ''}」？`}
-                      description="组里还有成员时不能删：请先把成员移到其他分组或删除账号；有子分组时也要先处理子分组。"
-                      okText="删除"
-                      okButtonProps={{ danger: true }}
-                      cancelText="取消"
-                      onConfirm={() => void removeClass()}
-                    >
-                      <Button danger loading={deletingClass} icon={<DeleteOutlined />}>
-                        删除分组
-                      </Button>
-                    </Popconfirm>
+                    <Button danger icon={<DeleteOutlined />} onClick={() => setDeleteTarget(selected)}>
+                      删除分组
+                    </Button>
                   )}
                 </Space>
               </div>
+
+              {readOnlyClass && (
+                <Alert
+                  style={{ marginTop: 12 }}
+                  type="info"
+                  showIcon
+                  message="你对该班级只有查看权限"
+                  description="成员名单和学情仍可查看；添加学员、批量导入、编辑和删除需要「可管理」级别的授权。"
+                />
+              )}
 
               <hr className="bp-dim" style={{ margin: '14px 0' }} />
 
@@ -879,12 +965,15 @@ export default function TeachingClasses() {
             <Input placeholder="例如：张三" maxLength={40} autoComplete="off" />
           </Form.Item>
           <Form.Item
-            name="username"
-            label="登录账号"
-            rules={[{ required: true, whitespace: true, message: '请填写登录账号' }]}
-            extra="学员用这个账号登录；账号不能与已有用户重复"
+            name="phone"
+            label="手机号"
+            rules={[
+              { required: true, message: '请填写手机号' },
+              { pattern: /^1[3-9]\d{9}$/, message: '请输入 11 位手机号' },
+            ]}
+            extra="手机号即登录账号，学员用手机号登录；不能与已有账号重复"
           >
-            <Input placeholder="例如：zhangsan" maxLength={40} autoComplete="off" />
+            <Input placeholder="11 位手机号" maxLength={11} autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="password"
@@ -896,13 +985,6 @@ export default function TeachingClasses() {
             extra="至少 8 位；学员登录后可在「账号设置」里自行修改"
           >
             <Input.Password placeholder="8-32 位" maxLength={32} autoComplete="new-password" />
-          </Form.Item>
-          <Form.Item
-            name="phone"
-            label="手机号"
-            rules={[{ pattern: /^1[3-9]\d{9}$/, message: '请输入 11 位手机号' }]}
-          >
-            <Input placeholder="选填" maxLength={11} autoComplete="off" />
           </Form.Item>
           <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
             <Input placeholder="选填" maxLength={80} autoComplete="off" />
@@ -942,9 +1024,13 @@ export default function TeachingClasses() {
           <Form.Item
             name="phone"
             label="手机号"
-            rules={[{ pattern: /^1[3-9]\d{9}$/, message: '请输入 11 位手机号' }]}
+            rules={[
+              { required: true, message: '请填写手机号' },
+              { pattern: /^1[3-9]\d{9}$/, message: '请输入 11 位手机号' },
+            ]}
+            extra="手机号即登录账号，修改手机号会同步修改登录账号"
           >
-            <Input placeholder="选填" maxLength={11} autoComplete="off" />
+            <Input placeholder="11 位手机号" maxLength={11} autoComplete="off" />
           </Form.Item>
           <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '请输入正确的邮箱' }]}>
             <Input placeholder="选填" maxLength={80} autoComplete="off" />
@@ -969,7 +1055,7 @@ export default function TeachingClasses() {
       </Modal>
 
       <Modal
-        title={'分配老师' + (selected?.name ? '：' + selected.name : '')}
+        title={'任课老师' + (selected?.name ? '：' + selected.name : '')}
         open={grantOpen}
         onCancel={closeGrantModal}
         footer={null}
@@ -977,17 +1063,17 @@ export default function TeachingClasses() {
         destroyOnClose
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
-          被授权的老师可以在「班级管理」里查看本班（含下级班）的学员，但不能改动班级。
+          只读：可以查看本班（含下级班）的成员与学情；可管理：还能添加、编辑学员。两种级别都不能修改班级设置。
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span className="bp-title" style={{ fontSize: 13 }}>
-            已授权老师
+            已授权任课老师
           </span>
           <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {teachers.length} 人</span>
         </div>
 
-        <TableScrollRegion label="已授权老师（可横向滚动）">
+        <TableScrollRegion label="已授权任课老师（可横向滚动）">
           <Table<ClassTeacher>
             rowKey="id"
             size="small"
@@ -995,16 +1081,29 @@ export default function TeachingClasses() {
             dataSource={teachers}
             columns={teacherColumns}
             pagination={false}
-            scroll={{ x: 480 }}
+            scroll={{ x: 620 }}
             locale={{
-              emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这个班级还没有授权老师" />,
+              emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这个班级还没有任课老师" />,
             }}
           />
         </TableScrollRegion>
 
         <hr className="bp-dim" style={{ margin: '14px 0' }} />
 
-        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 8 }}>添加老师</div>
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 8 }}>添加任课老师</div>
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 6 }}>
+          权限级别（本次授权的老师都使用这个级别）
+        </div>
+        <Radio.Group
+          value={grantAccessLevel}
+          onChange={(event) => setGrantAccessLevel(Number(event.target.value))}
+          style={{ marginBottom: 10 }}
+        >
+          <Space size={16} wrap>
+            <Radio value={1}>只读</Radio>
+            <Radio value={2}>可管理</Radio>
+          </Space>
+        </Radio.Group>
         <Select
           mode="multiple"
           showSearch
@@ -1034,11 +1133,28 @@ export default function TeachingClasses() {
         </div>
       </Modal>
 
+      <ImportMembersModal
+        open={importOpen}
+        deptId={selected?.id ?? ''}
+        deptName={selected?.name}
+        onClose={() => setImportOpen(false)}
+        onImported={() => void refreshAll()}
+      />
+
+      <DeleteDeptDialog
+        open={Boolean(deleteTarget)}
+        deptId={deleteTarget?.id ?? ''}
+        deptName={deleteTarget?.name}
+        deptType="class"
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={handleClassDeleted}
+      />
+
       <ClassSettingsModal
         open={settingsOpen}
         mode={settingsMode}
         node={settingsNode}
-        defaultParentId={selected?.id}
+        defaultParentId={settingsParentId}
         tree={tree}
         canDelete={canDeptDelete}
         onClose={() => setSettingsOpen(false)}

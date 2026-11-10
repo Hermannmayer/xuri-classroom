@@ -1,11 +1,14 @@
 package cn.surveyking.server.core.audit;
 
+import cn.surveyking.server.core.constant.AppConsts;
+import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.model.AuditLog;
 import cn.surveyking.server.mapper.AuditLogMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -71,13 +74,43 @@ public class AuditRecorder {
 		return null;
 	}
 
+	/** 兼容旧调用：不记录目标名称 / 操作人，由安全上下文兜底 */
 	public void record(String action, String targetId, String detail, boolean success, String error) {
+		record(action, targetId, null, detail, success, error, null);
+	}
+
+	/** 带目标名称的重载 */
+	public void record(String action, String targetId, String targetName, String detail, boolean success,
+			String error) {
+		record(action, targetId, targetName, detail, success, error, null);
+	}
+
+	/**
+	 * 写一条审计。
+	 *
+	 * @param targetName 目标名称；由 {@link AuditTargetResolver} 在业务执行前解析，可为空
+	 * @param operatorId 操作人 id；登录成功这类「安全上下文里还没有用户」的场景由调用方显式传入
+	 */
+	public void record(String action, String targetId, String targetName, String detail, boolean success,
+			String error, String operatorId) {
 		try {
 			AuditLog entry = new AuditLog();
 			entry.setAction(action);
-			entry.setTargetId(targetId);
+			entry.setTargetId(truncate(targetId, 64));
+			entry.setTargetName(truncate(targetName, 256));
 			entry.setDetail(truncate(success ? detail : detail + " · 失败：" + error, 500));
 			entry.setIp(clientIp());
+			String operator = StringUtils.hasText(operatorId) ? operatorId : null;
+			if (!StringUtils.hasText(operator)) {
+				// 登录场景没有 SecurityContext，只能靠调用方传 operatorId；其余场景这里显式落一次
+				String currentUserId = SecurityContextUtils.getUserId();
+				if (StringUtils.hasText(currentUserId) && !AppConsts.ANONYMOUS_USER_ID.equals(currentUserId)) {
+					operator = currentUserId;
+				}
+			}
+			if (StringUtils.hasText(operator)) {
+				entry.setCreateBy(operator);
+			}
 			auditLogMapper.insert(entry);
 		}
 		catch (Exception e) {

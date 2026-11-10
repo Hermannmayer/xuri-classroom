@@ -10,10 +10,12 @@ import cn.surveyking.server.domain.dto.UserRequest;
 import cn.surveyking.server.domain.mapper.UserPositionDtoMapper;
 import cn.surveyking.server.domain.mapper.UserViewMapper;
 import cn.surveyking.server.domain.model.Account;
+import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.domain.model.UserPosition;
 import cn.surveyking.server.domain.model.UserRole;
 import cn.surveyking.server.mapper.AccountMapper;
+import cn.surveyking.server.mapper.DeptMapper;
 import cn.surveyking.server.mapper.UserDeptMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.mapper.UserPositionMapper;
@@ -29,6 +31,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import javax.validation.ValidationException;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -54,6 +57,8 @@ public class UserAdminService {
 	private static final Pattern STRONG_PASSWORD_PATTERN = Pattern.compile("^.{8,32}$");
 
 	private final UserMapper userMapper;
+
+	private final DeptMapper deptMapper;
 
 	private final AccountMapper accountMapper;
 
@@ -90,6 +95,8 @@ public class UserAdminService {
 		if (!StringUtils.hasText(request.getUserType())) {
 			request.setUserType("student");
 		}
+		// 用户组（org）放教职工、班级（class）放学员：类型错位会让学员继承教职工角色，必须挡住
+		assertUserDeptTypes(request.getUserType(), request.getDeptId(), request.getDeptIds());
 		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
 		if (assertDeptRoles) {
 			permissionGuard.assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
@@ -113,6 +120,44 @@ public class UserAdminService {
 		addUserPositions(request);
 		// 添加附加组（主组已经在 t_user.dept_id 里）
 		deptService.saveUserDepts(user.getId(), user.getDeptId(), request.getDeptIds());
+	}
+
+	/**
+	 * 教职工只能加入用户组（dept_type=org），学员只能加入班级（dept_type=class）。
+	 *
+	 * <p>组类型决定成员继承哪些角色：把学员放进用户组会顺带拿到教职工角色，把 staff 放进班级又会
+	 * 污染班级成员列表（班级成员接口只查 student）。历史数据里 dept_type 为空按 org 处理。
+	 *
+	 * @param userType staff / student；为空表示这次不涉及用户类型，跳过校验
+	 * @param deptId 主组
+	 * @param deptIds 附加组
+	 */
+	private void assertUserDeptTypes(String userType, String deptId, List<String> deptIds) {
+		if (!StringUtils.hasText(userType)) {
+			return;
+		}
+		boolean student = "student".equals(userType);
+		Set<String> targetDeptIds = new LinkedHashSet<>();
+		if (StringUtils.hasText(deptId)) {
+			targetDeptIds.add(deptId.trim());
+		}
+		if (!CollectionUtils.isEmpty(deptIds)) {
+			deptIds.stream().filter(StringUtils::hasText).map(String::trim).forEach(targetDeptIds::add);
+		}
+		if (targetDeptIds.isEmpty()) {
+			return;
+		}
+		String expected = student ? Dept.TYPE_CLASS : Dept.TYPE_ORG;
+		String message = student ? "学员只能加入班级（class）" : "教职工只能加入用户组（org）";
+		for (Dept dept : deptMapper.selectBatchIds(targetDeptIds)) {
+			if (dept == null) {
+				continue;
+			}
+			String actual = Dept.TYPE_CLASS.equals(dept.getDeptType()) ? Dept.TYPE_CLASS : Dept.TYPE_ORG;
+			if (!expected.equals(actual)) {
+				throw new ValidationException(message);
+			}
+		}
 	}
 
 	public void createSystemUser(UserRequest request) {
@@ -155,6 +200,12 @@ public class UserAdminService {
 		// 改角色和建用户同档：把学员改成老师也是「授予 system:* 角色」，必须持 teacher 档权限
 		permissionGuard.assertRoleGrantScope(request.getRoles());
 		User current = userMapper.selectById(request.getId());
+		// 改组同样守住「用户组放教职工、班级放学员」：没传的字段沿用用户现有值
+		assertUserDeptTypes(
+				StringUtils.hasText(request.getUserType()) ? request.getUserType()
+						: current == null ? null : current.getUserType(),
+				request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
+				request.getDeptIds() != null ? request.getDeptIds() : deptService.listExtraDeptIds(request.getId()));
 		// 组变更同样会改变「有效权限」：目标组链上绑定的角色必须都是自己能授予的，否则等于借改组提权
 		permissionGuard.assertDeptAssignmentAllowed(request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
 				request.getDeptIds() != null ? request.getDeptIds() : deptService.listExtraDeptIds(request.getId()));

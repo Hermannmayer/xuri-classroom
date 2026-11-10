@@ -13,6 +13,12 @@ public class DeptRequest {
 
 	private String parentId;
 
+	/**
+	 * org=用户组(教职工) class=班级(学员)；新增时不传默认 org。
+	 * 类型是节点的身份，更新时不允许修改（班级走 /api/teaching/classes/update）。
+	 */
+	private String deptType;
+
 	private String name;
 
 	private String shortName;

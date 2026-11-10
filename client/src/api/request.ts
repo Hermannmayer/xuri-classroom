@@ -38,7 +38,14 @@ const INTERNAL_ERROR = /exception|sql|stack\s*trace|caused by|syntaxerror|at\s+[
  */
 export function humanizeApiError(code: number, backendMessage?: string): string {
   if (code === 401) return '登录已过期，请重新登录';
-  if (code === 403) return '没有权限执行该操作（如为导出，请检查导出密码）';
+  if (code === 403) {
+    // 业务层会给出更具体的中文原因（如「你对该班级只有查看权限，不能修改」）；
+    // 只有拿不到可读原因时才用通用文案，避免把所有 403 都盖成同一句话。
+    if (backendMessage && CHINESE.test(backendMessage) && !INTERNAL_ERROR.test(backendMessage)) {
+      return backendMessage;
+    }
+    return '没有权限执行该操作（如为导出，请检查导出密码）';
+  }
   if (code === -1) return backendMessage || '无法连接后端服务，请确认后端已启动';
   if (backendMessage && CHINESE.test(backendMessage) && !INTERNAL_ERROR.test(backendMessage)) {
     return backendMessage;

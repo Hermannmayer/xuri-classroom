@@ -18,7 +18,7 @@ import {
   Upload,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, PlusOutlined, ReloadOutlined, TeamOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import { download, get, getWithPagination, post } from '../../api';
@@ -128,6 +128,8 @@ export default function SystemUser() {
   const canCreate = can(authorities, PERMISSION_CODES.systemUserCreate);
   const canUpdate = can(authorities, PERMISSION_CODES.systemUserUpdate);
   const canDelete = can(authorities, PERMISSION_CODES.systemUserDelete);
+  /** 用户组是教职工组织（与班级分开）：有 system:dept:list 才能进用户组页 */
+  const canManageGroups = can(authorities, PERMISSION_CODES.systemDeptList);
 
   /**
    * 角色下拉按「建用户分权」过滤（与后端 UserServiceImpl.assertRoleGrantScope 同一规则）：
@@ -188,7 +190,8 @@ export default function SystemUser() {
   }, [load]);
 
   useEffect(() => {
-    get<Dept[]>('/api/system/dept/list')
+    // 用户组只列教职工组；班级（学员）不混进筛选树和教工表单的下拉里
+    get<Dept[]>('/api/system/dept/list', { deptType: 'org' })
       .then((list) => {
         const flat = Array.isArray(list) ? list : [];
         setDeptFlat(flat);
@@ -398,8 +401,15 @@ export default function SystemUser() {
             下载模板
           </Button>
         )}
-        {can(authorities, PERMISSION_CODES.classList) && (
-          <Button onClick={() => navigate('/teaching/classes')}>去班级管理</Button>
+        {canManageGroups && (
+          <Button icon={<TeamOutlined />} onClick={() => navigate('/system/group')}>
+            用户组管理
+          </Button>
+        )}
+        {canManageGroups && (
+          <Button icon={<PlusOutlined />} onClick={() => navigate('/system/group')}>
+            新建用户组
+          </Button>
         )}
         {canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
@@ -611,7 +621,7 @@ export default function SystemUser() {
           </Form.Item>
           <Form.Item
             name="deptId"
-            label="主组 / 班级"
+            label="主组 / 用户组"
             extra="决定能看到哪些题库和考试（数据可见范围按主组算）"
           >
             <Select

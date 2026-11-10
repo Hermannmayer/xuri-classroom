@@ -148,9 +148,8 @@ export default function BasicLayout() {
     // 系统管理：逐个判权，和 router.tsx 的 guard 一一对应
     const systemChildren: NonNullable<MenuProps['items']> = [];
     if (allow(PERMISSION_CODES.systemUserList)) systemChildren.push({ key: '/system/user', label: t('menu.system.user', '用户管理') });
-    // 用户组（班级）设置已并入「班级管理」：有班级入口的人不再重复看到这棵树；
-    // 只做组织管理、没有 class:list 的角色仍保留独立页。
-    if (allow(PERMISSION_CODES.systemDeptList) && !allow(PERMISSION_CODES.classList)) {
+    // 用户组 = 教职工组织与角色，班级 = 学员教学单位：两套页面独立，有 system:dept:list 就显示
+    if (allow(PERMISSION_CODES.systemDeptList)) {
       systemChildren.push({ key: '/system/group', label: t('menu.system.group', '用户组') });
     }
     if (allow(PERMISSION_CODES.systemRoleList)) {

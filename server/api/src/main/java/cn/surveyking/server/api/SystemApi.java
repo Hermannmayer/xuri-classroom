@@ -321,14 +321,21 @@ public class SystemApi {
 	}
 
 	/**
-	 * 获取部门列表
+	 * 获取组织节点列表（用户组 / 班级）。
+	 * @param deptType org=用户组(教职工) class=班级(学员)；为空返回全部（走缓存）
 	 * @return
 	 */
 	@GetMapping("/dept/list")
 	// org:list 是只读组织树：老师要在题库/考试授权弹窗里选组，但不应因此获得用户组管理菜单
 	@PreAuthorize("hasAnyAuthority('system:dept:list','org:list') or hasRole('admin')")
-	public List<DeptView> listDept() {
-		return deptService.listDept(null);
+	public List<DeptView> listDept(@RequestParam(required = false) String deptType) {
+		if (!StringUtils.hasText(deptType)) {
+			// 不带类型：仍是全量组织树，且命中 listDept 上的 @Cacheable（condition = "#p0 == null"）
+			return deptService.listDept(null);
+		}
+		SelectDeptRequest request = new SelectDeptRequest();
+		request.setDeptType(deptType);
+		return deptService.listDept(request);
 	}
 
 	@PostMapping("/dept/create")
@@ -343,18 +350,30 @@ public class SystemApi {
 		deptService.updateDept(request);
 	}
 
+	/**
+	 * 删除用户组前的预检：子组、成员数量 / 姓名、是否最后一个组。
+	 * 只给「能删组」的人看，避免把成员名单暴露给只读角色。
+	 */
+	@GetMapping("/dept/delete-check")
+	@PreAuthorize("hasAuthority('system:dept:delete') or hasRole('admin')")
+	public DeptDeleteCheckView deleteCheck(@RequestParam String id) {
+		return deptService.deleteCheck(id);
+	}
+
+	/**
+	 * 删除用户组。成员由 {@link DeptDeleteRequest} 的 memberAction 决定：
+	 * MOVE 迁到目标组，UNASSIGN 移出分组；只传 id 时仅在组内无成员时成功。
+	 *
+	 * <p>不再限制「系统里至少保留一个组」：最后一个组删掉后，成员会变成未分组，
+	 * 这是可接受的业务状态（旧限制会把「只剩一个组 + 组里还有人」永远卡死）。
+	 */
 	@PostMapping("/dept/delete")
 	@PreAuthorize("hasAuthority('system:dept:delete')")
-	public void deleteOrg(@RequestBody DeptRequest request) {
-		if (request.getId() == null) {
+	public void deleteOrg(@RequestBody DeptDeleteRequest request) {
+		if (request == null || !StringUtils.hasText(request.getId())) {
 			return;
 		}
-		List<DeptView> depts = deptService.listDept(null);
-		if (depts == null || depts.size() <= 1) {
-			throw new ValidationException(
-					messageSource.getMessage("system.dept.delete.retainOne", null, LocaleContextHolder.getLocale()));
-		}
-		deptService.deleteDept(request.getId());
+		deptService.deleteDept(request);
 	}
 
 	@PostMapping("/dept/sort")

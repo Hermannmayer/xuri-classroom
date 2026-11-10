@@ -64,9 +64,11 @@ public class UserApi {
 			Authentication authenticate = authenticationManager.authenticate(authentication);
 			UserInfo user = (UserInfo) authenticate.getPrincipal();
 			loginAttemptLimiter.recordSuccess(request.getUsername(), clientAddress);
-			// 登录成功单记一条：AuthAspect 排除了 /api/public/**，否则「谁在什么时候从哪里登录成功」永远查不到
-			auditRecorder.record("AUTH_LOGIN", user.getUserId(),
-					"登录成功 username=" + request.getUsername() + " ip=" + clientAddress, true, null);
+			// 登录成功单记一条：AuthAspect 排除了 /api/public/**，否则「谁在什么时候从哪里登录成功」永远查不到。
+			// 此刻 SecurityContext 里还没有用户，必须显式传操作人 id，否则 create_by 只能落成匿名。
+			auditRecorder.record("AUTH_LOGIN", user.getUserId(), user.getName(),
+					"登录成功 username=" + request.getUsername() + " ip=" + clientAddress, true, null,
+					user.getUserId());
 			String token = authenticationCookieService.createToken(user.getUserId());
 			HttpCookie cookie = authenticationCookieService.createCookie(token, httpRequest);
 			return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString())
