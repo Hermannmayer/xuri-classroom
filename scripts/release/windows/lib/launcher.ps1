@@ -2281,6 +2281,8 @@ function Assert-Environment {
   } catch { }
   $osText = 'Windows ' + $osVersion.Major + '.' + $osVersion.Minor + ' build ' + $osVersion.Build
   if ($productName -ne '') { $osText = $productName + '（build ' + $osVersion.Build + '）' }
+  # Win11 的注册表 ProductName 仍写着 "Windows 10"，用 build 号纠正，免得报告看着奇怪
+  if ($osVersion.Build -ge 22000) { $osText = $osText.Replace('Windows 10', 'Windows 11') }
   if (-not [System.Environment]::Is64BitOperatingSystem) {
     Out-Fail ('操作系统：' + $osText + '，32 位系统不受支持')
     [void]$failures.Add('不是 64 位系统')
@@ -2703,6 +2705,8 @@ function Invoke-DoctorCommand {
   } catch { }
   $osText = 'Windows ' + $osVersion.Major + '.' + $osVersion.Minor + ' build ' + $osVersion.Build
   if ($productName -ne '') { $osText = $productName + '（build ' + $osVersion.Build + '）' }
+  # Win11 的注册表 ProductName 仍写着 "Windows 10"，用 build 号纠正，免得报告看着奇怪
+  if ($osVersion.Build -ge 22000) { $osText = $osText.Replace('Windows 10', 'Windows 11') }
   if ($osVersion.Major -lt 10) {
     Add-DoctorResult '失败' 'Windows 版本' ($osText + '，只支持 Windows 10 / 11') '升级系统，或改用 Linux 安装包'
   } elseif (-not [System.Environment]::Is64BitOperatingSystem) {
