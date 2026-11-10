@@ -436,7 +436,15 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权）。 */
 	private void assertCanEditProject(String projectId) {
-		if (projectPartnerService.accessLevel(projectId) < 2) {
+		int level = projectPartnerService.accessLevel(projectId);
+		// 文件夹授权继承：直接父文件夹的级别也生效（与列表/树的可见性口径一致）
+		if (level < 2 && isNotBlank(projectId)) {
+			Project current = getById(projectId);
+			if (current != null && isNotBlank(current.getParentId()) && !"0".equals(current.getParentId())) {
+				level = Math.max(level, projectPartnerService.accessLevel(current.getParentId()));
+			}
+		}
+		if (level < 2) {
 			throw new org.springframework.security.access.AccessDeniedException("没有编辑该项目的权限");
 		}
 	}

@@ -140,7 +140,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-10
-verified_against: d6dc54f68daad66f319455a951f620bc8f809560
+verified_against: 01330967ae131a3c5fb42939bffdfb03a8a08889
 ---
 
 # 权限、角色与用户组
@@ -252,6 +252,7 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 5. 接口：`POST /api/project/partner/update {projectId?, id, accessLevel}`、`POST /api/repo/partner/update {repoId?, id, accessLevel}`；注解只要求 `project:partner`/`repo:grant`（或 admin），真正级别校验在 Service。`partner/create|delete` 同样从 owner-only 放宽到 owner/admin/level3。
 6. UI：`PartnerPanel`/`GrantModal` 显示级别 Tag（可查看/可编辑/可授权）并允许有权限者改；班级/答卷人只读。`ProjectView`/`RepoView` 当前不返回 `myAccessLevel`，level1/2 仍可能看到全局授权/编辑按钮，点击由后端 403 兜底；要彻底隐藏需补 View 字段。
 7. 已知：level2 能编辑内容但不能改成员/继续授权；level3 才能转授；level1 只读；owner/admin 不受级别限制；项目 owner 记录如果手工插入漏 level，`accessLevel()` 仍按 type=OWNER 返回 3，但库里可能显示默认 2。
+8. **文件夹授权（项目）**：`ProjectList` 的 folder 行在 `project:partner` 下显示「授权」，进入 `/survey/:id` 协作面板；folder 可加 type 1/2/3 的教师组/协作者/班级。`ProjectServiceImpl.listProject/tree/listCategories` 额外查「直接父文件夹上有 partner 记录」的 EXISTS，使**直接子项目**继承可见性。只继承一层（不递归祖先），只影响可见性，不把 folder 的 access_level 继承给子项目；folder 不参与分类统计/未分类。
 
 ### 6. 审计：动作、目标、操作人都可读
 
@@ -316,6 +317,7 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 | 删考试 | `project:delete` + `assertCanEditProject` | owner/admin 或 access_level>=2；level1 只读 |
 | 编辑/发布考试 | `project:update`/`project:publish` + `assertCanEditProject` | owner/admin 或 level>=2；level1 后端 403 |
 | 项目成员/级别 | `project:partner` + `assertCanGrant` | owner/admin/access_level=3；level1/2 只读；`partner/update` 只能改 type=2 |
+| 文件夹授权 | `project:partner` + `assertCanGrant` | folder 行授权 type 1/2/3；只让直接子项目在 list/tree/categories 可见，不递归、不继承写级别 |
 | 编辑题库/导入 | `repo:update`/`template:update`/`template:import` + `assertManageRepo` | admin/创建者或 access_level>=2；level1 只读 |
 | 题库成员/级别 | `repo:grant` + `assertManagePermission` | admin/创建者或 access_level=3；level1/2 不能改成员 |
 | 改系统设置 | `system:setting:update` | 全局 |
@@ -374,6 +376,8 @@ verified_against: d6dc54f68daad66f319455a951f620bc8f809560
 - **项目/题库 access_level 是行级数据，不是权限串**：`project:update`/`repo:grant` 只决定「能不能进这个功能」，level 决定「对这个项目/题库能做什么」。level2 可编辑内容但不能改成员，level3 才能转授；owner/admin 例外。
 - **level1/2 的 UI 仍显示全局按钮**：`ProjectView`/`RepoView` 没有 `myAccessLevel`，列表/面板只能按功能权限渲染；level1/2 点「授权/编辑」由后端 `assertCanEditProject`/`assertManagePermission` 403 兜底，不要把按钮可见当权限。
 - **项目文件夹重名只在前端校验**：`ProjectTree` 只比较当前父级同层 folder；后端 `createProject` 不拦重名，直接调接口可建同名文件夹。
+- **文件夹授权只影响直接子项目可见性**：EXISTS 只查 `child.parent_id`，多级嵌套不会递归；folder 的 access_level 也不继承给子项目，子项目要编辑仍需单独授 level>=2。
+- **文件夹不是分类项**：`listCategories` 排除 folder，分类筛选也排除 folder；folder 的 category 字段即使有值，也不进入分类树/「未分类」。分类（文本）与文件夹（parent_id）是两个维度。
 - **题库分类 registry 全局可见、path 不写回 t_repo.category**：`t_repo_category` 只登记目录，空文件夹所有人可见；`t_repo.category` 是 varchar64，registry path 是 255，深层目录可能建得了但挂不进题库；`listRepo` 的 category 过滤是原始精确值。
 
 ## 验证
@@ -424,8 +428,12 @@ curl -s -c anon.txt -b anon.txt -X POST https://<host>/api/public/loadProject \
 curl -s -b anon.txt "https://<host>/api/public/anonymous/answers?projectId=<projectId>"
 # 登录后认领：返回数字（认领条数）
 curl -s -b teacher.txt -X POST https://<host>/api/public/anonymous/claim
-# 项目分类树：只认创建者/partner type 1/2，不是班级分配树
+# 项目分类树：自身授权只认创建者/partner type 1/2；父文件夹授权（1/2/3）的直接子项目可见
 curl -s -b teacher.txt https://<host>/api/project/tree
+# 分类跨文件夹：给文件夹里的考试设 category 后，按 category 查应能查到
+curl -s -b teacher.txt "https://<host>/api/project/list?category=<分类>&current=1&pageSize=50"
+# 文件夹授权后：直接子项目可见，孙项目不可见；文件夹不参与 categories 统计
+curl -s -b teacher.txt https://<host>/api/project/categories
 # 手动清理匿名答卷：admin 或 system:setting:update；返回 {deleted:n}
 curl -s -b admin.txt -X POST https://<host>/api/system/anonymous/cleanup
 # 设置里确认 last 字段（只读）与开关/天数
