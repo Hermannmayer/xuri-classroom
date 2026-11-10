@@ -1286,7 +1286,21 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		if (SecurityContextUtils.isAdmin()) {
 			return;
 		}
-		if (!Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())) {
+		String userId = SecurityContextUtils.getUserId();
+		if (Objects.equals(repo.getCreateBy(), userId)) {
+			return;
+		}
+		// 被授到「可编辑」（access_level>=2）的老师（含用户组授权）也能维护题库
+		java.util.Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
+		boolean canEdit = repoPartnerMapper
+				.selectList(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId).and(w -> {
+					w.eq(RepoPartner::getUserId, userId);
+					if (!deptScope.isEmpty()) {
+						w.or().isNotNull(RepoPartner::getDeptId).in(RepoPartner::getDeptId, deptScope);
+					}
+				}))
+				.stream().anyMatch(partner -> (partner.getAccessLevel() == null ? 2 : partner.getAccessLevel()) >= 2);
+		if (!canEdit) {
 			throw new AccessDeniedException("无权限管理该题库");
 		}
 	}

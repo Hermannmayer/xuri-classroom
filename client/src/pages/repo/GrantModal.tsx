@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, App, Button, Empty, Modal, Popconfirm, Segmented, Select, Spin, Table, Tag, TreeSelect } from 'antd';
 import { get, getWithPagination, post } from '../../api';
+import type { UserInfo } from '../../api';
 import LinkAction from '../../components/LinkAction';
 
 interface Dept {
@@ -16,7 +17,23 @@ interface RepoPartnerView {
   user?: { userId?: string; name?: string; username?: string };
   deptId?: string;
   deptName?: string;
+  /** 1 查看 / 2 编辑（含查看）/ 3 授权（含查看+编辑）；用户组授权为空 */
+  accessLevel?: number;
 }
+
+const LEVEL_OPTIONS = [
+  { value: 1, label: '1 · 可查看' },
+  { value: 2, label: '2 · 可编辑（含查看）' },
+  { value: 3, label: '3 · 可授权（含查看+编辑）' },
+];
+const LEVEL_SHORT_OPTIONS = [
+  { value: 1, label: '可查看' },
+  { value: 2, label: '可编辑' },
+  { value: 3, label: '可授权' },
+];
+const levelText = (level?: number) =>
+  level === 3 ? '可授权' : level === 1 ? '可查看' : '可编辑';
+const levelColor = (level?: number) => (level === 3 ? 'green' : level === 1 ? 'default' : 'blue');
 
 /**
  * 后端 /api/system/user/options（UserOptionView）：
@@ -71,6 +88,10 @@ export default function GrantModal({
   const [userListError, setUserListError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string>();
+  /** 新增授权的级别，默认 2（可编辑） */
+  const [level, setLevel] = useState(2);
+  const [myId, setMyId] = useState<string>();
+  const [updatingId, setUpdatingId] = useState<string>();
 
   const loadPartners = useCallback(async () => {
     if (!repoId || isBatch) return;
@@ -94,7 +115,11 @@ export default function GrantModal({
     setDeptId(undefined);
     setUserIds([]);
     setMode('dept');
+    setLevel(2);
     void loadPartners();
+    void get<UserInfo>('/api/currentUser')
+      .then((user) => setMyId(user.userId))
+      .catch(() => undefined);
     // 组树失败不能再静默：老师没有 system:dept:list 时会 403，界面需要说明原因而不是给个空树
     setDeptError(undefined);
     get<Dept[]>('/api/system/dept/list')
@@ -121,6 +146,27 @@ export default function GrantModal({
       .catch((e: Error) => setUserListError(e.message || '没有权限读取用户列表'))
       .finally(() => setUsersLoading(false));
   }, [open, mode, users.length]);
+
+  // 当前用户在这份题库里的级别：level3 才能继续授权；owner/admin 没有个人行，视为全量
+  const myPartner = partners.find((row) => row.userId && myId && row.userId === myId);
+  const myLevel = myPartner?.accessLevel;
+  // 批量授权没有单个题库的名单可判断，交给后端 403 兜底
+  const canWrite = isBatch || myLevel === undefined || myLevel >= 3;
+
+  const updateLevel = async (row: RepoPartnerView, accessLevel: number) => {
+    if (!repoId || updatingId) return;
+    setUpdatingId(row.id);
+    try {
+      await post('/api/repo/partner/update', { repoId, id: row.id, accessLevel });
+      setPartners((prev) => prev.map((item) => (item.id === row.id ? { ...item, accessLevel } : item)));
+      message.success('已更新授权级别');
+    } catch (e) {
+      message.error((e as Error).message);
+      await loadPartners();
+    } finally {
+      setUpdatingId(undefined);
+    }
+  };
 
   const flattenDepts = (list: Dept[], depth = 0): { id: string; name: string; depth: number }[] =>
     list.flatMap((dept) => [
@@ -157,7 +203,12 @@ export default function GrantModal({
       // 这里串行调用，失败不影响其它题库，最后汇总结果。
       for (const target of targets) {
         try {
-          await post('/api/repo/partner/create', mode === 'dept' ? { repoId: target, deptId } : { repoId: target, userIds });
+          await post(
+            '/api/repo/partner/create',
+            mode === 'dept'
+              ? { repoId: target, deptId, accessLevel: level }
+              : { repoId: target, userIds, accessLevel: level },
+          );
           ok += 1;
         } catch (e) {
           failed.push((e as Error).message);
@@ -166,10 +217,10 @@ export default function GrantModal({
       if (ok > 0) {
         message.success(
           isBatch
-            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? '该用户组' : ` ${userIds.length} 位用户`}`
+            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? '该用户组' : ` ${userIds.length} 位用户`}（${levelText(level)}）`
             : mode === 'dept'
-              ? '已授权该用户组，组内成员自动可见'
-              : `已授权 ${userIds.length} 位用户`,
+              ? `已授权该用户组（${levelText(level)}），组内成员自动可见`
+              : `已授权 ${userIds.length} 位用户（${levelText(level)}）`,
         );
       }
       if (failed.length > 0) {
@@ -253,44 +304,83 @@ export default function GrantModal({
               row.deptId ? <Tag color="orange">用户组</Tag> : <Tag color="blue">个人</Tag>,
           },
           {
-            title: '操作',
-            key: 'ops',
-            width: 100,
-            render: (_: unknown, row) => (
-              <Popconfirm
-                title="取消该授权？"
-                description={
-                  row.deptId
-                    ? '取消后，该组成员将看不到这个题库（除非另有授权）。'
-                    : '取消后，该用户将看不到这个题库。'
-                }
-                okText="取消授权"
-                cancelText="再想想"
-                onConfirm={() => revoke(row)}
-              >
-                <LinkAction style={{ color: 'var(--bp-orange)' }}>
-                  {removingId === row.id ? '取消中…' : '取消授权'}
-                </LinkAction>
-              </Popconfirm>
-            ),
+            title: '级别',
+            key: 'level',
+            width: 130,
+            render: (_: unknown, row) => {
+              if (!canWrite) return <Tag color={levelColor(row.accessLevel)}>{levelText(row.accessLevel)}</Tag>;
+              return (
+                <Select
+                  size="small"
+                  style={{ width: 105 }}
+                  value={row.accessLevel ?? 2}
+                  options={LEVEL_SHORT_OPTIONS}
+                  disabled={updatingId === row.id}
+                  onChange={(value) => void updateLevel(row, value)}
+                />
+              );
+            },
           },
+          ...(canWrite
+            ? [
+                {
+                  title: '操作',
+                  key: 'ops',
+                  width: 100,
+                  render: (_: unknown, row: RepoPartnerView) => (
+                    <Popconfirm
+                      title="取消该授权？"
+                      description={
+                        row.deptId
+                          ? '取消后，该组成员将看不到这个题库（除非另有授权）。'
+                          : '取消后，该用户将看不到这个题库。'
+                      }
+                      okText="取消授权"
+                      cancelText="再想想"
+                      onConfirm={() => revoke(row)}
+                    >
+                      <LinkAction style={{ color: 'var(--bp-orange)' }}>
+                        {removingId === row.id ? '取消中…' : '取消授权'}
+                      </LinkAction>
+                    </Popconfirm>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
 
       <div className="bp-title" style={{ fontSize: 12, margin: '18px 0 8px' }}>
         新增授权
       </div>
-      <Segmented<GrantMode>
-        value={mode}
-        onChange={(value) => setMode(value)}
-        options={[
-          { label: '按用户组', value: 'dept' },
-          { label: '按个人', value: 'user' },
-        ]}
-        style={{ marginBottom: 10 }}
-      />
+      {!canWrite ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 8 }}
+          message={`只读：当前授权级别为「${levelText(myLevel)}」，只有「可授权」级别可以新增/调整授权。`}
+        />
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+            <Segmented<GrantMode>
+              value={mode}
+              onChange={(value) => setMode(value)}
+              options={[
+                { label: '按用户组', value: 'dept' },
+                { label: '按个人', value: 'user' },
+              ]}
+            />
+            <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>授权级别</span>
+            <Select style={{ width: 230 }} value={level} onChange={setLevel} options={LEVEL_OPTIONS} />
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+            3 = 可查看 + 可编辑 + 可授权；2 = 可查看 + 可编辑；1 = 仅可查看。
+          </div>
+        </>
+      )}
 
-      {mode === 'dept' ? (
+      {canWrite && (mode === 'dept' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {deptError && (
             <Alert
@@ -350,7 +440,7 @@ export default function GrantModal({
             </div>
           )}
         </div>
-      )}
+      ))}
     </Modal>
   );
 }

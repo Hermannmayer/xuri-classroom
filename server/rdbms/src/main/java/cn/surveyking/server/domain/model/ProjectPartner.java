@@ -58,6 +58,14 @@ public class ProjectPartner extends BaseModel {
 	@TableField(value = "data_permission")
 	private String dataPermission;
 
+	/**
+	 * 授权级别：1 只读 / 2 可编辑（含只读，默认）/ 3 可授权（含编辑）。
+	 *
+	 * <p>只对协作者（type=2）有意义；答卷人（type=3/4）与所有者（type=1）固定按只读/全权处理。
+	 */
+	@TableField(value = "access_level")
+	private Integer accessLevel;
+
 	@TableField(exist = false)
 	private static final long serialVersionUID = 1L;
 

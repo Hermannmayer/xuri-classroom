@@ -162,7 +162,8 @@ public class ProjectApi {
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void addProjectPartner(@RequestBody ProjectPartnerRequest request) {
-		projectPartnerService.assertProjectOwner(request.getProjectId());
+		// 授权闸门在 service（owner / admin / access_level=3 的协作者），这里不再限定 owner，
+		// 否则「可授权」的协作者没法把自己的班/学员继续加进来
 		projectPartnerService.addProjectPartner(request);
 	}
 
@@ -174,8 +175,19 @@ public class ProjectApi {
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void deleteProjectPartner(@RequestBody ProjectPartnerRequest request) {
-		projectPartnerService.assertProjectOwner(request.getProjectId());
 		projectPartnerService.deleteProjectPartner(request);
+	}
+
+	/**
+	 * 调整项目成员的授权级别（1 只读 / 2 可编辑 / 3 可授权）。
+	 *
+	 * <p>权限由 {@code ProjectPartnerService#assertCanGrant} 判定（owner / admin / access_level=3 的协作者）；
+	 * 这里不加 @EnableDataPerm：请求体可能只带 id + accessLevel，拿不到 projectId 的 SpEL 会直接 403。
+	 */
+	@PostMapping("/partner/update")
+	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
+	public void updateProjectPartner(@RequestBody ProjectPartnerRequest request) {
+		projectPartnerService.updateProjectPartner(request);
 	}
 
 	/**

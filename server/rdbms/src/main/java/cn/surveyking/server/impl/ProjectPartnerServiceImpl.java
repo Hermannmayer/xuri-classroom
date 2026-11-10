@@ -37,10 +37,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import javax.validation.ValidationException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -67,6 +69,15 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 	private final CacheManager cacheManager;
 
 	private final ProjectPartnerViewMapper projectPartnerViewMapper;
+
+	/** 授权级别：1 只读 */
+	private static final int ACCESS_LEVEL_VIEW = 1;
+
+	/** 授权级别：2 可编辑（含只读） */
+	private static final int ACCESS_LEVEL_EDIT = 2;
+
+	/** 授权级别：3 可授权（含编辑） */
+	private static final int ACCESS_LEVEL_GRANT = 3;
 
 	@Override
 	public PaginationResponse<ProjectPartnerView> listProjectPartner(ProjectPartnerQuery query) {
@@ -95,37 +106,58 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 
 	@Override
 	public void addProjectPartner(ProjectPartnerRequest request) {
-		if (ProjectPartnerTypeEnum.OWNER.getType() == request.getType()
-				&& count(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, request.getProjectId())
-						.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.OWNER.getType())) > 0) {
+		int type = request.getType() == null ? ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType()
+				: request.getType();
+		long ownerCount = count(Wrappers.<ProjectPartner>lambdaQuery()
+				.eq(ProjectPartner::getProjectId, request.getProjectId())
+				.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.OWNER.getType()));
+		if (type == ProjectPartnerTypeEnum.OWNER.getType() && ownerCount > 0) {
 			throw new AccessDeniedException("请使用专用的所有权转移功能");
 		}
-		// 授权给用户组（班级）：只写一条 group_id 记录，组员自动继承可见
+		// 首任所有者由 addProject 内部写入（此刻项目还没有 owner），跳过授权校验；
+		// 其余情况（协作者、答卷人）都要求调用者「可授权」（owner / admin / access_level=3 的协作者）
+		if (!(type == ProjectPartnerTypeEnum.OWNER.getType() && ownerCount == 0)) {
+			assertCanGrant(request.getProjectId());
+		}
+		// 授权给用户组：只写一条 group_id 记录，组员自动继承。
+		// type=2 是「教师组协作者」（带级别），type=3 仍是原来的班级/学员组（只读）
 		if (org.apache.commons.lang3.StringUtils.isNotBlank(request.getGroupId())) {
-			long exists = count(Wrappers.<ProjectPartner>lambdaQuery()
+			int level = type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
+					? normalizeAccessLevel(request.getAccessLevel()) : ACCESS_LEVEL_VIEW;
+			ProjectPartner exist = getOne(Wrappers.<ProjectPartner>lambdaQuery()
 					.eq(ProjectPartner::getProjectId, request.getProjectId())
-					.eq(ProjectPartner::getGroupId, request.getGroupId())
-					.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType()));
-			if (exists == 0) {
+					.eq(ProjectPartner::getGroupId, request.getGroupId()).eq(ProjectPartner::getType, type), false);
+			if (exist == null) {
 				ProjectPartner partner = new ProjectPartner();
 				partner.setProjectId(request.getProjectId());
 				partner.setGroupId(request.getGroupId());
-				partner.setType(ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType());
+				partner.setType(type);
+				partner.setAccessLevel(level);
 				save(partner);
+			}
+			else if (type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
+					&& !Objects.equals(exist.getAccessLevel(), level)) {
+				// 协作者组改级别：更新原记录，不要再插一条重复的组授权
+				ProjectPartner update = new ProjectPartner();
+				update.setId(exist.getId());
+				update.setAccessLevel(level);
+				updateById(update);
 			}
 			// 组授权的变化在行上看不出影响哪些用户，直接清全量（见 evictProjectPermissions 注释）
 			evictAllProjectPermissions();
 			return;
 		}
-		// 添加答题人
+		// 添加/更新成员：协作者按请求级别，答卷人固定只读
+		int level = type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
+				? normalizeAccessLevel(request.getAccessLevel()) : ACCESS_LEVEL_VIEW;
 		List<ProjectPartner> existUserIds = list(Wrappers.<ProjectPartner>lambdaQuery()
 				.in(request.getUserIds() != null, ProjectPartner::getUserId, request.getUserIds())
 				.in(request.getUserNames() != null
-						&& ProjectPartnerTypeEnum.RESPONDENT_IMP_USER.getType() == request.getType(),
+						&& ProjectPartnerTypeEnum.RESPONDENT_IMP_USER.getType() == type,
 						ProjectPartner::getUserName, request.getUserNames())
-				.eq(ProjectPartner::getType, request.getType())
+				.eq(ProjectPartner::getType, type)
 				.eq(ProjectPartner::getProjectId, request.getProjectId()));
-		if (ProjectPartnerTypeEnum.RESPONDENT_IMP_USER.getType() == request.getType()) {
+		if (ProjectPartnerTypeEnum.RESPONDENT_IMP_USER.getType() == type) {
 			saveBatch(request.getUserNames().stream().filter(username -> {
 				if (existUserIds.stream().anyMatch(partner -> partner.getUserName().equals(username))) {
 					return false;
@@ -135,26 +167,45 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 				ProjectPartner partner = new ProjectPartner();
 				partner.setProjectId(request.getProjectId());
 				partner.setUserName(userName);
-				partner.setType(request.getType());
+				partner.setType(type);
+				partner.setAccessLevel(ACCESS_LEVEL_VIEW);
 				return partner;
 			}).collect(Collectors.toList()));
+			return;
 		}
-		else {
-			List<ProjectPartner> newPartners = request.getUserIds().stream().filter(userId -> {
-				if (existUserIds.stream().anyMatch(partner -> partner.getUserId().equals(userId))) {
-					return false;
-				}
-				return true;
-			}).map(userId -> {
-				ProjectPartner partner = new ProjectPartner();
-				partner.setProjectId(request.getProjectId());
-				partner.setUserId(userId);
-				partner.setType(request.getType());
-				return partner;
-			}).collect(Collectors.toList());
+		List<ProjectPartner> newPartners = request.getUserIds().stream().filter(userId -> {
+			if (existUserIds.stream().anyMatch(partner -> partner.getUserId().equals(userId))) {
+				return false;
+			}
+			return true;
+		}).map(userId -> {
+			ProjectPartner partner = new ProjectPartner();
+			partner.setProjectId(request.getProjectId());
+			partner.setUserId(userId);
+			partner.setType(type);
+			partner.setAccessLevel(level);
+			return partner;
+		}).collect(Collectors.toList());
+		if (!newPartners.isEmpty()) {
 			saveBatch(newPartners);
-			evictProjectPermissions(newPartners);
 		}
+		// 已是协作者的：重复添加时按新级别更新，而不是静默跳过
+		if (type == ProjectPartnerTypeEnum.COLLABORATOR.getType()) {
+			List<ProjectPartner> levelUpdates = existUserIds.stream()
+					.filter(partner -> partner.getUserId() != null
+							&& !Objects.equals(partner.getAccessLevel(), level))
+					.map(partner -> {
+						ProjectPartner update = new ProjectPartner();
+						update.setId(partner.getId());
+						update.setAccessLevel(level);
+						return update;
+					}).collect(Collectors.toList());
+			if (!levelUpdates.isEmpty()) {
+				updateBatchById(levelUpdates);
+			}
+		}
+		// 级别或成员范围变了：按用户失效「我可见的项目」缓存
+		evictProjectPermissionsForUsers(request.getUserIds());
 	}
 
 	@Override
@@ -163,11 +214,18 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 				&& request.getProjectId() == null) {
 			throw new AccessDeniedException("未指定要删除的项目成员");
 		}
+		// 授权闸门：owner / admin / access_level=3 的协作者
+		if (!isBlank(request.getProjectId())) {
+			assertCanGrant(request.getProjectId());
+		}
 		List<ProjectPartner> partners = list(Wrappers.<ProjectPartner>lambdaQuery()
 				.in(CollectionUtils.isNotEmpty(request.getIds()), ProjectPartner::getId, request.getIds())
 				.in(CollectionUtils.isNotEmpty(request.getProjectIds()), ProjectPartner::getProjectId,
 						request.getProjectIds())
 				.eq(request.getProjectId() != null, ProjectPartner::getProjectId, request.getProjectId()));
+		// 按 ids / projectIds 批量删时，逐个涉及的项目校验（projectId 那个上面已经校验过）
+		partners.stream().map(ProjectPartner::getProjectId).filter(Objects::nonNull).distinct()
+				.filter(projectId -> !Objects.equals(projectId, request.getProjectId())).forEach(this::assertCanGrant);
 		if (partners.stream()
 				.anyMatch(partner -> Objects.equals(partner.getType(), ProjectPartnerTypeEnum.OWNER.getType()))) {
 			throw new AccessDeniedException("不能通过成员删除接口删除项目所有者");
@@ -176,6 +234,33 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 			removeByIds(partners.stream().map(ProjectPartner::getId).collect(Collectors.toList()));
 		}
 		evictProjectPermissions(partners);
+	}
+
+	@Override
+	public void updateProjectPartner(ProjectPartnerRequest request) {
+		if (isBlank(request.getId())) {
+			throw new ValidationException("未指定要修改的成员");
+		}
+		ProjectPartner partner = getById(request.getId());
+		if (partner == null) {
+			throw new ValidationException("成员不存在，请刷新后重试");
+		}
+		if (request.getProjectId() != null && !Objects.equals(request.getProjectId(), partner.getProjectId())) {
+			throw new AccessDeniedException("不能跨项目修改成员");
+		}
+		assertCanGrant(partner.getProjectId());
+		if (!Objects.equals(partner.getType(), ProjectPartnerTypeEnum.COLLABORATOR.getType())) {
+			// 所有者不按级别处理；答卷人只读，也不需要级别
+			throw new ValidationException("只有协作者可以调整授权级别");
+		}
+		if (request.getAccessLevel() == null) {
+			throw new ValidationException("请选择授权级别");
+		}
+		ProjectPartner update = new ProjectPartner();
+		update.setId(partner.getId());
+		update.setAccessLevel(normalizeAccessLevel(request.getAccessLevel()));
+		updateById(update);
+		evictProjectPermissions(Collections.singletonList(partner));
 	}
 
 	@Override
@@ -199,6 +284,84 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 						.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.OWNER.getType())) == 0) {
 			throw new AccessDeniedException("只有项目所有者可以管理成员");
 		}
+	}
+
+	@Override
+	public void assertCanGrant(String projectId) {
+		if (isBlank(projectId)) {
+			throw new AccessDeniedException("未指定项目");
+		}
+		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		String userId = SecurityContextUtils.getUserId();
+		// 所有者：全权
+		boolean owner = count(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, projectId)
+				.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.OWNER.getType())
+				.eq(ProjectPartner::getUserId, userId)) > 0;
+		if (owner) {
+			return;
+		}
+		// 被授到「可授权」（access_level=3）的协作者；按组授权的组员也算（主组 + 附加组 + 祖先链）
+		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
+		long grantor = count(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, projectId)
+				.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.COLLABORATOR.getType())
+				.ge(ProjectPartner::getAccessLevel, ACCESS_LEVEL_GRANT).and(w -> {
+					w.eq(ProjectPartner::getUserId, userId);
+					if (!deptScope.isEmpty()) {
+						w.or().isNotNull(ProjectPartner::getGroupId).in(ProjectPartner::getGroupId, deptScope);
+					}
+				}));
+		if (grantor == 0) {
+			throw new AccessDeniedException("只有项目所有者或可授权的协作者可以管理成员");
+		}
+	}
+
+	@Override
+	public int accessLevel(String projectId) {
+		if (isBlank(projectId)) {
+			return 0;
+		}
+		String userId = SecurityContextUtils.getUserId();
+		if (SecurityContextUtils.isAdmin()) {
+			return ACCESS_LEVEL_GRANT;
+		}
+		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
+		List<ProjectPartner> partners = list(Wrappers.<ProjectPartner>lambdaQuery()
+				.eq(ProjectPartner::getProjectId, projectId).and(w -> {
+					w.eq(ProjectPartner::getUserId, userId);
+					if (!deptScope.isEmpty()) {
+						w.or().isNotNull(ProjectPartner::getGroupId).in(ProjectPartner::getGroupId, deptScope);
+					}
+				}));
+		int level = 0;
+		for (ProjectPartner partner : partners) {
+			Integer type = partner.getType();
+			if (Objects.equals(type, ProjectPartnerTypeEnum.OWNER.getType())) {
+				return ACCESS_LEVEL_GRANT;
+			}
+			if (Objects.equals(type, ProjectPartnerTypeEnum.COLLABORATOR.getType())) {
+				level = Math.max(level, normalizeAccessLevel(partner.getAccessLevel()));
+			}
+			else if (Objects.equals(type, ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType())) {
+				level = Math.max(level, ACCESS_LEVEL_VIEW);
+			}
+		}
+		return level;
+	}
+
+	/** 授权级别：为空按「可编辑」，越界夹到 1~3 */
+	private int normalizeAccessLevel(Integer accessLevel) {
+		if (accessLevel == null) {
+			return ACCESS_LEVEL_EDIT;
+		}
+		if (accessLevel < ACCESS_LEVEL_VIEW) {
+			return ACCESS_LEVEL_VIEW;
+		}
+		if (accessLevel > ACCESS_LEVEL_GRANT) {
+			return ACCESS_LEVEL_GRANT;
+		}
+		return accessLevel;
 	}
 
 	/**

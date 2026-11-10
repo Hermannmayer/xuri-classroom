@@ -17,4 +17,7 @@ public class RepoPartnerView {
 	/** 用户组名称，列表展示用 */
 	private String deptName;
 
+	/** 授权级别：1 只读 / 2 可编辑 / 3 可授权 */
+	private Integer accessLevel;
+
 }

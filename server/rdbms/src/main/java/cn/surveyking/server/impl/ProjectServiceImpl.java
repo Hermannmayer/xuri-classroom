@@ -327,6 +327,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	 */
 	@Override
 	public void updateProjectStatus(ProjectStatusRequest request) {
+		assertCanEditProject(request == null ? null : request.getId());
 		if (request == null || isBlank(request.getId())) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
@@ -352,6 +353,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	@Override
 	@SneakyThrows
 	public void updateProject(ProjectRequest request) {
+		assertCanEditProject(request == null ? null : request.getId());
 		// 分类：显式传空串表示「清空分类」。MyBatis-Plus 的 updateById 会跳过 null 字段，
 		// 所以清空要单独 set 一次；不带 category 的部分更新（settingKey 单字段、批量设置）
 		// 传的是 null，不会走到这里，不会被误清空。
@@ -396,7 +398,15 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public void deleteProject(ProjectRequest request) {
+		assertCanEditProject(request == null ? null : request.getId());
 		removeById(request.getId());
+	}
+
+	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权）。 */
+	private void assertCanEditProject(String projectId) {
+		if (projectPartnerService.accessLevel(projectId) < 2) {
+			throw new org.springframework.security.access.AccessDeniedException("没有编辑该项目的权限");
+		}
 	}
 
 	@Override

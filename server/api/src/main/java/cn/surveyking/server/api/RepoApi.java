@@ -109,6 +109,18 @@ public class RepoApi {
 		repoPartnerService.deleteRepoPartner(request);
 	}
 
+	/**
+	 * 调整题库成员的授权级别（1 只读 / 2 可编辑 / 3 可授权）。
+	 *
+	 * <p>权限由 {@code RepoPartnerService} 内部的 assertManagePermission 判定
+	 * （管理员 / 题库创建者 / access_level=3 的成员，含按组授权）。
+	 */
+	@PostMapping("/partner/update")
+	@PreAuthorize("hasAuthority('repo:grant') or hasRole('admin')")
+	public void updateRepoPartner(@RequestBody RepoPartnerRequest request) {
+		repoPartnerService.updateRepoPartner(request);
+	}
+
 	@PostMapping("/batchCreate")
 	@PreAuthorize("hasAuthority('repo:create')")
 	public void batchAddRepoTemplate(@RequestBody RepoTemplateRequest request) {

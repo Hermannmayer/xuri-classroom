@@ -356,6 +356,7 @@ function ManagerProjectList({
   const canPublish = can(authorities, PERMISSION_CODES.projectPublish);
   const canData = can(authorities, PERMISSION_CODES.answerList);
   const canDetail = can(authorities, PERMISSION_CODES.projectDetail);
+  const canPartner = can(authorities, PERMISSION_CODES.projectPartner);
 
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -901,6 +902,14 @@ function ManagerProjectList({
                                 数据
                               </Button>
                             )}
+                            {canPartner && (
+                              <Button
+                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                onClick={() => navigate(`/survey/${row.id}`)}
+                              >
+                                授权
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -1041,7 +1050,7 @@ function ManagerProjectList({
           },
           {
             title: '操作',
-            width: 360,
+            width: 400,
             render: (_: unknown, row) => (
               <Space size={10} wrap={false} style={{ whiteSpace: 'nowrap' }}>
                 {row.mode !== 'folder' && (
@@ -1054,6 +1063,9 @@ function ManagerProjectList({
                     )}
                     {canData && (
                       <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
+                    )}
+                    {canPartner && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}`)}>授权</LinkAction>
                     )}
                     <LinkAction onClick={() => void copyLink(row)}>{copyLinkLabel(row)}</LinkAction>
                     {canPublish &&
