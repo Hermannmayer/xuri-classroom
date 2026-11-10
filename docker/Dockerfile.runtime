@@ -10,11 +10,13 @@
 #
 # 只想用官方镜像时无需构建：直接 docker compose pull。
 # ============================================================
-FROM eclipse-temurin:8-jre-alpine
+FROM eclipse-temurin:8-jre-jammy
 
 # 时区 + 健康检查用的 curl（基础镜像里没有）
-RUN apk add --no-cache tzdata curl \
-    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone
 
 WORKDIR /app

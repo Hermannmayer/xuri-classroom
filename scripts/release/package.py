@@ -30,6 +30,14 @@ LINUX_TEMPLATE = ROOT / "scripts" / "release" / "linux"
 DOCKER_TEMPLATE = ROOT / "docker"
 
 
+def configure_stdout() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
 def fail(message: str) -> None:
     print("错误：" + message, file=sys.stderr)
     raise SystemExit(1)
@@ -184,6 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    configure_stdout()
     args = build_parser().parse_args()
     version = args.version.strip()
     jar = Path(args.jar) if args.jar else DEFAULT_JAR / ("xuri-classroom-" + version + ".jar")
