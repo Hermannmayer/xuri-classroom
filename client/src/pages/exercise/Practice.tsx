@@ -26,7 +26,7 @@ type Layout = 'single' | 'scroll';
  * 懒加载每页题数：首屏 10 题，瀑布流滚到底（或点「加载更多」）再追加 10 题。
  * 题库动辄几百题，一次性拉全量会让首屏发卡，也方便脚本把整个题库抓走。
  */
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 interface PracticeProgress {
   repoId: string;
@@ -413,19 +413,41 @@ export default function Practice() {
     if (questions.length) setInitialized(true);
   }, [questions.length]);
 
-  // 瀑布流：滚到底部的哨兵进入视口就追加下一页（不支持 IntersectionObserver 时退化为「加载更多」按钮）
+  // 瀑布流：哨兵进入视口就追加下一页；同时监听滚动容器（capture=true），
+  // 避免 IntersectionObserver 在内部滚动容器里不触发导致只加载一页。
   useEffect(() => {
     if (layout !== 'scroll' || !hasMore) return;
     const sentinel = sentinelRef.current;
-    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
-      },
-      { rootMargin: '160px' },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
+    let observer: IntersectionObserver | undefined;
+    if (sentinel && typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+        },
+        { rootMargin: '320px' },
+      );
+      observer.observe(sentinel);
+    }
+    let ticking = false;
+    const check = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        ticking = false;
+        const el = sentinelRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight + 320 && rect.bottom > -100) void loadMore();
+      });
+    };
+    window.addEventListener('scroll', check, true);
+    window.addEventListener('resize', check);
+    check();
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('scroll', check, true);
+      window.removeEventListener('resize', check);
+    };
   }, [layout, hasMore, loadMore, flat.length]);
 
   // 瀑布流跳题：等这一页渲染出来再滚过去
