@@ -1,11 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Checkbox, Segmented, Spin, Typography, message } from 'antd';
+import { Button, Checkbox, Segmented, Select, Spin, Typography, message } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { download, getProject } from '../../api';
 import type { SurveySchema } from '../../schema/types';
 
 const LETTERS = 'ABCDEFGH';
-const CONTENT_HEIGHT_MM = 267;
 
 interface PrintBlock {
   key: string;
@@ -17,7 +16,7 @@ function stripHtml(text?: string) {
   return (text || '').replace(/<[^>]+>/g, '').trim();
 }
 
-function QuestionBlock({ question, number }: { question: SurveySchema; number: number }) {
+function QuestionBlock({ question, number, answerArea }: { question: SurveySchema; number: number; answerArea: 'line' | 'blank' }) {
   const options = question.children ?? [];
   return (
     <div style={{ marginBottom: 12, breakInside: 'avoid' }}>
@@ -36,9 +35,9 @@ function QuestionBlock({ question, number }: { question: SurveySchema; number: n
       )}
       {question.type === 'Textarea' && (
         <div style={{ paddingLeft: 18, marginTop: 4 }}>
-          {[0, 1, 2].map((line) => (
-            <div key={line} style={{ borderBottom: '1px solid #000', height: 24 }} />
-          ))}
+          {answerArea === 'line'
+            ? [0, 1, 2].map((line) => <div key={line} style={{ borderBottom: '1px solid #000', height: 24 }} />)
+            : <div style={{ height: 72 }} />}
         </div>
       )}
       {question.type === 'FillBlank' && options.length > 0 && (
@@ -79,6 +78,12 @@ export default function SurveyPrintPage() {
   const [showAnswers, setShowAnswers] = useState(searchParams.get('answers') === '1');
   const [showCard, setShowCard] = useState(searchParams.get('card') === '1');
   const [size, setSize] = useState<'A4' | 'A3'>('A4');
+  const [showInfo, setShowInfo] = useState(true);
+  const [showCode, setShowCode] = useState(true);
+  const [sealLine, setSealLine] = useState(false);
+  const [pageNumber, setPageNumber] = useState(true);
+  const [answerArea, setAnswerArea] = useState<'line' | 'blank'>('line');
+  const [margin, setMargin] = useState<'standard' | 'wide'>('standard');
   const [pages, setPages] = useState<number[][]>([]);
   const measureRef = useRef<HTMLDivElement>(null);
 
@@ -149,18 +154,26 @@ export default function SurveyPrintPage() {
         ),
       });
     }
+    if (showCode) {
+      list.push({
+        key: 'code',
+        node: <div style={{ textAlign: 'right', fontSize: 11, marginBottom: 4 }}>试卷代码：SK-{id.toUpperCase()}</div>,
+      });
+    }
     list.push({
       key: 'title',
       node: <h1 style={{ textAlign: 'center', fontSize: 22, margin: '0 0 6px' }}>{title}</h1>,
     });
-    list.push({
-      key: 'info',
-      node: (
-        <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 18 }}>
-          姓名：____________　考号：____________　得分：________
-        </div>
-      ),
-    });
+    if (showInfo) {
+      list.push({
+        key: 'info',
+        node: (
+          <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 18 }}>
+            姓名：____________　考号：____________　得分：________
+          </div>
+        ),
+      });
+    }
 
     let number = 0;
     for (const group of groups) {
@@ -174,7 +187,7 @@ export default function SurveyPrintPage() {
         number += 1;
         list.push({
           key: question.id,
-          node: <QuestionBlock question={question} number={number} />,
+          node: <QuestionBlock question={question} number={number} answerArea={answerArea} />,
         });
       }
     }
@@ -200,13 +213,15 @@ export default function SurveyPrintPage() {
       });
     }
     return list;
-  }, [project, groups, questions, showCard, showAnswers]);
+  }, [project, groups, questions, showCard, showAnswers, answerArea, showInfo, showCode, id]);
+
+  const marginMm = margin === 'wide' ? 20 : 15;
 
   useLayoutEffect(() => {
     const root = measureRef.current;
     if (!root) return;
     const nodes = Array.from(root.querySelectorAll('[data-block]')) as HTMLElement[];
-    const pageHeight = (CONTENT_HEIGHT_MM * 96) / 25.4;
+    const pageHeight = ((297 - marginMm * 2) * 96) / 25.4;
     const next: number[][] = [];
     let current: number[] = [];
     let used = 0;
@@ -230,7 +245,7 @@ export default function SurveyPrintPage() {
     });
     if (current.length) next.push(current);
     setPages(next);
-  }, [blocks]);
+  }, [blocks, marginMm]);
 
   const sheets = useMemo(() => {
     if (size === 'A3') {
@@ -258,7 +273,7 @@ export default function SurveyPrintPage() {
   const sheetStyle = size === 'A3'
     ? { width: '420mm', height: '297mm', display: 'flex', margin: '0 auto 16px', background: '#fff', boxShadow: '0 2px 12px rgba(0,0,0,.12)' }
     : { width: '210mm', height: '297mm', margin: '0 auto 16px', background: '#fff', boxShadow: '0 2px 12px rgba(0,0,0,.12)' };
-  const pageStyle = { width: '210mm', height: '297mm', padding: '15mm', boxSizing: 'border-box' as const, position: 'relative' as const, overflow: 'hidden' as const };
+  const pageStyle = { width: '210mm', height: '297mm', padding: marginMm + 'mm', boxSizing: 'border-box' as const, position: 'relative' as const, overflow: 'hidden' as const };
 
   return (
     <div style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
@@ -273,13 +288,31 @@ export default function SurveyPrintPage() {
         <Segmented value={size} onChange={(value) => setSize(value as 'A4' | 'A3')} options={['A4', 'A3']} />
         <Checkbox checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)}>附答案页</Checkbox>
         <Checkbox checked={showCard} onChange={(e) => setShowCard(e.target.checked)}>附答题卡</Checkbox>
+        <Checkbox checked={showInfo} onChange={(e) => setShowInfo(e.target.checked)}>试卷信息</Checkbox>
+        <Checkbox checked={showCode} onChange={(e) => setShowCode(e.target.checked)}>试卷代码</Checkbox>
+        <Checkbox checked={sealLine} onChange={(e) => setSealLine(e.target.checked)}>密封线</Checkbox>
+        <Checkbox checked={pageNumber} onChange={(e) => setPageNumber(e.target.checked)}>页码</Checkbox>
+        <Select
+          size="small"
+          style={{ width: 110 }}
+          value={answerArea}
+          onChange={(value) => setAnswerArea(value as 'line' | 'blank')}
+          options={[{ label: '答题区横线', value: 'line' }, { label: '答题区留白', value: 'blank' }]}
+        />
+        <Select
+          size="small"
+          style={{ width: 110 }}
+          value={margin}
+          onChange={(value) => setMargin(value as 'standard' | 'wide')}
+          options={[{ label: '页边距标准', value: 'standard' }, { label: '页边距宽松', value: 'wide' }]}
+        />
         <Typography.Text type="secondary">
           {size === 'A3' ? 'A3 = 横向，两张 A4 拼在一张上' : 'A4 单页'}
         </Typography.Text>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <div ref={measureRef} style={{ position: 'absolute', left: -99999, top: 0, width: '180mm', visibility: 'hidden' }}>
+        <div ref={measureRef} style={{ position: 'absolute', left: -99999, top: 0, width: (210 - marginMm * 2) + 'mm', visibility: 'hidden' }}>
           {blocks.map((block) => (
             <div key={block.key} data-block>
               {block.node}
@@ -293,12 +326,29 @@ export default function SurveyPrintPage() {
               const globalPage = size === 'A3' ? sheetIndex * 2 + pageIndex + 1 : sheetIndex + 1;
               return (
                 <div key={pageIndex} className="a4-page" style={pageStyle}>
+                  {sealLine && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: '2mm',
+                        top: '30mm',
+                        bottom: '30mm',
+                        writingMode: 'vertical-rl',
+                        fontSize: 11,
+                        letterSpacing: 4,
+                      }}
+                    >
+                      密封线内不要答题
+                    </div>
+                  )}
                   {page.map((blockIndex) => (
                     <div key={blocks[blockIndex].key}>{blocks[blockIndex].node}</div>
                   ))}
-                  <div style={{ position: 'absolute', bottom: '8mm', left: 0, right: 0, textAlign: 'center', fontSize: 11 }}>
-                    第 {globalPage} 页 / 共 {pages.length} 页
-                  </div>
+                  {pageNumber && (
+                    <div style={{ position: 'absolute', bottom: '8mm', left: 0, right: 0, textAlign: 'center', fontSize: 11 }}>
+                      第 {globalPage} 页 / 共 {pages.length} 页
+                    </div>
+                  )}
                 </div>
               );
             })}

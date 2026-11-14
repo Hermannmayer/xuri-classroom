@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Checkbox, Drawer, Dropdown, Input, InputNumber, message, Modal, Space, Spin, Switch, Tabs, Tooltip, Upload } from 'antd';
+import { Button, Card, Checkbox, Drawer, Dropdown, Input, InputNumber, message, Modal, Radio, Space, Spin, Switch, Tabs, Tooltip, Upload } from 'antd';
 import {
   ArrowLeftOutlined,
   BgColorsOutlined,
@@ -248,6 +248,11 @@ export default function SurveyEditor() {
   const [importOpen, setImportOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
   const [rightTab, setRightTab] = useState<'quick' | 'question'>('quick');
+  const [leftTab, setLeftTab] = useState<'palette' | 'outline' | 'theme'>('palette');
+  const [requireOpen, setRequireOpen] = useState(false);
+  const [requireSelected, setRequireSelected] = useState<Record<string, boolean>>({});
+  const [requireValue, setRequireValue] = useState(true);
+  const [publishing, setPublishing] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [scoreSelected, setScoreSelected] = useState<Record<string, boolean>>({});
   const [scoreValue, setScoreValue] = useState(5);
@@ -369,6 +374,59 @@ export default function SurveyEditor() {
       <Switch size="small" checked={Boolean(checked)} onChange={onChange} />
     </div>
   );
+
+  const openRequireModal = () => {
+    const next: Record<string, boolean> = {};
+    for (const group of scoreGroups) next[group.type] = false;
+    setRequireSelected(next);
+    setRequireValue(true);
+    setRequireOpen(true);
+  };
+
+  const applyRequired = () => {
+    const types = Object.keys(requireSelected).filter((type) => requireSelected[type]);
+    if (!types.length) {
+      message.warning('请至少勾选一种题型');
+      return;
+    }
+    const next = JSON.parse(JSON.stringify(survey)) as SurveySchema;
+    const walk = (nodes?: SurveySchema[]) => {
+      for (const node of nodes ?? []) {
+        if (types.includes(node.type)) {
+          node.attribute = { ...(node.attribute ?? {}), required: requireValue };
+        }
+        walk(node.children);
+      }
+    };
+    walk(next.children);
+    setSurvey(next);
+    setRequireOpen(false);
+    message.success('已批量更新必填状态，记得保存');
+  };
+
+  const share = async () => {
+    const url = location.origin + '/s/' + id;
+    try {
+      await navigator.clipboard.writeText(url);
+      message.success('答题链接已复制');
+    } catch {
+      message.info(url);
+    }
+  };
+
+  const publish = async () => {
+    setPublishing(true);
+    try {
+      const nextSetting = { ...setting, status: 1 };
+      await updateProject({ id, name, survey: normalizeSchema(survey), setting: nextSetting });
+      setSetting(nextSetting);
+      message.success('已发布考试');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const applyTypeScores = () => {
     const types = Object.keys(scoreSelected).filter((type) => scoreSelected[type]);
@@ -605,6 +663,9 @@ export default function SurveyEditor() {
           <Button size="small" type="text" onClick={() => navigate('/survey/' + id + '/report')}>
             统计
           </Button>
+          <Button size="small" type="text" onClick={() => void share()}>
+            分享
+          </Button>
         </Space>
         <div style={{ flex: 1 }} />
         <Tooltip title="撤销 (Ctrl+Z)">
@@ -668,6 +729,9 @@ export default function SurveyEditor() {
         <Button icon={<SettingOutlined />} onClick={() => navigate('/survey/' + id)}>
           设置
         </Button>
+        <Button type="primary" ghost loading={publishing} onClick={publish}>
+          {setting.status === 1 ? '已发布' : '发布考试'}
+        </Button>
         <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
           保存
         </Button>
@@ -685,53 +749,95 @@ export default function SurveyEditor() {
             padding: 10,
           }}
         >
-          <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
-            ADD / 添加
-          </div>
-          {grouped.map((group) => (
-            <div key={group} style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: 'var(--bp-hint)', margin: '4px 0' }}>
-                {GROUP_LABEL[group]}
-              </div>
-              <Space wrap size={4}>
-                {QUESTION_META.filter((m) => m.group === group).map((m) => (
-                  <Button
-                    key={m.type}
-                    size="small"
-                    draggable
-                    onDragStart={(e) => {
-                      dragTypeRef.current = m.type;
-                      e.dataTransfer.effectAllowed = 'copy';
-                      try {
-                        e.dataTransfer.setData('text/plain', m.type);
-                      } catch {
-                        /* 某些浏览器限制 setData，忽略 */
-                      }
-                    }}
-                    onDragEnd={() => {
-                      dragTypeRef.current = undefined;
-                    }}
-                    onClick={() => addQuestion(m.type)}
-                  >
-                    {m.label}
-                  </Button>
-                ))}
-              </Space>
-            </div>
-          ))}
-
-          <div
-            style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', margin: '14px 0 6px' }}
-          >
-            OUTLINE / 大纲
-          </div>
-          <OutlineList
-            root={survey}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onRemove={handleRemove}
-            onMove={handleMove}
-            onReorder={(parentId, from, to) => setSurvey(reorderChildren(survey, parentId, from, to))}
+          <Tabs
+            size="small"
+            activeKey={leftTab}
+            onChange={(key) => setLeftTab(key as 'palette' | 'outline' | 'theme')}
+            items={[
+              {
+                key: 'palette',
+                label: '题目',
+                children: (
+                  <div>
+                    {grouped.map((group) => (
+                      <div key={group} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, color: 'var(--bp-hint)', margin: '4px 0' }}>
+                          {GROUP_LABEL[group]}
+                        </div>
+                        <Space wrap size={4}>
+                          {QUESTION_META.filter((m) => m.group === group).map((m) => (
+                            <Button
+                              key={m.type}
+                              size="small"
+                              draggable
+                              onDragStart={(e) => {
+                                dragTypeRef.current = m.type;
+                                e.dataTransfer.effectAllowed = 'copy';
+                                try {
+                                  e.dataTransfer.setData('text/plain', m.type);
+                                } catch {
+                                  /* 某些浏览器限制 setData，忽略 */
+                                }
+                              }}
+                              onDragEnd={() => {
+                                dragTypeRef.current = undefined;
+                              }}
+                              onClick={() => addQuestion(m.type)}
+                            >
+                              {m.label}
+                            </Button>
+                          ))}
+                        </Space>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                key: 'outline',
+                label: '大纲',
+                children: (
+                  <OutlineList
+                    root={survey}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    onRemove={handleRemove}
+                    onMove={handleMove}
+                    onReorder={(parentId, from, to) => setSurvey(reorderChildren(survey, parentId, from, to))}
+                  />
+                ),
+              },
+              {
+                key: 'theme',
+                label: '主题',
+                children: (
+                  <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9 }}>
+                    <div>背景图：{survey.attribute?.backgroundImage ? '已设置' : '未设置'}</div>
+                    <div>页眉图：{survey.attribute?.headerImage ? '已设置' : '未设置'}</div>
+                    {survey.attribute?.headerImage && (
+                      <img
+                        src={survey.attribute.headerImage}
+                        alt="页眉"
+                        style={{ width: '100%', maxHeight: 80, objectFit: 'cover', marginTop: 8, border: '1px solid var(--bp-line)' }}
+                      />
+                    )}
+                    <Button
+                      block
+                      style={{ marginTop: 10 }}
+                      onClick={() => {
+                        setThemeText({
+                          backgroundImage: survey.attribute?.backgroundImage ?? '',
+                          headerImage: survey.attribute?.headerImage ?? '',
+                        });
+                        setThemeOpen(true);
+                      }}
+                    >
+                      打开主题设置
+                    </Button>
+                  </div>
+                ),
+              },
+            ]}
           />
         </div>
 
@@ -931,6 +1037,9 @@ export default function SurveyEditor() {
                       <Button block onClick={openScoreModal}>
                         批量设置分值
                       </Button>
+                      <Button block onClick={openRequireModal}>
+                        批量设置必填
+                      </Button>
                       <Button block onClick={() => navigate('/survey/' + id)}>
                         查看全部设置
                       </Button>
@@ -1087,6 +1196,48 @@ export default function SurveyEditor() {
         <div style={{ marginTop: 12 }}>
           分值{' '}
           <InputNumber min={0.5} step={0.5} value={scoreValue} onChange={(value) => setScoreValue(Number(value ?? 0))} />
+        </div>
+      </Modal>
+
+      <Modal
+        title="批量设置必填"
+        open={requireOpen}
+        onCancel={() => setRequireOpen(false)}
+        onOk={applyRequired}
+        okText="应用设置"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+          勾选题型后统一设置必填状态；未勾选的题型保持不变。
+        </div>
+        <Checkbox
+          checked={scoreGroups.length > 0 && scoreGroups.every((group) => requireSelected[group.type])}
+          indeterminate={scoreGroups.some((group) => requireSelected[group.type]) && !scoreGroups.every((group) => requireSelected[group.type])}
+          onChange={(e) => {
+            const next: Record<string, boolean> = {};
+            for (const group of scoreGroups) next[group.type] = e.target.checked;
+            setRequireSelected(next);
+          }}
+          style={{ marginBottom: 10 }}
+        >
+          全选
+        </Checkbox>
+        {scoreGroups.map((group) => (
+          <div key={group.type} style={{ marginBottom: 8 }}>
+            <Checkbox
+              checked={Boolean(requireSelected[group.type])}
+              onChange={(e) => setRequireSelected({ ...requireSelected, [group.type]: e.target.checked })}
+            >
+              {group.label}（{group.count} 题）
+            </Checkbox>
+          </div>
+        ))}
+        <div style={{ marginTop: 14 }}>
+          <Radio.Group value={requireValue} onChange={(e) => setRequireValue(e.target.value)}>
+            <Radio value={true}>设为必填</Radio>
+            <Radio value={false}>设为非必填</Radio>
+          </Radio.Group>
         </div>
       </Modal>
 
