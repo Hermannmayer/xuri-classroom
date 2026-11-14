@@ -237,11 +237,18 @@ export default function ComposePage() {
       return;
     }
     const next = { ...scores };
-    for (const type of active) {
-      const typeTotal = (totalScore * Number(scoreWeights[type] ?? 0)) / sumWeight;
-      const per = Math.max(0.5, Math.round((typeTotal / Number(counts[type])) * 2) / 2);
-      next[type] = per;
-    }
+    let spent = 0;
+    active.forEach((type, index) => {
+      const count = Number(counts[type]);
+      const isLast = index === active.length - 1;
+      // 最后一类吸收四舍五入的零头，保证总分正好等于目标
+      const per = isLast
+        ? (totalScore - spent) / count
+        : (totalScore * Number(scoreWeights[type] ?? 0)) / sumWeight / count;
+      const rounded = Math.max(0, Math.round(per * 100) / 100);
+      next[type] = rounded;
+      spent += rounded * count;
+    });
     setScores(next);
     message.success('已按总分分配每题分值，可继续微调');
   };
