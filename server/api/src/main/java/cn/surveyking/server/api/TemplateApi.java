@@ -25,7 +25,7 @@ public class TemplateApi {
 	@GetMapping("/list")
 	// 题目只读拆成独立权限：学员用 repo:questions:read，管理端用 repo:detail/template:list；
 	// 不再把 repo:book（错题本）当成「能看题库题目」。
-	@PreAuthorize("hasAnyAuthority('template:list','repo:detail','repo:questions:read') or hasRole('admin')")
+	@PreAuthorize("hasAnyAuthority('template:list','repo:detail','repo:questions:read','repo:practice') or hasRole('admin')")
 	public PaginationResponse<TemplateView> listQuestionTemplate(TemplateQuery query) {
 		return templateService.listTemplate(query);
 	}

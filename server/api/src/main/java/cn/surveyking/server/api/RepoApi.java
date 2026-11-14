@@ -140,7 +140,7 @@ public class RepoApi {
 	 */
 	@PostMapping("/pick")
 	// 随机练习从题库抽题：学员只有 repo:book，也要能抽题，否则练习页直接 403
-	@PreAuthorize("hasAnyAuthority('repo:detail','repo:book') or hasRole('admin')")
+	@PreAuthorize("hasAnyAuthority('repo:detail','repo:book','repo:practice') or hasRole('admin')")
 	public List<SurveySchema> pickQuestionFromRepo(@RequestBody List<ProjectSetting.RandomSurveyCondition> repos) {
 		return repoService.pickQuestionFromRepo(repos);
 	}
@@ -169,13 +169,13 @@ public class RepoApi {
 	 * @return
 	 */
 	@GetMapping("/book/list")
-	@PreAuthorize("hasAuthority('repo:book')")
+	@PreAuthorize("hasAnyAuthority('repo:book','repo:practice')")
 	public PaginationResponse<UserBookView> listUserBook(UserBookQuery query) {
 		return repoService.listUserBook(query);
 	}
 
 	@GetMapping("/book/question")
-	@PreAuthorize("hasAuthority('repo:book')")
+	@PreAuthorize("hasAnyAuthority('repo:book','repo:practice')")
 	public SurveySchema getUserBookQuestion(@RequestParam String id,
 			@RequestParam(required = false) Boolean withAnswer) {
 		return repoService.getUserBookQuestion(id, withAnswer);
