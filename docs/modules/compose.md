@@ -38,7 +38,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: e5e39e12ff7a338a0f736b86b19b5fd8fe456aca
+verified_against: 9acf46549cc400e2e144efd3c5f54685d2b7567b
 ---
 
 # 组卷中心
@@ -76,7 +76,7 @@ verified_against: e5e39e12ff7a338a0f736b86b19b5fd8fe456aca
 
 ## 修改指南
 
-- 改选择规则：只动 ComposeServiceImpl（resolveNeeds / take / weightedOrder / buildVariant）。
+- 改选择规则：只动 ComposeServiceImpl（resolveNeeds / take / weightedOrder / buildVariant）；整套拆分在 planSplit（按题型轮转分配，保证套间不重复）。
 - 改统计口径：ComposeServiceImpl#stats；前端 ComposePage 的 chapterOptions 依赖 byChapter。
 - 改打印版式：Print.tsx 的 PRINT_CSS 与题目渲染；A4/A3 用 size 状态注入 @page。
 - 新增难度等级：同时改 t_template.difficulty 长度、题库编辑下拉、组卷页权重输入。
@@ -93,9 +93,10 @@ verified_against: e5e39e12ff7a338a0f736b86b19b5fd8fe456aca
 - 章节/难度是新增列，存量题目为空；组卷页会显示「未设置」，导入模板要带「章节」「难度」列。
 - 跨套去重按题型各自切池，题型之间不共享。
 - 题不够策略：less（默认少出+提示）/ reuse（复用补足）/ error（直接报错）。
+- 整套拆分要求总题量 ≥ 套数，否则直接报错；按题型轮转分配，各套题数最多差 1。
+- 卷内抽题走 POST /api/compose/pick，按题型传 counts/scores/mode。
 - Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。
 - 打印页 A3 只改 @page 尺寸，未做双页拼版。
-- 打印页依赖项目 survey；未发布的套次没有 projectId，不能打印。
 
 ## 验证
 

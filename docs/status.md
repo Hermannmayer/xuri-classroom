@@ -8,7 +8,7 @@
 |---|---|---|---|
 | `module-answer` | 2026-11-10 | `195a7d45051c0de73bfe0abe6ed1e79342aa7765` | 42 |
 | `module-auth` | 2026-11-09 | `6c14ecfdf35a6c2610f436152c616e25e525c5b6` | 10 |
-| `module-compose` | 2026-11-14 | `e5e39e12ff7a338a0f736b86b19b5fd8fe456aca` | 15 |
+| `module-compose` | 2026-11-14 | `9acf46549cc400e2e144efd3c5f54685d2b7567b` | 15 |
 | `module-dashboard` | 2026-11-10 | `5bb845225dac413185a8b1a9151be45e9b04e7e7` | 16 |
 | `module-exercise` | 2026-11-09 | `6c14ecfdf35a6c2610f436152c616e25e525c5b6` | 13 |
 | `module-files` | 2026-11-10 | `a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d` | 31 |

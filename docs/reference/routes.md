@@ -27,7 +27,6 @@
 | `/survey/:id` | `SurveyOverview` | `project:detail` |
 | `/survey/:id/edit` | `SurveyEditor` | `project:update` |
 | `/survey/:id/print` | `SurveyPrint` | `project:detail` |
-| `/compose` | `ComposePage` | `project:create` |
 | `/survey/:id/setting` | `SurveySetting` | `project:update` |
 | `/survey/:id/data` | `SurveyData` | `answer:list` |
 | `/survey/:id/report` | `SurveyReport` | `project:report` |
