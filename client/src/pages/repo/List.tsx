@@ -422,7 +422,7 @@ export default function RepoList() {
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
             {canCreate ? '我的题库' : '题库浏览'}
           </h2>
-          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
             {canCreate
               ? '管理题目与 Excel 导入导出；练习记录在「我的练习」。'
               : '浏览题库题目；练习记录在「我的练习」。'}
@@ -733,7 +733,7 @@ export default function RepoList() {
                   )}
                 </Space>
                 {row.description && (
-                  <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.65)', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 2 }}>
                     {row.description}
                   </div>
                 )}

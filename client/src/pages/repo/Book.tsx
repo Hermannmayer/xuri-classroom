@@ -475,7 +475,7 @@ export default function RepoBook() {
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
             错题本
           </h2>
-          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
             练习时做错的题会收进这里；可以直接开练，也可以标重点、写笔记。
             {projectId ? '当前只看某一场考试的错题。' : ''}
           </div>

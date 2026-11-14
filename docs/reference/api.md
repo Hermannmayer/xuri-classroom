@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 187 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 185 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -22,8 +22,6 @@
 | GET | `${api.prefix}/compose/stats` | `ComposeApi#stats` | `hasAnyAuthority('repo:list','project:create','project:update') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/plan` | `ComposeApi#plan` | `hasAuthority('project:create') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/create` | `ComposeApi#create` | `hasAuthority('project:create') or hasRole('admin')` | — |
-| GET | `${api.prefix}/compose/batches` | `ComposeApi#batches` | `hasAuthority('project:create') or hasRole('admin')` | — |
-| GET | `${api.prefix}/compose/batch` | `ComposeApi#batch` | `hasAnyAuthority('project:create','project:update') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/pick` | `ComposeApi#pick` | `hasAnyAuthority('project:create','project:update') or hasRole('admin')` | — |
 | GET | `${api.prefix}/dashboard/list` | `DashboardApi#listDashboard` | — | — |
 | GET | `${api.prefix}/exercise/list` | `ExerciseApi#historyExercise` | `hasAuthority('exercise:list')` | — |

@@ -150,7 +150,6 @@ modules:
     keywords:
       - 组卷
       - 从题库组卷
-      - 试卷集
       - 多套
       - 难度
       - 章节
@@ -170,26 +169,21 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/PaperExportApi.java
     entrypoints:
       - client/src/pages/compose/ComposePage.tsx
-      - client/src/pages/compose/BatchDetail.tsx
       - client/src/pages/survey/Print.tsx
     apis:
       - GET /api/compose/stats
       - POST /api/compose/plan
       - POST /api/compose/create
-      - GET /api/compose/batches
-      - GET /api/compose/batch
       - POST /api/compose/pick
       - GET /api/paper/{id}/docx
     tables:
       - t_template
-      - t_paper_batch
-      - t_paper_variant
       - t_project
     tests:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test
     last_verified: 2026-11-14
-    verified_against: 0b81cd2872cc402d7b3c84d3a09dc68b03d17b19
+    verified_against: e5e39e12ff7a338a0f736b86b19b5fd8fe456aca
   - id: module-dashboard
     title: 首页与统计
     doc: docs/modules/dashboard.md

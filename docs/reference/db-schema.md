@@ -74,3 +74,4 @@
 - `scripts/nas/migrate/36-partner-access-level.sql`
 - `scripts/nas/migrate/37-template-chapter-difficulty.sql`
 - `scripts/nas/migrate/38-paper-compose.sql`
+- `scripts/nas/migrate/39-drop-paper-batch.sql`

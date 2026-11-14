@@ -224,7 +224,7 @@ export default function PublicQuery() {
         {formSchema?.title || '公开查询'}
       </h1>
       {formSchema?.description && (
-        <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.7, color: 'rgba(160,196,232,0.75)', overflowWrap: 'anywhere' }}>
+        <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.7, color: 'var(--bp-text-soft)', overflowWrap: 'anywhere' }}>
           {formSchema.description}
         </div>
       )}

@@ -128,7 +128,7 @@ function PracticeRecords() {
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
             练习记录
           </h2>
-          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
             接着上次的进度继续练习；删除记录后不可恢复。
           </div>
         </div>
@@ -546,7 +546,7 @@ function StudentTasks({ authorities }: { authorities: string[] }) {
         <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
           我的任务
         </h2>
-        <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
           这里是你被授权的考试与问卷；完成后可以查看成绩。
         </div>
       </div>

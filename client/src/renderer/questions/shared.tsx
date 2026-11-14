@@ -21,7 +21,7 @@ export const QuestionMarkContext = createContext<QuestionMarkApi | null>(null);
  */
 export function TitleContent({ schema }: { schema: SurveySchema }) {
   if (!schema.title) {
-    return <span style={{ color: 'rgba(160,196,232,0.45)' }}>未命名题目</span>;
+    return <span style={{ color: 'var(--bp-text-soft)' }}>未命名题目</span>;
   }
   if (schema.attribute?.richTitle) {
     return (

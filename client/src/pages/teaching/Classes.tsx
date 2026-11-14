@@ -733,7 +733,7 @@ export default function TeachingClasses() {
           <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
             班级管理
           </h2>
-          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
             班级是学员的教学单位：维护学员、任课老师；题库/考试/问卷在资源授权里分配
           </div>
         </div>

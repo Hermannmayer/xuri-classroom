@@ -359,7 +359,7 @@ export default function SystemUser() {
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
             共 {total} 个教职工账号
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
             只显示老师 / 管理员 / 职工；学员请到「班级管理」里按班维护
           </div>
         </div>

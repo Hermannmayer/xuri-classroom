@@ -189,7 +189,7 @@ function StudentProjectList({
             <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
               考试安排
             </h2>
-            <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
               这里是被分配给你参加的考试；点「开始答题」直接进入答题页。
             </div>
           </div>
@@ -664,7 +664,7 @@ function ManagerProjectList({
             <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
               我的考试与问卷
             </h2>
-            <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
               这里是你创建和参与协作的考试/问卷；题库在「题库中心」，不在此列表。
             </div>
           </div>

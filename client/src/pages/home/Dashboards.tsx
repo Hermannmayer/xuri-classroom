@@ -16,7 +16,7 @@ function Shell({ eyebrow, title, desc, children }: { eyebrow: string; title: str
         <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
           {title}
         </h2>
-        <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>{desc}</div>
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{desc}</div>
       </div>
       {children}
     </div>

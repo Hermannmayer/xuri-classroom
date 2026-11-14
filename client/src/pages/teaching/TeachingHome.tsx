@@ -56,7 +56,7 @@ export default function TeachingHome() {
         <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
           教学
         </h2>
-        <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
           考试/问卷与班级学情集中在这里；班级与学员在左侧「班级管理」维护。
         </div>
       </div>

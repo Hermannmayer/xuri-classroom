@@ -523,7 +523,7 @@ export default function RepoQuestions() {
             >
               {repoName || '题库题目'}
             </h2>
-            <div style={{ fontSize: 11, color: 'rgba(160,196,232,0.7)', marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
               {loadError
                 ? '题目列表没有加载成功，详见下方说明'
                 : `共 ${total} 道题${

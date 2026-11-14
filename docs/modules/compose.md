@@ -38,7 +38,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: 0b81cd2872cc402d7b3c84d3a09dc68b03d17b19
+verified_against: e5e39e12ff7a338a0f736b86b19b5fd8fe456aca
 ---
 
 # 组卷中心
@@ -101,7 +101,7 @@ verified_against: 0b81cd2872cc402d7b3c84d3a09dc68b03d17b19
 
 - cd client && npx tsc --noEmit
 - cd server && ./gradlew :shared:test
-- 手工：新建 → 从题库组卷 → 选 1 个题库 → 规则填 2 套 → 预览 → 生成并发布 → 试卷集出现 2 套 → 打印页题号连续 → 编辑器从题库添加 3 题。
+- 手工：新建 → 从题库组卷 → 选 1 个题库 → 规则填 2 套 → 预览 → 生成并发布 → 列表出现 2 份试卷 → 打印页题号连续 → 编辑器从题库添加 3 题。
 
 ## 相关文档
 
