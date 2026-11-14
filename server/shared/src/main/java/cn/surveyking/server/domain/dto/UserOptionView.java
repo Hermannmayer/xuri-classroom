@@ -18,4 +18,7 @@ public class UserOptionView {
 
 	private String deptName;
 
+	/** staff=教职工 student=学员 */
+	private String userType;
+
 }

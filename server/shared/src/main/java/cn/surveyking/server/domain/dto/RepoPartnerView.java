@@ -17,6 +17,12 @@ public class RepoPartnerView {
 	/** 用户组名称，列表展示用 */
 	private String deptName;
 
+	/** 用户类型 staff/student（个人授权时） */
+	private String userType;
+
+	/** 组织类型 org/class（用户组或班级授权时） */
+	private String deptType;
+
 	/** 授权级别：1 只读 / 2 可编辑 / 3 可授权 */
 	private Integer accessLevel;
 

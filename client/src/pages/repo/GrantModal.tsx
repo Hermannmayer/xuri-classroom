@@ -19,6 +19,8 @@ interface RepoPartnerView {
   deptName?: string;
   /** 1 查看 / 2 编辑（含查看）/ 3 授权（含查看+编辑）；用户组授权为空 */
   accessLevel?: number;
+  userType?: string;
+  deptType?: string;
 }
 
 const LEVEL_OPTIONS = [
@@ -44,9 +46,11 @@ interface UserOption {
   name?: string;
   username?: string;
   deptName?: string;
+  userType?: string;
 }
 
 type GrantMode = 'dept' | 'user';
+type Audience = 'staff' | 'student';
 
 /**
  * 题库授权管理。
@@ -78,6 +82,7 @@ export default function GrantModal({
   const isBatch = targets.length > 1;
   const [loading, setLoading] = useState(false);
   const [partners, setPartners] = useState<RepoPartnerView[]>([]);
+  const [audience, setAudience] = useState<Audience>('staff');
   const [mode, setMode] = useState<GrantMode>('dept');
   const [depts, setDepts] = useState<Dept[]>([]);
   const [deptError, setDeptError] = useState<string>();
@@ -88,6 +93,8 @@ export default function GrantModal({
   const [userListError, setUserListError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string>();
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
+  const [batchRemoving, setBatchRemoving] = useState(false);
   /** 新增授权的级别，默认 2（可编辑） */
   const [level, setLevel] = useState(2);
   const [myId, setMyId] = useState<string>();
@@ -103,6 +110,7 @@ export default function GrantModal({
         pageSize: 100,
       });
       setPartners(res.data ?? []);
+      setSelectedPartnerIds([]);
     } catch (e) {
       message.error((e as Error).message || '读取授权列表失败');
     } finally {
@@ -112,6 +120,7 @@ export default function GrantModal({
 
   useEffect(() => {
     if (!open) return;
+    setAudience('staff');
     setDeptId(undefined);
     setUserIds([]);
     setMode('dept');
@@ -120,38 +129,49 @@ export default function GrantModal({
     void get<UserInfo>('/api/currentUser')
       .then((user) => setMyId(user.userId))
       .catch(() => undefined);
-    // 组树失败不能再静默：老师没有 system:dept:list 时会 403，界面需要说明原因而不是给个空树
+  }, [open, loadPartners]);
+
+  // 组织树按“教师用户组 / 学员班级”分开拉，避免老师和班级混在一个下拉里
+  useEffect(() => {
+    if (!open) return;
+    setDeptId(undefined);
+    setUserIds([]);
     setDeptError(undefined);
-    get<Dept[]>('/api/system/dept/list')
+    get<Dept[]>('/api/system/dept/list', { deptType: audience === 'staff' ? 'org' : 'class' })
       .then((list) => {
         setDepts(list ?? []);
         setDeptError(undefined);
       })
       .catch((e: Error) => setDeptError(e.message || '没有权限读取用户组'));
-  }, [open, loadPartners]);
+  }, [open, audience]);
 
-  /**
-   * 只有切到「按个人」时才拉用户候选项。
-   *
-   * 走 /api/system/user/options（UserOptionView：id/姓名/账号/部门），
-   * 不再用需要 system:user:list 的 /api/system/user/list——老师没有系统用户权限，
-   * 以前切到「按个人」直接 403、下拉永远是空的。失败时给出可读提示，不静默变空。
-   */
+  // 人员候选也按身份过滤：教师授权只出现 staff，学员授权只出现 student
   useEffect(() => {
-    if (!open || mode !== 'user' || users.length > 0) return;
+    if (!open || mode !== 'user') return;
+    setUsers([]);
     setUsersLoading(true);
     setUserListError(undefined);
-    get<UserOption[]>('/api/system/user/options')
+    get<UserOption[]>('/api/system/user/options', { userType: audience === 'staff' ? 'staff' : 'student' })
       .then((list) => setUsers(list ?? []))
       .catch((e: Error) => setUserListError(e.message || '没有权限读取用户列表'))
       .finally(() => setUsersLoading(false));
-  }, [open, mode, users.length]);
+  }, [open, mode, audience]);
 
   // 当前用户在这份题库里的级别：level3 才能继续授权；owner/admin 没有个人行，视为全量
   const myPartner = partners.find((row) => row.userId && myId && row.userId === myId);
   const myLevel = myPartner?.accessLevel;
   // 批量授权没有单个题库的名单可判断，交给后端 403 兜底
   const canWrite = isBatch || myLevel === undefined || myLevel >= 3;
+  const visiblePartners = partners.filter((row) =>
+    audience === 'staff'
+      ? row.userType === 'staff' || row.deptType === 'org'
+      : row.userType === 'student' || row.deptType === 'class',
+  );
+  const audienceLabel = audience === 'staff' ? '教师' : '学员';
+
+  useEffect(() => {
+    setSelectedPartnerIds([]);
+  }, [audience]);
 
   const updateLevel = async (row: RepoPartnerView, accessLevel: number) => {
     if (!repoId || updatingId) return;
@@ -217,9 +237,9 @@ export default function GrantModal({
       if (ok > 0) {
         message.success(
           isBatch
-            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? '该用户组' : ` ${userIds.length} 位用户`}（${levelText(level)}）`
+            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? (audience === 'staff' ? '该用户组' : '该班级') : ` ${userIds.length} 位用户`}（${levelText(level)}）`
             : mode === 'dept'
-              ? `已授权该用户组（${levelText(level)}），组内成员自动可见`
+              ? `已授权${audience === 'staff' ? '该用户组' : '该班级'}（${levelText(level)}），成员自动可见`
               : `已授权 ${userIds.length} 位用户（${levelText(level)}）`,
         );
       }
@@ -250,6 +270,22 @@ export default function GrantModal({
     }
   };
 
+  const revokeSelected = async () => {
+    if (!repoId || selectedPartnerIds.length === 0) return;
+    setBatchRemoving(true);
+    try {
+      await post('/api/repo/partner/delete', { repoId, ids: selectedPartnerIds });
+      message.success('已取消 ' + selectedPartnerIds.length + ' 条授权');
+      setSelectedPartnerIds([]);
+      await loadPartners();
+      onChanged?.();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBatchRemoving(false);
+    }
+  };
+
   const targetName = (row: RepoPartnerView) =>
     row.deptId ? row.deptName || row.deptId : row.user?.name || row.user?.username || row.userId || '—';
 
@@ -270,23 +306,59 @@ export default function GrantModal({
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="按用户组授权后，组内成员自动可见；以后新加入该组的学员无需重新授权。"
+        message="教师按用户组/个人授权；学员按班级/个人授权，两套对象分开管理。"
       />
 
-      <div className="bp-title" style={{ fontSize: 12, marginBottom: 8 }}>
-        已授权（{partners.length}）
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>授权对象</span>
+        <Segmented<Audience>
+          value={audience}
+          onChange={(value) => setAudience(value)}
+          options={[
+            { label: '教师 / 用户组', value: 'staff' },
+            { label: '学员 / 班级', value: 'student' },
+          ]}
+        />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <div className="bp-title" style={{ fontSize: 12 }}>
+          已授权{audienceLabel}（{visiblePartners.length}）
+        </div>
+        <div style={{ flex: 1 }} />
+        {canWrite && !isBatch && selectedPartnerIds.length > 0 && (
+          <Popconfirm
+            title={'取消选中的 ' + selectedPartnerIds.length + ' 条授权？'}
+            description="取消后，对应个人或用户组将失去这个题库的权限。"
+            okText="批量取消"
+            cancelText="再想想"
+            onConfirm={() => void revokeSelected()}
+          >
+            <Button danger size="small" loading={batchRemoving}>
+              批量取消授权（{selectedPartnerIds.length}）
+            </Button>
+          </Popconfirm>
+        )}
       </div>
       <Table<RepoPartnerView>
         rowKey="id"
         size="small"
         loading={loading}
-        dataSource={partners}
+        dataSource={visiblePartners}
         pagination={false}
+        rowSelection={
+          canWrite && !isBatch
+            ? {
+                selectedRowKeys: selectedPartnerIds,
+                onChange: (keys) => setSelectedPartnerIds(keys.map(String)),
+              }
+            : undefined
+        }
         locale={{
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="还没有授权给任何用户组或个人"
+              description={'还没有授权给任何' + audienceLabel}
             />
           ),
         }}
@@ -367,7 +439,7 @@ export default function GrantModal({
               value={mode}
               onChange={(value) => setMode(value)}
               options={[
-                { label: '按用户组', value: 'dept' },
+                { label: audience === 'staff' ? '按用户组' : '按班级', value: 'dept' },
                 { label: '按个人', value: 'user' },
               ]}
             />
@@ -393,7 +465,7 @@ export default function GrantModal({
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <TreeSelect
               style={{ flex: '1 1 260px', minWidth: 220 }}
-              placeholder="选择用户组 / 班级"
+              placeholder={audience === 'staff' ? '选择教师用户组' : '选择学员班级'}
               value={deptId}
               onChange={setDeptId}
               treeData={deptTree}
@@ -404,7 +476,7 @@ export default function GrantModal({
               dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
             />
             <Button type="primary" loading={saving} onClick={() => void grant()}>
-              授权该用户组
+              {audience === 'staff' ? '授权该用户组' : '授权该班级'}
             </Button>
           </div>
         </div>

@@ -31,7 +31,7 @@ public interface UserService extends UserDetailsService {
 	void deleteClassStudent(String userId);
 
 	/** 只读用户候选项（授权选人用），只返回 id/姓名/账号/组。 */
-	List<UserOptionView> listUserOptions(String keyword);
+	List<UserOptionView> listUserOptions(String keyword, String userType);
 
 	void updateUser(UserRequest request);
 

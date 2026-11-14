@@ -103,8 +103,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	}
 
 	@Override
-	public List<UserOptionView> listUserOptions(String keyword) {
-		return userQueryService.listUserOptions(keyword);
+	public List<UserOptionView> listUserOptions(String keyword, String userType) {
+		return userQueryService.listUserOptions(keyword, userType);
 	}
 
 	@Override

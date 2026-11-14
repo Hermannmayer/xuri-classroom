@@ -210,8 +210,9 @@ public class SystemApi {
 	 */
 	@GetMapping("/user/options")
 	@PreAuthorize("hasAnyAuthority('system:user:list','user:select') or hasRole('admin')")
-	public List<UserOptionView> userOptions(@RequestParam(required = false) String keyword) {
-		return userService.listUserOptions(keyword);
+	public List<UserOptionView> userOptions(@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String userType) {
+		return userService.listUserOptions(keyword, userType);
 	}
 
 	/**

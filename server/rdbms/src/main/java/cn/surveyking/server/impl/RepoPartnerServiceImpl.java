@@ -9,8 +9,10 @@ import cn.surveyking.server.domain.mapper.RepoPartnerViewMapper;
 import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.Repo;
 import cn.surveyking.server.domain.model.RepoPartner;
+import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
+import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.RepoPartnerService;
@@ -43,6 +45,8 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 
 	private final cn.surveyking.server.mapper.DeptMapper deptMapper;
 
+	private final UserMapper userMapper;
+
 	private final UserDeptScopeService userDeptScopeService;
 
 	/** 按班级分配的题库：学生练习入口也要认 */
@@ -71,12 +75,17 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		result.getList().forEach(view -> {
 			if (view.getUserId() != null) {
 				view.setUser(userService.loadUserById(view.getUserId()));
+				User user = userMapper.selectById(view.getUserId());
+				if (user != null) {
+					view.setUserType(user.getUserType());
+				}
 			}
 			// 按组授权的记录 userId 为空，这里补组名，否则前端列表只能显示空白
 			if (StringUtils.hasText(view.getDeptId())) {
 				Dept dept = deptMapper.selectById(view.getDeptId());
 				if (dept != null) {
 					view.setDeptName(dept.getName());
+					view.setDeptType(dept.getDeptType());
 				}
 			}
 		});

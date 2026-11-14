@@ -19,7 +19,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
-import { get, getWithPagination, listProjects, post } from '../../api';
+import { get, getWithPagination, post } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
@@ -30,6 +30,13 @@ interface RepoView {
   name?: string;
   mode?: string;
   isPractice?: boolean;
+}
+
+interface ProjectTreeNode {
+  id: string;
+  name?: string;
+  mode?: ProjectMode;
+  children?: ProjectTreeNode[];
 }
 
 /** 资源类型：project=考试/问卷，repo=题库 */
@@ -199,8 +206,19 @@ export default function ClassResourcesPanel({
   const loadProjects = useCallback(async () => {
     setProjectLoading(true);
     try {
-      const res = await listProjects({ current: 1, pageSize: 200 });
-      setProjects(Array.isArray(res?.data) ? res.data : []);
+      // 用项目树而不是根级列表：文件夹里的考试/问卷也要能被选到
+      const tree = await get<ProjectTreeNode[]>('/api/project/tree');
+      const flat: ProjectView[] = [];
+      const walk = (nodes: ProjectTreeNode[]) => {
+        for (const node of nodes ?? []) {
+          if (node.mode && node.mode !== 'folder') {
+            flat.push({ id: node.id, name: node.name, mode: node.mode } as ProjectView);
+          }
+          walk(node.children ?? []);
+        }
+      };
+      walk(Array.isArray(tree) ? tree : []);
+      setProjects(flat);
     } catch (e) {
       message.error((e as Error).message);
       setProjects([]);

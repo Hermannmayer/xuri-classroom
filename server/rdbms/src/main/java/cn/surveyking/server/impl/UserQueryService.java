@@ -143,10 +143,11 @@ public class UserQueryService {
 		}).collect(Collectors.toList()));
 	}
 
-	public List<UserOptionView> listUserOptions(String keyword) {
+	public List<UserOptionView> listUserOptions(String keyword, String userType) {
 		List<User> users = userMapper.selectList(Wrappers.<User>lambdaQuery()
-				.like(StringUtils.hasText(keyword), User::getName, keyword).orderByAsc(User::getName)
-				.last("LIMIT 200"));
+				.like(StringUtils.hasText(keyword), User::getName, keyword)
+				.eq(StringUtils.hasText(userType), User::getUserType, userType)
+				.orderByAsc(User::getName).last("LIMIT 200"));
 		if (users.isEmpty()) {
 			return Collections.emptyList();
 		}
@@ -167,6 +168,7 @@ public class UserQueryService {
 			view.setName(user.getName());
 			view.setUsername(usernames.get(user.getId()));
 			view.setDeptName(user.getDeptId() == null ? null : deptNames.get(user.getDeptId()));
+			view.setUserType(user.getUserType());
 			return view;
 		}).collect(Collectors.toList());
 	}
