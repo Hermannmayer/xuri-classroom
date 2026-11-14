@@ -69,7 +69,6 @@ entrypoints:
   - client/src/pages/survey/Overview.tsx
   - client/src/pages/survey/PartnerPanel.tsx
   - client/src/pages/project/ProjectCategoryTree.tsx
-  - client/src/pages/project/ComposeModal.tsx
   - client/src/pages/project/BatchSettingModal.tsx
   - client/src/pages/project/Trash.tsx
   - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
@@ -136,7 +135,7 @@ verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
 | 协作者面板 | `client/src/pages/survey/PartnerPanel.tsx` | 项目所有者/可授权协作者维护教师组/协作者/班级授权；显示并调整 access_level（1 查看/2 编辑/3 授权） |
 | 文件夹授权弹窗 | `client/src/pages/project/FolderAuthModal.tsx` | 文件夹行「授权」打开 Modal，内嵌 `PartnerPanel(projectId=folderId)`；不再跳 `/survey/:id`；非文件夹仍进项目概述 |
 | 试卷设置页 | `client/src/pages/survey/Overview.tsx` | `/survey/:id` 概述；基本信息卡编辑名称/分类/所属文件夹（Folder TreeSelect），保存 `updateProject({id,name,category,parentId,setting})`；卡片重排见 P9/P13 |
-| 组卷弹窗 | `client/src/pages/project/ComposeModal.tsx` | 从题库按题型抽题生成考试，见 [repo-compose](../flows/repo-compose.md) |
+| 组卷入口 | `client/src/pages/project/List.tsx` → `/compose` | 组卷中心见 [compose 模块](compose.md) 与 [repo-compose](../flows/repo-compose.md) |
 | 批量设置 | `client/src/pages/project/BatchSettingModal.tsx` | 逐个项目读 setting、合并勾选项后调 `/project/update`；顶部可批量改文件夹（parentId）与分类（category） |
 | 回收站 | `client/src/pages/project/Trash.tsx` | 只读数组结果；恢复/彻底删除两个动作分别鉴权 |
 | 前端请求 | `client/src/api/index.ts` | `listProjects` / `createProject` / `updateProject` / `updateProjectStatus` / `deleteProject` |
@@ -176,7 +175,7 @@ verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
 - **筛选**：`GET /api/project/list?category=` 普通值按 `category` 精确匹配（先 trim）；`__UNCATEGORIZED__`（`ProjectQuery.UNCATEGORIZED`）翻译成 `category IS NULL OR category = ''`；不传/空串不过滤。**分类筛选跨文件夹**：`categoryActive` 时不再套「根目录 parent_id IS NULL/0」限制，而是全层级找；同时 `.ne(mode, folder)` 把文件夹排除，避免文件夹行混进分类结果。
 - **分类列表**：`GET /api/project/categories`（`project:list` 或 admin）返回 `List<ProjectCategoryView>`，元素 `{name,count}`；空/空白分类归「未分类」，按 count 降序、name 升序。**文件夹不参与分类**：查询显式 `.ne(mode, folder)`，所以文件夹既不进分类统计，也不进「未分类」；`count` 只统计非 folder 的可见项目（含父/祖父文件夹授权可见的子项目）。可见性自身仍只认创建者/partner `type IN (1,2)`，不含 type3/班级分配。
 - **前端分类树**：`ProjectCategoryTree` 调 `/api/project/categories`，根「全部分类」+ 各分类 count；与文件夹树**互斥**：选分类时清空 `parentId`/面包屑，选文件夹或根「全部」时清空分类。分类筛选与文件夹筛选不会叠加成两个条件。窗口重新获得焦点/`visibilitychange` 时静默刷新（1s 节流），从设置页返回能看到新分类/新 count；批量改分类成功后父组件也递增 `treeToken`。
-- **新建/编辑**：新建弹窗与重命名弹窗都用 `AutoComplete` 填分类（候选取自 `/api/project/categories`，也可自由输入；留空=未分类）；新建时若当前正按某分类筛选，默认沿用该分类。从题库组卷创建的项目，先创建再补写分类；失败只提示，不挡进编辑器。
+- **新建/编辑**：新建弹窗与重命名弹窗都用 `AutoComplete` 填分类（候选取自 `/api/project/categories`，也可自由输入；留空=未分类）；新建时若当前正按某分类筛选，默认沿用该分类。从题库组卷创建的项目，分类与文件夹随 /compose 一起带过去，创建时直接写入。
 - **列表列与操作**：列表新增「分类」列（文件夹显示「—」）；操作列改为一级链接，按权限渲染设置/编辑/数据/复制链接/开启关闭/授权/重命名/删除；不再有「更多」下拉。文件夹行只显示授权/重命名/删除（授权要 `project:partner`）。
 - **已知限制**：后端不做分类枚举/长度校验，只有 DB `varchar(64)` 兜底，超 64 会报数据库错误；保存时会 trim 首尾空白，大小写与**内部空格**不同算不同分类；清空分类依赖显式传空串（`undefined`/不传表示不改）；**分类是文本维度、文件夹是 parent_id 维度**，两者互不影响；分类筛选会跨文件夹，文件夹行不参与分类/未分类。
 
@@ -325,7 +324,7 @@ npm run docs:check
 9. 把班级开关关掉（`t_class_resource.status=0`）→ A 打开提示「问卷已暂停回收」；重新打开后可正常进入。
 10. 新建考试时填分类「保育员」→ 列表出现分类列；左侧「分类」树出现「保育员」且 count=1；点它右侧只剩该分类项目，点文件夹/「全部」会清空分类。
 11. 选中「未分类」→ 只看到 `category` 为 NULL/空串的项目；把某项目分类清空（重命名弹窗留空保存）后它进入未分类；分类大小写/内部空格不同的值应分成不同项。
-12. 分类树选择一个分类后，列表的「新建」默认沿用该分类；从题库组卷创建项目时分类应在创建成功后被补写；失败只提示、不挡编辑器。
+12. 分类树选择一个分类后，列表的「新建」默认沿用该分类；从题库组卷创建项目时分类与文件夹应直接写入。
 13. 列表操作列不再出现「更多」；有权限的账号直接看到设置/编辑/数据/复制链接/开关/授权/重命名/删除；文件夹按权限显示授权/重命名/删除。
 14. 打开 `/survey/:id` 概述页：Row1 左侧「基本信息」可改项目名称/分类（AutoComplete 有候选项），保存后页头名称/分类更新，返回列表也同步；分类清空保存后变成「未分类」。
 15. 概述页布局：基本信息(16)+每日收集(8) 同排且等高；无答卷时每日收集只显示两行；答题显示/回收限制、考试控制/投放与分享各占一排，协作者整行；窄屏（<lg）应单列，卡片不出现高低不齐。

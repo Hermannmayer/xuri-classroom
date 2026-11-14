@@ -608,7 +608,6 @@ modules:
       - client/src/pages/survey/Overview.tsx
       - client/src/pages/survey/PartnerPanel.tsx
       - client/src/pages/project/ProjectCategoryTree.tsx
-      - client/src/pages/project/ComposeModal.tsx
       - client/src/pages/project/BatchSettingModal.tsx
       - client/src/pages/project/Trash.tsx
       - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
