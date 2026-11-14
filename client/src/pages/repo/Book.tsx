@@ -197,6 +197,9 @@ function presetRange(preset: RangePreset): { startDate?: string; endDate?: strin
 
 export default function RepoBook() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const typeParam = searchParams.get('type');
+  const initialType: TypeFilter = typeParam === '1' ? 'wrong' : typeParam === '2' ? 'favorite' : 'all';
 
   const [rows, setRows] = useState<UserBookView[]>([]);
   const [total, setTotal] = useState(0);
@@ -206,7 +209,7 @@ export default function RepoBook() {
   const [busy, setBusy] = useState(false);
 
   // 筛选区
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(initialType);
   const [timesMin, setTimesMin] = useState(0);
   const [rangePreset, setRangePreset] = useState<RangePreset>('all');
   const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
@@ -215,7 +218,6 @@ export default function RepoBook() {
   const [noteKeyword, setNoteKeyword] = useState('');
 
   // 来源考试：可以由外部链接带进来（?projectId=xxx&projectName=xxx，例如交卷页的「练本场错题」）
-  const [searchParams] = useSearchParams();
   const projectParam = searchParams.get('projectId') || '';
   const nameParam = searchParams.get('projectName') || '';
   const [projectId, setProjectId] = useState<string | undefined>(projectParam || undefined);
@@ -233,6 +235,12 @@ export default function RepoBook() {
     setProjectId(projectParam || undefined);
     setProjectName(nameParam || undefined);
   }, [projectParam, nameParam]);
+
+  // 从练习首页带过来的 ?type=1（错题）/?type=2（收藏）要落到筛选上
+  useEffect(() => {
+    setTypeFilter(typeParam === '1' ? 'wrong' : typeParam === '2' ? 'favorite' : 'all');
+    setPage(1);
+  }, [typeParam]);
 
   // 「来源考试」下拉与列展示要考试名；拿不到就退化显示 id 前缀
   useEffect(() => {

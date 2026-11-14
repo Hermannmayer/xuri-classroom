@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Col, Empty, InputNumber, message, Modal, Row, Select, Space, Spin, Tag } from 'antd';
-import {
-  BookOutlined,
-  HistoryOutlined,
-  PlayCircleOutlined,
-  StarOutlined,
-  ThunderboltOutlined,
-  TrophyOutlined,
-} from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
 import { getWithPagination } from '../../api';
@@ -153,21 +145,6 @@ export default function RepoPracticeHome() {
 
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', marginBottom: 14 }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              flex: '0 0 64px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--bp-blue)',
-              color: '#fff',
-              fontSize: 12,
-            }}
-          >
-            题库
-          </div>
           <div style={{ flex: 1, minWidth: 260 }}>
             <h2 className="bp-title" style={{ fontSize: 20, margin: 0 }}>
               {repo.name || '题库练习'}
@@ -202,68 +179,50 @@ export default function RepoPracticeHome() {
         <Row gutter={[12, 12]}>
           <Col xs={24} md={8}>
             <Card size="small" hoverable style={CARD_STYLE} onClick={startSequential}>
-              <Space align="start">
-                <PlayCircleOutlined style={{ fontSize: 26, color: '#f08c00' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>顺序练习</div>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>按题库顺序从头开始</div>
-                </div>
-              </Space>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>顺序练习</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>按题库顺序从头开始</div>
+              </div>
             </Card>
           </Col>
           <Col xs={24} md={8}>
             <Card size="small" hoverable style={CARD_STYLE} onClick={() => setRandomOpen(true)}>
-              <Space align="start">
-                <ThunderboltOutlined style={{ fontSize: 26, color: '#13c2c2' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>随机练习</div>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>自定义本次练习题量</div>
-                </div>
-              </Space>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>随机练习</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>自定义本次练习题量</div>
+              </div>
             </Card>
           </Col>
           <Col xs={24} md={8}>
             <Card size="small" hoverable style={CARD_STYLE} onClick={() => setTypeOpen(true)}>
-              <Space align="start">
-                <BookOutlined style={{ fontSize: 26, color: '#2f54eb' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>题型练习</div>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>只练某一种题型</div>
-                </div>
-              </Space>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>题型练习</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>只练某一种题型</div>
+              </div>
             </Card>
           </Col>
           <Col xs={24} md={8}>
             <Card size="small" hoverable style={CARD_STYLE} onClick={() => navigate('/repo/book?type=1')}>
-              <Space align="start">
-                <TrophyOutlined style={{ fontSize: 26, color: '#fa541c' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>错题练习</div>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{wrongCount} 道错题</div>
-                </div>
-              </Space>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>错题练习</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{wrongCount} 道错题</div>
+              </div>
             </Card>
           </Col>
           <Col xs={24} md={8}>
             <Card size="small" hoverable style={CARD_STYLE} onClick={() => navigate('/repo/book?type=2')}>
-              <Space align="start">
-                <StarOutlined style={{ fontSize: 26, color: '#faad14' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>收藏练习</div>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{favoriteCount} 道收藏</div>
-                </div>
-              </Space>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>收藏练习</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{favoriteCount} 道收藏</div>
+              </div>
             </Card>
           </Col>
           <Col xs={24} md={8}>
             <Card size="small" hoverable style={CARD_STYLE} onClick={() => navigate('/exercise')}>
-              <Space align="start">
-                <HistoryOutlined style={{ fontSize: 26, color: '#52c41a' }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>历史练习</div>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{historyCount} 条记录</div>
-                </div>
-              </Space>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>历史练习</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>{historyCount} 条记录</div>
+              </div>
             </Card>
           </Col>
         </Row>
