@@ -24,6 +24,10 @@ public class TemplateView {
 
 	private String[] tag;
 
+	private String chapter;
+
+	private String difficulty;
+
 	private String category;
 
 	/**

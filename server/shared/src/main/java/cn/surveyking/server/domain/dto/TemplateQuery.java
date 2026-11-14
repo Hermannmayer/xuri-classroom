@@ -33,6 +33,13 @@ public class TemplateQuery extends PageQuery {
 
 	private String repoId;
 
+	private List<String> chapter = new ArrayList<>();
+
+	private List<String> difficulty = new ArrayList<>();
+
+	/** 题干关键词 */
+	private String keyword;
+
 	private ProjectModeEnum mode;
 
 	private String id;

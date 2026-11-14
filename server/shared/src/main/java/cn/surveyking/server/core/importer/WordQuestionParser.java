@@ -197,6 +197,11 @@ public class WordQuestionParser {
 		if (section.getFlat().isEmpty()) {
 			return;
 		}
+		for (SurveySchema question : section.getFlat()) {
+			if (!StringUtils.hasText(question.getChapter()) && StringUtils.hasText(heading)) {
+				question.setChapter(heading);
+			}
+		}
 		flat.addAll(section.getFlat());
 		if (StringUtils.hasText(heading)) {
 			SurveySchema group = SurveySchema.builder().id(NanoIdUtils.randomNanoId(6, ids))

@@ -568,6 +568,8 @@ CREATE TABLE `t_template` (
   `mode` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板模式 survey/exam',
   `category` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板分类',
   `tag` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '标签',
+  `chapter` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '章节',
+  `difficulty` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '难度（易/中/难）',
   `priority` int DEFAULT NULL COMMENT '排序优先级',
   `preview_url` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '预览地址',
   `shared` tinyint(1) DEFAULT '0',
@@ -577,7 +579,9 @@ CREATE TABLE `t_template` (
   `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_template_repo` (`repo_id`)
+  KEY `idx_template_repo` (`repo_id`),
+  KEY `idx_template_chapter` (`repo_id`, `chapter`),
+  KEY `idx_template_difficulty` (`repo_id`, `difficulty`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 -- ----------------------------

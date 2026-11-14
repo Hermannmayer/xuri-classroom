@@ -107,6 +107,7 @@ public class RepoTemplateExcelParseHelper {
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(questionType)
 				.mode(ProjectModeEnum.exam).name(schema.getTitle()).serialNo(r.getCellText(0)).template(schema).build();
 		templateRequest.setChapter(getCellAsString(r, "chapter"));
+		templateRequest.setDifficulty(getCellAsString(r, "difficulty"));
 		result.add(templateRequest);
 	}
 
@@ -119,6 +120,7 @@ public class RepoTemplateExcelParseHelper {
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(SurveySchema.QuestionType.Checkbox)
 				.serialNo(r.getCellText(0)).mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build();
 		templateRequest.setChapter(getCellAsString(r, "chapter"));
+		templateRequest.setDifficulty(getCellAsString(r, "difficulty"));
 		result.add(templateRequest);
 	}
 
@@ -134,6 +136,7 @@ public class RepoTemplateExcelParseHelper {
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(questionType)
 				.serialNo(r.getCellText(0)).mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build();
 		templateRequest.setChapter(getCellAsString(r, "chapter"));
+		templateRequest.setDifficulty(getCellAsString(r, "difficulty"));
 		result.add(templateRequest);
 	}
 
@@ -152,6 +155,7 @@ public class RepoTemplateExcelParseHelper {
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(SurveySchema.QuestionType.Textarea)
 				.serialNo(r.getCellText(0)).mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build();
 		templateRequest.setChapter(getCellAsString(r, "chapter"));
+		templateRequest.setDifficulty(getCellAsString(r, "difficulty"));
 		result.add(templateRequest);
 	}
 
@@ -207,6 +211,7 @@ public class RepoTemplateExcelParseHelper {
 				.examAnalysis(getCellAsString(r, "examAnalysis"))
 				// 分值
 				.examScore(examScore).build()).id(generateId())
+				.chapter(getCellAsString(r, "chapter")).difficulty(getCellAsString(r, "difficulty"))
 				.tags(tags != null ? Arrays.asList(tags.split("\\s|,")) : null).children(optionSchemaList).build();
 
 	}

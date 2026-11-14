@@ -5,11 +5,13 @@ import {
   BgColorsOutlined,
   CodeOutlined,
   CopyOutlined,
+  DatabaseOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
   EyeOutlined,
   ImportOutlined,
+  PrinterOutlined,
   RedoOutlined,
   SaveOutlined,
   UndoOutlined,
@@ -33,6 +35,7 @@ import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, newId, normal
 import { cloneNode, findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
+import BankPickModal from './BankPickModal';
 import type { ImportFormat } from '../../api/import';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
@@ -202,6 +205,7 @@ export default function SurveyEditor() {
   const [jsonText, setJsonText] = useState('');
   const [themeOpen, setThemeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   const [importWhole, setImportWhole] = useState(false);
   const [importFormats, setImportFormats] = useState<ImportFormat[]>(['text', 'excel', 'word']);
 
@@ -209,6 +213,23 @@ export default function SurveyEditor() {
     setImportWhole(whole);
     setImportFormats(formats);
     setImportOpen(true);
+  };
+
+  /** 从题库添加：作为新题组追加到末尾，一次 setSurvey = 一个撤销步 */
+  const handleBankPick = (questions: SurveySchema[]) => {
+    if (!questions.length) return;
+    const group: SurveySchema = {
+      id: newId(),
+      type: 'QuestionSet',
+      title: '从题库添加（' + questions.length + ' 题）',
+      attribute: {},
+      children: questions.map((question) => ({
+        ...question,
+        attribute: { ...(question.attribute ?? {}), required: true },
+      })),
+    };
+    setSurvey(insertNode(survey, undefined, group));
+    message.success('已添加 ' + questions.length + ' 题，记得保存');
   };
   const [themeText, setThemeText] = useState<{ backgroundImage: string; headerImage: string }>({
     backgroundImage: '',
@@ -515,6 +536,12 @@ export default function SurveyEditor() {
             导入 <DownOutlined />
           </Button>
         </Dropdown>
+        <Button icon={<DatabaseOutlined />} onClick={() => setBankOpen(true)}>
+          从题库添加
+        </Button>
+        <Button icon={<PrinterOutlined />} onClick={() => navigate('/survey/' + id + '/print')}>
+          打印
+        </Button>
         <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
           保存
         </Button>
@@ -823,6 +850,13 @@ export default function SurveyEditor() {
           style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
         />
       </Modal>
+
+      <BankPickModal
+        open={bankOpen}
+        excludeIds={flattenSchema(survey).map((node) => node.id)}
+        onClose={() => setBankOpen(false)}
+        onPick={handleBankPick}
+      />
 
       <ImportWizard
         open={importOpen}

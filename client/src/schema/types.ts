@@ -238,4 +238,8 @@ export interface SurveySchema {
   row?: Row[];
   linkSurveys?: LinkSurvey[];
   tags?: string[];
+  /** 章节（题库/组卷筛选用） */
+  chapter?: string;
+  /** 难度（易/中/难） */
+  difficulty?: string;
 }

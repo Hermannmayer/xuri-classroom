@@ -35,7 +35,7 @@ public class TextQuestionParser {
 
 	private static final Pattern OPTION_PREFIX = Pattern.compile("^\\s*([A-Ha-h])\\s*[.、．)）:：]\\s*(.*)$");
 
-	private static final Pattern META = Pattern.compile("^\\s*(答案解析|参考答案|正确答案|答案|解析|标签|难度|分数|分值|题型)\\s*[:：]\\s*(.*)$");
+	private static final Pattern META = Pattern.compile("^\\s*(答案解析|参考答案|正确答案|答案|解析|标签|难度|分数|分值|题型|章节)\\s*[:：]\\s*(.*)$");
 
 	private static final Pattern QUESTION_NO = Pattern.compile("^\\s*\\d+\\s*[.、．)）]\\s*");
 
@@ -97,9 +97,6 @@ public class TextQuestionParser {
 			Double score = question.getAttribute() == null ? null : question.getAttribute().getExamScore();
 			totalScore += score == null ? 0 : score;
 		}
-		if (difficultySeen) {
-			warn("info", "DIFFICULTY_IGNORED", "已识别「难度」，当前版本不保存难度，导入后可手动补充");
-		}
 
 		return ImportPreview.builder().title(title).description(description).tree(tree).flat(questions)
 				.stats(ImportPreview.Stats.builder().total(questions.size()).score(totalScore).groups(0)
@@ -132,6 +129,8 @@ public class TextQuestionParser {
 		String analysis = null;
 		String tags = null;
 		String metaType = null;
+		String difficulty = null;
+		String chapter = null;
 		Double metaScore = null;
 		for (int i = 1; i < block.size(); i++) {
 			String line = block.get(i).trim();
@@ -157,8 +156,11 @@ public class TextQuestionParser {
 				else if ("题型".equals(key)) {
 					metaType = value;
 				}
+				else if ("章节".equals(key)) {
+					chapter = value;
+				}
 				else {
-					difficultySeen = true;
+					difficulty = value;
 				}
 				continue;
 			}
@@ -192,7 +194,8 @@ public class TextQuestionParser {
 		SurveySchema.Attribute attribute = buildAttribute(type, metaScore == null ? scoreText.score : metaScore,
 				analysis);
 		SurveySchema question = SurveySchema.builder().id(newId()).title(stem).type(type).attribute(attribute)
-				.children(children).dataSource(dataSources.isEmpty() ? null : dataSources).tags(parseTags(tags)).build();
+				.children(children).dataSource(dataSources.isEmpty() ? null : dataSources).tags(parseTags(tags))
+				.chapter(chapter).difficulty(difficulty).build();
 
 		return new Parsed(false, stem, question);
 	}

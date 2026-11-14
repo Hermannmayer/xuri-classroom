@@ -149,7 +149,8 @@ public final class RepoTemplateI18n {
 	public enum HeaderLabel {
 
 		SERIAL_NO("repo.template.header.serialNo", "序号", (map, index) -> map.put("serialNo", index)), CHAPTER(
-				"repo.template.header.chapter", "章节", (map, index) -> map.put("chapter", index)), TITLE(
+				"repo.template.header.chapter", "章节", (map, index) -> map.put("chapter", index)), DIFFICULTY(
+						"repo.template.header.difficulty", "难度", (map, index) -> map.put("difficulty", index)), TITLE(
 				"repo.template.header.title", "题干",
 				(map, index) -> map.put("title", index)), ANALYSIS("repo.template.header.analysis", "解析",
 						(map, index) -> map.put("examAnalysis", index)), SCORE("repo.template.header.score", "分数",

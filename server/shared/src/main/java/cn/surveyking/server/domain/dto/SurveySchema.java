@@ -45,6 +45,16 @@ public class SurveySchema implements Serializable {
 	private List<String> tags;
 
 	/**
+	 * 章节（题库/组卷筛选用，可空）
+	 */
+	private String chapter;
+
+	/**
+	 * 难度（易/中/难，可空）
+	 */
+	private String difficulty;
+
+	/**
 	 * 闯关模式下本题限时（秒）；非闯关模式为空。由 /api/public/question 下发，前端据此倒计时。
 	 */
 	private Integer timeLimitSeconds;

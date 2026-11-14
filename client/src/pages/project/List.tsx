@@ -26,7 +26,6 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
-import ComposeModal from './ComposeModal';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
 import { recordPaperImport } from '../../api/import';
 import FolderAuthModal from './FolderAuthModal';
@@ -383,10 +382,6 @@ function ManagerProjectList({
   const [importOpen, setImportOpen] = useState(false);
   const [importName, setImportName] = useState('');
   const [importCategory, setImportCategory] = useState('');
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeName, setComposeName] = useState('');
-  /** 从题库组卷时先记下分类，创建成功后再补写（CompuseModal 只负责建项目） */
-  const [composeCategory, setComposeCategory] = useState('');
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
   // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
@@ -468,10 +463,11 @@ function ManagerProjectList({
       return; // 校验提示已经在字段上
     }
     if (v.mode === 'exam' && v.source === 'compose') {
+      // 组卷走整页，不再叠弹窗
       setCreateOpen(false);
-      setComposeName(v.name.trim());
-      setComposeCategory(v.category?.trim() || '');
-      setComposeOpen(true);
+      const params = new URLSearchParams({ name: v.name.trim() });
+      if (v.category?.trim()) params.set('category', v.category.trim());
+      navigate('/compose?' + params.toString());
       return;
     }
     if (v.mode === 'exam' && v.source === 'import') {
@@ -1218,22 +1214,6 @@ function ManagerProjectList({
         paperName={importName}
         onClose={() => setImportOpen(false)}
         onSubmit={handleImportCreate}
-      />
-
-      <ComposeModal
-        open={composeOpen}
-        initialName={composeName}
-        onCancel={() => setComposeOpen(false)}
-        onCreated={(id) => {
-          setComposeOpen(false);
-          // 组卷创建的项目补写分类（失败只提示，不挡住进编辑器）
-          if (composeCategory) {
-            void updateProject({ id, category: composeCategory }).catch((e: Error) =>
-              message.error(e.message),
-            );
-          }
-          navigate(`/survey/${id}/edit`);
-        }}
       />
 
       <FolderAuthModal

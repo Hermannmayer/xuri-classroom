@@ -570,7 +570,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				schema.setTitle(schema.getTitle().replaceAll("\\s*\\[\\[IMG:\\d+\\]\\]", "").trim());
 			}
 			templates.add(TemplateRequest.builder().serialNo(String.valueOf(++serial))
-					.mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build());
+					.mode(ProjectModeEnum.exam).name(schema.getTitle()).chapter(schema.getChapter())
+					.difficulty(schema.getDifficulty()).template(schema).build());
 		}
 		if (templates.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "未识别到题目，请检查 Word 模板格式");
@@ -590,7 +591,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		int serial = 0;
 		for (SurveySchema schema : preview.getFlat()) {
 			templates.add(TemplateRequest.builder().serialNo(String.valueOf(++serial))
-					.mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build());
+					.mode(ProjectModeEnum.exam).name(schema.getTitle()).chapter(schema.getChapter())
+					.difficulty(schema.getDifficulty()).template(schema).build());
 		}
 		if (templates.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "未识别到题目，请检查文本格式");

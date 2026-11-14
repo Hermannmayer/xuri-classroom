@@ -55,6 +55,16 @@ public class Template extends BaseModel {
 	private String[] tag;
 
 	/**
+	 * 章节（可空），组卷按章节筛题
+	 */
+	private String chapter;
+
+	/**
+	 * 难度（易/中/难，可空）
+	 */
+	private String difficulty;
+
+	/**
 	 * 模板模式 survey问卷 exam考试
 	 */
 	private ProjectModeEnum mode;

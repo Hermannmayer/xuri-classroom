@@ -79,6 +79,9 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 				.eq(query.getRepoId() != null, Template::getRepoId, query.getRepoId())
 				.eq(query.getMode() != null, Template::getMode, query.getMode())
 				.in(!query.getTag().isEmpty(), Template::getId, taggedTemplateIds)
+				.in(!query.getChapter().isEmpty(), Template::getChapter, query.getChapter())
+				.in(!query.getDifficulty().isEmpty(), Template::getDifficulty, query.getDifficulty())
+				.like(hasText(query.getKeyword()), Template::getName, query.getKeyword())
 				.eq(query.getShared() != null, Template::getShared, query.getShared())
 				.eq(query.getShared() != null && query.getShared() == 0, Template::getCreateBy,
 						SecurityContextUtils.getUserId())
@@ -103,7 +106,23 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	public void batchAddTemplate(List<TemplateRequest> templateRequests) {
 		templateRequests.stream().map(TemplateRequest::getRepoId).filter(Objects::nonNull).distinct()
 				.forEach(this::assertManageRepo);
+		templateRequests.forEach(this::fillChapterAndDifficulty);
 		saveBatch(templateViewMapper.fromRequest(templateRequests));
+	}
+
+	/**
+	 * 章节/难度以题目 schema 为准回填到实体列（列表筛选/组卷要用）。
+	 */
+	private void fillChapterAndDifficulty(TemplateRequest request) {
+		SurveySchema schema = request.getTemplate();
+		if (schema != null) {
+			if (!hasText(request.getChapter()) && hasText(schema.getChapter())) {
+				request.setChapter(schema.getChapter());
+			}
+			if (!hasText(request.getDifficulty()) && hasText(schema.getDifficulty())) {
+				request.setDifficulty(schema.getDifficulty());
+			}
+		}
 	}
 
 	@Override

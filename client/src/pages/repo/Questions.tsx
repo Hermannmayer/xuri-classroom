@@ -46,6 +46,8 @@ interface TemplateView {
   repoId?: string;
   previewUrl?: string;
   createAt?: string;
+  chapter?: string;
+  difficulty?: string;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -184,6 +186,8 @@ export default function RepoQuestions() {
     score?: number;
     analysis?: string;
     tags?: string[];
+    chapter?: string;
+    difficulty?: string;
   }>();
 
   const load = useCallback(async () => {
@@ -273,6 +277,8 @@ export default function RepoQuestions() {
       score: template?.attribute?.examScore,
       analysis: template?.attribute?.examAnalysis,
       tags: editing.tag ?? template?.tags ?? [],
+      chapter: template?.chapter,
+      difficulty: template?.difficulty,
     });
   }, [editing, editForm]);
 
@@ -434,6 +440,8 @@ export default function RepoQuestions() {
           examAnalysis: values.analysis?.trim() || undefined,
         },
         tags: values.tags ?? [],
+        chapter: values.chapter?.trim() || undefined,
+        difficulty: values.difficulty || undefined,
         children,
         dataSource,
       };
@@ -446,6 +454,8 @@ export default function RepoQuestions() {
         template: nextTemplate,
         mode: editing.mode,
         tag: values.tags ?? [],
+        chapter: values.chapter?.trim() || undefined,
+        difficulty: values.difficulty || undefined,
         category: editing.category,
         repoId: editing.repoId ?? repoId,
         previewUrl: editing.previewUrl,
@@ -702,6 +712,16 @@ export default function RepoQuestions() {
             render: (t) => <Tag color={TYPE_COLOR[t] ?? 'default'}>{TYPE_LABEL[t] ?? t ?? '—'}</Tag>,
           },
           {
+            title: '章节',
+            width: 150,
+            render: (_: unknown, row) => row.chapter || row.template?.chapter || '—',
+          },
+          {
+            title: '难度',
+            width: 80,
+            render: (_: unknown, row) => row.difficulty || row.template?.difficulty || '—',
+          },
+          {
             title: '题干',
             dataIndex: 'name',
             render: (_: unknown, row) => (
@@ -879,6 +899,22 @@ export default function RepoQuestions() {
           <Form.Item name="score" label="分值">
             <InputNumber min={0} step={0.5} style={{ width: 160 }} placeholder="选填" />
           </Form.Item>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Form.Item name="chapter" label="章节" style={{ flex: 1 }}>
+              <Input placeholder="例如：第一章 基础护理" />
+            </Form.Item>
+            <Form.Item name="difficulty" label="难度" style={{ width: 160 }}>
+              <Select
+                allowClear
+                placeholder="选填"
+                options={[
+                  { value: '易', label: '易' },
+                  { value: '中', label: '中' },
+                  { value: '难', label: '难' },
+                ]}
+              />
+            </Form.Item>
+          </div>
           <Form.Item name="analysis" label="解析">
             <Input.TextArea autoSize={{ minRows: 2, maxRows: 6 }} placeholder="选填" />
           </Form.Item>

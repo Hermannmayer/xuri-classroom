@@ -31,6 +31,11 @@ public class TemplateRequest {
 	private String chapter;
 
 	/**
+	 * 难度（易/中/难）
+	 */
+	private String difficulty;
+
+	/**
 	 * 模板标题
 	 */
 	private String name;
