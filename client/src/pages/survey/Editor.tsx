@@ -92,7 +92,8 @@ function OutlineRow({
         cursor: 'grab',
         fontSize: 12,
         borderLeft: selected ? '2px solid var(--bp-orange)' : '2px solid transparent',
-        background: selected ? 'var(--bp-primary-bg)' : 'transparent',
+        background: selected ? 'var(--bp-selected-bg)' : 'transparent',
+        color: 'var(--bp-selected-text)',
         touchAction: 'none',
       }}
     >

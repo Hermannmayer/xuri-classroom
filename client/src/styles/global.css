@@ -45,6 +45,9 @@
   --bp-hover-border: rgba(255, 255, 255, 0.6);
   --bp-primary-bg: rgba(74, 144, 217, 0.18);
   --bp-primary-bg-hover: rgba(74, 144, 217, 0.3);
+  /* 选中行/列表项：柔和底色 + 明确前景，避免主按钮的实心底色被误用 */
+  --bp-selected-bg: rgba(74, 144, 217, 0.22);
+  --bp-selected-text: #ffffff;
   --bp-primary-border: #4a90d9;
   --bp-primary-text: #ffffff;
   --bp-primary-hover-border: #ffffff;
@@ -104,6 +107,9 @@
   --bp-hover-border: #a89f8c;
   --bp-primary-bg: #1e3a5f;
   --bp-primary-bg-hover: #2f5d8c;
+  /* 亮色下主按钮是实心深蓝；选中行必须用浅色底，否则深蓝字看不见 */
+  --bp-selected-bg: rgba(30, 58, 95, 0.1);
+  --bp-selected-text: #1e3a5f;
   --bp-primary-border: #1e3a5f;
   --bp-primary-text: #fffdf8;
   --bp-primary-hover-border: #2f5d8c;
