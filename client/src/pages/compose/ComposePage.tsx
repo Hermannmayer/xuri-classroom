@@ -53,6 +53,8 @@ const DEFAULT_WEIGHTS: Record<string, number> = { Radio: 30, Checkbox: 30, Judge
 
 const LETTERS = 'ABCDEFGH';
 
+const fmtScore = (value: number) => String(Math.round(value * 100) / 100);
+
 function stripHtml(text?: string) {
   return (text || '').replace(/<[^>]+>/g, '');
 }
@@ -64,7 +66,7 @@ function VariantPreview({ variant }: { variant: ComposeVariant }) {
     <div>
       <Space wrap style={{ marginBottom: 8 }}>
         <Tag color="blue">{variant.total} 题</Tag>
-        <Tag color="green">{variant.score} 分</Tag>
+        <Tag color="green">{fmtScore(variant.score)} 分</Tag>
         {Object.entries(variant.byType).map(([key, value]) => (
           <Tag key={key}>
             {key} {value}
@@ -490,7 +492,7 @@ export default function ComposePage() {
                   <InputNumber min={1} value={totalScore} onChange={(v) => setTotalScore(Number(v ?? 1))} />
                 </span>
                 <span style={{ color: 'var(--bp-text-soft)' }}>
-                  当前配置：{computedQuestions} 题 / {computedScore} 分
+                  当前配置：{computedQuestions} 题 / {fmtScore(computedScore)} 分
                 </span>
                 <Button size="small" onClick={applyTotalScore}>
                   按总分分配每题分值

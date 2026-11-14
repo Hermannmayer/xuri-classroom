@@ -44,14 +44,14 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: f1e91e9481ab37faaa9f13dd6c3675416c5599de
+verified_against: 1e114656eb052c0780087ea9c8956c826360b79c
 ---
 
 # 组卷中心
 
 ## 30 秒摘要
 
-老师从题库按「题库 / 章节 / 难度 / 题型 / 关键词」筛范围，按「随机 / 比例 / 顺序区间」定规则，一次生成 N 份互相独立的卷子（试卷集），可发布为 N 个考试、可打印。入口只有一个：教学 → 新建 → 从题库组卷（整页，不再弹窗套弹窗）；编辑器内可「从题库添加」单题加入当前试卷。
+老师从题库按「题库 / 章节 / 难度 / 题型 / 关键词」筛范围，按「随机 / 比例 / 顺序区间」定规则，一次生成 N 份互相独立的卷子（试卷集），可发布为 N 个考试、可打印。入口只有一个：教学 → 新建 → 从题库组卷（**单页完成：范围 + 规则 + 预览**，不再三步翻页）；题库里没有的题型不会出现；支持「整套总分 + 题型分值比例」一键分配每题分值。编辑器内可「从题库添加」单题加入当前试卷。
 
 ## 什么时候看这篇
 
@@ -75,7 +75,7 @@ verified_against: f1e91e9481ab37faaa9f13dd6c3675416c5599de
 
 ## 关键流程
 
-1. 组卷页选范围 → GET /api/compose/stats 实时显示各题型/章节/难度题量。
+1. 组卷页（单页）选范围 → GET /api/compose/stats 实时显示各题型/章节/难度题量，题型按可用题量过滤。
 2. 「预览」→ POST /api/compose/plan：只算不写，返回 N 套题目、统计、警告、重复题数。
 3. 「生成并发布」→ POST /api/compose/create：写 t_paper_batch + t_paper_variant；publish=true 时逐套调用 ProjectService.addProject。
 4. 试卷集详情按套展示，可进打印页或编辑器。

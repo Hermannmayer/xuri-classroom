@@ -80,7 +80,7 @@ export default function ComposeBatchDetailPage() {
           >
             <Space wrap>
               <Tag color="blue">{variant.total} 题</Tag>
-              <Tag color="green">{variant.score} 分</Tag>
+              <Tag color="green">{Math.round(variant.score * 100) / 100} 分</Tag>
               {Object.entries(variant.byType ?? {}).map(([key, value]) => (
                 <Tag key={key}>
                   {key} {value}
