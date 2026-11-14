@@ -53,7 +53,7 @@ verified_against: 5e7e4e076c798404def995ea5422e6ad5f629da3
 - 预览：前端 ImportWizard 三步（选择来源 → 预览确认 → 选择去向），可逐题剔除（题库导入除外）。
 - 落地：试卷走既有的 POST /api/project/create 或 POST /api/project/update（整树 JSON，无新表）；题库走 POST /api/repo/import?kind=text。
 
-P0 只开放**文本导入**；Word / Excel / JSON 的入口已经在界面上占位（置灰“即将开放”），解析器接口已预留。
+四种来源都可用：**文本 / Excel / Word / JSON**。Excel 按题型分 sheet、章节列可选拆大题；Word 按「一、二、三」拆大题并抽取题干图片（转成富题干 HTML）；JSON 吃本系统导出的整卷。
 
 ## 什么时候看这篇
 
@@ -103,16 +103,18 @@ P0 只开放**文本导入**；Word / Excel / JSON 的入口已经在界面上�
 
 ## 坑与已知限制
 
-- **P0 只有文本**：Word/Excel/JSON 的 Tab 会显示“即将开放”；后端对这三个 kind 返回 400 中文提示。
-- **题库导入不能逐题剔除**：服务端按文本重新解析，前端勾选传不过去，所以题库流程固定整批导入。
+- **.doc 不支持**：只收 .docx，旧格式提示另存。
+- **Word 公式会跳过**：`m:oMath` 只计数并给提示，题干里不会出现公式；图片会抽出来落文件。
+- **图片走公开预览地址**：`/api/public/preview/{fileId}`（上传时 publicRead=true），题干以 `<img>` 富文本呈现，靠 `attribute.richTitle=true` 触发前端消毒渲染。
+- **题库导入不能逐题剔除**：服务端按原文重新解析，前端勾选传不过去，所以题库流程固定整批导入。
 - **难度不落库**：SurveySchema 没有 difficulty 字段，解析到「难度：」只给提示。
 - **标题识别是启发式**：首个非空行若以句号/问号结尾、或含下划线填空、或超过 80 字，不当作标题。
 - **填空题题干保留下划线**：渲染时仍显示下划线 + 输入框，属已知观感问题。
-- **文本导入不支持图片/公式**，富题干要等 Word 阶段。
+- **Excel 章节列要自己加**：模板默认没有「章节」列，加了才会按章节拆题组。
 
 ## 验证
 
-- 解析器单测（7 个用例）：
+- 解析器单测（文本 7 + Excel 2 + Word 2 + JSON 1 = 12 个用例）：
 
 ~~~bash
 cd server && ./gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
