@@ -92,8 +92,8 @@ tables:
 tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
-last_verified: 2026-11-10
-verified_against: 099d38fdf40d483258ea49fe08087a47fbfcf206
+last_verified: 2026-11-14
+verified_against: 8f8ef7cd6becf6a48bd092d7f0f839fe806be08d
 ---
 
 # 题库与题目
@@ -120,8 +120,9 @@ verified_against: 099d38fdf40d483258ea49fe08087a47fbfcf206
 |---|---|---|
 | 题库列表页 | `client/src/pages/repo/List.tsx` | 双栏：左侧分类树 + 右侧题库表；工具栏上移（新建/搜索/导出、选中后「移动到分类(N)」）；`repo:update`/`repo:grant` 时显示 rowSelection；新建/编辑含分类 AutoComplete 与「全局开放时间」RangePicker |
 | 批量移动分类 | `client/src/pages/repo/BatchRepoCategoryModal.tsx` | TreeSelect 扁平分类 path（根「未分类」=空串）+ 可输入新路径；逐个 `POST /repo/update {id,category}`，成功/失败计数，完成后刷新树/列表 |
+| 题目批量设置 | `client/src/pages/repo/Questions.tsx` + `POST /api/template/batchUpdate` | 勾选多题后批量追加/覆盖标签、改难度、改每题分值；后端 `TemplateServiceImpl#batchPatchTemplate` 只改非空字段 |
 | 题库分类树 | `client/src/pages/repo/RepoCategoryTree.tsx` | `GET /api/repo/categories` 扁平列表按 `/` 拆树；根「全部分类」+ 各路径 count；「新建分类文件夹」→ `/categories/create`；选中 path 过滤列表 |
-| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
+| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | 按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树来自 `/api/system/dept/list`，人来自 `/api/system/user/options`；成员行可改级别 |
 | 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book` |

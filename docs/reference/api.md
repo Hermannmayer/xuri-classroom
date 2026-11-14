@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 185 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 186 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -176,6 +176,7 @@
 | GET | `${api.prefix}/template/get` | `TemplateApi#getTemplate` | `hasAuthority('template:list')` | — |
 | POST | `${api.prefix}/template/create` | `TemplateApi#addTemplate` | `hasAuthority('template:create')` | — |
 | POST | `${api.prefix}/template/update` | `TemplateApi#updateTemplate` | `hasAuthority('template:update')` | — |
+| POST | `${api.prefix}/template/batchUpdate` | `TemplateApi#batchUpdateTemplate` | `hasAuthority('template:update')` | — |
 | POST | `${api.prefix}/template/delete` | `TemplateApi#deleteTemplate` | `hasAuthority('template:delete')` | — |
 | GET | `${api.prefix}/template/listCategory` | `TemplateApi#listTemplateCategories` | `hasAuthority('template:list')` | — |
 | GET | `${api.prefix}/template/listTag` | `TemplateApi#getTags` | `hasAuthority('template:list')` | — |

@@ -65,7 +65,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-14
-verified_against: fa2cc51311752f4b40592683495b94b8fc11808b
+verified_against: 8f8ef7cd6becf6a48bd092d7f0f839fe806be08d
 ---
 
 # 考试编辑器与题型
@@ -86,7 +86,7 @@ verified_against: fa2cc51311752f4b40592683495b94b8fc11808b
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 编辑器 | `client/src/pages/survey/Editor.tsx` | 顶部编辑/设置/统计/分享/发布；左栏题目/大纲/主题页签；右栏快捷/题目；画布整块选中；批量分值/必填；JSON/主题/保存 |
+| 编辑器 | `client/src/pages/survey/Editor.tsx` | 顶部编辑/设置/统计/分享/发布；左栏题目/大纲/主题页签；右栏快捷/题目；画布整块选中；批量分值/必填；卷头独立设置；预览用弹窗内嵌真实答题页；JSON/主题/保存 |
 | 概述/发布设置 | `client/src/pages/survey/Overview.tsx` | 概览与全部 `setting` 合并保存；旧 `/setting` 路由兼容 |
 | 题型定义 | `client/src/designer/defaults.ts` | `QUESTION_META`（面板 17 项）、`createQuestion`、`normalizeSchema` |
 | 大纲/树操作 | `client/src/designer/tree.ts` | `insertNode` / `moveNode` / `cloneNode` / `flattenOutline` |
@@ -98,7 +98,7 @@ verified_against: fa2cc51311752f4b40592683495b94b8fc11808b
 | 渲染入口 | `client/src/renderer/SchemaRenderer.tsx` | 按 `displays` 隐藏、渲染题号/题干/组件、处理题组/说明/分割线 |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `/api/public/**`，无 `@PreAuthorize`，校验在 Service |
 | 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java` | `loadProject` / `loadPublicQuestion` / `saveAnswer` / `loadExamResult` 的入口；门面只做委托，实现在 impl 包组件里（`PublicProjectLoader`、`PublicAnswerSubmitter`、`ProjectAnswerValidator`） |
-| 打印 | `client/src/pages/survey/Print.tsx` | A4 分页、A3 双页拼版、试卷信息/代码/密封线/页码/答题区/页边距、标准答题卡、紧凑答案速查、Word 导出 |
+| 打印 | `client/src/pages/survey/Print.tsx` | A4 分页、A3 双页拼版、自定义卷头（标题/副标题/考生信息）、试卷信息/代码/密封线/页码/答题区/页边距、标准答题卡、紧凑答案速查；Word 导出同源 |
 | 随机抽题 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RandomSurveyProcessor.java` | 编辑器 `RandomSurvey` 节点 + `examSetting.randomSurvey` |
 | 数据表 | `t_project`、`t_answer`、`t_template` | 项目含 schema；答案含随机卷快照；模板供抽题 |
 
