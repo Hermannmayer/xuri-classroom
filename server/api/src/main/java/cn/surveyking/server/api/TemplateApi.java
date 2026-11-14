@@ -25,8 +25,21 @@ public class TemplateApi {
 	@GetMapping("/list")
 	// 题目只读拆成独立权限：学员用 repo:questions:read，管理端用 repo:detail/template:list；
 	// 不再把 repo:book（错题本）当成「能看题库题目」。
-	@PreAuthorize("hasAnyAuthority('template:list','repo:detail','repo:questions:read','repo:practice') or hasRole('admin')")
+	@PreAuthorize("hasAnyAuthority('template:list','repo:detail','repo:questions:read') or hasRole('admin')")
 	public PaginationResponse<TemplateView> listQuestionTemplate(TemplateQuery query) {
+		return templateService.listTemplate(query);
+	}
+
+	/**
+	 * 练习专用：只允许 repo:practice，单页最多 20 题；不暴露题库浏览能力。
+	 */
+	@GetMapping("/practiceList")
+	@PreAuthorize("hasAuthority('repo:practice') or hasRole('admin')")
+	public PaginationResponse<TemplateView> practiceList(TemplateQuery query) {
+		if (query.getRepoId() == null || query.getRepoId().trim().isEmpty()) {
+			throw new IllegalArgumentException("练习必须指定题库");
+		}
+		query.setPageSize(Math.min(Math.max(query.getPageSize(), 1), 20));
 		return templateService.listTemplate(query);
 	}
 

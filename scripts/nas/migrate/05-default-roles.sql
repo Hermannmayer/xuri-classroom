@@ -31,11 +31,11 @@ ON DUPLICATE KEY UPDATE
 
 -- ---------------------------------------------------------------------------
 -- 2. 学员：只做题 + 刷题库，没有任何管理权限
---    关键：必须有 repo:book（练习入口）和 repo:detail（打开题库看题目）。
---    少了 repo:detail，题库列表里点不进题目；少了 repo:book，练习接口会 403。
+--    关键：必须有 repo:book（错题/收藏）和 repo:practice（开始练习）；
+--    不再给 repo:detail/repo:questions:read，避免学员直接浏览题库全部题目。
 -- ---------------------------------------------------------------------------
 UPDATE t_role
-SET authority = 'home,exercise:list,repo:list,repo:detail,repo:book,project:list,project:detail,user:update,answer:list,answer:detail,answer:upload',
+SET authority = 'home,exercise:list,repo:list,repo:practice,repo:book,project:list,project:detail,user:update,answer:list,answer:detail,answer:upload',
     remark = '只能做题、刷题库，无任何管理权限',
     status = 1, is_deleted = 0, update_at = NOW()
 WHERE code IN ('xueyuan', 'student') AND is_deleted = 0;
@@ -43,7 +43,7 @@ WHERE code IN ('xueyuan', 'student') AND is_deleted = 0;
 -- 如果连学员角色都没有（极端情况），补一条
 INSERT INTO t_role (id, name, code, remark, authority, status, is_deleted, create_at)
 SELECT 'student', '学员', 'student', '只能做题、刷题库，无任何管理权限',
-       'home,exercise:list,repo:list,repo:detail,repo:book,project:list,project:detail,user:update,answer:list,answer:detail,answer:upload',
+       'home,exercise:list,repo:list,repo:practice,repo:book,project:list,project:detail,user:update,answer:list,answer:detail,answer:upload',
        1, 0, NOW()
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM (SELECT id FROM t_role WHERE code IN ('xueyuan','student') AND is_deleted = 0) x);

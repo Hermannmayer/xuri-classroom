@@ -174,7 +174,7 @@ export default function Practice() {
   /** 取一页题目；返回本页行数与题库总题数 */
   const fetchPage = useCallback(
     async (page: number) => {
-      const res = await getWithPagination<TemplateView>('/api/template/list', {
+      const res = await getWithPagination<TemplateView>('/api/template/practiceList', {
         repoId,
         current: page,
         pageSize: PAGE_SIZE,
