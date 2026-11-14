@@ -379,9 +379,6 @@ function ManagerProjectList({
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [importName, setImportName] = useState('');
-  const [importCategory, setImportCategory] = useState('');
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
   // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
@@ -396,6 +393,7 @@ function ManagerProjectList({
   const [renameForm] = Form.useForm<{ name: string; category?: string }>();
   const createMode = Form.useWatch('mode', createForm);
   const createSource = Form.useWatch('source', createForm);
+  const createName = Form.useWatch('name', createForm);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -467,14 +465,8 @@ function ManagerProjectList({
       setCreateOpen(false);
       const params = new URLSearchParams({ name: v.name.trim() });
       if (v.category?.trim()) params.set('category', v.category.trim());
+      if (parentId) params.set('parentId', parentId);
       navigate('/compose?' + params.toString());
-      return;
-    }
-    if (v.mode === 'exam' && v.source === 'import') {
-      setCreateOpen(false);
-      setImportName(v.name.trim());
-      setImportCategory(v.category?.trim() || '');
-      setImportOpen(true);
       return;
     }
     setCreating(true);
@@ -503,7 +495,7 @@ function ManagerProjectList({
 
   /** 文本导入建卷：先解析后建卷，创建失败不会留下空项目 */
   const handleImportCreate = async ({ preview }: ImportSubmitPayload) => {
-    const name = importName.trim();
+    const name = String(createForm.getFieldValue('name') ?? '').trim() || '未命名试卷';
     const survey = {
       ...preview.tree,
       title: name,
@@ -512,7 +504,7 @@ function ManagerProjectList({
     const created = await createProject({
       name,
       mode: 'exam',
-      category: importCategory || undefined,
+      category: String(createForm.getFieldValue('category') ?? '').trim() || undefined,
       parentId,
       setting: DEFAULT_SETTING,
       survey,
@@ -680,9 +672,6 @@ function ManagerProjectList({
         <Button icon={<DeleteOutlined />} onClick={() => navigate('/project/trash')}>
           回收站
         </Button>
-        {canCreate && (
-          <Button onClick={() => navigate('/compose/batches')}>试卷集</Button>
-        )}
         {canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建
@@ -1162,15 +1151,12 @@ function ManagerProjectList({
         onCancel={() => setCreateOpen(false)}
         onOk={submitCreate}
         confirmLoading={creating}
-        okText={
-          createMode === 'exam' && createSource === 'compose'
-            ? '下一步'
-            : createMode === 'exam' && createSource === 'import'
-              ? '下一步：上传'
-              : '创建'
-        }
+        okText={createMode === 'exam' && createSource === 'compose' ? '下一步' : '创建'}
         cancelText="取消"
         destroyOnClose
+        width={createMode === 'exam' && createSource === 'import' ? 'min(980px, 96vw)' : 'min(560px, 94vw)'}
+        footer={createMode === 'exam' && createSource === 'import' ? null : undefined}
+        styles={{ body: { maxHeight: '72vh', overflowY: 'auto' } }}
       >
         <Form form={createForm} layout="vertical" preserve={false}>
           <Form.Item name="name" label="名称" rules={[{ required: true, message: '请填写名称' }]}>
@@ -1203,21 +1189,20 @@ function ManagerProjectList({
             </Form.Item>
           )}
           {createMode === 'exam' && createSource === 'import' && (
-            <div style={{ marginTop: -10, marginBottom: 12, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-              支持<b>文本 / Excel / Word / JSON 导入</b>：下一步上传或粘贴，解析预览后再创建。
+            <div style={{ marginTop: -4 }}>
+              <ImportWizard
+                embedded
+                open={createOpen}
+                target="paper"
+                formats={['text', 'excel', 'word', 'json']}
+                paperName={(createName || '').trim() || '未命名试卷'}
+                onClose={() => setCreateOpen(false)}
+                onSubmit={handleImportCreate}
+              />
             </div>
           )}
         </Form>
       </Modal>
-
-      <ImportWizard
-        open={importOpen}
-        target="paper"
-        formats={['text', 'excel', 'word', 'json']}
-        paperName={importName}
-        onClose={() => setImportOpen(false)}
-        onSubmit={handleImportCreate}
-      />
 
       <FolderAuthModal
         open={Boolean(folderAuth)}

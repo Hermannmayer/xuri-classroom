@@ -5,7 +5,6 @@ status: current
 keywords:
   - 组卷
   - 从题库组卷
-  - 试卷集
   - 多套
   - 难度
   - 章节
@@ -25,20 +24,15 @@ source_globs:
   - server/api/src/main/java/cn/surveyking/server/api/PaperExportApi.java
 entrypoints:
   - client/src/pages/compose/ComposePage.tsx
-  - client/src/pages/compose/BatchDetail.tsx
   - client/src/pages/survey/Print.tsx
 apis:
   - GET /api/compose/stats
   - POST /api/compose/plan
   - POST /api/compose/create
-  - GET /api/compose/batches
-  - GET /api/compose/batch
   - POST /api/compose/pick
   - GET /api/paper/{id}/docx
 tables:
   - t_template
-  - t_paper_batch
-  - t_paper_variant
   - t_project
 tests:
   - client:npx tsc --noEmit
@@ -51,12 +45,12 @@ verified_against: 0b81cd2872cc402d7b3c84d3a09dc68b03d17b19
 
 ## 30 秒摘要
 
-老师从题库按「题库 / 章节 / 难度 / 题型 / 关键词」筛范围，按「随机 / 比例 / 顺序区间」定规则，一次生成 N 份互相独立的卷子（试卷集），可发布为 N 个考试、可打印。入口只有一个：教学 → 新建 → 从题库组卷（**单页完成：范围 + 规则 + 预览**，不再三步翻页）；题库里没有的题型不会出现；支持「整套总分 + 题型分值比例」一键分配每题分值。编辑器内可「从题库添加」单题加入当前试卷。
+老师从题库按「题库 / 章节 / 难度 / 题型 / 关键词」筛范围，按「随机 / 比例 / 顺序区间」定规则，一次生成 N 份互相独立的卷子，直接创建为 N 个考试项目（列表里按文件夹/分类管理），可打印。入口只有一个：教学 → 新建 → 从题库组卷（**单页完成：范围 + 规则 + 预览**，不再三步翻页）；题库里没有的题型不会出现；支持「整套总分 + 题型分值比例」一键分配每题分值。编辑器内可「从题库添加」单题加入当前试卷。
 
 ## 什么时候看这篇
 
 - 改组卷规则（题数/比例/区间、难度配比、跨套去重、题不够策略）
-- 改试卷集页面或打印页
+- 改打印页
 - 排查「组出来题不对/少了/重复」
 
 ## 代码地图
@@ -64,21 +58,19 @@ verified_against: 0b81cd2872cc402d7b3c84d3a09dc68b03d17b19
 | 层 | 文件 |
 |---|---|
 | 组卷页 | client/src/pages/compose/ComposePage.tsx |
-| 试卷集 | client/src/pages/compose/BatchList.tsx、BatchDetail.tsx |
 | 卷内选题 | client/src/pages/survey/BankPickModal.tsx |
 | 打印 | client/src/pages/survey/Print.tsx |
 | 前端 API | client/src/api/compose.ts |
 | 后端接口 | server/api/.../ComposeApi.java |
 | 规则实现 | server/rdbms/.../ComposeServiceImpl.java |
-| 批次表 | t_paper_batch / t_paper_variant（迁移 38） |
 | 难度章节 | t_template.chapter / difficulty（迁移 37） |
 
 ## 关键流程
 
 1. 组卷页（单页）选范围 → GET /api/compose/stats 实时显示各题型/章节/难度题量，题型按可用题量过滤。
 2. 「预览」→ POST /api/compose/plan：只算不写，返回 N 套题目、统计、警告、重复题数。
-3. 「生成并发布」→ POST /api/compose/create：写 t_paper_batch + t_paper_variant；publish=true 时逐套调用 ProjectService.addProject。
-4. 试卷集详情按套展示，可进打印页或编辑器。
+3. 「生成并发布」→ POST /api/compose/create：逐套调用 ProjectService.addProject，直接创建 N 个考试项目（名称 试卷名-A/B/C）。
+4. 生成后回列表，按文件夹/分类管理这些试卷；每份可编辑、打印、删除。
 5. 编辑器「从题库添加」→ POST /api/compose/pick，排除卷内已有题，插入新题组（一次撤销步）。
 6. 打印页：浏览器打印即 PDF；「下载 Word」走 GET /api/paper/{id}/docx（POI 生成，A4、题号连续、可选答案页/答题卡）。
 
@@ -91,7 +83,7 @@ verified_against: 0b81cd2872cc402d7b3c84d3a09dc68b03d17b19
 
 ## 权限与数据范围
 
-- /api/compose/plan、/create、/batches：project:create 或 admin。
+- /api/compose/plan、/create：project:create 或 admin。
 - /api/compose/pick：project:create / project:update 或 admin。
 - /api/compose/stats：repo:list / project:create / project:update 或 admin。
 - 每个 repoId 都会走 RepoService.getRpo 做可读校验。

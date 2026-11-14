@@ -3,8 +3,6 @@ package cn.surveyking.server.impl;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
-import cn.surveyking.server.domain.dto.ComposeBatchDetail;
-import cn.surveyking.server.domain.dto.ComposeBatchView;
 import cn.surveyking.server.domain.dto.ComposeCreateResult;
 import cn.surveyking.server.domain.dto.ComposePickRequest;
 import cn.surveyking.server.domain.dto.ComposePlan;
@@ -16,18 +14,13 @@ import cn.surveyking.server.domain.dto.ProjectSetting;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.dto.SurveySchema.QuestionType;
-import cn.surveyking.server.domain.model.PaperBatch;
-import cn.surveyking.server.domain.model.PaperVariant;
 import cn.surveyking.server.domain.model.Template;
-import cn.surveyking.server.mapper.PaperBatchMapper;
-import cn.surveyking.server.mapper.PaperVariantMapper;
 import cn.surveyking.server.mapper.TemplateMapper;
 import cn.surveyking.server.service.ComposeService;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.RepoService;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -75,10 +68,6 @@ public class ComposeServiceImpl implements ComposeService {
 	private final RepoService repoService;
 
 	private final ProjectService projectService;
-
-	private final PaperBatchMapper batchMapper;
-
-	private final PaperVariantMapper variantMapper;
 
 	@Override
 	public ComposeStats stats(List<String> repoIds) {
@@ -152,113 +141,23 @@ public class ComposeServiceImpl implements ComposeService {
 	@Override
 	public ComposeCreateResult create(ComposeRequest request) {
 		ComposePlan plan = plan(request);
-		PaperBatch batch = new PaperBatch();
-		batch.setId(IdWorker.getIdStr());
-		batch.setName(plan.getName());
-		batch.setSeed(plan.getSeed());
-		batch.setSets(plan.getVariants().size());
-		batch.setCreateBy(cn.surveyking.server.core.uitls.SecurityContextUtils.getUserId());
-		batch.setCreateAt(new Date());
-		try {
-			batch.setRulesJson(MAPPER.writeValueAsString(request));
-		}
-		catch (Exception ignored) {
-			batch.setRulesJson("{}");
-		}
-		batchMapper.insert(batch);
-
-		boolean publish = Boolean.TRUE.equals(request.getPublish());
+		List<String> projectIds = new ArrayList<>();
 		for (ComposeVariant variant : plan.getVariants()) {
-			PaperVariant entity = new PaperVariant();
-			entity.setId(IdWorker.getIdStr());
-			entity.setBatchId(batch.getId());
-			entity.setSeq(variant.getSeq());
-			entity.setCreateAt(new Date());
-			try {
-				entity.setSurveyJson(MAPPER.writeValueAsString(variant.getSurvey()));
-				Map<String, Object> stats = new LinkedHashMap<>();
-				stats.put("total", variant.getTotal());
-				stats.put("score", variant.getScore());
-				stats.put("byType", variant.getByType());
-				stats.put("byDifficulty", variant.getByDifficulty());
-				entity.setStatsJson(MAPPER.writeValueAsString(stats));
-			}
-			catch (Exception e) {
-				throw new ErrorCodeException(ErrorCode.FileParseError, "保存试卷失败：" + e.getMessage());
-			}
-			if (publish) {
-				ProjectRequest project = new ProjectRequest();
-				project.setName(plan.getName() + "-" + variantSuffix(variant.getSeq()));
-				project.setMode(ProjectModeEnum.exam);
-				project.setSurvey(variant.getSurvey());
-				project.setSetting(new ProjectSetting());
-				ProjectView view = projectService.addProject(project);
-				entity.setProjectId(view.getId());
-				variant.setProjectId(view.getId());
-			}
-			variantMapper.insert(entity);
+			ProjectRequest project = new ProjectRequest();
+			project.setName(plan.getName() + "-" + variantSuffix(variant.getSeq()));
+			project.setMode(ProjectModeEnum.exam);
+			project.setSurvey(variant.getSurvey());
+			project.setSetting(new ProjectSetting());
+			project.setCategory(request.getCategory());
+			project.setParentId(request.getParentId());
+			ProjectView view = projectService.addProject(project);
+			variant.setProjectId(view.getId());
+			projectIds.add(view.getId());
 		}
 		ComposeCreateResult result = new ComposeCreateResult();
-		result.setBatchId(batch.getId());
+		result.setProjectIds(projectIds);
 		result.setPlan(plan);
 		return result;
-	}
-
-	@Override
-	public List<ComposeBatchView> listBatches() {
-		List<PaperBatch> batches = batchMapper.selectList(
-				Wrappers.<PaperBatch>lambdaQuery().orderByDesc(PaperBatch::getCreateAt).last("limit 100"));
-		if (batches.isEmpty()) {
-			return Collections.emptyList();
-		}
-		List<String> ids = batches.stream().map(PaperBatch::getId).collect(Collectors.toList());
-		List<PaperVariant> variants = variantMapper
-				.selectList(Wrappers.<PaperVariant>lambdaQuery().in(PaperVariant::getBatchId, ids));
-		Map<String, Integer> counts = new HashMap<>();
-		for (PaperVariant variant : variants) {
-			counts.merge(variant.getBatchId(), 1, Integer::sum);
-		}
-		return batches.stream().map(batch -> {
-			ComposeBatchView view = toBatchView(batch);
-			view.setVariantCount(counts.getOrDefault(batch.getId(), 0));
-			return view;
-		}).collect(Collectors.toList());
-	}
-
-	@Override
-	public ComposeBatchDetail getBatch(String batchId) {
-		PaperBatch batch = batchMapper.selectById(batchId);
-		if (batch == null) {
-			throw new ErrorCodeException(ErrorCode.FileParseError, "试卷集不存在");
-		}
-		ComposeBatchDetail detail = new ComposeBatchDetail();
-		detail.setBatch(toBatchView(batch));
-		List<PaperVariant> variants = variantMapper.selectList(Wrappers.<PaperVariant>lambdaQuery()
-				.eq(PaperVariant::getBatchId, batchId).orderByAsc(PaperVariant::getSeq));
-		detail.getBatch().setVariantCount(variants.size());
-		for (PaperVariant entity : variants) {
-			ComposeVariant variant = new ComposeVariant();
-			variant.setSeq(entity.getSeq());
-			variant.setProjectId(entity.getProjectId());
-			try {
-				if (StringUtils.hasText(entity.getSurveyJson())) {
-					variant.setSurvey(MAPPER.readValue(entity.getSurveyJson(), SurveySchema.class));
-				}
-				if (StringUtils.hasText(entity.getStatsJson())) {
-					Map<String, Object> stats = MAPPER.readValue(entity.getStatsJson(),
-							new TypeReference<Map<String, Object>>() {
-							});
-					Object total = stats.get("total");
-					Object score = stats.get("score");
-					variant.setTotal(total instanceof Number ? ((Number) total).intValue() : 0);
-					variant.setScore(score instanceof Number ? ((Number) score).doubleValue() : 0D);
-				}
-			}
-			catch (Exception ignored) {
-			}
-			detail.getVariants().add(variant);
-		}
-		return detail;
 	}
 
 	@Override
@@ -577,16 +476,6 @@ public class ComposeServiceImpl implements ComposeService {
 
 	private String variantSuffix(int seq) {
 		return seq <= 26 ? String.valueOf((char) ('A' + seq - 1)) : String.valueOf(seq);
-	}
-
-	private ComposeBatchView toBatchView(PaperBatch batch) {
-		ComposeBatchView view = new ComposeBatchView();
-		view.setId(batch.getId());
-		view.setName(batch.getName());
-		view.setSets(batch.getSets());
-		view.setSeed(batch.getSeed());
-		view.setCreateAt(batch.getCreateAt());
-		return view;
 	}
 
 	private String label(QuestionType type) {

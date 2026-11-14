@@ -1,7 +1,5 @@
 package cn.surveyking.server.service;
 
-import cn.surveyking.server.domain.dto.ComposeBatchDetail;
-import cn.surveyking.server.domain.dto.ComposeBatchView;
 import cn.surveyking.server.domain.dto.ComposeCreateResult;
 import cn.surveyking.server.domain.dto.ComposePickRequest;
 import cn.surveyking.server.domain.dto.ComposePlan;
@@ -19,10 +17,6 @@ public interface ComposeService {
 	ComposePlan plan(ComposeRequest request);
 
 	ComposeCreateResult create(ComposeRequest request);
-
-	List<ComposeBatchView> listBatches();
-
-	ComposeBatchDetail getBatch(String batchId);
 
 	List<SurveySchema> pick(ComposePickRequest request);
 

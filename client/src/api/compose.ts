@@ -51,20 +51,8 @@ export interface ComposeRequest {
   uniqueAcrossPapers?: boolean;
   shortagePolicy?: 'reuse' | 'less' | 'error';
   publish?: boolean;
-}
-
-export interface ComposeBatchView {
-  id: string;
-  name: string;
-  sets: number;
-  seed: number;
-  createAt: string;
-  variantCount: number;
-}
-
-export interface ComposeBatchDetail {
-  batch: ComposeBatchView;
-  variants: ComposeVariant[];
+  category?: string;
+  parentId?: string;
 }
 
 export const getComposeStats = (repoIds: string[]) =>
@@ -73,11 +61,7 @@ export const getComposeStats = (repoIds: string[]) =>
 export const planCompose = (data: ComposeRequest) => post<ComposePlan>('/api/compose/plan', data);
 
 export const createCompose = (data: ComposeRequest) =>
-  post<{ batchId: string; plan: ComposePlan }>('/api/compose/create', data);
-
-export const listComposeBatches = () => get<ComposeBatchView[]>('/api/compose/batches');
-
-export const getComposeBatch = (id: string) => get<ComposeBatchDetail>('/api/compose/batch', { id });
+  post<{ projectIds: string[]; plan: ComposePlan }>('/api/compose/create', data);
 
 export interface ComposePickRequest {
   repoIds: string[];

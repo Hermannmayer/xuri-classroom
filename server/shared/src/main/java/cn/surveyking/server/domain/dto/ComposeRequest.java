@@ -16,6 +16,12 @@ public class ComposeRequest {
 
 	private String name;
 
+	/** 创建到哪个文件夹 */
+	private String parentId;
+
+	/** 项目分类 */
+	private String category;
+
 	private List<String> repoIds = new ArrayList<>();
 
 	private List<QuestionType> types = new ArrayList<>();

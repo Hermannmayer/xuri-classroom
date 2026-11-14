@@ -1,7 +1,5 @@
 package cn.surveyking.server.api;
 
-import cn.surveyking.server.domain.dto.ComposeBatchDetail;
-import cn.surveyking.server.domain.dto.ComposeBatchView;
 import cn.surveyking.server.domain.dto.ComposeCreateResult;
 import cn.surveyking.server.domain.dto.ComposePickRequest;
 import cn.surveyking.server.domain.dto.ComposePlan;
@@ -44,18 +42,6 @@ public class ComposeApi {
 	@PreAuthorize("hasAuthority('project:create') or hasRole('admin')")
 	public ComposeCreateResult create(@RequestBody ComposeRequest request) {
 		return composeService.create(request);
-	}
-
-	@GetMapping("/batches")
-	@PreAuthorize("hasAuthority('project:create') or hasRole('admin')")
-	public List<ComposeBatchView> batches() {
-		return composeService.listBatches();
-	}
-
-	@GetMapping("/batch")
-	@PreAuthorize("hasAnyAuthority('project:create','project:update') or hasRole('admin')")
-	public ComposeBatchDetail batch(@RequestParam("id") String id) {
-		return composeService.getBatch(id);
 	}
 
 	@PostMapping("/pick")

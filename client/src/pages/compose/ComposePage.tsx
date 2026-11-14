@@ -134,7 +134,6 @@ export default function ComposePage() {
   const [unique, setUnique] = useState(true);
   const [shortage, setShortage] = useState<'reuse' | 'less' | 'error'>('less');
   const [weights, setWeights] = useState<Record<string, number>>({ 易: 5, 中: 3, 难: 2 });
-  const [publish, setPublish] = useState(true);
   const [totalScore, setTotalScore] = useState(100);
   const [scoreWeights, setScoreWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
   const [plan, setPlan] = useState<ComposePlan | null>(null);
@@ -229,6 +228,9 @@ export default function ComposePage() {
     uniqueAcrossPapers: unique,
     shortagePolicy: shortage,
     difficultyWeights: weights,
+    publish: true,
+    category: searchParams.get('category') || undefined,
+    parentId: searchParams.get('parentId') || undefined,
   });
 
   const applyTotalScore = () => {
@@ -279,9 +281,9 @@ export default function ComposePage() {
   const doCreate = async () => {
     setCreating(true);
     try {
-      const result = await createCompose({ ...buildRequest(), publish });
-      message.success(publish ? '已生成并发布为考试' : '已生成试卷集');
-      navigate('/compose/batch/' + result.batchId);
+      const result = await createCompose(buildRequest());
+      message.success('已生成 ' + (result.projectIds?.length ?? 0) + ' 套试卷，请在列表中查看');
+      navigate('/teaching?tab=exam');
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -539,9 +541,6 @@ export default function ComposePage() {
                     ]}
                   />
                 </span>
-                <Checkbox checked={publish} onChange={(e) => setPublish(e.target.checked)}>
-                  生成后发布为考试
-                </Checkbox>
               </div>
 
               <Collapse
@@ -620,7 +619,7 @@ export default function ComposePage() {
           预览
         </Button>
         <Button type="primary" loading={creating} onClick={doCreate}>
-          {publish ? '生成并发布' : '生成试卷集'}
+          生成并发布
         </Button>
       </div>
     </div>

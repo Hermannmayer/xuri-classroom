@@ -23,8 +23,6 @@ const ProjectTrash = lazy(() => import('./pages/project/Trash'));
 const SurveyEditor = lazy(() => import('./pages/survey/Editor'));
 const SurveyPrint = lazy(() => import('./pages/survey/Print'));
 const ComposePage = lazy(() => import('./pages/compose/ComposePage'));
-const ComposeBatchDetail = lazy(() => import('./pages/compose/BatchDetail'));
-const ComposeBatchList = lazy(() => import('./pages/compose/BatchList'));
 const SurveySetting = lazy(() => import('./pages/survey/Setting'));
 const SurveyOverview = lazy(() => import('./pages/survey/Overview'));
 const SurveyData = lazy(() => import('./pages/survey/Data'));
@@ -103,8 +101,6 @@ export const router = createBrowserRouter([
       { path: 'survey/:id/edit', element: guard(PERMISSION_CODES.projectUpdate, <SurveyEditor />) },
       { path: 'survey/:id/print', element: guard(PERMISSION_CODES.projectDetail, <SurveyPrint />) },
       { path: 'compose', element: guard(PERMISSION_CODES.projectCreate, <ComposePage />) },
-      { path: 'compose/batches', element: guard(PERMISSION_CODES.projectCreate, <ComposeBatchList />) },
-      { path: 'compose/batch/:id', element: guard(PERMISSION_CODES.projectCreate, <ComposeBatchDetail />) },
       // 发布设置已并入概述页：旧链接保留，但设置本身要 project:update，不能裸奔
       { path: 'survey/:id/setting', element: guard(PERMISSION_CODES.projectUpdate, <SurveySetting />) },
       { path: 'survey/:id/data', element: guard(PERMISSION_CODES.answerList, <SurveyData />) },

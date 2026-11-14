@@ -50,6 +50,8 @@ interface Props {
   presetGroupId?: string;
   /** 当前试卷已有题组，用于“导入到现有题组” */
   groups?: Array<{ id: string; title: string }>;
+  /** 嵌进「新建」弹窗：不渲染自己的 Modal，只出内容和按钮 */
+  embedded?: boolean;
   onClose: () => void;
   onSubmit: (payload: ImportSubmitPayload) => Promise<void>;
 }
@@ -147,6 +149,7 @@ export default function ImportWizard({
   groups = [],
   onClose,
   onSubmit,
+  embedded = false,
 }: Props) {
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<ImportFormat>(formats[0] ?? 'text');
@@ -294,16 +297,8 @@ export default function ImportWizard({
   const selectedAll = Boolean(preview && preview.flat.length && selected.size === preview.flat.length);
   const indeterminate = Boolean(selected.size && preview && selected.size < preview.flat.length);
 
-  return (
-    <Modal
-      open={open}
-      title={target === 'repo' ? '导入题目到题库' : '导入试卷'}
-      width={920}
-      onCancel={onClose}
-      maskClosable={false}
-      destroyOnClose
-      footer={footer()}
-    >
+  const body = (
+    <>
       <Steps
         size="small"
         current={step}
@@ -530,6 +525,29 @@ export default function ImportWizard({
           <Spin />
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div>
+        {body}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>{footer()}</div>
+      </div>
+    );
+  }
+
+  return (
+    <Modal
+      open={open}
+      title={target === 'repo' ? '导入题目到题库' : '导入试卷'}
+      width={920}
+      onCancel={onClose}
+      maskClosable={false}
+      destroyOnClose
+      footer={footer()}
+    >
+      {body}
     </Modal>
   );
 }
