@@ -75,3 +75,4 @@
 - `scripts/nas/migrate/37-template-chapter-difficulty.sql`
 - `scripts/nas/migrate/38-paper-compose.sql`
 - `scripts/nas/migrate/39-drop-paper-batch.sql`
+- `scripts/nas/migrate/40-student-practice-only.sql`

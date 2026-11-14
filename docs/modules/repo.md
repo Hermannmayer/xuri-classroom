@@ -93,7 +93,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-14
-verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
+verified_against: f87739e6f857b0f830b8606e32f12fb1e58229a1
 ---
 
 # 题库与题目
@@ -126,7 +126,7 @@ verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | 按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树来自 `/api/system/dept/list`，人来自 `/api/system/user/options`；成员行可改级别 |
 | 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book` |
-| 练习首页 | `client/src/pages/repo/PracticeHome.tsx` | 学员题库练习：顺序、随机、题型、错题、收藏、历史；随机/题型通过 `counts` 参数进 `/exercise/practice/:repoId`；路由 `repo/:repoId/practice` |
+| 练习首页 | `client/src/pages/repo/PracticeHome.tsx` | 学员题库练习：顺序、随机、题型、错题、收藏、历史；随机/题型通过 `counts` 参数进 `/exercise/practice/:repoId`；路由 `repo/:repoId/practice`；练习数据走 `/api/template/practiceList`（repo:practice，单页最多 20 题） |
 | 前端请求 | `client/src/api/index.ts` | `getWithPagination`、`post`、`download`；导出/导入都走它 |
 | 题库接口 | `server/api/src/main/java/cn/surveyking/server/api/RepoApi.java` | `@PreAuthorize` 与导出守卫；`/repo/pick`、`/repo/import` 也在这里 |
 | 题目接口 | `server/api/src/main/java/cn/surveyking/server/api/TemplateApi.java` | `/template/list` 允许 `template:list`、`repo:detail`、`repo:questions:read` |

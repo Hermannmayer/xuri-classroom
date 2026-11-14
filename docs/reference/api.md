@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 187 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 188 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -83,10 +83,10 @@
 | POST | `${api.prefix}/repo/partner/update` | `RepoApi#updateRepoPartner` | `hasAuthority('repo:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/batchCreate` | `RepoApi#batchAddRepoTemplate` | `hasAuthority('repo:create')` | — |
 | POST | `${api.prefix}/repo/unbind` | `RepoApi#batchUnBindTemplate` | `hasAuthority('repo:update')` | — |
-| POST | `${api.prefix}/repo/pick` | `RepoApi#pickQuestionFromRepo` | `hasAnyAuthority('repo:detail','repo:book') or hasRole('admin')` | — |
+| POST | `${api.prefix}/repo/pick` | `RepoApi#pickQuestionFromRepo` | `hasAnyAuthority('repo:detail','repo:book','repo:practice') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/import` | `RepoApi#importFromTemplate` | `hasAuthority('template:import') or hasRole('admin')` | — |
-| GET | `${api.prefix}/repo/book/list` | `RepoApi#listUserBook` | `hasAuthority('repo:book')` | — |
-| GET | `${api.prefix}/repo/book/question` | `RepoApi#getUserBookQuestion` | `hasAuthority('repo:book')` | — |
+| GET | `${api.prefix}/repo/book/list` | `RepoApi#listUserBook` | `hasAnyAuthority('repo:book','repo:practice')` | — |
+| GET | `${api.prefix}/repo/book/question` | `RepoApi#getUserBookQuestion` | `hasAnyAuthority('repo:book','repo:practice')` | — |
 | POST | `${api.prefix}/repo/book/create` | `RepoApi#createUserBook` | `hasAuthority('repo:book')` | — |
 | POST | `${api.prefix}/repo/book/update` | `RepoApi#updateUserBook` | `hasAuthority('repo:book')` | — |
 | POST | `${api.prefix}/repo/book/delete` | `RepoApi#deleteUserBook` | `hasAuthority('repo:book')` | — |
@@ -174,6 +174,7 @@
 | POST | `${api.prefix}/teaching` | `TeachingApi#importClassMembers` | `hasAuthority('class:member:create') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/member/template` | `TeachingApi#classMemberTemplate` | `hasAuthority('class:member:create') or hasRole('admin')` | — |
 | GET | `${api.prefix}/template/list` | `TemplateApi#listQuestionTemplate` | `hasAnyAuthority('template:list','repo:detail','repo:questions:read') or hasRole('admin')` | — |
+| GET | `${api.prefix}/template/practiceList` | `TemplateApi#practiceList` | `hasAuthority('repo:practice') or hasRole('admin')` | — |
 | GET | `${api.prefix}/template/get` | `TemplateApi#getTemplate` | `hasAuthority('template:list')` | — |
 | POST | `${api.prefix}/template/create` | `TemplateApi#addTemplate` | `hasAuthority('template:create')` | — |
 | POST | `${api.prefix}/template/update` | `TemplateApi#updateTemplate` | `hasAuthority('template:update')` | — |

@@ -122,6 +122,7 @@ apis:
   - GET /api/system/audit/list（action / startTime / endTime / operator / keyword / result）
   - GET /api/system/audit/actions
   - POST /api/system/audit/clean（仅 admin；按保留天数或 all 清理）
+  - GET /api/template/practiceList（仅 repo:practice；练习专用，单页最多 20 题）
 tables:
   - t_role
   - t_user_role
@@ -141,14 +142,16 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-14
-verified_against: 02bdc20b68d4eb25e474d30b687a4640c997f097
+verified_against: f87739e6f857b0f830b8606e32f12fb1e58229a1
 ---
 
 # 权限、角色与用户组
 
 ## 30 秒摘要
 
-权限点只有一个来源：代码里的 `PermissionEnum`（当前 77 条、11 个分组），数据库 `t_role.authority` 只记录「某个角色勾了哪些串」。用户最终权限 = 直挂角色（`t_user_role`）∪ 主组/附加组及其祖先链绑定角色（`t_dept_role`）的并集；`code=admin` 的角色在运行时还会注入目录里全部**非学员专属**权限。当前三个内置角色：管理员 71、老师 33、学员 14（含 6 个学员专属）。组织树从本轮起分成两类节点：`dept_type=org` 是**用户组**（只放 staff、可绑角色），`dept_type=class` 是**班级**（只放 student、不绑角色）。前端用 `can()` + `RequirePerm` 决定菜单、路由与按钮，后端用 `@PreAuthorize` 兜底，数据可见范围另由 `@EnableDataPerm`、项目/题库协作者表的 access_level（1/2/3）与班级资源分配控制。所有写操作落 `t_audit_log`，列表会补中文动作名、目标名与操作人姓名。
+权限点只有一个来源：代码里的 `PermissionEnum`（当前 77 条、11 个分组），数据库 `t_role.authority` 只记录「某个角色勾了哪些串」。
+
+学员角色只保留 `repo:practice` + `repo:book`，不再有 `repo:detail` / `repo:questions:read`；练习页只能走 `/api/template/practiceList`（单页上限 20），不能打开题库题目列表。迁移 `40-student-practice-only.sql` 负责把旧学员角色收敛到这套权限。用户最终权限 = 直挂角色（`t_user_role`）∪ 主组/附加组及其祖先链绑定角色（`t_dept_role`）的并集；`code=admin` 的角色在运行时还会注入目录里全部**非学员专属**权限。当前三个内置角色：管理员 71、老师 33、学员 14（含 6 个学员专属）。组织树从本轮起分成两类节点：`dept_type=org` 是**用户组**（只放 staff、可绑角色），`dept_type=class` 是**班级**（只放 student、不绑角色）。前端用 `can()` + `RequirePerm` 决定菜单、路由与按钮，后端用 `@PreAuthorize` 兜底，数据可见范围另由 `@EnableDataPerm`、项目/题库协作者表的 access_level（1/2/3）与班级资源分配控制。所有写操作落 `t_audit_log`，列表会补中文动作名、目标名与操作人姓名。
 
 ## 什么时候看这篇
 

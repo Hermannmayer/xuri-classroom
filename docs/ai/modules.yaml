@@ -519,6 +519,7 @@ modules:
       - GET /api/system/audit/list（action / startTime / endTime / operator / keyword / result）
       - GET /api/system/audit/actions
       - POST /api/system/audit/clean（仅 admin；按保留天数或 all 清理）
+      - GET /api/template/practiceList（仅 repo:practice；练习专用，单页最多 20 题）
     tables:
       - t_role
       - t_user_role
@@ -538,7 +539,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-14
-    verified_against: 02bdc20b68d4eb25e474d30b687a4640c997f097
+    verified_against: f87739e6f857b0f830b8606e32f12fb1e58229a1
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -736,7 +737,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-14
-    verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
+    verified_against: f87739e6f857b0f830b8606e32f12fb1e58229a1
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
