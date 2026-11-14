@@ -38,9 +38,9 @@ tables:
   - t_template
 tests:
   - client:npx tsc --noEmit
-  - 'server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"'
+  - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
 last_verified: 2026-11-14
-verified_against: 1a74ce80
+verified_against: 5e7e4e076c798404def995ea5422e6ad5f629da3
 ---
 
 # 试卷导入（解析 / 预览 / 落地）
