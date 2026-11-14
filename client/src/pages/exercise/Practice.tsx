@@ -476,7 +476,11 @@ export default function Practice() {
     }
   };
 
-  const goBack = () => navigate('/repo/index');
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === 'number' && idx > 0) navigate(-1);
+    else navigate('/repo/index', { replace: true });
+  };
 
   if (loading) {
     return (

@@ -529,7 +529,11 @@ export default function BookPractice() {
     else message.error('标记失败，请稍后重试');
   };
 
-  const goBack = () => navigate('/repo/book');
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === 'number' && idx > 0) navigate(-1);
+    else navigate('/repo/book', { replace: true });
+  };
 
   if (loading) {
     return (

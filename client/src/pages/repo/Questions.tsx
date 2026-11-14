@@ -505,7 +505,15 @@ export default function RepoQuestions() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/repo/index')} />
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => {
+              const idx = (window.history.state as { idx?: number } | null)?.idx;
+              if (typeof idx === 'number' && idx > 0) navigate(-1);
+              else navigate('/repo/index', { replace: true });
+            }}
+          />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
               QUESTIONS / 题目管理 · {mode.toUpperCase()}
