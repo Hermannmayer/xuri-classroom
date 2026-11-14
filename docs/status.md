@@ -13,8 +13,8 @@
 | `module-exercise` | 2026-11-14 | `724136a8e4d4554a0c52b21f2e35fc06b6284dcc` | 13 |
 | `module-files` | 2026-11-10 | `a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d` | 31 |
 | `module-import` | 2026-11-14 | `0f0fe03f2420c4517d9d774d93ea7224b19d5e1f` | 18 |
-| `module-permissions` | 2026-11-14 | `f87739e6f857b0f830b8606e32f12fb1e58229a1` | 105 |
+| `module-permissions` | 2026-11-14 | `2a1d7f0f3d82e1d36529ff67f0af8db9194c329e` | 105 |
 | `module-project` | 2026-11-10 | `a342c7e69bd148725d0b69b091ffd879ffa81372` | 26 |
 | `module-repo` | 2026-11-14 | `f87739e6f857b0f830b8606e32f12fb1e58229a1` | 32 |
 | `module-survey` | 2026-11-14 | `8f8ef7cd6becf6a48bd092d7f0f839fe806be08d` | 66 |
-| `module-teaching` | 2026-11-10 | `c0d830fc6162b403d71ac63db629f0b9801d8e99` | 42 |
+| `module-teaching` | 2026-11-14 | `2a1d7f0f3d82e1d36529ff67f0af8db9194c329e` | 42 |

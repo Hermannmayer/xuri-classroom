@@ -118,8 +118,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-10
-verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
+last_verified: 2026-11-14
+verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 ---
 
 # 班级与教学工作台
@@ -147,7 +147,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 | 教学页 | `client/src/pages/teaching/TeachingHome.tsx` | `/teaching` 两个 Tab：考试/问卷（`ProjectList embedded`）与学情（紧凑版 Workbench）；`?tab=exam|insight` 同步 URL |
 | 班级管理页 | `client/src/pages/teaching/Classes.tsx` | 左树右表：班级树、成员、任课老师、班级资源、删除分组；`class:list` 即可建班 |
 | 班级设置弹窗 | `client/src/pages/teaching/ClassSettingsModal.tsx` | 新建/编辑只维护名称、上级、有效期；走 `/api/teaching/classes/create` / `update`，不再绑角色 |
-| 班级资源面板 | `client/src/pages/teaching/ClassResourcesPanel.tsx` | 给本班分配考试/问卷、设置班级窗口与开关；只有 `manageable=true` 的班才渲染 |
+| 班级资源面板 | `client/src/pages/teaching/ClassResourcesPanel.tsx` | 给本班分配考试/问卷、设置班级窗口与开关；考试候选走 `/api/project/tree` 递归取全量项目（文件夹里的也能选），不再用根级列表；只有 `manageable=true` 的班才渲染 |
 | 学员导入 | `client/src/pages/teaching/ImportMembersModal.tsx` | 下载 `学员导入模板.xlsx`、上传 xlsx 批量建号；逐行报错 |
 | 统一删除弹窗 | `client/src/pages/teaching/DeleteDeptDialog.tsx` | 三个入口共用：先 `delete-check`，有成员时二选一 MOVE / UNASSIGN |
 | 用户组页 | `client/src/pages/system/Group.tsx`、`GroupEntry.tsx` | 只维护 `dept_type=org` 的教职工组；入口不再重定向到班级页 |
