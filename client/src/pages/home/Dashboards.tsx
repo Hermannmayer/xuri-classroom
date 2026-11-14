@@ -133,6 +133,13 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
 
 /* ------------------------------------------------------------------ 老师 */
 
+interface ProjectTreeNode {
+  id: string;
+  mode?: string;
+  count?: number;
+  children?: ProjectTreeNode[];
+}
+
 interface TeachingProject {
   projectId: string;
   projectName?: string;
@@ -145,11 +152,29 @@ export function TeacherHome() {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [rows, setRows] = useState<TeachingProject[]>([]);
+  const [classCount, setClassCount] = useState(0);
+  const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    get<TeachingProject[]>('/api/teaching/projects')
-      .then((list) => setRows(list ?? []))
+    Promise.all([
+      get<TeachingProject[]>('/api/teaching/projects'),
+      get<{ children?: unknown[] }[]>('/api/teaching/classes/tree').catch(() => []),
+      getWithPagination('/api/repo/list', { current: 1, pageSize: 1 }).catch(() => ({ total: 0 })),
+    ])
+      .then(([list, tree, repos]) => {
+        setRows(list ?? []);
+        let classes = 0;
+        const walk = (nodes: { children?: unknown[] }[]) => {
+          for (const node of nodes ?? []) {
+            classes += 1;
+            walk(((node as { children?: { children?: unknown[] }[] }).children ?? []) as { children?: unknown[] }[]);
+          }
+        };
+        walk(tree ?? []);
+        setClassCount(classes);
+        setRepoCount(repos.total ?? 0);
+      })
       .catch((e: Error) => message.error(e.message || '读取教学数据失败'))
       .finally(() => setLoading(false));
   }, [message]);
@@ -187,6 +212,29 @@ export function TeacherHome() {
             <a style={{ fontSize: 12 }} onClick={() => navigate('/teaching?tab=insight')}>
               按班级看作答 →
             </a>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
+        <Col xs={12} md={6}>
+          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=class')}>
+            <Statistic title="我的班级" value={classCount} suffix="个" />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/repo/index')}>
+            <Statistic title="可用题库" value={repoCount} suffix="个" />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=insight')}>
+            <Statistic title="未发布" value={rows.length - published} suffix="场" />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=exam')}>
+            <Statistic title="参与考试" value={rows.length} suffix="场" />
           </Card>
         </Col>
       </Row>
@@ -237,21 +285,47 @@ export function TeacherHome() {
 export function AdminHome() {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const [stat, setStat] = useState({ users: 0, repos: 0, projects: 0, answers: 0 });
+  const [stat, setStat] = useState({
+    users: 0,
+    repos: 0,
+    repoQuestions: 0,
+    projects: 0,
+    exams: 0,
+    surveys: 0,
+    folders: 0,
+    answers: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       getWithPagination('/api/system/user/list', { current: 1, pageSize: 1 }).catch(() => ({ total: 0 })),
-      getWithPagination('/api/repo/list', { current: 1, pageSize: 1 }).catch(() => ({ total: 0 })),
-      listProjects({ current: 1, pageSize: 1 }).catch(() => ({ total: 0 })),
+      getWithPagination<{ total?: number }>('/api/repo/list', { current: 1, pageSize: 500 }).catch(() => ({ total: 0, data: [] })),
+      get<ProjectTreeNode[]>('/api/project/tree').catch(() => [] as ProjectTreeNode[]),
       get<TeachingProject[]>('/api/teaching/projects').catch(() => [] as TeachingProject[]),
     ])
-      .then(([u, rp, pj, tj]) => {
+      .then(([u, repoPage, tree, tj]) => {
+        let exams = 0;
+        let surveys = 0;
+        let folders = 0;
+        const walk = (nodes: ProjectTreeNode[]) => {
+          for (const node of nodes ?? []) {
+            if (node.mode === 'folder') folders += 1;
+            else if (node.mode === 'exam') exams += 1;
+            else if (node.mode === 'survey') surveys += 1;
+            walk(node.children ?? []);
+          }
+        };
+        walk(tree ?? []);
+        const repoQuestions = (repoPage.data ?? []).reduce((sum, repo) => sum + (repo.total ?? 0), 0);
         setStat({
           users: u.total ?? 0,
-          repos: rp.total ?? 0,
-          projects: pj.total ?? 0,
+          repos: repoPage.total ?? 0,
+          repoQuestions,
+          projects: exams + surveys,
+          exams,
+          surveys,
+          folders,
           answers: (tj ?? []).reduce((s, x) => s + (x.answerCount ?? 0), 0),
         });
       })
@@ -265,8 +339,12 @@ export function AdminHome() {
         {[
           { title: '用户', value: stat.users, to: '/system/user' },
           { title: '题库', value: stat.repos, to: '/repo/index' },
-          { title: '考试 / 问卷', value: stat.projects, to: '/teaching?tab=exam' },
+          { title: '题库题目', value: stat.repoQuestions, to: '/repo/index' },
+          { title: '考试', value: stat.exams, to: '/teaching?tab=exam' },
+          { title: '问卷', value: stat.surveys, to: '/teaching?tab=survey' },
+          { title: '文件夹', value: stat.folders, to: '/teaching?tab=exam' },
           { title: '累计答卷', value: stat.answers, to: '/teaching?tab=insight' },
+          { title: '考试 + 问卷', value: stat.projects, to: '/teaching?tab=exam' },
         ].map((item) => (
           <Col xs={12} md={6} key={item.title}>
             <Card className="bp-corners" size="small" hoverable onClick={() => navigate(item.to)}>

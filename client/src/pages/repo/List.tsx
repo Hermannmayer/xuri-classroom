@@ -635,7 +635,7 @@ export default function RepoList() {
                         <Button
                           type="primary"
                           style={{ flex: '1 1 100px', height: 38, paddingInline: 0, whiteSpace: 'nowrap' }}
-                          onClick={() => startPractice(row, 'full')}
+                          onClick={() => navigate('/repo/' + row.id + '/practice')}
                         >
                           开始练习
                         </Button>

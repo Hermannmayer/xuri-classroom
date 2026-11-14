@@ -35,6 +35,7 @@ const AccountSettings = lazy(() => import('./pages/account/Settings'));
 const RepoList = lazy(() => import('./pages/repo/List'));
 const RepoQuestions = lazy(() => import('./pages/repo/Questions'));
 const RepoBook = lazy(() => import('./pages/repo/Book'));
+const RepoPracticeHome = lazy(() => import('./pages/repo/PracticeHome'));
 const BookPractice = lazy(() => import('./pages/repo/BookPractice'));
 const ExerciseList = lazy(() => import('./pages/exercise/List'));
 const Practice = lazy(() => import('./pages/exercise/Practice'));
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
       // 练习册/错题本后端要 repo:book，路由守卫与接口保持一致；
       // 只有 repo:list 的角色（如老师）本来也不该从菜单进来。
       { path: 'repo/book', element: guard(PERMISSION_CODES.repoBook, <RepoBook />) },
+      { path: 'repo/:repoId/practice', element: guard(PERMISSION_CODES.repoPractice, <RepoPracticeHome />) },
       { path: 'repo/book/practice', element: guard(PERMISSION_CODES.repoBook, <BookPractice />) },
       // 题目页：管理端 repo:detail，学员 repo:questions:read；不能再只靠 repo:list（那只是列表入口）
       {
