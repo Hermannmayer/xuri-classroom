@@ -47,8 +47,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-10
-verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
+last_verified: 2026-11-14
+verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
 ---
 
 # 首页与统计
@@ -107,6 +107,8 @@ verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
 
 TeacherHome 的跳转已跟教学页合并对齐：「班级学情」卡与答题数据行的「按班级」都去 `/teaching?tab=insight`；AdminHome 的「考试 / 问卷」统计卡与「教学管理」快捷去 `/teaching?tab=exam`，「累计答卷」统计卡去 `/teaching?tab=insight`。
 
+教师首页另加「我的班级 / 可用题库 / 未发布 / 参与考试」四张卡：班级数来自 `/api/teaching/classes/tree` 递归节点数，题库数来自 `/api/repo/list` 的 `total`。
+
 ### 4. 管理员首页数据
 
 `Promise.all` 并发四个请求，各自 `.catch` 成 0 / 空数组：
@@ -115,7 +117,8 @@ TeacherHome 的跳转已跟教学页合并对齐：「班级学情」卡与答�
 |---|---|---|
 | 用户 | `GET /api/system/user/list`（`pageSize=1`） | `total` |
 | 题库 | `GET /api/repo/list`（`pageSize=1`） | `total` |
-| 考试 / 问卷 | `GET /api/project/list`（`pageSize=1`） | `total` |
+| 题库题目 | `GET /api/repo/list`（`pageSize=500`） | 各题库 `total` 求和 |
+| 考试 / 问卷 / 文件夹 | `GET /api/project/tree` | 递归统计各 `mode`；**不再用 `/api/project/list` 的根级 total**，文件夹里的项目也计入 |
 | 累计答卷 | `GET /api/teaching/projects` | 各场 `answerCount` 求和 |
 
 常用入口是纯前端跳转（权限配置、用户管理、用户组、系统设置、操作日志、教学管理），不额外校验权限，点进去由路由守卫兜底。跳转目标已随教学页合并调整：

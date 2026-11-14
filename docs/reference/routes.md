@@ -21,6 +21,7 @@
 | `/exercise/:repoId` | `Placeholder` | 公开/仅登录 |
 | `/repo/index` | `RepoList` | `repo:list` |
 | `/repo/book` | `RepoBook` | `repo:book` |
+| `/repo/:repoId/practice` | `RepoPracticeHome` | `repo:practice` |
 | `/repo/book/practice` | `BookPractice` | `repo:book` |
 | `/repo/:repoId/questions/:mode` | `RepoQuestions` | `repo:detail`<br>`repo:questions:read`<br>`template:list` |
 | `/account/settings` | `AccountSettings` | 公开/仅登录 |

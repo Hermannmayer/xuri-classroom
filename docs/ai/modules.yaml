@@ -232,8 +232,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-10
-    verified_against: 5bb845225dac413185a8b1a9151be45e9b04e7e7
+    last_verified: 2026-11-14
+    verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -736,7 +736,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-14
-    verified_against: 8f8ef7cd6becf6a48bd092d7f0f839fe806be08d
+    verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
