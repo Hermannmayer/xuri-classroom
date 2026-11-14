@@ -9,16 +9,18 @@ import { useNavigate } from 'react-router-dom';
  * 不然用户只能靠浏览器后退，手机端全屏时甚至退不出去。
  *
  * - 传了 to：直接跳到该路径（用于跨层级跳转，例如题目页固定回题库列表）
- * - 没传 to：navigate(-1) 回上一页；没有历史时退到 /
+ * - 没传 to：优先 navigate(-1) 回上一页；直接打开链接没有站内历史时退到 fallback
  */
 export default function BackButton({
   to,
   label = '返回',
   style,
+  fallback = '/',
 }: {
   to?: string;
   label?: string;
   style?: React.CSSProperties;
+  fallback?: string;
 }) {
   const navigate = useNavigate();
   const go = () => {
@@ -26,10 +28,11 @@ export default function BackButton({
       navigate(to);
       return;
     }
-    if (window.history.length > 1) {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === 'number' && idx > 0) {
       navigate(-1);
     } else {
-      navigate('/');
+      navigate(fallback, { replace: true });
     }
   };
   return (

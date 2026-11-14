@@ -316,8 +316,13 @@ export default function SurveyPrintPage() {
       }
       const el = nodes[index];
       if (!el) return;
-      const style = getComputedStyle(el);
-      const height = el.getBoundingClientRect().height + (parseFloat(style.marginBottom) || 0);
+      // 外层 wrapper 不含内层题目的 marginBottom，单独补上，否则分页会多塞 1-2 题
+      const child = el.firstElementChild as HTMLElement | null;
+      const childStyle = child ? getComputedStyle(child) : null;
+      const margin = childStyle
+        ? (parseFloat(childStyle.marginTop) || 0) + (parseFloat(childStyle.marginBottom) || 0)
+        : 0;
+      const height = el.getBoundingClientRect().height + margin;
       if (current.length && used + height > pageHeight) {
         next.push(current);
         current = [];

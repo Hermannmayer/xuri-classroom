@@ -12,7 +12,6 @@ import {
   ImportOutlined,
   PrinterOutlined,
   RedoOutlined,
-  SettingOutlined,
   UploadOutlined,
   SaveOutlined,
   UndoOutlined,
@@ -253,6 +252,7 @@ export default function SurveyEditor() {
   const [requireSelected, setRequireSelected] = useState<Record<string, boolean>>({});
   const [requireValue, setRequireValue] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const baselineRef = useRef<string>('');
   const [scoreOpen, setScoreOpen] = useState(false);
   const [scoreSelected, setScoreSelected] = useState<Record<string, boolean>>({});
   const [scoreValue, setScoreValue] = useState(5);
@@ -310,6 +310,7 @@ export default function SurveyEditor() {
         setName(p.name ?? '');
         setSetting(p.setting ?? {});
         reset(p.survey ?? createSurvey(p.name ?? '未命名'));
+        baselineRef.current = JSON.stringify({ name: p.name ?? '', survey: p.survey ?? null });
       })
       .catch((e: Error) => message.error(e.message))
       .finally(() => alive && setLoading(false));
@@ -342,6 +343,11 @@ export default function SurveyEditor() {
       (el as HTMLElement).draggable = true;
     });
   }, [survey, preview]);
+
+  const dirty = useMemo(
+    () => baselineRef.current !== '' && JSON.stringify({ name, survey }) !== baselineRef.current,
+    [name, survey],
+  );
 
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
@@ -420,6 +426,7 @@ export default function SurveyEditor() {
       const nextSetting = { ...setting, status: 1 };
       await updateProject({ id, name, survey: normalizeSchema(survey), setting: nextSetting });
       setSetting(nextSetting);
+      baselineRef.current = JSON.stringify({ name, survey });
       message.success('已发布考试');
     } catch (e) {
       message.error((e as Error).message);
@@ -575,9 +582,50 @@ export default function SurveyEditor() {
     try {
       // 保存前补齐 children：后端提交链路会直接取每道题的 children.get(0)
       await updateProject({ id, name, survey: normalizeSchema(survey), setting });
+      baselineRef.current = JSON.stringify({ name, survey });
       message.success('已保存');
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 刷新/关标签页时也拦一下，避免手快丢改动
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === 'number' && idx > 0) navigate(-1);
+    else navigate('/project', { replace: true });
+  };
+
+  /** 离开编辑器前先把未保存内容写库；打印页读的是服务端数据，也必须先保存 */
+  const leaveTo = async (target?: string) => {
+    const action = () => {
+      if (target) navigate(target);
+      else goBack();
+    };
+    if (!dirty) {
+      action();
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProject({ id, name, survey: normalizeSchema(survey), setting });
+      baselineRef.current = JSON.stringify({ name, survey });
+      message.success('已自动保存');
+      action();
+    } catch (e) {
+      message.error('保存失败，已留在当前页：' + (e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -644,7 +692,7 @@ export default function SurveyEditor() {
           padding: '8px 12px',
         }}
       >
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/project')} />
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => void leaveTo()} />
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -657,10 +705,10 @@ export default function SurveyEditor() {
           <Button size="small" type="text" style={{ background: 'var(--bp-selected-bg)', color: 'var(--bp-selected-text)' }}>
             编辑
           </Button>
-          <Button size="small" type="text" onClick={() => navigate('/survey/' + id)}>
+          <Button size="small" type="text" onClick={() => void leaveTo('/survey/' + id)}>
             设置
           </Button>
-          <Button size="small" type="text" onClick={() => navigate('/survey/' + id + '/report')}>
+          <Button size="small" type="text" onClick={() => void leaveTo('/survey/' + id + '/report')}>
             统计
           </Button>
           <Button size="small" type="text" onClick={() => void share()}>
@@ -723,11 +771,8 @@ export default function SurveyEditor() {
             导入 <DownOutlined />
           </Button>
         </Dropdown>
-        <Button icon={<PrinterOutlined />} onClick={() => navigate('/survey/' + id + '/print')}>
+        <Button icon={<PrinterOutlined />} onClick={() => void leaveTo('/survey/' + id + '/print')}>
           打印
-        </Button>
-        <Button icon={<SettingOutlined />} onClick={() => navigate('/survey/' + id)}>
-          设置
         </Button>
         <Button type="primary" ghost loading={publishing} onClick={publish}>
           {setting.status === 1 ? '已发布' : '发布考试'}

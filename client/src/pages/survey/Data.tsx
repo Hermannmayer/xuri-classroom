@@ -17,7 +17,6 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  ArrowLeftOutlined,
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
@@ -29,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
+import BackButton from '../../components/BackButton';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { download, get, getWithPagination, post } from '../../api';
@@ -431,7 +431,7 @@ export default function SurveyData() {
         .sk-data-toolbar-mobile .ant-btn { height: 36px; }
       `}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}`)} />
+        <BackButton label="返回" fallback={'/survey/' + id} style={{ paddingLeft: 0 }} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
             DATA / 数据与分析

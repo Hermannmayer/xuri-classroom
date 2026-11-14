@@ -1,5 +1,5 @@
 import BackButton from '../../components/BackButton';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AutoComplete,
   Button,
@@ -25,7 +25,7 @@ import {
   ExportOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import QRCode from 'qrcode';
 import { get, getWithPagination, updateProject, updateProjectStatus } from '../../api';
@@ -150,7 +150,6 @@ interface ReportData {
  */
 export default function SurveyOverview() {
   const { id = '' } = useParams();
-  const navigate = useNavigate();
   const [form] = Form.useForm();
 
   // category 是后端 Project 新增字段，schema 暂未包含，这里用局部交叉类型
@@ -166,6 +165,9 @@ export default function SurveyOverview() {
   const [current, setCurrent] = useState<ProjectSetting>({});
   const [scoreDraft, setScoreDraft] = useState<Record<string, number | null>>({});
   const [scoreSaving, setScoreSaving] = useState(false);
+  const [targetScore, setTargetScore] = useState(100);
+  const [scoreWeights, setScoreWeights] = useState<Record<string, number>>({});
+  const targetTouched = useRef(false);
 
   /**
    * 权限列表：没回来之前既不渲染管理入口，也不发需要权限的请求。
@@ -181,19 +183,67 @@ export default function SurveyOverview() {
   const canPublish = can(authorities ?? [], PERMISSION_CODES.projectPublish);
   const canViewAnswers = can(authorities ?? [], PERMISSION_CODES.answerList);
   const canReport = can(authorities ?? [], PERMISSION_CODES.projectReport);
-  const canAnswer = can(authorities ?? [], PERMISSION_CODES.projectAnswer);
   const canManagePartner = can(authorities ?? [], PERMISSION_CODES.projectPartner);
 
   const scoreGroups = useMemo(() => collectScoreGroups(project?.survey), [project]);
 
   useEffect(() => {
     const next: Record<string, number | null> = {};
+    const weights: Record<string, number> = {};
+    let total = 0;
+    let questions = 0;
     for (const group of scoreGroups) {
       const values = Array.from(group.scores);
-      next[group.type] = values.length === 1 ? values[0] : null;
+      const uniform = values.length === 1 ? values[0] : null;
+      next[group.type] = uniform;
+      weights[group.type] = 1;
+      total += (uniform ?? 0) * group.count;
+      questions += group.count;
     }
     setScoreDraft(next);
+    setScoreWeights((prev) => {
+      const merged: Record<string, number> = { ...prev };
+      for (const group of scoreGroups) {
+        if (merged[group.type] == null) merged[group.type] = weights[group.type] ?? 1;
+      }
+      return merged;
+    });
+    if (!targetTouched.current) {
+      if (total > 0) setTargetScore(Math.round(total * 100) / 100);
+      else if (questions > 0) setTargetScore(100);
+    }
   }, [scoreGroups]);
+
+  const scoreQuestions = scoreGroups.reduce((sum, group) => sum + group.count, 0);
+  const scoreTotal = scoreGroups.reduce(
+    (sum, group) => sum + (Number(scoreDraft[group.type] ?? 0) || 0) * group.count,
+    0,
+  );
+  const averageScore = scoreQuestions ? scoreTotal / scoreQuestions : 0;
+  const fmtScore = (value: number) => String(Math.round(value * 100) / 100);
+
+  const allocateByTotal = () => {
+    const active = scoreGroups.filter((group) => group.count > 0);
+    const weightSum = active.reduce((sum, group) => sum + (Number(scoreWeights[group.type] ?? 0) || 0), 0);
+    if (!active.length || weightSum <= 0 || targetScore <= 0) {
+      message.warning('请填写整套总分和题型分值比例');
+      return;
+    }
+    const next: Record<string, number | null> = { ...scoreDraft };
+    let spent = 0;
+    active.forEach((group, index) => {
+      const weight = Number(scoreWeights[group.type] ?? 0) || 0;
+      const isLast = index === active.length - 1;
+      const perQuestion = isLast
+        ? (targetScore - spent) / group.count
+        : (targetScore * weight) / weightSum / group.count;
+      const rounded = Math.max(0.5, Math.round(perQuestion * 100) / 100);
+      next[group.type] = rounded;
+      spent += rounded * group.count;
+    });
+    setScoreDraft(next);
+    message.success('已按整套总分分配每题分值，点「按题型应用分值」保存');
+  };
 
   const applyScores = async () => {
     if (!project?.survey || !canEdit) return;
@@ -478,11 +528,7 @@ export default function SurveyOverview() {
     <div className="survey-overview" style={{ maxWidth: 1200 }}>
       {/* 统一本页 Form.Item 间距：左右两列标签/控件节奏一致，避免一张卡松一张卡紧 */}
       <style>{'.survey-overview .ant-form-item{margin-bottom:14px}'}</style>
-      <BackButton
-        to={canAnswer ? '/tasks' : '/project'}
-        label={canAnswer ? '返回我的任务' : '返回项目列表'}
-        style={{ marginBottom: 4 }}
-      />
+      <BackButton label="返回上一级" fallback="/project" style={{ marginBottom: 4 }} />
       {/* 页头：编辑 / 数据 / 项目列表 + 保存（发布设置已并入本页，不再有第二个「设置」入口） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
@@ -506,7 +552,6 @@ export default function SurveyOverview() {
             <Button>数据</Button>
           </Link>
         )}
-        <Button onClick={() => navigate('/project')}>项目列表</Button>
         {canEdit && (
           <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void onSave()}>
             保存
@@ -630,33 +675,81 @@ export default function SurveyOverview() {
               {scoreGroups.length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>试卷里还没有题目</div>
               ) : (
-                <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.2fr 0.6fr 0.9fr 0.8fr',
+                      gap: 8,
+                      fontSize: 11,
+                      color: 'var(--bp-text-soft)',
+                    }}
+                  >
+                    <span>题型</span>
+                    <span>题数</span>
+                    <span>每题分值</span>
+                    <span>题型小计</span>
+                  </div>
                   {scoreGroups.map((group) => (
                     <div
                       key={group.type}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+                      style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.6fr 0.9fr 0.8fr', gap: 8, alignItems: 'center' }}
                     >
-                      <span>
-                        {group.label}{' '}
-                        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>× {group.count} 题</span>
-                      </span>
+                      <span>{group.label}</span>
+                      <span>× {group.count}</span>
                       <InputNumber
                         min={0}
                         step={0.5}
-                        style={{ width: 120 }}
+                        style={{ width: '100%' }}
                         placeholder={group.scores.size > 1 ? '混合' : '未设置'}
                         value={scoreDraft[group.type] ?? undefined}
                         onChange={(value) =>
                           setScoreDraft({ ...scoreDraft, [group.type]: value === null ? null : Number(value) })
                         }
                       />
+                      <span>{fmtScore((Number(scoreDraft[group.type] ?? 0) || 0) * group.count)} 分</span>
                     </div>
                   ))}
-                  <Button type="primary" loading={scoreSaving} disabled={!canEdit} onClick={() => void applyScores()}>
-                    按题型应用分值
-                  </Button>
-                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
-                    应用后会把该题型所有题目的分值统一改成上面的值
+                  <div style={{ fontSize: 12 }}>
+                    共 {scoreQuestions} 题 · 整卷 {fmtScore(scoreTotal)} 分 · 平均每题 {fmtScore(averageScore)} 分
+                  </div>
+                  <div style={{ borderTop: '1px dashed var(--bp-line)', paddingTop: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span>整套总分</span>
+                      <InputNumber
+                        min={1}
+                        value={targetScore}
+                        onChange={(value) => {
+                          targetTouched.current = true;
+                          setTargetScore(Number(value ?? 0));
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <span>题型分值比例</span>
+                      {scoreGroups.map((group) => (
+                        <span key={group.type}>
+                          {group.label}{' '}
+                          <InputNumber
+                            min={0}
+                            style={{ width: 58 }}
+                            value={scoreWeights[group.type]}
+                            onChange={(value) =>
+                              setScoreWeights({ ...scoreWeights, [group.type]: Number(value ?? 0) })
+                            }
+                          />
+                        </span>
+                      ))}
+                    </div>
+                    <Space>
+                      <Button onClick={allocateByTotal}>按总分分配</Button>
+                      <Button type="primary" loading={scoreSaving} disabled={!canEdit} onClick={() => void applyScores()}>
+                        按题型应用分值
+                      </Button>
+                    </Space>
+                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 6 }}>
+                      先按整套总分和比例算出每题分值，再应用；未填分值的题型保持原样。
+                    </div>
                   </div>
                 </Space>
               )}

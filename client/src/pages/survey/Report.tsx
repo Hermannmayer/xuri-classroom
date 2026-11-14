@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Empty, Input, Spin, message } from 'antd';
-import { ArrowLeftOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
+import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { useParams } from 'react-router-dom';
+import BackButton from '../../components/BackButton';
 import { get, getWithPagination } from '../../api';
 import type { Answer } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
@@ -25,7 +26,6 @@ interface ReportData {
 
 export default function SurveyReport() {
   const { id = '' } = useParams();
-  const navigate = useNavigate();
   const [report, setReport] = useState<ReportData>();
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +96,7 @@ export default function SurveyReport() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/survey/${id}`)} />
+        <BackButton label="返回" fallback={'/survey/' + id} style={{ paddingLeft: 0 }} />
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>REPORT / 分析</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>

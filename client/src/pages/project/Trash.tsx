@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Empty, message, Popconfirm, Space, Table, Tag } from 'antd';
-import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { ReloadOutlined } from '@ant-design/icons';
+import BackButton from '../../components/BackButton';
 import LinkAction from '../../components/LinkAction';
 import { get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -17,7 +17,6 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
  * 这里改成直接取数组，分页在前端做。
  */
 export default function ProjectTrash() {
-  const navigate = useNavigate();
   const [rows, setRows] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -76,7 +75,7 @@ export default function ProjectTrash() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/project')} />
+        <BackButton label="返回" fallback="/project" style={{ paddingLeft: 0 }} />
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>TRASH / 回收站</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
