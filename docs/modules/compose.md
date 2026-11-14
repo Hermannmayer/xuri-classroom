@@ -38,7 +38,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: dfa47b376cc479d098654c2d636da01846944885
+verified_against: 83f0c5c1a62f258fe3db0825f2bb4dd1ae91e8b4
 ---
 
 # 组卷中心
