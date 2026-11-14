@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 186 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 187 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -44,6 +44,7 @@
 | POST | `${api.prefix}/public/oauth/register/{ticket}` | `OAuthApi#completeRegistration` | — | — |
 | GET | `${api.prefix}/oauth/bindings` | `OAuthApi#bindings` | `isAuthenticated()` | — |
 | DELETE | `${api.prefix}/oauth/bindings/{bindingId}` | `OAuthApi#unbind` | `isAuthenticated()` | — |
+| GET | `${api.prefix}/paper/{id}/docx` | `PaperExportApi#docx` | `hasAuthority('project:detail') or hasRole('admin')` | — |
 | GET | `${api.prefix}/project/list` | `ProjectApi#listProject` | `hasAuthority('project:list') or hasAuthority('exercise:list')` | — |
 | GET | `${api.prefix}/project/categories` | `ProjectApi#categories` | `hasAuthority('project:list') or hasRole('admin')` | — |
 | GET | `${api.prefix}/project/tree` | `ProjectApi#tree` | `hasAuthority('project:list') or hasRole('admin')` | — |

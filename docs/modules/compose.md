@@ -44,7 +44,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: 1d2a81c13773295f741bba7f877199755dbd4c67
+verified_against: f1e91e9481ab37faaa9f13dd6c3675416c5599de
 ---
 
 # 组卷中心
@@ -102,6 +102,7 @@ verified_against: 1d2a81c13773295f741bba7f877199755dbd4c67
 - 跨套去重按题型各自切池，题型之间不共享。
 - 题不够策略：less（默认少出+提示）/ reuse（复用补足）/ error（直接报错）。
 - Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。
+- 打印页 A3 只改 @page 尺寸，未做双页拼版。
 - 打印页依赖项目 survey；未发布的套次没有 projectId，不能打印。
 
 ## 验证

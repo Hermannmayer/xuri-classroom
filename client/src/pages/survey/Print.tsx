@@ -97,7 +97,7 @@ export default function SurveyPrintPage() {
         <Checkbox checked={showCard} onChange={(e) => setShowCard(e.target.checked)}>
           附答题卡
         </Checkbox>
-        <Typography.Text type="secondary">A3 打印时按两张 A4 拼版</Typography.Text>
+        <Typography.Text type="secondary">A3 仅切换纸张尺寸，不做双页拼版</Typography.Text>
       </div>
 
       <div

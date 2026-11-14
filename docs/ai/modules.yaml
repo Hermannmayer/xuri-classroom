@@ -166,6 +166,8 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/service/ComposeService.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/Compose*.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ComposeServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/core/export/PaperDocxExporter.java
+      - server/api/src/main/java/cn/surveyking/server/api/PaperExportApi.java
     entrypoints:
       - client/src/pages/compose/ComposePage.tsx
       - client/src/pages/compose/BatchDetail.tsx
@@ -177,6 +179,7 @@ modules:
       - GET /api/compose/batches
       - GET /api/compose/batch
       - POST /api/compose/pick
+      - GET /api/paper/{id}/docx
     tables:
       - t_template
       - t_paper_batch
@@ -186,7 +189,7 @@ modules:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test
     last_verified: 2026-11-14
-    verified_against: 1d2a81c13773295f741bba7f877199755dbd4c67
+    verified_against: f1e91e9481ab37faaa9f13dd6c3675416c5599de
   - id: module-dashboard
     title: 首页与统计
     doc: docs/modules/dashboard.md
