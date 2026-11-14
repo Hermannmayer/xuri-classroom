@@ -1,29 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
   Checkbox,
   Empty,
   Input,
-  InputNumber,
-  List,
   message,
   Modal,
-  Radio,
   Select,
   Space,
   Table,
   Tag,
 } from 'antd';
 import { getWithPagination } from '../../api';
-import {
-  COMPOSE_TYPES,
-  TYPE_LABELS,
-  getComposeStats,
-  pickFromRepo,
-  type ComposeStats,
-  type ComposeType,
-} from '../../api/compose';
+import { COMPOSE_TYPES, TYPE_LABELS, getComposeStats, type ComposeStats, type ComposeType } from '../../api/compose';
 import type { SurveySchema } from '../../schema/types';
 
 interface RepoView {
@@ -32,16 +22,36 @@ interface RepoView {
   total?: number;
 }
 
-const TYPE_FULL: Record<ComposeType, string> = {
-  Radio: '单选题',
-  Checkbox: '多选题',
-  Judge: '判断题',
-  FillBlank: '填空题',
-  Textarea: '简答题',
-};
+interface TemplateRow {
+  id: string;
+  name?: string;
+  questionType?: ComposeType;
+  template?: SurveySchema;
+  chapter?: string;
+  difficulty?: string;
+  tag?: string[];
+}
 
-const DEFAULT_COUNTS: Record<string, number> = { Radio: 5, Checkbox: 3, Judge: 3, FillBlank: 2, Textarea: 1 };
-const DEFAULT_SCORES: Record<string, number> = { Radio: 2, Checkbox: 3, Judge: 2, FillBlank: 2, Textarea: 10 };
+function toSchema(row: TemplateRow): SurveySchema {
+  const source = row.template ?? { id: row.id, title: row.name || '', type: row.questionType ?? 'Radio', attribute: {} };
+  const schema: SurveySchema = {
+    ...source,
+    id: row.id,
+    type: (source.type ?? row.questionType ?? 'Radio') as SurveySchema['type'],
+    title: source.title || row.name || '',
+    attribute: {
+      ...(source.attribute ?? {}),
+      required: true,
+      examScore: source.attribute?.examScore ?? 5,
+    },
+  };
+  if (!schema.dataSource?.length && schema.children?.length) {
+    schema.dataSource = schema.children
+      .filter((child) => child.type === 'Option' || !child.type)
+      .map((child) => ({ label: child.title ?? '', value: child.id }));
+  }
+  return schema;
+}
 
 interface Props {
   open: boolean;
@@ -50,20 +60,22 @@ interface Props {
   onPick: (questions: SurveySchema[]) => void;
 }
 
-/** 从题库抽题：按题型配题数与分值，随机或按顺序抽一批，勾选后插入当前试卷 */
+/** 从题库抽题：直接浏览题库、搜索勾选，选中的题加入当前试卷 */
 export default function BankPickModal({ open, excludeIds, onClose, onPick }: Props) {
   const [repos, setRepos] = useState<RepoView[]>([]);
   const [repoId, setRepoId] = useState<string>();
   const [stats, setStats] = useState<ComposeStats | null>(null);
-  const [chapter, setChapter] = useState('');
-  const [difficulty, setDifficulty] = useState('');
+  const [rows, setRows] = useState<TemplateRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [questionType, setQuestionType] = useState<ComposeType | undefined>();
+  const [chapter, setChapter] = useState<string | undefined>();
+  const [difficulty, setDifficulty] = useState<string | undefined>();
+  const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
-  const [mode, setMode] = useState<'random' | 'sequential'>('random');
-  const [counts, setCounts] = useState<Record<string, number>>({ ...DEFAULT_COUNTS });
-  const [scores, setScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
-  const [candidates, setCandidates] = useState<SurveySchema[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Map<string, SurveySchema>>(new Map());
 
   useEffect(() => {
     if (!open) return;
@@ -80,186 +92,257 @@ export default function BankPickModal({ open, excludeIds, onClose, onPick }: Pro
       setStats(null);
       return;
     }
-    let alive = true;
     getComposeStats([repoId])
-      .then((res) => {
-        if (alive) setStats(res);
-      })
-      .catch((e: Error) => message.error(e.message));
-    return () => {
-      alive = false;
-    };
+      .then(setStats)
+      .catch(() => setStats(null));
   }, [open, repoId]);
 
   useEffect(() => {
     if (!open) {
-      setCandidates([]);
-      setSelected([]);
+      setSelected(new Map());
+      setRows([]);
+      setTotal(0);
+      setPage(1);
+      setKeyword('');
+      setKeywordInput('');
     }
   }, [open]);
 
-  const availableTypes = useMemo(
-    () => COMPOSE_TYPES.filter((type) => (stats?.byType[TYPE_FULL[type]] ?? 0) > 0),
-    [stats],
-  );
-
-  const totalQuestions = availableTypes.reduce((sum, type) => sum + Number(counts[type] ?? 0), 0);
-  const totalScore = availableTypes.reduce(
-    (sum, type) => sum + Number(counts[type] ?? 0) * Number(scores[type] ?? 0),
-    0,
-  );
-
-  const doPick = async () => {
-    if (!repoId) {
-      message.warning('请先选择题库');
-      return;
-    }
-    if (!totalQuestions) {
-      message.warning('请至少给一种题型配置题数');
-      return;
-    }
+  const load = useCallback(async () => {
+    if (!repoId) return;
     setLoading(true);
     try {
-      const questions = await pickFromRepo({
-        repoIds: [repoId],
-        types: availableTypes,
-        chapters: chapter.trim() ? [chapter.trim()] : [],
-        difficulties: difficulty.trim() ? [difficulty.trim()] : [],
-        keyword: keyword.trim() || undefined,
-        counts,
-        scores,
-        mode,
-        excludeIds,
-        seed: Math.floor(Math.random() * 1_000_000_000),
+      const res = await getWithPagination<TemplateRow>('/api/template/list', {
+        repoId,
+        current: page,
+        pageSize,
+        questionType,
+        chapter,
+        difficulty,
+        keyword,
       });
-      setCandidates(questions);
-      setSelected(questions.map((question) => question.id));
-      if (!questions.length) message.warning('没有符合条件的题目');
+      setRows(res.data);
+      setTotal(res.total);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [repoId, page, pageSize, questionType, chapter, difficulty, keyword]);
 
-  const selectedQuestions = useMemo(
-    () => candidates.filter((question) => selected.includes(question.id)),
-    [candidates, selected],
+  useEffect(() => {
+    if (open && repoId) void load();
+  }, [open, repoId, load]);
+
+  const chapterOptions = useMemo(
+    () =>
+      Object.keys(stats?.byChapter ?? {})
+        .filter((key) => key !== '未设置')
+        .map((key) => ({ label: key, value: key })),
+    [stats],
   );
+  const difficultyOptions = useMemo(
+    () =>
+      Object.keys(stats?.byDifficulty ?? {})
+        .filter((key) => key !== '未设置')
+        .map((key) => ({ label: key, value: key })),
+    [stats],
+  );
+
+  const selectedList = Array.from(selected.values());
+  const selectedScore = selectedList.reduce((sum, question) => sum + (question.attribute?.examScore ?? 0), 0);
+  const pageAllSelected = rows.length > 0 && rows.every((row) => selected.has(row.id));
+
+  const toggle = (row: TemplateRow, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (checked) next.set(row.id, toSchema(row));
+      else next.delete(row.id);
+      return next;
+    });
+  };
 
   return (
     <Modal
       title="从题库抽题"
       open={open}
-      width="min(960px, 96vw)"
+      width="min(1100px, 96vw)"
       onCancel={onClose}
       onOk={() => {
-        if (!selectedQuestions.length) {
+        if (!selectedList.length) {
           message.warning('请先勾选题目');
           return;
         }
-        const scoreSum = selectedQuestions.reduce((sum, q) => sum + (q.attribute?.examScore ?? 0), 0);
-        onPick(selectedQuestions);
-        message.success('已抽取 ' + selectedQuestions.length + ' 题，共 ' + scoreSum + ' 分');
+        onPick(selectedList);
+        message.success('已添加 ' + selectedList.length + ' 题，共 ' + selectedScore + ' 分');
         onClose();
       }}
-      okText={'导入 ' + selectedQuestions.length + ' 题'}
+      okText={'添加到试卷（' + selectedList.length + ' 题 / ' + selectedScore + ' 分）'}
       cancelText="取消"
       destroyOnClose
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+      <Space direction="vertical" style={{ width: '100%' }} size={10}>
         <Space wrap>
           <Select
-            style={{ width: 220 }}
+            style={{ width: 210 }}
             placeholder="选择题库"
             value={repoId}
-            onChange={setRepoId}
+            onChange={(value) => {
+              setRepoId(value);
+              setPage(1);
+              setSelected(new Map());
+              setChapter(undefined);
+              setDifficulty(undefined);
+            }}
             options={repos.map((repo) => ({ label: repo.name || '未命名题库', value: repo.id }))}
           />
-          <Input style={{ width: 140 }} placeholder="章节（可不填）" value={chapter} onChange={(e) => setChapter(e.target.value)} />
-          <Input style={{ width: 120 }} placeholder="难度（可不填）" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} />
-          <Input style={{ width: 150 }} placeholder="题干关键词" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
-          <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
-            <Radio.Button value="random">随机</Radio.Button>
-            <Radio.Button value="sequential">顺序</Radio.Button>
-          </Radio.Group>
-          <Button type="primary" loading={loading} onClick={doPick}>
-            抽题
-          </Button>
+          <Select
+            allowClear
+            style={{ width: 120 }}
+            placeholder="全部题型"
+            value={questionType}
+            onChange={(value) => {
+              setQuestionType(value);
+              setPage(1);
+            }}
+            options={COMPOSE_TYPES.map((type) => ({ label: TYPE_LABELS[type], value: type }))}
+          />
+          <Select
+            allowClear
+            style={{ width: 180 }}
+            placeholder="全部章节"
+            value={chapter}
+            onChange={(value) => {
+              setChapter(value);
+              setPage(1);
+            }}
+            options={chapterOptions}
+          />
+          <Select
+            allowClear
+            style={{ width: 120 }}
+            placeholder="全部难度"
+            value={difficulty}
+            onChange={(value) => {
+              setDifficulty(value);
+              setPage(1);
+            }}
+            options={difficultyOptions}
+          />
+          <Input.Search
+            allowClear
+            style={{ width: 220 }}
+            placeholder="搜索题干"
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            onSearch={(value) => {
+              setKeyword(value.trim());
+              setPage(1);
+            }}
+          />
         </Space>
-
-        <Table
-          size="small"
-          pagination={false}
-          rowKey="type"
-          dataSource={availableTypes.map((type) => ({ type }))}
-          locale={{ emptyText: repoId ? '该题库没有可用题型' : '先选择题库' }}
-          columns={[
-            { title: '题型', dataIndex: 'type', width: 90, render: (type: ComposeType) => TYPE_LABELS[type] },
-            {
-              title: '可用',
-              width: 80,
-              render: (_: unknown, row: { type: ComposeType }) => stats?.byType[TYPE_FULL[row.type]] ?? '-',
-            },
-            {
-              title: '题数',
-              render: (_: unknown, row: { type: ComposeType }) => (
-                <InputNumber
-                  min={0}
-                  value={counts[row.type]}
-                  onChange={(value) => setCounts({ ...counts, [row.type]: Number(value ?? 0) })}
-                />
-              ),
-            },
-            {
-              title: '每题分值',
-              render: (_: unknown, row: { type: ComposeType }) => (
-                <InputNumber
-                  min={0}
-                  step={0.5}
-                  value={scores[row.type]}
-                  onChange={(value) => setScores({ ...scores, [row.type]: Number(value ?? 0) })}
-                />
-              ),
-            },
-          ]}
-        />
 
         <Alert
           type="info"
           showIcon
-          message={'本次抽取 ' + totalQuestions + ' 题，共 ' + totalScore + ' 分；已在试卷中的 ' + excludeIds.length + ' 题会自动排除'}
+          message={
+            '题库共 ' + (stats?.total ?? 0) + ' 题；已在试卷中的 ' + excludeIds.length + ' 题会自动拦截（不会重复添加）'
+          }
         />
 
-        {candidates.length === 0 ? (
-          <Empty description="配好题数与分值后点「抽题」" />
-        ) : (
-          <List
-            size="small"
-            style={{ maxHeight: 320, overflow: 'auto' }}
-            dataSource={candidates}
-            renderItem={(question) => (
-              <List.Item>
-                <Checkbox
-                  checked={selected.includes(question.id)}
-                  onChange={(e) =>
-                    setSelected((prev) =>
-                      e.target.checked ? [...prev, question.id] : prev.filter((value) => value !== question.id),
-                    )
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Checkbox
+            checked={pageAllSelected}
+            indeterminate={rows.some((row) => selected.has(row.id)) && !pageAllSelected}
+            onChange={(e) => {
+              setSelected((prev) => {
+                const next = new Map(prev);
+                for (const row of rows) {
+                  if (e.target.checked) {
+                    if (!excludeIds.includes(row.id)) next.set(row.id, toSchema(row));
+                  } else {
+                    next.delete(row.id);
                   }
-                >
-                  <Space wrap>
-                    <Tag>{TYPE_LABELS[(question.type as ComposeType) ?? 'Radio'] ?? question.type}</Tag>
-                    <span>{(question.title || '').replace(/<[^>]+>/g, '').slice(0, 70)}</span>
-                    {question.chapter && <Tag>{question.chapter}</Tag>}
-                    {question.difficulty && <Tag color="orange">{question.difficulty}</Tag>}
-                    <span style={{ color: 'var(--bp-text-soft)' }}>{question.attribute?.examScore ?? '-'} 分</span>
-                  </Space>
-                </Checkbox>
-              </List.Item>
-            )}
-          />
-        )}
+                }
+                return next;
+              });
+            }}
+          >
+            全选本页
+          </Checkbox>
+          <Space>
+            <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              已选 {selectedList.length} 题 / {selectedScore} 分
+            </span>
+            <Button size="small" onClick={() => setSelected(new Map())} disabled={!selectedList.length}>
+              清空
+            </Button>
+          </Space>
+        </div>
+
+        <Table
+          size="small"
+          rowKey="id"
+          loading={loading}
+          dataSource={rows}
+          locale={{ emptyText: <Empty description="没有匹配的题目" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 20, 50],
+            onChange: (nextPage, nextSize) => {
+              setPage(nextPage);
+              setPageSize(nextSize);
+            },
+            showTotal: (count) => '共 ' + count + ' 题',
+          }}
+          columns={[
+            {
+              title: '',
+              width: 46,
+              render: (_: unknown, row: TemplateRow) => {
+                const disabled = excludeIds.includes(row.id);
+                return (
+                  <Checkbox
+                    checked={selected.has(row.id)}
+                    disabled={disabled}
+                    onChange={(e) => toggle(row, e.target.checked)}
+                  />
+                );
+              },
+            },
+            {
+              title: '题型',
+              width: 76,
+              render: (_: unknown, row: TemplateRow) => (
+                <Tag>{row.questionType ? TYPE_LABELS[row.questionType] : '—'}</Tag>
+              ),
+            },
+            {
+              title: '题干',
+              render: (_: unknown, row: TemplateRow) => (
+                <span style={{ whiteSpace: 'pre-wrap' }}>
+                  {(row.template?.title || row.name || '').replace(/<[^>]+>/g, '').slice(0, 120)}
+                </span>
+              ),
+            },
+            { title: '章节', width: 130, render: (_: unknown, row: TemplateRow) => row.chapter || '—' },
+            { title: '难度', width: 70, render: (_: unknown, row: TemplateRow) => row.difficulty || '—' },
+            {
+              title: '分值',
+              width: 70,
+              render: (_: unknown, row: TemplateRow) => row.template?.attribute?.examScore ?? '—',
+            },
+            {
+              title: '状态',
+              width: 80,
+              render: (_: unknown, row: TemplateRow) =>
+                excludeIds.includes(row.id) ? <Tag color="red">卷内已有</Tag> : selected.has(row.id) ? <Tag color="green">已选</Tag> : null,
+            },
+          ]}
+        />
       </Space>
     </Modal>
   );

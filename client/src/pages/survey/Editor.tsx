@@ -23,7 +23,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { get, updateProject } from '../../api';
 import type { Project, ProjectSetting } from '../../schema/project';
-import type { QuestionType, SurveySchema } from '../../schema/types';
+import { DATA_TYPES, type QuestionType, type SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
 import { parseRule } from '../../schema/rules/buildExpression';
@@ -854,7 +854,9 @@ export default function SurveyEditor() {
 
       <BankPickModal
         open={bankOpen}
-        excludeIds={flattenSchema(survey).map((node) => node.id)}
+        excludeIds={flattenSchema(survey)
+          .filter((node) => DATA_TYPES.has(node.type))
+          .map((node) => node.id)}
         onClose={() => setBankOpen(false)}
         onPick={handleBankPick}
       />

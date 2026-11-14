@@ -71,7 +71,7 @@ export default function SurveyPrintPage() {
 
   return (
     <div style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
-      <style>{PRINT_CSS + ' @page { size: ' + size + '; }'}</style>
+      <style>{PRINT_CSS + ' @page { size: ' + (size === 'A3' ? 'A3 landscape' : 'A4') + '; margin: ' + (size === 'A3' ? '8mm' : '16mm 14mm') + '; }'}</style>
 
       <div
         className="no-print"
@@ -97,22 +97,26 @@ export default function SurveyPrintPage() {
         <Checkbox checked={showCard} onChange={(e) => setShowCard(e.target.checked)}>
           附答题卡
         </Checkbox>
-        <Typography.Text type="secondary">A3 仅切换纸张尺寸，不做双页拼版</Typography.Text>
+        <Typography.Text type="secondary">A3 = 横向，两张 A4 拼在一张上</Typography.Text>
       </div>
 
+      <div style={{ overflowX: 'auto' }}>
       <div
-        className="paper"
+        className={size === 'A3' ? 'paper paper-a3' : 'paper'}
         style={{
-          width: 760,
+          width: size === 'A3' ? '400mm' : 760,
           margin: '0 auto',
           background: '#fff',
-          padding: '40px 48px',
+          padding: size === 'A3' ? '10mm' : '40px 48px',
           boxShadow: '0 2px 12px rgba(0,0,0,.12)',
           color: '#000',
+          columnCount: size === 'A3' ? 2 : undefined,
+          columnGap: size === 'A3' ? '10mm' : undefined,
+          columnFill: size === 'A3' ? 'auto' : undefined,
         }}
       >
-        <h1 style={{ textAlign: 'center', fontSize: 22, margin: '0 0 6px' }}>{title}</h1>
-        <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 18 }}>
+        <h1 style={{ textAlign: 'center', fontSize: 22, margin: '0 0 6px', columnSpan: size === 'A3' ? 'all' : undefined }}>{title}</h1>
+        <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 18, columnSpan: size === 'A3' ? 'all' : undefined }}>
           姓名：____________　考号：____________　得分：________
         </div>
 
@@ -169,7 +173,7 @@ export default function SurveyPrintPage() {
         ))}
 
         {showCard && (
-          <section style={{ breakBefore: 'page', marginTop: 24 }}>
+          <section style={{ breakBefore: 'page', marginTop: 24, columnSpan: size === 'A3' ? 'all' : undefined }}>
             <h2 style={{ fontSize: 15, margin: '0 0 8px' }}>答题卡</h2>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
@@ -195,7 +199,7 @@ export default function SurveyPrintPage() {
         )}
 
         {showAnswers && (
-          <section style={{ breakBefore: 'page', marginTop: 24 }}>
+          <section style={{ breakBefore: 'page', marginTop: 24, columnSpan: size === 'A3' ? 'all' : undefined }}>
             <h2 style={{ fontSize: 15, margin: '0 0 8px' }}>参考答案</h2>
             {questions.map((question, index) => (
               <div key={question.id} style={{ fontSize: 12, lineHeight: 1.9 }}>
@@ -204,6 +208,7 @@ export default function SurveyPrintPage() {
             ))}
           </section>
         )}
+      </div>
       </div>
     </div>
   );
