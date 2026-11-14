@@ -119,8 +119,9 @@ apis:
   - POST /api/repo/categories/create
   - POST /api/system/anonymous/cleanup
   - GET /api/system
-  - GET /api/system/audit/list
+  - GET /api/system/audit/list（action / startTime / endTime / operator / keyword / result）
   - GET /api/system/audit/actions
+  - POST /api/system/audit/clean（仅 admin；按保留天数或 all 清理）
 tables:
   - t_role
   - t_user_role
@@ -139,8 +140,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-10
-verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
+last_verified: 2026-11-14
+verified_against: 02bdc20b68d4eb25e474d30b687a4640c997f097
 ---
 
 # 权限、角色与用户组
