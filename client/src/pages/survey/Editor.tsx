@@ -493,6 +493,7 @@ export default function SurveyEditor() {
           JSON
         </Button>
         <Dropdown
+          trigger={['click']}
           menu={{
             items: [
               { key: 'whole-word', label: '整份试卷（Word）' },

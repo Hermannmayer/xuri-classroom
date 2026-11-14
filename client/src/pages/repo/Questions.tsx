@@ -526,6 +526,7 @@ export default function RepoQuestions() {
           {canImport && (
             <>
               <Dropdown
+                trigger={['click']}
                 menu={{
                   items: [
                     { key: 'excel', label: '导入 Excel（按题型分表）' },
