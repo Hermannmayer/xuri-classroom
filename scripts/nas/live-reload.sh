@@ -52,14 +52,15 @@ say "产物：${BUILD_DIR}/app.jar"
 say "开始编译（gradle 7.6 / JDK8，与生产 Dockerfile 对齐）"
 docker run --rm -u 0:0 \
   --entrypoint sh \
-  -v "${SRC}/server:/src" \
+  -v "${SRC}:/repo" \
   -v "${BUILD_DIR}:/out" \
   -v "${GRADLE_CACHE_VOLUME}:/cache" \
   -e GRADLE_USER_HOME=/cache \
-  -w /src \
+  -w /repo/server \
   "${GRADLE_IMAGE}" \
   -c '
     set -e
+    # build.gradle 会读仓库根的 VERSION（rootProject.file("../VERSION")），所以挂载仓库根而不是只挂 server
     gradle :api:bootJar -x test --no-daemon --console=plain
     JAR=$(ls -1 api/build/libs/*.jar | grep -v -- "-plain" | head -1)
     [ -n "$JAR" ] || { echo "没有产出 jar" >&2; exit 1; }
