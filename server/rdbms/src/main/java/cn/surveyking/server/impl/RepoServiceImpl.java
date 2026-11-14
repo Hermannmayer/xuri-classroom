@@ -8,6 +8,7 @@ import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.importer.ImportKind;
 import cn.surveyking.server.core.importer.ImportPreview;
 import cn.surveyking.server.core.importer.TextQuestionParser;
+import cn.surveyking.server.core.importer.WordQuestionParser;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
 import cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper;
 import cn.surveyking.server.core.uitls.RepoTemplateI18n;
@@ -538,9 +539,15 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@SneakyThrows
 	public void importFromTemplate(RepoTemplateRequest request) {
 		assertManageRepo(request.getRepoId());
-		if (ImportKind.text == ImportKind.from(request.getKind())
-				|| (request.getFile() == null && StringUtils.hasText(request.getText()))) {
+		ImportKind kind = ImportKind.from(request.getKind());
+		if (ImportKind.text == kind || (request.getFile() == null && StringUtils.hasText(request.getText()))) {
 			request.setTemplates(parseTextToTemplate(request.getText()));
+		}
+		else if (ImportKind.word == kind) {
+			if (request.getFile() == null) {
+				throw new ErrorCodeException(ErrorCode.FileParseError, "请上传 Word 文件");
+			}
+			request.setTemplates(parseWordToTemplate(request.getFile()));
 		}
 		else {
 			if (request.getFile() == null) {
@@ -549,6 +556,26 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			request.setTemplates(parseExcelToTemplate(request.getFile()));
 		}
 		batchAddRepoTemplate(request);
+	}
+
+	/**
+	 * Word 导入：题库只存题目本体，图片占位符去掉（题库题目不支持富题干）。
+	 */
+	private List<TemplateRequest> parseWordToTemplate(MultipartFile file) {
+		ImportPreview preview = new WordQuestionParser(file).parse();
+		List<TemplateRequest> templates = new ArrayList<>();
+		int serial = 0;
+		for (SurveySchema schema : preview.getFlat()) {
+			if (schema.getTitle() != null) {
+				schema.setTitle(schema.getTitle().replaceAll("\\s*\\[\\[IMG:\\d+\\]\\]", "").trim());
+			}
+			templates.add(TemplateRequest.builder().serialNo(String.valueOf(++serial))
+					.mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build());
+		}
+		if (templates.isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "未识别到题目，请检查 Word 模板格式");
+		}
+		return templates;
 	}
 
 	/**
