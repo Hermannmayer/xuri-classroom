@@ -30,7 +30,10 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
   const optionNodes = (schema.children ?? []).filter((child) => child.type === 'Option' || !child.type);
   const answerOptions = optionNodes.map((child, index) => {
     const letter = String.fromCharCode(65 + index);
-    return { value: child.id, label: letter + '. ' + (child.title || '(未填写)') };
+    return {
+      value: child.id,
+      label: schema.type === 'Judge' ? child.title || letter : letter + '. ' + (child.title || '(未填写)'),
+    };
   });
   const correctIds = optionNodes
     .filter((child) => Boolean(child.attribute?.examCorrectAnswer))

@@ -435,24 +435,23 @@ export default function SurveyEditor() {
     message.success('已批量更新必填状态，记得保存');
   };
 
-  const openAnswerPreview = async () => {
-    const win = window.open('', '_blank');
-    if (dirty) {
-      setSaving(true);
-      try {
-        await updateProject({ id, name, survey: normalizeSchema(survey), setting });
-        baselineRef.current = JSON.stringify({ name, survey });
-        message.success('已自动保存，正在打开答题页');
-      } catch (e) {
-        message.error('保存失败，无法预览：' + (e as Error).message);
-        win?.close();
-        return;
-      } finally {
-        setSaving(false);
-      }
+  const openAnswerPreview = () => {
+    // 先同步开窗，避免 await 之后被浏览器当弹窗拦截
+    const win = window.open('/s/' + id, '_blank');
+    if (!win) {
+      message.warning('浏览器拦截了新窗口，请允许本站弹窗后重试');
+      return;
     }
-    if (win) win.location.href = location.origin + '/s/' + id;
-    else message.warning('浏览器拦截了新窗口，请允许弹窗后重试');
+    if (!dirty) return;
+    setSaving(true);
+    void updateProject({ id, name, survey: normalizeSchema(survey), setting })
+      .then(() => {
+        baselineRef.current = JSON.stringify({ name, survey });
+        win.location.reload();
+        message.success('已自动保存，答题页已刷新');
+      })
+      .catch((e: Error) => message.error('保存失败，预览的是上次保存版本：' + e.message))
+      .finally(() => setSaving(false));
   };
 
   const share = async () => {
