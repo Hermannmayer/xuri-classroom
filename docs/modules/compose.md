@@ -38,7 +38,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: b0afa2b61a6919df357b3acf15ee335608a8c5e3
+verified_against: d138a8b2704613d838e7e53b51ba58a9c2a2c999
 ---
 
 # 组卷中心
@@ -95,7 +95,8 @@ verified_against: b0afa2b61a6919df357b3acf15ee335608a8c5e3
 - 题不够策略：less（默认少出+提示）/ reuse（复用补足）/ error（直接报错）。
 - 整套拆分要求总题量 ≥ 套数，否则直接报错；按题型轮转分配，各套题数最多差 1。
 - 卷内抽题有两个页签：浏览选题（/api/template/list 分页 + 搜索 + 勾选）和按规则抽题（/api/compose/pick，按题型题数/分值随机或顺序抽）；题型选项只显示题库里有的。
-- 打印页 A3 = 横向 + CSS 双栏（每栏一张 A4 宽），答案卡/答案页跨栏。
+- 打印页先按 A4 内容高度分页：A4 一页一张；A3 横向把两张 A4 并排拼一张，答案卡/答案页单独起页。
+- 主题的背景图/页眉图支持上传（/api/file/create publicRead=true）、预览、清除或填 URL；页眉显示在答题页与打印卷首。
 - Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。
 - 打印页 A3 只改 @page 尺寸，未做双页拼版。
 
