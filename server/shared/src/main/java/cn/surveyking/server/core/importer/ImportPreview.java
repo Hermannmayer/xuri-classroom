@@ -1,6 +1,7 @@
 package cn.surveyking.server.core.importer;
 
 import cn.surveyking.server.domain.dto.SurveySchema;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -41,6 +42,13 @@ public class ImportPreview implements Serializable {
 
 	@Builder.Default
 	private List<Warning> warnings = new ArrayList<>();
+
+	/**
+	 * 解析过程中抽取到的图片：占位 token → 二进制。服务端落文件后会把 token 换成图片地址，不下发前端。
+	 */
+	@JsonIgnore
+	@Builder.Default
+	private Map<String, byte[]> attachments = new LinkedHashMap<>();
 
 	@Data
 	@Builder

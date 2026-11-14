@@ -1,0 +1,62 @@
+{
+  "id": "S1",
+  "title": "JSON 导入示例",
+  "type": "Survey",
+  "attribute": {
+    "mode": "exam"
+  },
+  "children": [
+    {
+      "id": "Q1",
+      "title": "单选题？",
+      "type": "Radio",
+      "attribute": {
+        "examScore": 5,
+        "examAnswerMode": "onlyOne"
+      },
+      "dataSource": [
+        {
+          "label": "甲",
+          "value": "O1"
+        },
+        {
+          "label": "乙",
+          "value": "O2"
+        }
+      ],
+      "children": [
+        {
+          "id": "O1",
+          "title": "甲",
+          "type": "Option",
+          "attribute": {}
+        },
+        {
+          "id": "O2",
+          "title": "乙",
+          "type": "Option",
+          "attribute": {
+            "examCorrectAnswer": "O2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q2",
+      "title": "简答题？",
+      "type": "Textarea",
+      "attribute": {
+        "examScore": 10,
+        "examAnswerMode": "manual"
+      },
+      "children": [
+        {
+          "id": "B1",
+          "attribute": {
+            "examCorrectAnswer": "参考答案"
+          }
+        }
+      ]
+    }
+  ]
+}

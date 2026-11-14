@@ -312,6 +312,11 @@ public class SurveySchema implements Serializable {
 		private String examAnalysis;
 
 		/**
+		 * 题干含 HTML（如导入 Word 时的图片）；渲染层需要按富文本消毒后展示
+		 */
+		private Boolean richTitle;
+
+		/**
 		 * 日期时间格式 YYYYMMDD HH:mm:ss
 		 */
 		private String dateTimeFormat;

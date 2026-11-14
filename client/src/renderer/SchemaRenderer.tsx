@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify';
 import { flattenSchema } from '../schema/flatten';
 import { DATA_TYPES, type SurveySchema } from '../schema/types';
 import { getQuestionComponent } from './registry';
+import { TitleContent } from './questions/shared';
 import type { AnswerValue, RenderMode } from './types';
 
 export interface SchemaRendererProps {
@@ -77,7 +78,11 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
         case 'QuestionSet':
           return (
             <section key={node.id} style={styles.group} data-node-id={node.id}>
-              {node.title ? <div style={styles.groupTitle}>{node.title}</div> : null}
+              {node.title ? (
+                <div style={styles.groupTitle}>
+                  <TitleContent schema={node} />
+                </div>
+              ) : null}
               {renderNodes(node.children)}
             </section>
           );
@@ -123,7 +128,9 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
       <div key={node.id} style={styles.question} data-qid={node.id} data-type={node.type}>
         <div style={styles.titleRow}>
           {number !== undefined && <span className="bp-tag">{number}</span>}
-          <span style={styles.title}>{node.title}</span>
+          <span style={styles.title}>
+            <TitleContent schema={node} />
+          </span>
           {node.attribute?.required && <span style={styles.required}>*</span>}
         </div>
         {node.description && <div style={styles.description}>{node.description}</div>}

@@ -198,6 +198,8 @@ export interface Attribute {
   examMatchRule?: ExamMatchRule;
   examCorrectAnswer?: string;
   examAnalysis?: string;
+  /** 题干含 HTML（Word 导入的图片等），渲染时按富文本消毒展示 */
+  richTitle?: boolean;
   dateTimeFormat?: string;
   fieldInTitle?: boolean;
   cornerText?: string;

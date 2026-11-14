@@ -499,13 +499,14 @@ export default function SurveyEditor() {
               { key: 'text', label: '批量导入题目（文本）' },
               { key: 'excel', label: '批量导入题目（Excel）' },
               { key: 'word', label: '批量导入题目（Word）' },
-              { key: 'json', label: '从 JSON 导入结构 · 即将开放', disabled: true },
+              { key: 'json', label: '从 JSON 导入试卷（保留大题）' },
             ],
             onClick: ({ key }) => {
               if (key === 'whole-word') openImport(true, ['word']);
               else if (key === 'text') openImport(false, ['text']);
               else if (key === 'excel') openImport(false, ['excel']);
               else if (key === 'word') openImport(false, ['word']);
+              else if (key === 'json') openImport(true, ['json']);
             },
           }}
         >
@@ -787,8 +788,32 @@ export default function SurveyEditor() {
           }
         }}
       >
-        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 8 }}>
-          直接编辑整棵树（危险操作）：改完点「应用」回到设计器，再点保存才会写库。
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+            直接编辑整棵树（危险操作）：改完点「应用」回到设计器，再点保存才会写库。
+          </span>
+          <Button
+            size="small"
+            onClick={() => {
+              const blob = new Blob([jsonText], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const anchor = document.createElement('a');
+              anchor.href = url;
+              anchor.download = (name || '试卷') + '.json';
+              anchor.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            下载 JSON
+          </Button>
         </div>
         <Input.TextArea
           value={jsonText}

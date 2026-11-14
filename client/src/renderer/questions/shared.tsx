@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { FlagFilled, FlagOutlined } from '@ant-design/icons';
+import DOMPurify from 'dompurify';
 import type { SurveySchema } from '../../schema/types';
 import type { AnswerValue, QuestionComponentProps } from '../types';
 
@@ -14,6 +15,25 @@ export interface QuestionMarkApi {
 }
 
 export const QuestionMarkContext = createContext<QuestionMarkApi | null>(null);
+
+/**
+ * 题干：普通题直接出文本；带 richTitle 的题（Word 导入含图片）按富文本消毒后渲染。
+ */
+export function TitleContent({ schema }: { schema: SurveySchema }) {
+  if (!schema.title) {
+    return <span style={{ color: 'rgba(160,196,232,0.45)' }}>未命名题目</span>;
+  }
+  if (schema.attribute?.richTitle) {
+    return (
+      <span
+        dangerouslySetInnerHTML={{
+          __html: DOMPurify.sanitize(schema.title, { ADD_TAGS: ['img'], ADD_ATTR: ['src', 'alt', 'style'] }),
+        }}
+      />
+    );
+  }
+  return <>{schema.title}</>;
+}
 
 /**
  * 题目外壳：题号 + 标题 + 必填标记 + description。
@@ -42,7 +62,7 @@ export function QuestionFrame({
           {schema.attribute?.required && (
             <span style={{ color: 'var(--bp-orange)', marginRight: 4 }}>*</span>
           )}
-          {schema.title || <span style={{ color: 'rgba(160,196,232,0.45)' }}>未命名题目</span>}
+          <TitleContent schema={schema} />
         </span>
         {markApi && (
           <button

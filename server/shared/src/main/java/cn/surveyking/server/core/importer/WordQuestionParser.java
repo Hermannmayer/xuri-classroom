@@ -7,6 +7,8 @@ import cn.surveyking.server.domain.dto.SurveySchema;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFPicture;
+import org.apache.poi.xwpf.usermodel.XWPFPictureData;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -15,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,18 +49,43 @@ public class WordQuestionParser {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "请上传 Word 文件");
 		}
 		List<String> lines = new ArrayList<>();
-		int images = 0;
+		Map<String, byte[]> attachments = new LinkedHashMap<>();
+		int[] imageSeq = { 0 };
 		int formulas = 0;
 		try (XWPFDocument doc = new XWPFDocument(file.getInputStream())) {
 			for (IBodyElement element : doc.getBodyElements()) {
 				if (element instanceof XWPFParagraph) {
 					XWPFParagraph paragraph = (XWPFParagraph) element;
-					lines.add(paragraph.getText() == null ? "" : paragraph.getText());
+					StringBuilder text = new StringBuilder(paragraph.getText() == null ? "" : paragraph.getText());
 					for (XWPFRun run : paragraph.getRuns()) {
-						images += run.getEmbeddedPictures().size();
+						for (XWPFPicture picture : run.getEmbeddedPictures()) {
+							XWPFPictureData data = picture.getPictureData();
+							if (data == null || data.getData() == null || data.getData().length == 0) {
+								continue;
+							}
+							String ext = data.suggestFileExtension() == null ? "" : data.suggestFileExtension().toLowerCase();
+							if (!Arrays.asList("png", "jpg", "jpeg", "gif", "bmp").contains(ext)) {
+								continue;
+							}
+							String token = "[[IMG:" + (++imageSeq[0]) + "]]";
+							attachments.put(token, data.getData());
+							if (text.length() > 0) {
+								text.append(' ');
+							}
+							text.append(token);
+						}
 						if (containsFormula(run)) {
 							formulas++;
 						}
+					}
+					String paragraphText = text.toString().trim();
+					if (paragraphText.matches("(\\[\\[IMG:\\d+\\]\\]\\s*)+") && !lines.isEmpty()) {
+						// 图片常常单独占一段：并回上一行，别让它变成“选项”
+						int last = lines.size() - 1;
+						lines.set(last, (lines.get(last) + " " + paragraphText).trim());
+					}
+					else {
+						lines.add(text.toString());
 					}
 				}
 				else if (element instanceof XWPFTable) {
@@ -73,10 +101,10 @@ public class WordQuestionParser {
 					"Word 解析失败：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
 		}
 
-		return buildPreview(lines, images, formulas);
+		return buildPreview(lines, attachments, formulas);
 	}
 
-	private ImportPreview buildPreview(List<String> lines, int images, int formulas) {
+	private ImportPreview buildPreview(List<String> lines, Map<String, byte[]> attachments, int formulas) {
 		int firstHeading = -1;
 		for (int i = 0; i < lines.size(); i++) {
 			if (HEADING.matcher(lines.get(i).trim()).matches()) {
@@ -141,16 +169,16 @@ public class WordQuestionParser {
 		}
 
 		List<ImportPreview.Warning> warnings = new ArrayList<>();
-		if (images > 0) {
-			warnings.add(ImportPreview.Warning.builder().level("warn").code("IMAGE_SKIPPED")
-					.message("已跳过 " + images + " 张图片（当前版本不支持图文混排，可导入后手动补图）").build());
+		if (!attachments.isEmpty()) {
+			warnings.add(ImportPreview.Warning.builder().level("info").code("IMAGE_IMPORTED")
+					.message("已提取 " + attachments.size() + " 张图片，导入后随题干展示").build());
 		}
 		if (formulas > 0) {
 			warnings.add(ImportPreview.Warning.builder().level("warn").code("FORMULA_SKIPPED")
 					.message("已跳过 " + formulas + " 个公式（建议导入后用公式编辑器补充）").build());
 		}
 
-		return ImportPreview.builder().title(title).tree(tree).flat(flat)
+		return ImportPreview.builder().title(title).tree(tree).flat(flat).attachments(attachments)
 				.stats(ImportPreview.Stats.builder().total(flat.size()).score(score).groups(treeChildren.size())
 						.byType(byType).build())
 				.warnings(warnings).build();

@@ -49,6 +49,15 @@ class WordQuestionParserTest {
 		assertEquals(SurveySchema.QuestionType.Textarea, textarea.getType());
 	}
 
+	@Test
+	void extractsImagesIntoAttachments() throws Exception {
+		ImportPreview preview = new WordQuestionParser(fixture("word-image.docx")).parse();
+
+		assertEquals(1, preview.getAttachments().size());
+		assertTrue(preview.getFlat().get(0).getTitle().contains("[[IMG:1]]"));
+		assertTrue(preview.getWarnings().stream().anyMatch(item -> "IMAGE_IMPORTED".equals(item.getCode())));
+	}
+
 	private String answerLetter(SurveySchema question) {
 		for (int i = 0; i < question.getChildren().size(); i++) {
 			if (question.getChildren().get(i).getAttribute().getExamCorrectAnswer() != null) {

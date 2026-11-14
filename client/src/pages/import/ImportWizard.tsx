@@ -65,7 +65,7 @@ const FORMAT_HINT: Record<ImportFormat, string> = {
   word: '整卷含大题（即将开放）',
   excel: '按题型分表（即将开放）',
   text: '粘贴题目文本',
-  json: '系统导出的备份（即将开放）',
+  json: '系统导出的试卷 JSON',
 };
 
 const TYPE_LABEL: Record<string, string> = {
