@@ -314,6 +314,48 @@ modules:
       - docs:npm run docs:check
     last_verified: 2026-11-10
     verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
+  - id: module-import
+    title: 试卷导入（解析 / 预览 / 落地）
+    doc: docs/modules/import.md
+    keywords:
+      - 导入试卷
+      - 文本导入
+      - 批量导入
+      - 解析预览
+      - ImportWizard
+      - ImportApi
+      - ImportPreview
+      - TextQuestionParser
+      - 导入去向
+      - 题组
+    source_globs:
+      - client/src/pages/import/**
+      - client/src/api/import.ts
+      - server/api/src/main/java/cn/surveyking/server/api/ImportApi.java
+      - server/shared/src/main/java/cn/surveyking/server/core/importer/**
+      - server/shared/src/main/java/cn/surveyking/server/service/ImportService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/PaperImportRecordRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoTemplateRequest.java
+      - server/shared/src/test/java/cn/surveyking/server/core/importer/**
+    entrypoints:
+      - client/src/pages/import/ImportWizard.tsx
+      - client/src/pages/project/List.tsx
+      - client/src/pages/survey/Editor.tsx
+      - client/src/pages/repo/Questions.tsx
+      - server/api/src/main/java/cn/surveyking/server/api/ImportApi.java
+    apis:
+      - POST /api/import/parse
+      - POST /api/import/record
+      - POST /api/repo/import
+    tables:
+      - t_project
+      - t_template
+    tests:
+      - client:npx tsc --noEmit
+      - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
+    last_verified: 2026-11-14
+    verified_against: 1a74ce80
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md

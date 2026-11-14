@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 178 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 180 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -27,6 +27,8 @@
 | POST | `${api.prefix}/file/create` | `FileApi#upload` | `hasAnyAuthority('file:upload','file:import') or hasRole('admin')` | — |
 | POST | `${api.prefix}/file/delete` | `FileApi#deleteImage` | `hasAuthority('file:delete')` | — |
 | GET | `${api.prefix}/file/downloadTemplate` | `FileApi#downloadTemplate` | `hasAnyAuthority('file:import','template:import') or hasRole('admin')` | — |
+| POST | `${api.prefix}/import/parse` | `ImportApi#parse` | `hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin')` | — |
+| POST | `${api.prefix}/import/record` | `ImportApi#record` | `hasAnyAuthority('project:update') or hasRole('admin')` | 是 |
 | GET | `${api.prefix}/my-report/list` | `MyReportApi#listMine` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | POST | `${api.prefix}/public/oauth/login/{provider}/start` | `OAuthApi#startLogin` | — | — |
 | POST | `${api.prefix}/oauth/bind/{provider}/start` | `OAuthApi#startBind` | `isAuthenticated()` | — |

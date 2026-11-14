@@ -25,6 +25,7 @@
 - [首页与统计](https://hermannmayer.github.io/xuri-classroom/modules/dashboard)
 - [任务中心、练习与错题本](https://hermannmayer.github.io/xuri-classroom/modules/exercise)
 - [文件、附件与导入模板](https://hermannmayer.github.io/xuri-classroom/modules/files)
+- [试卷导入（解析 / 预览 / 落地）](https://hermannmayer.github.io/xuri-classroom/modules/import)
 - [权限、角色与用户组](https://hermannmayer.github.io/xuri-classroom/modules/permissions)
 - [考试与问卷（项目）](https://hermannmayer.github.io/xuri-classroom/modules/project)
 - [题库与题目](https://hermannmayer.github.io/xuri-classroom/modules/repo)

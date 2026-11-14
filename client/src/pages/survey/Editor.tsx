@@ -9,6 +9,7 @@ import {
   DownOutlined,
   EditOutlined,
   EyeOutlined,
+  ImportOutlined,
   RedoOutlined,
   SaveOutlined,
   UndoOutlined,
@@ -31,6 +32,7 @@ import PhonePreview, { DEVICE_H, DEVICE_W } from '../../designer/PhonePreview';
 import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, newId, normalizeSchema } from '../../designer/defaults';
 import { cloneNode, findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
+import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
 
@@ -198,6 +200,7 @@ export default function SurveyEditor() {
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [themeOpen, setThemeOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [themeText, setThemeText] = useState<{ backgroundImage: string; headerImage: string }>({
     backgroundImage: '',
     headerImage: '',
@@ -248,6 +251,15 @@ export default function SurveyEditor() {
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
   const flatQuestions = useMemo(() => flattenSchema(survey), [survey]);
+
+  /** 导入落点选择用：当前试卷里的大题 */
+  const importGroups = useMemo(
+    () =>
+      (survey.children ?? [])
+        .filter((node) => node.type === 'QuestionSet')
+        .map((node) => ({ id: node.id, title: node.title || '未命名题组' })),
+    [survey],
+  );
 
   /** 规则条件只能引用当前题之前的题，避免自引用 */
   const candidateQuestions = useMemo(() => {
@@ -370,6 +382,37 @@ export default function SurveyEditor() {
     }
   };
 
+  /** 导入落地：新题组追加到末尾，或并入现有题组；一次 setSurvey = 一个撤销步 */
+  const handleImportSubmit = async ({ preview, destination }: ImportSubmitPayload) => {
+    const questions = preview.flat as SurveySchema[];
+    if (!questions.length) {
+      throw new Error('没有可导入的题目');
+    }
+    if (destination.type === 'new-group') {
+      const group: SurveySchema = {
+        id: newId(),
+        title: destination.title,
+        type: 'QuestionSet',
+        attribute: {},
+        children: questions,
+      };
+      setSurvey(insertNode(survey, undefined, group));
+    } else if (destination.type === 'existing-group') {
+      if (!findNode(survey, destination.groupId)) {
+        throw new Error('题组不存在，请刷新后重试');
+      }
+      setSurvey(
+        updateNode(survey, destination.groupId, (node) => ({
+          children: [...(node.children ?? []), ...questions],
+        })),
+      );
+    } else {
+      throw new Error('请选择导入到哪个题组');
+    }
+    setSelectedId(questions[0].id);
+    message.success('已导入 ' + questions.length + ' 题，共 ' + preview.stats.score + ' 分；记得保存');
+  };
+
   if (loading) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
@@ -433,6 +476,23 @@ export default function SurveyEditor() {
         >
           JSON
         </Button>
+        <Dropdown
+          menu={{
+            items: [
+              { key: 'text', label: '批量导入题目（文本）' },
+              { key: 'word', label: '整份试卷（Word）· 即将开放', disabled: true },
+              { key: 'excel', label: '批量导入（Excel）· 即将开放', disabled: true },
+              { key: 'json', label: '从 JSON 导入结构 · 即将开放', disabled: true },
+            ],
+            onClick: ({ key }) => {
+              if (key === 'text') setImportOpen(true);
+            },
+          }}
+        >
+          <Button icon={<ImportOutlined />}>
+            导入 <DownOutlined />
+          </Button>
+        </Dropdown>
         <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
           保存
         </Button>
@@ -606,7 +666,14 @@ export default function SurveyEditor() {
               />
             ) : (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>
-                左侧点一个题型开始，或从大纲里选中题组后添加
+                <div style={{ fontSize: 14, marginBottom: 6 }}>还没有题目</div>
+                <div style={{ marginBottom: 14 }}>可以手动添加，也可以把现成的题目文本导进来</div>
+                <Space>
+                  <Button type="primary" icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+                    导入题目（文本）
+                  </Button>
+                  <span>或从左侧题型面板点击添加</span>
+                </Space>
               </div>
             )}
           </div>
@@ -710,6 +777,15 @@ export default function SurveyEditor() {
           style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
         />
       </Modal>
+
+      <ImportWizard
+        open={importOpen}
+        target="paper"
+        formats={['text']}
+        groups={importGroups}
+        onClose={() => setImportOpen(false)}
+        onSubmit={handleImportSubmit}
+      />
 
       {/* 主题 + 逻辑总览 */}
       <Drawer

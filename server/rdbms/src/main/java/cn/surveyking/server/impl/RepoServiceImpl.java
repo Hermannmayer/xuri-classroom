@@ -1,7 +1,13 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.core.constant.ErrorCode;
+import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.constant.TagCategoryEnum;
+import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.importer.ImportKind;
+import cn.surveyking.server.core.importer.ImportPreview;
+import cn.surveyking.server.core.importer.TextQuestionParser;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
 import cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper;
 import cn.surveyking.server.core.uitls.RepoTemplateI18n;
@@ -532,8 +538,37 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@SneakyThrows
 	public void importFromTemplate(RepoTemplateRequest request) {
 		assertManageRepo(request.getRepoId());
-		request.setTemplates(parseExcelToTemplate(request.getFile()));
+		if (ImportKind.text == ImportKind.from(request.getKind())
+				|| (request.getFile() == null && StringUtils.hasText(request.getText()))) {
+			request.setTemplates(parseTextToTemplate(request.getText()));
+		}
+		else {
+			if (request.getFile() == null) {
+				throw new ErrorCodeException(ErrorCode.FileParseError, "请上传 Excel 文件");
+			}
+			request.setTemplates(parseExcelToTemplate(request.getFile()));
+		}
 		batchAddRepoTemplate(request);
+	}
+
+	/**
+	 * 文本导入：把解析结果转成题库模板条目（序号从 1 递增，供增量更新）。
+	 */
+	private List<TemplateRequest> parseTextToTemplate(String text) {
+		if (!StringUtils.hasText(text)) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "请提供要导入的题目文本");
+		}
+		ImportPreview preview = new TextQuestionParser(text).parse();
+		List<TemplateRequest> templates = new ArrayList<>();
+		int serial = 0;
+		for (SurveySchema schema : preview.getFlat()) {
+			templates.add(TemplateRequest.builder().serialNo(String.valueOf(++serial))
+					.mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build());
+		}
+		if (templates.isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "未识别到题目，请检查文本格式");
+		}
+		return templates;
 	}
 
 	@SneakyThrows

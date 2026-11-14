@@ -128,6 +128,7 @@ public final class AuditActionCatalog {
 		map.put("REPO_EXPORT_TOKEN", "获取导出令牌");
 		map.put("EXPORT_REPO", "导出题库");
 		map.put("IMPORT_REPO", "导入题库");
+		map.put("IMPORT_PROJECT", "导入试卷");
 		// 考试
 		map.put("PROJECT_CREATE", "新增考试");
 		map.put("PROJECT_UPDATE", "修改考试");

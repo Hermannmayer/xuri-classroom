@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Button,
+  Dropdown,
   Empty,
   Form,
   Input,
@@ -13,11 +14,11 @@ import {
   Space,
   Table,
   Tag,
-  Upload,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
+  DownOutlined,
   DownloadOutlined,
   PlusOutlined,
   UploadOutlined,
@@ -31,6 +32,7 @@ import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
+import ImportWizard from '../import/ImportWizard';
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
 interface TemplateView {
@@ -155,6 +157,8 @@ export default function RepoQuestions() {
   // 接口失败/无权限 ≠ 题库没题目：失败时单独展示错误说明，不再显示误导性的「题库还没有题目」
   const [loadError, setLoadError] = useState<string>();
   const [importing, setImporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [authorities, setAuthorities] = useState<string[]>([]);
   // 导出：列表页与题目页共用 RepoExportModal
@@ -513,25 +517,43 @@ export default function RepoQuestions() {
               {loadError
                 ? '题目列表没有加载成功，详见下方说明'
                 : `共 ${total} 道题${
-                    canImport ? ' · Excel 导入按题型分 sheet 解析，导出同样分 sheet' : ' · 只读浏览'
+                    canImport ? ' · 支持 Excel / 文本导入，导出按题型分 sheet' : ' · 只读浏览'
                   }`}
             </div>
           </div>
         </div>
         <Space wrap>
           {canImport && (
-            <Upload
-              accept=".xlsx,.xls"
-              showUploadList={false}
-              beforeUpload={(file) => {
-                void doImport(file);
-                return false;
-              }}
-            >
-              <Button icon={<UploadOutlined />} loading={importing}>
-                导入 Excel
-              </Button>
-            </Upload>
+            <>
+              <Dropdown
+                menu={{
+                  items: [
+                    { key: 'excel', label: '导入 Excel（按题型分表）' },
+                    { key: 'text', label: '导入文本（粘贴题目）' },
+                    { key: 'word', label: '导入 Word · 即将开放', disabled: true },
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === 'excel') fileInputRef.current?.click();
+                    else if (key === 'text') setImportOpen(true);
+                  },
+                }}
+              >
+                <Button icon={<UploadOutlined />} loading={importing}>
+                  导入 <DownOutlined />
+                </Button>
+              </Dropdown>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void doImport(file);
+                  e.target.value = '';
+                }}
+              />
+            </>
           )}
           {canImport && (
             <Button
@@ -871,6 +893,23 @@ export default function RepoQuestions() {
       </Modal>
 
       <RepoExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
+
+      <ImportWizard
+        open={importOpen}
+        target="repo"
+        formats={['text']}
+        repoName={repoName}
+        onClose={() => setImportOpen(false)}
+        onSubmit={async ({ preview, sourceText }) => {
+          const form = new FormData();
+          form.append('repoId', repoId);
+          form.append('kind', 'text');
+          form.append('text', sourceText ?? '');
+          await post<void>('/api/repo/import', form);
+          message.success('已导入 ' + preview.stats.total + ' 题');
+          await load();
+        }}
+      />
     </>
   );
 }

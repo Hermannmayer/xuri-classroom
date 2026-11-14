@@ -27,6 +27,8 @@ import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
 import ComposeModal from './ComposeModal';
+import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
+import { recordPaperImport } from '../../api/import';
 import FolderAuthModal from './FolderAuthModal';
 import ProjectTree from './ProjectTree';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
@@ -378,6 +380,9 @@ function ManagerProjectList({
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importName, setImportName] = useState('');
+  const [importCategory, setImportCategory] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeName, setComposeName] = useState('');
   /** 从题库组卷时先记下分类，创建成功后再补写（CompuseModal 只负责建项目） */
@@ -390,7 +395,7 @@ function ManagerProjectList({
   const [createForm] = Form.useForm<{
     name: string;
     mode: 'survey' | 'exam';
-    source?: 'blank' | 'compose';
+    source?: 'blank' | 'compose' | 'import';
     category?: string;
   }>();
   const [renameForm] = Form.useForm<{ name: string; category?: string }>();
@@ -454,7 +459,7 @@ function ManagerProjectList({
     let v: {
       name: string;
       mode: 'survey' | 'exam';
-      source?: 'blank' | 'compose';
+      source?: 'blank' | 'compose' | 'import';
       category?: string;
     };
     try {
@@ -467,6 +472,13 @@ function ManagerProjectList({
       setComposeName(v.name.trim());
       setComposeCategory(v.category?.trim() || '');
       setComposeOpen(true);
+      return;
+    }
+    if (v.mode === 'exam' && v.source === 'import') {
+      setCreateOpen(false);
+      setImportName(v.name.trim());
+      setImportCategory(v.category?.trim() || '');
+      setImportOpen(true);
       return;
     }
     setCreating(true);
@@ -491,6 +503,28 @@ function ManagerProjectList({
     } finally {
       setCreating(false);
     }
+  };
+
+  /** 文本导入建卷：先解析后建卷，创建失败不会留下空项目 */
+  const handleImportCreate = async ({ preview }: ImportSubmitPayload) => {
+    const name = importName.trim();
+    const survey = {
+      ...preview.tree,
+      title: name,
+      description: preview.description ?? preview.tree?.description,
+    };
+    const created = await createProject({
+      name,
+      mode: 'exam',
+      category: importCategory || undefined,
+      parentId,
+      setting: DEFAULT_SETTING,
+      survey,
+    } as Parameters<typeof createProject>[0]);
+    message.success('已导入 ' + preview.stats.total + ' 题，共 ' + preview.stats.score + ' 分');
+    void recordPaperImport({ projectId: created.id, source: 'text', total: preview.stats.total }).catch(() => undefined);
+    setTreeToken((token) => token + 1);
+    navigate('/survey/' + created.id + '/edit');
   };
 
   const submitRename = async () => {
@@ -1129,7 +1163,13 @@ function ManagerProjectList({
         onCancel={() => setCreateOpen(false)}
         onOk={submitCreate}
         confirmLoading={creating}
-        okText={createMode === 'exam' && createSource === 'compose' ? '下一步' : '创建'}
+        okText={
+          createMode === 'exam' && createSource === 'compose'
+            ? '下一步'
+            : createMode === 'exam' && createSource === 'import'
+              ? '下一步：上传'
+              : '创建'
+        }
         cancelText="取消"
         destroyOnClose
       >
@@ -1158,12 +1198,27 @@ function ManagerProjectList({
                 options={[
                   { label: '空白新建', value: 'blank' },
                   { label: '从题库组卷', value: 'compose' },
+                  { label: '导入试卷', value: 'import' },
                 ]}
               />
             </Form.Item>
           )}
+          {createMode === 'exam' && createSource === 'import' && (
+            <div style={{ marginTop: -10, marginBottom: 12, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              当前支持<b>文本导入</b>：下一步粘贴题目文本，解析预览后再创建；Word 试卷、Excel 表格、JSON 备份即将开放。
+            </div>
+          )}
         </Form>
       </Modal>
+
+      <ImportWizard
+        open={importOpen}
+        target="paper"
+        formats={['text']}
+        paperName={importName}
+        onClose={() => setImportOpen(false)}
+        onSubmit={handleImportCreate}
+      />
 
       <ComposeModal
         open={composeOpen}
