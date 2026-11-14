@@ -811,7 +811,7 @@ export default function RepoList() {
                         </LinkAction>
                       )}
                       {canPractice && (
-                        <LinkAction style={NOWRAP} onClick={() => startPractice(row, 'full')}>
+                        <LinkAction style={NOWRAP} onClick={() => navigate('/repo/' + row.id + '/practice')}>
                           开始练习
                         </LinkAction>
                       )}
