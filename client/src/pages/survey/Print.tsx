@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, Segmented, Spin, Typography, message } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getProject } from '../../api';
+import { download, getProject } from '../../api';
 import type { SurveySchema } from '../../schema/types';
 
 const LETTERS = 'ABCDEFGH';
@@ -80,6 +80,15 @@ export default function SurveyPrintPage() {
         <Button onClick={() => navigate('/survey/' + id + '/edit')}>返回编辑</Button>
         <Button type="primary" onClick={() => window.print()}>
           打印 / 另存 PDF
+        </Button>
+        <Button
+          onClick={() =>
+            void download('/api/paper/' + id + '/docx', { answers: showAnswers, card: showCard }, title + '.docx').catch(
+              (e: Error) => message.error(e.message),
+            )
+          }
+        >
+          下载 Word
         </Button>
         <Segmented value={size} onChange={(value) => setSize(value as 'A4' | 'A3')} options={['A4', 'A3']} />
         <Checkbox checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)}>

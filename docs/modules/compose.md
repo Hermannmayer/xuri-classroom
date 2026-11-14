@@ -21,6 +21,8 @@ source_globs:
   - server/shared/src/main/java/cn/surveyking/server/service/ComposeService.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/Compose*.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ComposeServiceImpl.java
+  - server/shared/src/main/java/cn/surveyking/server/core/export/PaperDocxExporter.java
+  - server/api/src/main/java/cn/surveyking/server/api/PaperExportApi.java
 entrypoints:
   - client/src/pages/compose/ComposePage.tsx
   - client/src/pages/compose/BatchDetail.tsx
@@ -32,6 +34,7 @@ apis:
   - GET /api/compose/batches
   - GET /api/compose/batch
   - POST /api/compose/pick
+  - GET /api/paper/{id}/docx
 tables:
   - t_template
   - t_paper_batch
@@ -77,6 +80,7 @@ verified_against: 1d2a81c13773295f741bba7f877199755dbd4c67
 3. 「生成并发布」→ POST /api/compose/create：写 t_paper_batch + t_paper_variant；publish=true 时逐套调用 ProjectService.addProject。
 4. 试卷集详情按套展示，可进打印页或编辑器。
 5. 编辑器「从题库添加」→ POST /api/compose/pick，排除卷内已有题，插入新题组（一次撤销步）。
+6. 打印页：浏览器打印即 PDF；「下载 Word」走 GET /api/paper/{id}/docx（POI 生成，A4、题号连续、可选答案页/答题卡）。
 
 ## 修改指南
 
@@ -97,7 +101,7 @@ verified_against: 1d2a81c13773295f741bba7f877199755dbd4c67
 - 章节/难度是新增列，存量题目为空；组卷页会显示「未设置」，导入模板要带「章节」「难度」列。
 - 跨套去重按题型各自切池，题型之间不共享。
 - 题不够策略：less（默认少出+提示）/ reuse（复用补足）/ error（直接报错）。
-- Word 导出尚未接入（打印页用浏览器另存 PDF）；预留在 P4 后续。
+- Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。
 - 打印页依赖项目 survey；未发布的套次没有 projectId，不能打印。
 
 ## 验证
