@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Drawer, Dropdown, Input, message, Modal, Space, Spin, Tabs, Tooltip, Upload } from 'antd';
+import { Button, Card, Checkbox, Drawer, Dropdown, Input, InputNumber, message, Modal, Space, Spin, Switch, Tabs, Tooltip, Upload } from 'antd';
 import {
   ArrowLeftOutlined,
   BgColorsOutlined,
@@ -40,6 +40,45 @@ import BankPickModal from './BankPickModal';
 import type { ImportFormat } from '../../api/import';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
+
+const SCORE_TYPE_LABEL: Record<string, string> = {
+  Radio: '单选',
+  Checkbox: '多选',
+  Judge: '判断',
+  FillBlank: '填空',
+  MultipleBlank: '多填空',
+  Textarea: '简答',
+  Select: '下拉',
+  HorzBlank: '横向填空',
+  Nps: 'NPS',
+  MatrixRadio: '矩阵单选',
+  MatrixCheckbox: '矩阵多选',
+};
+
+interface ScoreGroup {
+  type: string;
+  label: string;
+  count: number;
+  scores: Set<number>;
+}
+
+function collectScoreGroups(root?: SurveySchema): ScoreGroup[] {
+  const groups = new Map<string, ScoreGroup>();
+  const walk = (nodes?: SurveySchema[]) => {
+    for (const node of nodes ?? []) {
+      const label = SCORE_TYPE_LABEL[node.type];
+      if (label) {
+        const group = groups.get(node.type) ?? { type: node.type, label, count: 0, scores: new Set<number>() };
+        group.count += 1;
+        if (typeof node.attribute?.examScore === 'number') group.scores.add(node.attribute.examScore);
+        groups.set(node.type, group);
+      }
+      walk(node.children);
+    }
+  };
+  walk(root?.children);
+  return Array.from(groups.values());
+}
 
 /** 左侧 ADD 面板可拖拽的题型集合 */
 const PALETTE_TYPES = new Set<QuestionType>(QUESTION_META.map((m) => m.type));
@@ -208,6 +247,10 @@ export default function SurveyEditor() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<'quick' | 'question'>('quick');
+  const [scoreOpen, setScoreOpen] = useState(false);
+  const [scoreSelected, setScoreSelected] = useState<Record<string, boolean>>({});
+  const [scoreValue, setScoreValue] = useState(5);
   const [importWhole, setImportWhole] = useState(false);
   const [importFormats, setImportFormats] = useState<ImportFormat[]>(['text', 'excel', 'word']);
 
@@ -298,6 +341,59 @@ export default function SurveyEditor() {
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
   const flatQuestions = useMemo(() => flattenSchema(survey), [survey]);
+  const scoreGroups = useMemo(() => collectScoreGroups(survey), [survey]);
+  const allScoreSelected = scoreGroups.length > 0 && scoreGroups.every((group) => scoreSelected[group.type]);
+
+  useEffect(() => {
+    setRightTab(selectedId ? 'question' : 'quick');
+  }, [selectedId]);
+
+  /** 快捷设置：立即写 setting，和设置页同一份数据 */
+  const patchAnswerSetting = (patch: Record<string, unknown>) => {
+    const next = { ...setting, answerSetting: { ...(setting.answerSetting ?? {}), ...patch } };
+    setSetting(next);
+    void updateProject({ id, setting: next }).catch((e: Error) => message.error(e.message));
+  };
+
+  const openScoreModal = () => {
+    const next: Record<string, boolean> = {};
+    for (const group of scoreGroups) next[group.type] = false;
+    setScoreSelected(next);
+    setScoreValue(5);
+    setScoreOpen(true);
+  };
+
+  const quickSwitch = (label: string, checked: boolean | undefined, onChange: (value: boolean) => void) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <span style={{ fontSize: 12 }}>{label}</span>
+      <Switch size="small" checked={Boolean(checked)} onChange={onChange} />
+    </div>
+  );
+
+  const applyTypeScores = () => {
+    const types = Object.keys(scoreSelected).filter((type) => scoreSelected[type]);
+    if (!types.length) {
+      message.warning('请至少勾选一种题型');
+      return;
+    }
+    if (!(scoreValue > 0)) {
+      message.warning('请输入大于 0 的分值');
+      return;
+    }
+    const next = JSON.parse(JSON.stringify(survey)) as SurveySchema;
+    const walk = (nodes?: SurveySchema[]) => {
+      for (const node of nodes ?? []) {
+        if (types.includes(node.type)) {
+          node.attribute = { ...(node.attribute ?? {}), examScore: scoreValue };
+        }
+        walk(node.children);
+      }
+    };
+    walk(next.children);
+    setSurvey(next);
+    setScoreOpen(false);
+    message.success('已按题型更新分值，记得保存');
+  };
 
   /** 导入落点选择用：当前试卷里的大题 */
   const importGroups = useMemo(
@@ -499,6 +595,17 @@ export default function SurveyEditor() {
           placeholder="问卷/考试名称"
         />
         <span className="bp-tag">DRAFT</span>
+        <Space size={2} style={{ marginLeft: 10 }}>
+          <Button size="small" type="text" style={{ background: 'var(--bp-selected-bg)', color: 'var(--bp-selected-text)' }}>
+            编辑
+          </Button>
+          <Button size="small" type="text" onClick={() => navigate('/survey/' + id)}>
+            设置
+          </Button>
+          <Button size="small" type="text" onClick={() => navigate('/survey/' + id + '/report')}>
+            统计
+          </Button>
+        </Space>
         <div style={{ flex: 1 }} />
         <Tooltip title="撤销 (Ctrl+Z)">
           <Button icon={<UndoOutlined />} disabled={!canUndo} onClick={undo} />
@@ -763,59 +870,113 @@ export default function SurveyEditor() {
             padding: 12,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: 10,
-              letterSpacing: '0.16em',
-              color: 'var(--bp-text-soft)',
-              marginBottom: 6,
-            }}
-          >
-            <span>DEVICE / 手机</span>
-            <span style={{ color: 'var(--bp-hint)' }}>
-              {DEVICE_W}×{DEVICE_H}
-            </span>
-          </div>
-          <PhonePreview
-            schema={survey}
-            values={values}
-            onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
-            displays={displays}
+          <Tabs
+            size="small"
+            activeKey={rightTab}
+            onChange={(key) => setRightTab(key as 'quick' | 'question')}
+            items={[
+              {
+                key: 'quick',
+                label: '快捷',
+                children: (
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: 10,
+                        letterSpacing: '0.16em',
+                        color: 'var(--bp-text-soft)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span>DEVICE / 手机</span>
+                      <span style={{ color: 'var(--bp-hint)' }}>
+                        {DEVICE_W}×{DEVICE_H}
+                      </span>
+                    </div>
+                    <PhonePreview
+                      schema={survey}
+                      values={values}
+                      onChange={(qId, v) => setValues((prev) => ({ ...prev, [qId]: v }))}
+                      displays={displays}
+                    />
+                    <hr className="bp-dim" style={{ margin: '14px 0 10px' }} />
+                    <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+                      显示与答题
+                    </div>
+                    {quickSwitch('显示题目序号', setting.answerSetting?.questionNumber ?? true, (value) =>
+                      patchAnswerSetting({ questionNumber: value }),
+                    )}
+                    {quickSwitch('显示进度条', setting.answerSetting?.progressBar, (value) =>
+                      patchAnswerSetting({ progressBar: value }),
+                    )}
+                    {quickSwitch('自动暂存', setting.answerSetting?.autoSave, (value) =>
+                      patchAnswerSetting({ autoSave: value }),
+                    )}
+                    {quickSwitch('一页一题', setting.answerSetting?.onePageOneQuestion, (value) =>
+                      patchAnswerSetting({ onePageOneQuestion: value }),
+                    )}
+                    {quickSwitch('显示答题卡', setting.answerSetting?.answerSheetVisible, (value) =>
+                      patchAnswerSetting({ answerSheetVisible: value }),
+                    )}
+                    <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', margin: '10px 0 8px' }}>
+                      访问与权限
+                    </div>
+                    {quickSwitch('需要登录', setting.answerSetting?.loginRequired, (value) =>
+                      patchAnswerSetting({ loginRequired: value }),
+                    )}
+                    <Space direction="vertical" style={{ width: '100%', marginTop: 10 }}>
+                      <Button block onClick={openScoreModal}>
+                        批量设置分值
+                      </Button>
+                      <Button block onClick={() => navigate('/survey/' + id)}>
+                        查看全部设置
+                      </Button>
+                      <Button block onClick={() => navigate('/survey/' + id + '/print')}>
+                        试卷打印
+                      </Button>
+                    </Space>
+                  </div>
+                ),
+              },
+              {
+                key: 'question',
+                label: '题目',
+                children: selected ? (
+                  <>
+                    <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
+                      PROPERTIES / 属性 · {selected.type}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>标题</div>
+                    <Input
+                      value={selected.title}
+                      onChange={(e) => patchNode({ title: e.target.value })}
+                      style={{ marginBottom: 10 }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>描述</div>
+                    <Input.TextArea
+                      value={selected.description ?? ''}
+                      onChange={(e) => patchNode({ description: e.target.value })}
+                      autoSize={{ minRows: 2, maxRows: 4 }}
+                      style={{ marginBottom: 12 }}
+                    />
+                    <AttributePanel
+                      schema={selected}
+                      onChange={patchAttribute}
+                      questions={candidateQuestions}
+                      onPatchNode={patchNode}
+                    />
+                  </>
+                ) : (
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>
+                    选中一道题查看属性
+                  </div>
+                ),
+              },
+            ]}
           />
-          <hr className="bp-dim" style={{ margin: '14px 0 12px' }} />
-          {selected ? (
-            <>
-              <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
-                PROPERTIES / 属性 · {selected.type}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>标题</div>
-              <Input
-                value={selected.title}
-                onChange={(e) => patchNode({ title: e.target.value })}
-                style={{ marginBottom: 10 }}
-              />
-              <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>描述</div>
-              <Input.TextArea
-                value={selected.description ?? ''}
-                onChange={(e) => patchNode({ description: e.target.value })}
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                style={{ marginBottom: 12 }}
-              />
-              <AttributePanel
-                schema={selected}
-                onChange={patchAttribute}
-                questions={candidateQuestions}
-                onPatchNode={patchNode}
-              />
-            </>
-          ) : (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--bp-text-soft)', fontSize: 12 }}>
-              选中一道题查看属性
-            </div>
-          )}
         </div>
       </div>
 
@@ -873,6 +1034,60 @@ export default function SurveyEditor() {
           autoSize={{ minRows: 18, maxRows: 30 }}
           style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
         />
+      </Modal>
+
+      <Modal
+        title="按题型批量设置分值"
+        open={scoreOpen}
+        onCancel={() => setScoreOpen(false)}
+        onOk={applyTypeScores}
+        okText="应用设置"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+          勾选题型后输入分值，应用后这些题型的全部题目会统一改分；未勾选的题型保持不变。
+        </div>
+        <Checkbox
+          checked={allScoreSelected}
+          indeterminate={!allScoreSelected && scoreGroups.some((group) => scoreSelected[group.type])}
+          onChange={(e) => {
+            const next: Record<string, boolean> = {};
+            for (const group of scoreGroups) next[group.type] = e.target.checked;
+            setScoreSelected(next);
+          }}
+          style={{ marginBottom: 10 }}
+        >
+          全选
+        </Checkbox>
+        {scoreGroups.map((group) => (
+          <div
+            key={group.type}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}
+          >
+            <Checkbox
+              checked={Boolean(scoreSelected[group.type])}
+              onChange={(e) => setScoreSelected({ ...scoreSelected, [group.type]: e.target.checked })}
+            >
+              {group.label}（{group.count} 题）
+            </Checkbox>
+            <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+              当前分值：
+              {group.scores.size === 0
+                ? '未设置'
+                : group.scores.size === 1
+                  ? Array.from(group.scores)[0]
+                  : '混合'}
+            </span>
+          </div>
+        ))}
+        {!scoreGroups.length && (
+          <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>试卷里还没有题目</div>
+        )}
+        <div style={{ marginTop: 12 }}>
+          分值{' '}
+          <InputNumber min={0.5} step={0.5} value={scoreValue} onChange={(value) => setScoreValue(Number(value ?? 0))} />
+        </div>
       </Modal>
 
       <BankPickModal
