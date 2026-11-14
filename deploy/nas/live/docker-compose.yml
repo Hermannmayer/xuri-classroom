@@ -72,6 +72,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${DB_NAME:-surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?请在 .env 里设置 SK_CRYPTO_KEY}
       SK_JWT_SECRET: ${JWT_SECRET:-}
+      # 只读更新清单，用于系统内“发现新版本”提示；不执行升级
+      UPDATE_MANIFEST_URL: ${UPDATE_MANIFEST_URL:-}
       # JVM 上限：机器还要跑 MySQL、watch 构建和飞牛自己
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
       # 并发调参（2026-11-07）：默认 Hikari 10 个连接是开考瞬间的瓶颈，

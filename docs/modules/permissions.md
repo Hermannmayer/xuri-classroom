@@ -249,7 +249,14 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 5. 清理口径：`AnonymousIdentityService#purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷（`@TableLogic` 逻辑删除）；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。登录用户/班级成绩/非匿名答卷不碰；`purgeExpired()` 仍负责 cookie 主体过期清理，两者不是同一条。
 6. 写回：`AnonymousCleanupService#runNow` 更新 last 字段并清 `commonCache`，否则 `GET /api/system` 可能读到旧设置；更新是读整行再写回，极低概率覆盖并发保存的设置。
 
-### 5.2 项目/题库三级授权（P12）
+### 5.2 更新提示（2026-11-14）
+
+1. `GET /api/system/version` 返回构建时的 `VERSION`；`GET /api/system/update/check` 读取 `UPDATE_MANIFEST_URL` 指向的 JSON，只做版本对比，不下载、不执行升级。
+2. 清单格式：`{"version":"2.1.0","notes":"更新说明","url":"下载页","publishedAt":"2026-11-14"}`；地址留空则关闭检查。
+3. 前端 `components/UpdateBanner.tsx` 挂在 `BasicLayout`，仅对有 `system:setting:update` 的账号显示；打开页面和窗口重新聚焦时检查，关闭后按版本记 localStorage，避免反复打扰。
+4. 配置在 `deploy/nas/live/.env` 的 `UPDATE_MANIFEST_URL`，compose 注入 app；不依赖 GitHub。
+
+### 5.3 项目/题库三级授权（P12）
 
 1. 字段：`t_project_partner.access_level` / `t_repo_partner.access_level`（tinyint，1 查看 / 2 编辑（含查看，默认）/ 3 授权（含编辑/查看）），迁移 `scripts/nas/migrate/36-partner-access-level.sql`。两边 Request/View/Model 都有 `accessLevel`；项目 `partner/update`、题库 `partner/update` 用来改级别。
 2. 项目类型：owner（type=1）固定 3；协作者/教师组（type=2）按请求级别；班级/学员答卷人（type=3）与外部导入答卷人（type=4）固定 1。新建项目 owner 由 `addProjectPartner` 写 3；迁移回填 type=1→3、type=3/4→1，其余默认 2。教师组是一条 `group_id` 记录，组员按主组+附加组+祖先链继承级别。

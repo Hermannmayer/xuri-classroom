@@ -1,4 +1,7 @@
 version: @projectVersion@
+update:
+  # 更新清单地址（json）；留空则关闭自动检查
+  manifest-url: ${UPDATE_MANIFEST_URL:}
 spring:
   application:
     name: survey

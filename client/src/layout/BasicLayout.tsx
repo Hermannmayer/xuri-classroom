@@ -24,6 +24,7 @@ import { post } from '../api';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
+import UpdateBanner from '../components/UpdateBanner';
 import { PERMISSION_CODES } from '../auth/permission-codes';
 
 const { Header, Sider, Content } = Layout;
@@ -345,6 +346,7 @@ export default function BasicLayout() {
               : { margin: 16, paddingBottom: 8 }
           }
         >
+          <UpdateBanner authorities={authorities} />
           <Outlet context={{ user, system }} />
         </Content>
       </Layout>

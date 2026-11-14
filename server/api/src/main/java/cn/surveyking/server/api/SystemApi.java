@@ -1,6 +1,9 @@
 package cn.surveyking.server.api;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.domain.dto.UpdateCheckView;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.impl.AnonymousCleanupService;
@@ -11,7 +14,14 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 
 import javax.validation.Valid;
 import javax.validation.ValidationException;
@@ -44,6 +54,103 @@ public class SystemApi {
 
 	/** 匿名答卷清理（手动触发） */
 	private final AnonymousCleanupService anonymousCleanupService;
+
+	private final ObjectMapper objectMapper;
+
+	@Value("${version}")
+	private String currentVersion;
+
+	@Value("${update.manifest-url:}")
+	private String manifestUrl;
+
+	private volatile UpdateCheckView cachedUpdate;
+
+	private volatile long updateCheckedAt;
+
+	@GetMapping("/version")
+	public Map<String, Object> version() {
+		Map<String, Object> view = new LinkedHashMap<>();
+		view.put("version", currentVersion);
+		return view;
+	}
+
+	/**
+	 * 检查更新：只读 update.json，不下载、不执行任何升级动作。
+	 * 清单格式：{"version":"2.1.0","notes":"...","url":"..."}
+	 */
+	@GetMapping("/update/check")
+	@PreAuthorize("isAuthenticated()")
+	public UpdateCheckView checkUpdate() {
+		long now = System.currentTimeMillis();
+		if (cachedUpdate != null && now - updateCheckedAt < 10 * 60 * 1000L) {
+			return cachedUpdate;
+		}
+		UpdateCheckView view = new UpdateCheckView();
+		view.setCurrentVersion(currentVersion);
+		if (!StringUtils.hasText(manifestUrl)) {
+			view.setEnabled(false);
+			cachedUpdate = view;
+			updateCheckedAt = now;
+			return view;
+		}
+		view.setEnabled(true);
+		HttpURLConnection connection = null;
+		try {
+			connection = (HttpURLConnection) new URL(manifestUrl.trim()).openConnection();
+			connection.setConnectTimeout(5000);
+			connection.setReadTimeout(5000);
+			connection.setRequestProperty("Accept", "application/json");
+			int status = connection.getResponseCode();
+			if (status < 200 || status >= 300) {
+				throw new IllegalStateException("更新清单返回 HTTP " + status);
+			}
+			try (InputStream input = connection.getInputStream()) {
+				Map<String, Object> manifest = objectMapper.readValue(input, new TypeReference<Map<String, Object>>() {
+				});
+				String latest = manifest.get("version") == null ? null : String.valueOf(manifest.get("version"));
+				view.setLatestVersion(latest);
+				view.setNotes(manifest.get("notes") == null ? null : String.valueOf(manifest.get("notes")));
+				view.setDownloadUrl(manifest.get("url") == null ? null : String.valueOf(manifest.get("url")));
+				view.setPublishedAt(manifest.get("publishedAt") == null ? null : String.valueOf(manifest.get("publishedAt")));
+				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
+			}
+		}
+		catch (Exception e) {
+			view.setHasUpdate(false);
+			view.setError(e.getMessage() == null ? "检查更新失败" : e.getMessage());
+		}
+		finally {
+			if (connection != null) {
+				connection.disconnect();
+			}
+		}
+		cachedUpdate = view;
+		updateCheckedAt = now;
+		return view;
+	}
+
+	private int compareVersion(String left, String right) {
+		String[] a = String.valueOf(left).replaceFirst("^[vV]", "").split("\\.");
+		String[] b = String.valueOf(right).replaceFirst("^[vV]", "").split("\\.");
+		int length = Math.max(a.length, b.length);
+		for (int i = 0; i < length; i++) {
+			int x = i < a.length ? parseInt(a[i]) : 0;
+			int y = i < b.length ? parseInt(b[i]) : 0;
+			if (x != y) {
+				return Integer.compare(x, y);
+			}
+		}
+		return 0;
+	}
+
+	private int parseInt(String value) {
+		try {
+			return Integer.parseInt(value.replaceAll("[^0-9].*$", ""));
+		}
+		catch (Exception ignored) {
+			return 0;
+		}
+	}
 
 	/**
 	 * @return 当前系统信息
