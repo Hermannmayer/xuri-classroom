@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Checkbox, Segmented, Select, Spin, Typography, message } from 'antd';
+import { Button, Checkbox, Drawer, Input, Segmented, Select, Spin, Typography, message } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { download, getProject } from '../../api';
+import { download, getProject, updateProject } from '../../api';
 import type { SurveySchema } from '../../schema/types';
 
 const LETTERS = 'ABCDEFGH';
@@ -136,7 +136,7 @@ export default function SurveyPrintPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [project, setProject] = useState<{ name?: string; survey?: SurveySchema } | null>(null);
+  const [project, setProject] = useState<{ name?: string; survey?: SurveySchema; setting?: Record<string, unknown> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAnswers, setShowAnswers] = useState(searchParams.get('answers') === '1');
   const [showCard, setShowCard] = useState(searchParams.get('card') === '1');
@@ -148,15 +148,51 @@ export default function SurveyPrintPage() {
   const [answerArea, setAnswerArea] = useState<'line' | 'blank'>('line');
   const [margin, setMargin] = useState<'standard' | 'wide'>('standard');
   const [pages, setPages] = useState<number[][]>([]);
+  const [headerOpen, setHeaderOpen] = useState(false);
+  const [headerDraft, setHeaderDraft] = useState({ title: '', subtitle: '', info: '' });
+  const [headerSaving, setHeaderSaving] = useState(false);
   const measureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
     getProject(id)
-      .then((res) => setProject(res as { name?: string; survey?: SurveySchema }))
+      .then((res) => setProject(res as { name?: string; survey?: SurveySchema; setting?: Record<string, unknown> }))
       .catch((e: Error) => message.error(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const openHeader = () => {
+    setHeaderDraft({
+      title: project?.survey?.attribute?.headerTitle ?? '',
+      subtitle: project?.survey?.attribute?.headerSubtitle ?? '',
+      info: project?.survey?.attribute?.examHeaderInfo ?? '',
+    });
+    setHeaderOpen(true);
+  };
+
+  const saveHeader = async () => {
+    if (!project?.survey) return;
+    const nextSurvey: SurveySchema = {
+      ...project.survey,
+      attribute: {
+        ...project.survey.attribute,
+        headerTitle: headerDraft.title.trim() || undefined,
+        headerSubtitle: headerDraft.subtitle.trim() || undefined,
+        examHeaderInfo: headerDraft.info.trim() || undefined,
+      },
+    };
+    setHeaderSaving(true);
+    try {
+      await updateProject({ id, name: project.name, survey: nextSurvey, setting: project.setting });
+      setProject({ ...project, survey: nextSurvey });
+      setHeaderOpen(false);
+      message.success('卷头已保存');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setHeaderSaving(false);
+    }
+  };
 
   const groups = useMemo(() => {
     const containers = new Set(['Survey', 'QuestionSet', 'Pagination', 'Remark', 'SplitLine', 'Option', 'RandomSurvey']);
@@ -383,6 +419,7 @@ export default function SurveyPrintPage() {
 
       <div className="no-print" style={{ maxWidth: 900, margin: '0 auto 12px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <Button onClick={() => navigate('/survey/' + id + '/edit')}>返回编辑</Button>
+        <Button onClick={openHeader}>卷头设置</Button>
         <Button type="primary" onClick={() => window.print()}>打印 / 另存 PDF</Button>
         <Button onClick={() => void download('/api/paper/' + id + '/docx', { answers: showAnswers, card: showCard }, title + '.docx').catch((e: Error) => message.error(e.message))}>
           下载 Word
@@ -458,6 +495,51 @@ export default function SurveyPrintPage() {
           </div>
         ))}
       </div>
+
+      <Drawer
+        title="卷头设置"
+        open={headerOpen}
+        onClose={() => setHeaderOpen(false)}
+        width={420}
+        extra={
+          <Button type="primary" loading={headerSaving} onClick={() => void saveHeader()}>
+            保存
+          </Button>
+        }
+      >
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 14, lineHeight: 1.8 }}>
+          卷头只影响打印页和 Word 导出，不改试卷标题；留空使用默认值。
+        </div>
+        <div style={{ fontSize: 11, marginBottom: 4 }}>卷头标题</div>
+        <Input
+          value={headerDraft.title}
+          placeholder={project.survey?.title || '默认使用试卷标题'}
+          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, title: e.target.value }))}
+          style={{ marginBottom: 14 }}
+        />
+        <div style={{ fontSize: 11, marginBottom: 4 }}>副标题（可空）</div>
+        <Input
+          value={headerDraft.subtitle}
+          placeholder="如：2026 年育婴员五级理论考试"
+          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, subtitle: e.target.value }))}
+          style={{ marginBottom: 14 }}
+        />
+        <div style={{ fontSize: 11, marginBottom: 4 }}>考生信息行</div>
+        <Input
+          value={headerDraft.info}
+          placeholder="默认：姓名：____　考号：____　得分：____"
+          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, info: e.target.value }))}
+          style={{ marginBottom: 16 }}
+        />
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 6 }}>预览</div>
+        <div style={{ border: '1px solid var(--bp-line)', padding: 14, textAlign: 'center', background: 'var(--bp-panel)' }}>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{headerDraft.title.trim() || project.survey?.title || '试卷标题'}</div>
+          {headerDraft.subtitle.trim() && <div style={{ fontSize: 12, marginTop: 6 }}>{headerDraft.subtitle}</div>}
+          <div style={{ fontSize: 12, marginTop: 10 }}>
+            {headerDraft.info.trim() || '姓名：______　考号：______　得分：________'}
+          </div>
+        </div>
+      </Drawer>
     </div>
   );
 }

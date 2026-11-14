@@ -285,32 +285,7 @@ export default function SurveyEditor() {
     backgroundImage: '',
     headerImage: '',
   });
-  const [headerOpen, setHeaderOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [headerDraft, setHeaderDraft] = useState({ title: '', subtitle: '', info: '' });
-
-  const openHeaderEditor = () => {
-    setHeaderDraft({
-      title: survey.attribute?.headerTitle ?? '',
-      subtitle: survey.attribute?.headerSubtitle ?? '',
-      info: survey.attribute?.examHeaderInfo ?? '',
-    });
-    setHeaderOpen(true);
-  };
-
-  const applyHeader = () => {
-    setSurvey({
-      ...survey,
-      attribute: {
-        ...survey.attribute,
-        headerTitle: headerDraft.title.trim() || undefined,
-        headerSubtitle: headerDraft.subtitle.trim() || undefined,
-        examHeaderInfo: headerDraft.info.trim() || undefined,
-      },
-    });
-    setHeaderOpen(false);
-    message.success('卷头已应用，记得保存');
-  };
 
   const uploadThemeImage = async (file: File, key: 'backgroundImage' | 'headerImage') => {
     try {
@@ -779,9 +754,6 @@ export default function SurveyEditor() {
           }}
         >
           主题
-        </Button>
-        <Button icon={<EditOutlined />} onClick={openHeaderEditor}>
-          卷头
         </Button>
         <Button
           icon={<CodeOutlined />}
@@ -1518,51 +1490,6 @@ export default function SurveyEditor() {
             },
           ]}
         />
-      </Drawer>
-
-      <Drawer
-        title="卷头设置"
-        open={headerOpen}
-        onClose={() => setHeaderOpen(false)}
-        width={420}
-        extra={
-          <Button type="primary" onClick={applyHeader}>
-            应用
-          </Button>
-        }
-      >
-        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 14, lineHeight: 1.8 }}>
-          卷头文字只影响打印页和 Word 导出，不改试卷标题本身；留空则用默认。
-        </div>
-        <div style={{ fontSize: 11, marginBottom: 4 }}>卷头标题</div>
-        <Input
-          value={headerDraft.title}
-          placeholder={survey.title || '默认使用试卷标题'}
-          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, title: e.target.value }))}
-          style={{ marginBottom: 14 }}
-        />
-        <div style={{ fontSize: 11, marginBottom: 4 }}>副标题（可空）</div>
-        <Input
-          value={headerDraft.subtitle}
-          placeholder="如：2026 年育婴员五级理论考试"
-          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, subtitle: e.target.value }))}
-          style={{ marginBottom: 14 }}
-        />
-        <div style={{ fontSize: 11, marginBottom: 4 }}>考生信息行</div>
-        <Input
-          value={headerDraft.info}
-          placeholder="默认：姓名：____　考号：____　得分：____"
-          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, info: e.target.value }))}
-          style={{ marginBottom: 16 }}
-        />
-        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 6 }}>预览</div>
-        <div style={{ border: '1px solid var(--bp-line)', padding: 14, textAlign: 'center', background: 'var(--bp-panel)' }}>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>{headerDraft.title.trim() || survey.title || '试卷标题'}</div>
-          {headerDraft.subtitle.trim() && <div style={{ fontSize: 12, marginTop: 6 }}>{headerDraft.subtitle}</div>}
-          <div style={{ fontSize: 12, marginTop: 10 }}>
-            {headerDraft.info.trim() || '姓名：______　考号：______　得分：________'}
-          </div>
-        </div>
       </Drawer>
 
       <Modal
