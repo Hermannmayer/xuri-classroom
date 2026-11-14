@@ -341,9 +341,10 @@ export default function SurveyPrintPage() {
                       密封线内不要答题
                     </div>
                   )}
-                  {page.map((blockIndex) => (
-                    <div key={blocks[blockIndex].key}>{blocks[blockIndex].node}</div>
-                  ))}
+                  {page.map((blockIndex) => {
+                    const block = blocks[blockIndex];
+                    return block ? <div key={block.key}>{block.node}</div> : null;
+                  })}
                   {pageNumber && (
                     <div style={{ position: 'absolute', bottom: '8mm', left: 0, right: 0, textAlign: 'center', fontSize: 11 }}>
                       第 {globalPage} 页 / 共 {pages.length} 页
