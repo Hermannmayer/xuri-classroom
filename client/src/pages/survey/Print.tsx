@@ -53,18 +53,81 @@ function QuestionBlock({ question, number, answerArea }: { question: SurveySchem
   );
 }
 
+const OBJECTIVE_TYPES = new Set(['Radio', 'Checkbox', 'Judge', 'FillBlank', 'Select', 'HorzBlank']);
+
 function AnswerCard({ questions }: { questions: SurveySchema[] }) {
   return (
     <section>
-      <h2 style={{ fontSize: 15, margin: '0 0 8px' }}>答题卡</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+      <h2 style={{ fontSize: 15, margin: '0 0 10px' }}>答题卡</h2>
+      <div style={{ display: 'flex', gap: 24, fontSize: 12, marginBottom: 10 }}>
+        <span>姓名：____________</span>
+        <span>考号：____________</span>
+        <span>班级：____________</span>
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(10, 1fr)',
+          borderTop: '1px solid #000',
+          borderLeft: '1px solid #000',
+        }}
+      >
         {questions.map((question, index) => (
-          <div key={question.id} style={{ border: '1px solid #000', padding: '5px 6px', fontSize: 11 }}>
-            {index + 1}. ______
+          <div
+            key={question.id}
+            style={{
+              display: 'flex',
+              height: 34,
+              borderRight: '1px solid #000',
+              borderBottom: '1px solid #000',
+            }}
+          >
+            <span
+              style={{
+                width: 22,
+                flex: '0 0 22px',
+                borderRight: '1px solid #000',
+                fontSize: 10,
+                lineHeight: '32px',
+                textAlign: 'center',
+              }}
+            >
+              {index + 1}
+            </span>
+            <span style={{ flex: 1 }} />
           </div>
         ))}
       </div>
+      <div style={{ fontSize: 11, marginTop: 6 }}>请把答案填写在对应题号的格子里。</div>
     </section>
+  );
+}
+
+function ObjectiveAnswerGrid({ items }: { items: { number: number; answer: string }[] }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(8, 1fr)',
+        borderTop: '1px solid #000',
+        borderLeft: '1px solid #000',
+        marginBottom: 10,
+      }}
+    >
+      {items.map((item) => (
+        <div
+          key={item.number}
+          style={{
+            borderRight: '1px solid #000',
+            borderBottom: '1px solid #000',
+            padding: '4px 6px',
+            fontSize: 11,
+          }}
+        >
+          {item.number}. {item.answer || '—'}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -201,27 +264,47 @@ export default function SurveyPrintPage() {
         breakBefore: true,
         node: <h2 style={{ fontSize: 15, margin: '0 0 8px' }}>参考答案</h2>,
       });
-      questions.forEach((question, index) => {
+      const objective = questions
+        .map((question, index) => ({ number: index + 1, question }))
+        .filter((item) => OBJECTIVE_TYPES.has(item.question.type))
+        .map((item) => ({ number: item.number, answer: answerOf(item.question) }));
+      for (let i = 0; i < objective.length; i += 80) {
         list.push({
-          key: 'answer-' + question.id,
-          node: (
-            <div style={{ fontSize: 12, lineHeight: 1.9 }}>
-              {index + 1}. {answerOf(question) || '（略）'}
-            </div>
-          ),
+          key: 'answer-grid-' + i,
+          node: <ObjectiveAnswerGrid items={objective.slice(i, i + 80)} />,
         });
-      });
+      }
+      const essays = questions
+        .map((question, index) => ({ number: index + 1, question }))
+        .filter((item) => item.question.type === 'Textarea');
+      if (essays.length) {
+        list.push({
+          key: 'essay-title',
+          node: <h3 style={{ fontSize: 14, margin: '6px 0' }}>简答题参考答案</h3>,
+        });
+        for (const item of essays) {
+          list.push({
+            key: 'essay-' + item.question.id,
+            node: (
+              <div style={{ fontSize: 12, lineHeight: 1.8, marginBottom: 6 }}>
+                {item.number}. {answerOf(item.question) || '（略）'}
+              </div>
+            ),
+          });
+        }
+      }
     }
     return list;
   }, [project, groups, questions, showCard, showAnswers, answerArea, showInfo, showCode, id]);
 
-  const marginMm = margin === 'wide' ? 20 : 15;
+  const marginMm = margin === 'wide' ? 22 : 18;
 
   useLayoutEffect(() => {
     const root = measureRef.current;
     if (!root) return;
     const nodes = Array.from(root.querySelectorAll('[data-block]')) as HTMLElement[];
-    const pageHeight = ((297 - marginMm * 2) * 96) / 25.4;
+    // 预留 24px 缓冲，避免字体/行高取整把最后一行挤出页面
+    const pageHeight = ((297 - marginMm * 2) * 96) / 25.4 - 24;
     const next: number[][] = [];
     let current: number[] = [];
     let used = 0;
@@ -247,14 +330,19 @@ export default function SurveyPrintPage() {
     setPages(next);
   }, [blocks, marginMm]);
 
+  const safePages = useMemo(
+    () => pages.map((page) => page.filter((index) => Boolean(blocks[index]))).filter((page) => page.length > 0),
+    [pages, blocks],
+  );
+
   const sheets = useMemo(() => {
     if (size === 'A3') {
       const result: number[][][] = [];
-      for (let i = 0; i < pages.length; i += 2) result.push(pages.slice(i, i + 2));
+      for (let i = 0; i < safePages.length; i += 2) result.push(safePages.slice(i, i + 2));
       return result;
     }
-    return pages.map((page) => [page]);
-  }, [pages, size]);
+    return safePages.map((page) => [page]);
+  }, [safePages, size]);
 
   if (loading) {
     return (
@@ -347,7 +435,7 @@ export default function SurveyPrintPage() {
                   })}
                   {pageNumber && (
                     <div style={{ position: 'absolute', bottom: '8mm', left: 0, right: 0, textAlign: 'center', fontSize: 11 }}>
-                      第 {globalPage} 页 / 共 {pages.length} 页
+                      第 {globalPage} 页 / 共 {safePages.length} 页
                     </div>
                   )}
                 </div>
