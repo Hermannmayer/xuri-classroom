@@ -13,7 +13,6 @@ import {
   Select,
   Space,
   Spin,
-  Steps,
   Table,
   Tabs,
   Tag,
@@ -31,6 +30,7 @@ import {
   type ComposeRequest,
   type ComposeStats,
   type ComposeType,
+  type ComposeVariant,
 } from '../../api/compose';
 
 interface RepoView {
@@ -39,28 +39,91 @@ interface RepoView {
   total?: number;
 }
 
+const TYPE_FULL: Record<ComposeType, string> = {
+  Radio: '单选题',
+  Checkbox: '多选题',
+  Judge: '判断题',
+  FillBlank: '填空题',
+  Textarea: '简答题',
+};
+
 const DEFAULT_COUNTS: Record<string, number> = { Radio: 20, Checkbox: 10, Judge: 10, FillBlank: 5, Textarea: 2 };
 const DEFAULT_SCORES: Record<string, number> = { Radio: 2, Checkbox: 3, Judge: 2, FillBlank: 2, Textarea: 10 };
-const DEFAULT_RATIOS: Record<string, number> = { Radio: 30, Checkbox: 20, Judge: 20, FillBlank: 15, Textarea: 15 };
+const DEFAULT_WEIGHTS: Record<string, number> = { Radio: 30, Checkbox: 30, Judge: 20, FillBlank: 10, Textarea: 10 };
 
-/** 组卷中心：范围 → 规则 → 预览生成 */
+const LETTERS = 'ABCDEFGH';
+
+function stripHtml(text?: string) {
+  return (text || '').replace(/<[^>]+>/g, '');
+}
+
+/** 单套预览：逐题展示题干/选项/分值，不再拼成一行 */
+function VariantPreview({ variant }: { variant: ComposeVariant }) {
+  let number = 0;
+  return (
+    <div>
+      <Space wrap style={{ marginBottom: 8 }}>
+        <Tag color="blue">{variant.total} 题</Tag>
+        <Tag color="green">{variant.score} 分</Tag>
+        {Object.entries(variant.byType).map(([key, value]) => (
+          <Tag key={key}>
+            {key} {value}
+          </Tag>
+        ))}
+        {variant.repeated > 0 && <Tag color="red">与上一套重复 {variant.repeated} 题</Tag>}
+      </Space>
+      <div style={{ maxHeight: 520, overflow: 'auto', paddingRight: 4 }}>
+        {(variant.survey.children ?? []).map((group) => (
+          <div key={group.id} style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: 600, margin: '6px 0' }}>{group.title}</div>
+            {(group.children ?? []).map((question) => {
+              number += 1;
+              const options = question.children ?? [];
+              return (
+                <div key={question.id} style={{ marginBottom: 10, fontSize: 13, lineHeight: 1.7 }}>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>{number}. </span>
+                    {stripHtml(question.title)}
+                    {question.attribute?.examScore != null && (
+                      <span style={{ color: 'var(--bp-text-soft)' }}>（{question.attribute.examScore} 分）</span>
+                    )}
+                  </div>
+                  {options.length > 0 && question.type !== 'Textarea' && (
+                    <div style={{ paddingLeft: 16, color: 'var(--bp-text-soft)' }}>
+                      {options.map((option, index) => (
+                        <span key={option.id} style={{ marginRight: 14 }}>
+                          {LETTERS[index]}. {stripHtml(option.title)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 组卷中心：范围 + 规则 + 预览在一页完成 */
 export default function ComposePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [repos, setRepos] = useState<RepoView[]>([]);
   const [stats, setStats] = useState<ComposeStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [step, setStep] = useState(0);
   const [name, setName] = useState(searchParams.get('name') || '');
   const [repoIds, setRepoIds] = useState<string[]>([]);
-  const [types, setTypes] = useState<ComposeType[]>([...COMPOSE_TYPES]);
+  const [types, setTypes] = useState<ComposeType[]>([]);
   const [chapters, setChapters] = useState<string[]>([]);
   const [difficulties, setDifficulties] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
   const [mode, setMode] = useState<'random' | 'ratio' | 'sequential'>('random');
   const [counts, setCounts] = useState<Record<string, number>>({ ...DEFAULT_COUNTS });
   const [scores, setScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
-  const [ratios, setRatios] = useState<Record<string, number>>({ ...DEFAULT_RATIOS });
+  const [ratios, setRatios] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
   const [totalQuestions, setTotalQuestions] = useState(100);
   const [rangeStart, setRangeStart] = useState<Record<string, number>>({});
   const [rangeEnd, setRangeEnd] = useState<Record<string, number>>({});
@@ -70,6 +133,8 @@ export default function ComposePage() {
   const [shortage, setShortage] = useState<'reuse' | 'less' | 'error'>('less');
   const [weights, setWeights] = useState<Record<string, number>>({ 易: 5, 中: 3, 难: 2 });
   const [publish, setPublish] = useState(true);
+  const [totalScore, setTotalScore] = useState(100);
+  const [scoreWeights, setScoreWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
   const [plan, setPlan] = useState<ComposePlan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -102,6 +167,23 @@ export default function ComposePage() {
     };
   }, [repoIds]);
 
+  /** 题库里没有的题型不出现（按当前统计过滤） */
+  const availableTypes = useMemo(() => {
+    if (!stats) return [] as ComposeType[];
+    return COMPOSE_TYPES.filter((type) => (stats.byType[TYPE_FULL[type]] ?? 0) > 0);
+  }, [stats]);
+
+  useEffect(() => {
+    if (!availableTypes.length) {
+      setTypes([]);
+      return;
+    }
+    setTypes((prev) => {
+      const kept = prev.filter((type) => availableTypes.includes(type));
+      return kept.length ? kept : [...availableTypes];
+    });
+  }, [availableTypes]);
+
   const chapterOptions = useMemo(
     () =>
       Object.keys(stats?.byChapter ?? {})
@@ -115,6 +197,15 @@ export default function ComposePage() {
         .filter((key) => key !== '未设置')
         .map((key) => ({ label: key + '（' + (stats?.byDifficulty[key] ?? 0) + '）', value: key })),
     [stats],
+  );
+
+  const computedScore = useMemo(
+    () => types.reduce((sum, type) => sum + Number(counts[type] ?? 0) * Number(scores[type] ?? 0), 0),
+    [types, counts, scores],
+  );
+  const computedQuestions = useMemo(
+    () => types.reduce((sum, type) => sum + Number(counts[type] ?? 0), 0),
+    [types, counts],
   );
 
   const buildRequest = (): ComposeRequest => ({
@@ -138,26 +229,36 @@ export default function ComposePage() {
     difficultyWeights: weights,
   });
 
-  const next = () => {
-    if (step === 0) {
-      if (!repoIds.length) {
-        message.warning('请先选择至少一个题库');
-        return;
-      }
-      if (!types.length) {
-        message.warning('请至少选择一种题型');
-        return;
-      }
+  const applyTotalScore = () => {
+    const active = types.filter((type) => Number(counts[type] ?? 0) > 0);
+    const sumWeight = active.reduce((sum, type) => sum + Number(scoreWeights[type] ?? 0), 0);
+    if (!active.length || sumWeight <= 0 || totalScore <= 0) {
+      message.warning('先选择题型并填写题数与分值比例');
+      return;
     }
-    setStep(step + 1);
+    const next = { ...scores };
+    for (const type of active) {
+      const typeTotal = (totalScore * Number(scoreWeights[type] ?? 0)) / sumWeight;
+      const per = Math.max(0.5, Math.round((typeTotal / Number(counts[type])) * 2) / 2);
+      next[type] = per;
+    }
+    setScores(next);
+    message.success('已按总分分配每题分值，可继续微调');
   };
 
   const doPlan = async () => {
+    if (!repoIds.length) {
+      message.warning('请先选择题库');
+      return;
+    }
+    if (!types.length) {
+      message.warning('当前题库没有可用题型');
+      return;
+    }
     setPlanning(true);
     try {
       const result = await planCompose(buildRequest());
       setPlan(result);
-      setStep(2);
       if (result.warnings?.length) message.warning(result.warnings[0]);
     } catch (e) {
       message.error((e as Error).message);
@@ -179,17 +280,21 @@ export default function ComposePage() {
     }
   };
 
+  const activeTypes = types.filter((type) => availableTypes.includes(type));
+
   const typeTable = (
     <Table
       size="small"
       pagination={false}
       rowKey="type"
-      dataSource={COMPOSE_TYPES.filter((type) => types.includes(type)).map((type) => ({ type }))}
+      dataSource={activeTypes.map((type) => ({ type }))}
+      locale={{ emptyText: repoIds.length ? '当前题库没有可用题型' : '先选择题库' }}
       columns={[
-        { title: '题型', dataIndex: 'type', render: (type: ComposeType) => TYPE_LABELS[type] },
+        { title: '题型', dataIndex: 'type', width: 90, render: (type: ComposeType) => TYPE_LABELS[type] },
         {
           title: '可用题量',
-          render: (_: unknown, row: { type: ComposeType }) => stats?.byType?.[TYPE_LABELS[row.type]] ?? '-',
+          width: 100,
+          render: (_: unknown, row: { type: ComposeType }) => stats?.byType[TYPE_FULL[row.type]] ?? '-',
         },
         ...(mode === 'ratio'
           ? [
@@ -255,84 +360,86 @@ export default function ComposePage() {
   );
 
   return (
-    <div style={{ padding: 20, maxWidth: 1180, margin: '0 auto' }}>
+    <div style={{ padding: 20, maxWidth: 1380, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
             从题库组卷
           </Typography.Title>
-          <Typography.Text type="secondary">选范围 → 定规则 → 预览，生成后进入试卷集</Typography.Text>
+          <Typography.Text type="secondary">选范围、定规则、看预览，都在这一页完成</Typography.Text>
         </div>
         <Button onClick={() => navigate('/teaching?tab=exam')}>取消</Button>
       </div>
 
-      <Steps
-        current={step}
-        size="small"
-        style={{ marginBottom: 16 }}
-        items={[{ title: '选题范围' }, { title: '组卷规则' }, { title: '预览与生成' }]}
-      />
-
-      {step === 0 && (
-        <Card size="small">
-          <Space direction="vertical" style={{ width: '100%' }} size={16}>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>试卷名称</div>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：保育员三级模拟卷" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>题库</div>
-              <Checkbox.Group
-                value={repoIds}
-                onChange={(values) => setRepoIds(values as string[])}
-                options={repos.map((repo) => ({
-                  label: (repo.name || '未命名题库') + '（' + (repo.total ?? 0) + ' 题）',
-                  value: repo.id,
-                }))}
-              />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>题型</div>
-              <Checkbox.Group
-                value={types}
-                onChange={(values) => setTypes(values as ComposeType[])}
-                options={COMPOSE_TYPES.map((type) => ({ label: TYPE_LABELS[type], value: type }))}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ minWidth: 240 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>章节</div>
-                <Select
-                  mode="multiple"
-                  allowClear
-                  style={{ width: '100%' }}
-                  placeholder="不限章节"
-                  value={chapters}
-                  onChange={setChapters}
-                  options={chapterOptions}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 680px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Card size="small" title="① 选题范围">
+            <Space direction="vertical" style={{ width: '100%' }} size={14}>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>试卷名称</div>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：保育员三级模拟卷" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>题库</div>
+                <Checkbox.Group
+                  value={repoIds}
+                  onChange={(values) => setRepoIds(values as string[])}
+                  options={repos.map((repo) => ({
+                    label: (repo.name || '未命名题库') + '（' + (repo.total ?? 0) + ' 题）',
+                    value: repo.id,
+                  }))}
                 />
               </div>
-              <div style={{ minWidth: 240 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>难度</div>
-                <Select
-                  mode="multiple"
-                  allowClear
-                  style={{ width: '100%' }}
-                  placeholder="不限难度"
-                  value={difficulties}
-                  onChange={setDifficulties}
-                  options={difficultyOptions}
-                />
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>题型</div>
+                {statsLoading ? (
+                  <Spin size="small" />
+                ) : availableTypes.length ? (
+                  <Checkbox.Group
+                    value={types}
+                    onChange={(values) => setTypes(values as ComposeType[])}
+                    options={availableTypes.map((type) => ({
+                      label: TYPE_LABELS[type] + '（' + (stats?.byType[TYPE_FULL[type]] ?? 0) + '）',
+                      value: type,
+                    }))}
+                  />
+                ) : (
+                  <Typography.Text type="secondary">
+                    {repoIds.length ? '当前题库没有可用题型' : '先选择题库，题库里没有的题型不会显示'}
+                  </Typography.Text>
+                )}
               </div>
-              <div style={{ minWidth: 220, flex: 1 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>题干关键词</div>
-                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="可不填" />
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>章节</div>
+                  <Select
+                    mode="multiple"
+                    allowClear
+                    style={{ width: '100%' }}
+                    placeholder="不限章节"
+                    value={chapters}
+                    onChange={setChapters}
+                    options={chapterOptions}
+                  />
+                </div>
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>难度</div>
+                  <Select
+                    mode="multiple"
+                    allowClear
+                    style={{ width: '100%' }}
+                    placeholder="不限难度"
+                    value={difficulties}
+                    onChange={setDifficulties}
+                    options={difficultyOptions}
+                  />
+                </div>
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>题干关键词</div>
+                  <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="可不填" />
+                </div>
               </div>
-            </div>
-            {statsLoading ? (
-              <Spin />
-            ) : (
-              stats && (
+              {stats && (
                 <Alert
                   type="info"
                   showIcon
@@ -347,142 +454,165 @@ export default function ComposePage() {
                     </Space>
                   }
                 />
-              )
-            )}
-          </Space>
-        </Card>
-      )}
+              )}
+            </Space>
+          </Card>
 
-      {step === 1 && (
-        <Card size="small">
-          <Space direction="vertical" style={{ width: '100%' }} size={16}>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>抽题方式</div>
-              <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
-                <Radio.Button value="random">随机抽取</Radio.Button>
-                <Radio.Button value="ratio">按比例</Radio.Button>
-                <Radio.Button value="sequential">顺序区间</Radio.Button>
-              </Radio.Group>
-              {mode === 'ratio' && (
-                <span style={{ marginLeft: 12 }}>
-                  总题数 <InputNumber min={1} value={totalQuestions} onChange={(v) => setTotalQuestions(Number(v ?? 1))} />
+          <Card size="small" title="② 组卷规则">
+            <Space direction="vertical" style={{ width: '100%' }} size={14}>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>抽题方式</div>
+                <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <Radio.Button value="random">随机抽取</Radio.Button>
+                  <Radio.Button value="ratio">按比例</Radio.Button>
+                  <Radio.Button value="sequential">顺序区间</Radio.Button>
+                </Radio.Group>
+                {mode === 'ratio' && (
+                  <span style={{ marginLeft: 12 }}>
+                    总题数{' '}
+                    <InputNumber min={1} value={totalQuestions} onChange={(v) => setTotalQuestions(Number(v ?? 1))} />
+                  </span>
+                )}
+              </div>
+
+              {typeTable}
+
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span>
+                  整套总分{' '}
+                  <InputNumber min={1} value={totalScore} onChange={(v) => setTotalScore(Number(v ?? 1))} />
                 </span>
-              )}
-            </div>
-            {typeTable}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span>
-                生成套数 <InputNumber min={1} max={50} value={sets} onChange={(v) => setSets(Number(v ?? 1))} />
-              </span>
-              <span>
-                随机种子 <InputNumber value={seed ?? undefined} onChange={(v) => setSeed(v === null ? null : Number(v))} placeholder="留空自动" />
-              </span>
-              <Checkbox checked={unique} onChange={(e) => setUnique(e.target.checked)}>
-                多套之间不重复
-              </Checkbox>
-              <span>
-                题不够时{' '}
-                <Select
-                  style={{ width: 150 }}
-                  value={shortage}
-                  onChange={setShortage}
-                  options={[
-                    { label: '少出并提示', value: 'less' },
-                    { label: '复用旧题并提示', value: 'reuse' },
-                    { label: '直接报错', value: 'error' },
-                  ]}
-                />
-              </span>
-              <Checkbox checked={publish} onChange={(e) => setPublish(e.target.checked)}>
-                生成后发布为考试
-              </Checkbox>
-            </div>
-            <Collapse
-              size="small"
-              items={[
-                {
-                  key: 'more',
-                  label: '更多规则：难度配比',
-                  children: (
-                    <Space>
-                      {['易', '中', '难'].map((level) => (
-                        <span key={level}>
-                          {level}{' '}
-                          <InputNumber
-                            min={0}
-                            value={weights[level]}
-                            onChange={(v) => setWeights({ ...weights, [level]: Number(v ?? 0) })}
-                          />
-                        </span>
-                      ))}
-                      <Typography.Text type="secondary">按权重分配，题库不足时自动借用其他难度</Typography.Text>
-                    </Space>
-                  ),
-                },
-              ]}
-            />
-          </Space>
-        </Card>
-      )}
+                <span style={{ color: 'var(--bp-text-soft)' }}>
+                  当前配置：{computedQuestions} 题 / {computedScore} 分
+                </span>
+                <Button size="small" onClick={applyTotalScore}>
+                  按总分分配每题分值
+                </Button>
+              </div>
 
-      {step === 2 && (
-        <Card size="small">
-          {!plan ? (
-            <Empty description="还没有生成预览" />
-          ) : (
-            <>
-              {plan.warnings?.length > 0 && (
-                <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={plan.warnings.join('；')} />
-              )}
-              <Tabs
-                items={plan.variants.map((variant) => ({
-                  key: String(variant.seq),
-                  label: '第 ' + variant.seq + ' 套' + (variant.repeated ? '（重复 ' + variant.repeated + ' 题）' : ''),
-                  children: (
-                    <div>
-                      <Space wrap style={{ marginBottom: 10 }}>
-                        <Tag color="blue">{variant.total} 题</Tag>
-                        <Tag color="green">{variant.score} 分</Tag>
-                        {Object.entries(variant.byType).map(([key, value]) => (
-                          <Tag key={key}>
-                            {key} {value}
-                          </Tag>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography.Text type="secondary">题型分值比例：</Typography.Text>
+                {activeTypes.map((type) => (
+                  <span key={type}>
+                    {TYPE_LABELS[type]}{' '}
+                    <InputNumber
+                      min={0}
+                      style={{ width: 70 }}
+                      value={scoreWeights[type]}
+                      onChange={(v) => setScoreWeights({ ...scoreWeights, [type]: Number(v ?? 0) })}
+                    />
+                  </span>
+                ))}
+                <Typography.Text type="secondary">按比例分总分后，再除以题数得到每题分值</Typography.Text>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span>
+                  生成套数 <InputNumber min={1} max={50} value={sets} onChange={(v) => setSets(Number(v ?? 1))} />
+                </span>
+                <span>
+                  随机种子{' '}
+                  <InputNumber value={seed ?? undefined} onChange={(v) => setSeed(v === null ? null : Number(v))} placeholder="留空自动" />
+                </span>
+                <Checkbox checked={unique} onChange={(e) => setUnique(e.target.checked)}>
+                  多套之间不重复
+                </Checkbox>
+                <span>
+                  题不够时{' '}
+                  <Select
+                    style={{ width: 140 }}
+                    value={shortage}
+                    onChange={setShortage}
+                    options={[
+                      { label: '少出并提示', value: 'less' },
+                      { label: '复用旧题并提示', value: 'reuse' },
+                      { label: '直接报错', value: 'error' },
+                    ]}
+                  />
+                </span>
+                <Checkbox checked={publish} onChange={(e) => setPublish(e.target.checked)}>
+                  生成后发布为考试
+                </Checkbox>
+              </div>
+
+              <Collapse
+                size="small"
+                items={[
+                  {
+                    key: 'more',
+                    label: '更多规则：难度配比',
+                    children: (
+                      <Space>
+                        {['易', '中', '难'].map((level) => (
+                          <span key={level}>
+                            {level}{' '}
+                            <InputNumber
+                              min={0}
+                              value={weights[level]}
+                              onChange={(v) => setWeights({ ...weights, [level]: Number(v ?? 0) })}
+                            />
+                          </span>
                         ))}
+                        <Typography.Text type="secondary">按权重分配，题库不足时借用其他难度</Typography.Text>
                       </Space>
-                      {(variant.survey.children ?? []).map((group) => (
-                        <div key={group.id} style={{ marginBottom: 10 }}>
-                          <div style={{ fontWeight: 600 }}>{group.title}</div>
-                          <div style={{ color: 'var(--bp-text-soft)', fontSize: 13 }}>
-                            {(group.children ?? []).map((q) => (q.title || '').replace(/<[^>]+>/g, '').slice(0, 40)).join(' / ')}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ),
-                }))}
+                    ),
+                  },
+                ]}
               />
-            </>
-          )}
-        </Card>
-      )}
+            </Space>
+          </Card>
+        </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-        {step > 0 && <Button onClick={() => setStep(step - 1)}>上一步</Button>}
-        {step === 0 && (
-          <Button type="primary" onClick={next}>
-            下一步：组卷规则
-          </Button>
-        )}
-        {step === 1 && (
-          <Button type="primary" loading={planning} onClick={doPlan}>
-            预览 {sets > 1 ? sets + ' 套' : ''}
-          </Button>
-        )}
-        {step === 2 && (
-          <Button type="primary" loading={creating} onClick={doCreate}>
-            {publish ? '生成并发布' : '生成试卷集'}
-          </Button>
-        )}
+        <div style={{ flex: '0 1 520px', minWidth: 340, position: 'sticky', top: 12 }}>
+          <Card
+            size="small"
+            title="③ 预览"
+            extra={
+              <Button size="small" type="primary" loading={planning} onClick={doPlan}>
+                刷新预览
+              </Button>
+            }
+          >
+            {!plan ? (
+              <Empty description="配置好左侧规则后点「刷新预览」" />
+            ) : (
+              <>
+                {plan.warnings?.length > 0 && (
+                  <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={plan.warnings.join('；')} />
+                )}
+                <Tabs
+                  size="small"
+                  items={plan.variants.map((variant) => ({
+                    key: String(variant.seq),
+                    label: '第 ' + variant.seq + ' 套',
+                    children: <VariantPreview variant={variant} />,
+                  }))}
+                />
+              </>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      <div
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          marginTop: 12,
+          padding: '10px 0',
+          background: 'var(--bp-bg, #fff)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: 8,
+          borderTop: '1px solid var(--bp-line, #eee)',
+        }}
+      >
+        <Button loading={planning} onClick={doPlan}>
+          预览
+        </Button>
+        <Button type="primary" loading={creating} onClick={doCreate}>
+          {publish ? '生成并发布' : '生成试卷集'}
+        </Button>
       </div>
     </div>
   );
