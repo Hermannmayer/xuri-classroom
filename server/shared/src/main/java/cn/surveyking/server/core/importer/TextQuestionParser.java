@@ -35,7 +35,7 @@ public class TextQuestionParser {
 
 	private static final Pattern OPTION_PREFIX = Pattern.compile("^\\s*([A-Ha-h])\\s*[.、．)）:：]\\s*(.*)$");
 
-	private static final Pattern META = Pattern.compile("^\\s*(答案解析|参考答案|正确答案|答案|解析|标签|难度)\\s*[:：]\\s*(.*)$");
+	private static final Pattern META = Pattern.compile("^\\s*(答案解析|参考答案|正确答案|答案|解析|标签|难度|分数|分值|题型)\\s*[:：]\\s*(.*)$");
 
 	private static final Pattern QUESTION_NO = Pattern.compile("^\\s*\\d+\\s*[.、．)）]\\s*");
 
@@ -51,8 +51,15 @@ public class TextQuestionParser {
 
 	private boolean difficultySeen = false;
 
+	private final boolean detectTitle;
+
 	public TextQuestionParser(String rawText) {
+		this(rawText, true);
+	}
+
+	public TextQuestionParser(String rawText, boolean detectTitle) {
 		this.rawText = rawText == null ? "" : rawText;
+		this.detectTitle = detectTitle;
 	}
 
 	public ImportPreview parse() {
@@ -60,7 +67,7 @@ public class TextQuestionParser {
 		String title = null;
 		int start = 0;
 		int first = firstNonBlank(lines);
-		if (first >= 0 && isTitleLine(lines.get(first).trim())) {
+		if (detectTitle && first >= 0 && looksLikeTitle(lines.get(first).trim())) {
 			title = cleanStem(lines.get(first).trim());
 			start = first + 1;
 		}
@@ -124,6 +131,8 @@ public class TextQuestionParser {
 		String answer = null;
 		String analysis = null;
 		String tags = null;
+		String metaType = null;
+		Double metaScore = null;
 		for (int i = 1; i < block.size(); i++) {
 			String line = block.get(i).trim();
 			if (!StringUtils.hasText(line)) {
@@ -142,6 +151,12 @@ public class TextQuestionParser {
 				else if ("标签".equals(key)) {
 					tags = value;
 				}
+				else if ("分数".equals(key) || "分值".equals(key)) {
+					metaScore = parseScore(value);
+				}
+				else if ("题型".equals(key)) {
+					metaType = value;
+				}
 				else {
 					difficultySeen = true;
 				}
@@ -150,7 +165,8 @@ public class TextQuestionParser {
 			extras.add(line);
 		}
 
-		SurveySchema.QuestionType type = resolveType(marker, stem, extras, answer, serial);
+		SurveySchema.QuestionType type = resolveType(marker != null ? marker : metaType, stem, extras, answer,
+				serial);
 		List<SurveySchema> children = new ArrayList<>();
 		List<SurveySchema.DataSource> dataSources = new ArrayList<>();
 
@@ -173,7 +189,8 @@ public class TextQuestionParser {
 			parseBlank(type, stem, answer, children, serial);
 		}
 
-		SurveySchema.Attribute attribute = buildAttribute(type, scoreText.score, analysis);
+		SurveySchema.Attribute attribute = buildAttribute(type, metaScore == null ? scoreText.score : metaScore,
+				analysis);
 		SurveySchema question = SurveySchema.builder().id(newId()).title(stem).type(type).attribute(attribute)
 				.children(children).dataSource(dataSources.isEmpty() ? null : dataSources).tags(parseTags(tags)).build();
 
@@ -377,7 +394,8 @@ public class TextQuestionParser {
 		return result.isEmpty() ? null : result;
 	}
 
-	private boolean isTitleLine(String line) {
+	/** 首行是否像“试卷标题”：不是题型标记、不是题号、不是字段行、不是选项、不以句号问号结尾。 */
+	public static boolean looksLikeTitle(String line) {
 		String value = line.trim();
 		return StringUtils.hasText(value) && !MARKER.matcher(value).find() && !QUESTION_NO.matcher(value).find()
 				&& !META.matcher(value).matches() && !OPTION_PREFIX.matcher(value).matches()
@@ -397,6 +415,18 @@ public class TextQuestionParser {
 
 	private double scoreOf(Matcher matcher) {
 		return Double.parseDouble(matcher.group(1));
+	}
+
+	private Double parseScore(String value) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		try {
+			return Double.parseDouble(value.trim());
+		}
+		catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	private ScoreText extractScore(String text) {

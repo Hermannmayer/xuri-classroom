@@ -19,17 +19,20 @@ import {
 import { InboxOutlined, WarningOutlined } from '@ant-design/icons';
 import type { SurveySchema } from '../../schema/types';
 import { parseImport, type ImportFormat, type ImportPreview } from '../../api/import';
+import { download } from '../../api';
 
 export type ImportDestination =
   | { type: 'new-paper' }
   | { type: 'new-group'; title: string }
   | { type: 'existing-group'; groupId: string }
+  | { type: 'whole-paper' }
   | { type: 'repo' };
 
 export interface ImportSubmitPayload {
   preview: ImportPreview;
   destination: ImportDestination;
   sourceText?: string;
+  sourceFile?: File;
 }
 
 interface Props {
@@ -41,6 +44,8 @@ interface Props {
   paperName?: string;
   /** 题库导入时：题库名 */
   repoName?: string;
+  /** 整份试卷导入：不选落点，直接把解析出的大题/题目追加进试卷 */
+  wholePaper?: boolean;
   /** 从某个题组进来时的预选值 */
   presetGroupId?: string;
   /** 当前试卷已有题组，用于“导入到现有题组” */
@@ -137,6 +142,7 @@ export default function ImportWizard({
   formats = ['text'],
   paperName,
   repoName,
+  wholePaper = false,
   presetGroupId,
   groups = [],
   onClose,
@@ -213,7 +219,9 @@ export default function ImportWizard({
       return;
     }
     let destination: ImportDestination;
-    if (target === 'repo') {
+    if (wholePaper) {
+      destination = { type: 'whole-paper' };
+    } else if (target === 'repo') {
       destination = { type: 'repo' };
     } else if (paperName) {
       destination = { type: 'new-paper' };
@@ -232,7 +240,12 @@ export default function ImportWizard({
     }
     setSubmitting(true);
     try {
-      await onSubmit({ preview: finalPreview, destination, sourceText: format === 'text' ? text : undefined });
+      await onSubmit({
+        preview: finalPreview,
+        destination,
+        sourceText: format === 'text' ? text : undefined,
+        sourceFile: format === 'text' ? undefined : file,
+      });
       onClose();
     } catch (e) {
       message.error((e as Error).message);
@@ -257,8 +270,14 @@ export default function ImportWizard({
         <Button key="prev" onClick={() => setStep(0)}>
           上一步
         </Button>,
-        <Button key="next" type="primary" disabled={!selected.size} onClick={() => setStep(2)}>
-          下一步
+        <Button
+          key="next"
+          type="primary"
+          disabled={!selected.size}
+          loading={submitting}
+          onClick={() => (wholePaper ? submit() : setStep(2))}
+        >
+          {wholePaper ? '导入到试卷' : '下一步'}
         </Button>,
       ];
     }
@@ -289,7 +308,11 @@ export default function ImportWizard({
         size="small"
         current={step}
         style={{ marginBottom: 16 }}
-        items={[{ title: '选择来源' }, { title: '预览确认' }, { title: '选择去向' }]}
+        items={
+          wholePaper
+            ? [{ title: '选择来源' }, { title: '预览确认' }]
+            : [{ title: '选择来源' }, { title: '预览确认' }, { title: '选择去向' }]
+        }
       />
 
       {step === 0 && (
@@ -319,20 +342,37 @@ export default function ImportWizard({
                     </Space>
                   </>
                 ) : (
-                  <Upload.Dragger
-                    accept={item === 'word' ? '.docx,.doc' : item === 'excel' ? '.xlsx,.xls' : '.json'}
-                    beforeUpload={(next) => {
-                      setFile(next);
-                      return false;
-                    }}
-                    maxCount={1}
-                  >
-                    <p className="ant-upload-drag-icon">
-                      <InboxOutlined />
-                    </p>
-                    <p className="ant-upload-text">点击或拖拽文件到这里</p>
-                    <p className="ant-upload-hint">{FORMAT_HINT[item]}</p>
-                  </Upload.Dragger>
+                  <div>
+                    <Upload.Dragger
+                      accept={item === 'word' ? '.docx' : item === 'excel' ? '.xlsx,.xls' : '.json'}
+                      beforeUpload={(next) => {
+                        setFile(next);
+                        return false;
+                      }}
+                      maxCount={1}
+                    >
+                      <p className="ant-upload-drag-icon">
+                        <InboxOutlined />
+                      </p>
+                      <p className="ant-upload-text">点击或拖拽文件到这里</p>
+                      <p className="ant-upload-hint">{FORMAT_HINT[item]}</p>
+                    </Upload.Dragger>
+                    <Space style={{ marginTop: 8 }}>
+                      <Button
+                        size="small"
+                        onClick={() =>
+                          void download(
+                            '/api/file/downloadTemplate',
+                            { name: item === 'word' ? '试卷导入模板' : '题库导入模板' },
+                            item === 'word' ? '试卷导入模板.docx' : '题库导入模板.xlsx',
+                          ).catch((e) => message.error((e as Error).message))
+                        }
+                      >
+                        下载模板
+                      </Button>
+                      {file && <span style={{ fontSize: 12 }}>已选择：{file.name}</span>}
+                    </Space>
+                  </div>
                 )}
               </div>
             ),

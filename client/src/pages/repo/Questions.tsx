@@ -530,11 +530,11 @@ export default function RepoQuestions() {
                   items: [
                     { key: 'excel', label: '导入 Excel（按题型分表）' },
                     { key: 'text', label: '导入文本（粘贴题目）' },
-                    { key: 'word', label: '导入 Word · 即将开放', disabled: true },
+                    { key: 'word', label: '导入 Word（按模板）' },
                   ],
                   onClick: ({ key }) => {
                     if (key === 'excel') fileInputRef.current?.click();
-                    else if (key === 'text') setImportOpen(true);
+                    else if (key === 'text' || key === 'word') setImportOpen(true);
                   },
                 }}
               >
@@ -897,14 +897,15 @@ export default function RepoQuestions() {
       <ImportWizard
         open={importOpen}
         target="repo"
-        formats={['text']}
+        formats={['text', 'word']}
         repoName={repoName}
         onClose={() => setImportOpen(false)}
-        onSubmit={async ({ preview, sourceText }) => {
+        onSubmit={async ({ preview, sourceText, sourceFile }) => {
           const form = new FormData();
           form.append('repoId', repoId);
-          form.append('kind', 'text');
-          form.append('text', sourceText ?? '');
+          form.append('kind', sourceFile ? 'word' : 'text');
+          if (sourceFile) form.append('file', sourceFile);
+          else form.append('text', sourceText ?? '');
           await post<void>('/api/repo/import', form);
           message.success('已导入 ' + preview.stats.total + ' 题');
           await load();

@@ -26,6 +26,11 @@ public class TemplateRequest {
 	private String serialNo;
 
 	/**
+	 * 章节（Excel 可选列），导入试卷时可用来拆大题；题库导入不消费
+	 */
+	private String chapter;
+
+	/**
 	 * 模板标题
 	 */
 	private String name;

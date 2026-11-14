@@ -4,8 +4,10 @@ import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.importer.ImportKind;
 import cn.surveyking.server.core.importer.ImportParseRequest;
+import cn.surveyking.server.core.importer.ExcelQuestionParser;
 import cn.surveyking.server.core.importer.ImportPreview;
 import cn.surveyking.server.core.importer.TextQuestionParser;
+import cn.surveyking.server.core.importer.WordQuestionParser;
 import cn.surveyking.server.domain.dto.PaperImportRecordRequest;
 import cn.surveyking.server.service.ExportGuardService;
 import cn.surveyking.server.service.ImportService;
@@ -36,13 +38,32 @@ public class ImportServiceImpl implements ImportService {
 			case text:
 				return parseText(request.getText());
 			case word:
-				throw new ErrorCodeException(ErrorCode.FileParseError, "Word 导入将在下一版本开放，当前请使用文本导入");
+				requireFile(request);
+				requireDocx(request);
+				return new WordQuestionParser(request.getFile()).parse();
 			case excel:
-				throw new ErrorCodeException(ErrorCode.FileParseError, "Excel 导入将在下一版本开放，当前请使用文本导入");
+				requireFile(request);
+				return new ExcelQuestionParser(request.getFile()).parse();
 			case json:
 				throw new ErrorCodeException(ErrorCode.FileParseError, "JSON 导入将在后续版本开放");
 			default:
 				throw new ErrorCodeException(ErrorCode.FileParseError, "无法识别的导入格式");
+		}
+	}
+
+	private void requireFile(ImportParseRequest request) {
+		if (request.getFile() == null || request.getFile().isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "请上传要导入的文件");
+		}
+		if (request.getFile().getSize() > MAX_FILE_SIZE) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "文件超过 10MB 限制");
+		}
+	}
+
+	private void requireDocx(ImportParseRequest request) {
+		String name = request.getFile().getOriginalFilename();
+		if (name != null && name.toLowerCase(Locale.ROOT).endsWith(".doc")) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "暂不支持 .doc 旧格式，请在 Word 里另存为 .docx 后重试");
 		}
 	}
 

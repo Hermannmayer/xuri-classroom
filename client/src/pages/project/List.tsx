@@ -1205,7 +1205,7 @@ function ManagerProjectList({
           )}
           {createMode === 'exam' && createSource === 'import' && (
             <div style={{ marginTop: -10, marginBottom: 12, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-              当前支持<b>文本导入</b>：下一步粘贴题目文本，解析预览后再创建；Word 试卷、Excel 表格、JSON 备份即将开放。
+              当前支持<b>文本 / Excel / Word 导入</b>：下一步上传或粘贴，解析预览后再创建；JSON 备份即将开放。
             </div>
           )}
         </Form>
@@ -1214,7 +1214,7 @@ function ManagerProjectList({
       <ImportWizard
         open={importOpen}
         target="paper"
-        formats={['text']}
+        formats={['text', 'excel', 'word']}
         paperName={importName}
         onClose={() => setImportOpen(false)}
         onSubmit={handleImportCreate}

@@ -601,11 +601,12 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 
 	private static Map<String, String> buildTemplateWhitelist() {
 		Map<String, String> templates = new LinkedHashMap<>();
-		templates.put("用户导入模板", "旭日云课堂用户导入模板");
-		templates.put("学员导入模板", "学员导入模板");
-		templates.put("题库导入模板", "旭日云课堂题库导入模板");
-		templates.put("字典导入模板", "字典导入模板");
-		templates.put("白名单导入模板", "白名单导入模板");
+		templates.put("用户导入模板", "旭日云课堂用户导入模板.xlsx");
+		templates.put("学员导入模板", "学员导入模板.xlsx");
+		templates.put("题库导入模板", "旭日云课堂题库导入模板.xlsx");
+		templates.put("字典导入模板", "字典导入模板.xlsx");
+		templates.put("白名单导入模板", "白名单导入模板.xlsx");
+		templates.put("试卷导入模板", "旭日云课堂试卷导入模板.docx");
 		return Collections.unmodifiableMap(templates);
 	}
 
@@ -616,18 +617,20 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		if (StringUtils.isBlank(templateName)) {
 			throw new ErrorCodeException(ErrorCode.FileNotExists);
 		}
-		String location = "template/" + templateName + ".xlsx";
+		String location = "template/" + templateName;
 		ClassPathResource resource = new ClassPathResource(location);
 		if (!resource.exists()) {
 			// 直接返回不存在的 Resource 会在消息转换阶段抛 IOException，最终变成 500；这里按 404 处理
 			log.warn("导入模板不存在: {}", location);
 			throw new ErrorCodeException(ErrorCode.FileNotExists);
 		}
-		String downloadName = templateName + ".xlsx";
+		String downloadName = templateName;
+		MediaType mediaType = templateName.toLowerCase(java.util.Locale.ROOT).endsWith(".docx")
+				? MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+				: MediaType.parseMediaType("application/vnd.ms-excel");
 		return ResponseEntity.ok()
 				.header(HttpHeaders.CONTENT_DISPOSITION, HTTPUtils.getContentDispositionValue(downloadName))
-				.contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
-				.body(resource);
+				.contentType(mediaType).body(resource);
 	}
 
 	private static final class UploadRateWindow {

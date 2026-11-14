@@ -106,6 +106,7 @@ public class RepoTemplateExcelParseHelper {
 
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(questionType)
 				.mode(ProjectModeEnum.exam).name(schema.getTitle()).serialNo(r.getCellText(0)).template(schema).build();
+		templateRequest.setChapter(getCellAsString(r, "chapter"));
 		result.add(templateRequest);
 	}
 
@@ -117,6 +118,7 @@ public class RepoTemplateExcelParseHelper {
 
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(SurveySchema.QuestionType.Checkbox)
 				.serialNo(r.getCellText(0)).mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build();
+		templateRequest.setChapter(getCellAsString(r, "chapter"));
 		result.add(templateRequest);
 	}
 
@@ -131,6 +133,7 @@ public class RepoTemplateExcelParseHelper {
 
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(questionType)
 				.serialNo(r.getCellText(0)).mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build();
+		templateRequest.setChapter(getCellAsString(r, "chapter"));
 		result.add(templateRequest);
 	}
 
@@ -148,6 +151,7 @@ public class RepoTemplateExcelParseHelper {
 		;
 		TemplateRequest templateRequest = TemplateRequest.builder().questionType(SurveySchema.QuestionType.Textarea)
 				.serialNo(r.getCellText(0)).mode(ProjectModeEnum.exam).name(schema.getTitle()).template(schema).build();
+		templateRequest.setChapter(getCellAsString(r, "chapter"));
 		result.add(templateRequest);
 	}
 

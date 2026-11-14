@@ -33,6 +33,7 @@ import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, newId, normal
 import { cloneNode, findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
+import type { ImportFormat } from '../../api/import';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
 
@@ -201,6 +202,14 @@ export default function SurveyEditor() {
   const [jsonText, setJsonText] = useState('');
   const [themeOpen, setThemeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importWhole, setImportWhole] = useState(false);
+  const [importFormats, setImportFormats] = useState<ImportFormat[]>(['text', 'excel', 'word']);
+
+  const openImport = (whole: boolean, formats: ImportFormat[]) => {
+    setImportWhole(whole);
+    setImportFormats(formats);
+    setImportOpen(true);
+  };
   const [themeText, setThemeText] = useState<{ backgroundImage: string; headerImage: string }>({
     backgroundImage: '',
     headerImage: '',
@@ -388,7 +397,14 @@ export default function SurveyEditor() {
     if (!questions.length) {
       throw new Error('没有可导入的题目');
     }
-    if (destination.type === 'new-group') {
+    if (destination.type === 'whole-paper') {
+      const nodes = (preview.tree?.children ?? []) as SurveySchema[];
+      let next = survey;
+      for (const node of nodes) {
+        next = insertNode(next, undefined, node);
+      }
+      setSurvey(next);
+    } else if (destination.type === 'new-group') {
       const group: SurveySchema = {
         id: newId(),
         title: destination.title,
@@ -479,13 +495,17 @@ export default function SurveyEditor() {
         <Dropdown
           menu={{
             items: [
+              { key: 'whole-word', label: '整份试卷（Word）' },
               { key: 'text', label: '批量导入题目（文本）' },
-              { key: 'word', label: '整份试卷（Word）· 即将开放', disabled: true },
-              { key: 'excel', label: '批量导入（Excel）· 即将开放', disabled: true },
+              { key: 'excel', label: '批量导入题目（Excel）' },
+              { key: 'word', label: '批量导入题目（Word）' },
               { key: 'json', label: '从 JSON 导入结构 · 即将开放', disabled: true },
             ],
             onClick: ({ key }) => {
-              if (key === 'text') setImportOpen(true);
+              if (key === 'whole-word') openImport(true, ['word']);
+              else if (key === 'text') openImport(false, ['text']);
+              else if (key === 'excel') openImport(false, ['excel']);
+              else if (key === 'word') openImport(false, ['word']);
             },
           }}
         >
@@ -781,7 +801,8 @@ export default function SurveyEditor() {
       <ImportWizard
         open={importOpen}
         target="paper"
-        formats={['text']}
+        formats={importFormats}
+        wholePaper={importWhole}
         groups={importGroups}
         onClose={() => setImportOpen(false)}
         onSubmit={handleImportSubmit}
