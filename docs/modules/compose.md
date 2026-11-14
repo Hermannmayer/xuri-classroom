@@ -38,7 +38,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
 last_verified: 2026-11-14
-verified_against: 9acf46549cc400e2e144efd3c5f54685d2b7567b
+verified_against: dfa47b376cc479d098654c2d636da01846944885
 ---
 
 # 组卷中心
@@ -94,7 +94,8 @@ verified_against: 9acf46549cc400e2e144efd3c5f54685d2b7567b
 - 跨套去重按题型各自切池，题型之间不共享。
 - 题不够策略：less（默认少出+提示）/ reuse（复用补足）/ error（直接报错）。
 - 整套拆分要求总题量 ≥ 套数，否则直接报错；按题型轮转分配，各套题数最多差 1。
-- 卷内抽题走 POST /api/compose/pick，按题型传 counts/scores/mode。
+- 卷内抽题：编辑器「从题库抽题」直接调 /api/template/list 浏览/搜索题库，勾选后加入试卷；POST /api/compose/pick 仍保留给按规则抽题。
+- 打印页 A3 = 横向 + CSS 双栏（每栏一张 A4 宽），答案卡/答案页跨栏。
 - Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。
 - 打印页 A3 只改 @page 尺寸，未做双页拼版。
 

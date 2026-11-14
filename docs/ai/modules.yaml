@@ -183,7 +183,7 @@ modules:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test
     last_verified: 2026-11-14
-    verified_against: 9acf46549cc400e2e144efd3c5f54685d2b7567b
+    verified_against: dfa47b376cc479d098654c2d636da01846944885
   - id: module-dashboard
     title: 首页与统计
     doc: docs/modules/dashboard.md

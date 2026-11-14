@@ -538,7 +538,7 @@ export default function SurveyEditor() {
           </Button>
         </Dropdown>
         <Button icon={<DatabaseOutlined />} onClick={() => setBankOpen(true)}>
-          从题库添加
+          从题库抽题
         </Button>
         <Button icon={<PrinterOutlined />} onClick={() => navigate('/survey/' + id + '/print')}>
           打印
