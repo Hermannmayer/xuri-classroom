@@ -23,6 +23,51 @@ const ITEM_STYLE = { marginBottom: 12 };
  */
 export function AttributePanel({ schema, onChange, questions, onPatchNode }: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
+  const choiceTypes = new Set(['Radio', 'Checkbox', 'Judge', 'Select']);
+  const isChoice = choiceTypes.has(schema.type);
+  const isMultiChoice = schema.type === 'Checkbox';
+  const isMultipleBlank = schema.type === 'MultipleBlank';
+  const optionNodes = (schema.children ?? []).filter((child) => child.type === 'Option' || !child.type);
+  const answerOptions = optionNodes.map((child, index) => {
+    const letter = String.fromCharCode(65 + index);
+    return { value: child.id, label: letter + '. ' + (child.title || '(未填写)') };
+  });
+  const correctIds = optionNodes
+    .filter((child) => Boolean(child.attribute?.examCorrectAnswer))
+    .map((child) => child.id);
+  const patchChoiceAnswer = (ids: string[]) => {
+    if (!onPatchNode) return;
+    onPatchNode({
+      children: (schema.children ?? []).map((child) => ({
+        ...child,
+        attribute: { ...child.attribute, examCorrectAnswer: ids.includes(child.id) ? '1' : undefined },
+      })),
+    });
+  };
+  const answerText =
+    (attribute.examCorrectAnswer as string | undefined) ??
+    (schema.children?.[0]?.attribute?.examCorrectAnswer as string | undefined) ??
+    '';
+  const patchTextAnswer = (value: string, index = 0) => {
+    if (isMultipleBlank && schema.children?.[index]) {
+      if (!onPatchNode) return;
+      onPatchNode({
+        children: schema.children.map((child, i) =>
+          i === index ? { ...child, attribute: { ...child.attribute, examCorrectAnswer: value } } : child,
+        ),
+      });
+      return;
+    }
+    if (schema.children?.[0] && onPatchNode) {
+      onPatchNode({
+        children: schema.children.map((child, i) =>
+          i === 0 ? { ...child, attribute: { ...child.attribute, examCorrectAnswer: value } } : child,
+        ),
+      });
+      return;
+    }
+    onChange({ examCorrectAnswer: value } as Partial<Attribute>);
+  };
 
   const set = (key: keyof Attribute, value: unknown) => {
     onChange({ [key]: value } as Partial<Attribute>);
@@ -133,6 +178,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
       <div>
         {attributeSchema
           .filter((f) => f.group === group)
+          .filter((f) => !['required', 'examScore', 'examAnalysis'].includes(String(f.key)))
           .map((field) => {
             if (group === '规则') {
               const conditional = field.key === 'visibleRule' || field.key === 'requiredRule';
@@ -174,7 +220,64 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
       {onPatchNode && <OptionEditor schema={schema} onPatch={onPatchNode} />}
 
       <Form layout="vertical" size="small" requiredMark={false}>
-        <Collapse size="small" defaultActiveKey={[...ATTRIBUTE_GROUPS]} items={items} />
+        {isChoice ? (
+          <Form.Item label="正确答案" extra="选择题答案存在选项节点上，选中后画布/打印/判分都按它来" style={ITEM_STYLE}>
+            <Select
+              mode={isMultiChoice ? 'multiple' : undefined}
+              allowClear
+              placeholder="选择正确选项"
+              value={isMultiChoice ? correctIds : (correctIds[0] ?? undefined)}
+              onChange={(value) =>
+                patchChoiceAnswer(Array.isArray(value) ? value : value ? [value] : [])
+              }
+              options={answerOptions}
+            />
+          </Form.Item>
+        ) : isMultipleBlank ? (
+          <Form.Item label="正确答案（逐空）" style={ITEM_STYLE}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(schema.children ?? []).map((child, index) => (
+                <Input
+                  key={child.id}
+                  value={(child.attribute?.examCorrectAnswer as string | undefined) ?? ''}
+                  placeholder={'第 ' + (index + 1) + ' 空答案'}
+                  onChange={(e) => patchTextAnswer(e.target.value, index)}
+                />
+              ))}
+            </div>
+          </Form.Item>
+        ) : (
+          <Form.Item label="正确答案" style={ITEM_STYLE}>
+            <Input
+              value={answerText}
+              placeholder="填空题/简答题的标准答案"
+              onChange={(e) => patchTextAnswer(e.target.value)}
+            />
+          </Form.Item>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Form.Item label="必填" style={{ marginBottom: 12 }}>
+            <Switch checked={Boolean(attribute.required)} onChange={(checked) => set('required', checked)} />
+          </Form.Item>
+          <Form.Item label="分值" style={{ marginBottom: 12 }}>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              step={0.5}
+              value={typeof attribute.examScore === 'number' ? attribute.examScore : undefined}
+              onChange={(value) => set('examScore', value ?? undefined)}
+            />
+          </Form.Item>
+        </div>
+        <Form.Item label="答案解析" style={{ marginBottom: 12 }}>
+          <Input.TextArea
+            autoSize={{ minRows: 2, maxRows: 6 }}
+            value={(attribute.examAnalysis as string | undefined) ?? ''}
+            onChange={(e) => set('examAnalysis', e.target.value)}
+          />
+        </Form.Item>
+        <Collapse size="small" defaultActiveKey={[]} items={items} />
       </Form>
     </div>
   );

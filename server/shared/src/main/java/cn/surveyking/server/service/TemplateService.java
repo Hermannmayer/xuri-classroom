@@ -21,6 +21,11 @@ public interface TemplateService {
 
 	void batchUpdateTemplate(List<TemplateRequest> templateRequests);
 
+	/**
+	 * 题库批量改标签/难度/分值（部分字段为空表示不改）
+	 */
+	void batchPatchTemplate(TemplateBatchRequest request);
+
 	void updateTemplate(TemplateRequest request);
 
 	void deleteTemplate(TemplateRequest request);

@@ -166,6 +166,9 @@ export interface Attribute {
   numericScale?: number;
   backgroundImage?: string;
   headerImage?: string;
+  headerTitle?: string;
+  headerSubtitle?: string;
+  examHeaderInfo?: string;
   fileAccept?: string;
   maxFileCount?: number;
   maxFileSize?: number;

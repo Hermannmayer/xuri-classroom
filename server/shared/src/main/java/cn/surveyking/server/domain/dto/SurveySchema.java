@@ -177,6 +177,21 @@ public class SurveySchema implements Serializable {
 		private String headerImage;
 
 		/**
+		 * 卷头标题；为空时用试卷标题
+		 */
+		private String headerTitle;
+
+		/**
+		 * 卷头副标题（如考试时间/学校/科目）
+		 */
+		private String headerSubtitle;
+
+		/**
+		 * 卷头考生信息行；为空时用「姓名/考号/得分」默认模板
+		 */
+		private String examHeaderInfo;
+
+		/**
 		 * 上传文件类型后缀，多个文件格式逗号分割
 		 */
 		private String fileAccept;

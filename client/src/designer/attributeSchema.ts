@@ -86,7 +86,6 @@ export const attributeSchema: AttributeField[] = [
     group: '考试',
     options: EXAM_MODE_OPTIONS,
   },
-  { key: 'examCorrectAnswer', label: '正确答案', control: 'text', group: '考试' },
   { key: 'examAnalysis', label: '答案解析', control: 'textarea', group: '考试' },
 
   // 规则：P2 先存原始 JSON，可视条件编辑器后续再做

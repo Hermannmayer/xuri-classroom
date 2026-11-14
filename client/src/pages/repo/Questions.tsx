@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Button,
+  Checkbox,
   Dropdown,
   Empty,
   Form,
@@ -155,6 +156,12 @@ export default function RepoQuestions() {
   ]);
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchTags, setBatchTags] = useState<string[]>([]);
+  const [batchAppendTag, setBatchAppendTag] = useState(true);
+  const [batchDifficulty, setBatchDifficulty] = useState<string | undefined>(undefined);
+  const [batchScore, setBatchScore] = useState<number | null>(null);
+  const [batchSaving, setBatchSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   // 接口失败/无权限 ≠ 题库没题目：失败时单独展示错误说明，不再显示误导性的「题库还没有题目」
   const [loadError, setLoadError] = useState<string>();
@@ -321,6 +328,41 @@ export default function RepoQuestions() {
       message.error((e as Error).message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const openBatchEdit = () => {
+    setBatchTags([]);
+    setBatchAppendTag(true);
+    setBatchDifficulty(undefined);
+    setBatchScore(null);
+    setBatchOpen(true);
+  };
+
+  const applyBatchEdit = async () => {
+    if (!selectedKeys.length) return;
+    const tagChanged = batchTags.length > 0 || !batchAppendTag;
+    if (!tagChanged && batchDifficulty === undefined && batchScore === null) {
+      message.warning('至少设置一项：标签、难度或分值');
+      return;
+    }
+    setBatchSaving(true);
+    try {
+      await post<void>('/api/template/batchUpdate', {
+        ids: selectedKeys,
+        tag: tagChanged ? batchTags : undefined,
+        appendTag: batchAppendTag,
+        difficulty: batchDifficulty === '__clear__' ? '' : batchDifficulty,
+        score: batchScore ?? undefined,
+      });
+      message.success('已更新 ' + selectedKeys.length + ' 道题');
+      setBatchOpen(false);
+      setSelectedKeys([]);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBatchSaving(false);
     }
   };
 
@@ -623,7 +665,7 @@ export default function RepoQuestions() {
         />
       </div>
 
-      {canDelete && selectedKeys.length > 0 && (
+      {(canEdit || canDelete) && selectedKeys.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -637,17 +679,24 @@ export default function RepoQuestions() {
         >
           <span style={{ fontSize: 12 }}>已选中 {selectedKeys.length} 道</span>
           <div style={{ flex: 1 }} />
-          <Popconfirm
-            title={`删除选中的 ${selectedKeys.length} 道题？`}
-            description="删除后不可恢复。"
-            okText="删除"
-            cancelText="取消"
-            onConfirm={() => batchDelete()}
-          >
-            <Button danger size="small" icon={<DeleteOutlined />} loading={deleting}>
-              批量删除
+          {canEdit && (
+            <Button size="small" onClick={openBatchEdit}>
+              批量设置标签 / 难度 / 分值
             </Button>
-          </Popconfirm>
+          )}
+          {canDelete && (
+            <Popconfirm
+              title={`删除选中的 ${selectedKeys.length} 道题？`}
+              description="删除后不可恢复。"
+              okText="删除"
+              cancelText="取消"
+              onConfirm={() => batchDelete()}
+            >
+              <Button danger size="small" icon={<DeleteOutlined />} loading={deleting}>
+                批量删除
+              </Button>
+            </Popconfirm>
+          )}
           <Button size="small" onClick={() => setSelectedKeys([])}>
             取消选择
           </Button>
@@ -794,6 +843,62 @@ export default function RepoQuestions() {
       />
       </TableScrollRegion>
       )}
+
+      <Modal
+        title={'批量设置（' + selectedKeys.length + ' 道题）'}
+        open={batchOpen}
+        onCancel={() => setBatchOpen(false)}
+        onOk={() => void applyBatchEdit()}
+        confirmLoading={batchSaving}
+        okText="应用"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form layout="vertical" size="small">
+          <Form.Item label="标签">
+            <Select
+              mode="tags"
+              allowClear
+              value={batchTags}
+              placeholder="输入标签后回车，可多个"
+              onChange={(value) => setBatchTags(value)}
+              options={tagOptions.map((tag) => ({ value: tag, label: tag }))}
+            />
+          </Form.Item>
+          <Form.Item>
+            <Checkbox checked={batchAppendTag} onChange={(e) => setBatchAppendTag(e.target.checked)}>
+              追加到原标签（不勾选则用上面的标签覆盖）
+            </Checkbox>
+          </Form.Item>
+          <Form.Item label="难度">
+            <Select
+              allowClear
+              value={batchDifficulty}
+              placeholder="不修改"
+              onChange={(value) => setBatchDifficulty(value)}
+              options={[
+                { value: '易', label: '易' },
+                { value: '中', label: '中' },
+                { value: '难', label: '难' },
+                { value: '__clear__', label: '清空难度' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label="每题分值">
+            <InputNumber
+              min={0}
+              step={0.5}
+              style={{ width: '100%' }}
+              value={batchScore ?? undefined}
+              placeholder="不修改"
+              onChange={(value) => setBatchScore(value === null ? null : Number(value))}
+            />
+          </Form.Item>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+            不填的项保持原样；标签可以追加或覆盖。
+          </div>
+        </Form>
+      </Modal>
 
       <Modal
         title="编辑题目"

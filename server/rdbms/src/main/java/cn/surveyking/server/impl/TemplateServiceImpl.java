@@ -132,6 +132,50 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	}
 
 	@Override
+	public void batchPatchTemplate(TemplateBatchRequest request) {
+		List<String> ids = request.getIds() == null ? Collections.emptyList()
+				: request.getIds().stream().filter(TemplateServiceImpl::hasTextId).distinct().collect(Collectors.toList());
+		if (ids.isEmpty()) {
+			return;
+		}
+		List<Template> templates = listByIds(ids);
+		if (templates.size() != ids.size()) {
+			throw new AccessDeniedException("模板不存在或无权修改");
+		}
+		for (Template template : templates) {
+			assertManageTemplate(template);
+			if (request.getTag() != null) {
+				List<String> merged = new ArrayList<>();
+				if (!Boolean.FALSE.equals(request.getAppendTag()) && template.getTag() != null) {
+					Collections.addAll(merged, template.getTag());
+				}
+				for (String tag : request.getTag()) {
+					if (hasText(tag) && !merged.contains(tag)) {
+						merged.add(tag.trim());
+					}
+				}
+				template.setTag(merged.toArray(new String[0]));
+			}
+			if (request.getDifficulty() != null) {
+				template.setDifficulty(request.getDifficulty().trim());
+			}
+			if (request.getScore() != null) {
+				SurveySchema schema = template.getTemplate() == null ? new SurveySchema() : template.getTemplate();
+				SurveySchema.Attribute attribute = schema.getAttribute() == null ? new SurveySchema.Attribute()
+						: schema.getAttribute();
+				attribute.setExamScore(request.getScore());
+				schema.setAttribute(attribute);
+				template.setTemplate(schema);
+			}
+		}
+		updateBatchById(templates);
+	}
+
+	private static boolean hasTextId(String id) {
+		return id != null && !id.trim().isEmpty();
+	}
+
+	@Override
 	public void updateTemplate(TemplateRequest request) {
 		assertTemplateUpdateAllowed(getById(request.getId()), request);
 		updateById(templateViewMapper.fromRequest(request));

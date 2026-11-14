@@ -235,7 +235,7 @@ export default function SurveyEditor() {
     createSurvey('未命名'),
   );
   const [selectedId, setSelectedId] = useState<string>();
-  const [preview, setPreview] = useState(false);
+  const [preview] = useState(false);
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragFromRef = useRef<string | undefined>(undefined);
@@ -285,6 +285,31 @@ export default function SurveyEditor() {
     backgroundImage: '',
     headerImage: '',
   });
+  const [headerOpen, setHeaderOpen] = useState(false);
+  const [headerDraft, setHeaderDraft] = useState({ title: '', subtitle: '', info: '' });
+
+  const openHeaderEditor = () => {
+    setHeaderDraft({
+      title: survey.attribute?.headerTitle ?? '',
+      subtitle: survey.attribute?.headerSubtitle ?? '',
+      info: survey.attribute?.examHeaderInfo ?? '',
+    });
+    setHeaderOpen(true);
+  };
+
+  const applyHeader = () => {
+    setSurvey({
+      ...survey,
+      attribute: {
+        ...survey.attribute,
+        headerTitle: headerDraft.title.trim() || undefined,
+        headerSubtitle: headerDraft.subtitle.trim() || undefined,
+        examHeaderInfo: headerDraft.info.trim() || undefined,
+      },
+    });
+    setHeaderOpen(false);
+    message.success('卷头已应用，记得保存');
+  };
 
   const uploadThemeImage = async (file: File, key: 'backgroundImage' | 'headerImage') => {
     try {
@@ -408,6 +433,26 @@ export default function SurveyEditor() {
     setSurvey(next);
     setRequireOpen(false);
     message.success('已批量更新必填状态，记得保存');
+  };
+
+  const openAnswerPreview = async () => {
+    const win = window.open('', '_blank');
+    if (dirty) {
+      setSaving(true);
+      try {
+        await updateProject({ id, name, survey: normalizeSchema(survey), setting });
+        baselineRef.current = JSON.stringify({ name, survey });
+        message.success('已自动保存，正在打开答题页');
+      } catch (e) {
+        message.error('保存失败，无法预览：' + (e as Error).message);
+        win?.close();
+        return;
+      } finally {
+        setSaving(false);
+      }
+    }
+    if (win) win.location.href = location.origin + '/s/' + id;
+    else message.warning('浏览器拦截了新窗口，请允许弹窗后重试');
   };
 
   const share = async () => {
@@ -722,8 +767,8 @@ export default function SurveyEditor() {
         <Tooltip title="重做 (Ctrl+Y)">
           <Button icon={<RedoOutlined />} disabled={!canRedo} onClick={redo} />
         </Tooltip>
-        <Button icon={<EyeOutlined />} type={preview ? 'primary' : 'default'} onClick={() => setPreview((p) => !p)}>
-          {preview ? '退出预览' : '预览'}
+        <Button icon={<EyeOutlined />} onClick={() => void openAnswerPreview()}>
+          预览答题页
         </Button>
         <Button
           icon={<BgColorsOutlined />}
@@ -736,6 +781,9 @@ export default function SurveyEditor() {
           }}
         >
           主题
+        </Button>
+        <Button icon={<EditOutlined />} onClick={openHeaderEditor}>
+          卷头
         </Button>
         <Button
           icon={<CodeOutlined />}
@@ -1472,6 +1520,51 @@ export default function SurveyEditor() {
             },
           ]}
         />
+      </Drawer>
+
+      <Drawer
+        title="卷头设置"
+        open={headerOpen}
+        onClose={() => setHeaderOpen(false)}
+        width={420}
+        extra={
+          <Button type="primary" onClick={applyHeader}>
+            应用
+          </Button>
+        }
+      >
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 14, lineHeight: 1.8 }}>
+          卷头文字只影响打印页和 Word 导出，不改试卷标题本身；留空则用默认。
+        </div>
+        <div style={{ fontSize: 11, marginBottom: 4 }}>卷头标题</div>
+        <Input
+          value={headerDraft.title}
+          placeholder={survey.title || '默认使用试卷标题'}
+          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, title: e.target.value }))}
+          style={{ marginBottom: 14 }}
+        />
+        <div style={{ fontSize: 11, marginBottom: 4 }}>副标题（可空）</div>
+        <Input
+          value={headerDraft.subtitle}
+          placeholder="如：2026 年育婴员五级理论考试"
+          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, subtitle: e.target.value }))}
+          style={{ marginBottom: 14 }}
+        />
+        <div style={{ fontSize: 11, marginBottom: 4 }}>考生信息行</div>
+        <Input
+          value={headerDraft.info}
+          placeholder="默认：姓名：____　考号：____　得分：____"
+          onChange={(e) => setHeaderDraft((draft) => ({ ...draft, info: e.target.value }))}
+          style={{ marginBottom: 16 }}
+        />
+        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 6 }}>预览</div>
+        <div style={{ border: '1px solid var(--bp-line)', padding: 14, textAlign: 'center', background: 'var(--bp-panel)' }}>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{headerDraft.title.trim() || survey.title || '试卷标题'}</div>
+          {headerDraft.subtitle.trim() && <div style={{ fontSize: 12, marginTop: 6 }}>{headerDraft.subtitle}</div>}
+          <div style={{ fontSize: 12, marginTop: 10 }}>
+            {headerDraft.info.trim() || '姓名：______　考号：______　得分：________'}
+          </div>
+        </div>
       </Drawer>
 
       <Dropdown

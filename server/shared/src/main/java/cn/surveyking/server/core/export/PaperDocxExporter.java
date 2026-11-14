@@ -2,6 +2,7 @@ package cn.surveyking.server.core.export;
 
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.SurveySchema;
+import cn.surveyking.server.domain.dto.SurveySchema.QuestionType;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
@@ -32,25 +33,21 @@ public final class PaperDocxExporter {
 		String title = survey != null && survey.getTitle() != null ? survey.getTitle() : project.getName();
 		try (XWPFDocument doc = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 			setupPage(doc);
-			centered(doc, title, 18, true);
-			centered(doc, "姓名：____________　考号：____________　得分：________", 10, false);
+			SurveySchema.Attribute attribute = survey == null ? null : survey.getAttribute();
+			String headerTitle = attribute != null && hasText(attribute.getHeaderTitle()) ? attribute.getHeaderTitle() : title;
+			centered(doc, headerTitle, 18, true);
+			if (attribute != null && hasText(attribute.getHeaderSubtitle())) {
+				centered(doc, attribute.getHeaderSubtitle(), 11, false);
+			}
+			String headerInfo = attribute != null && hasText(attribute.getExamHeaderInfo())
+					? attribute.getExamHeaderInfo()
+					: "姓名：____________　考号：____________　得分：________";
+			centered(doc, headerInfo, 10, false);
 			doc.createParagraph();
 
 			List<SurveySchema> questions = new ArrayList<>();
-			int number = 0;
-			if (survey != null && survey.getChildren() != null) {
-				for (SurveySchema group : survey.getChildren()) {
-					if (group.getChildren() == null || group.getChildren().isEmpty()) {
-						continue;
-					}
-					heading(doc, group.getTitle());
-					for (SurveySchema question : group.getChildren()) {
-						number++;
-						questions.add(question);
-						question(doc, number, question);
-					}
-				}
-			}
+			int[] number = new int[] { 0 };
+			renderNodes(doc, survey == null ? null : survey.getChildren(), questions, number);
 
 			if (includeCard) {
 				pageBreak(doc);
@@ -103,10 +100,57 @@ public final class PaperDocxExporter {
 		font(run, size, bold);
 	}
 
+	/**
+	 * 递归渲染：只有 dataType 才编号，QuestionSet 只当大题标题，选项不再被当题号。
+	 */
+	private static void renderNodes(XWPFDocument doc, List<SurveySchema> nodes, List<SurveySchema> questions,
+			int[] number) {
+		if (nodes == null) {
+			return;
+		}
+		for (SurveySchema node : nodes) {
+			if (node == null || node.getType() == null) {
+				continue;
+			}
+			QuestionType type = node.getType();
+			if (type == QuestionType.Survey || type == QuestionType.Pagination) {
+				renderNodes(doc, node.getChildren(), questions, number);
+			}
+			else if (type == QuestionType.QuestionSet) {
+				if (hasText(node.getTitle())) {
+					heading(doc, node.getTitle());
+				}
+				renderNodes(doc, node.getChildren(), questions, number);
+			}
+			else if (type == QuestionType.Remark) {
+				if (hasText(node.getTitle())) {
+					paragraph(doc, stripHtml(node.getTitle()), 10, false);
+				}
+			}
+			else if (type == QuestionType.SplitLine || type == QuestionType.Option || type == QuestionType.RandomSurvey) {
+				// 结构/选项节点不编号
+			}
+			else if (QuestionType.dataType().contains(type)) {
+				number[0]++;
+				questions.add(node);
+				question(doc, number[0], node);
+			}
+			else {
+				renderNodes(doc, node.getChildren(), questions, number);
+			}
+		}
+	}
+
+	private static boolean hasText(String text) {
+		return text != null && !text.trim().isEmpty();
+	}
+
 	private static void question(XWPFDocument doc, int number, SurveySchema question) {
 		paragraph(doc, number + ". " + stripHtml(question.getTitle()), 11, false);
 		List<SurveySchema> options = question.getChildren();
-		if (options != null && !options.isEmpty() && !"Textarea".equals(String.valueOf(question.getType()))) {
+		if (options != null && !options.isEmpty()
+				&& ("Radio".equals(String.valueOf(question.getType())) || "Checkbox".equals(String.valueOf(question.getType()))
+						|| "Judge".equals(String.valueOf(question.getType())) || "Select".equals(String.valueOf(question.getType())))) {
 			StringBuilder line = new StringBuilder("    ");
 			for (int i = 0; i < options.size() && i < LETTERS.length; i++) {
 				line.append(LETTERS[i]).append(". ").append(stripHtml(options.get(i).getTitle())).append("    ");

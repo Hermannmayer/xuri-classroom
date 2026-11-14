@@ -48,6 +48,12 @@ public class TemplateApi {
 		templateService.updateTemplate(template);
 	}
 
+	@PostMapping("/batchUpdate")
+	@PreAuthorize("hasAuthority('template:update')")
+	public void batchUpdateTemplate(@RequestBody TemplateBatchRequest request) {
+		templateService.batchPatchTemplate(request);
+	}
+
 	@PostMapping("/delete")
 	@PreAuthorize("hasAuthority('template:delete')")
 	public void deleteTemplate(@RequestBody TemplateRequest request) {

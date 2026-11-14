@@ -205,6 +205,9 @@ export default function SurveyPrintPage() {
   const blocks = useMemo<PrintBlock[]>(() => {
     const list: PrintBlock[] = [];
     const title = project?.survey?.title || project?.name || '试卷';
+    const headerTitle = project?.survey?.attribute?.headerTitle || title;
+    const headerSubtitle = project?.survey?.attribute?.headerSubtitle;
+    const headerInfo = project?.survey?.attribute?.examHeaderInfo || '姓名：____________　考号：____________　得分：________';
     if (project?.survey?.attribute?.headerImage) {
       list.push({
         key: 'header',
@@ -225,14 +228,20 @@ export default function SurveyPrintPage() {
     }
     list.push({
       key: 'title',
-      node: <h1 style={{ textAlign: 'center', fontSize: 22, margin: '0 0 6px' }}>{title}</h1>,
+      node: <h1 style={{ textAlign: 'center', fontSize: 22, margin: '0 0 6px' }}>{headerTitle}</h1>,
     });
+    if (headerSubtitle) {
+      list.push({
+        key: 'subtitle',
+        node: <div style={{ textAlign: 'center', fontSize: 12, marginBottom: 8 }}>{headerSubtitle}</div>,
+      });
+    }
     if (showInfo) {
       list.push({
         key: 'info',
         node: (
           <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 18 }}>
-            姓名：____________　考号：____________　得分：________
+            {headerInfo}
           </div>
         ),
       });
@@ -360,7 +369,7 @@ export default function SurveyPrintPage() {
 
   const title = project.survey?.title || project.name || '试卷';
   const printCss =
-    '@media print { .no-print { display: none !important; } body { background: #fff !important; } .sheet { box-shadow: none !important; margin: 0 !important; break-after: page; } } @page { size: ' +
+    '@media print { html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; } .no-print { display: none !important; } .print-root { padding: 0 !important; background: #fff !important; min-height: 0 !important; } .print-scroll { overflow: visible !important; } .sheet { box-shadow: none !important; margin: 0 !important; break-after: page; } } @page { size: ' +
     (size === 'A3' ? 'A3 landscape' : 'A4') +
     '; margin: 0; }';
   const sheetStyle = size === 'A3'
@@ -369,7 +378,7 @@ export default function SurveyPrintPage() {
   const pageStyle = { width: '210mm', height: '297mm', padding: marginMm + 'mm', boxSizing: 'border-box' as const, position: 'relative' as const, overflow: 'hidden' as const };
 
   return (
-    <div style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
+    <div className="print-root" style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
       <style>{printCss}</style>
 
       <div className="no-print" style={{ maxWidth: 900, margin: '0 auto 12px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -404,7 +413,7 @@ export default function SurveyPrintPage() {
         </Typography.Text>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      <div className="print-scroll" style={{ overflowX: 'auto' }}>
         <div ref={measureRef} style={{ position: 'absolute', left: -99999, top: 0, width: (210 - marginMm * 2) + 'mm', visibility: 'hidden' }}>
           {blocks.map((block) => (
             <div key={block.key} data-block>
