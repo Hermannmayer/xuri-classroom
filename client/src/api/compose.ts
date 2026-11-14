@@ -38,7 +38,7 @@ export interface ComposeRequest {
   difficulties?: string[];
   tags?: string[];
   keyword?: string;
-  mode: 'random' | 'ratio' | 'sequential';
+  mode: 'random' | 'ratio' | 'sequential' | 'split';
   counts?: Record<string, number>;
   scores?: Record<string, number>;
   ratios?: Record<string, number>;
@@ -71,6 +71,9 @@ export interface ComposePickRequest {
   tags?: string[];
   keyword?: string;
   count?: number;
+  counts?: Record<string, number>;
+  scores?: Record<string, number>;
+  mode?: 'random' | 'sequential';
   seed?: number;
   excludeIds?: string[];
 }

@@ -103,6 +103,9 @@ public class ComposeServiceImpl implements ComposeService {
 
 		int sets = request.getSets() == null ? 1 : Math.max(1, Math.min(50, request.getSets()));
 		long seed = request.getSeed() != null ? request.getSeed() : new Random().nextInt(1_000_000_000);
+		if ("split".equalsIgnoreCase(request.getMode())) {
+			return planSplit(request, types, all, sets, seed);
+		}
 		Map<QuestionType, Integer> needs = resolveNeeds(request, types, all);
 		Map<QuestionType, List<Template>> pools = buildPools(all, types);
 		Map<QuestionType, List<Template>> ordered = new LinkedHashMap<>();
@@ -134,6 +137,79 @@ public class ComposeServiceImpl implements ComposeService {
 			}
 			previousIds = new HashSet<>(variant.getTemplateIds());
 			plan.getVariants().add(variant);
+		}
+		return plan;
+	}
+
+	/**
+	 * 整套拆分：题库里符合条件的题全部用上，按题型均匀拆成 N 套，套间不重复。
+	 */
+	private ComposePlan planSplit(ComposeRequest request, List<QuestionType> types, List<Template> all, int sets,
+			long seed) {
+		if (all.size() < sets) {
+			throw new ErrorCodeException(ErrorCode.FileParseError,
+					"题量不足：共 " + all.size() + " 题，拆不出 " + sets + " 套");
+		}
+		ComposePlan plan = new ComposePlan();
+		plan.setName(text(request.getName(), "组卷试卷"));
+		plan.setSeed(seed);
+		plan.setSets(sets);
+		plan.getWarnings().add("整套拆分：共 " + all.size() + " 题，均分到 " + sets + " 套，套间不重复");
+
+		Map<QuestionType, List<Template>> pools = buildPools(all, types);
+		Map<QuestionType, List<Template>> shuffled = new LinkedHashMap<>();
+		for (QuestionType type : types) {
+			List<Template> pool = new ArrayList<>(pools.get(type));
+			Collections.shuffle(pool, new Random(seed + type.ordinal() * 97L));
+			shuffled.put(type, pool);
+		}
+
+		for (int seq = 1; seq <= sets; seq++) {
+			ComposeVariant variant = new ComposeVariant();
+			variant.setSeq(seq);
+			SurveySchema survey = new SurveySchema();
+			survey.setId(IdWorker.getIdStr());
+			survey.setTitle(plan.getName());
+			survey.setType(QuestionType.Survey);
+			survey.setAttribute(new SurveySchema.Attribute());
+			survey.setChildren(new ArrayList<>());
+			List<String> templateIds = new ArrayList<>();
+			int numeralIndex = 0;
+			for (QuestionType type : types) {
+				List<Template> pool = shuffled.get(type);
+				List<Template> picked = new ArrayList<>();
+				for (int i = seq - 1; i < pool.size(); i += sets) {
+					picked.add(pool.get(i));
+				}
+				if (picked.isEmpty()) {
+					continue;
+				}
+				double score = scoreOf(request.getScores(), type);
+				SurveySchema group = new SurveySchema();
+				group.setId(IdWorker.getIdStr());
+				group.setTitle(groupTitle(numeralIndex++, type, score));
+				group.setType(QuestionType.QuestionSet);
+				group.setChildren(new ArrayList<>());
+				for (Template template : picked) {
+					SurveySchema question = toQuestion(template, score);
+					group.getChildren().add(question);
+					templateIds.add(template.getId());
+					variant.setTotal(variant.getTotal() + 1);
+					variant.setScore(variant.getScore() + score);
+					variant.getByType().merge(label(type), 1, Integer::sum);
+					variant.getByDifficulty().merge(text(question.getDifficulty(), "未设置"), 1, Integer::sum);
+				}
+				survey.getChildren().add(group);
+			}
+			if (variant.getTotal() == 0) {
+				continue;
+			}
+			variant.setSurvey(survey);
+			variant.setTemplateIds(templateIds);
+			plan.getVariants().add(variant);
+		}
+		if (plan.getVariants().isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.FileParseError, "没有可拆分的题目");
 		}
 		return plan;
 	}
@@ -184,11 +260,35 @@ public class ComposeServiceImpl implements ComposeService {
 		}
 		long seed = request.getSeed() != null ? request.getSeed() : new Random().nextInt(1_000_000_000);
 		Random random = new Random(seed);
+		List<QuestionType> types = request.getTypes() == null || request.getTypes().isEmpty() ? DEFAULT_TYPES
+				: request.getTypes();
+		List<SurveySchema> questions = new ArrayList<>();
+		Map<String, Integer> counts = request.getCounts();
+		if (counts != null && !counts.isEmpty()) {
+			Map<QuestionType, List<Template>> pools = buildPools(all, types);
+			boolean sequential = "sequential".equalsIgnoreCase(request.getMode());
+			for (QuestionType type : types) {
+				int need = Math.max(0, counts.getOrDefault(type.name(), 0));
+				if (need <= 0) {
+					continue;
+				}
+				List<Template> pool = new ArrayList<>(pools.get(type));
+				if (sequential) {
+					pool.sort(Comparator.comparing(template -> text(template.getSerialNo(), template.getId())));
+				}
+				else {
+					Collections.shuffle(pool, random);
+				}
+				for (int i = 0; i < Math.min(need, pool.size()); i++) {
+					questions.add(toQuestion(pool.get(i), scoreOf(request.getScores(), type)));
+				}
+			}
+			return questions;
+		}
 		Collections.shuffle(all, random);
 		int count = request.getCount() == null ? all.size() : Math.max(1, request.getCount());
-		List<SurveySchema> questions = new ArrayList<>();
 		for (int i = 0; i < Math.min(count, all.size()); i++) {
-			questions.add(toQuestion(all.get(i), scoreOf(null, all.get(i).getQuestionType())));
+			questions.add(toQuestion(all.get(i), scoreOf(request.getScores(), all.get(i).getQuestionType())));
 		}
 		return questions;
 	}

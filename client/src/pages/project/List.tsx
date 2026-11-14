@@ -27,6 +27,7 @@ import type { ProjectSetting } from '../../schema/project';
 import { pager } from '../repo/table';
 import BatchSettingModal from './BatchSettingModal';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
+import ComposePanel from '../compose/ComposePage';
 import { recordPaperImport } from '../../api/import';
 import FolderAuthModal from './FolderAuthModal';
 import ProjectTree from './ProjectTree';
@@ -379,6 +380,12 @@ function ManagerProjectList({
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [composeCtx, setComposeCtx] = useState<{
+    open: boolean;
+    name: string;
+    category?: string;
+    parentId?: string;
+  }>({ open: false, name: '' });
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
   // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
@@ -461,12 +468,9 @@ function ManagerProjectList({
       return; // 校验提示已经在字段上
     }
     if (v.mode === 'exam' && v.source === 'compose') {
-      // 组卷走整页，不再叠弹窗
+      // 组卷在教学页抽屉里完成，不跳页、不叠弹窗
       setCreateOpen(false);
-      const params = new URLSearchParams({ name: v.name.trim() });
-      if (v.category?.trim()) params.set('category', v.category.trim());
-      if (parentId) params.set('parentId', parentId);
-      navigate('/compose?' + params.toString());
+      setComposeCtx({ open: true, name: v.name.trim(), category: v.category?.trim(), parentId });
       return;
     }
     setCreating(true);
@@ -1203,6 +1207,18 @@ function ManagerProjectList({
           )}
         </Form>
       </Modal>
+
+      <ComposePanel
+        open={composeCtx.open}
+        initialName={composeCtx.name}
+        category={composeCtx.category}
+        parentId={composeCtx.parentId}
+        onClose={() => setComposeCtx((ctx) => ({ ...ctx, open: false }))}
+        onCreated={() => {
+          setTreeToken((token) => token + 1);
+          void load();
+        }}
+      />
 
       <FolderAuthModal
         open={Boolean(folderAuth)}

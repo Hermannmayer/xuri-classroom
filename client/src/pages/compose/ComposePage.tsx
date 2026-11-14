@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Drawer,
   Collapse,
   Empty,
   Input,
@@ -18,7 +19,6 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getWithPagination } from '../../api';
 import {
   COMPOSE_TYPES,
@@ -109,20 +109,34 @@ function VariantPreview({ variant }: { variant: ComposeVariant }) {
   );
 }
 
-/** 组卷中心：范围 + 规则 + 预览在一页完成 */
-export default function ComposePage() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+interface ComposePanelProps {
+  open: boolean;
+  initialName?: string;
+  category?: string;
+  parentId?: string;
+  onClose: () => void;
+  onCreated: (projectIds: string[]) => void;
+}
+
+/** 组卷中心：范围 + 规则 + 预览在一页完成，嵌在教学页抽屉里 */
+export default function ComposePanel({
+  open,
+  initialName,
+  category,
+  parentId,
+  onClose,
+  onCreated,
+}: ComposePanelProps) {
   const [repos, setRepos] = useState<RepoView[]>([]);
   const [stats, setStats] = useState<ComposeStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [name, setName] = useState(searchParams.get('name') || '');
+  const [name, setName] = useState(initialName || '');
   const [repoIds, setRepoIds] = useState<string[]>([]);
   const [types, setTypes] = useState<ComposeType[]>([]);
   const [chapters, setChapters] = useState<string[]>([]);
   const [difficulties, setDifficulties] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
-  const [mode, setMode] = useState<'random' | 'ratio' | 'sequential'>('random');
+  const [mode, setMode] = useState<'random' | 'ratio' | 'sequential' | 'split'>('random');
   const [counts, setCounts] = useState<Record<string, number>>({ ...DEFAULT_COUNTS });
   const [scores, setScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
   const [ratios, setRatios] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS });
@@ -139,6 +153,12 @@ export default function ComposePage() {
   const [plan, setPlan] = useState<ComposePlan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(initialName || '');
+    setPlan(null);
+  }, [open, initialName]);
 
   useEffect(() => {
     getWithPagination<RepoView>('/api/repo/list', { current: 1, pageSize: 200 })
@@ -200,13 +220,44 @@ export default function ComposePage() {
     [stats],
   );
 
+  /** 当前模式下每种题型的实际题数：拆卷=可用/套数，比例=按总题数分配 */
+  const effectiveCounts = useMemo(() => {
+    const result: Record<string, number> = {};
+    if (mode === 'random') {
+      for (const type of types) result[type] = Number(counts[type] ?? 0);
+    } else if (mode === 'sequential') {
+      for (const type of types) {
+        const start = Number(rangeStart[type] ?? 1);
+        const end = Number(rangeEnd[type] ?? start);
+        result[type] = Math.max(0, end - start + 1);
+      }
+    } else if (mode === 'split') {
+      for (const type of types) {
+        const available = stats?.byType[TYPE_FULL[type]] ?? 0;
+        result[type] = Math.ceil(available / Math.max(1, sets));
+      }
+    } else {
+      const sum = types.reduce((total, type) => total + Number(ratios[type] ?? 0), 0);
+      if (sum > 0) {
+        let assigned = 0;
+        types.forEach((type, index) => {
+          const exact = (totalQuestions * Number(ratios[type] ?? 0)) / sum;
+          const count = index === types.length - 1 ? totalQuestions - assigned : Math.floor(exact);
+          result[type] = Math.max(0, count);
+          assigned += Math.max(0, count);
+        });
+      }
+    }
+    return result;
+  }, [mode, types, counts, rangeStart, rangeEnd, stats, sets, ratios, totalQuestions]);
+
   const computedScore = useMemo(
-    () => types.reduce((sum, type) => sum + Number(counts[type] ?? 0) * Number(scores[type] ?? 0), 0),
-    [types, counts, scores],
+    () => types.reduce((sum, type) => sum + Number(effectiveCounts[type] ?? 0) * Number(scores[type] ?? 0), 0),
+    [types, effectiveCounts, scores],
   );
   const computedQuestions = useMemo(
-    () => types.reduce((sum, type) => sum + Number(counts[type] ?? 0), 0),
-    [types, counts],
+    () => types.reduce((sum, type) => sum + Number(effectiveCounts[type] ?? 0), 0),
+    [types, effectiveCounts],
   );
 
   const buildRequest = (): ComposeRequest => ({
@@ -229,12 +280,12 @@ export default function ComposePage() {
     shortagePolicy: shortage,
     difficultyWeights: weights,
     publish: true,
-    category: searchParams.get('category') || undefined,
-    parentId: searchParams.get('parentId') || undefined,
+    category,
+    parentId,
   });
 
   const applyTotalScore = () => {
-    const active = types.filter((type) => Number(counts[type] ?? 0) > 0);
+    const active = types.filter((type) => Number(effectiveCounts[type] ?? 0) > 0);
     const sumWeight = active.reduce((sum, type) => sum + Number(scoreWeights[type] ?? 0), 0);
     if (!active.length || sumWeight <= 0 || totalScore <= 0) {
       message.warning('先选择题型并填写题数与分值比例');
@@ -243,7 +294,7 @@ export default function ComposePage() {
     const next = { ...scores };
     let spent = 0;
     active.forEach((type, index) => {
-      const count = Number(counts[type]);
+      const count = Number(effectiveCounts[type]);
       const isLast = index === active.length - 1;
       // 最后一类吸收四舍五入的零头，保证总分正好等于目标
       const per = isLast
@@ -283,7 +334,8 @@ export default function ComposePage() {
     try {
       const result = await createCompose(buildRequest());
       message.success('已生成 ' + (result.projectIds?.length ?? 0) + ' 套试卷，请在列表中查看');
-      navigate('/teaching?tab=exam');
+      onCreated(result.projectIds ?? []);
+      onClose();
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -292,6 +344,19 @@ export default function ComposePage() {
   };
 
   const activeTypes = types.filter((type) => availableTypes.includes(type));
+
+  const scoreColumn = {
+    title: '每题分值',
+    width: 110,
+    render: (_: unknown, row: { type: ComposeType }) => (
+      <InputNumber
+        min={0}
+        step={0.5}
+        value={scores[row.type]}
+        onChange={(value) => setScores({ ...scores, [row.type]: Number(value ?? 0) })}
+      />
+    ),
+  };
 
   const typeTable = (
     <Table
@@ -319,6 +384,11 @@ export default function ComposePage() {
                   />
                 ),
               },
+              {
+                title: '估算题数',
+                render: (_: unknown, row: { type: ComposeType }) => effectiveCounts[row.type] ?? 0,
+              },
+              scoreColumn,
             ]
           : mode === 'sequential'
             ? [
@@ -342,36 +412,44 @@ export default function ComposePage() {
                     />
                   ),
                 },
+                scoreColumn,
               ]
-            : [
-                {
-                  title: '题数',
-                  render: (_: unknown, row: { type: ComposeType }) => (
-                    <InputNumber
-                      min={0}
-                      value={counts[row.type]}
-                      onChange={(value) => setCounts({ ...counts, [row.type]: Number(value ?? 0) })}
-                    />
-                  ),
-                },
-                {
-                  title: '每题分值',
-                  render: (_: unknown, row: { type: ComposeType }) => (
-                    <InputNumber
-                      min={0}
-                      step={0.5}
-                      value={scores[row.type]}
-                      onChange={(value) => setScores({ ...scores, [row.type]: Number(value ?? 0) })}
-                    />
-                  ),
-                },
-              ]),
+            : mode === 'split'
+              ? [
+                  {
+                    title: '每套约',
+                    render: (_: unknown, row: { type: ComposeType }) =>
+                      Math.ceil((stats?.byType[TYPE_FULL[row.type]] ?? 0) / Math.max(1, sets)),
+                  },
+                  scoreColumn,
+                ]
+              : [
+                  {
+                    title: '题数',
+                    render: (_: unknown, row: { type: ComposeType }) => (
+                      <InputNumber
+                        min={0}
+                        value={counts[row.type]}
+                        onChange={(value) => setCounts({ ...counts, [row.type]: Number(value ?? 0) })}
+                      />
+                    ),
+                  },
+                  scoreColumn,
+                ]),
       ]}
     />
   );
 
   return (
-    <div style={{ padding: 20, maxWidth: 1380, margin: '0 auto' }}>
+    <Drawer
+      open={open}
+      width="96%"
+      title="从题库组卷"
+      onClose={onClose}
+      destroyOnClose
+      styles={{ body: { paddingTop: 12 } }}
+    >
+      <div style={{ padding: 4, maxWidth: 1380, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
@@ -379,7 +457,7 @@ export default function ComposePage() {
           </Typography.Title>
           <Typography.Text type="secondary">选范围、定规则、看预览，都在这一页完成</Typography.Text>
         </div>
-        <Button onClick={() => navigate('/teaching?tab=exam')}>取消</Button>
+        <Button onClick={onClose}>取消</Button>
       </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -477,12 +555,18 @@ export default function ComposePage() {
                   <Radio.Button value="random">随机抽取</Radio.Button>
                   <Radio.Button value="ratio">按比例</Radio.Button>
                   <Radio.Button value="sequential">顺序区间</Radio.Button>
+                  <Radio.Button value="split">整套拆分</Radio.Button>
                 </Radio.Group>
                 {mode === 'ratio' && (
                   <span style={{ marginLeft: 12 }}>
                     总题数{' '}
                     <InputNumber min={1} value={totalQuestions} onChange={(v) => setTotalQuestions(Number(v ?? 1))} />
                   </span>
+                )}
+                {mode === 'split' && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                    把当前范围内全部题目按题型均匀拆成 N 套，套间不重复；题量不足会直接提示。
+                  </div>
                 )}
               </div>
 
@@ -622,6 +706,7 @@ export default function ComposePage() {
           生成并发布
         </Button>
       </div>
-    </div>
+      </div>
+    </Drawer>
   );
 }
