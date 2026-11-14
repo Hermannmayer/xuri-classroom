@@ -450,14 +450,8 @@ export default function ComposePanel({
       styles={{ body: { paddingTop: 12 } }}
     >
       <div style={{ padding: 4, maxWidth: 1380, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            从题库组卷
-          </Typography.Title>
-          <Typography.Text type="secondary">选范围、定规则、看预览，都在这一页完成</Typography.Text>
-        </div>
-        <Button onClick={onClose}>取消</Button>
+      <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+        选范围、定规则、看预览，都在这一页完成
       </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
