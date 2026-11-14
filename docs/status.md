@@ -10,8 +10,8 @@
 | `module-auth` | 2026-11-09 | `6c14ecfdf35a6c2610f436152c616e25e525c5b6` | 10 |
 | `module-dashboard` | 2026-11-10 | `5bb845225dac413185a8b1a9151be45e9b04e7e7` | 16 |
 | `module-exercise` | 2026-11-09 | `6c14ecfdf35a6c2610f436152c616e25e525c5b6` | 13 |
-| `module-files` | 2026-11-10 | `a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d` | 30 |
-| `module-import` | 2026-11-14 | `5e7e4e076c798404def995ea5422e6ad5f629da3` | 12 |
+| `module-files` | 2026-11-10 | `a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d` | 31 |
+| `module-import` | 2026-11-14 | `0f0fe03f2420c4517d9d774d93ea7224b19d5e1f` | 18 |
 | `module-permissions` | 2026-11-10 | `a342c7e69bd148725d0b69b091ffd879ffa81372` | 101 |
 | `module-project` | 2026-11-10 | `a342c7e69bd148725d0b69b091ffd879ffa81372` | 27 |
 | `module-repo` | 2026-11-10 | `099d38fdf40d483258ea49fe08087a47fbfcf206` | 31 |

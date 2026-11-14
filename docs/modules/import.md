@@ -40,7 +40,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
 last_verified: 2026-11-14
-verified_against: 5e7e4e076c798404def995ea5422e6ad5f629da3
+verified_against: 0f0fe03f2420c4517d9d774d93ea7224b19d5e1f
 ---
 
 # 试卷导入（解析 / 预览 / 落地）

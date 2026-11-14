@@ -18,6 +18,7 @@
 - [建班、加学员、分配老师、分配考试/题库与数据可见范围](https://hermannmayer.github.io/xuri-classroom/flows/class-grant)
 - [从建卷/组卷到发布、答题、判分与报表](https://hermannmayer.github.io/xuri-classroom/flows/exam-publish-answer)
 - [RSA 登录、sk-token 会话、注册与会话失效](https://hermannmayer.github.io/xuri-classroom/flows/login-auth)
+- [从文件/文本导入一份试卷](https://hermannmayer.github.io/xuri-classroom/flows/paper-import)
 - [权限变更流程](https://hermannmayer.github.io/xuri-classroom/flows/permission-change)
 - [从题库组卷到考试](https://hermannmayer.github.io/xuri-classroom/flows/repo-compose)
 - [答卷、判分与报表](https://hermannmayer.github.io/xuri-classroom/modules/answer)
