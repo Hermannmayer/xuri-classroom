@@ -99,6 +99,10 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		for (ProjectPartnerView view : result.getList()) {
 			if (view.getUserId() != null) {
 				view.setUser(userService.loadUserById(view.getUserId()));
+				// 前端对象列优先显示 userName；不补的话文件夹/协作授权里只显示一串用户 id
+				if (view.getUser() != null && org.apache.commons.lang3.StringUtils.isNotBlank(view.getUser().getName())) {
+					view.setUserName(view.getUser().getName());
+				}
 			}
 		}
 		return result;
