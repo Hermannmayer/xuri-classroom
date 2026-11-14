@@ -5,7 +5,6 @@ import {
   BgColorsOutlined,
   CodeOutlined,
   CopyOutlined,
-  DatabaseOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
@@ -13,6 +12,7 @@ import {
   ImportOutlined,
   PrinterOutlined,
   RedoOutlined,
+  SettingOutlined,
   SaveOutlined,
   UndoOutlined,
   UpOutlined,
@@ -518,6 +518,7 @@ export default function SurveyEditor() {
           trigger={['click']}
           menu={{
             items: [
+              { key: 'bank', label: '从题库抽题' },
               { key: 'whole-word', label: '整份试卷（Word）' },
               { key: 'text', label: '批量导入题目（文本）' },
               { key: 'excel', label: '批量导入题目（Excel）' },
@@ -525,7 +526,8 @@ export default function SurveyEditor() {
               { key: 'json', label: '从 JSON 导入试卷（保留大题）' },
             ],
             onClick: ({ key }) => {
-              if (key === 'whole-word') openImport(true, ['word']);
+              if (key === 'bank') setBankOpen(true);
+              else if (key === 'whole-word') openImport(true, ['word']);
               else if (key === 'text') openImport(false, ['text']);
               else if (key === 'excel') openImport(false, ['excel']);
               else if (key === 'word') openImport(false, ['word']);
@@ -537,11 +539,11 @@ export default function SurveyEditor() {
             导入 <DownOutlined />
           </Button>
         </Dropdown>
-        <Button icon={<DatabaseOutlined />} onClick={() => setBankOpen(true)}>
-          从题库抽题
-        </Button>
         <Button icon={<PrinterOutlined />} onClick={() => navigate('/survey/' + id + '/print')}>
           打印
+        </Button>
+        <Button icon={<SettingOutlined />} onClick={() => navigate('/survey/' + id)}>
+          设置
         </Button>
         <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
           保存
@@ -625,6 +627,11 @@ export default function SurveyEditor() {
             ref={canvasRef}
             className="sk-canvas"
             style={{ maxWidth: 760 }}
+            onMouseDown={(e) => {
+              // 点题目卡片任意区域都先选中，再交给拖拽/输入框处理
+              const el = (e.target as HTMLElement).closest('[data-qid]');
+              setSelectedId(el ? el.getAttribute('data-qid') ?? undefined : undefined);
+            }}
             onClick={(e) => {
               if (dragFromRef.current) return;
               const el = (e.target as HTMLElement).closest('[data-qid]');

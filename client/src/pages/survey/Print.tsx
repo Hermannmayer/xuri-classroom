@@ -29,8 +29,24 @@ export default function SurveyPrintPage() {
   }, [id]);
 
   const groups = useMemo(() => {
-    const children = project?.survey?.children ?? [];
-    return children.filter((node) => node.type === 'QuestionSet' || node.type === 'Survey');
+    const containers = new Set(['Survey', 'QuestionSet', 'Pagination', 'Remark', 'SplitLine', 'Option', 'RandomSurvey']);
+    const result: { id: string; title?: string; children?: SurveySchema[] }[] = [];
+    const flat: SurveySchema[] = [];
+    const walk = (nodes?: SurveySchema[]) => {
+      for (const node of nodes ?? []) {
+        if (node.type === 'QuestionSet') {
+          if ((node.children ?? []).length) result.push(node);
+        } else if (node.type === 'Survey' || node.type === 'Pagination') {
+          walk(node.children);
+        } else if (!containers.has(node.type)) {
+          flat.push(node);
+        }
+      }
+    };
+    walk(project?.survey?.children);
+    // 老试卷/导入的 JSON 可能没有题组，直接把根下的题当作一组打印
+    if (flat.length) result.push({ id: '__flat', title: '', children: flat });
+    return result;
   }, [project]);
 
   const questions = useMemo(() => {

@@ -39,6 +39,7 @@ import type {
   SubmittedSetting,
 } from '../../schema/project';
 import PartnerPanel from './PartnerPanel';
+import type { SurveySchema } from '../../schema/types';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 interface ProjectTreeNode {
@@ -63,6 +64,64 @@ function buildFolderOptions(nodes: ProjectTreeNode[], excludeId?: string): Folde
       title: node.name || '(未命名文件夹)',
       children: node.children?.length ? buildFolderOptions(node.children, excludeId) : undefined,
     }));
+}
+
+const SCORE_TYPE_LABEL: Record<string, string> = {
+  Radio: '单选',
+  Checkbox: '多选',
+  Judge: '判断',
+  FillBlank: '填空',
+  MultipleBlank: '多填空',
+  Textarea: '简答',
+  Select: '下拉',
+  HorzBlank: '横向填空',
+  Nps: 'NPS',
+  MatrixRadio: '矩阵单选',
+  MatrixCheckbox: '矩阵多选',
+  MatrixScore: '矩阵评分',
+  MatrixFill: '矩阵填空',
+  Rate: '评分',
+};
+
+interface ScoreGroup {
+  type: string;
+  label: string;
+  count: number;
+  scores: Set<number>;
+}
+
+function collectScoreGroups(survey?: SurveySchema): ScoreGroup[] {
+  const groups = new Map<string, ScoreGroup>();
+  const walk = (nodes?: SurveySchema[]) => {
+    for (const node of nodes ?? []) {
+      const label = SCORE_TYPE_LABEL[node.type];
+      if (label) {
+        const group = groups.get(node.type) ?? { type: node.type, label, count: 0, scores: new Set<number>() };
+        group.count += 1;
+        const score = node.attribute?.examScore;
+        if (typeof score === 'number') group.scores.add(score);
+        groups.set(node.type, group);
+      }
+      walk(node.children);
+    }
+  };
+  walk(survey?.children);
+  return Array.from(groups.values());
+}
+
+function applyTypeScores(survey: SurveySchema, scores: Record<string, number | null>): SurveySchema {
+  const next = JSON.parse(JSON.stringify(survey)) as SurveySchema;
+  const walk = (nodes?: SurveySchema[]) => {
+    for (const node of nodes ?? []) {
+      const value = scores[node.type];
+      if (value != null) {
+        node.attribute = { ...(node.attribute ?? {}), examScore: value };
+      }
+      walk(node.children);
+    }
+  };
+  walk(next.children);
+  return next;
 }
 
 interface ReportStat {
@@ -105,6 +164,8 @@ export default function SurveyOverview() {
   const [saving, setSaving] = useState(false);
   /** 已加载的 setting：保存时用它与表单合并，避免丢掉本页没展示的字段 */
   const [current, setCurrent] = useState<ProjectSetting>({});
+  const [scoreDraft, setScoreDraft] = useState<Record<string, number | null>>({});
+  const [scoreSaving, setScoreSaving] = useState(false);
 
   /**
    * 权限列表：没回来之前既不渲染管理入口，也不发需要权限的请求。
@@ -122,6 +183,32 @@ export default function SurveyOverview() {
   const canReport = can(authorities ?? [], PERMISSION_CODES.projectReport);
   const canAnswer = can(authorities ?? [], PERMISSION_CODES.projectAnswer);
   const canManagePartner = can(authorities ?? [], PERMISSION_CODES.projectPartner);
+
+  const scoreGroups = useMemo(() => collectScoreGroups(project?.survey), [project]);
+
+  useEffect(() => {
+    const next: Record<string, number | null> = {};
+    for (const group of scoreGroups) {
+      const values = Array.from(group.scores);
+      next[group.type] = values.length === 1 ? values[0] : null;
+    }
+    setScoreDraft(next);
+  }, [scoreGroups]);
+
+  const applyScores = async () => {
+    if (!project?.survey || !canEdit) return;
+    setScoreSaving(true);
+    try {
+      const next = applyTypeScores(project.survey, scoreDraft);
+      await updateProject({ id, survey: next });
+      setProject({ ...project, survey: next });
+      message.success('已按题型更新分值');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setScoreSaving(false);
+    }
+  };
 
   const shareUrl = useMemo(() => `${location.origin}/s/${id}`, [id]);
 
@@ -532,7 +619,51 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ③ 答题显示（「自动暂存」取代旧概述页的「自动保存」，只此一处） */}
+          {/* ③ 题型分值：按题型统一改所有题的分值，不用逐题设置 */}
+          <Col xs={24} lg={12}>
+            <Card
+              className="bp-corners bp-card"
+              title={cardTitle('SCORE', '题型分值')}
+              style={{ height: '100%' }}
+              styles={{ body: { padding: 16 } }}
+            >
+              {scoreGroups.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>试卷里还没有题目</div>
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                  {scoreGroups.map((group) => (
+                    <div
+                      key={group.type}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+                    >
+                      <span>
+                        {group.label}{' '}
+                        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>× {group.count} 题</span>
+                      </span>
+                      <InputNumber
+                        min={0}
+                        step={0.5}
+                        style={{ width: 120 }}
+                        placeholder={group.scores.size > 1 ? '混合' : '未设置'}
+                        value={scoreDraft[group.type] ?? undefined}
+                        onChange={(value) =>
+                          setScoreDraft({ ...scoreDraft, [group.type]: value === null ? null : Number(value) })
+                        }
+                      />
+                    </div>
+                  ))}
+                  <Button type="primary" loading={scoreSaving} disabled={!canEdit} onClick={() => void applyScores()}>
+                    按题型应用分值
+                  </Button>
+                  <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                    应用后会把该题型所有题目的分值统一改成上面的值
+                  </div>
+                </Space>
+              )}
+            </Card>
+          </Col>
+
+          {/* ④ 答题显示（「自动暂存」取代旧概述页的「自动保存」，只此一处） */}
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
