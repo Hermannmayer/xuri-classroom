@@ -681,6 +681,9 @@ function ManagerProjectList({
           回收站
         </Button>
         {canCreate && (
+          <Button onClick={() => navigate('/compose/batches')}>试卷集</Button>
+        )}
+        {canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建
           </Button>

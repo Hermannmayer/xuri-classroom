@@ -16,6 +16,7 @@
 - [ADR-0002 管理员 = 管理权限全集，不是所有权限串](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0002-admin-catalog): 为什么管理员不自动拥有学员能力；前端 can() 如何配合
 - [ADR-0003 老师可以编辑/删除考试，但不能改题库](https://hermannmayer.github.io/xuri-classroom/decisions/ADR-0003-teacher-exam-vs-repo): 老师保留考试与问卷生命周期；题库只读；答卷删除归管理员
 - [建班、加学员、分配老师、分配考试/题库与数据可见范围](https://hermannmayer.github.io/xuri-classroom/flows/class-grant)
+- [从题库组卷并打印](https://hermannmayer.github.io/xuri-classroom/flows/compose-paper)
 - [从建卷/组卷到发布、答题、判分与报表](https://hermannmayer.github.io/xuri-classroom/flows/exam-publish-answer)
 - [RSA 登录、sk-token 会话、注册与会话失效](https://hermannmayer.github.io/xuri-classroom/flows/login-auth)
 - [从文件/文本导入一份试卷](https://hermannmayer.github.io/xuri-classroom/flows/paper-import)
@@ -23,6 +24,7 @@
 - [从题库组卷到考试](https://hermannmayer.github.io/xuri-classroom/flows/repo-compose)
 - [答卷、判分与报表](https://hermannmayer.github.io/xuri-classroom/modules/answer)
 - [登录与账号](https://hermannmayer.github.io/xuri-classroom/modules/auth)
+- [组卷中心（题库 → 成套卷子 → 打印）](https://hermannmayer.github.io/xuri-classroom/modules/compose)
 - [首页与统计](https://hermannmayer.github.io/xuri-classroom/modules/dashboard)
 - [任务中心、练习与错题本](https://hermannmayer.github.io/xuri-classroom/modules/exercise)
 - [文件、附件与导入模板](https://hermannmayer.github.io/xuri-classroom/modules/files)

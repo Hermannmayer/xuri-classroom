@@ -29,7 +29,7 @@
 | `t_role` | id:varchar(64)<br>name:varchar(50)<br>code:varchar(50)<br>remark:varchar(100)<br>authority:varchar(3000)<br>status:tinyint(1)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_sys_info` | id:varchar(64)<br>name:varchar(64)<br>description:varchar(128)<br>avatar:varchar(64)<br>locale:varchar(64)<br>version:varchar(64)<br>setting:varchar(1024)<br>ai_setting:text<br>oauth_setting:text<br>register_info:varchar(1024)<br>is_default:tinyint(1)<br>create_at:timestamp |
 | `t_tag` | id:varchar(64)<br>entity_id:varchar(64)<br>name:varchar(128)<br>category:varchar(256)<br>create_at:timestamp<br>create_by:varchar(256) |
-| `t_template` | id:varchar(64)<br>repo_id:varchar(64)<br>serial_no:varchar(256)<br>name:varchar(1024)<br>question_type:varchar(64)<br>template:longtext<br>mode:varchar(32)<br>category:varchar(256)<br>tag:varchar(512)<br>priority:int<br>preview_url:varchar(512)<br>shared:tinyint(1) |
+| `t_template` | id:varchar(64)<br>repo_id:varchar(64)<br>serial_no:varchar(256)<br>name:varchar(1024)<br>question_type:varchar(64)<br>template:longtext<br>mode:varchar(32)<br>category:varchar(256)<br>tag:varchar(512)<br>chapter:varchar(128)<br>difficulty:varchar(16)<br>priority:int |
 | `t_user` | id:varchar(64)<br>name:varchar(50)<br>dept_id:varchar(20)<br>gender:varchar(10)<br>birthday:date<br>phone:varchar(20)<br>email:varchar(50)<br>avatar:varchar(200)<br>status:tinyint(1)<br>user_type:varchar(16)<br>ui_zoom:decimal(4<br>ui_theme:varchar(10) |
 | `t_user_book` | id:varchar(64)<br>name:varchar(2048)<br>template_id:varchar(64)<br>wrong_times:int<br>correct_times:int<br>note:text<br>status:int<br>type:int<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_user_dept` | id:varchar(64)<br>user_id:varchar(64)<br>dept_id:varchar(64)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
@@ -72,3 +72,5 @@
 - `scripts/nas/migrate/34-project-category.sql`
 - `scripts/nas/migrate/35-repo-category.sql`
 - `scripts/nas/migrate/36-partner-access-level.sql`
+- `scripts/nas/migrate/37-template-chapter-difficulty.sql`
+- `scripts/nas/migrate/38-paper-compose.sql`

@@ -26,6 +26,10 @@
 | `/account/settings` | `AccountSettings` | 公开/仅登录 |
 | `/survey/:id` | `SurveyOverview` | `project:detail` |
 | `/survey/:id/edit` | `SurveyEditor` | `project:update` |
+| `/survey/:id/print` | `SurveyPrint` | `project:detail` |
+| `/compose` | `ComposePage` | `project:create` |
+| `/compose/batches` | `ComposeBatchList` | `project:create` |
+| `/compose/batch/:id` | `ComposeBatchDetail` | `project:create` |
 | `/survey/:id/setting` | `SurveySetting` | `project:update` |
 | `/survey/:id/data` | `SurveyData` | `answer:list` |
 | `/survey/:id/report` | `SurveyReport` | `project:report` |

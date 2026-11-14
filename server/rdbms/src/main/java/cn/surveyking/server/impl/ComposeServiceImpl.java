@@ -235,6 +235,7 @@ public class ComposeServiceImpl implements ComposeService {
 		detail.setBatch(toBatchView(batch));
 		List<PaperVariant> variants = variantMapper.selectList(Wrappers.<PaperVariant>lambdaQuery()
 				.eq(PaperVariant::getBatchId, batchId).orderByAsc(PaperVariant::getSeq));
+		detail.getBatch().setVariantCount(variants.size());
 		for (PaperVariant entity : variants) {
 			ComposeVariant variant = new ComposeVariant();
 			variant.setSeq(entity.getSeq());
