@@ -65,7 +65,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-14
-verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
+verified_against: fa2cc51311752f4b40592683495b94b8fc11808b
 ---
 
 # 考试编辑器与题型
@@ -98,7 +98,7 @@ verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
 | 渲染入口 | `client/src/renderer/SchemaRenderer.tsx` | 按 `displays` 隐藏、渲染题号/题干/组件、处理题组/说明/分割线 |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `/api/public/**`，无 `@PreAuthorize`，校验在 Service |
 | 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java` | `loadProject` / `loadPublicQuestion` / `saveAnswer` / `loadExamResult` 的入口；门面只做委托，实现在 impl 包组件里（`PublicProjectLoader`、`PublicAnswerSubmitter`、`ProjectAnswerValidator`） |
-| 打印 | `client/src/pages/survey/Print.tsx` | A4 分页、A3 双页拼版、试卷信息/代码/密封线/页码/答题区/页边距、Word 导出 |
+| 打印 | `client/src/pages/survey/Print.tsx` | A4 分页、A3 双页拼版、试卷信息/代码/密封线/页码/答题区/页边距、标准答题卡、紧凑答案速查、Word 导出 |
 | 随机抽题 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RandomSurveyProcessor.java` | 编辑器 `RandomSurvey` 节点 + `examSetting.randomSurvey` |
 | 数据表 | `t_project`、`t_answer`、`t_template` | 项目含 schema；答案含随机卷快照；模板供抽题 |
 
@@ -106,6 +106,9 @@ verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
 
 1. **打开编辑器**：`/survey/:id/edit`（路由守卫 `project:update`）调 `GET /api/project`，把 `survey` 放进 `useHistoryState`，`setting` 原样保留。左侧面板点击/拖拽 `QUESTION_META` 调 `createQuestion`，插入当前容器或当前题的父级；大纲支持同级拖拽排序，跨父级拖拽被忽略。
 2. **保存**：`Editor.tsx` 的 `save` 先 `normalizeSchema(survey)` 补齐每道题的 `children`（后端提交链路会直接取 `children.get(0)`），再 `POST /api/project/update { id, name, survey, setting }`。整包覆盖，未改字段由编辑器现有状态保留。
+   - **离开自动保存**：返回、设置、统计、打印统一走 `leaveTo`，有未保存改动时先写库再跳转；`beforeunload` 也会拦截刷新/关页。
+   - **返回**：`components/BackButton.tsx` 优先 `navigate(-1)`，没有站内历史才回 fallback；概述页只保留一个「返回上一级」，不再重复「项目列表」。
+   - **题型分值**：概述页显示每种题型的题数、每题分值、题型小计，以及整卷题数/总分/平均每题；可按整套总分 + 题型比例分配每题分值，再「按题型应用」。
 3. **题型盘点**：设计器面板 `QUESTION_META` 共 **17 项**：选择类 8 项（单选、多选、下拉、NPS、矩阵单选/多选、级联、判断），填写类 6 项（填空、多空填空、多行文本、矩阵填空、地址、评分），结构类 3 项（题组、说明、分割线）。渲染器实际注册 **14 个组件**；后端 `SurveySchema.QuestionType` 有 33 个枚举值，其中 `dataType()` 24 个、`examType()` 7 个。README 说的"18 种"来自"面板 17 + 未进面板的 `Pagination` 容器"，`docs/scope.md` 的"14 种"是更早的旧口径。
 4. **规则**：属性里的 `visibleRule` / `requiredRule` / `finishRule` 等是 JSON 字符串，内容形如 `{ conditionLogic: 'AND', conditionItem: [...] }`。`buildExpression` 把它拼成 `AND(#{q1.o1} ,NOT(#{+q2}))`（分隔符是空格+逗号，不能改成纯逗号），`engine.evaluateRule` 求值。规则只在**前端**求值，后端只负责存取；解析失败的规则返回 `success=false`，表现为"规则不生效"而不是报错。
 5. **预览**：`preview` 切换后同一棵 schema 交给 `SchemaRenderer`，并把 `values` 传进去；显隐规则只在预览/答题态应用，编辑态全部显示，否则隐藏题会在设计器里消失。预览不写答案，只用于检查题面与联动。
