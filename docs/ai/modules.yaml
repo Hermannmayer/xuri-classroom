@@ -289,8 +289,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-09
-    verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+    last_verified: 2026-11-14
+    verified_against: 724136a8e4d4554a0c52b21f2e35fc06b6284dcc
   - id: module-files
     title: 文件、附件与导入模板
     doc: docs/modules/files.md

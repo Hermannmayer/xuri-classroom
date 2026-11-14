@@ -54,8 +54,8 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-09
-verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+last_verified: 2026-11-14
+verified_against: 724136a8e4d4554a0c52b21f2e35fc06b6284dcc
 ---
 
 # 任务中心、练习与错题本
@@ -121,7 +121,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 ### 改练习页加载方式
 
-1. `Practice.tsx` 的 `PAGE_SIZE`、`fetchPage`、`loadMore`、`ensureLoaded` 是一组；改分页大小要确认"跳题补加载"和"提交前补齐"仍然成立。
+1. `Practice.tsx` 的 `PAGE_SIZE`、`fetchPage`、`loadMore`、`ensureLoaded` 是一组；改分页大小要确认"跳题补加载"和"提交前补齐"仍然成立。当前 `PAGE_SIZE=20`，瀑布流同时用 IntersectionObserver + 捕获滚动事件双保险；后端模板分页按 priority/serialNo/id 稳定排序，避免同一页重复导致 `loadMore` 误判到头。
 2. 随机练习的 `counts` 来自题库列表页的 URL；改参数名要同步 `repo/List.tsx`。
 3. 进度结构变了要兼容旧 `localStorage`（当前代码对旧进度做了 `total/paged` 缺省处理）。
 
