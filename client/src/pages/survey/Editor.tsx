@@ -286,6 +286,7 @@ export default function SurveyEditor() {
     headerImage: '',
   });
   const [headerOpen, setHeaderOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [headerDraft, setHeaderDraft] = useState({ title: '', subtitle: '', info: '' });
 
   const openHeaderEditor = () => {
@@ -435,23 +436,21 @@ export default function SurveyEditor() {
     message.success('已批量更新必填状态，记得保存');
   };
 
-  const openAnswerPreview = () => {
-    // 先同步开窗，避免 await 之后被浏览器当弹窗拦截
-    const win = window.open('/s/' + id, '_blank');
-    if (!win) {
-      message.warning('浏览器拦截了新窗口，请允许本站弹窗后重试');
-      return;
-    }
-    if (!dirty) return;
-    setSaving(true);
-    void updateProject({ id, name, survey: normalizeSchema(survey), setting })
-      .then(() => {
+  const openAnswerPreview = async () => {
+    if (dirty) {
+      setSaving(true);
+      try {
+        await updateProject({ id, name, survey: normalizeSchema(survey), setting });
         baselineRef.current = JSON.stringify({ name, survey });
-        win.location.reload();
-        message.success('已自动保存，答题页已刷新');
-      })
-      .catch((e: Error) => message.error('保存失败，预览的是上次保存版本：' + e.message))
-      .finally(() => setSaving(false));
+        message.success('已自动保存');
+      } catch (e) {
+        message.error('保存失败，无法预览：' + (e as Error).message);
+        return;
+      } finally {
+        setSaving(false);
+      }
+    }
+    setPreviewOpen(true);
   };
 
   const share = async () => {
@@ -1565,6 +1564,24 @@ export default function SurveyEditor() {
           </div>
         </div>
       </Drawer>
+
+      <Modal
+        title="答题页预览"
+        open={previewOpen}
+        onCancel={() => setPreviewOpen(false)}
+        footer={null}
+        width="96%"
+        styles={{ body: { padding: 0, height: '85vh', overflow: 'hidden' } }}
+        destroyOnClose
+      >
+        {previewOpen && (
+          <iframe
+            title="答题页预览"
+            src={'/s/' + id}
+            style={{ width: '100%', height: '85vh', border: 0, display: 'block' }}
+          />
+        )}
+      </Modal>
 
       <Dropdown
         open={Boolean(contextMenu)}
