@@ -5,7 +5,6 @@
 | 文件 | 说明 | 当前替代 |
 |---|---|---|
 | [2026-11-permissions-baseline.md](2026-11-permissions-baseline.md) | 2026-11-07 权限基线（56 权限串/旧矩阵） | [权限与角色](../modules/permissions.md) |
-| [2026-11-permissions-ia.md](2026-11-permissions-ia.md) | 用户/组/角色/权限联动设计 | [ADR-0001](../decisions/ADR-0001-rbac.md) |
 | [2026-11-permission-audit.md](2026-11-permission-audit.md) | 2026-11-08 权限审计快照 | [权限与角色](../modules/permissions.md) |
 
 ## 归档规则
