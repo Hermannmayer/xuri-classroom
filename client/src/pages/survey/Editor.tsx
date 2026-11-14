@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Drawer, Dropdown, Input, message, Modal, Space, Spin, Tabs, Tooltip } from 'antd';
+import { Button, Card, Drawer, Dropdown, Input, message, Modal, Space, Spin, Tabs, Tooltip, Upload } from 'antd';
 import {
   ArrowLeftOutlined,
   BgColorsOutlined,
@@ -13,6 +13,7 @@ import {
   PrinterOutlined,
   RedoOutlined,
   SettingOutlined,
+  UploadOutlined,
   SaveOutlined,
   UndoOutlined,
   UpOutlined,
@@ -21,7 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { get, updateProject } from '../../api';
+import { get, post, updateProject } from '../../api';
 import type { Project, ProjectSetting } from '../../schema/project';
 import { DATA_TYPES, type QuestionType, type SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
@@ -236,6 +237,21 @@ export default function SurveyEditor() {
     backgroundImage: '',
     headerImage: '',
   });
+
+  const uploadThemeImage = async (file: File, key: 'backgroundImage' | 'headerImage') => {
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('publicRead', 'true');
+      const uploaded = await post<{ id?: string }>('/api/file/create', form);
+      if (!uploaded?.id) throw new Error('上传失败：未返回文件 id');
+      setThemeText((value) => ({ ...value, [key]: '/api/public/preview/' + uploaded.id }));
+      message.success('图片已上传，点右上角「应用」生效');
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+    return false;
+  };
 
   useEffect(() => {
     let alive = true;
@@ -912,21 +928,71 @@ export default function SurveyEditor() {
               children: (
                 <>
                   <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
-                    填图片 URL，答题页与预览会用它做背景 / 头图；留空即恢复默认蓝图底。
+                    背景图用于答题页整页铺底；页眉图显示在答题页/打印页顶部。可上传，也可直接填 URL。
                   </div>
-                  <div style={{ fontSize: 11, marginBottom: 4 }}>背景图</div>
-                  <Input
-                    value={themeText.backgroundImage}
-                    onChange={(e) => setThemeText((t) => ({ ...t, backgroundImage: e.target.value }))}
-                    placeholder="https://…"
-                    style={{ marginBottom: 14 }}
-                  />
-                  <div style={{ fontSize: 11, marginBottom: 4 }}>头图</div>
-                  <Input
-                    value={themeText.headerImage}
-                    onChange={(e) => setThemeText((t) => ({ ...t, headerImage: e.target.value }))}
-                    placeholder="https://…"
-                  />
+                  {([
+                    { key: 'backgroundImage', label: '背景图', hint: '建议 1920×1080，铺满整页' },
+                    { key: 'headerImage', label: '页眉图', hint: '建议 1200×300，显示在顶部' },
+                  ] as const).map((item) => (
+                    <div key={item.key} style={{ marginBottom: 18 }}>
+                      <div style={{ fontSize: 11, marginBottom: 6 }}>{item.label}</div>
+                      {themeText[item.key] ? (
+                        <img
+                          src={themeText[item.key]}
+                          alt={item.label}
+                          style={{
+                            width: '100%',
+                            maxHeight: 120,
+                            objectFit: 'cover',
+                            border: '1px solid var(--bp-line)',
+                            marginBottom: 8,
+                            display: 'block',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            height: 64,
+                            border: '1px dashed var(--bp-line)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 11,
+                            color: 'var(--bp-text-soft)',
+                            marginBottom: 8,
+                          }}
+                        >
+                          未设置
+                        </div>
+                      )}
+                      <Space>
+                        <Upload
+                          accept="image/*"
+                          showUploadList={false}
+                          beforeUpload={(file) => uploadThemeImage(file as File, item.key)}
+                        >
+                          <Button size="small" icon={<UploadOutlined />}>
+                            {themeText[item.key] ? '替换' : '上传'}
+                          </Button>
+                        </Upload>
+                        <Button
+                          size="small"
+                          danger
+                          disabled={!themeText[item.key]}
+                          onClick={() => setThemeText((value) => ({ ...value, [item.key]: '' }))}
+                        >
+                          清除
+                        </Button>
+                      </Space>
+                      <Input
+                        value={themeText[item.key]}
+                        onChange={(e) => setThemeText((value) => ({ ...value, [item.key]: e.target.value }))}
+                        placeholder="或直接填图片 URL"
+                        style={{ marginTop: 8 }}
+                      />
+                      <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', marginTop: 4 }}>{item.hint}</div>
+                    </div>
+                  ))}
                 </>
               ),
             },

@@ -7,7 +7,7 @@ import type { SurveySchema } from '../../schema/types';
 const LETTERS = 'ABCDEFGH';
 
 const PRINT_CSS =
-  '@media print { .no-print { display: none !important; } body { background: #fff !important; } .paper { box-shadow: none !important; margin: 0 !important; } } @page { margin: 16mm 14mm; }';
+  '@media print { .no-print { display: none !important; } body { background: #fff !important; } .paper { box-shadow: none !important; margin: 0 !important; } } .paper { box-sizing: border-box; }';
 
 /** 试卷打印页：A4/A3、答案页、答题卡，浏览器打印即 PDF */
 export default function SurveyPrintPage() {
@@ -87,7 +87,7 @@ export default function SurveyPrintPage() {
 
   return (
     <div style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
-      <style>{PRINT_CSS + ' @page { size: ' + (size === 'A3' ? 'A3 landscape' : 'A4') + '; margin: ' + (size === 'A3' ? '8mm' : '16mm 14mm') + '; }'}</style>
+      <style>{PRINT_CSS + ' @page { size: ' + (size === 'A3' ? 'A3 landscape' : 'A4') + '; margin: 0; }'}</style>
 
       <div
         className="no-print"
@@ -120,17 +120,31 @@ export default function SurveyPrintPage() {
       <div
         className={size === 'A3' ? 'paper paper-a3' : 'paper'}
         style={{
-          width: size === 'A3' ? '400mm' : 760,
+          width: size === 'A3' ? '420mm' : '210mm',
+          minHeight: size === 'A3' ? '297mm' : '297mm',
           margin: '0 auto',
           background: '#fff',
-          padding: size === 'A3' ? '10mm' : '40px 48px',
+          padding: size === 'A3' ? '10mm' : '15mm',
           boxShadow: '0 2px 12px rgba(0,0,0,.12)',
           color: '#000',
+          boxSizing: 'border-box',
           columnCount: size === 'A3' ? 2 : undefined,
           columnGap: size === 'A3' ? '10mm' : undefined,
           columnFill: size === 'A3' ? 'auto' : undefined,
         }}
       >
+        {project.survey?.attribute?.headerImage && (
+          <img
+            src={project.survey.attribute.headerImage}
+            alt="页眉"
+            style={{
+              width: '100%',
+              display: 'block',
+              marginBottom: 12,
+              columnSpan: size === 'A3' ? 'all' : undefined,
+            }}
+          />
+        )}
         <h1 style={{ textAlign: 'center', fontSize: 22, margin: '0 0 6px', columnSpan: size === 'A3' ? 'all' : undefined }}>{title}</h1>
         <div style={{ textAlign: 'center', fontSize: 13, marginBottom: 18, columnSpan: size === 'A3' ? 'all' : undefined }}>
           姓名：____________　考号：____________　得分：________

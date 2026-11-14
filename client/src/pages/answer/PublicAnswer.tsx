@@ -1251,6 +1251,15 @@ export default function PublicAnswer() {
         backgroundPosition: 'center',
       }}
     >
+      {project.survey?.attribute?.headerImage && (
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '12px 16px 0' }}>
+          <img
+            src={project.survey.attribute.headerImage}
+            alt="页眉"
+            style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+          />
+        </div>
+      )}
       <AnonymousAnswersDrawer
         open={answersOpen}
         projectId={id}
