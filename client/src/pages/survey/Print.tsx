@@ -292,7 +292,7 @@ export default function SurveyPrintPage() {
             {sheet.map((page, pageIndex) => {
               const globalPage = size === 'A3' ? sheetIndex * 2 + pageIndex + 1 : sheetIndex + 1;
               return (
-                <div key={pageIndex} style={pageStyle}>
+                <div key={pageIndex} className="a4-page" style={pageStyle}>
                   {page.map((blockIndex) => (
                     <div key={blocks[blockIndex].key}>{blocks[blockIndex].node}</div>
                   ))}
