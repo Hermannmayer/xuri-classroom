@@ -7,13 +7,19 @@ import cn.surveyking.server.domain.model.AuditLog;
 import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.mapper.AuditLogMapper;
 import cn.surveyking.server.mapper.UserMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,11 +42,37 @@ public class AuditLogService {
 	 * <p>操作人按 create_by 批量查 t_user（一页最多几十条，一次 IN 查询足够）；
 	 * 账号已被删除或 create_by 是匿名/partner id 时 operatorName 留空，前端回退显示原始 id。
 	 */
-	public PaginationResponse<AuditLogView> list(long current, long pageSize, String action) {
+	public PaginationResponse<AuditLogView> list(long current, long pageSize, String action, String startTime,
+			String endTime, String operator, String keyword, String resultStatus) {
 		Page<AuditLog> page = new Page<>(current, pageSize);
-		Page<AuditLog> result = auditLogMapper.selectPage(page,
-				Wrappers.<AuditLog>lambdaQuery().eq(StringUtils.hasText(action), AuditLog::getAction, action)
-						.orderByDesc(AuditLog::getCreateAt));
+		LambdaQueryWrapper<AuditLog> query = Wrappers.<AuditLog>lambdaQuery()
+				.eq(StringUtils.hasText(action), AuditLog::getAction, action);
+		Date start = parseTime(startTime);
+		Date end = parseTime(endTime);
+		query.ge(start != null, AuditLog::getCreateAt, start).le(end != null, AuditLog::getCreateAt, end);
+		if (StringUtils.hasText(operator)) {
+			List<String> userIds = userMapper
+					.selectList(Wrappers.<User>lambdaQuery().like(User::getName, operator.trim()))
+					.stream().map(User::getId).collect(Collectors.toList());
+			if (!userIds.isEmpty()) {
+				query.in(AuditLog::getCreateBy, userIds);
+			} else {
+				query.eq(AuditLog::getCreateBy, operator.trim());
+			}
+		}
+		if (StringUtils.hasText(keyword)) {
+			String like = keyword.trim();
+			query.and(w -> w.like(AuditLog::getTargetName, like).or().like(AuditLog::getTargetId, like)
+					.or().like(AuditLog::getDetail, like));
+		}
+		if ("fail".equals(resultStatus)) {
+			query.like(AuditLog::getDetail, "失败");
+		}
+		else if ("success".equals(resultStatus)) {
+			query.and(w -> w.isNull(AuditLog::getDetail).or().notLike(AuditLog::getDetail, "失败"));
+		}
+		query.orderByDesc(AuditLog::getCreateAt);
+		Page<AuditLog> result = auditLogMapper.selectPage(page, query);
 		Map<String, String> operatorNames = loadOperatorNames(result.getRecords());
 		List<AuditLogView> views = new ArrayList<>(result.getRecords().size());
 		for (AuditLog entry : result.getRecords()) {
@@ -69,6 +101,42 @@ public class AuditLogService {
 			options.add(option);
 		}
 		return options;
+	}
+
+	/** 清理日志：all=true 清空；否则删除 beforeDays 天之前 / before 时间之前的记录 */
+	public int clean(Integer beforeDays, String before, boolean all) {
+		LambdaQueryWrapper<AuditLog> query = Wrappers.<AuditLog>lambdaQuery();
+		if (!all) {
+			Date cutoff = parseTime(before);
+			if (cutoff == null && beforeDays != null && beforeDays > 0) {
+				cutoff = Date.from(LocalDateTime.now().minusDays(beforeDays).atZone(ZoneId.systemDefault()).toInstant());
+			}
+			if (cutoff == null) {
+				throw new IllegalArgumentException("请指定保留天数或清理截止时间");
+			}
+			query.lt(AuditLog::getCreateAt, cutoff);
+		}
+		return auditLogMapper.delete(query);
+	}
+
+	private Date parseTime(String value) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		String text = value.trim();
+		try {
+			return Date.from(LocalDateTime.parse(text, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+					.atZone(ZoneId.systemDefault()).toInstant());
+		}
+		catch (Exception ignored) {
+			try {
+				return Date.from(LocalDate.parse(text, DateTimeFormatter.ISO_LOCAL_DATE)
+						.atStartOfDay(ZoneId.systemDefault()).toInstant());
+			}
+			catch (Exception alsoIgnored) {
+				throw new IllegalArgumentException("时间格式不正确：" + value);
+			}
+		}
 	}
 
 	private Map<String, String> loadOperatorNames(List<AuditLog> entries) {

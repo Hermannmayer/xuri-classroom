@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Button, Card, Empty, Select, Space, Table, Tag, Tooltip } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
-import { get, getWithPagination } from '../../api';
+import { App, Button, Card, DatePicker, Empty, Input, Modal, Radio, Select, Space, Table, Tag, Tooltip } from 'antd';
+import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import dayjs, { type Dayjs } from 'dayjs';
+import { get, getWithPagination, post } from '../../api';
 
 interface AuditLog {
   id: string;
   action: string;
-  /** 后端字典里的中文动作名；老数据/未收录时回退 action */
   actionName?: string;
   targetId?: string;
   targetName?: string;
@@ -22,7 +22,6 @@ interface ActionOption {
   name: string;
 }
 
-/** 后端字典没返回时的兜底：只保留最常见的几个，其余直接显示动作码 */
 const FALLBACK_LABEL: Record<string, string> = {
   EXPORT_REPO: '导出题库',
   EXPORT_ANSWER: '导出答卷',
@@ -33,15 +32,13 @@ const FALLBACK_LABEL: Record<string, string> = {
 
 const isFailed = (row: AuditLog) => (row.detail || '').includes('失败');
 
-/**
- * 系统管理 → 操作日志。
- *
- * 后端 AuditLogView 已经补齐 actionName / targetName / operatorName：
- * - 动作：中文名，不再显示 SYSTEM_DEPT_DELETE 这类内部代码；
- * - 对象：可读名称，名称取不到时才回退 id；
- * - 操作人：用户姓名，取不到时回退 createBy。
- * 只有 system:log:list（默认仅管理员）能看到这个页面。
- */
+const RANGE_PRESETS: { label: string; value: [Dayjs, Dayjs] }[] = [
+  { label: '今天', value: [dayjs().startOf('day'), dayjs().endOf('day')] },
+  { label: '近 7 天', value: [dayjs().subtract(6, 'day').startOf('day'), dayjs().endOf('day')] },
+  { label: '近 30 天', value: [dayjs().subtract(29, 'day').startOf('day'), dayjs().endOf('day')] },
+];
+
+/** 系统管理 → 操作日志：筛选、时间范围、清理。 */
 export default function SystemAudit() {
   const { message } = App.useApp();
   const [rows, setRows] = useState<AuditLog[]>([]);
@@ -50,7 +47,14 @@ export default function SystemAudit() {
   const [pageSize, setPageSize] = useState(20);
   const [action, setAction] = useState<string>();
   const [actions, setActions] = useState<ActionOption[]>([]);
+  const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
+  const [operator, setOperator] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [resultStatus, setResultStatus] = useState<string>();
   const [loading, setLoading] = useState(false);
+  const [cleanOpen, setCleanOpen] = useState(false);
+  const [cleanMode, setCleanMode] = useState<'30' | '90' | '180' | 'all'>('90');
+  const [cleaning, setCleaning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +63,11 @@ export default function SystemAudit() {
         current: page,
         pageSize,
         action,
+        startTime: range?.[0]?.format('YYYY-MM-DDTHH:mm:ss'),
+        endTime: range?.[1]?.format('YYYY-MM-DDTHH:mm:ss'),
+        operator: operator.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        result: resultStatus,
       });
       setRows(res.data);
       setTotal(res.total);
@@ -67,20 +76,18 @@ export default function SystemAudit() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, action, message]);
+  }, [page, pageSize, action, range, operator, keyword, resultStatus, message]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
-    // 筛选下拉由后端给出「库里实际出现过的动作 + 中文名」，避免前端硬编码一份永远对不全的表
     get<ActionOption[]>('/api/system/audit/actions')
       .then((list) => setActions(Array.isArray(list) ? list : []))
       .catch(() => setActions([]));
   }, []);
 
-  /** 下拉选项：后端列表 + 本页出现但字典没覆盖的动作（避免筛选器里缺项） */
   const actionOptions = useMemo(() => {
     const map = new Map<string, string>();
     actions.forEach((item) => map.set(item.code, item.name || item.code));
@@ -94,6 +101,34 @@ export default function SystemAudit() {
 
   const actionText = (row: AuditLog) => row.actionName || FALLBACK_LABEL[row.action] || row.action;
 
+  const resetFilters = () => {
+    setAction(undefined);
+    setRange(null);
+    setOperator('');
+    setKeyword('');
+    setResultStatus(undefined);
+    setPage(1);
+  };
+
+  const cleanLogs = async () => {
+    setCleaning(true);
+    try {
+      const all = cleanMode === 'all';
+      const removed = await post<number>('/api/system/audit/clean', {
+        all,
+        beforeDays: all ? undefined : Number(cleanMode),
+      });
+      message.success(all ? '已清空全部日志' : '已清理 ' + String(removed ?? 0) + ' 条日志');
+      setCleanOpen(false);
+      setPage(1);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -103,25 +138,108 @@ export default function SystemAudit() {
             系统操作记录
           </div>
           <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            记录谁在什么时候、对哪个对象做了什么，用于事后追查。
+            记录谁在什么时候、对哪个对象做了什么；可按时间、动作、操作人、结果筛选。
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <Select
-          allowClear
-          showSearch
-          optionFilterProp="label"
-          placeholder="按动作筛选"
-          style={{ width: 220 }}
-          value={action}
-          onChange={(v) => {
-            setAction(v);
-            setPage(1);
-          }}
-          options={actionOptions}
-        />
-        <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
+        <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>
+          刷新
+        </Button>
+        <Button danger icon={<DeleteOutlined />} onClick={() => setCleanOpen(true)}>
+          清理日志
+        </Button>
       </div>
+
+      <Card
+        className="bp-corners"
+        style={{ border: '1px solid var(--bp-line)', marginBottom: 12 }}
+        styles={{ body: { padding: 14 } }}
+      >
+        <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+          FILTER / 筛选
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, marginBottom: 4 }}>时间范围</div>
+            <DatePicker.RangePicker
+              showTime
+              allowClear
+              presets={RANGE_PRESETS}
+              format="YYYY-MM-DD HH:mm"
+              value={range}
+              onChange={(values) => {
+                setRange((values as [Dayjs, Dayjs] | null) ?? null);
+                setPage(1);
+              }}
+              style={{ width: 360 }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, marginBottom: 4 }}>动作</div>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="全部动作"
+              style={{ width: 220 }}
+              value={action}
+              onChange={(value) => {
+                setAction(value);
+                setPage(1);
+              }}
+              options={actionOptions}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, marginBottom: 4 }}>结果</div>
+            <Select
+              allowClear
+              placeholder="全部结果"
+              style={{ width: 120 }}
+              value={resultStatus}
+              onChange={(value) => {
+                setResultStatus(value);
+                setPage(1);
+              }}
+              options={[
+                { value: 'success', label: '成功' },
+                { value: 'fail', label: '失败' },
+              ]}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, marginBottom: 4 }}>操作人</div>
+            <Input
+              allowClear
+              placeholder="按姓名搜索"
+              style={{ width: 180 }}
+              value={operator}
+              onChange={(e) => {
+                setOperator(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, marginBottom: 4 }}>关键词</div>
+            <Input
+              allowClear
+              placeholder="对象名称 / 说明"
+              style={{ width: 240 }}
+              value={keyword}
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div style={{ alignSelf: 'flex-end', paddingBottom: 1 }}>
+            <Button onClick={resetFilters}>重置筛选</Button>
+          </div>
+        </div>
+      </Card>
 
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)' }}>
         <Table<AuditLog>
@@ -186,9 +304,7 @@ export default function SystemAudit() {
               dataIndex: 'operatorName',
               width: 160,
               render: (_: unknown, row: AuditLog) => (
-                <span style={{ fontSize: 12 }}>
-                  {row.operatorName || row.createBy || '—'}
-                </span>
+                <span style={{ fontSize: 12 }}>{row.operatorName || row.createBy || '—'}</span>
               ),
             },
             {
@@ -207,6 +323,29 @@ export default function SystemAudit() {
           ]}
         />
       </Card>
+
+      <Modal
+        title="清理操作日志"
+        open={cleanOpen}
+        onCancel={() => setCleanOpen(false)}
+        onOk={() => void cleanLogs()}
+        confirmLoading={cleaning}
+        okText="确认清理"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+          清理后不可恢复；建议先保留最近 90/180 天用于追溯。
+        </div>
+        <Radio.Group value={cleanMode} onChange={(e) => setCleanMode(e.target.value)}>
+          <Space direction="vertical">
+            <Radio value="30">只保留最近 30 天，清理更早日志</Radio>
+            <Radio value="90">只保留最近 90 天，清理更早日志</Radio>
+            <Radio value="180">只保留最近 180 天，清理更早日志</Radio>
+            <Radio value="all">清空全部日志</Radio>
+          </Space>
+        </Radio.Group>
+      </Modal>
     </div>
   );
 }

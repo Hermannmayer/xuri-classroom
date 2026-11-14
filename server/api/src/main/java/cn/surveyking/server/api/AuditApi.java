@@ -1,11 +1,14 @@
 package cn.surveyking.server.api;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.domain.dto.AuditCleanRequest;
 import cn.surveyking.server.domain.dto.AuditLogView;
 import cn.surveyking.server.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,8 +33,19 @@ public class AuditApi {
 	@PreAuthorize("hasAuthority('system:log:list')")
 	public PaginationResponse<AuditLogView> list(@RequestParam(defaultValue = "1") long current,
 			@RequestParam(defaultValue = "20") long pageSize,
-			@RequestParam(required = false) String action) {
-		return auditLogService.list(current, pageSize, action);
+			@RequestParam(required = false) String action,
+			@RequestParam(required = false) String startTime,
+			@RequestParam(required = false) String endTime,
+			@RequestParam(required = false) String operator,
+			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String result) {
+		return auditLogService.list(current, pageSize, action, startTime, endTime, operator, keyword, result);
+	}
+
+	@PostMapping("/clean")
+	@PreAuthorize("hasRole('admin')")
+	public int clean(@RequestBody AuditCleanRequest request) {
+		return auditLogService.clean(request.getBeforeDays(), request.getBefore(), Boolean.TRUE.equals(request.getAll()));
 	}
 
 	/**
