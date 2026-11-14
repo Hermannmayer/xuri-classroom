@@ -183,7 +183,7 @@ modules:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test
     last_verified: 2026-11-14
-    verified_against: d138a8b2704613d838e7e53b51ba58a9c2a2c999
+    verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
   - id: module-dashboard
     title: 首页与统计
     doc: docs/modules/dashboard.md
@@ -801,8 +801,8 @@ modules:
       - client:npm run test:rules
       - client:npm run test:tree
       - docs:npm run docs:check
-    last_verified: 2026-11-10
-    verified_against: 1057ec3ad2393c70b42ef96dedecc0bea1d0150e
+    last_verified: 2026-11-14
+    verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
