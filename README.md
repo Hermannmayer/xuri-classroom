@@ -230,6 +230,18 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 
 > 三端升级完成后都建议打开 `/api/system/version`，确认 `version` 和 `schemaStatus` 正常；数据库迁移只做增量变更，程序回滚通常不需要回滚数据库。
 
+### 检查更新
+
+管理员登录后进入 **系统设置 → 检查更新**，可以配置：
+
+- 自动检查开关
+- GitHub 仓库（`owner/repo`）
+- GitHub API 前缀（国内可填兼容镜像）
+- 自建更新清单 URL（填写后优先于 GitHub）
+- 检查间隔（1–168 小时）
+
+点「立即检查」会读取远端 Release 信息并显示当前版本、最新版本和更新说明；**只提示，不下载、不执行升级**。未配置更新源或检查失败时不会影响系统正常运行。
+
 ---
 
 ## 数据与备份
