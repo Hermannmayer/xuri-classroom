@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 199 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 201 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -88,6 +88,8 @@
 | GET | `${api.prefix}/repo/book/list` | `RepoApi#listUserBook` | `hasAnyAuthority('repo:book','repo:practice')` | — |
 | GET | `${api.prefix}/repo/book/question` | `RepoApi#getUserBookQuestion` | `hasAnyAuthority('repo:book','repo:practice')` | — |
 | POST | `${api.prefix}/repo/book/create` | `RepoApi#createUserBook` | `hasAuthority('repo:book')` | — |
+| GET | `${api.prefix}/repo/book/favorites` | `RepoApi#listFavorites` | `hasAnyAuthority('repo:book','repo:practice')` | — |
+| POST | `${api.prefix}/repo/book/favorite` | `RepoApi#toggleFavorite` | `hasAuthority('repo:book')` | — |
 | POST | `${api.prefix}/repo/book/update` | `RepoApi#updateUserBook` | `hasAuthority('repo:book')` | — |
 | POST | `${api.prefix}/repo/book/delete` | `RepoApi#deleteUserBook` | `hasAuthority('repo:book')` | — |
 | GET | `${api.prefix}/repo/export` | `RepoApi#exportRepoQuestions` | `hasAuthority('repo:export')` | — |

@@ -290,7 +290,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-15
-    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
+    verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
   - id: module-files
     title: 文件、附件与导入模板
     doc: docs/modules/files.md
@@ -737,7 +737,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
+    verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -804,7 +804,7 @@ modules:
       - client:npm run test:tree
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
+    verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md

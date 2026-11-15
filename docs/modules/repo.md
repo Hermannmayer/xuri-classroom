@@ -93,14 +93,14 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
+verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
 ---
 
 # 题库与题目
 
 ## 30 秒摘要
 
-题库（`t_repo`）是题目的容器，题目（`t_template`）挂在题库下。这一层负责：题库列表与增删改、题目浏览与单题编辑、Excel 导入导出、从题库抽题组卷、按教师用户组/按人授权题库（P12 三级授权；学员不在这里授权）、按班级分配题库（P2）、题库全局开放期与班级窗口硬上限（P3）、题库分类/空文件夹侧栏（P11），以及学员的错题本（`t_user_book`）。它**不负责**考试的生命周期（创建、发布、作答、判分）——那是 project/answer 模块；也**不负责**练习作答页——那是 exercise 模块。后端入口是 `RepoApi`，绝大部分规则落在 `RepoServiceImpl` 与 `RepoPartnerServiceImpl`；前端入口在 `client/src/pages/repo/`。
+题库（`t_repo`）是题目的容器，题目（`t_template`）挂在题库下。这一层负责：题库列表与增删改、题目浏览与单题编辑、Excel 导入导出、从题库抽题组卷、按教师用户组/按人授权题库（P12 三级授权；学员不在这里授权）、按班级分配题库（P2）、题库全局开放期与班级窗口硬上限（P3）、题库分类/空文件夹侧栏（P11），学员的错题本/收藏（`t_user_book`），以及题目描述/说明题的基础富文本与图片（`t_file_ref`）。它**不负责**考试的生命周期（创建、发布、作答、判分）——那是 project/answer 模块；也**不负责**练习作答页——那是 exercise 模块。后端入口是 `RepoApi`，绝大部分规则落在 `RepoServiceImpl` 与 `RepoPartnerServiceImpl`；前端入口在 `client/src/pages/repo/`。
 
 ## 什么时候看这篇
 
@@ -112,6 +112,8 @@ verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
 - 班级分配了题库，学员列表能看到但打不开题目或练习。
 - 题库开放时间设错、清不掉，或班级窗口提示「题库开放时间必须在全局开放时间内」。
 - 需要确认老师、学员分别能对题库做什么（老师题库默认可读，授权级别见 P12）。
+- 题目描述/说明题要插入图片，或排查「删了题库图片还在/图片被删坏」。
+- 要改题目收藏、考试禁止收藏，或练习册收藏列表。
 - 题库分类树看不到空文件夹/计数不对，或授权了「可编辑」仍改不了题库。
 
 ## 代码地图
@@ -125,7 +127,10 @@ verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
 | 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | **只面向教师**：按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树只拉 `deptType=org`，人只拉 `userType=staff`；成员行可改级别。学员/班级不在这里出现 |
-| 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book` |
+| 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book`；收藏由答题页/练习页的星标按钮写入，`/api/repo/book/favorites` 一次返回本人收藏 id |
+| 富文本编辑器 | `client/src/components/RichTextEditor.tsx` | 一期只做加粗/斜体/下划线/列表/链接/图片，不接视频；图片上传到 `/api/file/create`，带 `ownerType/ownerId/questionId` 登记 `t_file_ref` |
+| 后端消毒 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RichTextSanitizer.java` | OWASP 白名单；`img.src` 只允许 `/api/public/preview/{id}`，链接只允许 http/https/mailto |
+| 文件引用 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileRefServiceImpl.java` | `t_file_ref(file_id, owner_type, owner_id, question_id)`；删试卷/题库只解绑，最后一个引用消失才删物理文件 |
 | 练习首页 | `client/src/pages/repo/PracticeHome.tsx` | 学员题库练习：顺序、随机、题型、错题、收藏、历史；随机/题型通过 `counts` 参数进 `/exercise/practice/:repoId`；路由 `repo/:repoId/practice`；练习数据走 `/api/template/practiceList`（repo:practice，单页最多 20 题） |
 | 前端请求 | `client/src/api/index.ts` | `getWithPagination`、`post`、`download`；导出/导入都走它 |
 | 题库接口 | `server/api/src/main/java/cn/surveyking/server/api/RepoApi.java` | `@PreAuthorize` 与导出守卫；`/repo/pick`、`/repo/import` 也在这里 |
@@ -136,7 +141,7 @@ verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
 | 班级分配 | `server/rdbms/src/main/java/cn/surveyking/server/service/ClassResourceService.java` | `t_class_resource` 的 repo 行：列表只判断「有没有分配」，`canStudentReadRepo` 校验班级开关 → 题库全局期 → 本班窗口 |
 | 题库全局开放期 | `server/rdbms/.../domain/model/Repo.java`、`server/shared/.../dto/RepoRequest.java`、`RepoView.java`、`init-mysql.sql`、`scripts/nas/migrate/32-repo-open-window.sql` | `t_repo.open_start_at/open_end_at`（datetime，NULL=不限）；`RepoServiceImpl#updateRepo` 显式 set，支持清空 |
 | 统计 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java` | 每个题库的题量、题型分布、标签分布 |
-| 数据表 | `t_repo`、`t_repo_category`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book` | 题库、分类目录、题目、授权（含 access_level）、班级分配、标签、错题本 |
+| 数据表 | `t_repo`、`t_repo_category`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book`、`t_file_ref` | 题库、分类目录、题目、授权（含 access_level）、班级分配、标签、错题/收藏、富文本图片引用 |
 | Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析，行级安全校验 |
 | Excel 文案 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java` | sheet 名与表头的中英文别名，导入导出共用 |
 

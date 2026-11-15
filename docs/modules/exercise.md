@@ -55,19 +55,21 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-15
-verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
+verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
 ---
 
 # 任务中心、练习与错题本
 
 ## 30 秒摘要
 
-学员侧的"我的任务"把三件事收进一个页面：考试安排（复用项目列表，学员列表与首页统一带 `flat=true`，忽略根目录限制、拿到文件夹里的班级考试）、练习记录（`t_answer` 里 `exam_exercise_type` 非空的记录）、我的成绩（按考试聚合）。练习本身从题库发起，题目按 `/api/template/list` 分页加载，随机练习走 `/api/repo/pick`，进度只存在浏览器 `localStorage`；错题本落在 `t_user_book`，由考试交卷时异步收集。后端入口是 `ExerciseApi`、`MyReportApi` 和 `UserBookServiceImpl`。
+学员侧的"我的任务"把三件事收进一个页面：考试安排（复用项目列表，学员列表与首页统一带 `flat=true`，忽略根目录限制、拿到文件夹里的班级考试）、练习记录（`t_answer` 里 `exam_exercise_type` 非空的记录）、我的成绩（按考试聚合）。练习本身从题库发起，题目按 `/api/template/practiceList` 分页加载，随机练习走 `/api/repo/pick`；练习提交时带 `repoId + examExerciseType` 写入 `t_answer`，所以「练习记录」只列本人真正做过的练习（不再用班级授权项目冒充），`percent` 按作答 key 计算。题目标记是本地标记（`sk-marks:<id>`），收藏写 `t_user_book.type=2`；错题由考试交卷时异步收集。后端入口是 `ExerciseApi`、`MyReportApi` 和 `UserBookServiceImpl`。
 
 ## 什么时候看这篇
 
 - 学员说"练习记录里没有我刚才做的练习"。
 - 要改"我的任务"的页签、练习进度、错题本筛选/标记。
+- 学员说「练习记录和考试安排重复」：练习记录走 `/api/exercise/list`，只返回本人 `t_answer` 的 `exam_exercise_type` 非空记录；考试安排走 `/api/project/list?flat=true`。
+- 要改考试「禁止收藏题目」：`ProjectSetting.ExamSetting.favoriteEnabled`，默认 true；收藏接口在写 `t_user_book` 前校验。
 - 要确认"我的成绩"为什么没有某场考试，或分数/次数不对。
 - 要让错题本按考试拆分、按错误次数筛选，或改"已掌握/重点"状态。
 - 要改练习页的加载方式（分页/随机/继续上次）。
