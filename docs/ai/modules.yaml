@@ -538,8 +538,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-14
-    verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
+    last_verified: 2026-11-15
+    verified_against: b4cffcfb13ff0866fe8976f0163293645309e521
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -924,5 +924,5 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-14
-    verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
+    last_verified: 2026-11-15
+    verified_against: b4cffcfb13ff0866fe8976f0163293645309e521

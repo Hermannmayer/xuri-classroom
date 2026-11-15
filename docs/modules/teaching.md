@@ -119,7 +119,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 3bda1c6301875491b5be7c717bc9c5b4bf36b717
+verified_against: b4cffcfb13ff0866fe8976f0163293645309e521
 ---
 
 # 班级与教学工作台

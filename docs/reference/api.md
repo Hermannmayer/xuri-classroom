@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 198 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 199 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -167,6 +167,7 @@
 | GET | `${api.prefix}/teaching/classes/members` | `TeachingApi#classMembers` | `hasAuthority('class:detail') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/pending-students` | `TeachingApi#pendingStudents` | `hasAuthority('class:detail') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/pending-students/approve` | `TeachingApi#approvePendingStudent` | `hasAuthority('class:member:approve') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/pending-students/reject` | `TeachingApi#rejectPendingStudent` | `hasAuthority('class:member:approve') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/member/candidates` | `TeachingApi#memberCandidates` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/member/add-existing` | `TeachingApi#addExistingStudents` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/member/assign` | `TeachingApi#assignStudentClasses` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
