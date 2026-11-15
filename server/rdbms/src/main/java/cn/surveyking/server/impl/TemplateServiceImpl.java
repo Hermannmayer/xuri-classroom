@@ -10,10 +10,12 @@ import cn.surveyking.server.domain.model.Repo;
 import cn.surveyking.server.domain.model.RepoPartner;
 import cn.surveyking.server.domain.model.Tag;
 import cn.surveyking.server.domain.model.Template;
+import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.domain.model.UserBook;
 import cn.surveyking.server.mapper.TemplateMapper;
 import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
+import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.TemplateService;
@@ -52,6 +54,8 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	private final ClassResourceService classResourceService;
 
 	private final RepoPartnerMapper repoPartnerMapper;
+
+	private final UserMapper userMapper;
 
 	@Resource
 	@Lazy
@@ -311,6 +315,11 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	private boolean isReadableRepo(String repoId) {
 		Repo repo = repoMapper.selectById(repoId);
 		String userId = SecurityContextUtils.getUserId();
+		User current = userMapper.selectById(userId);
+		// 学员只认班级分配，不能靠共享/个人/用户组授权读题库
+		if (current != null && "student".equals(current.getUserType())) {
+			return repo != null && classResourceService.canStudentReadRepo(repoId);
+		}
 		// 与 RepoServiceImpl#assertReadableRepo 保持一致：管理员 / 创建者 / 逐个授权 / 所在用户组（主组 + 附加组，含祖先链）授权
 		return repo != null && (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())

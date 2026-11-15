@@ -23,6 +23,7 @@ import cn.surveyking.server.domain.model.*;
 import cn.surveyking.server.mapper.RepoCategoryMapper;
 import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
+import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ClassResourceService;
@@ -79,6 +80,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	/** 按班级分配的题库存取：可见性与读权限都要认 t_class_resource 上的 repo 分配 */
 	private final ClassResourceService classResourceService;
+
+	private final UserMapper userMapper;
 
 	/** 分类列表里表示「题库没填分类」的节点名 */
 	private static final String UNCATEGORIZED_NAME = "未分类";
@@ -172,6 +175,12 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper, String currentUserId,
 			boolean memberOnly) {
 		if (SecurityContextUtils.isAdmin()) {
+			return;
+		}
+		// 学员：只通过班级分配看题库，不再走自己创建/共享/个人或用户组授权
+		User current = userMapper.selectById(currentUserId);
+		if (current != null && "student".equals(current.getUserType())) {
+			wrapper.apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
 			return;
 		}
 		wrapper.and(x -> {
@@ -1351,6 +1360,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			return;
 		}
 		String userId = SecurityContextUtils.getUserId();
+		User current = userMapper.selectById(userId);
+		if (current != null && "student".equals(current.getUserType())) {
+			throw new AccessDeniedException("学员没有题库管理权限");
+		}
 		if (Objects.equals(repo.getCreateBy(), userId)) {
 			return;
 		}
@@ -1372,6 +1385,14 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	private void assertReadableRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
 		String userId = SecurityContextUtils.getUserId();
+		// 学员：题库只能来自班级资源分配；共享/个人授权都不再作为学员入口
+		User current = userMapper.selectById(userId);
+		if (current != null && "student".equals(current.getUserType())) {
+			if (classResourceService.canStudentReadRepo(repoId)) {
+				return;
+			}
+			throw new AccessDeniedException("无权限访问该题库");
+		}
 		// 管理员全放行；共享题库对所有能进题库列表的人可读（与 TemplateServiceImpl#isReadableRepo、
 		// 列表的 shared 分支保持同一口径，否则列表能看到、点进去 403 空白）；
 		// 其余人只能读自己创建的、被逐个授权的、或所在用户组被授权的。

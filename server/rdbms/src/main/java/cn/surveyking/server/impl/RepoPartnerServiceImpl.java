@@ -69,6 +69,11 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 				.apply(StringUtils.hasText(query.getUserName()),
 						"EXISTS (SELECT 1 FROM t_user WHERE t_user.id = t_repo_partner.user_id AND t_user.name = {0})",
 						query.getUserName())
+				// 题库授权只面向教职工/用户组：历史遗留的学员/班级行不再展示
+				.and(w -> w.isNull(RepoPartner::getUserId).or().apply(
+						"EXISTS (SELECT 1 FROM t_user u WHERE u.id = t_repo_partner.user_id AND u.user_type = 'staff')"))
+				.and(w -> w.isNull(RepoPartner::getDeptId).or().apply(
+						"EXISTS (SELECT 1 FROM t_dept d WHERE d.id = t_repo_partner.dept_id AND d.dept_type = 'org')"))
 				.orderByAsc(RepoPartner::getCreateAt));
 		PaginationResponse<RepoPartnerView> result = new PaginationResponse<>(page.getTotal(),
 				repoPartnerViewMapper.toView(page.getRecords()));
@@ -98,6 +103,10 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		int level = normalizeAccessLevel(request.getAccessLevel());
 		// 按用户组授权：只存一条 dept 记录，组员靠「主组 + 附加组 + 祖先链」自动继承，新增组员不用重新授权
 		if (StringUtils.hasText(request.getDeptId())) {
+			Dept dept = deptMapper.selectById(request.getDeptId());
+			if (dept == null || !Dept.TYPE_ORG.equals(dept.getDeptType())) {
+				throw new ValidationException("题库只能授权给教师用户组；学员请到班级管理 → 班级资源里分配题库");
+			}
 			RepoPartner exist = getOne(Wrappers.<RepoPartner>lambdaQuery()
 					.eq(RepoPartner::getRepoId, request.getRepoId()).eq(RepoPartner::getDeptId, request.getDeptId()),
 					false);
@@ -119,6 +128,11 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		}
 		if (CollectionUtils.isEmpty(request.getUserIds())) {
 			return;
+		}
+		List<User> targetUsers = userMapper.selectBatchIds(request.getUserIds());
+		if (targetUsers.size() != request.getUserIds().stream().filter(StringUtils::hasText).distinct().count()
+				|| targetUsers.stream().anyMatch(user -> user == null || !"staff".equals(user.getUserType()))) {
+			throw new ValidationException("题库只能授权给教职工；学员请到班级管理 → 班级资源里分配题库");
 		}
 		List<RepoPartner> existPartners = list(Wrappers.<RepoPartner>lambdaQuery()
 				.eq(RepoPartner::getRepoId, request.getRepoId()).in(RepoPartner::getUserId, request.getUserIds()));
@@ -187,10 +201,17 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (repo == null) {
 			return false;
 		}
+		User user = userMapper.selectById(userId);
+		if (user == null) {
+			return false;
+		}
+		// 学员：只认班级资源分配，不再走个人/用户组题库授权
+		if ("student".equals(user.getUserType())) {
+			return classResourceService.canStudentReadRepo(repoId);
+		}
 		if (Objects.equals(repo.getCreateBy(), userId)) {
 			return true;
 		}
-		// 按班级分配：学生被分配到本班即可练习（只对 student 生效，不影响教职工口径）
 		if (classResourceService.canStudentReadRepo(repoId)) {
 			return true;
 		}

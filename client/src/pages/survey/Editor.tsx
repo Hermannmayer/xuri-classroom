@@ -1121,19 +1121,43 @@ export default function SurveyEditor() {
                     <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
                       PROPERTIES / 属性 · {selected.type}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>标题</div>
-                    <Input
-                      value={selected.title}
-                      onChange={(e) => patchNode({ title: e.target.value })}
-                      style={{ marginBottom: 10 }}
-                    />
-                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>描述</div>
-                    <Input.TextArea
-                      value={selected.description ?? ''}
-                      onChange={(e) => patchNode({ description: e.target.value })}
-                      autoSize={{ minRows: 2, maxRows: 4 }}
-                      style={{ marginBottom: 12 }}
-                    />
+                    {selected.type === 'Remark' ? (
+                      <>
+                        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>
+                          说明内容（页面上显示的文字）
+                        </div>
+                        <Input.TextArea
+                          value={String(selected.attribute?.content ?? '')}
+                          onChange={(e) => patchAttribute({ content: e.target.value })}
+                          autoSize={{ minRows: 4, maxRows: 10 }}
+                          placeholder="输入这段说明文字"
+                          style={{ marginBottom: 8 }}
+                        />
+                        <div style={{ fontSize: 11, color: 'var(--bp-hint)', lineHeight: 1.7, marginBottom: 12 }}>
+                          说明题不显示标题，只显示这段内容；当前按安全 HTML 渲染（图片/视频入口在富文本改造时统一接入）。
+                        </div>
+                      </>
+                    ) : selected.type === 'SplitLine' ? (
+                      <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
+                        分割线没有文字内容，可拖动调整位置。
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>标题</div>
+                        <Input
+                          value={selected.title}
+                          onChange={(e) => patchNode({ title: e.target.value })}
+                          style={{ marginBottom: 10 }}
+                        />
+                        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>描述</div>
+                        <Input.TextArea
+                          value={selected.description ?? ''}
+                          onChange={(e) => patchNode({ description: e.target.value })}
+                          autoSize={{ minRows: 2, maxRows: 4 }}
+                          style={{ marginBottom: 12 }}
+                        />
+                      </>
+                    )}
                     <AttributePanel
                       schema={selected}
                       onChange={patchAttribute}

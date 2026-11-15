@@ -50,7 +50,6 @@ interface UserOption {
 }
 
 type GrantMode = 'dept' | 'user';
-type Audience = 'staff' | 'student';
 
 /**
  * 题库授权管理。
@@ -82,7 +81,8 @@ export default function GrantModal({
   const isBatch = targets.length > 1;
   const [loading, setLoading] = useState(false);
   const [partners, setPartners] = useState<RepoPartnerView[]>([]);
-  const [audience, setAudience] = useState<Audience>('staff');
+  // 题库授权只面向教师/用户组；学员由班级资源分配，不再从这里授权
+  const audience = 'staff' as const;
   const [mode, setMode] = useState<GrantMode>('dept');
   const [depts, setDepts] = useState<Dept[]>([]);
   const [deptError, setDeptError] = useState<string>();
@@ -120,7 +120,6 @@ export default function GrantModal({
 
   useEffect(() => {
     if (!open) return;
-    setAudience('staff');
     setDeptId(undefined);
     setUserIds([]);
     setMode('dept');
@@ -131,13 +130,13 @@ export default function GrantModal({
       .catch(() => undefined);
   }, [open, loadPartners]);
 
-  // 组织树按“教师用户组 / 学员班级”分开拉，避免老师和班级混在一个下拉里
+  // 只拉教师用户组；班级不在这里参与题库授权
   useEffect(() => {
     if (!open) return;
     setDeptId(undefined);
     setUserIds([]);
     setDeptError(undefined);
-    get<Dept[]>('/api/system/dept/list', { deptType: audience === 'staff' ? 'org' : 'class' })
+    get<Dept[]>('/api/system/dept/list', { deptType: 'org' })
       .then((list) => {
         setDepts(list ?? []);
         setDeptError(undefined);
@@ -145,13 +144,13 @@ export default function GrantModal({
       .catch((e: Error) => setDeptError(e.message || '没有权限读取用户组'));
   }, [open, audience]);
 
-  // 人员候选也按身份过滤：教师授权只出现 staff，学员授权只出现 student
+  // 人员候选只出现教职工；学员通过班级资源分配
   useEffect(() => {
     if (!open || mode !== 'user') return;
     setUsers([]);
     setUsersLoading(true);
     setUserListError(undefined);
-    get<UserOption[]>('/api/system/user/options', { userType: audience === 'staff' ? 'staff' : 'student' })
+    get<UserOption[]>('/api/system/user/options', { userType: 'staff' })
       .then((list) => setUsers(list ?? []))
       .catch((e: Error) => setUserListError(e.message || '没有权限读取用户列表'))
       .finally(() => setUsersLoading(false));
@@ -162,16 +161,9 @@ export default function GrantModal({
   const myLevel = myPartner?.accessLevel;
   // 批量授权没有单个题库的名单可判断，交给后端 403 兜底
   const canWrite = isBatch || myLevel === undefined || myLevel >= 3;
-  const visiblePartners = partners.filter((row) =>
-    audience === 'staff'
-      ? row.userType === 'staff' || row.deptType === 'org'
-      : row.userType === 'student' || row.deptType === 'class',
-  );
-  const audienceLabel = audience === 'staff' ? '教师' : '学员';
-
-  useEffect(() => {
-    setSelectedPartnerIds([]);
-  }, [audience]);
+  // 后端已过滤历史学员/班级行；这里直接展示教师/用户组授权
+  const visiblePartners = partners;
+  const audienceLabel = '教师';
 
   const updateLevel = async (row: RepoPartnerView, accessLevel: number) => {
     if (!repoId || updatingId) return;
@@ -237,10 +229,10 @@ export default function GrantModal({
       if (ok > 0) {
         message.success(
           isBatch
-            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? (audience === 'staff' ? '该用户组' : '该班级') : ` ${userIds.length} 位用户`}（${levelText(level)}）`
+            ? `已授权 ${ok}/${targets.length} 个题库给${mode === 'dept' ? '该教师用户组' : ` ${userIds.length} 位教职工`}（${levelText(level)}）`
             : mode === 'dept'
-              ? `已授权${audience === 'staff' ? '该用户组' : '该班级'}（${levelText(level)}），成员自动可见`
-              : `已授权 ${userIds.length} 位用户（${levelText(level)}）`,
+              ? `已授权该教师用户组（${levelText(level)}），成员自动可见`
+              : `已授权 ${userIds.length} 位教职工（${levelText(level)}）`,
         );
       }
       if (failed.length > 0) {
@@ -306,20 +298,8 @@ export default function GrantModal({
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="教师按用户组/个人授权；学员按班级/个人授权，两套对象分开管理。"
+        message="题库只授权给教师用户组/个人；学员请到「班级管理 → 班级资源 → 题库」分配，不再在题库里直接授权学员/班级。"
       />
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>授权对象</span>
-        <Segmented<Audience>
-          value={audience}
-          onChange={(value) => setAudience(value)}
-          options={[
-            { label: '教师 / 用户组', value: 'staff' },
-            { label: '学员 / 班级', value: 'student' },
-          ]}
-        />
-      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         <div className="bp-title" style={{ fontSize: 12 }}>
@@ -439,7 +419,7 @@ export default function GrantModal({
               value={mode}
               onChange={(value) => setMode(value)}
               options={[
-                { label: audience === 'staff' ? '按用户组' : '按班级', value: 'dept' },
+                { label: '按用户组', value: 'dept' },
                 { label: '按个人', value: 'user' },
               ]}
             />
@@ -465,7 +445,7 @@ export default function GrantModal({
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <TreeSelect
               style={{ flex: '1 1 260px', minWidth: 220 }}
-              placeholder={audience === 'staff' ? '选择教师用户组' : '选择学员班级'}
+              placeholder="选择教师用户组"
               value={deptId}
               onChange={setDeptId}
               treeData={deptTree}
@@ -476,7 +456,7 @@ export default function GrantModal({
               dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
             />
             <Button type="primary" loading={saving} onClick={() => void grant()}>
-              {audience === 'staff' ? '授权该用户组' : '授权该班级'}
+              授权该用户组
             </Button>
           </div>
         </div>
