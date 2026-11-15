@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 203 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 204 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -96,6 +96,7 @@
 | GET | `${api.prefix}/repo/export` | `RepoApi#exportRepoQuestions` | `hasAuthority('repo:export')` | — |
 | POST | `${api.prefix}/repo/export/token` | `RepoApi#exportToken` | `hasAuthority('repo:export') or hasAuthority('answer:export')` | — |
 | POST | `${api.prefix}/report/statistics` | `ReportApi#statProject` | `hasAuthority('project:report') or hasRole('admin')` | — |
+| GET | `${api.prefix}/report/class/{shortId}` | `ReportApi#getClassData` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/report/{shortId}` | `ReportApi#getData` | `hasAuthority('project:report')` | 是 |
 | POST | `${api.prefix}/public/loadProject` | `SurveyApi#loadProject` | — | — |
 | POST | `${api.prefix}/public/projectOutline` | `SurveyApi#projectOutline` | — | — |
