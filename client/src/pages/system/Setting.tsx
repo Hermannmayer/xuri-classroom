@@ -401,12 +401,17 @@ export default function SystemSetting() {
         await post('/api/system/update', {
           setting: {
             updateCheckEnabled: Boolean(v.updateCheckEnabled),
-            updateGithubRepo: String(v.updateGithubRepo ?? '').trim() || undefined,
-            updateApiBase: String(v.updateApiBase ?? '').trim() || undefined,
-            updateManifestUrl: String(v.updateManifestUrl ?? '').trim() || undefined,
+            updateGithubRepo: String(v.updateGithubRepo ?? '').trim(),
+            updateApiBase: String(v.updateApiBase ?? '').trim(),
+            updateManifestUrl: String(v.updateManifestUrl ?? '').trim(),
             updateCheckIntervalHours: Number(v.updateCheckIntervalHours ?? 24),
           },
         });
+        try {
+          localStorage.removeItem('sk-update-last-check');
+        } catch {
+          // localStorage 不可用时忽略
+        }
       } else {
         await post('/api/system/update', {
           aiSetting: {

@@ -709,6 +709,22 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getAnonymousRetentionDays() != null) {
 				setting.setAnonymousRetentionDays(clampAnonymousRetentionDays(source.getAnonymousRetentionDays()));
 			}
+			// 检查更新：空串表示清空并回退到环境配置
+			if (source.getUpdateCheckEnabled() != null) {
+				setting.setUpdateCheckEnabled(source.getUpdateCheckEnabled());
+			}
+			if (source.getUpdateGithubRepo() != null) {
+				setting.setUpdateGithubRepo(trimToNull(source.getUpdateGithubRepo()));
+			}
+			if (source.getUpdateApiBase() != null) {
+				setting.setUpdateApiBase(trimToNull(source.getUpdateApiBase()));
+			}
+			if (source.getUpdateManifestUrl() != null) {
+				setting.setUpdateManifestUrl(trimToNull(source.getUpdateManifestUrl()));
+			}
+			if (source.getUpdateCheckIntervalHours() != null) {
+				setting.setUpdateCheckIntervalHours(Math.max(1, Math.min(168, source.getUpdateCheckIntervalHours())));
+			}
 		}
 		if (request.getAiSetting() != null) {
 			SystemInfo.AiSetting source = request.getAiSetting();
