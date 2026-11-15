@@ -352,6 +352,7 @@ export default function TeachingClasses() {
 
   /* ---------------- 班级成员 ---------------- */
   const [members, setMembers] = useState<ClassMember[]>([]);
+  const [selectedMemberKeys, setSelectedMemberKeys] = useState<string[]>([]);
   const [memberLoading, setMemberLoading] = useState(false);
 
   const loadMembers = useCallback(
@@ -977,6 +978,45 @@ export default function TeachingClasses() {
       }));
   }, [options, teachers]);
 
+  const selectedMembers = members.filter((row) => selectedMemberKeys.includes(row.id || row.username || ''));
+
+  const batchMemberStatus = async (status: number) => {
+    if (!selected || !selectedMembers.length) return;
+    try {
+      for (const row of selectedMembers) {
+        if (!row.primary) continue;
+        await post('/api/teaching/classes/member/update', {
+          deptId: selected.id,
+          id: row.id,
+          name: row.name,
+          phone: row.phone,
+          status,
+        });
+      }
+      message.success(status === 1 ? '已批量启用学员' : '已批量停用学员');
+      setSelectedMemberKeys([]);
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const batchRemoveExtra = async () => {
+    if (!selected || !selectedMembers.length) return;
+    try {
+      for (const row of selectedMembers) {
+        if (!row.primary) {
+          await post('/api/teaching/classes/member/remove-extra', { deptId: selected.id, id: row.id });
+        }
+      }
+      message.success('已批量移出兼报学员');
+      setSelectedMemberKeys([]);
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
   const memberColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 120, render: (v?: string) => v || '—' },
     // 手机号即登录账号，两列同值：合并成一列，避免重复展示
@@ -1385,12 +1425,28 @@ export default function TeachingClasses() {
                 </div>
               ) : (
                 <TableScrollRegion label="班级成员（可横向滚动）">
+                  {selectedMemberKeys.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>已选 {selectedMemberKeys.length} 人</span>
+                      {canMemberUpdate && <Button size="small" onClick={() => void batchMemberStatus(1)}>批量启用</Button>}
+                      {canMemberUpdate && <Button size="small" onClick={() => void batchMemberStatus(0)}>批量停用</Button>}
+                      {canAssign && (
+                        <Popconfirm title="把选中的兼报学员移出本班？" description="主班学员不会被移出；只解除本班兼报关系。" okText="移出" cancelText="取消" onConfirm={() => void batchRemoveExtra()}>
+                          <Button size="small" danger>批量移出本班</Button>
+                        </Popconfirm>
+                      )}
+                    </div>
+                  )}
                   <Table<ClassMember>
                     rowKey={(row) => row.id || row.username || ''}
                     size="small"
                     loading={memberLoading}
                     dataSource={members}
                     columns={memberColumns}
+                    rowSelection={{
+                      selectedRowKeys: selectedMemberKeys,
+                      onChange: (keys) => setSelectedMemberKeys(keys as string[]),
+                    }}
                     scroll={{ x: 1200 }}
                     pagination={{ pageSize: 10, hideOnSinglePage: true, size: 'small' }}
                     locale={{

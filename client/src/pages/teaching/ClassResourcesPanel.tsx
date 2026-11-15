@@ -158,6 +158,10 @@ export default function ClassResourcesPanel({
   const [linkQr, setLinkQr] = useState<string>();
   const [answersRow, setAnswersRow] = useState<ClassResource>();
   const [repoAnswersRow, setRepoAnswersRow] = useState<ClassResource>();
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [batchForm] = Form.useForm<WindowValues>();
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignForm] = Form.useForm<AssignValues>();
 
@@ -334,6 +338,66 @@ export default function ClassResourcesPanel({
     }
   };
 
+  const openBatch = () => {
+    if (!selectedResourceIds.length) return;
+    batchForm.resetFields();
+    batchForm.setFieldsValue({ status: true, answerAnalysis: 'inherit', practiceEnabled: true });
+    setBatchOpen(true);
+  };
+
+  const submitBatch = async () => {
+    if (!selectedResourceIds.length || batchSaving) return;
+    let values: WindowValues;
+    try {
+      values = await batchForm.validateFields();
+    } catch {
+      return;
+    }
+    const [from, to] = values.window ?? [];
+    setBatchSaving(true);
+    try {
+      for (const id of selectedResourceIds) {
+        await post('/api/teaching/classes/resources/update', {
+          id,
+          startAt: from ? from.valueOf() : null,
+          endAt: to ? to.valueOf() : null,
+          status: values.status === false ? 0 : 1,
+          settings:
+            kind === 'repo'
+              ? { practiceEnabled: values.practiceEnabled !== false }
+              : {
+                  extraAttempts: values.extraAttempts ?? null,
+                  answerAnalysis:
+                    values.answerAnalysis === 'inherit' ? null : values.answerAnalysis === 'yes',
+                  passScore: values.passScore ?? null,
+                },
+        });
+      }
+      message.success('已批量更新 ' + selectedResourceIds.length + ' 项');
+      setBatchOpen(false);
+      setSelectedResourceIds([]);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBatchSaving(false);
+    }
+  };
+
+  const removeBatch = async () => {
+    if (!selectedResourceIds.length) return;
+    try {
+      for (const id of selectedResourceIds) {
+        await post('/api/teaching/classes/resources/delete', { id });
+      }
+      message.success('已移除 ' + selectedResourceIds.length + ' 项');
+      setSelectedResourceIds([]);
+      await load();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
   const submitEdit = async () => {
     if (!editing || editSaving) return;
     let values: WindowValues;
@@ -463,9 +527,9 @@ export default function ClassResourcesPanel({
           {
             title: '操作',
             key: 'ops',
-            width: 230,
+            width: 310,
             render: (_: unknown, row: ClassResource) => (
-              <Space size={12} wrap>
+              <Space size={9} wrap={false} style={{ whiteSpace: 'nowrap' }}>
                 {kind === 'project' && (
                   <LinkAction
                     onClick={() =>
@@ -545,6 +609,23 @@ export default function ClassResourcesPanel({
         <Alert type="warning" showIcon style={{ marginBottom: 10 }} message={loadError} />
       )}
 
+      {manageable && selectedResourceIds.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>已选 {selectedResourceIds.length} 项</span>
+          <Button size="small" type="primary" onClick={openBatch}>批量设置</Button>
+          <Popconfirm
+            title={'移除选中的 ' + selectedResourceIds.length + ' 项？'}
+            description={kind === 'repo' ? '只解除本班分配，不会删除题库本身。' : '只解除本班分配，不会删除考试/问卷本身。'}
+            okText="移除"
+            okButtonProps={{ danger: true }}
+            cancelText="取消"
+            onConfirm={() => void removeBatch()}
+          >
+            <Button size="small" danger>批量移除</Button>
+          </Popconfirm>
+        </div>
+      )}
+
       <TableScrollRegion label="班级考试/问卷与题库（可横向滚动）">
         <Table<ClassResource>
           rowKey="id"
@@ -552,7 +633,15 @@ export default function ClassResourcesPanel({
           loading={loading}
           dataSource={rows}
           columns={columns}
-          scroll={{ x: 960 }}
+          scroll={{ x: 1180 }}
+          rowSelection={
+            manageable
+              ? {
+                  selectedRowKeys: selectedResourceIds,
+                  onChange: (keys) => setSelectedResourceIds(keys as string[]),
+                }
+              : undefined
+          }
           pagination={{ pageSize: 8, hideOnSinglePage: true, size: 'small' }}
           locale={{
             emptyText: (
@@ -643,6 +732,58 @@ export default function ClassResourcesPanel({
         projectName={repoAnswersRow?.resourceName}
         onClose={() => setRepoAnswersRow(undefined)}
       />
+
+      <Modal
+        title={'批量设置 · 已选 ' + selectedResourceIds.length + ' 项'}
+        open={batchOpen}
+        onCancel={() => setBatchOpen(false)}
+        onOk={() => void submitBatch()}
+        confirmLoading={batchSaving}
+        okText="应用到选中项"
+        cancelText="取消"
+        width="min(560px, 94vw)"
+        destroyOnClose
+      >
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 10 }}>
+          窗口留空 = 继承项目全局 / 不限；这些设置会覆盖选中项的现有班级配置。
+        </div>
+        <Form form={batchForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
+          <Form.Item name="window" label="本班开放窗口">
+            <DatePicker.RangePicker
+              showTime={{ format: 'HH:mm' }}
+              format="YYYY-MM-DD HH:mm"
+              allowEmpty={[true, true]}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+          <Form.Item name="status" label="状态" valuePropName="checked">
+            <Switch checkedChildren="开放" unCheckedChildren="关闭" />
+          </Form.Item>
+          {kind === 'repo' ? (
+            <Form.Item name="practiceEnabled" label="允许本班练习" valuePropName="checked">
+              <Switch checkedChildren="允许" unCheckedChildren="禁止" />
+            </Form.Item>
+          ) : (
+            <>
+              <Form.Item name="extraAttempts" label="额外补考次数">
+                <InputNumber min={0} max={20} precision={0} style={{ width: '100%' }} placeholder="0" />
+              </Form.Item>
+              <Form.Item name="answerAnalysis" label="交卷后看解析">
+                <Select
+                  options={[
+                    { label: '继承项目设置', value: 'inherit' },
+                    { label: '允许本班查看', value: 'yes' },
+                    { label: '禁止本班查看', value: 'no' },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="passScore" label="班级及格线（可选）">
+                <InputNumber min={0} max={10000} precision={1} style={{ width: '100%' }} placeholder="不设置" />
+              </Form.Item>
+            </>
+          )}
+        </Form>
+      </Modal>
 
       <Modal
         title={kind === 'repo' ? '添加题库' : '添加考试 / 问卷'}
