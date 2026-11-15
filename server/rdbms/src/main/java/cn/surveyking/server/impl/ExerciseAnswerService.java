@@ -60,13 +60,14 @@ public class ExerciseAnswerService {
 			view.setRepoId(x.getRepoId());
 			view.setPercent(0L);
 
-			if (x.getSurvey() == null || x.getTempAnswer() == null || x.getSurvey().getChildren().isEmpty()) {
+			if (x.getSurvey() == null || x.getSurvey().getChildren() == null || x.getSurvey().getChildren().isEmpty()) {
 				return view;
 			}
 			int totalQuestions = x.getSurvey().getChildren().size();
-			int answeredQuestions = x.getTempSave() == 1 ? x.getAnswer().size() : x.getTempAnswer().size();
+			java.util.Map<String, Object> answerMap = x.getTempSave() == 1 ? x.getAnswer() : x.getTempAnswer();
+			int answeredQuestions = answerMap == null ? 0 : answerMap.size();
 
-			double percent = ((double) answeredQuestions / totalQuestions) * 100;
+			double percent = totalQuestions == 0 ? 0 : ((double) answeredQuestions / totalQuestions) * 100;
 			view.setPercent(Math.round(percent));
 			return view;
 		}).collect(Collectors.toList());
