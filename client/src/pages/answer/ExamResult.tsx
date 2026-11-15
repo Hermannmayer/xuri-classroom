@@ -18,6 +18,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { post } from '../../api';
 import { loadAuthorities } from '../../auth/permissions';
+import DOMPurify from 'dompurify';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
 import type { FlatQuestion } from '../../schema/flatten';
@@ -355,6 +356,13 @@ export function QuestionCard({ view }: { view: QuestionView }) {
       </div>
 
       <h2 className="sk-q-title">{q.title || '（未填写题干）'}</h2>
+      {q.schema.description && (
+        <div
+          className="sk-q-desc"
+          style={{ marginTop: 6, fontSize: 12, lineHeight: 1.7, color: 'var(--bp-text-soft)', whiteSpace: 'pre-wrap' }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(q.schema.description) }}
+        />
+      )}
 
       {options.length > 0 && (
         <ul className="sk-opt-list">
