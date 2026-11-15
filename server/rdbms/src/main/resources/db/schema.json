@@ -37,6 +37,10 @@
         "column:t_class_resource.share_token",
         "index:t_class_resource.uk_class_resource_share"
       ]
+    },
+    {
+      "version": "2.2.0",
+      "requires": []
     }
   ]
 }
