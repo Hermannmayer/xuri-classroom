@@ -11,6 +11,7 @@ interface ClassAnswerRow {
   projectId?: string;
   createBy?: string;
   createByName?: string;
+  isAnonymous?: boolean;
   examScore?: number | null;
   /** 后端 Date 序列化：字符串或 epoch 毫秒 */
   createAt?: string | number;
@@ -113,7 +114,8 @@ export default function ClassAnswersDrawer({
       title: '学员',
       dataIndex: 'createByName',
       width: 160,
-      render: (_: unknown, row) => row.createByName || row.createBy || '—',
+      render: (_: unknown, row) =>
+        row.isAnonymous ? <Tag>匿名</Tag> : row.createByName || row.createBy || '—',
     },
     {
       title: '交卷时间',
