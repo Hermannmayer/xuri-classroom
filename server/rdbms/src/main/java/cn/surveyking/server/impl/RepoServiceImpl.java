@@ -27,6 +27,7 @@ import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ClassResourceService;
+import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.RepoService;
 import cn.surveyking.server.service.UserDeptScopeService;
@@ -37,6 +38,8 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -86,6 +89,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	private final UserMapper userMapper;
 
 	private final ProjectService projectService;
+
+	@Autowired
+	@Lazy
+	private FileService fileService;
 
 	/** 分类列表里表示「题库没填分类」的节点名 */
 	private static final String UNCATEGORIZED_NAME = "未分类";
@@ -415,6 +422,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	public void deleteRepo(RepoRequest request) {
 		assertManageRepo(request.getId());
 		String id = request.getId();
+		fileService.deleteByOwner("repo", id);
 		removeById(id);
 		// 题库没了，按班级的分配也要清掉，否则 t_class_resource 留下指向已删题库的孤儿行
 		classResourceService.removeByResource(ClassResourceService.RESOURCE_TYPE_REPO, id);
