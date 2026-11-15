@@ -157,6 +157,7 @@ export default function ClassResourcesPanel({
   const [linkLoading, setLinkLoading] = useState(false);
   const [linkQr, setLinkQr] = useState<string>();
   const [answersRow, setAnswersRow] = useState<ClassResource>();
+  const [repoAnswersRow, setRepoAnswersRow] = useState<ClassResource>();
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignForm] = Form.useForm<AssignValues>();
 
@@ -484,6 +485,9 @@ export default function ClassResourcesPanel({
                 {kind === 'project' && (
                   <LinkAction onClick={() => setAnswersRow(row)}>查看答卷</LinkAction>
                 )}
+                {kind === 'repo' && (
+                  <LinkAction onClick={() => setRepoAnswersRow(row)}>练习记录</LinkAction>
+                )}
                 {kind === 'project' && (
                   <LinkAction onClick={() => void openClassLink(row)}>班级链接</LinkAction>
                 )}
@@ -629,6 +633,15 @@ export default function ClassResourcesPanel({
         deptName={answersRow?.className}
         projectName={answersRow?.resourceName}
         onClose={() => setAnswersRow(undefined)}
+      />
+
+      <ClassAnswersDrawer
+        open={!!repoAnswersRow}
+        projectId="exercise"
+        deptId={repoAnswersRow?.classId || classId}
+        deptName={repoAnswersRow?.className}
+        projectName={repoAnswersRow?.resourceName}
+        onClose={() => setRepoAnswersRow(undefined)}
       />
 
       <Modal
