@@ -32,7 +32,7 @@
 | `repo:book` | 错题本/收藏 | REPO | 错题本与收藏，属于学员功能；练习入口已拆到 repo:practice | 是 |
 | `repo:practice` | 开始练习 | REPO | 题库的开始/随机/继续练习；学员功能，老师/管理员默认不给 | 是 |
 | `repo:export` | 导出题库 | REPO | 题库是最核心资产，导出必须能单独关闭 |  |
-| `repo:grant` | 题库授权给组 | REPO | 把题库授权给班级；与「编辑题库」分开，避免随手扩大可见范围 |  |
+| `repo:grant` | 题库授权给教师 | REPO | 把题库授权给教师用户组/个人；学员不在这里授权，统一走班级资源分配 |  |
 | `template:list` | 查看题目列表 | TEMPLATE | 题目列表与题目详情 |  |
 | `template:create` | 新增题目 | TEMPLATE | 新建题目并入库 |  |
 | `template:update` | 修改题目 | TEMPLATE | 修改题干、选项与属性 |  |

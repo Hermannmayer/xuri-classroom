@@ -64,8 +64,8 @@ tests:
   - client:npm run test:rules
   - client:npm run test:tree
   - docs:npm run docs:check
-last_verified: 2026-11-14
-verified_against: 8f8ef7cd6becf6a48bd092d7f0f839fe806be08d
+last_verified: 2026-11-15
+verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
 ---
 
 # 考试编辑器与题型
@@ -166,7 +166,7 @@ verified_against: 8f8ef7cd6becf6a48bd092d7f0f839fe806be08d
 - **考试模式公开视图会剥答案**：如果自定义页面直接读 `/api/public/loadProject` 的 `survey` 找 `examCorrectAnswer`，在非练习模式下永远拿不到；这是防泄题，不是 bug。
 - **成绩单解析可能回退到项目 schema**：随机卷的历史快照可能已被剥掉正确答案，`loadExamResult` 只有在快照里确实有答案时才用快照，否则回退项目 schema。
 - **规则表达式分隔符敏感**：`buildExpression` 输出用 `" ,"` 连接；把分隔符改成 `","` 会让 `splitTopLevel` 解析出空参数，规则静默失效。
-- **`Remark` 用 `dangerouslySetInnerHTML`**：说明文字由设计者/老师录入，直接按 HTML 渲染；如果以后允许学员或外部来源写 `attribute.content`，必须先消毒。
+- **`Remark` 的文字在 `attribute.content`**：设计器右侧「说明内容」编辑这个字段（不是 `title`/`description`）；渲染端已经用 `DOMPurify.sanitize` 消毒后 `dangerouslySetInnerHTML`。`RichText` 题型目前只有枚举/导入类型，未注册编辑器与渲染组件，不要把它和 `Remark` 混用。
 - **`randomSurvey` 没有前端入口**：`ExamSetting.randomSurvey` 只能通过接口/直接改 JSON 配置；编辑器只提供 `randomSurveyWrong` 开关。
 - **逐题下发依赖服务端重新校验**：`/api/public/question` 不接受任意 `answerId` 绕过；但每次取题都会重新跑 `loadProject`，题目多时首屏请求数会明显上升。
 - **按班准入只在 Service 层**：`/api/public/**` 没有 `@PreAuthorize`，班级分配/窗口全靠 `ProjectAnswerValidator`；新增公开入口时必须复用 `validateProject`/`validateAnswerGate`，否则拿到 projectId 就能绕过。

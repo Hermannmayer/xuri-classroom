@@ -36,7 +36,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { code: "repo:book", name: "错题本/收藏", group: "REPO", studentOnly: true },
   { code: "repo:practice", name: "开始练习", group: "REPO", studentOnly: true },
   { code: "repo:export", name: "导出题库", group: "REPO", studentOnly: false },
-  { code: "repo:grant", name: "题库授权给组", group: "REPO", studentOnly: false },
+  { code: "repo:grant", name: "题库授权给教师", group: "REPO", studentOnly: false },
   { code: "template:list", name: "查看题目列表", group: "TEMPLATE", studentOnly: false },
   { code: "template:create", name: "新增题目", group: "TEMPLATE", studentOnly: false },
   { code: "template:update", name: "修改题目", group: "TEMPLATE", studentOnly: false },

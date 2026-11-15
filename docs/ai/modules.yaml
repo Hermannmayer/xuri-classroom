@@ -289,8 +289,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-14
-    verified_against: 724136a8e4d4554a0c52b21f2e35fc06b6284dcc
+    last_verified: 2026-11-15
+    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
   - id: module-files
     title: 文件、附件与导入模板
     doc: docs/modules/files.md
@@ -539,7 +539,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: b4cffcfb13ff0866fe8976f0163293645309e521
+    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -736,8 +736,8 @@ modules:
     tests:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
-    last_verified: 2026-11-14
-    verified_against: f87739e6f857b0f830b8606e32f12fb1e58229a1
+    last_verified: 2026-11-15
+    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -803,8 +803,8 @@ modules:
       - client:npm run test:rules
       - client:npm run test:tree
       - docs:npm run docs:check
-    last_verified: 2026-11-14
-    verified_against: 8f8ef7cd6becf6a48bd092d7f0f839fe806be08d
+    last_verified: 2026-11-15
+    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md

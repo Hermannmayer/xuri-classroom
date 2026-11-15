@@ -54,15 +54,15 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-14
-verified_against: 724136a8e4d4554a0c52b21f2e35fc06b6284dcc
+last_verified: 2026-11-15
+verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
 ---
 
 # 任务中心、练习与错题本
 
 ## 30 秒摘要
 
-学员侧的"我的任务"把三件事收进一个页面：考试安排（复用项目列表）、练习记录（`t_answer` 里 `exam_exercise_type` 非空的记录）、我的成绩（按考试聚合）。练习本身从题库发起，题目按 `/api/template/list` 分页加载，随机练习走 `/api/repo/pick`，进度只存在浏览器 `localStorage`；错题本落在 `t_user_book`，由考试交卷时异步收集。后端入口是 `ExerciseApi`、`MyReportApi` 和 `UserBookServiceImpl`。
+学员侧的"我的任务"把三件事收进一个页面：考试安排（复用项目列表，学员列表与首页统一带 `flat=true`，忽略根目录限制、拿到文件夹里的班级考试）、练习记录（`t_answer` 里 `exam_exercise_type` 非空的记录）、我的成绩（按考试聚合）。练习本身从题库发起，题目按 `/api/template/list` 分页加载，随机练习走 `/api/repo/pick`，进度只存在浏览器 `localStorage`；错题本落在 `t_user_book`，由考试交卷时异步收集。后端入口是 `ExerciseApi`、`MyReportApi` 和 `UserBookServiceImpl`。
 
 ## 什么时候看这篇
 
@@ -130,7 +130,7 @@ verified_against: 724136a8e4d4554a0c52b21f2e35fc06b6284dcc
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
 | 我的任务页 | `project:answer`（路由守卫） | 学员；教师/管理员被重定向 |
-| 考试安排 Tab | `project:list` | 复用项目列表的授权口径（OWNER/COLLABORATOR/RESPONDENT + 组链） |
+| 考试安排 Tab | `project:list` | 复用项目列表的授权口径（OWNER/COLLABORATOR/RESPONDENT + 组链 + `t_class_resource` 班级分配）；学员调用 `/api/project/list?flat=true`，否则文件夹内考试会被根目录过滤成空列表 |
 | 练习记录 Tab/进入练习 | `exercise:list` | 只查/只删 `create_by=当前用户` |
 | 我的成绩 Tab | `project:report` 或 admin | 只查当前用户的答卷 |
 | 顺序/随机题目 | `template:list` 或 `repo:detail` 或 `repo:questions:read`；抽题要 `repo:detail`/`repo:book`/admin | 题库必须可读 |
