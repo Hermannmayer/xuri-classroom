@@ -65,7 +65,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
+verified_against: 5906c4675aa37566818c1ad30edc32d9fb2f3b21
 ---
 
 # 考试编辑器与题型
@@ -167,6 +167,8 @@ verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
 - **成绩单解析可能回退到项目 schema**：随机卷的历史快照可能已被剥掉正确答案，`loadExamResult` 只有在快照里确实有答案时才用快照，否则回退项目 schema。
 - **规则表达式分隔符敏感**：`buildExpression` 输出用 `" ,"` 连接；把分隔符改成 `","` 会让 `splitTopLevel` 解析出空参数，规则静默失效。
 - **`Remark` 的文字在 `attribute.content`**：设计器右侧「说明内容」用 `RichTextEditor` 编辑这个字段（不是 `title`/`description`）；渲染端 `DOMPurify.sanitize` 后 `dangerouslySetInnerHTML`。普通题的 `description` 也走同一个编辑器，保存时后端 `RichTextSanitizer` 再做白名单消毒；图片 src 只允许 `/api/public/preview/{id}`。`RichText` 题型目前只有枚举/导入类型，未注册编辑器与渲染组件，不要把它和 `Remark` 混用。
+- **矩阵题行列标题**：`AttributePanel` 的矩阵编辑器维护 `schema.row` 与 `dataSource`/`children`；新增/删除行或列会同步选项节点，避免只改显示不改答案 key。
+- **题目描述图片安全**：编辑器上传后后端按魔数解码并重编码 JPEG/PNG/BMP/WBMP；图片响应禁止 MIME 嗅探并带 CSP；SVG 不在支持列表。
 - **`randomSurvey` 没有前端入口**：`ExamSetting.randomSurvey` 只能通过接口/直接改 JSON 配置；编辑器只提供 `randomSurveyWrong` 开关。
 - **逐题下发依赖服务端重新校验**：`/api/public/question` 不接受任意 `answerId` 绕过；但每次取题都会重新跑 `loadProject`，题目多时首屏请求数会明显上升。
 - **按班准入只在 Service 层**：`/api/public/**` 没有 `@PreAuthorize`，班级分配/窗口全靠 `ProjectAnswerValidator`；新增公开入口时必须复用 `validateProject`/`validateAnswerGate`，否则拿到 projectId 就能绕过。

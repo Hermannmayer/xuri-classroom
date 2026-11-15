@@ -93,7 +93,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
+verified_against: 5906c4675aa37566818c1ad30edc32d9fb2f3b21
 ---
 
 # 题库与题目
@@ -130,6 +130,7 @@ verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
 | 错题本/练习册 | `client/src/pages/repo/Book.tsx`、`BookPractice.tsx` | 学员的错题与收藏，数据表 `t_user_book`；收藏由答题页/练习页的星标按钮写入，`/api/repo/book/favorites` 一次返回本人收藏 id |
 | 富文本编辑器 | `client/src/components/RichTextEditor.tsx` | 一期只做加粗/斜体/下划线/列表/链接/图片，不接视频；图片上传到 `/api/file/create`，带 `ownerType/ownerId/questionId` 登记 `t_file_ref` |
 | 后端消毒 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RichTextSanitizer.java` | OWASP 白名单；`img.src` 只允许 `/api/public/preview/{id}`，链接只允许 http/https/mailto |
+| 图片安全 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java` | 上传按魔数解码校验；JPEG/PNG/BMP/WBMP 重新编码，剥掉 EXIF/尾部附加数据；GIF 保留动画但先解码校验；公开响应带 `X-Content-Type-Options: nosniff` 与 CSP |
 | 文件引用 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileRefServiceImpl.java` | `t_file_ref(file_id, owner_type, owner_id, question_id)`；删试卷/题库只解绑，最后一个引用消失才删物理文件 |
 | 练习首页 | `client/src/pages/repo/PracticeHome.tsx` | 学员题库练习：顺序、随机、题型、错题、收藏、历史；随机/题型通过 `counts` 参数进 `/exercise/practice/:repoId`；路由 `repo/:repoId/practice`；练习数据走 `/api/template/practiceList`（repo:practice，单页最多 20 题） |
 | 前端请求 | `client/src/api/index.ts` | `getWithPagination`、`post`、`download`；导出/导入都走它 |

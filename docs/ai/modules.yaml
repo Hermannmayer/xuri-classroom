@@ -737,7 +737,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
+    verified_against: 5906c4675aa37566818c1ad30edc32d9fb2f3b21
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -804,7 +804,7 @@ modules:
       - client:npm run test:tree
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
+    verified_against: 5906c4675aa37566818c1ad30edc32d9fb2f3b21
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
