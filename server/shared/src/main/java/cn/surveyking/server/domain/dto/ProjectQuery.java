@@ -31,6 +31,9 @@ public class ProjectQuery extends PageQuery {
 
 	private String parentId;
 
+	/** true=忽略「根目录」限制，返回可见范围内所有层级的项目（学员任务列表用） */
+	private Boolean flat;
+
 	private ProjectModeEnum mode;
 
 	private LinkedHashMap<String, Object> answer;

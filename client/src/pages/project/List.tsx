@@ -122,7 +122,8 @@ function StudentProjectList({
     try {
       const all: ProjectView[] = [];
       for (let current = 1; current <= STUDENT_MAX_PAGES; current += 1) {
-        const res = await listProjects({ current, pageSize: STUDENT_PAGE_SIZE });
+        // 学员任务列表要所有层级：班级分配的考试可能放在文件夹里
+        const res = await listProjects({ current, pageSize: STUDENT_PAGE_SIZE, flat: true });
         all.push(...res.data);
         // 本页不满 200 条、或已拿到 total 条，都说明没有下一页了
         if (res.data.length < STUDENT_PAGE_SIZE || all.length >= res.total) break;
@@ -171,7 +172,7 @@ function StudentProjectList({
           <span>{keyword ? '没有匹配的结果' : '还没有分配给你的考试'}</span>
           {!keyword && (
             <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
-              请联系老师把你的用户组加入考试协作者
+              请联系老师把考试分配到你的班级（班级管理 → 班级资源 → 考试/问卷）
             </span>
           )}
         </div>

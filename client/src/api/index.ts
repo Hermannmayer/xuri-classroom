@@ -34,6 +34,8 @@ export interface ProjectListQuery {
   name?: string;
   /** 不传只返回根级；文件夹子项必须带 parentId 才会出现 */
   parentId?: string;
+  /** true=忽略根级限制，返回所有层级的可见项目（学员任务列表用） */
+  flat?: boolean;
   mode?: 'survey' | 'exam' | 'folder';
 }
 

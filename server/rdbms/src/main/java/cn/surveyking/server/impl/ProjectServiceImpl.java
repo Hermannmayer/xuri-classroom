@@ -72,7 +72,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		// 分类筛选是跨文件夹的：选了分类时不能再按「根目录」限制 parentId，
 		// 否则移到文件夹里的考试会从分类结果里消失（分类与文件夹是两套维度）。
 		boolean categoryActive = category != null;
-		boolean rootLevel = isBlank(query.getParentId()) && !categoryActive;
+		// 学员任务列表要“所有层级的可见项目”，否则文件夹里的班级考试会被根目录过滤掉（列表空）
+		boolean flat = Boolean.TRUE.equals(query.getFlat());
+		boolean rootLevel = isBlank(query.getParentId()) && !categoryActive && !flat;
 		// 说明：项目列表的可见性判定全部落在下面的 EXISTS 子查询里，
 		// 依赖 t_user_dept（附加组）与 t_dept 的祖先链，改这段务必跑一次
 		// scripts/nas/Deploy-Nas.ps1 让冒烟测试覆盖到「试卷能列出来」。

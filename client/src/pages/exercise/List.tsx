@@ -394,6 +394,8 @@ function StudentTasks({ authorities }: { authorities: string[] }) {
       const res = await getWithPagination<ProjectTask>('/api/project/list', {
         current: 1,
         pageSize: 200,
+        // 班级分配的考试可能在文件夹里，必须拉全层级
+        flat: true,
       });
       const list = res.data.filter((item) => item.mode === 'exam' || item.mode === 'survey');
       setTasks(list);
