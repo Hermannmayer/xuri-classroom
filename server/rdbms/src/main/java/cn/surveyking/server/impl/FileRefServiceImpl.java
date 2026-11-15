@@ -111,7 +111,7 @@ public class FileRefServiceImpl implements FileRefService {
 		Set<String> existing = listFileIds(ownerType, ownerId);
 		Set<String> removed = new LinkedHashSet<>(existing);
 		removed.removeAll(next);
-		if (removed.isEmpty() && next.containsAll(existing)) {
+		if (removed.isEmpty() && next.size() == existing.size()) {
 			return removed;
 		}
 		if (next.isEmpty()) {
