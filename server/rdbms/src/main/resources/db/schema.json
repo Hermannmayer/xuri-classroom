@@ -30,6 +30,13 @@
       "requires": [
         "table:t_file_ref"
       ]
+    },
+    {
+      "version": "2.1.2",
+      "requires": [
+        "column:t_class_resource.share_token",
+        "index:t_class_resource.uk_class_resource_share"
+      ]
     }
   ]
 }

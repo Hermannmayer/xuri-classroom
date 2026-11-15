@@ -6,7 +6,9 @@ import {
   DatePicker,
   Empty,
   Form,
+  Input,
   Modal,
+  QRCode,
   Popconfirm,
   Segmented,
   Select,
@@ -49,6 +51,7 @@ interface ClassResource {
   className?: string;
   resourceType?: string;
   resourceId?: string;
+  shareToken?: string;
   resourceName?: string;
   resourceMode?: ProjectMode;
   /** 0 关闭 / 1 开放 */
@@ -131,6 +134,10 @@ export default function ClassResourcesPanel({
   const [repoLoading, setRepoLoading] = useState(false);
 
   const [assignOpen, setAssignOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkRow, setLinkRow] = useState<ClassResource>();
+  const [linkToken, setLinkToken] = useState<string>('');
+  const [linkLoading, setLinkLoading] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignForm] = Form.useForm<AssignValues>();
 
@@ -335,6 +342,28 @@ export default function ClassResourcesPanel({
     }
   };
 
+  const openClassLink = async (row: ClassResource) => {
+    setLinkRow(row);
+    setLinkOpen(true);
+    setLinkLoading(true);
+    setLinkToken(row.shareToken || '');
+    try {
+      const res = await post<{ token: string }>('/api/teaching/classes/resources/link', {
+        classId: row.classId || classId,
+        resourceId: row.resourceId,
+      });
+      setLinkToken(res?.token || '');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  const classLink = linkRow?.resourceId && linkToken
+    ? window.location.origin + '/s/' + linkRow.resourceId + '?classToken=' + encodeURIComponent(linkToken)
+    : '';
+
   const columns: ColumnsType<ClassResource> = [
     {
       title: '名称',
@@ -384,9 +413,12 @@ export default function ClassResourcesPanel({
           {
             title: '操作',
             key: 'ops',
-            width: 120,
+            width: 180,
             render: (_: unknown, row: ClassResource) => (
-              <Space size={12}>
+              <Space size={12} wrap>
+                {kind === 'project' && (
+                  <LinkAction onClick={() => void openClassLink(row)}>班级链接</LinkAction>
+                )}
                 <LinkAction onClick={() => setEditing(row)}>编辑</LinkAction>
                 <Popconfirm
                   title={'移除「' + (row.resourceName || (kind === 'repo' ? '该题库' : '该考试/问卷')) + '」？'}
@@ -462,6 +494,47 @@ export default function ClassResourcesPanel({
           }}
         />
       </TableScrollRegion>
+
+      <Modal
+        title="班级专属考试链接"
+        open={linkOpen}
+        onCancel={() => setLinkOpen(false)}
+        footer={<Button onClick={() => setLinkOpen(false)}>关闭</Button>}
+        width="min(560px, 94vw)"
+        destroyOnClose
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="这个链接提交的匿名答卷会归到本班；普通考试链接仍归到「未归属」"
+        />
+        {linkLoading ? (
+          <div style={{ padding: 24, textAlign: 'center' }}>生成中…</div>
+        ) : classLink ? (
+          <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <Input.TextArea value={classLink} readOnly autoSize={{ minRows: 2, maxRows: 4 }} />
+            <Space wrap>
+              <Button
+                onClick={() => {
+                  void navigator.clipboard?.writeText(classLink);
+                  message.success('已复制班级专属链接');
+                }}
+              >
+                复制链接
+              </Button>
+              <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                仅当该考试仍分配给本班且窗口开放时有效
+              </span>
+            </Space>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 8, background: '#fff' }}>
+              <QRCode value={classLink} size={180} />
+            </div>
+          </Space>
+        ) : (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="链接生成失败，请重试" />
+        )}
+      </Modal>
 
       <Modal
         title={kind === 'repo' ? '添加题库' : '添加考试 / 问卷'}

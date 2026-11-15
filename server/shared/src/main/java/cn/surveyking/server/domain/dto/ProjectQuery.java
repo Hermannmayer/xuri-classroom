@@ -31,6 +31,9 @@ public class ProjectQuery extends PageQuery {
 
 	private String parentId;
 
+	/** 班级专属公开链接 token；只由服务端解析，不接受前端传 classId */
+	private String classToken;
+
 	/** true=忽略「根目录」限制，返回可见范围内所有层级的项目（学员任务列表用） */
 	private Boolean flat;
 

@@ -47,6 +47,9 @@ public class AnswerRequest {
 	/** 题库练习的来源题库；练习记录列表用它跳回练习页 */
 	private String repoId;
 
+	/** 班级专属链接 token；服务端解析成 class_id，匿名答卷也按它归属 */
+	private String classToken;
+
 	private AnswerExamInfo examInfo;
 
 	/**

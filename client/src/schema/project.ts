@@ -160,6 +160,8 @@ export interface PublicProjectView {
   setting?: ProjectSetting;
   name?: string;
   mode?: ProjectModeEnum;
+  /** 通过班级专属链接进入时，后端解析出的班级 */
+  classId?: string;
   passwordRequired?: boolean;
   loginRequired?: boolean;
   createAt?: string;

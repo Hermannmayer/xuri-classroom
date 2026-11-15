@@ -4,6 +4,7 @@ import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.uitls.NanoIdUtils;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.ClassResourceAssignRequest;
 import cn.surveyking.server.domain.dto.ClassResourceDeleteRequest;
@@ -195,6 +196,7 @@ public class ClassResourceService {
 		view.setClassName(dept == null ? null : dept.getName());
 		view.setResourceType(resource.getResourceType());
 		view.setResourceId(resource.getResourceId());
+		view.setShareToken(resource.getShareToken());
 		view.setStatus(resource.getStatus() == null ? 1 : resource.getStatus());
 		view.setStartAt(resource.getStartAt());
 		view.setEndAt(resource.getEndAt());
@@ -256,6 +258,10 @@ public class ClassResourceService {
 				resource.setClassId(classId);
 				resource.setResourceType(type);
 				resource.setResourceId(resourceId);
+				// 新建 project 分配时直接生成班级专属链接；repo 不需要
+				if (ClassResource.TYPE_PROJECT.equals(type)) {
+					resource.setShareToken(NanoIdUtils.randomNanoId(24));
+				}
 				resource.setStatus(status);
 				resource.setStartAt(startAt);
 				resource.setEndAt(endAt);
@@ -306,6 +312,59 @@ public class ClassResourceService {
 		}
 		classService.assertManage(record.getClassId());
 		classResourceMapper.hardDelete(record.getId());
+	}
+
+	/** 为班级 × 考试生成/读取专属链接 token；只有能管理该班的人可调用。 */
+	@Transactional(rollbackFor = Exception.class)
+	public String ensureShareToken(String classId, String resourceId) {
+		String cid = trim(classId);
+		String rid = trim(resourceId);
+		requireClass(cid);
+		classService.assertManage(cid);
+		ClassResource row = classResourceMapper.selectOne(Wrappers.<ClassResource>lambdaQuery()
+				.eq(ClassResource::getClassId, cid).eq(ClassResource::getResourceType, ClassResource.TYPE_PROJECT)
+				.eq(ClassResource::getResourceId, rid));
+		if (row == null) {
+			throw new ValidationException("这个考试还没有分配给本班");
+		}
+		if (StringUtils.hasText(row.getShareToken())) {
+			return row.getShareToken();
+		}
+		String token = NanoIdUtils.randomNanoId(24);
+		classResourceMapper.update(null, Wrappers.<ClassResource>lambdaUpdate().eq(ClassResource::getId, row.getId())
+				.set(ClassResource::getShareToken, token));
+		return token;
+	}
+
+	/**
+	 * 公开班级链接解析：只认「token + project + 有效班级分配」；成功返回 classId，失败抛业务错误。
+	 * 匿名/登录用户都走这一个入口，class_id 由服务端决定，不信任前端传的 classId。
+	 */
+	public String resolveShareToken(String projectId, String token) {
+		if (!StringUtils.hasText(projectId) || !StringUtils.hasText(token)) {
+			return null;
+		}
+		ClassResource row = classResourceMapper.selectOne(Wrappers.<ClassResource>lambdaQuery()
+				.eq(ClassResource::getShareToken, token.trim())
+				.eq(ClassResource::getResourceType, ClassResource.TYPE_PROJECT)
+				.eq(ClassResource::getResourceId, projectId.trim()));
+		if (row == null) {
+			throw new ValidationException("班级专属链接无效或已失效");
+		}
+		requireClass(row.getClassId());
+		Project project = projectMapper.selectById(projectId.trim());
+		ErrorCode reason = invalidReason(row, project == null ? null : project.getStatus(),
+				project == null ? null : project.getSetting());
+		if (reason != null) {
+			throw new ErrorCodeException(reason);
+		}
+		return row.getClassId();
+	}
+
+	/** 登录学员是否属于某个班级（班级链接归属校验用）。 */
+	public boolean isStudentInClass(String userId, String classId) {
+		User student = loadStudent(userId);
+		return student != null && StringUtils.hasText(classId) && studentClassIds(student).contains(classId);
 	}
 
 	/**
@@ -620,7 +679,7 @@ public class ClassResourceService {
 		}
 		answerMapper
 				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getProjectId, Answer::getExamScore)
-						.eq(Answer::getTempSave, 1).eq(Answer::getIsAnonymous, false)
+						.eq(Answer::getTempSave, 1)
 						.eq(Answer::getClassId, classId).in(Answer::getProjectId, projectIds))
 				.forEach(answer -> {
 					if (answer == null || !StringUtils.hasText(answer.getProjectId())) {

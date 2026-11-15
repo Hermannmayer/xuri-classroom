@@ -34,6 +34,9 @@ public class ClassResource extends BaseModel {
 	/** 资源 id（project 时为 t_project.id） */
 	private String resourceId;
 
+	/** 班级专属考试链接 token；空=未生成 */
+	private String shareToken;
+
 	/** 0=关闭 1=开放（班级级手动开关） */
 	private Integer status;
 

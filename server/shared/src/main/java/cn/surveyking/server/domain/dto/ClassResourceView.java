@@ -30,6 +30,9 @@ public class ClassResourceView {
 
 	private String resourceId;
 
+	/** 班级专属考试链接 token；空=未生成（前端可调 /resources/link 生成） */
+	private String shareToken;
+
 	/** 资源名称（考试名 / 题库名） */
 	private String resourceName;
 

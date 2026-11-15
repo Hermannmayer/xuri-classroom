@@ -102,8 +102,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.eq(Answer::getProjectId, query.getProjectId())
 				// 答题时所在班级：学员换班后历史答卷仍算在原班
 				.eq(Answer::getClassId, query.getClassId())
-				// 班级报表默认不含匿名答卷：匿名答卷没有 class_id，也不能把匿名数据混进班级统计
-				.eq(Answer::getIsAnonymous, false)
+				// 班级链接产生的匿名答卷也带 class_id，班级报表必须能看到；普通匿名链接 class_id 为空，不会混入
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
@@ -323,9 +322,18 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answer.setAnonymousSubjectId(anonymous ? anonymousSubjectId : null);
 		answer.setIsAnonymous(anonymous);
 		answer.setAttemptNo(answerAttemptAllocator.next(answer.getProjectId(), actor));
-		// 答题时所在班级：学员按「自己的班 + 班级资源分配」解析，主班优先；匿名/教职工拿不到就是 null。
-		// 更新答案不走这里，class_id 保持首次答题时的值（换班后历史答卷仍算在原班）。
-		answer.setClassId(actor == null ? null : classResourceService.resolveForStudent(answer.getProjectId(), actor));
+		// 班级归属：优先认班级专属链接 token；普通链接再按学员自己的班解析。
+		// 匿名用户没有 actor，token 是唯一可审计的班级来源；登录学员必须确实属于 token 班，防止跨班伪造。
+		String tokenClassId = classResourceService.resolveShareToken(answer.getProjectId(), request.getClassToken());
+		if (tokenClassId != null) {
+			if (actor != null && !classResourceService.isStudentInClass(actor, tokenClassId)) {
+				throw new AccessDeniedException("这个班级链接不属于你的班级");
+			}
+			answer.setClassId(tokenClassId);
+		}
+		else {
+			answer.setClassId(actor == null ? null : classResourceService.resolveForStudent(answer.getProjectId(), actor));
+		}
 		Answer scored = answerScoringService.beforeSaveAnswer(answer, previousAnswerFor(answer));
 		try {
 			save(scored);
@@ -398,6 +406,17 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		if (previous != null) {
 			answer.setIsAnonymous(previous.getIsAnonymous());
 			answer.setAnonymousSubjectId(previous.getAnonymousSubjectId());
+			// 历史草稿没有 class_id 时，用本次班级链接补一次；已有归属不覆盖
+			if (!StringUtils.hasText(previous.getClassId())) {
+				String tokenClassId = classResourceService.resolveShareToken(previous.getProjectId(), request.getClassToken());
+				if (tokenClassId != null) {
+					if (StringUtils.hasText(previous.getCreateBy())
+							&& !classResourceService.isStudentInClass(previous.getCreateBy(), tokenClassId)) {
+						throw new AccessDeniedException("这个班级链接不属于你的班级");
+					}
+					answer.setClassId(tokenClassId);
+				}
+			}
 		}
 		answer = answerScoringService.beforeSaveAnswer(answer, previous);
 		updateById(answer);

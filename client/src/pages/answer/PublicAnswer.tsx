@@ -196,6 +196,8 @@ export default function PublicAnswer() {
   const { id = '', answerId: routeAnswerId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  /** 班级专属链接 token：只由后端解析成 class_id，前端不传 classId */
+  const classToken = searchParams.get('classToken') || undefined;
   /** 「再考一次」= ?fresh=1：清掉本地凭证、从空答案开始，提交时让后端新建一条答卷，不覆盖历史成绩 */
   const freshAttempt = searchParams.get('fresh') === '1';
   const { modal } = App.useApp();
@@ -324,13 +326,13 @@ export default function PublicAnswer() {
       }
       // URL 里带 answerId（成绩单/回看链接）优先，其次用本地保存的匿名凭证
       const savedId = freshAttempt ? undefined : (routeAnswerId ?? readAnswerId(id) ?? undefined);
-      applyProject(await post<PublicProjectView>('/api/public/projectOutline', { id, answerId: savedId }));
+      applyProject(await post<PublicProjectView>('/api/public/projectOutline', { id, answerId: savedId, classToken }));
     } catch (e) {
       setFatal((e as Error).message || '加载失败');
     } finally {
       setLoading(false);
     }
-  }, [id, routeAnswerId, applyProject, freshAttempt]);
+  }, [id, routeAnswerId, applyProject, freshAttempt, classToken]);
 
   /** 打开时如果本地有未提交草稿、且这次不是回看已提交答卷，就回填 */
   useEffect(() => {
@@ -373,6 +375,7 @@ export default function PublicAnswer() {
       try {
         await post('/api/public/tempSaveAnswer', {
           projectId: id,
+          classToken,
           tempSave: 0,
           answer: values,
           tempAnswer: values,
@@ -478,6 +481,7 @@ export default function PublicAnswer() {
       applyProject(
         await post<PublicProjectView>('/api/public/validateProjectOutline', {
           id,
+          classToken,
           answer: { extraPassword: { extraPassword: password } },
         }),
       );
@@ -608,6 +612,7 @@ export default function PublicAnswer() {
         id,
         answerId,
         questionId,
+        classToken,
       });
       questionPendingRef.current.set(questionId, request);
       try {
@@ -741,7 +746,7 @@ export default function PublicAnswer() {
       return { ...shell, children: cached };
     }
     try {
-      const full = await post<PublicProjectView>('/api/public/loadProject', { id, answerId });
+      const full = await post<PublicProjectView>('/api/public/loadProject', { id, answerId, classToken });
       if (full?.survey?.children?.length) return full.survey;
     } catch {
       // 拿不到整卷就退回缓存，交卷本身不受影响
@@ -775,6 +780,7 @@ export default function PublicAnswer() {
       }
       const res = await post<PublicAnswerView>('/api/public/saveAnswer', {
         projectId: id,
+        classToken,
         id: answerId,
         answer: values,
         survey: submissionSurvey,

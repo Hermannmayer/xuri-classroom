@@ -243,6 +243,7 @@ CREATE TABLE IF NOT EXISTS `t_class_resource` (
   `class_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id，dept_type=class）',
   `resource_type` varchar(16) NOT NULL COMMENT 'project=考试/问卷；repo=题库(P2)；course=课程(预留)',
   `resource_id` varchar(64) NOT NULL COMMENT '资源 id（project: t_project.id）',
+  `share_token` varchar(64) DEFAULT NULL COMMENT '班级专属考试链接 token；空=未生成',
   `status` tinyint NOT NULL DEFAULT '1' COMMENT '0=关闭 1=开放（班级级手动开关）',
   `start_at` datetime DEFAULT NULL COMMENT '本班开始时间；空=继承全局',
   `end_at` datetime DEFAULT NULL COMMENT '本班结束时间；空=继承全局',
@@ -255,6 +256,7 @@ CREATE TABLE IF NOT EXISTS `t_class_resource` (
   `update_by` varchar(256) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_class_resource` (`class_id`,`resource_type`,`resource_id`),
+  UNIQUE KEY `uk_class_resource_share` (`share_token`),
   KEY `idx_cr_resource` (`resource_type`,`resource_id`),
   KEY `idx_cr_class` (`class_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级资源分配（按班级的考试窗口）';

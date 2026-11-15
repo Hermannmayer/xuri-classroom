@@ -22,6 +22,7 @@ import cn.surveyking.server.domain.model.ProjectPartner;
 import cn.surveyking.server.domain.model.Template;
 import cn.surveyking.server.domain.model.UserBook;
 import cn.surveyking.server.mapper.ProjectPartnerMapper;
+import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.RepoPartnerService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -76,6 +77,8 @@ public class PublicProjectLoader {
 
 	private final ProjectAnswerValidator projectAnswerValidator;
 
+	private final ClassResourceService classResourceService;
+
 	private final AnswerLookup answerLookup;
 
 	/** 白名单参与人：按白名单名取最近一份答卷时要用 */
@@ -94,6 +97,10 @@ public class PublicProjectLoader {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
 		PublicProjectView projectView = projectViewMapper.toPublicProjectView(project);
+		if (StringUtils.isNotBlank(query.getClassToken())) {
+			// 班级链接先校验 token，再把 classId 回给前端做提示；真正写答卷时服务端会再解析一次
+			projectView.setClassId(classResourceService.resolveShareToken(project.getId(), query.getClassToken()));
+		}
 		if (wechatAccessGuard.wechatAccessRequired(project)) {
 			projectView.setSurvey(null);
 			projectView.setWechatAuthorizationRequired(

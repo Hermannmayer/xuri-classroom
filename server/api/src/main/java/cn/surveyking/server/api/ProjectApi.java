@@ -41,6 +41,8 @@ public class ProjectApi {
 
 	private final TagService tagService;
 
+	private final ProjectStatisticsService projectStatisticsService;
+
 	/**
 	 * 获取项目列表
 	 * @param query 分页查询参数
@@ -84,6 +86,14 @@ public class ProjectApi {
 	@EnableDataPerm(key = "#id")
 	public ProjectView getProject(String id) {
 		return projectService.getProject(id);
+	}
+
+	/** 总面板：匿名答卷总量 + 按班级拆分（公开链接匿名无班级归入 unassignedAnonymous）。 */
+	@GetMapping("/class-anonymous-stats")
+	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
+	@EnableDataPerm(key = "#projectId")
+	public ProjectClassAnonymousStatsView classAnonymousStats(@RequestParam String projectId) {
+		return projectStatisticsService.statClassAnonymous(projectId);
 	}
 
 	/**

@@ -28,6 +28,9 @@ public class PublicProjectView {
 
 	private String name;
 
+	/** 通过班级专属链接进入时，服务端解析出的班级；普通链接为空 */
+	private String classId;
+
 	private ProjectModeEnum mode;
 
 	private Boolean passwordRequired;

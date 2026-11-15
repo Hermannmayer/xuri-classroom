@@ -42,6 +42,22 @@ import PartnerPanel from './PartnerPanel';
 import type { SurveySchema } from '../../schema/types';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
+interface ProjectClassStat {
+  classId: string;
+  className?: string;
+  total: number;
+  identified: number;
+  anonymous: number;
+}
+
+interface ProjectClassAnonymousStats {
+  total: number;
+  identified: number;
+  anonymous: number;
+  unassignedAnonymous: number;
+  classes: ProjectClassStat[];
+}
+
 interface ProjectTreeNode {
   id: string;
   name?: string;
@@ -157,6 +173,7 @@ export default function SurveyOverview() {
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [folderNodes, setFolderNodes] = useState<ProjectTreeNode[]>([]);
   const [report, setReport] = useState<ReportData>();
+  const [classStats, setClassStats] = useState<ProjectClassAnonymousStats>();
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [qr, setQr] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -314,12 +331,15 @@ export default function SurveyOverview() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, setting, r, list] = await Promise.all([
+      const [p, setting, r, classStat, list] = await Promise.all([
         get<Project & { category?: string }>('/api/project', { id }),
         get<ProjectSetting>('/api/project/setting', { id }).catch(() => ({}) as ProjectSetting),
         // 没有 project:report 就不请求报表，免得每次都拿一个必 403 的请求去刷错误提示
         canReport
           ? get<ReportData>(`/api/report/${id}`, { includeAnonymous: true }).catch(() => undefined)
+          : Promise.resolve(undefined),
+        canReport
+          ? get<ProjectClassAnonymousStats>('/api/project/class-anonymous-stats', { projectId: id }).catch(() => undefined)
           : Promise.resolve(undefined),
         // 没有 answer:list 就不请求答卷列表
         canViewAnswers
@@ -333,6 +353,7 @@ export default function SurveyOverview() {
       ]);
       setProject(p);
       setReport(r);
+      setClassStats(classStat);
       setAnswers(list.data);
       applySetting(setting ?? {});
       // 基本信息不在 setting 里，单独回填；根目录统一为 '0'
@@ -670,6 +691,41 @@ export default function SurveyOverview() {
                         {answers.length > 0 ? `（最新 ${answers[0].createAt || ''}）` : ''}
                       </div>
                     </>
+                  )}
+                </>
+              )}
+            </Card>
+          </Col>
+
+          <Col xs={24} lg={12}>
+            <Card
+              className="bp-corners bp-card"
+              title={cardTitle('ANONYMOUS', '匿名答卷 / 班级')}
+              style={{ height: '100%' }}
+              styles={{ body: { padding: 16 } }}
+            >
+              {!canReport || !classStats ? (
+                <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>没有查看报表的权限</div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>总答卷</div><div style={{ fontSize: 22, fontWeight: 600 }}>{classStats.total}</div></div>
+                    <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>匿名</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-orange)' }}>{classStats.anonymous}</div></div>
+                    <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>未归属班级</div><div style={{ fontSize: 22, fontWeight: 600 }}>{classStats.unassignedAnonymous}</div></div>
+                  </div>
+                  {classStats.classes.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有带班级归属的答卷；在班级资源里复制班级专属链接。</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {classStats.classes.map((row) => (
+                        <div key={row.classId} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, flexWrap: 'wrap' }}>
+                          <span style={{ flex: '1 1 120px', minWidth: 0 }}>{row.className || row.classId}</span>
+                          <Tag color="blue">实名 {row.identified}</Tag>
+                          <Tag color="orange">匿名 {row.anonymous}</Tag>
+                          <span style={{ color: 'var(--bp-text-soft)' }}>共 {row.total}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </>
               )}

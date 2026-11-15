@@ -17,6 +17,8 @@ import cn.surveyking.server.domain.dto.ClassMemberView;
 import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
 import cn.surveyking.server.domain.dto.ClassResourceAssignRequest;
+import cn.surveyking.server.domain.dto.ClassShareLinkRequest;
+import cn.surveyking.server.domain.dto.ClassShareLinkView;
 import cn.surveyking.server.domain.dto.ClassResourceDeleteRequest;
 import cn.surveyking.server.domain.dto.ClassResourceUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassResourceView;
@@ -164,6 +166,14 @@ public class TeachingApi {
 	 * project 的班级窗口为空表示继承全局，非空必须落在项目全局窗口内（全局是硬上限）；
 	 * repo（题库）没有全局窗口，只校验开始不晚于结束。已存在是 upsert。
 	 */
+	/** 生成/读取班级 × 考试的专属公开链接 token；只有能管理该班的人可调用。 */
+	@PostMapping("/classes/resources/link")
+	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
+	public ClassShareLinkView classShareLink(@RequestBody ClassShareLinkRequest request) {
+		String token = classResourceService.ensureShareToken(request.getClassId(), request.getResourceId());
+		return new ClassShareLinkView(request.getClassId(), request.getResourceId(), token);
+	}
+
 	@PostMapping("/classes/resources/assign")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public void assignClassResource(@RequestBody ClassResourceAssignRequest request) {
