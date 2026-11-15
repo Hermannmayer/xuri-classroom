@@ -118,8 +118,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-14
-verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
+last_verified: 2026-11-15
+verified_against: 3bda1c6301875491b5be7c717bc9c5b4bf36b717
 ---
 
 # 班级与教学工作台
@@ -202,14 +202,27 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 3. `GET /api/teaching/classes/members?deptId=`（`class:detail`）先 `assertClassVisible`，再只查 `user_type='student'`，条件是主组 `t_user.dept_id` 或附加组 `t_user_dept` 命中该班；回填登录账号（`t_account`）、手机号、邮箱、角色名。
 4. 成员数按「主组 + 附加组」统计，同一学员同时在两个班会在两个班各出现一次。
 
-### 3.1 开放注册与待审核学员
+### 3.1 教学班、开放注册与待审核学员
 
-1. **班级级开关**：`t_dept.allow_register`（迁移 `41-class-open-registration.sql`），只对 `dept_type=class` 有意义。班级设置弹窗（`ClassSettingsModal`）里勾选「开放注册」，走 `POST /api/teaching/classes/update`（`class:list` + `assertClassManage`）；用户组节点在 `DeptServiceImpl` 里被强制写 0。
-2. **注册页选班**：`GET /api/public/registerClasses`（公开）只返回 `dept_type=class AND allow_register=1` 的班，带完整路径（如「养老护理 / 5级」）。`Register.tsx` 必须选一个班；只有一个班时自动选中；一个都没开时提示「当前没有班级开放注册」。不再配置全局默认班，也不会回退到组织树根。
-3. **提交注册**：`POST /api/public/register` 带 `deptId`；`UserServiceImpl.register` 校验目标班存在、是 class、已开放注册，账号强制 = 手机号（`^1[3-9]\d{9}$`），创建 `t_user.status=0`、`t_account.status=0` 的学员并直接落在该班。审核通过前登录会被账号状态拒绝。
-4. **待审核列表**：`GET /api/teaching/classes/pending-students`（`class:detail` / admin）返回当前用户可见班级里的 `user_type=student AND status=0` 学员；`ClassServiceImpl.visibleDeptIds` 决定范围（管理员 / `class:grant` 全量，班主任看自己创建/负责的班，老师看被授权的班及下级）。返回 `ClassMemberView`（姓名/手机号/注册时间/班级）。
-5. **审核通过**：`POST /api/teaching/classes/pending-students/approve`（`class:member:update` / admin），body `{userId, deptId?}`。服务层校验目标班是 class；非管理员还要能管理目标班（改班时原班也要可管理）；把 `t_user.status` 与 `t_account.status` 一起置 1，`deptId` 为空沿用注册时选的班。只读授权老师能看名单但不能通过（403）。
-6. **前端入口**：班级管理页头「待审核学员」按钮（有 `class:detail` 即显示，带数量 Badge）；弹窗里每行可直接换班再点「通过」。班级树节点会显示绿色「开放注册」标签。
+1. **节点语义**：`t_dept.class_kind`（迁移 `V2.1.0__class_open_registration_and_kind.sql`）。`group`=容器班，只做层级/可见范围；`teaching`=教学班，才能收学员、开放注册、分配考试/题库。教学班必须是叶子，不能挂子班；容器班有学员/资源/子班时不能改成教学班。
+2. **全局总闸 + 班级级开关**：`registerInfo.registerEnabled`（系统设置 → 登录与注册，默认开启）是总闸；`t_dept.allow_register` 是班级开关，只对 `teaching` 班有效。全局关时班级开关置灰；老师需要 `class:register` 才能从关到开，走 `POST /api/teaching/classes/update`（`class:list` + `assertClassManage`）。
+3. **入口可用性**：`GET /api/public/registerOptions`（公开）返回 `{ globalEnabled, enabled, reason, classes }`。`enabled = 全局开 && 至少一个 teaching 班开放注册`；登录页只有 `enabled=true` 才显示「注册」；全局开但无班级时 `reason=NO_CLASS_OPEN`，注册页提示老师去开放班级，登录页不显示入口。
+4. **注册页选班**：`Register.tsx` 用 `registerOptions.classes` 渲染下拉（带完整路径，如「养老护理 / 5级」）；只有一个班时自动选中；一个都没开时提示「当前没有班级开放注册」。不再配置全局默认班，也不会回退到组织树根。
+5. **提交注册**：`POST /api/public/register` 带 `deptId`；`UserServiceImpl.register` 校验目标班存在、是 teaching、已开放注册，账号强制 = 手机号（`^1[3-9]\d{9}$`），创建 `t_user.status=0`、`t_account.status=0` 的学员并直接落在该班。审核通过前登录会被账号状态拒绝。
+6. **待审核列表**：`GET /api/teaching/classes/pending-students`（`class:detail` / admin）返回当前用户可见教学班里的 `user_type=student AND status=0` 学员；管理员 / `class:grant` 全量，班主任看自己创建/负责的班，老师看被授权的班及下级。
+7. **审核通过**：`POST /api/teaching/classes/pending-students/approve`（`class:member:approve` / admin），body `{userId, deptId?}`。服务层校验目标班是 teaching；非管理员还要能管理目标班；把 `t_user.status` 与 `t_account.status` 一起置 1，`deptId` 为空沿用注册时选的班。只读授权老师能看名单但不能通过（403）。
+8. **前端入口**：班级管理页头「待审核学员」按钮（有 `class:detail` 即显示，带数量 Badge）；弹窗里每行可换班再点「通过」。班级树节点显示「容器 / 教学班 / 开放注册」标签；全局开但自己名下无开放班时页面顶部给黄色提示。
+
+### 3.2 主班 + 兼报班（最多 3 个班）
+
+1. **归属模型**：`t_user.dept_id` 是主班（唯一）；`t_user_dept` 是兼报班（0~2 个）。所有班必须是 teaching；同一学员不能重复、兼报不能等于主班，总计最多 3 个。
+2. **产生方式**：注册只选主班；审核通过后，班主任/管理员在「添加学员」旁边的「从其他班级添加」里选学员，加入本班作为兼报班。也支持在成员行「班级归属」里调整主班/兼报。
+3. **候选接口**：`GET /api/teaching/classes/member/candidates?targetDeptId=&sourceDeptId=&keyword=`（`class:member:assign`）返回来源教学班里的在读学员，排除已在目标班的；带 `classCount`、`primaryDeptName`。
+4. **批量加入**：`POST /api/teaching/classes/member/add-existing`（`class:member:assign`），body `{deptId, sourceDeptId, userIds}`；逐条返回 `added` 与 `skipped[{name,reason}]`，满 3 个班/已在班里的跳过。
+5. **调整归属**：`POST /api/teaching/classes/member/assign`（`class:member:assign`），body `{userId, primaryDeptId, extraDeptIds}`；非管理员必须能管理目标主班、原主班、所有目标兼报和要移除的旧兼报。
+6. **移出兼报**：`POST /api/teaching/classes/member/remove-extra`（`class:member:assign`），body `{deptId, id}`；只删 `t_user_dept` 关系，不删账号。主班不能走这个接口。
+7. **资料与删除**：账号资料（姓名/手机/密码/状态）只在主班编辑；兼报班老师只能看名单、移出本班。删除账号也只允许主班/管理员，避免兼报班误删。
+8. **成绩归属**：同一场考试同时分配给主班和兼报班时，`resolveForStudent` 主班优先，`t_answer.class_id` 只记一个班；兼报班报表不出现这份答卷（文档先按这个口径，若要求双班报表需新增答卷-班级关联表）。
 
 ### 4. 学员账号 = 手机号 / 批量导入
 

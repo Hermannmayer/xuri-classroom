@@ -89,9 +89,9 @@ verified_against: '765fc89'
 6. **登录成功后的前端动作**：`Login.tsx` 再调 `GET /api/currentUser` 确认会话可用，`notifyAuthChanged()` 清本页权限缓存并广播到其它标签页，然后 `navigate('/home')`。`BasicLayout` 挂载时 `Promise.all([getCurrentUser(), getSystem()])`；任一失败跳 `/user/login`。权限判定由 `client/src/auth/permissions.ts` 的 `loadAuthorities()` 拉 `/api/currentUser` 的 `authorityList`。
 7. **后续请求**：浏览器自动带 `sk-token`。`JwtTokenFilter` 从 Cookie（或开启 URL token 时的 `sk-token` 参数）取 token，`jwtTokenUtil.validate` 校验签名/过期，再用 `userService.loadUserById(userId)` 加载用户；检查 `enabled/isAccountNonLocked/isAccountNonExpired/isCredentialsNonExpired`，通过后写入 `SecurityContext`。如果 token 来自 URL 参数且没有 Cookie，过滤器会补一个 HttpOnly Cookie。
 8. **退出登录**：`POST /api/public/logout` 返回 `Set-Cookie: sk-token=; Max-Age=0`，浏览器删除 Cookie；后端是 STATELESS，没有服务端 session 可销毁。
-9. **注册（学员自己选班 → 待审核）**：`/user/register` 先读 `GET /api/system` 的 `registerInfo.registerEnabled` 和 `GET /api/public/registerClasses`（只返回 `dept_type=class` 且 `allow_register=1` 的班）。开启时 `POST /api/public/register { deptId, username, phone, name, password }`。`UserServiceImpl.register` 校验开关、手机号（`^1[3-9]\d{9}$`，账号强制等于手机号）、强密码、账号唯一、目标班必须是 class 且已开放注册；创建 `status=0` 的学员（"待审核"），`userType=student`，角色取 `registerInfo.roles`（没配时兜底内置 student/xueyuan 角色）。**不再回退到组织树根（org）**，也不再依赖全局默认班。管理员/班主任在「班级管理 → 待审核学员」里点「通过」（`POST /api/teaching/classes/pending-students/approve`）把 `t_user.status` 与 `t_account.status` 一起置 1 后才能登录。注册页的密码是**明文提交**（依赖 HTTPS），不是 RSA。
+9. **注册（全局总闸 + 学员选教学班 → 待审核）**：`/user/register` 先读 `GET /api/system` 和 `GET /api/public/registerOptions`（返回 `globalEnabled/enabled/reason/classes`；classes 只含 `dept_type=class`、`class_kind=teaching` 且 `allow_register=1` 的班）。登录页只有 `enabled=true` 才显示「注册」；全局开但无班级时 `reason=NO_CLASS_OPEN`，不显示入口。开启时 `POST /api/public/register { deptId, username, phone, name, password }`。`UserServiceImpl.register` 校验开关、手机号（`^1[3-9]\d{9}$`，账号强制等于手机号）、强密码、账号唯一、目标班必须是 class 且已开放注册；创建 `status=0` 的学员（"待审核"），`userType=student`，角色取 `registerInfo.roles`（没配时兜底内置 student/xueyuan 角色）。**不再回退到组织树根（org）**，也不再依赖全局默认班。管理员/班主任在「班级管理 → 待审核学员」里点「通过」（`POST /api/teaching/classes/pending-students/approve`）把 `t_user.status` 与 `t_account.status` 一起置 1 后才能登录。注册页的密码是**明文提交**（依赖 HTTPS），不是 RSA。
 
-   注册页的班级开关在班级设置：「班级管理 → 选中班级 → 班级设置 → 开放注册」。多个班都开放时由学员自己选，不设全局默认；一个都没开时注册页直接提示「当前没有班级开放注册」。
+   注册页的班级开关在班级设置：「班级管理 → 选中教学班 → 班级设置 → 开放注册」，需要 `class:register`；全局总闸在「系统设置 → 登录与注册」，默认开启。多个班都开放时由学员自己选，不设全局默认；一个都没开时登录页不显示注册入口，注册页直接提示「当前没有班级开放注册」。
 10. **会话失效**：见下一节。前端 `request.ts` 收到 `body.code=401` 时调用 `onUnauthorized`，当前不在 `/user/` 下就 `location.replace('/user/login')`；403 只提示"没有权限"，不跳登录。
 
 ## 会话失效判定
@@ -115,7 +115,8 @@ verified_against: '765fc89'
 | `POST /api/public/login` | 公开 | 验证码 + RSA + 账号状态 + 组有效期 |
 | `POST /api/public/logout` | 公开 | 清 Cookie |
 | `POST /api/public/register` | 公开（受系统开关限制） | 选开放注册的班级，只能建学员，`status=0` |
-| `GET /api/public/registerClasses` | 公开 | 注册页可选班级（class + `allow_register=1`） |
+| `GET /api/public/registerClasses` | 公开 | 兼容旧前端：返回 registerOptions.classes |
+| `GET /api/public/registerOptions` | 公开 | 全局总闸 + 可注册教学班 + `enabled/reason` |
 | `GET /api/teaching/classes/pending-students` | `class:detail` / admin | 当前用户可见班级里的待审核学员 |
 | `POST /api/teaching/classes/pending-students/approve` | `class:member:update` / admin | 启用账号，可同时确认/调整班级 |
 | `GET /api/currentUser` | `isAuthenticated()` | 返回资料与 `authorityList` |

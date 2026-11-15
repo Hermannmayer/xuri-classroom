@@ -141,8 +141,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-14
-verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
+last_verified: 2026-11-15
+verified_against: 3bda1c6301875491b5be7c717bc9c5b4bf36b717
 ---
 
 # 权限、角色与用户组
@@ -212,7 +212,9 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 3. 新建节点默认 `org`；上级必须同类型；`dept_type` 是节点身份，不能通过更新互转。老师建班走 `POST /api/teaching/classes/create`（`class:list`），服务端强制 `class` 且 `roleIds=null`；用户组仍走 `/api/system/dept/create`（`system:dept:create`）。
 4. 成员类型也被约束：staff 只能进 org，student 只能进 class（`UserAdminService#assertUserDeptTypes`）；`/api/system/dept/list` 的用户筛选只列 staff，班级成员只列 student。
 5. 用户管理页的「用户组管理 / 新建用户组」固定跳 `/system/group`，不再重定向到班级页；班级页入口是 `/teaching/classes`（`class:list`）。
-6. 学员自助注册按「班级级开关」走：`t_dept.allow_register=1` 的 class 才会出现在公开的 `GET /api/public/registerClasses` 里；注册必须选一个这样的班，不能再回退到 org 根。审核通过由 `class:member:update`（或 admin）在「班级管理 → 待审核学员」完成，只读授权（`class:detail`）只能看名单。
+6. 班级节点再加一层 `class_kind`：`group` 是容器班（只做层级/可见范围），`teaching` 是教学班（可收学员/开放注册/分资源）。只有 teaching 能出现在 `GET /api/public/registerOptions` 里，注册/建学员/导入/资源分配都会再校验一次。
+7. 学员自助注册是「全局总闸 + 班级开关」：`registerInfo.registerEnabled`（系统设置，默认开启）是总闸；`t_dept.allow_register=1` 是班级开关。登录页只有 `registerOptions.enabled=true` 才显示「注册」；全局开但无班级时显示 `NO_CLASS_OPEN`，不显示入口。开放班级开关需要 `class:register`（管理员自动拥有）。
+8. 审核通过需要 `class:member:approve`（不再用 `class:member:update`）；只读授权（`class:detail`）只能看名单。调整主班/兼报班需要 `class:member:assign`，服务层还要求能管理目标主班、原主班与所有目标兼报班。一个学员最多 3 个班（1 主班 + 2 兼报，`t_user.dept_id` + `t_user_dept`）。
 
 ### 3. 权限矩阵保存
 

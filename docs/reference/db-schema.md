@@ -42,6 +42,7 @@
 
 ## 迁移脚本（随 jar 自动执行）
 
+- `server/rdbms/src/main/resources/db/migration/V2.1.0__class_open_registration_and_kind.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.1.0__template_chapter_difficulty.sql`
 
 ## 历史运维脚本（只读，不再维护）
