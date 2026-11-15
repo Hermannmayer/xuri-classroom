@@ -133,7 +133,12 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
           </span>
           {node.attribute?.required && <span style={styles.required}>*</span>}
         </div>
-        {node.description && <div style={styles.description}>{node.description}</div>}
+        {node.description && (
+          <div
+            style={{ ...styles.description, whiteSpace: 'pre-wrap' }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(node.description) }}
+          />
+        )}
         <div style={styles.body}>
           <div style={styles.placeholder} data-unregistered={node.type}>
             [未注册题型] {node.type}

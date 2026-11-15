@@ -30,6 +30,7 @@ import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.RepoService;
 import cn.surveyking.server.service.UserDeptScopeService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;

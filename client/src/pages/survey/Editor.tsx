@@ -35,6 +35,7 @@ import { GROUP_LABEL, QUESTION_META, createQuestion, createSurvey, newId, normal
 import { cloneNode, findNode, findParent, flattenOutline, insertNode, moveBefore, moveNode, removeNode, reorderChildren, updateNode, type OutlineItem } from '../../designer/tree';
 import { useHistoryState } from '../../designer/useHistory';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
+import RichTextEditor from '../../components/RichTextEditor';
 import BankPickModal from './BankPickModal';
 import type { ImportFormat } from '../../api/import';
 
@@ -1126,15 +1127,16 @@ export default function SurveyEditor() {
                         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>
                           说明内容（页面上显示的文字）
                         </div>
-                        <Input.TextArea
+                        <RichTextEditor
                           value={String(selected.attribute?.content ?? '')}
-                          onChange={(e) => patchAttribute({ content: e.target.value })}
-                          autoSize={{ minRows: 4, maxRows: 10 }}
-                          placeholder="输入这段说明文字"
-                          style={{ marginBottom: 8 }}
+                          onChange={(html) => patchAttribute({ content: html })}
+                          placeholder="输入这段说明文字，可插入图片"
+                          ownerType="project"
+                          ownerId={id}
+                          questionId={selected.id}
                         />
-                        <div style={{ fontSize: 11, color: 'var(--bp-hint)', lineHeight: 1.7, marginBottom: 12 }}>
-                          说明题不显示标题，只显示这段内容；当前按安全 HTML 渲染（图片/视频入口在富文本改造时统一接入）。
+                        <div style={{ fontSize: 11, color: 'var(--bp-hint)', lineHeight: 1.7, margin: '4px 0 12px' }}>
+                          说明题不显示标题，只显示这段内容；图片会跟随本试卷清理。
                         </div>
                       </>
                     ) : selected.type === 'SplitLine' ? (
@@ -1144,17 +1146,31 @@ export default function SurveyEditor() {
                     ) : (
                       <>
                         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>标题</div>
-                        <Input
-                          value={selected.title}
-                          onChange={(e) => patchNode({ title: e.target.value })}
-                          style={{ marginBottom: 10 }}
-                        />
-                        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>描述</div>
-                        <Input.TextArea
+                        {selected.attribute?.richTitle ? (
+                          <RichTextEditor
+                            value={selected.title}
+                            onChange={(html) => patchNode({ title: html })}
+                            placeholder="输入题干，可插入图片"
+                            minHeight={80}
+                            ownerType="project"
+                            ownerId={id}
+                            questionId={selected.id}
+                          />
+                        ) : (
+                          <Input
+                            value={selected.title}
+                            onChange={(e) => patchNode({ title: e.target.value })}
+                            style={{ marginBottom: 10 }}
+                          />
+                        )}
+                        <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', margin: '10px 0 4px' }}>描述</div>
+                        <RichTextEditor
                           value={selected.description ?? ''}
-                          onChange={(e) => patchNode({ description: e.target.value })}
-                          autoSize={{ minRows: 2, maxRows: 4 }}
-                          style={{ marginBottom: 12 }}
+                          onChange={(html) => patchNode({ description: html })}
+                          placeholder="输入题目描述，可插入图片"
+                          ownerType="project"
+                          ownerId={id}
+                          questionId={selected.id}
                         />
                       </>
                     )}

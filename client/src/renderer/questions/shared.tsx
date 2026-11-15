@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { FlagFilled, FlagOutlined } from '@ant-design/icons';
+import { FlagFilled, FlagOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import DOMPurify from 'dompurify';
 import type { SurveySchema } from '../../schema/types';
 import type { AnswerValue, QuestionComponentProps } from '../types';
@@ -15,6 +15,17 @@ export interface QuestionMarkApi {
 }
 
 export const QuestionMarkContext = createContext<QuestionMarkApi | null>(null);
+
+/** 题目收藏：答题页 / 练习页注入；null 时不渲染收藏按钮。 */
+export interface QuestionFavoriteApi {
+  enabled: boolean;
+  /** 一页一题模式由底部操作条渲染，题干旁不重复 */
+  showInline: boolean;
+  isFavorite: (questionId: string) => boolean;
+  toggleFavorite: (schema: SurveySchema) => void;
+}
+
+export const QuestionFavoriteContext = createContext<QuestionFavoriteApi | null>(null);
 
 /**
  * 题干：普通题直接出文本；带 richTitle 的题（Word 导入含图片）按富文本消毒后渲染。
@@ -53,7 +64,9 @@ export function QuestionFrame({
 }) {
   const indent = number === undefined ? 0 : 34;
   const markApi = useContext(QuestionMarkContext);
+  const favoriteApi = useContext(QuestionFavoriteContext);
   const marked = markApi?.isMarked(schema.id) ?? false;
+  const favorited = favoriteApi?.isFavorite(schema.id) ?? false;
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -76,6 +89,18 @@ export function QuestionFrame({
             <span className="sk-mark-text">{marked ? '已标记' : '标记'}</span>
           </button>
         )}
+        {favoriteApi?.enabled && favoriteApi.showInline && (
+          <button
+            type="button"
+            className={favorited ? 'sk-mark marked' : 'sk-mark'}
+            onClick={() => favoriteApi.toggleFavorite(schema)}
+            aria-pressed={favorited}
+            title={favorited ? '取消收藏' : '收藏这道题，练习册里可以再做'}
+          >
+            {favorited ? <StarFilled /> : <StarOutlined />}
+            <span className="sk-mark-text">{favorited ? '已收藏' : '收藏'}</span>
+          </button>
+        )}
       </div>
       {schema.description && (
         <div
@@ -85,10 +110,10 @@ export function QuestionFrame({
             fontSize: 12,
             lineHeight: 1.7,
             color: 'var(--bp-text-soft)',
+            whiteSpace: 'pre-wrap',
           }}
-        >
-          {schema.description}
-        </div>
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(schema.description) }}
+        />
       )}
       <div style={{ marginTop: 'var(--sk-stem-gap, 10px)', paddingLeft: indent }}>{children}</div>
     </div>

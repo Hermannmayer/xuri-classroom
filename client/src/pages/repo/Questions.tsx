@@ -34,6 +34,7 @@ import { pager, TABLE_COMPONENTS } from './table';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import ImportWizard from '../import/ImportWizard';
+import RichTextEditor from '../../components/RichTextEditor';
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
 interface TemplateView {
@@ -184,6 +185,7 @@ export default function RepoQuestions() {
   const canDelete = can(authorities, PERMISSION_CODES.templateDelete);
   const [editing, setEditing] = useState<TemplateView | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [correct, setCorrect] = useState<string | string[]>('');
   // 多空填空逐空答案，下标与 schema.children 一一对应
@@ -279,6 +281,7 @@ export default function RepoQuestions() {
           : ['']
         : [],
     );
+    setEditDescription(template?.description || '');
     editForm.setFieldsValue({
       title: template?.title || editing.name || '',
       score: template?.attribute?.examScore,
@@ -476,6 +479,7 @@ export default function RepoQuestions() {
         ...(base ?? { id: editing.id, title: values.title.trim(), type, attribute: {} }),
         title: values.title.trim(),
         type,
+        description: editDescription || undefined,
         attribute: {
           ...(base?.attribute ?? {}),
           examScore: values.score,
@@ -1007,6 +1011,17 @@ export default function RepoQuestions() {
                 onChange={(e) => setCorrect(e.target.value)}
               />
             )}
+          </Form.Item>
+
+          <Form.Item label="描述">
+            <RichTextEditor
+              value={editDescription}
+              onChange={setEditDescription}
+              placeholder="输入题目描述，可插入图片"
+              ownerType="repo"
+              ownerId={editing?.repoId ?? repoId}
+              questionId={editing?.id}
+            />
           </Form.Item>
 
           <Form.Item name="score" label="分值">

@@ -643,3 +643,57 @@ body {
 .ant-table-tbody > tr.ant-table-row:hover > td.ant-table-column-sort {
   background: transparent !important;
 }
+/* 富文本编辑器（题目描述 / 说明题） */
+.rich-text-editor {
+  border: 1px solid var(--bp-line);
+  background: var(--bp-panel, transparent);
+}
+.rich-text-editor .rt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--bp-line-soft);
+  background: var(--bp-bg-soft, rgba(127, 127, 127, 0.04));
+}
+.rich-text-editor .rt-btn {
+  width: 28px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--bp-text);
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 2px;
+}
+.rich-text-editor .rt-btn:hover { border-color: var(--bp-line); background: var(--bp-hover, rgba(127, 127, 127, 0.08)); }
+.rich-text-editor .rt-btn.active { color: var(--bp-orange); border-color: var(--bp-orange); }
+.rich-text-editor .rt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.rich-text-editor .rt-sep { width: 1px; height: 18px; background: var(--bp-line-soft); margin: 0 4px; }
+.rich-text-editor .rich-text-content {
+  min-height: 110px;
+  padding: 8px 10px;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--bp-text);
+  overflow-wrap: anywhere;
+}
+.rich-text-editor .rich-text-content p { margin: 0 0 6px; }
+.rich-text-editor .rich-text-content ul,
+.rich-text-editor .rich-text-content ol { padding-left: 22px; margin: 0 0 6px; }
+.rich-text-editor .rich-text-content blockquote { border-left: 3px solid var(--bp-line); margin: 6px 0; padding-left: 10px; color: var(--bp-text-soft); }
+.rich-text-editor .rich-text-content img { max-width: 100%; height: auto; display: block; margin: 6px 0; }
+.rich-text-editor .rich-text-content a { color: var(--bp-blue); text-decoration: underline; }
+.rich-text-editor .rich-text-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--bp-hint);
+  pointer-events: none;
+  height: 0;
+}
+.rich-text-editor .rt-hint { padding: 0 10px 6px; font-size: 10px; color: var(--bp-hint); }

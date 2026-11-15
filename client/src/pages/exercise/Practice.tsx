@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Button, Empty, message, Segmented, Spin, Tag } from 'antd';
-import { ArrowLeftOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FlagFilled, FlagOutlined, LeftOutlined, RightOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getWithPagination, post } from '../../api';
+import { get, getWithPagination, post } from '../../api';
 import ZoomControl from '../../components/ZoomControl';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
+import {
+  QuestionFavoriteContext,
+  QuestionMarkContext,
+  type QuestionFavoriteApi,
+  type QuestionMarkApi,
+} from '../../renderer/questions/shared';
 import { isEmptyAnswer } from '../../schema/empty';
+import { readMarks, writeMarks } from '../../utils/answerStorage';
 import { flattenSchema } from '../../schema/flatten';
 import type { SurveySchema } from '../../schema/types';
 
@@ -147,6 +154,8 @@ export default function Practice() {
   const [error, setError] = useState<string>();
   const [fontScale, setFontScale] = useState(() => Number(localStorage.getItem(FONT_KEY)) || 1);
   const [initialized, setInitialized] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
+  const [marks, setMarks] = useState<Record<string, boolean>>(() => readMarks(repoId));
 
   /** 异步流程（滚动追加、跳题补加载、提交前补齐）要读最新值，state 闭包会过期，这里镜像一份 */
   const questionsRef = useRef<SurveySchema[]>([]);
@@ -498,6 +507,58 @@ export default function Practice() {
     }
   };
 
+  useEffect(() => {
+    void get<string[]>('/api/repo/book/favorites')
+      .then((ids) => setFavorites(new Set(ids ?? [])))
+      .catch(() => undefined);
+  }, []);
+
+  const toggleFavorite = async (schema: SurveySchema) => {
+    try {
+      const next = await post<boolean>('/api/repo/book/favorite', {
+        templateId: schema.id,
+        name: schema.title,
+      });
+      setFavorites((prev) => {
+        const copy = new Set(prev);
+        if (next) copy.add(schema.id);
+        else copy.delete(schema.id);
+        return copy;
+      });
+      message.success(next ? '已收藏，可在练习册里继续做' : '已取消收藏');
+    } catch (e) {
+      message.error((e as Error).message || '收藏失败');
+    }
+  };
+
+  const toggleMark = (schema: SurveySchema) => {
+    const next = { ...marks };
+    if (next[schema.id]) delete next[schema.id];
+    else next[schema.id] = true;
+    setMarks(next);
+    writeMarks(repoId, next);
+  };
+
+  const markApi = useMemo<QuestionMarkApi>(
+    () => ({
+      isMarked: (qId) => Boolean(marks[qId]),
+      toggle: (qId) => {
+        const question = flat.find((item) => item.id === qId);
+        if (question) toggleMark(question.schema);
+      },
+    }),
+    [marks, flat],
+  );
+  const favoriteApi = useMemo<QuestionFavoriteApi>(
+    () => ({
+      enabled: true,
+      showInline: layout === 'scroll',
+      isFavorite: (qId) => favorites.has(qId),
+      toggleFavorite: (schema) => void toggleFavorite(schema),
+    }),
+    [layout, favorites],
+  );
+
   const goBack = () => {
     const idx = (window.history.state as { idx?: number } | null)?.idx;
     if (typeof idx === 'number' && idx > 0) navigate(-1);
@@ -636,6 +697,8 @@ export default function Practice() {
         className="bp-card"
         style={{ padding: 18, minHeight: 260, zoom: fontScale }}
       >
+        <QuestionFavoriteContext.Provider value={favoriteApi}>
+          <QuestionMarkContext.Provider value={markApi}>
         {jumpingTo !== undefined && (
           <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginBottom: 8 }}>
             {`正在加载第 ${jumpingTo + 1} 题…`}
@@ -686,6 +749,8 @@ export default function Practice() {
             )}
           </>
         )}
+          </QuestionMarkContext.Provider>
+        </QuestionFavoriteContext.Provider>
       </div>
 
       <div
@@ -715,6 +780,22 @@ export default function Practice() {
             >
               下一题
             </Button>
+            {currentQuestion && (
+              <Button
+                icon={marks[currentQuestion.schema.id] ? <FlagFilled /> : <FlagOutlined />}
+                onClick={() => toggleMark(currentQuestion.schema)}
+              >
+                {marks[currentQuestion.schema.id] ? '已标记' : '标记'}
+              </Button>
+            )}
+            {currentQuestion && (
+              <Button
+                icon={favorites.has(currentQuestion.schema.id) ? <StarFilled /> : <StarOutlined />}
+                onClick={() => void toggleFavorite(currentQuestion.schema)}
+              >
+                {favorites.has(currentQuestion.schema.id) ? '已收藏' : '收藏'}
+              </Button>
+            )}
             <Button type="primary" loading={submitting} onClick={() => void submit()}>
               提交
             </Button>

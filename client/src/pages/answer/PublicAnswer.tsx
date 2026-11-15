@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { Alert, App, Button, Drawer, Input, message, Slider, Spin } from 'antd';
-import { ArrowLeftOutlined, FileTextOutlined, FlagFilled, FlagOutlined, MenuOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, FlagFilled, FlagOutlined, MenuOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
-import { ApiError, post } from '../../api';
+import { ApiError, get, post } from '../../api';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
 import type { AnswerValue } from '../../renderer/types';
 import SchemaRenderer from '../../renderer/SchemaRenderer';
-import { QuestionMarkContext, type QuestionMarkApi } from '../../renderer/questions/shared';
+import {
+  QuestionFavoriteContext,
+  QuestionMarkContext,
+  type QuestionFavoriteApi,
+  type QuestionMarkApi,
+} from '../../renderer/questions/shared';
 import { isEmptyAnswer } from '../../schema/empty';
 import { flattenSchema } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
@@ -213,6 +218,8 @@ export default function PublicAnswer() {
   const [answerId, setAnswerId] = useState<string>();
   /** 题目标记（只存本地，见 marksKey 注释）：{ 题目 id: true } */
   const [marks, setMarks] = useState<Record<string, boolean>>(() => readMarks(id));
+  /** 当前用户收藏的题目 id；登录后拉一次，按钮状态即时更新 */
+  const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
   /** 登录态：null = 还在查（此时不渲染返回入口，避免匿名答题者看到按钮闪一下） */
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
@@ -402,6 +409,45 @@ export default function PublicAnswer() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (loggedIn !== true) return;
+    let alive = true;
+    void get<string[]>('/api/repo/book/favorites')
+      .then((ids) => {
+        if (alive) setFavorites(new Set(ids ?? []));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [loggedIn]);
+
+  const toggleFavorite = useCallback(
+    async (schema: SurveySchema) => {
+      if (loggedIn !== true) {
+        message.warning('登录后才能收藏题目');
+        return;
+      }
+      try {
+        const next = await post<boolean>('/api/repo/book/favorite', {
+          templateId: schema.id,
+          name: schema.title,
+          projectId: project?.mode === 'exam' ? id : undefined,
+        });
+        setFavorites((prev) => {
+          const copy = new Set(prev);
+          if (next) copy.add(schema.id);
+          else copy.delete(schema.id);
+          return copy;
+        });
+        message.success(next ? '已收藏，可在练习册里继续做' : '已取消收藏');
+      } catch (e) {
+        message.error((e as Error).message || '收藏失败');
+      }
+    },
+    [loggedIn, project?.mode, id],
+  );
 
   /**
    * 标记每次变化都写回本地；清空时把 key 一起删掉，别留空对象。
@@ -616,6 +662,15 @@ export default function PublicAnswer() {
       toggle: toggleMark,
     }),
     [marks, toggleMark],
+  );
+  const favoriteApi = useMemo<QuestionFavoriteApi>(
+    () => ({
+      enabled: loggedIn === true && project?.setting?.examSetting?.favoriteEnabled !== false,
+      showInline: !onePage,
+      isFavorite: (qId: string) => favorites.has(qId),
+      toggleFavorite: (schema) => void toggleFavorite(schema),
+    }),
+    [loggedIn, project?.setting?.examSetting?.favoriteEnabled, onePage, favorites, toggleFavorite],
   );
 
   // 规则显隐：答题态必须应用，隐藏题的答案不参与校验与提交
@@ -1494,6 +1549,7 @@ export default function PublicAnswer() {
             </div>
           ) : exerciseMode ? (
             /* 练习模式：一题一块渲染，题下紧跟即时判题反馈；失焦用于填空类延后判定 */
+            <QuestionFavoriteContext.Provider value={favoriteApi}>
             <QuestionMarkContext.Provider value={onePage ? null : markApi}>
               {(onePage ? (currentSchema ? [currentSchema] : []) : loadedVisibleSchemas).map((schema, index) => {
                 const questionIndex = onePage
@@ -1531,7 +1587,9 @@ export default function PublicAnswer() {
                 );
               })}
             </QuestionMarkContext.Provider>
+            </QuestionFavoriteContext.Provider>
           ) : (
+            <QuestionFavoriteContext.Provider value={favoriteApi}>
             <QuestionMarkContext.Provider value={onePage ? null : markApi}>
               <div onBlur={passMode ? handlePassBlur : undefined}>
                 <SchemaRenderer
@@ -1544,6 +1602,7 @@ export default function PublicAnswer() {
                 />
               </div>
             </QuestionMarkContext.Provider>
+            </QuestionFavoriteContext.Provider>
           )}
           {onePage && (
             <div
@@ -1572,6 +1631,16 @@ export default function PublicAnswer() {
                   onClick={() => toggleMark(currentQuestion.id)}
                 >
                   {marks[currentQuestion.id] ? '已标记' : '标记'}
+                </Button>
+              )}
+              {currentQuestion && favoriteApi.enabled && (
+                <Button
+                  size="large"
+                  className={favorites.has(currentQuestion.id) ? 'sk-mark-btn marked' : 'sk-mark-btn'}
+                  icon={favorites.has(currentQuestion.id) ? <StarFilled /> : <StarOutlined />}
+                  onClick={() => void toggleFavorite(currentQuestion.schema)}
+                >
+                  {favorites.has(currentQuestion.id) ? '已收藏' : '收藏'}
                 </Button>
               )}
               <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: 'var(--bp-text-soft)' }}>
