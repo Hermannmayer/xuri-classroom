@@ -30,6 +30,8 @@ public final class RichTextSanitizer {
 			.allowAttributes("alt", "width", "height").onElements("img")
 			.allowAttributes("class").matching(SAFE_CLASS).onElements("p", "span", "div", "li", "code", "pre", "td",
 					"th")
+			.allowAttributes("data-formula", "data-question-ref").onElements("span")
+			.allowStyling()
 			.toFactory();
 
 	private RichTextSanitizer() {

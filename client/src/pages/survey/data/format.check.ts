@@ -64,7 +64,7 @@ assert.equal(compareText(EMPTY, EMPTY), 0);
 // 表头与列过滤
 assert.equal(questionHeader(radio), '1. 年龄');
 assert.equal(questionHeader(q('Radio', {}, '')), '1. Radio');
-assert.equal(isDataQuestion(q('RichText')), false);
+assert.equal(isDataQuestion(q('RichText')), true);
 assert.equal(isDataQuestion(radio), true);
 
 console.log('format.check ok');

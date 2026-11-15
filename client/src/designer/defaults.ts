@@ -22,6 +22,7 @@ export const QUESTION_META: QuestionMeta[] = [
   { type: 'Textarea', label: '多行文本', group: 'input', title: '多行文本题' },
   { type: 'MatrixFillBlank', label: '矩阵填空', group: 'input', title: '矩阵填空题' },
   { type: 'Address', label: '地址', group: 'input', title: '地址题' },
+  { type: 'RichText', label: '富文本', group: 'input', title: '富文本题' },
   { type: 'Score', label: '评分', group: 'input', title: '评分题' },
   { type: 'QuestionSet', label: '题组', group: 'structure', title: '题组' },
   { type: 'Remark', label: '说明', group: 'structure', title: '说明文字' },
@@ -98,6 +99,8 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
   } else if (type === 'Address') {
     base.attribute = { required: false, placeholder: '请输入地址' };
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
+  } else if (type === 'RichText') {
+    base.attribute = { required: false, placeholder: '请输入答案，可插入图片和公式' };
   } else if (type === 'Score') {
     base.attribute = { scope: '[0,5]' };
   } else if (type === 'QuestionSet') {

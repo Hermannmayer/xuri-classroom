@@ -2,6 +2,8 @@ package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
+import cn.surveyking.server.core.uitls.RichTextSanitizer;
+import cn.surveyking.server.core.uitls.SchemaHelper;
 import cn.surveyking.server.domain.dto.AnswerExamInfo;
 import cn.surveyking.server.domain.dto.ExerciseProjectTemplate;
 import cn.surveyking.server.domain.dto.ProjectView;
@@ -51,9 +53,25 @@ public class AnswerScoringService {
 						: project.getSurvey();
 		fileService.validateAndBindAnswerFiles(answer.getProjectId(), answer.getId(), answerSurvey, answer.getAnswer(),
 				previousAnswer == null ? null : previousAnswer.getAnswer());
+		sanitizeRichTextAnswers(answerSurvey, answer.getAnswer());
+		sanitizeRichTextAnswers(answerSurvey, answer.getTempAnswer());
 		computeExamScore(answer, project, previousAnswer);
 		linkSurveyUpdater.updateLinkSurveyAnswer(answer, project);
 		return answer;
+	}
+
+	private void sanitizeRichTextAnswers(SurveySchema survey, java.util.Map<String, Object> answers) {
+		if (survey == null || answers == null || answers.isEmpty()) {
+			return;
+		}
+		SchemaHelper.flatSurveySchema(survey).stream()
+				.filter(schema -> SurveySchema.QuestionType.RichText.equals(schema.getType()))
+				.forEach(schema -> {
+					Object value = answers.get(schema.getId());
+					if (value instanceof String) {
+						answers.put(schema.getId(), RichTextSanitizer.clean((String) value));
+					}
+				});
 	}
 
 	/**

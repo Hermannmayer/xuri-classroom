@@ -18,7 +18,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { post } from '../../api';
 import { loadAuthorities } from '../../auth/permissions';
-import DOMPurify from 'dompurify';
+import RichTextContent from '../../components/RichTextContent';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import { flattenSchema } from '../../schema/flatten';
 import type { FlatQuestion } from '../../schema/flatten';
@@ -357,10 +357,10 @@ export function QuestionCard({ view }: { view: QuestionView }) {
 
       <h2 className="sk-q-title">{q.title || '（未填写题干）'}</h2>
       {q.schema.description && (
-        <div
+        <RichTextContent
           className="sk-q-desc"
+          html={q.schema.description}
           style={{ marginTop: 6, fontSize: 12, lineHeight: 1.7, color: 'var(--bp-text-soft)', whiteSpace: 'pre-wrap' }}
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(q.schema.description) }}
         />
       )}
 
@@ -437,12 +437,22 @@ export function QuestionCard({ view }: { view: QuestionView }) {
       {options.length === 0 && blanks.length === 0 && (
         <div className="sk-answer-rows">
           {view.answerLines.length > 0 ? (
-            view.answerLines.map((line, index) => (
-              <div className="sk-answer-row" key={`${view.q.id}-${index}`}>
+            view.q.type === 'RichText' ? (
+              <div className="sk-answer-row">
                 <span className="sk-answer-key">我的答案</span>
-                <span className="sk-answer-val">{line}</span>
+                <RichTextContent
+                  html={view.answerLines.join('')}
+                  style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.7 }}
+                />
               </div>
-            ))
+            ) : (
+              view.answerLines.map((line, index) => (
+                <div className="sk-answer-row" key={`${view.q.id}-${index}`}>
+                  <span className="sk-answer-key">我的答案</span>
+                  <span className="sk-answer-val">{line}</span>
+                </div>
+              ))
+            )
           ) : (
             <div className="sk-answer-row">
               <span className="sk-answer-key">我的答案</span>

@@ -697,3 +697,9 @@ body {
   height: 0;
 }
 .rich-text-editor .rt-hint { padding: 0 10px 6px; font-size: 10px; color: var(--bp-hint); }
+.rich-text-editor .rt-select { height: 26px; border: 1px solid var(--bp-line-soft); background: transparent; color: var(--bp-text); font-size: 11px; padding: 0 2px; }
+.rich-text-editor .rt-text-btn { width: auto; min-width: 26px; padding: 0 5px; font-size: 12px; font-family: var(--bp-mono, monospace); }
+.rich-text-editor .rt-formula { color: var(--bp-blue); background: rgba(127,127,127,0.08); padding: 0 3px; }
+.rich-text-editor .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
+.rich-text-content .rt-formula { color: var(--bp-blue); }
+.rich-text-content .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }

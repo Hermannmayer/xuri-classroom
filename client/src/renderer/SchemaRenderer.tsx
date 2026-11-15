@@ -1,5 +1,5 @@
 import { Fragment, useMemo, type CSSProperties, type ReactNode } from 'react';
-import DOMPurify from 'dompurify';
+import RichTextContent from '../components/RichTextContent';
 import { flattenSchema } from '../schema/flatten';
 import { DATA_TYPES, type SurveySchema } from '../schema/types';
 import { getQuestionComponent } from './registry';
@@ -90,11 +90,10 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
           // 富文本由问卷设计者编写。设计者本身是「可编辑问卷的人」（老师即可），
           // 所以这里不是「未来才需要消毒」：不消毒等于任何老师都能在所有答题学员的浏览器里执行脚本。
           return node.attribute?.content ? (
-            <div
+            <RichTextContent
               key={node.id}
+              html={node.attribute.content}
               style={styles.remark}
-              data-node-id={node.id}
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(node.attribute.content) }}
             />
           ) : null;
         case 'SplitLine':
@@ -134,9 +133,9 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
           {node.attribute?.required && <span style={styles.required}>*</span>}
         </div>
         {node.description && (
-          <div
+          <RichTextContent
+            html={node.description}
             style={{ ...styles.description, whiteSpace: 'pre-wrap' }}
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(node.description) }}
           />
         )}
         <div style={styles.body}>

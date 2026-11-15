@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { App, Spin } from 'antd';
 import {
+  AlignCenterOutlined,
+  AlignLeftOutlined,
+  AlignRightOutlined,
   BoldOutlined,
   ClearOutlined,
+  CodeOutlined,
+  FontColorsOutlined,
   ItalicOutlined,
   LinkOutlined,
   OrderedListOutlined,
@@ -19,8 +24,13 @@ import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import { Extension, mergeAttributes, Node } from '@tiptap/core';
 import DOMPurify from 'dompurify';
 import { post } from '../api';
+import 'katex/dist/katex.min.css';
 
 export interface RichTextEditorProps {
   value?: string;
@@ -28,6 +38,9 @@ export interface RichTextEditorProps {
   placeholder?: string;
   disabled?: boolean;
   minHeight?: number;
+  /** editor=题库/试卷编辑；answer=学员答题（图片走公开上传） */
+  mode?: 'editor' | 'answer';
+  projectId?: string;
   /** 图片归属：project / repo；不传则图片只上传不登记引用 */
   ownerType?: 'project' | 'repo';
   ownerId?: string;
@@ -39,14 +52,17 @@ const ALLOWED_TAGS = [
   'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'hr', 'span', 'div', 'table',
   'thead', 'tbody', 'tr', 'th', 'td',
 ];
-const ALLOWED_ATTR = ['href', 'target', 'rel', 'src', 'alt', 'width', 'height', 'class'];
+const ALLOWED_ATTR = [
+  'href', 'target', 'rel', 'src', 'alt', 'width', 'height', 'class', 'style',
+  'data-formula', 'data-question-ref',
+];
 
 function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
-    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'form', 'input'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'style'],
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'form', 'input', 'video'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick'],
   });
 }
 
@@ -57,11 +73,83 @@ function normalizeLink(raw: string): string | null {
   return null;
 }
 
+/** 字号：TextStyle mark 上的 fontSize 属性，存成 16px 这种值。 */
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['textStyle'],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) => (attributes.fontSize ? { style: 'font-size: ' + attributes.fontSize } : {}),
+          },
+        },
+      },
+    ];
+  },
+});
+
+/** 行内公式：存 LaTeX，编辑态显示原始文本，阅读态由 RichTextContent 用 KaTeX 渲染。 */
+const Formula = Node.create({
+  name: 'formula',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { latex: { default: '' } };
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-formula]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        class: 'rt-formula',
+        'data-formula': HTMLAttributes.latex || '',
+      }),
+      HTMLAttributes.latex || '公式',
+    ];
+  },
+});
+
+/** 题目引用：存一个题目 id + 展示文本；不远程取题，避免把其他题答案带进编辑器。 */
+const QuestionRef = Node.create({
+  name: 'questionRef',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      questionId: { default: '' },
+      label: { default: '' },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-question-ref]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        class: 'rt-question-ref',
+        'data-question-ref': HTMLAttributes.questionId || '',
+      }),
+      HTMLAttributes.label || '题目引用',
+    ];
+  },
+});
+
 /**
- * 题库/试卷题目描述用的轻量富文本编辑器。
+ * 题库/试卷题目描述用富文本编辑器。
  *
- * <p>一期只做基础格式 + 图片，不接视频；图片上传后插入站内预览地址，并按
- * ownerType/ownerId 登记 t_file_ref，删除题库/试卷时才能安全清理。
+ * <p>编辑态图片按 ownerType/ownerId 登记引用；答题态走 /api/public/upload，
+ * 由后端校验项目/题目并把图片挂到本次答卷上下文。
  */
 export default function RichTextEditor({
   value,
@@ -69,12 +157,15 @@ export default function RichTextEditor({
   placeholder = '输入题目描述，可插入图片',
   disabled = false,
   minHeight = 110,
+  mode = 'editor',
+  projectId,
   ownerType,
   ownerId,
   questionId,
 }: RichTextEditorProps) {
   const { message } = App.useApp();
   const fileRef = useRef<HTMLInputElement>(null);
+  const colorRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const editor = useEditor({
     extensions: [
@@ -88,6 +179,12 @@ export default function RichTextEditor({
       }),
       Image.configure({ inline: false, allowBase64: false }),
       Placeholder.configure({ placeholder }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle,
+      Color,
+      FontSize,
+      Formula,
+      QuestionRef,
     ],
     content: value ?? '',
     editable: !disabled,
@@ -100,8 +197,7 @@ export default function RichTextEditor({
 
   useEffect(() => {
     if (!editor) return;
-    if (disabled) editor.setEditable(false);
-    else editor.setEditable(true);
+    editor.setEditable(!disabled);
   }, [disabled, editor]);
 
   useEffect(() => {
@@ -117,11 +213,17 @@ export default function RichTextEditor({
     try {
       const form = new FormData();
       form.append('file', file);
-      form.append('publicRead', 'true');
-      if (ownerType) form.append('ownerType', ownerType);
-      if (ownerId) form.append('ownerId', ownerId);
-      if (questionId) form.append('questionId', questionId);
-      const uploaded = await post<{ id: string }>('/api/file/create', form);
+      if (mode === 'answer') {
+        if (!projectId || !questionId) throw new Error('缺少试卷或题目信息，无法上传图片');
+        form.append('projectId', projectId);
+        form.append('questionId', questionId);
+      } else {
+        form.append('publicRead', 'true');
+        if (ownerType) form.append('ownerType', ownerType);
+        if (ownerId) form.append('ownerId', ownerId);
+        if (questionId) form.append('questionId', questionId);
+      }
+      const uploaded = await post<{ id: string }>(mode === 'answer' ? '/api/public/upload' : '/api/file/create', form);
       if (!uploaded?.id) throw new Error('上传返回缺少文件 id');
       editor?.chain().focus().setImage({
         src: '/api/public/preview/' + uploaded.id,
@@ -153,6 +255,24 @@ export default function RichTextEditor({
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  const insertFormula = () => {
+    if (!editor) return;
+    const latex = window.prompt('输入 LaTeX 公式，例如 \\frac{1}{2}', '');
+    if (!latex || !latex.trim()) return;
+    editor.chain().focus().insertContent({ type: 'formula', attrs: { latex: latex.trim() } }).run();
+  };
+
+  const insertQuestionRef = () => {
+    if (!editor) return;
+    const raw = window.prompt('输入要引用的题目编号或题目 id', '');
+    if (!raw || !raw.trim()) return;
+    const value = raw.trim();
+    editor.chain().focus().insertContent({
+      type: 'questionRef',
+      attrs: { questionId: value, label: '题目 ' + value },
+    }).run();
+  };
+
   const tool = (
     key: string,
     title: string,
@@ -179,28 +299,59 @@ export default function RichTextEditor({
     return <div style={{ minHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spin size="small" /></div>;
   }
 
+  const fontSizes = [12, 14, 16, 18, 20, 24];
+  const currentSize = String(editor.getAttributes('textStyle').fontSize || '14px').replace('px', '');
+
   return (
     <div className="rich-text-editor" style={{ opacity: disabled ? 0.7 : 1 }}>
       <div className="rt-toolbar" role="toolbar" aria-label="富文本工具栏">
+        <select
+          className="rt-select"
+          value={fontSizes.includes(Number(currentSize)) ? currentSize : '14'}
+          onChange={(event) => {
+            editor.chain().focus().setMark('textStyle', { fontSize: event.target.value + 'px' }).run();
+          }}
+          title="字号"
+        >
+          {fontSizes.map((size) => <option key={size} value={size}>{size}px</option>)}
+        </select>
+        <button
+          type="button"
+          className="rt-btn"
+          title="文字颜色"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => colorRef.current?.click()}
+        >
+          <FontColorsOutlined />
+        </button>
+        <span className="rt-sep" />
         {tool('bold', '加粗', <BoldOutlined />, () => editor.chain().focus().toggleBold().run(), editor.isActive('bold'))}
         {tool('italic', '斜体', <ItalicOutlined />, () => editor.chain().focus().toggleItalic().run(), editor.isActive('italic'))}
         {tool('underline', '下划线', <UnderlineOutlined />, () => editor.chain().focus().toggleUnderline().run(), editor.isActive('underline'))}
         {tool('strike', '删除线', <StrikethroughOutlined />, () => editor.chain().focus().toggleStrike().run(), editor.isActive('strike'))}
+        {tool('clear', '清除格式', <ClearOutlined />, () => editor.chain().focus().clearNodes().unsetAllMarks().run())}
+        <span className="rt-sep" />
+        {tool('left', '左对齐', <AlignLeftOutlined />, () => editor.chain().focus().setTextAlign('left').run(), editor.isActive({ textAlign: 'left' }))}
+        {tool('center', '居中', <AlignCenterOutlined />, () => editor.chain().focus().setTextAlign('center').run(), editor.isActive({ textAlign: 'center' }))}
+        {tool('right', '右对齐', <AlignRightOutlined />, () => editor.chain().focus().setTextAlign('right').run(), editor.isActive({ textAlign: 'right' }))}
         <span className="rt-sep" />
         {tool('ul', '无序列表', <UnorderedListOutlined />, () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'))}
         {tool('ol', '有序列表', <OrderedListOutlined />, () => editor.chain().focus().toggleOrderedList().run(), editor.isActive('orderedList'))}
-        {tool('quote', '引用', <span style={{ fontWeight: 700 }}>“</span>, () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
+        {tool('indent', '增加缩进', <span style={{ fontWeight: 700 }}>→</span>, () => editor.chain().focus().sinkListItem('listItem').run(), false, !editor.can().sinkListItem('listItem'))}
+        {tool('outdent', '减少缩进', <span style={{ fontWeight: 700 }}>←</span>, () => editor.chain().focus().liftListItem('listItem').run(), false, !editor.can().liftListItem('listItem'))}
         <span className="rt-sep" />
         {tool('link', '插入链接', <LinkOutlined />, setLink, editor.isActive('link'))}
         {tool('image', uploading ? '图片上传中' : '插入图片', <PictureOutlined />, () => fileRef.current?.click(), false, uploading)}
+        {tool('code', '代码块', <CodeOutlined />, () => editor.chain().focus().toggleCodeBlock().run(), editor.isActive('codeBlock'))}
+        <button type="button" className="rt-btn rt-text-btn" title="插入公式" onMouseDown={(event) => event.preventDefault()} onClick={insertFormula}>fx</button>
+        <button type="button" className="rt-btn rt-text-btn" title="题目引用" onMouseDown={(event) => event.preventDefault()} onClick={insertQuestionRef}>题</button>
         <span className="rt-sep" />
         {tool('undo', '撤销', <UndoOutlined />, () => editor.chain().focus().undo().run(), false, !editor.can().undo())}
         {tool('redo', '重做', <RedoOutlined />, () => editor.chain().focus().redo().run(), false, !editor.can().redo())}
-        {tool('clear', '清除格式', <ClearOutlined />, () => editor.chain().focus().clearNodes().unsetAllMarks().run())}
         {uploading && <Spin size="small" style={{ marginLeft: 6 }} />}
       </div>
       <EditorContent editor={editor} />
-      <div className="rt-hint">支持加粗、列表、链接和图片；图片会跟随所在题库/试卷清理。</div>
+      <div className="rt-hint">支持字号、颜色、对齐、列表、链接、代码块、公式和图片；图片会跟随所在题库/试卷清理。</div>
       <input
         ref={fileRef}
         type="file"
@@ -210,6 +361,12 @@ export default function RichTextEditor({
           const file = event.target.files?.[0];
           if (file) void uploadImage(file);
         }}
+      />
+      <input
+        ref={colorRef}
+        type="color"
+        style={{ display: 'none' }}
+        onChange={(event) => editor.chain().focus().setColor(event.target.value).run()}
       />
     </div>
   );

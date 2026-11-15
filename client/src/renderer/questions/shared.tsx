@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { FlagFilled, FlagOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import DOMPurify from 'dompurify';
+import RichTextContent from '../../components/RichTextContent';
 import type { SurveySchema } from '../../schema/types';
 import type { AnswerValue, QuestionComponentProps } from '../types';
 
@@ -103,7 +104,8 @@ export function QuestionFrame({
         )}
       </div>
       {schema.description && (
-        <div
+        <RichTextContent
+          html={schema.description}
           style={{
             marginTop: 6,
             paddingLeft: indent,
@@ -112,7 +114,6 @@ export function QuestionFrame({
             color: 'var(--bp-text-soft)',
             whiteSpace: 'pre-wrap',
           }}
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(schema.description) }}
         />
       )}
       <div style={{ marginTop: 'var(--sk-stem-gap, 10px)', paddingLeft: indent }}>{children}</div>

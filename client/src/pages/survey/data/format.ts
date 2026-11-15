@@ -27,8 +27,8 @@ const MATRIX = new Set([
 ]);
 const BLANK = new Set(['FillBlank', 'Textarea', 'MultipleBlank', 'HorzBlank']);
 
-/** 纯展示节点，不产生答案，不占列 */
-const NON_DATA = new Set(['RichText']);
+/** 纯展示节点，不产生答案，不占列；RichText 是答题者输入的答案，必须占列 */
+const NON_DATA = new Set<string>();
 
 export function isDataQuestion(q: FlatQuestion): boolean {
   return !NON_DATA.has(q.type);
@@ -67,6 +67,9 @@ function matrixText(q: FlatQuestion, value: Record<string, unknown>): string {
 /** 单元格/详情共用的答案格式化：空值统一 EMPTY，方便表格排序把空值排到最后 */
 export function formatAnswer(q: FlatQuestion, value: AnswerValue): string {
   if (value === null || value === undefined || value === '') return EMPTY;
+  if (q.type === 'RichText' && typeof value === 'string') {
+    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || EMPTY;
+  }
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   if (Array.isArray(value)) return value.map(flattenText).filter(Boolean).join('、') || EMPTY;
   if (typeof value !== 'object') return String(value);

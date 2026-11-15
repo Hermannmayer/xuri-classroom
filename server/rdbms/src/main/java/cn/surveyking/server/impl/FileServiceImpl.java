@@ -113,7 +113,11 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 	@Override
 	@CacheEvict(cacheNames = "fileCache", allEntries = true)
 	public void deleteByOwner(String ownerType, String ownerId) {
-		Set<String> fileIds = fileRefService.deleteByOwner(ownerType, ownerId);
+		Set<String> fileIds = new java.util.LinkedHashSet<>(fileRefService.deleteByOwner(ownerType, ownerId));
+		if ("project".equals(ownerType)) {
+			// 富文本答案图片在 t_file.project_id 上，不一定有 t_file_ref；一起纳入清理
+			list(Wrappers.<File>lambdaQuery().eq(File::getProjectId, ownerId)).forEach(file -> fileIds.add(file.getId()));
+		}
 		for (String fileId : fileIds) {
 			File file = getById(fileId);
 			if (file == null || StringUtils.isNotBlank(file.getAnswerId())) {
