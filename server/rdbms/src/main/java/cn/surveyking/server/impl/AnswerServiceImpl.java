@@ -332,6 +332,11 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 			}
 			answer.setClassId(tokenClassId);
 		}
+		else if (ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(answer.getProjectId())
+				&& StringUtils.hasText(answer.getRepoId()) && actor != null) {
+			// 题库练习：按题库的班级分配归属，便于班级维度看练习记录
+			answer.setClassId(classResourceService.resolveForStudentRepo(answer.getRepoId(), actor));
+		}
 		else {
 			answer.setClassId(actor == null ? null : classResourceService.resolveForStudent(answer.getProjectId(), actor));
 		}

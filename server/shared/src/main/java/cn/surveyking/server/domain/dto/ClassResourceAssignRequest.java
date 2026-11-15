@@ -30,4 +30,7 @@ public class ClassResourceAssignRequest {
 	/** 0=关闭 1=开放；不传默认 1 */
 	private Integer status;
 
+	/** 班级扩展设置；不传=默认 */
+	private ClassResourceSetting settings;
+
 }

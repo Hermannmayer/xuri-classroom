@@ -8,6 +8,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Spin,
@@ -55,6 +56,7 @@ interface ClassResource {
   resourceType?: string;
   resourceId?: string;
   shareToken?: string;
+  settings?: ClassResourceSetting;
   resourceName?: string;
   resourceMode?: ProjectMode;
   /** 0 关闭 / 1 开放 */
@@ -71,9 +73,20 @@ interface ClassResource {
   effectiveStatus?: 'CLOSED' | 'NOT_STARTED' | 'OPEN' | 'ENDED';
 }
 
+interface ClassResourceSetting {
+  extraAttempts?: number | null;
+  answerAnalysis?: boolean | null;
+  passScore?: number | null;
+  practiceEnabled?: boolean | null;
+}
+
 interface WindowValues {
   window?: [Dayjs | null, Dayjs | null] | null;
   status?: boolean;
+  extraAttempts?: number | null;
+  answerAnalysis?: 'inherit' | 'yes' | 'no';
+  passScore?: number | null;
+  practiceEnabled?: boolean;
 }
 
 interface AssignValues extends WindowValues {
@@ -273,6 +286,15 @@ export default function ClassResourcesPanel({
           ? [editing.startAt ? dayjs(editing.startAt) : null, editing.endAt ? dayjs(editing.endAt) : null]
           : undefined,
       status: editing.status !== 0,
+      extraAttempts: editing.settings?.extraAttempts ?? undefined,
+      answerAnalysis:
+        editing.settings?.answerAnalysis === true
+          ? 'yes'
+          : editing.settings?.answerAnalysis === false
+            ? 'no'
+            : 'inherit',
+      passScore: editing.settings?.passScore ?? undefined,
+      practiceEnabled: editing.settings?.practiceEnabled !== false,
     });
   }, [editing, editForm]);
 
@@ -327,8 +349,17 @@ export default function ClassResourcesPanel({
         startAt: from ? from.valueOf() : null,
         endAt: to ? to.valueOf() : null,
         status: values.status === false ? 0 : 1,
+        settings:
+          kind === 'repo'
+            ? { practiceEnabled: values.practiceEnabled !== false }
+            : {
+                extraAttempts: values.extraAttempts ?? null,
+                answerAnalysis:
+                  values.answerAnalysis === 'inherit' ? null : values.answerAnalysis === 'yes',
+                passScore: values.passScore ?? null,
+              },
       });
-      message.success('已更新开放窗口');
+      message.success('已保存班级设置');
       setEditing(null);
       await load();
     } catch (e) {
@@ -421,10 +452,10 @@ export default function ClassResourcesPanel({
       render: (_: unknown, row: ClassResource) => rangeText(row.globalStartAt, row.globalEndAt, '不限'),
     },
     {
-      title: '答卷数',
+      title: kind === 'repo' ? '练习数' : '答卷数',
       dataIndex: 'answerCount',
       width: 90,
-      render: (value?: number) => (kind === 'repo' ? '—' : `${value ?? 0} 份`),
+      render: (value?: number) => (kind === 'repo' ? `${value ?? 0} 次` : `${value ?? 0} 份`),
     },
     ...(manageable
       ? [
@@ -560,6 +591,20 @@ export default function ClassResourcesPanel({
               >
                 复制链接
               </Button>
+              <Button
+                disabled={!linkQr}
+                onClick={() => {
+                  if (!linkQr) return;
+                  const a = document.createElement('a');
+                  a.href = linkQr;
+                  a.download = '班级考试链接-' + (linkRow?.resourceName || linkRow?.resourceId || '二维码') + '.png';
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                }}
+              >
+                下载二维码
+              </Button>
               <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
                 仅当该考试仍分配给本班且窗口开放时有效
               </span>
@@ -682,6 +727,46 @@ export default function ClassResourcesPanel({
           <Form.Item name="status" label="状态" valuePropName="checked">
             <Switch checkedChildren="开放" unCheckedChildren="关闭" />
           </Form.Item>
+          {kind === 'repo' ? (
+            <Form.Item
+              name="practiceEnabled"
+              label="允许本班练习"
+              valuePropName="checked"
+              extra="关闭后本班学员能看题库列表，但打开/练习会被拒绝"
+            >
+              <Switch checkedChildren="允许" unCheckedChildren="禁止" />
+            </Form.Item>
+          ) : (
+            <>
+              <Form.Item
+                name="extraAttempts"
+                label="额外补考次数"
+                extra="在本班开放窗口内，给学员额外几次交卷机会；0=不额外开放"
+              >
+                <InputNumber min={0} max={20} precision={0} style={{ width: '100%' }} placeholder="0" />
+              </Form.Item>
+              <Form.Item
+                name="answerAnalysis"
+                label="交卷后看解析"
+                extra="只影响本班；继承则跟项目设置走"
+              >
+                <Select
+                  options={[
+                    { label: '继承项目设置', value: 'inherit' },
+                    { label: '允许本班查看', value: 'yes' },
+                    { label: '禁止本班查看', value: 'no' },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item
+                name="passScore"
+                label="班级及格线（可选）"
+                extra="只用于本班报表判定，不改试卷总分"
+              >
+                <InputNumber min={0} max={10000} precision={1} style={{ width: '100%' }} placeholder="不设置" />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>

@@ -8,6 +8,7 @@ import cn.surveyking.server.core.uitls.NanoIdUtils;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.ClassResourceAssignRequest;
 import cn.surveyking.server.domain.dto.ClassResourceDeleteRequest;
+import cn.surveyking.server.domain.dto.ClassResourceSetting;
 import cn.surveyking.server.domain.dto.ClassResourceUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassResourceView;
 import cn.surveyking.server.domain.dto.ExerciseProjectTemplate;
@@ -29,6 +30,7 @@ import cn.surveyking.server.mapper.UserDeptMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -107,6 +109,8 @@ public class ClassResourceService {
 	/** 班级写权限判定的唯一出口；这里注入接口，不注入 ClassServiceImpl */
 	private final ClassService classService;
 
+	private final ObjectMapper objectMapper;
+
 	/**
 	 * 班级资源面板：某个班已分配的资源（project 考试/问卷，repo 题库）。
 	 * @param classId 班级 id（dept_type=class）
@@ -165,6 +169,7 @@ public class ClassResourceService {
 	private List<ClassResourceView> toRepoViews(String classId, Dept dept, List<ClassResource> resources,
 			List<String> resourceIds, Map<String, User> assigners) {
 		Map<String, Repo> repos = loadRepos(resourceIds);
+		Map<String, AnswerStat> answerStats = loadRepoAnswerStats(classId, resourceIds);
 		List<ClassResourceView> result = new ArrayList<>();
 		for (ClassResource resource : resources) {
 			if (resource == null) {
@@ -180,7 +185,9 @@ public class ClassResourceService {
 			// 题库的全局开放期（硬上限）；题库不存在时为空
 			view.setGlobalStartAt(repo == null ? null : repo.getOpenStartAt());
 			view.setGlobalEndAt(repo == null ? null : repo.getOpenEndAt());
-			view.setAnswerCount(0L);
+			AnswerStat stat = answerStats.get(resource.getResourceId());
+			view.setAnswerCount(stat == null ? 0L : stat.count);
+			view.setAvgScore(stat == null ? null : stat.average());
 			view.setEffectiveStatus(effectiveStatusForRepo(resource, repo));
 			result.add(view);
 		}
@@ -197,6 +204,7 @@ public class ClassResourceService {
 		view.setResourceType(resource.getResourceType());
 		view.setResourceId(resource.getResourceId());
 		view.setShareToken(resource.getShareToken());
+		view.setSettings(parseSettings(resource.getSettings()));
 		view.setStatus(resource.getStatus() == null ? 1 : resource.getStatus());
 		view.setStartAt(resource.getStartAt());
 		view.setEndAt(resource.getEndAt());
@@ -266,11 +274,16 @@ public class ClassResourceService {
 				resource.setStartAt(startAt);
 				resource.setEndAt(endAt);
 				resource.setAssignedBy(currentUserId);
+				resource.setSettings(writeSettings(request.getSettings()));
 				classResourceMapper.insert(resource);
 				continue;
 			}
-			// 已分配过：只更新窗口与开关（assign 传 null = 继承全局，必须真的写 NULL）
+			// 已分配过：只更新窗口与开关；扩展设置不传时保持原值
 			updateWindow(exist.getId(), startAt, endAt, status);
+			if (request.getSettings() != null) {
+				classResourceMapper.update(null, Wrappers.<ClassResource>lambdaUpdate().eq(ClassResource::getId, exist.getId())
+						.set(ClassResource::getSettings, writeSettings(request.getSettings())));
+			}
 		}
 	}
 
@@ -297,6 +310,10 @@ public class ClassResourceService {
 		}
 		Integer status = request.getStatus() == null ? null : Integer.valueOf(normalizeStatus(request.getStatus(), 1));
 		updateWindow(record.getId(), startAt, endAt, status);
+		if (request.getSettings() != null) {
+			classResourceMapper.update(null, Wrappers.<ClassResource>lambdaUpdate().eq(ClassResource::getId, record.getId())
+					.set(ClassResource::getSettings, writeSettings(request.getSettings())));
+		}
 	}
 
 	/** 取消一条分配 */
@@ -529,6 +546,31 @@ public class ClassResourceService {
 
 	// ------ 内部
 
+	private ClassResourceSetting parseSettings(String json) {
+		if (!StringUtils.hasText(json)) {
+			return new ClassResourceSetting();
+		}
+		try {
+			return objectMapper.readValue(json, ClassResourceSetting.class);
+		}
+		catch (Exception e) {
+			log.warn("解析班级资源设置失败: {}", json, e);
+			return new ClassResourceSetting();
+		}
+	}
+
+	private String writeSettings(ClassResourceSetting settings) {
+		if (settings == null) {
+			return null;
+		}
+		try {
+			return objectMapper.writeValueAsString(settings);
+		}
+		catch (Exception e) {
+			throw new ValidationException("班级设置保存失败");
+		}
+	}
+
 	private Dept requireClass(String classId) {
 		String id = trim(classId);
 		if (!StringUtils.hasText(id)) {
@@ -695,6 +737,30 @@ public class ClassResourceService {
 		return stats;
 	}
 
+	/** 题库练习记录统计：project_id=exercise + repo_id + class_id + temp_save=1。 */
+	private Map<String, AnswerStat> loadRepoAnswerStats(String classId, List<String> repoIds) {
+		Map<String, AnswerStat> stats = new HashMap<>();
+		if (CollectionUtils.isEmpty(repoIds)) {
+			return stats;
+		}
+		answerMapper
+				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getRepoId, Answer::getExamScore)
+						.eq(Answer::getTempSave, 1).eq(Answer::getClassId, classId)
+						.in(Answer::getRepoId, repoIds))
+				.forEach(answer -> {
+					if (answer == null || !StringUtils.hasText(answer.getRepoId())) {
+						return;
+					}
+					AnswerStat stat = stats.computeIfAbsent(answer.getRepoId(), key -> new AnswerStat());
+					stat.count++;
+					if (answer.getExamScore() != null) {
+						stat.scoreSum += answer.getExamScore();
+						stat.scoredCount++;
+					}
+				});
+		return stats;
+	}
+
 	/** 单个项目的班级答卷统计：答卷数 + 有分数的答卷数与总分 */
 	private static final class AnswerStat {
 
@@ -775,6 +841,10 @@ public class ClassResourceService {
 			return ErrorCode.ProjectNotFound;
 		}
 		if (!Integer.valueOf(1).equals(row.getStatus())) {
+			return ErrorCode.SurveySuspend;
+		}
+		ClassResourceSetting settings = parseSettings(row.getSettings());
+		if (Boolean.FALSE.equals(settings.getPracticeEnabled())) {
 			return ErrorCode.SurveySuspend;
 		}
 		long now = System.currentTimeMillis();

@@ -42,6 +42,9 @@ public class ClassResourceView {
 	/** 班级级手动开关：0=关闭 1=开放 */
 	private Integer status;
 
+	/** 班级级扩展设置（补考/解析/及格线/题库练习）；空=继承 */
+	private ClassResourceSetting settings;
+
 	/** 班级窗口开始；空=继承全局 */
 	private Date startAt;
 

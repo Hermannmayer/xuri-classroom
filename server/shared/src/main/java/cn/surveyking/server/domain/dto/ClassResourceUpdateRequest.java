@@ -21,4 +21,7 @@ public class ClassResourceUpdateRequest {
 	/** 0=关闭 1=开放；不传表示不改 */
 	private Integer status;
 
+	/** 班级扩展设置；不传=保持原值 */
+	private ClassResourceSetting settings;
+
 }
