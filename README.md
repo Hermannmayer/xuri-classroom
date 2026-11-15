@@ -187,14 +187,42 @@ docker compose -f docker-compose.release.yml up -d
 
 > 更新前先备份数据库和附件目录；升级只跑增量迁移，**不要对已有数据的库执行 `init-mysql.sql`**。
 
-### 标准安装包更新
+### Windows 便携包
 
-1. 停服务（Windows `stop.cmd`；Linux `sudo systemctl stop xuri-classroom`；Docker `docker compose down`）。
-2. 备份数据库和附件目录。
-3. 解压新版本安装包，保留原 `data/`、`config/` 或 `.env`。
-4. 启动服务；应用启动时会自动执行 `db/migration/V*.sql` 中缺失的迁移。
-5. 打开 `/api/system` 确认版本号，再抽查登录、考试列表和一份答卷。
-6. 出问题按 [版本与升级](docs/deploy/versioning.md) 回滚到上一份备份/上一版安装包。
+1. 先停服务，备份整个 `data/` 与 `config/`。
+2. 下载新版本 zip，解压到旧安装目录并覆盖 `app/` 与 `VERSION`；**不要覆盖 `data/`、`config/`**。
+3. 双击新包里的 `upgrade.cmd`，或直接 `start.cmd` 启动。
+4. 打开 `/api/system` 确认版本号；升级脚本失败时会自动恢复旧程序。
+
+### Linux 安装包
+
+1. 先停服务并备份数据库、附件目录和 `app.env`。
+2. 解压新包：`tar -xzf xuri-classroom-<版本>-linux-x64.tar.gz`。
+3. 进入新包目录执行：`sudo bash upgrade.sh`。脚本会备份、换 jar、启动并校验，失败自动回滚。
+4. 手工升级则停服务 → 替换 `app.jar` → 启动；数据库迁移在启动时自动执行。
+
+### Docker
+
+发布包内执行：
+
+```bash
+tar -xzf xuri-classroom-<版本>-docker.tar.gz
+cd xuri-classroom-<版本>-docker
+sudo bash upgrade.sh
+```
+
+也可以直接用一键升级脚本（不用手工下载整包，脚本会拉取对应版本的 Docker 发布包并调用其中的 `upgrade.sh`）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line-upgrade.sh | sudo VERSION=2.1.2 bash
+```
+
+- 不指定 `VERSION` 时默认取 GitHub Releases 最新版本。
+- 脚本会保留 `.env` 与数据卷，先备份数据库、附件和 `.env`，再升级；**不会执行 `docker compose down -v`**。
+- 安装目录不是 `/opt/xuri-classroom` 时加：`sudo XURI_HOME=/你的目录 VERSION=2.1.2 bash`。
+- 脚本源码：[scripts/deploy/docker-one-line-upgrade.sh](scripts/deploy/docker-one-line-upgrade.sh)；完整说明：[升级与迁移](docs/deploy/upgrade.md)。
+
+> 三端升级完成后都建议打开 `/api/system/version`，确认 `version` 和 `schemaStatus` 正常；数据库迁移只做增量变更，程序回滚通常不需要回滚数据库。
 
 ---
 
