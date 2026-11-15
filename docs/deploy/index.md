@@ -45,6 +45,7 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 
 ## 安装之后
 
-- 版本号、升级与回滚：[版本与升级](versioning.md)
+- 三端一键升级、数据库自动迁移、失败回滚：[升级与迁移](upgrade.md)
+- 版本号怎么读、手工升级与回滚：[版本与升级](versioning.md)
 - 装不上、起不来、打不开：[部署常见问题](faq.md)
 - 环境变量清单：[环境变量](../reference/env.md)

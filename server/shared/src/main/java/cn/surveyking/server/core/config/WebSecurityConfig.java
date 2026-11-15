@@ -73,7 +73,10 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		http = http.exceptionHandling().authenticationEntryPoint(authenticationEntryPoint).and();
 		// 所有请求都放行，目的是单 jar 部署，输入任意路由也能跳转到对应的页面，权限拦截通过注解配置
 
+		// /api/system/version 也放行：升级脚本、监控、排障都要在"还没登录"时确认程序版本与库结构版本，
+		// 里面只有版本号（README/Release 页本来就公开），不含任何密钥或用户数据。
 		http.authorizeRequests().antMatchers("/api/public/**").permitAll().antMatchers("/api/system").permitAll()
+				.antMatchers("/api/system/version").permitAll()
 				.antMatchers("/captcha/get", "/captcha/check").permitAll().antMatchers("/api/**").authenticated()
 				.antMatchers("/").permitAll();
 		http.addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);

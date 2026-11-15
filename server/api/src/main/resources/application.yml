@@ -1,7 +1,13 @@
 version: @projectVersion@
 update:
-  # 更新清单地址（json）；留空则关闭自动检查
+  # 方式一：自建清单地址（json）；留空则改用下面的 GitHub 配置
   manifest-url: ${UPDATE_MANIFEST_URL:}
+  # 方式二：直接查 GitHub Releases（owner/repo）。留空则关闭检查
+  github-repo: ${UPDATE_GITHUB_REPO:Hermannmayer/xuri-classroom}
+  # GitHub API 前缀；国内可换成兼容 /repos/{repo}/releases/latest 的镜像
+  github-api-base: ${UPDATE_GITHUB_API_BASE:https://api.github.com}
+  # 服务端缓存小时数：GitHub 未认证接口限流 60 次/小时/IP，默认一天查一次足够
+  check-interval-hours: ${UPDATE_CHECK_INTERVAL_HOURS:24}
 spring:
   application:
     name: survey
@@ -40,6 +46,10 @@ sk:
   web:
     spa:
       enabled: ${SK_WEB_SPA_ENABLED:false}
+  schema:
+    # 启动时自动对齐数据库结构：探测库里实际有哪些表/列/索引，只执行缺的那几步迁移。
+    # 关掉后程序不会动数据库，但结构落后时会报 Unknown column —— 只在排障时临时关。
+    auto-upgrade: ${SK_SCHEMA_AUTO_UPGRADE:true}
   security:
     url-token-authentication:
       enabled: false # 默认关闭 url token 认证，避免令牌出现在 URL、日志或 Referer 中

@@ -53,7 +53,15 @@ sha256sum -c SHA256SUMS --ignore-missing
 
 ## 升级
 
-**升级前一律先备份**（数据库 + 附件），再按各端步骤操作：
+**升级前一律先备份**（数据库 + 附件），再按各端步骤操作。
+
+从 v2.1.0 起，三端发布包根目录都带一键升级脚本，会**自动备份、自动迁移数据库结构、失败自动回滚**：
+
+- Windows：解压新包到旧目录（覆盖）→ 双击 `upgrade.cmd`
+- Linux：`sudo bash upgrade.sh`
+- Docker：`sudo bash upgrade.sh`
+
+完整说明见[升级与迁移](upgrade.md)。只想手工换程序的话：
 
 - Windows：[升级](windows.md#升级)
 - Linux：[升级](linux.md#升级)
@@ -80,6 +88,24 @@ sha256sum -c SHA256SUMS --ignore-missing
 - 已经初始化过的数据目录不要和新版本混用旧的 `init-mysql.sql`——它只用于空库建表。
 
 ## 获知新版本
+
+**系统内提示（默认开启）**
+
+管理员登录后，页面顶部会出现"发现新版本 vX.Y.Z"的横幅，点"打开下载页"直达对应 Release。它只提示，不下载、不升级。
+
+| 项 | 说明 |
+|---|---|
+| 数据来源 | GitHub Releases API（`update.github-repo`，默认本仓库） |
+| 谁能看到 | 只有带 `system:setting:update` 权限的账号（通常就是管理员），学员看不到 |
+| 检查频率 | 服务端缓存 24 小时；前端 12 小时内不重复请求；同一版本点过关闭后不再出现 |
+| 连不上 GitHub | 静默失败：返回 `error`、不显示横幅、不弹窗、不打扰 |
+| 换 API 镜像 | `UPDATE_GITHUB_API_BASE`，需兼容 `/repos/{repo}/releases/latest` |
+| 关闭检查 | `UPDATE_GITHUB_REPO=` 留空 |
+| 自建清单 | `UPDATE_MANIFEST_URL`（优先于 GitHub），格式 `{"version","notes","url","publishedAt"}` |
+
+> 检查更新只是"提示"：即使 GitHub 完全不可达，也不影响系统运行和升级（升级用发布包 + 应用内自动迁移）。
+
+**其他方式**
 
 - 关注仓库 Releases 页面（每个版本都有 `RELEASE_NOTES.md`）。
 - 大版本（MAJOR）升级前，先在测试机装一遍再动生产。

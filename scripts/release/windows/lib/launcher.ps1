@@ -834,7 +834,7 @@ function Get-RuntimeConfig {
 # ===========================================================================
 
 function Get-CommandList {
-  return @('start', 'stop', 'status', 'setup', 'doctor', 'init-db', 'help', 'version')
+  return @('start', 'stop', 'status', 'setup', 'doctor', 'init-db', 'upgrade', 'help', 'version')
 }
 
 function Get-StepList {
@@ -852,6 +852,7 @@ function Parse-CommandLine([string[]]$ArgList) {
     NoFirewall = $false
     Force = $false
     Fix = $false
+    Yes = $false
     TimeoutSec = 240
     Help = $false
     ShowVersion = $false
@@ -907,6 +908,8 @@ function Parse-CommandLine([string[]]$ArgList) {
         'nofirewall' { $opts.NoFirewall = $true }
         'force' { $opts.Force = $true }
         'fix' { $opts.Fix = $true }
+        'yes' { $opts.Yes = $true }
+        'y' { $opts.Yes = $true }
         'help' { $opts.Help = $true }
         'h' { $opts.Help = $true }
         'version' { $opts.ShowVersion = $true }
@@ -965,6 +968,7 @@ function Show-Usage {
   Out-Line '  stop.cmd                   停止应用和内置 MySQL'
   Out-Line '  status.cmd                 查看端口、PID、访问地址'
   Out-Line '  setup.cmd                  引导安装（环境检查 / JRE / MySQL / 应用）'
+  Out-Line '  upgrade.cmd                升级到本目录版本（备份 → 换程序 → 校验，失败自动回滚）'
   Out-Line '  doctor.cmd                 体检并输出诊断报告'
   Out-Line ''
   Out-Line '参数：'
@@ -976,6 +980,7 @@ function Show-Usage {
   Out-Line '  --no-firewall              不创建防火墙规则'
   Out-Line '  --timeout <秒>             等待应用就绪的最长秒数（默认 240）'
   Out-Line '  --fix                      仅 doctor：尝试自动修复'
+  Out-Line '  --yes                      仅 upgrade：跳过交互确认（脚本化升级用）'
   Out-Line '  --help                     显示本帮助'
   Out-Line ''
   Out-Line '例子：'
@@ -1870,7 +1875,13 @@ function Get-AppJar {
   if ($jars.Count -eq 1) { return $jars[0] }
   $preferred = @($jars | Where-Object { $_.Name -like 'xuri-classroom-*.jar' })
   if ($preferred.Count -eq 1) { return $preferred[0] }
-  throw ('app 目录里有多份 jar，无法判断用哪一个：' + (($jars | ForEach-Object { $_.Name }) -join '、'))
+  # 覆盖解压升级后 app 目录会同时留着旧版和新版 jar：按根目录 VERSION 选新版
+  if (Test-Path -LiteralPath $script:P.Version) {
+    $want = (Get-Content -LiteralPath $script:P.Version -Raw).Trim()
+    $matched = @($preferred | Where-Object { $_.Name -eq ('xuri-classroom-' + $want + '.jar') })
+    if ($matched.Count -eq 1) { return $matched[0] }
+  }
+  throw ('app 目录里有多份 jar，无法判断用哪一个：' + (($jars | ForEach-Object { $_.Name }) -join '、') + '。运行 upgrade.cmd 完成升级，或只保留一份 jar。')
 }
 
 function Resolve-JavaRuntime {
@@ -2517,6 +2528,297 @@ function Invoke-StartCommand {
   return 0
 }
 
+# ======
+# 13.5 升级（upgrade.cmd）
+#
+# 与 setup.cmd 的分工：setup 负责"从没有到装好"，upgrade 负责"从旧版本到新版本"。
+# 升级前一定先停应用再备份，备份或校验不过就恢复旧程序 —— 不在没备份的情况下动数据库。
+# ======
+
+function Get-JarInventory {
+  $list = New-Object System.Collections.ArrayList
+  if (-not (Test-Path -LiteralPath $script:P.App)) { return @() }
+  foreach ($file in @(Get-ChildItem -LiteralPath $script:P.App -File -Filter 'xuri-classroom-*.jar' -ErrorAction SilentlyContinue)) {
+    if ($file.Name -match '^xuri-classroom-(\d+\.\d+\.\d+)\.jar$') {
+      [void]$list.Add([pscustomobject]@{ Version = $Matches[1]; Path = $file.FullName; Name = $file.Name })
+    }
+  }
+  return @($list)
+}
+
+function Compare-AppVersion([string]$Left, [string]$Right) {
+  try {
+    $a = [version]($Left -replace '[^0-9.]', '')
+    $b = [version]($Right -replace '[^0-9.]', '')
+    return $a.CompareTo($b)
+  } catch {
+    return 0
+  }
+}
+
+function Invoke-VersionProbe([int]$Port) {
+  try {
+    $client = New-Object System.Net.WebClient
+    $client.Encoding = [System.Text.Encoding]::UTF8
+    $client.Headers.Add('User-Agent', 'xuri-upgrade')
+    return $client.DownloadString('http://127.0.0.1:' + $Port + '/api/system/version')
+  } catch {
+    return $null
+  }
+}
+
+function Wait-SchemaReady([int]$Port, [string]$ExpectVersion, [int]$TimeoutSec) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  while ((Get-Date) -lt $deadline) {
+    $body = Invoke-VersionProbe $Port
+    if (-not [string]::IsNullOrWhiteSpace($body)) {
+      if (($body -like ('*"version":"' + $ExpectVersion + '"*')) -and ($body -like '*"schemaStatus"*')) {
+        return $body
+      }
+    }
+    Start-Sleep -Seconds 2
+  }
+  return $null
+}
+
+function Stop-AppOnly {
+  $app = Get-AppProcess
+  if ($null -ne $app) {
+    Out-Info ('停止应用：PID ' + $app.ProcessId)
+    try {
+      Stop-Process -Id ([int]$app.ProcessId) -Force -ErrorAction Stop
+    } catch {
+      Out-Warn ('停止应用失败：' + $_.Exception.Message)
+    }
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline) {
+      if (-not (Test-ProcessAlive ([int]$app.ProcessId))) { break }
+      Start-Sleep -Milliseconds 500
+    }
+    if (Test-ProcessAlive ([int]$app.ProcessId)) {
+      throw ('应用进程 PID ' + $app.ProcessId + ' 停不下来，升级中止（请手工结束后重试）')
+    }
+    Out-Ok '应用已停止'
+  } else {
+    Out-Info '应用当前没有在运行'
+  }
+  Remove-PidFile $script:P.AppPid
+}
+
+function Backup-DatabaseTo([string]$BackupDir) {
+  $config = Get-AppConfig
+  $dumpExe = Join-Path $script:P.Mysql 'bin\mysqldump.exe'
+  if (-not (Test-Path -LiteralPath $dumpExe)) { throw '找不到 mysql\bin\mysqldump.exe，发布包不完整' }
+  $out = Join-Path $BackupDir 'db.sql'
+  $err = Join-Path $BackupDir 'db.err.txt'
+  $env:MYSQL_PWD = [string]$config.DbRootPassword
+  try {
+    $dumpArgs = @('-h', '127.0.0.1', '-P', [string]$config.DbPort, '-u', 'root',
+      '--single-transaction', '--quick', '--routines', '--triggers', '--no-tablespaces',
+      '--default-character-set=utf8mb4', [string]$config.DbName)
+    $proc = Start-Process -FilePath $dumpExe -ArgumentList $dumpArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+    if ($proc.ExitCode -ne 0) {
+      $detail = ''
+      if (Test-Path -LiteralPath $err) { $detail = (Get-Content -LiteralPath $err -Raw) }
+      throw ('数据库备份失败：' + $detail)
+    }
+  } finally {
+    Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue
+  }
+  if (-not (Test-Path -LiteralPath $out)) { throw '数据库备份没有生成文件' }
+  if ((Get-Item -LiteralPath $out).Length -le 0) { throw '数据库备份文件是空的（0 字节）' }
+  Out-Ok ('数据库已备份：' + $out)
+}
+
+function Invoke-UpgradeCommand {
+  $newVersion = Get-PackageVersion
+  Out-Header ('旭日云课堂 · 升级到 ' + $newVersion)
+
+  # ---- 1) 身份检测：确认"已经装过"
+  if (-not (Test-SetupDone)) {
+    Out-Warn '当前目录还没有安装过旭日云课堂。'
+    Out-Info '全新安装请双击 setup.cmd（或 start.cmd，会自动进入引导安装）。'
+    Out-Info '本脚本只处理"已经装好、要换成新版本"的情况，不会改动任何文件。'
+    return 2
+  }
+  $missing = @(Get-MissingComponents)
+  if ($missing.Count -gt 0) {
+    Out-Warn ('安装记录存在，但缺少组件：' + ($missing -join '、'))
+    Out-Info '请先运行 setup.cmd 补齐组件，再升级。'
+    return 2
+  }
+
+  # ---- 2) 版本清点
+  $jars = @(Get-JarInventory)
+  $matched = @($jars | Where-Object { $_.Version -eq $newVersion })
+  if ($matched.Count -eq 0) {
+    throw ('app 目录里找不到与 VERSION(' + $newVersion + ') 匹配的 jar。请确认解压的是完整发布包。')
+  }
+  $newJar = $matched[0]
+  $oldJars = @($jars | Where-Object { $_.Version -ne $newVersion })
+  $currentVersion = ''
+  if ($oldJars.Count -gt 0) {
+    $sorted = @($oldJars | Sort-Object -Property Version)
+    $currentVersion = [string]$sorted[$sorted.Count - 1].Version
+  }
+
+  if ($currentVersion -eq '') {
+    Out-Warn 'app 目录里只有新版本 jar，无法判断升级前版本（也无法自动回滚程序）。'
+    Out-Info '如果这是"只替换 app 里的 jar"的升级方式，请确认已经手工备份过旧 jar。'
+  } else {
+    Out-Info ('已安装版本：' + $currentVersion)
+    if ((Compare-AppVersion $newVersion $currentVersion) -eq 0 -and -not $script:Opts.Force) {
+      Out-Warn ('已经是 ' + $newVersion + ' 了。确实要重装请加 --force。')
+      return 2
+    }
+    if ((Compare-AppVersion $newVersion $currentVersion) -lt 0 -and -not $script:Opts.Force) {
+      Out-Warn ('发布包版本(' + $newVersion + ') 低于已安装版本(' + $currentVersion + ')，默认拒绝降级。确实要降级请加 --force。')
+      return 2
+    }
+  }
+  Out-Info ('发布包版本：' + $newVersion)
+
+  $stamp = Get-Timestamp
+  $backup = Join-Path $script:P.Root ('backup\upgrade-' + $stamp)
+
+  Out-Line ''
+  Out-Line '====== 升级计划 ======'
+  Out-Line ('  安装目录 : ' + $script:Root)
+  Out-Line ('  版本     : ' + $(if ($currentVersion) { $currentVersion } else { '未知' }) + ' → ' + $newVersion)
+  Out-Line ('  备份位置 : ' + $backup)
+  Out-Line '  流程     : 停应用 → 备份 → 换 jar → 启动 → 校验（失败自动回滚）'
+  Out-Line '  不会做   : 删除 data\ 或 config\，不会重跑 init-mysql.sql'
+  Out-Line '======================'
+  Out-Line ''
+
+  if ($script:DryRun) {
+    Out-Info '预演（--whatif）：以上是计划，本次不做任何改动。'
+    return 0
+  }
+
+  if (-not $script:Opts.Yes) {
+    $answer = Read-Host '确认开始升级？输入 y 回车继续（其他任意内容取消）'
+    if ($answer -ne 'y' -and $answer -ne 'Y' -and $answer -ne 'yes') {
+      Out-Warn '已取消，没有做任何改动。'
+      return 2
+    }
+  }
+
+  # ---- 3) 停应用（MySQL 继续跑，备份要用）
+  Out-Step '停止应用'
+  Stop-AppOnly
+
+  # ---- 4) 备份
+  Out-Step '备份数据库与配置'
+  New-Item -ItemType Directory -Path $backup -Force | Out-Null
+  Backup-DatabaseTo $backup
+
+  Out-Info '备份 config\（含数据库口令与 JWT 密钥）'
+  Copy-Item -LiteralPath $script:P.Config -Destination (Join-Path $backup 'config') -Recurse -Force
+
+  if ($oldJars.Count -gt 0) {
+    $oldDir = Join-Path $backup 'old-jars'
+    New-Item -ItemType Directory -Path $oldDir -Force | Out-Null
+    foreach ($j in $oldJars) { Copy-Item -LiteralPath $j.Path -Destination $oldDir -Force }
+    Out-Ok ('旧程序已备份：' + $oldDir)
+  }
+
+  if (Test-Path -LiteralPath $script:P.Files) {
+    $sum = 0
+    $measured = Get-ChildItem -LiteralPath $script:P.Files -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum
+    if ($null -ne $measured.Sum) { $sum = [int64]$measured.Sum }
+    $free = 0
+    try {
+      $root = [System.IO.Path]::GetPathRoot($backup)
+      $free = [int64](Get-PSDrive -Name $root.Substring(0, 1)).Free
+    } catch {
+      $free = 0
+    }
+    if ($sum -gt 0 -and $free -gt 0 -and $free -lt [int64]($sum * 1.2)) {
+      Out-Warn ('磁盘剩余空间不足，跳过附件备份（附件 ' + [math]::Round($sum / 1MB) + ' MB；升级过程不会改动 data\files）')
+    } else {
+      Out-Info '备份附件 data\files …'
+      $dst = Join-Path $backup 'files'
+      & robocopy $script:P.Files $dst /E /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+      if ($LASTEXITCODE -ge 8) { throw ('附件备份失败：robocopy 退出码 ' + $LASTEXITCODE) }
+      Out-Ok '附件已备份'
+    }
+  }
+
+  @(
+    ('from_version=' + $currentVersion),
+    ('to_version=' + $newVersion),
+    ('created_at=' + $stamp),
+    ('install_dir=' + $script:Root)
+  ) | Set-Content -LiteralPath (Join-Path $backup 'manifest.txt') -Encoding UTF8
+
+  # ---- 5) 换 jar
+  Out-Step '切换程序文件'
+  foreach ($j in $oldJars) {
+    Remove-Item -LiteralPath $j.Path -Force -ErrorAction SilentlyContinue
+    Out-Info ('移除旧 jar：' + $j.Name)
+  }
+  Out-Ok ('当前使用：' + $newJar.Name)
+
+  # ---- 6) 启动 + 校验
+  Out-Step '启动新版本'
+  $config = Get-AppConfig
+  $started = $false
+  try {
+    Ensure-AppStarted
+    $started = $true
+  } catch {
+    Out-Warn ('启动失败：' + $_.Exception.Message)
+  }
+
+  $body = $null
+  if ($started) {
+    Out-Info '等待版本与数据库结构检查完成（最长 180 秒）…'
+    $body = Wait-SchemaReady ([int]$config.Port) $newVersion 180
+  }
+
+  if ($null -ne $body) {
+    Out-Line ''
+    Out-Ok '====== 升级成功 ======'
+    Out-Ok ('版本：' + $(if ($currentVersion) { $currentVersion } else { '未知' }) + ' → ' + $newVersion)
+    Out-Ok ('备份：' + $backup)
+    Out-Info ('服务响应：' + $body)
+    Out-Info '回滚方法：把 backup 里的 old-jars 复制回 app\，再 start.cmd'
+    return 0
+  }
+
+  # ---- 7) 回滚
+  Out-Step '校验未通过，回滚'
+  Stop-AppOnly
+  $oldDir = Join-Path $backup 'old-jars'
+  if (Test-Path -LiteralPath $oldDir) {
+    foreach ($f in @(Get-ChildItem -LiteralPath $oldDir -Filter '*.jar' -File)) {
+      Copy-Item -LiteralPath $f.FullName -Destination $script:P.App -Force
+      Out-Info ('恢复旧 jar：' + $f.Name)
+    }
+    try {
+      Ensure-AppStarted
+      $back = Wait-SchemaReady ([int]$config.Port) $currentVersion 120
+      if ($null -ne $back) {
+        Out-Warn '已回滚到升级前版本；数据库结构未被破坏（迁移只做增量）。'
+        Out-Info ('备份：' + $backup)
+        return 4
+      }
+    } catch {
+      Out-Warn ('回滚启动失败：' + $_.Exception.Message)
+    }
+    Out-Warn '回滚后仍不健康，请立即处理：'
+    Out-Info ('  1) 看日志：' + $script:P.Logs + ' 下最新的 app-*.err.log')
+    Out-Info ('  2) 数据库备份：' + (Join-Path $backup 'db.sql'))
+    return 5
+  }
+
+  Out-Warn '没有旧 jar 可回滚（升级前 app 目录里只有新版本）。'
+  Out-Info ('数据库备份仍在：' + $backup)
+  Out-Info '如需恢复数据：停服务后把 db.sql 导回 MySQL，再把旧版本程序放回 app\。'
+  return 5
+}
+
 function Invoke-StopCommand {
   Out-Header '停止旭日云课堂'
   $config = Get-AppConfig
@@ -3093,6 +3395,7 @@ try {
     'stop' { $exitCode = Invoke-StopCommand }
     'status' { $exitCode = Invoke-StatusCommand }
     'setup' { $exitCode = Invoke-SetupCommand }
+    'upgrade' { $exitCode = Invoke-UpgradeCommand }
     'doctor' { $exitCode = Invoke-DoctorCommand }
     'init-db' {
       $script:Opts.Step = @('db')

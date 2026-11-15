@@ -252,10 +252,11 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 
 ### 5.2 更新提示（2026-11-14）
 
-1. `GET /api/system/version` 返回构建时的 `VERSION`；`GET /api/system/update/check` 读取 `UPDATE_MANIFEST_URL` 指向的 JSON，只做版本对比，不下载、不执行升级。
+1. `GET /api/system/version` 返回构建时的 `VERSION`；v2.1.0 起还返回 `schemaVersion` / `schemaStatus`（库结构版本与状态），并在 `WebSecurityConfig` 里加入 `permitAll` —— 升级脚本、监控、排障都要在未登录时确认版本，响应里不含任何密钥或用户数据。`GET /api/system/update/check` 读取 `UPDATE_MANIFEST_URL` 指向的 JSON，只做版本对比，不下载、不执行升级。
 2. 清单格式：`{"version":"2.1.0","notes":"更新说明","url":"下载页","publishedAt":"2026-11-14"}`；地址留空则关闭检查。
 3. 前端 `components/UpdateBanner.tsx` 挂在 `BasicLayout`，仅对有 `system:setting:update` 的账号显示；打开页面和窗口重新聚焦时检查，关闭后按版本记 localStorage，避免反复打扰。
 4. 配置在 `deploy/nas/live/.env` 的 `UPDATE_MANIFEST_URL`，compose 注入 app；不依赖 GitHub。
+5. 数据库结构升级是另一条链路（应用启动时结构探针 + 幂等迁移，`db/schema.json` + `db/migration/*.sql`），见[升级与迁移](../deploy/upgrade.md)，与本节的版本提示无关。
 
 ### 5.3 项目/题库三级授权（P12）
 

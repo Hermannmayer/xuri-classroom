@@ -25,6 +25,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_JAR = ROOT / "server" / "api" / "build" / "libs"
 INIT_SQL = ROOT / "server" / "rdbms" / "src" / "main" / "resources" / "scripts" / "init-mysql.sql"
+# 增量迁移脚本：随 jar（classpath:db/migration）自动执行，同时原样放进发布包 migrations/，
+# 供 migrate.sh / migrate.cmd 在"应用起不来但要先补库"的排障场景手工执行。
+MIGRATIONS = ROOT / "server" / "rdbms" / "src" / "main" / "resources" / "db" / "migration"
 WINDOWS_TEMPLATE = ROOT / "scripts" / "release" / "windows"
 LINUX_TEMPLATE = ROOT / "scripts" / "release" / "linux"
 DOCKER_TEMPLATE = ROOT / "docker"
@@ -63,6 +66,24 @@ def copy_tree(src: Path, dst: Path) -> None:
         target = dst / item.relative_to(src)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(item, target)
+
+
+def copy_migrations(dst: Path) -> None:
+    """把 db/migration 下的 SQL 原样放进发布包的 migrations/。
+
+    这些脚本是幂等的（先查 information_schema），重复执行安全；
+    应用启动时会自动跑一遍，migrations/ 只是给排障和审计用的副本。
+    """
+    if not MIGRATIONS.exists():
+        fail("迁移目录不存在：" + str(MIGRATIONS))
+    target = dst / "migrations"
+    target.mkdir(parents=True, exist_ok=True)
+    count = 0
+    for item in sorted(MIGRATIONS.glob("*.sql")):
+        shutil.copy2(item, target / item.name)
+        count += 1
+    if count == 0:
+        fail("db/migration 里没有 SQL 文件（至少应有一个 V<版本>__*.sql）")
 
 
 def validate_jar(jar: Path, version: str) -> None:
@@ -121,7 +142,9 @@ def build_windows(version: str, jar: Path, out: Path) -> Path:
     shutil.copy2(jar, staging / "app" / ("xuri-classroom-" + version + ".jar"))
     shutil.copy2(INIT_SQL, staging / "app" / "init-mysql.sql")
 
-    for required in ["start.cmd", "setup.cmd", "doctor.cmd", "lib/launcher.ps1"]:
+    copy_migrations(staging)
+
+    for required in ["start.cmd", "setup.cmd", "doctor.cmd", "upgrade.cmd", "lib/launcher.ps1"]:
         if not (staging / required).exists():
             fail("Windows 模板缺少 " + required)
 
@@ -145,7 +168,9 @@ def build_linux(version: str, jar: Path, out: Path) -> Path:
     shutil.copy2(jar, staging / "app" / ("xuri-classroom-" + version + ".jar"))
     shutil.copy2(INIT_SQL, staging / "app" / "init-mysql.sql")
 
-    for required in ["install.sh", "uninstall.sh", "app.env.example"]:
+    copy_migrations(staging)
+
+    for required in ["install.sh", "uninstall.sh", "upgrade.sh", "migrate.sh", "app.env.example"]:
         if not (staging / required).exists():
             fail("Linux 模板缺少 " + required)
 
@@ -165,11 +190,14 @@ def build_docker(version: str, jar: Path, out: Path) -> Path:
 
     if not DOCKER_TEMPLATE.exists():
         fail("Docker 模板目录不存在：" + str(DOCKER_TEMPLATE))
-    for file_name in ["Dockerfile.runtime", "docker-compose.release.yml", ".env.example", "README.md"]:
+    for file_name in ["Dockerfile.runtime", "docker-compose.release.yml", ".env.example", "README.md",
+                      "upgrade.sh", "migrate.sh"]:
         source = DOCKER_TEMPLATE / file_name
         if not source.exists():
             fail("Docker 模板缺少 " + file_name)
         shutil.copy2(source, staging / file_name)
+
+    copy_migrations(staging)
 
     (staging / "VERSION").write_text(version + "\n", encoding="utf-8", newline="\n")
     shutil.copy2(jar, staging / "xuri-classroom.jar")

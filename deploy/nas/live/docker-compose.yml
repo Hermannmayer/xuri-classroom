@@ -72,8 +72,12 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${DB_NAME:-surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?请在 .env 里设置 SK_CRYPTO_KEY}
       SK_JWT_SECRET: ${JWT_SECRET:-}
-      # 只读更新清单，用于系统内“发现新版本”提示；不执行升级
+      # 只读更新信息，用于系统内“发现新版本”提示；不下载、不执行升级。
+      # 两种来源：UPDATE_MANIFEST_URL（自建清单）优先，否则查 GitHub Releases。
       UPDATE_MANIFEST_URL: ${UPDATE_MANIFEST_URL:-}
+      UPDATE_GITHUB_REPO: ${UPDATE_GITHUB_REPO:-Hermannmayer/xuri-classroom}
+      UPDATE_GITHUB_API_BASE: ${UPDATE_GITHUB_API_BASE:-https://api.github.com}
+      UPDATE_CHECK_INTERVAL_HOURS: ${UPDATE_CHECK_INTERVAL_HOURS:-24}
       # JVM 上限：机器还要跑 MySQL、watch 构建和飞牛自己
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
       # 并发调参（2026-11-07）：默认 Hikari 10 个连接是开考瞬间的瓶颈，

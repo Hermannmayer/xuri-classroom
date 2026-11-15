@@ -1,0 +1,27 @@
+{
+  "_comment": "数据库结构契约。应用每次启动都会按版本从高到低探测 requirements，决定要不要执行 db/migration 下的增量脚本。新增一个版本时三步：1) 把对象写进 init-mysql.sql（空库建库）；2) 在本文件 versions 末尾追加一条 requires；3) 在 db/migration 放 V<版本>__*.sql（必须幂等，重复执行不报错、不改坏数据）。",
+  "baseline": {
+    "_comment": "这些对象缺失 = 库还没初始化过（或者连错了库），直接拒绝启动，避免在空库上跑增量脚本。",
+    "requires": [
+      "table:t_user",
+      "table:t_role",
+      "table:t_project",
+      "table:t_sys_info"
+    ]
+  },
+  "versions": [
+    {
+      "version": "2.0.0",
+      "requires": []
+    },
+    {
+      "version": "2.1.0",
+      "requires": [
+        "column:t_template.chapter",
+        "column:t_template.difficulty",
+        "index:t_template.idx_template_chapter",
+        "index:t_template.idx_template_difficulty"
+      ]
+    }
+  ]
+}

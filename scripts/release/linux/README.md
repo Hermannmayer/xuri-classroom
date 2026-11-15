@@ -166,15 +166,19 @@ curl -fsS http://127.0.0.1:8080/api/system
 
 ## 9. 升级
 
-推荐用新安装包里的 **install.sh** 再跑一次：它会替换 jar、保留 app.env 与 JWT 密钥、重启服务。
+**一键升级（推荐）**
 
 ~~~bash
-tar -xzf xuri-classroom-<version>-linux-x64.tar.gz
-cd xuri-classroom-<version>-linux-x64
-sudo bash install.sh --yes
+tar -xzf xuri-classroom-<新版本>-linux-x64.tar.gz
+cd xuri-classroom-<新版本>-linux-x64
+sudo bash upgrade.sh
 ~~~
 
-只想手工换 jar 也可以：
+它会：停服务 → 备份数据库/附件/app.env 并校验 → 换 jar（旧版留成 `app.jar.bak.<版本>`）→ 启动 → 校验版本与库结构 → 失败自动回滚。
+
+常用参数：`--dir <安装目录>`、`--service <服务名>`、`--whatif`、`--yes`、`--force`。
+
+**手工升级**
 
 ~~~bash
 sudo systemctl stop xuri-classroom
@@ -182,7 +186,20 @@ sudo install -m 0644 xuri-classroom-新版本.jar /opt/xuri-classroom/app.jar
 sudo systemctl start xuri-classroom
 ~~~
 
-> 升级前先备份数据库；涉及表结构变更的版本，按发布说明执行迁移脚本。
+数据库结构会在服务启动时自动迁移（探针判断，只跑缺的那几步）。手工升级不会自动备份，请先备份数据库与 `app.env`。
+
+**回滚**
+
+~~~bash
+sudo systemctl stop xuri-classroom
+sudo cp /opt/xuri-classroom/app.jar.bak.<旧版本> /opt/xuri-classroom/app.jar
+sudo systemctl start xuri-classroom
+~~~
+
+数据库结构不会跟着回滚：迁移是增量的，旧版本能正常读写。只有迁移脚本本身出错时才需要恢复备份。
+
+> 单独补库结构（应用起不来时）：`sudo bash migrate.sh`。
+> 完整说明见仓库 `docs/deploy/upgrade.md`。
 
 ## 10. 备份与恢复
 

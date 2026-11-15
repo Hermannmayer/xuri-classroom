@@ -258,16 +258,19 @@ function parseTables() {
 }
 
 function dbDoc() {
-  const lines = header('server/rdbms/src/main/resources/scripts/init-mysql.sql + scripts/nas/migrate/*.sql')
+  const lines = header('server/rdbms/src/main/resources/scripts/init-mysql.sql + server/rdbms/src/main/resources/db/migration/*.sql')
   lines.push('# 数据库结构（生成）', '')
-  lines.push('> 表与会话来自初始化 SQL；迁移脚本决定现网增量。改结构时同时更新 `init-mysql.sql` 和新增迁移。', '')
+  lines.push('> 表结构来自初始化 SQL；增量迁移在 `db/migration`，应用启动时按需自动执行（幂等）。', '')
+  lines.push('> 改结构三步：更新 `init-mysql.sql` + 新增 `db/migration/V<版本>__*.sql` + 在 `db/schema.json` 登记本版本要求。', '')
   lines.push('## 表', '')
   lines.push('| 表 | 列（名称:类型，节选） |', '|---|---|')
   for (const row of parseTables()) lines.push('| `' + row.table + '` | ' + row.columns.slice(0, 12).join('<br>') + ' |')
-  lines.push('', '## 迁移脚本', '')
-  const dir = path.join(root, 'scripts/nas/migrate')
+  lines.push('', '## 迁移脚本（随 jar 自动执行）', '')
+  const dir = path.join(root, 'server/rdbms/src/main/resources/db/migration')
   const migrations = fs.readdirSync(dir).filter((name) => name.endsWith('.sql')).sort()
-  for (const name of migrations) lines.push('- `scripts/nas/migrate/' + name + '`')
+  for (const name of migrations) lines.push('- `server/rdbms/src/main/resources/db/migration/' + name + '`')
+  lines.push('', '## 历史运维脚本（只读，不再维护）', '')
+  lines.push('现网从上游 H2 迁到 MySQL 时的一次性脚本保留在 `scripts/nas/migrate/`；新迁移请放 `db/migration`，不要往那里加。')
   lines.push('')
   return lines.join('\n')
 }

@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.impl.AnonymousCleanupService;
+import cn.surveyking.server.schema.SchemaUpgradeResult;
+import cn.surveyking.server.schema.SchemaUpgradeService;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.service.*;
 import lombok.RequiredArgsConstructor;
@@ -57,43 +59,102 @@ public class SystemApi {
 
 	private final ObjectMapper objectMapper;
 
+	/** 数据库结构自动升级（启动时执行，这里只读取结果用于展示） */
+	private final SchemaUpgradeService schemaUpgradeService;
+
 	@Value("${version}")
 	private String currentVersion;
 
 	@Value("${update.manifest-url:}")
 	private String manifestUrl;
 
+	/** GitHub 仓库（owner/repo）；与 manifest-url 二选一，配了 manifest-url 就优先用它 */
+	@Value("${update.github-repo:}")
+	private String githubRepo;
+
+	/** GitHub API 前缀；国内可换镜像，接口路径保持一致 */
+	@Value("${update.github-api-base:https://api.github.com}")
+	private String githubApiBase;
+
+	/** 服务端缓存小时数：默认一天查一次，避免频繁打 GitHub 触发限流 */
+	@Value("${update.check-interval-hours:24}")
+	private long checkIntervalHours;
+
 	private volatile UpdateCheckView cachedUpdate;
 
 	private volatile long updateCheckedAt;
+
+	/** 上次检查是否失败：失败只缓存 1 小时，网络恢复后能较快重试 */
+	private volatile boolean lastCheckFailed;
 
 	@GetMapping("/version")
 	public Map<String, Object> version() {
 		Map<String, Object> view = new LinkedHashMap<>();
 		view.put("version", currentVersion);
+		// 数据库结构版本：排查“程序换了但库没跟上”时第一眼要看的东西
+		SchemaUpgradeResult schema = schemaUpgradeService.getLastResult();
+		if (schema != null) {
+			view.put("schemaVersion", schema.getDbVersion());
+			view.put("schemaStatus", schema.getStatus() == null ? null : schema.getStatus().name());
+		}
 		return view;
 	}
 
 	/**
-	 * 检查更新：只读 update.json，不下载、不执行任何升级动作。
-	 * 清单格式：{"version":"2.1.0","notes":"...","url":"..."}
+	 * 检查更新：只读远端版本信息，不下载、不执行任何升级动作。
+	 *
+	 * <p>
+	 * 两种来源，二选一：配了 update.manifest-url 就查自建清单，否则查 GitHub Releases
+	 * （update.github-repo）。结果在服务端缓存 update.check-interval-hours 小时（默认 24），
+	 * 避免频繁打 GitHub 触发未认证限流（60 次/小时/IP）；失败只缓存 1 小时，网络恢复后能较快重试，
+	 * 且失败只置 error、不打扰前端。
+	 * </p>
 	 */
 	@GetMapping("/update/check")
 	@PreAuthorize("isAuthenticated()")
 	public UpdateCheckView checkUpdate() {
 		long now = System.currentTimeMillis();
-		if (cachedUpdate != null && now - updateCheckedAt < 10 * 60 * 1000L) {
+		long intervalMs = Math.max(1L, checkIntervalHours) * 3600_000L;
+		long effectiveMs = lastCheckFailed ? Math.min(intervalMs, 3600_000L) : intervalMs;
+		if (cachedUpdate != null && now - updateCheckedAt < effectiveMs) {
 			return cachedUpdate;
 		}
+
 		UpdateCheckView view = new UpdateCheckView();
 		view.setCurrentVersion(currentVersion);
-		if (!StringUtils.hasText(manifestUrl)) {
+
+		boolean useManifest = StringUtils.hasText(manifestUrl);
+		boolean useGithub = StringUtils.hasText(githubRepo);
+		if (!useManifest && !useGithub) {
 			view.setEnabled(false);
 			cachedUpdate = view;
 			updateCheckedAt = now;
+			lastCheckFailed = false;
 			return view;
 		}
+
 		view.setEnabled(true);
+		try {
+			if (useManifest) {
+				fillFromManifest(view);
+			}
+			else {
+				fillFromGithub(view);
+			}
+			lastCheckFailed = false;
+		}
+		catch (Exception e) {
+			view.setHasUpdate(false);
+			view.setError(e.getMessage() == null ? "检查更新失败" : e.getMessage());
+			lastCheckFailed = true;
+		}
+		cachedUpdate = view;
+		updateCheckedAt = now;
+		return view;
+	}
+
+	/** 自建清单：{"version":"2.1.0","notes":"...","url":"..."} */
+	private void fillFromManifest(UpdateCheckView view) throws Exception {
 		HttpURLConnection connection = null;
 		try {
 			connection = (HttpURLConnection) new URL(manifestUrl.trim()).openConnection();
@@ -107,26 +168,69 @@ public class SystemApi {
 			try (InputStream input = connection.getInputStream()) {
 				Map<String, Object> manifest = objectMapper.readValue(input, new TypeReference<Map<String, Object>>() {
 				});
-				String latest = manifest.get("version") == null ? null : String.valueOf(manifest.get("version"));
+				String latest = asText(manifest.get("version"));
 				view.setLatestVersion(latest);
-				view.setNotes(manifest.get("notes") == null ? null : String.valueOf(manifest.get("notes")));
-				view.setDownloadUrl(manifest.get("url") == null ? null : String.valueOf(manifest.get("url")));
-				view.setPublishedAt(manifest.get("publishedAt") == null ? null : String.valueOf(manifest.get("publishedAt")));
+				view.setNotes(truncate(asText(manifest.get("notes")), 800));
+				view.setDownloadUrl(asText(manifest.get("url")));
+				view.setPublishedAt(asText(manifest.get("publishedAt")));
 				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
 			}
-		}
-		catch (Exception e) {
-			view.setHasUpdate(false);
-			view.setError(e.getMessage() == null ? "检查更新失败" : e.getMessage());
 		}
 		finally {
 			if (connection != null) {
 				connection.disconnect();
 			}
 		}
-		cachedUpdate = view;
-		updateCheckedAt = now;
-		return view;
+	}
+
+	/** GitHub Releases：GET {api}/repos/{repo}/releases/latest */
+	private void fillFromGithub(UpdateCheckView view) throws Exception {
+		String base = StringUtils.hasText(githubApiBase) ? githubApiBase.trim() : "https://api.github.com";
+		String url = base.replaceAll("/+$", "") + "/repos/" + githubRepo.trim() + "/releases/latest";
+		HttpURLConnection connection = null;
+		try {
+			connection = (HttpURLConnection) new URL(url).openConnection();
+			connection.setConnectTimeout(5000);
+			connection.setReadTimeout(5000);
+			connection.setRequestProperty("Accept", "application/vnd.github+json");
+			connection.setRequestProperty("User-Agent", "xuri-classroom/" + currentVersion);
+			int status = connection.getResponseCode();
+			if (status == 404) {
+				throw new IllegalStateException("GitHub 仓库还没有 Release：" + githubRepo);
+			}
+			if (status < 200 || status >= 300) {
+				throw new IllegalStateException("GitHub 返回 HTTP " + status);
+			}
+			try (InputStream input = connection.getInputStream()) {
+				Map<String, Object> release = objectMapper.readValue(input, new TypeReference<Map<String, Object>>() {
+				});
+				String tag = asText(release.get("tag_name"));
+				String latest = tag == null ? null : tag.replaceFirst("^[vV]", "");
+				view.setLatestVersion(latest);
+				// Release 正文可能很长，截断到 800 字，避免横幅撑爆
+				view.setNotes(truncate(asText(release.get("body")), 800));
+				view.setDownloadUrl(asText(release.get("html_url")));
+				view.setPublishedAt(asText(release.get("published_at")));
+				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
+			}
+		}
+		finally {
+			if (connection != null) {
+				connection.disconnect();
+			}
+		}
+	}
+
+	private static String asText(Object value) {
+		return value == null ? null : String.valueOf(value);
+	}
+
+	private static String truncate(String text, int max) {
+		if (text == null) {
+			return null;
+		}
+		String trimmed = text.trim();
+		return trimmed.length() <= max ? trimmed : trimmed.substring(0, max) + "…";
 	}
 
 	private int compareVersion(String left, String right) {

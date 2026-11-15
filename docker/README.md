@@ -103,21 +103,42 @@ docker compose -f docker-compose.release.yml start
 
 ## 5. 升级与回滚
 
-**升级到新版本**
+**一键升级（推荐）**
+
+解压新发布包，在包目录里运行（脚本自己找安装目录，默认 `/opt/xuri-classroom`）：
+
+~~~bash
+tar -xzf xuri-classroom-<新版本>-docker.tar.gz
+cd xuri-classroom-<新版本>-docker
+sudo bash upgrade.sh
+~~~
+
+它会：停应用 → 备份数据库/附件/.env 并校验 → 用包内 jar 构建镜像 → 改 `.env` 的 VERSION → 启动 → 校验版本与库结构 → 失败自动回滚到 `:previous`。
+
+常用参数：`--dir <安装目录>`、`--whatif`（只预演）、`--yes`（免确认）、`--force`（同版本重装/降级）。
+
+**手工升级**
 
 ~~~bash
 cd /opt/xuri-classroom
-# 改 .env 里的 VERSION（例如 2.0.1）
-vi .env
+vi .env        # 改 VERSION（例如 2.1.0）
 docker compose --env-file .env -f docker-compose.release.yml pull app
 docker compose --env-file .env -f docker-compose.release.yml up -d app
 ~~~
 
+数据库结构会在应用启动时自动迁移（探针判断，只跑缺的那几步）。手工升级不会自动备份，请先按第 6 节做一次备份。
+
 **回滚**
 
-把 .env 里的 VERSION 改回上一个版本，再 pull + up -d app 即可。数据库结构变更的回滚请用第 6 节的备份恢复，不要依赖镜像回退。
+~~~bash
+# 把 .env 的 VERSION 改回旧版本
+docker compose --env-file .env -f docker-compose.release.yml up -d app
+~~~
 
-> 生产环境建议固定 VERSION（例如 2.0.0），不要长期用 latest。
+数据库结构不会跟着回滚：迁移是增量的，旧版本能正常读写。只有迁移脚本本身出错时才需要恢复备份。
+
+> 生产环境建议固定 VERSION（例如 2.1.0），不要长期用 latest。
+> 完整说明（含失败处置、单独迁移）见仓库 `docs/deploy/upgrade.md`。
 
 ## 6. 备份与恢复
 

@@ -1,8 +1,10 @@
-<!-- 由 npm run docs:gen 生成；不要手改。来源：server/rdbms/src/main/resources/scripts/init-mysql.sql + scripts/nas/migrate/*.sql -->
+<!-- 由 npm run docs:gen 生成；不要手改。来源：server/rdbms/src/main/resources/scripts/init-mysql.sql + server/rdbms/src/main/resources/db/migration/*.sql -->
 
 # 数据库结构（生成）
 
-> 表与会话来自初始化 SQL；迁移脚本决定现网增量。改结构时同时更新 `init-mysql.sql` 和新增迁移。
+> 表结构来自初始化 SQL；增量迁移在 `db/migration`，应用启动时按需自动执行（幂等）。
+
+> 改结构三步：更新 `init-mysql.sql` + 新增 `db/migration/V<版本>__*.sql` + 在 `db/schema.json` 登记本版本要求。
 
 ## 表
 
@@ -15,7 +17,7 @@
 | `t_comm_dict` | id:varchar(64)<br>code:varchar(256)<br>name:varchar(256)<br>remark:varchar(256)<br>dict_type:int<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_comm_dict_item` | id:varchar(64)<br>dict_code:varchar(256)<br>item_name:varchar(256)<br>item_value:varchar(256)<br>item_order:int<br>item_level:int<br>parent_item_value:varchar(64)<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_dashboard` | id:varchar(64)<br>key:varchar(256)<br>type:int<br>project_id:varchar(64)<br>setting:varchar(1024)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
-| `t_dept` | id:varchar(64)<br>parent_id:varchar(64)<br>dept_type:varchar(16)<br>name:varchar(64)<br>short_name:varchar(64)<br>code:varchar(64)<br>manager_id:varchar(64)<br>valid_from:timestamp<br>valid_to:timestamp<br>sort_code:int<br>property_json:varchar(256)<br>status:varchar(20) |
+| `t_dept` | id:varchar(64)<br>parent_id:varchar(64)<br>dept_type:varchar(16)<br>allow_register:tinyint(1)<br>name:varchar(64)<br>short_name:varchar(64)<br>code:varchar(64)<br>manager_id:varchar(64)<br>valid_from:timestamp<br>valid_to:timestamp<br>sort_code:int<br>property_json:varchar(256) |
 | `t_class_partner` | id:varchar(64)<br>dept_id:varchar(64)<br>user_id:varchar(64)<br>access_level:tinyint<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_class_resource` | id:varchar(64)<br>class_id:varchar(64)<br>resource_type:varchar(16)<br>resource_id:varchar(64)<br>status:tinyint<br>start_at:datetime<br>end_at:datetime<br>assigned_by:varchar(64)<br>settings:text<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256) |
 | `t_file` | id:varchar(64)<br>original_name:varchar(256)<br>file_name:varchar(256)<br>file_path:varchar(512)<br>thumb_file_path:varchar(512)<br>storage_type:int<br>shared:int<br>project_id:varchar(64)<br>question_id:varchar(64)<br>answer_id:varchar(64)<br>file_size:bigint<br>is_deleted:tinyint(1) |
@@ -38,41 +40,10 @@
 | `t_audit_log` | id:varchar(64)<br>action:varchar(64)<br>target_id:varchar(64)<br>target_name:varchar(256)<br>detail:varchar(512)<br>ip:varchar(64)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_dept_role` | id:varchar(64)<br>dept_id:varchar(64)<br>role_id:varchar(64)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 
-## 迁移脚本
+## 迁移脚本（随 jar 自动执行）
 
-- `scripts/nas/migrate/05-default-roles.sql`
-- `scripts/nas/migrate/06-permission-wiring.sql`
-- `scripts/nas/migrate/07-remove-dead-permissions.sql`
-- `scripts/nas/migrate/08-permission-v2.sql`
-- `scripts/nas/migrate/09-remove-position-permissions.sql`
-- `scripts/nas/migrate/10-permission-v3.sql`
-- `scripts/nas/migrate/11-remove-answer-attach.sql`
-- `scripts/nas/migrate/12-teacher-no-template-write.sql`
-- `scripts/nas/migrate/13-portal-permissions.sql`
-- `scripts/nas/migrate/14-user-ui-zoom.sql`
-- `scripts/nas/migrate/15-user-ui-theme.sql`
-- `scripts/nas/migrate/16-ui-zoom-varchar.sql`
-- `scripts/nas/migrate/17-teacher-class-management.sql`
-- `scripts/nas/migrate/18-user-type.sql`
-- `scripts/nas/migrate/19-class-member-edit.sql`
-- `scripts/nas/migrate/20-student-only-permissions.sql`
-- `scripts/nas/migrate/21-question-read-permission.sql`
-- `scripts/nas/migrate/22-admin-no-exercise.sql`
-- `scripts/nas/migrate/23-permission-cleanup.sql`
-- `scripts/nas/migrate/24-answer-indexes.sql`
-- `scripts/nas/migrate/25-answer-items.sql`
-- `scripts/nas/migrate/26-answer-items-synced.sql`
-- `scripts/nas/migrate/27-answer-attempt-no.sql`
-- `scripts/nas/migrate/28-answer-item-value.sql`
-- `scripts/nas/migrate/29-class-partner-access-level.sql`
-- `scripts/nas/migrate/30-dept-type.sql`
-- `scripts/nas/migrate/31-class-resource.sql`
-- `scripts/nas/migrate/32-repo-open-window.sql`
-- `scripts/nas/migrate/33-anonymous-answer.sql`
-- `scripts/nas/migrate/34-project-category.sql`
-- `scripts/nas/migrate/35-repo-category.sql`
-- `scripts/nas/migrate/36-partner-access-level.sql`
-- `scripts/nas/migrate/37-template-chapter-difficulty.sql`
-- `scripts/nas/migrate/38-paper-compose.sql`
-- `scripts/nas/migrate/39-drop-paper-batch.sql`
-- `scripts/nas/migrate/40-student-practice-only.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.1.0__template_chapter_difficulty.sql`
+
+## 历史运维脚本（只读，不再维护）
+
+现网从上游 H2 迁到 MySQL 时的一次性脚本保留在 `scripts/nas/migrate/`；新迁移请放 `db/migration`，不要往那里加。
