@@ -296,6 +296,9 @@ export default function TeachingClasses() {
   const [keyword, setKeyword] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string>();
+  useEffect(() => {
+    setSelectedMemberKeys([]);
+  }, [selectedId]);
   // loadTree 里要判断「当前选中项还在不在」，用 ref 读：把 selectedId 写进依赖会让每次选班都重新拉一次树
   const selectedIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -336,6 +339,20 @@ export default function TeachingClasses() {
   }, [visibleTree]);
 
   const treeData = useMemo<TreeDataNode[]>(() => toTreeData(visibleTree), [visibleTree]);
+  const targetClassOptions = useMemo(() => {
+    const result: { value: string; label: string }[] = [];
+    const walk = (nodes: ClassNode[], prefix: string) => {
+      for (const node of nodes) {
+        const label = prefix ? prefix + ' / ' + node.name : node.name;
+        if (node.id !== selectedId && node.accessible !== false && node.manageable !== false && node.classKind !== 'group') {
+          result.push({ value: node.id, label });
+        }
+        walk(node.children ?? [], label);
+      }
+    };
+    walk(tree, '');
+    return result;
+  }, [tree, selectedId]);
   const hasOpenRegisterClass = useMemo(() => {
     const walk = (nodes: ClassNode[]): boolean =>
       nodes.some((node) => Boolean(node.allowRegister) || walk(node.children ?? []));
@@ -353,6 +370,10 @@ export default function TeachingClasses() {
   /* ---------------- 班级成员 ---------------- */
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [selectedMemberKeys, setSelectedMemberKeys] = useState<string[]>([]);
+  const [batchAction, setBatchAction] = useState<'transfer' | 'add' | 'delete'>();
+  const [batchTarget, setBatchTarget] = useState<string>();
+  const [batchDeleteInput, setBatchDeleteInput] = useState('');
+  const [batchSaving, setBatchSaving] = useState(false);
   const [memberLoading, setMemberLoading] = useState(false);
 
   const loadMembers = useCallback(
@@ -1021,6 +1042,78 @@ export default function TeachingClasses() {
     }
   };
 
+  const openBatchAction = (action: 'transfer' | 'add' | 'delete') => {
+    setBatchAction(action);
+    setBatchTarget(undefined);
+    setBatchDeleteInput('');
+  };
+
+  const submitBatchMemberAction = async () => {
+    if (!selected || !batchAction || !selectedMembers.length || batchSaving) return;
+    if (batchAction === 'delete' && batchDeleteInput.trim() !== '删除') {
+      message.warning('请输入「删除」两个字确认批量删除账号');
+      return;
+    }
+    if (batchAction !== 'delete' && !batchTarget) {
+      message.warning('请选择目标班级');
+      return;
+    }
+    setBatchSaving(true);
+    let done = 0;
+    let skipped = 0;
+    try {
+      for (const row of selectedMembers) {
+        if (batchAction === 'delete') {
+          await post('/api/teaching/classes/member/delete', { deptId: selected.id, id: row.id });
+          done += 1;
+          continue;
+        }
+        if (!row.canAssign || !row.primaryDeptId) {
+          skipped += 1;
+          continue;
+        }
+        const extras = (row.extraDeptIds ?? []).filter((id) => id !== batchTarget);
+        if (batchAction === 'transfer') {
+          if (!row.primary) {
+            skipped += 1;
+            continue;
+          }
+          await post('/api/teaching/classes/member/assign', {
+            userId: row.id,
+            primaryDeptId: batchTarget,
+            extraDeptIds: extras.slice(0, 2),
+          });
+          done += 1;
+        }
+        else {
+          if (extras.includes(batchTarget as string) || extras.length >= 2) {
+            skipped += 1;
+            continue;
+          }
+          await post('/api/teaching/classes/member/assign', {
+            userId: row.id,
+            primaryDeptId: row.primaryDeptId,
+            extraDeptIds: [...extras, batchTarget],
+          });
+          done += 1;
+        }
+      }
+      message.success(
+        (batchAction === 'delete' ? '已批量删除 ' : batchAction === 'transfer' ? '已批量转移 ' : '已批量添加 ') +
+          done +
+          ' 人' +
+          (skipped ? '，跳过 ' + skipped + ' 人（兼报/无权限/已满 3 个班）' : ''),
+      );
+      setBatchAction(undefined);
+      setSelectedMemberKeys([]);
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBatchSaving(false);
+    }
+  };
+
   const memberColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 120, render: (v?: string) => v || '—' },
     // 手机号即登录账号，两列同值：合并成一列，避免重复展示
@@ -1434,6 +1527,9 @@ export default function TeachingClasses() {
                       <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>已选 {selectedMemberKeys.length} 人</span>
                       {canMemberUpdate && <Button size="small" onClick={() => void batchMemberStatus(1)}>批量启用</Button>}
                       {canMemberUpdate && <Button size="small" onClick={() => void batchMemberStatus(0)}>批量停用</Button>}
+                      {canAssign && <Button size="small" onClick={() => openBatchAction('transfer')}>批量转移班级</Button>}
+                      {canAssign && <Button size="small" onClick={() => openBatchAction('add')}>批量添加到班级</Button>}
+                      {canMemberDelete && <Button size="small" danger onClick={() => openBatchAction('delete')}>批量删除账号</Button>}
                     </div>
                   )}
                   <Table<ClassMember>
@@ -1711,6 +1807,64 @@ export default function TeachingClasses() {
             <Input.Password placeholder="8-32 位，留空不改" maxLength={32} autoComplete="new-password" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={
+          batchAction === 'delete'
+            ? '批量删除学员账号'
+            : batchAction === 'transfer'
+              ? '批量转移到别的班'
+              : '批量添加到别的班'
+        }
+        open={!!batchAction}
+        onCancel={() => setBatchAction(undefined)}
+        onOk={() => void submitBatchMemberAction()}
+        confirmLoading={batchSaving}
+        okText={batchAction === 'delete' ? '确认批量删除' : batchAction === 'transfer' ? '确认转移' : '确认添加'}
+        okButtonProps={{ danger: batchAction === 'delete' }}
+        cancelText="取消"
+        width={isMobile ? '94%' : 480}
+        destroyOnClose
+      >
+        <p style={{ marginTop: 0 }}>
+          已选 <b>{selectedMemberKeys.length}</b> 人。
+        </p>
+        {batchAction === 'delete' ? (
+          <>
+            <p style={{ color: 'var(--bp-orange)' }}>
+              批量删除会删除学员账号，学员将无法登录，且不可恢复；兼报班关系也会一并清除。
+            </p>
+            <p>请输入「删除」两个字确认：</p>
+            <Input value={batchDeleteInput} onChange={(e) => setBatchDeleteInput(e.target.value)} placeholder="删除" autoComplete="off" />
+          </>
+        ) : batchAction === 'transfer' ? (
+          <>
+            <p style={{ color: 'var(--bp-orange)' }}>只转移主班学员；兼报学员会被跳过。转移后原主班不再保留该学员。</p>
+            <Select
+              showSearch
+              placeholder="选择目标班级"
+              style={{ width: '100%' }}
+              value={batchTarget}
+              onChange={setBatchTarget}
+              optionFilterProp="label"
+              options={targetClassOptions}
+            />
+          </>
+        ) : (
+          <>
+            <p>把选中的学员加入目标班作为<b>兼报班</b>，原主班不变；每人最多 1 个主班 + 2 个兼报班。</p>
+            <Select
+              showSearch
+              placeholder="选择要添加到的班级"
+              style={{ width: '100%' }}
+              value={batchTarget}
+              onChange={setBatchTarget}
+              optionFilterProp="label"
+              options={targetClassOptions}
+            />
+          </>
+        )}
       </Modal>
 
       <Modal
