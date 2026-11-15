@@ -1,6 +1,7 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.constant.AttachmentNameVariableEnum;
+import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.InternalServerError;
 import cn.surveyking.server.core.uitls.ExcelExporter;
 import cn.surveyking.server.core.uitls.SchemaHelper;
@@ -219,13 +220,20 @@ public class AnswerExporter {
 
 	private void export(Project project, List<AnswerView> answerViews, OutputStream outputStream) {
 		List<SurveySchema> schemaDataTypes = SchemaHelper.flatSurveySchema(project.getSurvey());
+		// 问卷开启计分时，导出也带分数列；否则按问卷模式不带
+		ProjectModeEnum exportMode = project.getMode();
+		if (ProjectModeEnum.survey.equals(exportMode) && project.getSetting() != null
+				&& project.getSetting().getExamSetting() != null
+				&& Boolean.TRUE.equals(project.getSetting().getExamSetting().getScoringEnabled())) {
+			exportMode = ProjectModeEnum.exam;
+		}
 		int[] indexArr = { 0 };
 		new ExcelExporter.Builder().setSheetName(project.getName()).setOutputStream(outputStream)
 				.setRows(answerViews.stream().map(answer -> {
 					indexArr[0] = indexArr[0] += 1;
-					return SchemaHelper.parseRowData(answer, schemaDataTypes, indexArr[0], project.getMode());
+					return SchemaHelper.parseRowData(answer, schemaDataTypes, indexArr[0], exportMode);
 				}).collect(Collectors.toList()))
-				.setColumns(SchemaHelper.parseColumns(schemaDataTypes, project.getMode())).build().exportToStream();
+				.setColumns(SchemaHelper.parseColumns(schemaDataTypes, exportMode)).build().exportToStream();
 	}
 
 	/**

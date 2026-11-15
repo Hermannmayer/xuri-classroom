@@ -118,9 +118,12 @@ public class PublicAnswerSubmitter {
 		result.setAnswerId(answerView.getId());
 		// 闯关模式：服务端裁决超时题（计 0 分，并把每题用时/超时清单落到 metaInfo）
 		examControlService.applyPassModePenalty(project, request, answerView);
-		// 考试模式，计算分值传给前端
-		if (ProjectModeEnum.exam.equals(project.getMode())
-				&& !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)) {
+		// 计分模式（考试默认，问卷可显式开启）把分值传给前端
+		boolean scoringEnabled = ProjectModeEnum.exam.equals(project.getMode())
+				|| (project.getSetting() != null && project.getSetting().getExamSetting() != null
+						&& Boolean.TRUE.equals(project.getSetting().getExamSetting().getScoringEnabled()));
+		if (scoringEnabled && !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)
+				&& answerView.getExamInfo() != null) {
 			result.setExamScore(answerView.getExamScore());
 			result.setQuestionScore(answerView.getExamInfo().getQuestionScore());
 			// 计算错题：带上本次答案与 schema，才能排除「未作答」并按考试维度归档
