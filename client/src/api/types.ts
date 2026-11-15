@@ -33,6 +33,12 @@ export interface SystemInfo {
     favicon?: string;
     amapKey?: string;
     amapSecurityJsCode?: string;
+    /** 检查更新配置 */
+    updateCheckEnabled?: boolean;
+    updateGithubRepo?: string;
+    updateApiBase?: string;
+    updateManifestUrl?: string;
+    updateCheckIntervalHours?: number;
   };
   oauthProviders?: Record<string, boolean>;
 }

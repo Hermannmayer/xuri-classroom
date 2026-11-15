@@ -112,19 +112,36 @@ public class SystemApi {
 	 */
 	@GetMapping("/update/check")
 	@PreAuthorize("isAuthenticated()")
-	public UpdateCheckView checkUpdate() {
+	public UpdateCheckView checkUpdate(@RequestParam(value = "force", defaultValue = "false") boolean force) {
+		SystemInfo.SystemSetting setting = updateSetting();
+		boolean enabled = setting == null || !Boolean.FALSE.equals(setting.getUpdateCheckEnabled());
+		long intervalHours = setting != null && setting.getUpdateCheckIntervalHours() != null
+				? Math.max(1, setting.getUpdateCheckIntervalHours()) : Math.max(1L, checkIntervalHours);
 		long now = System.currentTimeMillis();
-		long intervalMs = Math.max(1L, checkIntervalHours) * 3600_000L;
+		long intervalMs = intervalHours * 3600_000L;
 		long effectiveMs = lastCheckFailed ? Math.min(intervalMs, 3600_000L) : intervalMs;
-		if (cachedUpdate != null && now - updateCheckedAt < effectiveMs) {
+		if (!force && cachedUpdate != null && now - updateCheckedAt < effectiveMs) {
 			return cachedUpdate;
 		}
 
 		UpdateCheckView view = new UpdateCheckView();
 		view.setCurrentVersion(currentVersion);
+		if (!enabled) {
+			view.setEnabled(false);
+			cachedUpdate = view;
+			updateCheckedAt = now;
+			lastCheckFailed = false;
+			return view;
+		}
 
-		boolean useManifest = StringUtils.hasText(manifestUrl);
-		boolean useGithub = StringUtils.hasText(githubRepo);
+		String effectiveManifest = setting != null && StringUtils.hasText(setting.getUpdateManifestUrl())
+				? setting.getUpdateManifestUrl() : manifestUrl;
+		String effectiveRepo = setting != null && StringUtils.hasText(setting.getUpdateGithubRepo())
+				? setting.getUpdateGithubRepo() : githubRepo;
+		String effectiveApiBase = setting != null && StringUtils.hasText(setting.getUpdateApiBase())
+				? setting.getUpdateApiBase() : githubApiBase;
+		boolean useManifest = StringUtils.hasText(effectiveManifest);
+		boolean useGithub = StringUtils.hasText(effectiveRepo);
 		if (!useManifest && !useGithub) {
 			view.setEnabled(false);
 			cachedUpdate = view;
@@ -136,10 +153,10 @@ public class SystemApi {
 		view.setEnabled(true);
 		try {
 			if (useManifest) {
-				fillFromManifest(view);
+				fillFromManifest(view, effectiveManifest);
 			}
 			else {
-				fillFromGithub(view);
+				fillFromGithub(view, effectiveRepo, effectiveApiBase);
 			}
 			lastCheckFailed = false;
 		}
@@ -154,7 +171,7 @@ public class SystemApi {
 	}
 
 	/** 自建清单：{"version":"2.1.0","notes":"...","url":"..."} */
-	private void fillFromManifest(UpdateCheckView view) throws Exception {
+	private void fillFromManifest(UpdateCheckView view, String manifestUrl) throws Exception {
 		HttpURLConnection connection = null;
 		try {
 			connection = (HttpURLConnection) new URL(manifestUrl.trim()).openConnection();
@@ -184,7 +201,7 @@ public class SystemApi {
 	}
 
 	/** GitHub Releases：GET {api}/repos/{repo}/releases/latest */
-	private void fillFromGithub(UpdateCheckView view) throws Exception {
+	private void fillFromGithub(UpdateCheckView view, String githubRepo, String githubApiBase) throws Exception {
 		String base = StringUtils.hasText(githubApiBase) ? githubApiBase.trim() : "https://api.github.com";
 		String url = base.replaceAll("/+$", "") + "/repos/" + githubRepo.trim() + "/releases/latest";
 		HttpURLConnection connection = null;
@@ -317,6 +334,19 @@ public class SystemApi {
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public void updateSystemInfo(@RequestBody SystemInfoRequest request) {
 		systemService.updateSystemInfo(request);
+		// 更新源配置变更后立即失效缓存，设置页点「立即检查」能看到新结果
+		cachedUpdate = null;
+		updateCheckedAt = 0;
+	}
+
+	private SystemInfo.SystemSetting updateSetting() {
+		try {
+			SystemInfo info = systemService.getSystemInfo();
+			return info == null ? null : info.getSetting();
+		}
+		catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	/**

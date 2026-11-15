@@ -214,12 +214,18 @@ sudo bash upgrade.sh
 也可以直接用一键升级脚本（不用手工下载整包，脚本会拉取对应版本的 Docker 发布包并调用其中的 `upgrade.sh`）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line-upgrade.sh | sudo VERSION=2.1.2 bash
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line-upgrade.sh | sudo bash
 ```
 
-- 不指定 `VERSION` 时默认取 GitHub Releases 最新版本。
+需要固定某个版本时：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line-upgrade.sh | sudo VERSION=<版本号> bash
+```
+
+- 不指定 `VERSION` 时默认取 GitHub Releases 最新版本，避免以后复制到过期版本号。
 - 脚本会保留 `.env` 与数据卷，先备份数据库、附件和 `.env`，再升级；**不会执行 `docker compose down -v`**。
-- 安装目录不是 `/opt/xuri-classroom` 时加：`sudo XURI_HOME=/你的目录 VERSION=2.1.2 bash`。
+- 安装目录不是 `/opt/xuri-classroom` 时加：`sudo XURI_HOME=/你的目录 bash`；需要固定版本再加 `VERSION=<版本号>`。
 - 脚本源码：[scripts/deploy/docker-one-line-upgrade.sh](scripts/deploy/docker-one-line-upgrade.sh)；完整说明：[升级与迁移](docs/deploy/upgrade.md)。
 
 > 三端升级完成后都建议打开 `/api/system/version`，确认 `version` 和 `schemaStatus` 正常；数据库迁移只做增量变更，程序回滚通常不需要回滚数据库。

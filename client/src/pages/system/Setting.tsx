@@ -70,14 +70,31 @@ function normalizeMode(value?: string | null): WatermarkMode {
   return value === 'name' || value === 'phone' ? value : 'name_phone';
 }
 
-type TabKey = 'basic' | 'access' | 'anonymous' | 'ai';
+type TabKey = 'basic' | 'access' | 'anonymous' | 'ai' | 'update';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
   basic: ['name', 'description', 'avatar', 'copyright', 'recordNum', 'favicon'],
   access: ['captchaEnabled', 'registerEnabled', 'roles'],
   anonymous: ['anonymousCleanupEnabled', 'anonymousRetentionDays'],
   ai: ['aiEnabled', 'baseUrl', 'apiKey', 'models', 'defaultModel', 'prompt'],
+  update: [
+    'updateCheckEnabled',
+    'updateGithubRepo',
+    'updateApiBase',
+    'updateManifestUrl',
+    'updateCheckIntervalHours',
+  ],
 };
+
+interface UpdateCheckInfo {
+  currentVersion?: string;
+  latestVersion?: string;
+  hasUpdate?: boolean;
+  enabled?: boolean;
+  notes?: string;
+  downloadUrl?: string;
+  error?: string;
+}
 
 /**
  * 系统设置：四个区块（基本 / 登录与注册 / 内容与隐私 / AI），每个区块只渲染一次。
@@ -124,6 +141,9 @@ export default function SystemSetting() {
   const [lastCleanupAt, setLastCleanupAt] = useState<string | number>();
   const [lastCleanupCount, setLastCleanupCount] = useState<number>();
   const [cleaning, setCleaning] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState<string>();
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   /**
    * 路由守卫只要求 system:role:list，所以「能进页面」不等于「能保存」。
@@ -160,6 +180,7 @@ export default function SystemSetting() {
     const anonymous = (sys?.setting ?? {}) as unknown as AnonymousCleanupSetting;
     setLastCleanupAt(anonymous.anonymousLastCleanupAt);
     setLastCleanupCount(anonymous.anonymousLastCleanupCount);
+    setCurrentVersion(sys?.version);
     form.setFieldsValue({
       name: sys?.name,
       description: sys?.description,
@@ -174,6 +195,11 @@ export default function SystemSetting() {
       // 缺省与后端一致：开启 + 90 天；只有显式 false 才关闭
       anonymousCleanupEnabled: anonymous.anonymousCleanupEnabled !== false,
       anonymousRetentionDays: anonymous.anonymousRetentionDays ?? 90,
+      updateCheckEnabled: sys?.setting?.updateCheckEnabled !== false,
+      updateGithubRepo: sys?.setting?.updateGithubRepo,
+      updateApiBase: sys?.setting?.updateApiBase,
+      updateManifestUrl: sys?.setting?.updateManifestUrl,
+      updateCheckIntervalHours: sys?.setting?.updateCheckIntervalHours ?? 24,
       aiEnabled: Boolean(ai?.enabled),
       baseUrl: ai?.baseUrl,
       apiKey: ai?.apiKey,
@@ -312,6 +338,27 @@ export default function SystemSetting() {
     });
   };
 
+  const checkUpdateNow = async () => {
+    setCheckingUpdate(true);
+    try {
+      const res = await get<UpdateCheckInfo>('/api/system/update/check', { force: true });
+      setUpdateInfo(res);
+      if (!res.enabled) {
+        message.info('检查更新未启用，或还没有配置更新源');
+      } else if (res.error) {
+        message.error(res.error);
+      } else if (res.hasUpdate) {
+        message.success('发现新版本 v' + res.latestVersion);
+      } else {
+        message.success('当前已是最新版本');
+      }
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
   const save = async (key: TabKey) => {
     let v: Record<string, unknown>;
     try {
@@ -348,6 +395,16 @@ export default function SystemSetting() {
           setting: {
             anonymousCleanupEnabled: Boolean(v.anonymousCleanupEnabled),
             anonymousRetentionDays: Number(v.anonymousRetentionDays),
+          },
+        });
+      } else if (key === 'update') {
+        await post('/api/system/update', {
+          setting: {
+            updateCheckEnabled: Boolean(v.updateCheckEnabled),
+            updateGithubRepo: String(v.updateGithubRepo ?? '').trim() || undefined,
+            updateApiBase: String(v.updateApiBase ?? '').trim() || undefined,
+            updateManifestUrl: String(v.updateManifestUrl ?? '').trim() || undefined,
+            updateCheckIntervalHours: Number(v.updateCheckIntervalHours ?? 24),
           },
         });
       } else {
@@ -663,6 +720,79 @@ export default function SystemSetting() {
                     {canUpdate && (
                       <SaveBar loading={saving === 'anonymous'} onSave={() => void save('anonymous')} />
                     )}
+                  </>
+                ),
+              },
+              {
+                key: 'update',
+                label: '检查更新',
+                forceRender: true,
+                children: (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
+                      当前版本：{currentVersion || '—'}。检查更新只读取远端版本信息，不会自动下载或升级。
+                    </div>
+                    <Form.Item
+                      name="updateCheckEnabled"
+                      label="自动检查"
+                      valuePropName="checked"
+                      extra="管理员登录后按间隔检查一次，只显示提示横幅，不执行升级"
+                    >
+                      <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                    </Form.Item>
+                    <Form.Item
+                      name="updateGithubRepo"
+                      label="GitHub 仓库"
+                      extra="owner/repo；留空则用环境变量 update.github-repo"
+                    >
+                      <Input placeholder="Hermannmayer/xuri-classroom" allowClear />
+                    </Form.Item>
+                    <Form.Item
+                      name="updateApiBase"
+                      label="GitHub API 前缀"
+                      extra="默认 https://api.github.com；国内可填兼容镜像"
+                    >
+                      <Input placeholder="https://api.github.com" allowClear />
+                    </Form.Item>
+                    <Form.Item
+                      name="updateManifestUrl"
+                      label="自建更新清单（可选）"
+                      extra="填了优先于 GitHub；JSON 字段：version、notes、url、publishedAt"
+                    >
+                      <Input placeholder="https://.../update.json" allowClear />
+                    </Form.Item>
+                    <Form.Item name="updateCheckIntervalHours" label="检查间隔" extra="1–168 小时；默认 24 小时">
+                      <InputNumber min={1} max={168} addonAfter="小时" style={{ width: 200 }} />
+                    </Form.Item>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                      <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>立即检查</Button>
+                      {updateInfo?.downloadUrl && (
+                        <Button type="primary" onClick={() => window.open(updateInfo.downloadUrl, '_blank', 'noopener')}>
+                          打开下载页
+                        </Button>
+                      )}
+                    </div>
+                    {updateInfo && (
+                      <Alert
+                        type={updateInfo.error ? 'error' : updateInfo.hasUpdate ? 'info' : 'success'}
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message={
+                          updateInfo.error
+                            ? '检查失败'
+                            : !updateInfo.enabled
+                              ? '检查更新未启用'
+                              : updateInfo.hasUpdate
+                                ? '发现新版本 v' + updateInfo.latestVersion
+                                : '当前已是最新版本'
+                        }
+                        description={
+                          updateInfo.error ||
+                          (!updateInfo.hasUpdate ? undefined : updateInfo.notes || '有新版本可用，请查看发布说明。')
+                        }
+                      />
+                    )}
+                    {canUpdate && <SaveBar loading={saving === 'update'} onSave={() => void save('update')} />}
                   </>
                 ),
               },

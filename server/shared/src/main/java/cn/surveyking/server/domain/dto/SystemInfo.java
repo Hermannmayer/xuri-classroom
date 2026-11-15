@@ -149,6 +149,21 @@ public class SystemInfo {
 		/** 是否已设置导出密码（只读派生字段，不回显密码本身） */
 		private Boolean exportPasswordEnabled;
 
+		/** 是否开启检查更新（默认开启）；关闭后仍可手动检查。 */
+		private Boolean updateCheckEnabled;
+
+		/** GitHub 仓库 owner/repo；为空时回退到 update.github-repo 环境配置。 */
+		private String updateGithubRepo;
+
+		/** GitHub API 前缀；为空时回退到 update.github-api-base。 */
+		private String updateApiBase;
+
+		/** 自建更新清单 URL；非空时优先于 GitHub。 */
+		private String updateManifestUrl;
+
+		/** 检查间隔小时；为空时回退到 update.check-interval-hours。 */
+		private Integer updateCheckIntervalHours;
+
 		/**
 		 * 是否开启匿名答卷自动清理（默认开启）。
 		 *
