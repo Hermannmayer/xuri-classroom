@@ -20,7 +20,9 @@
         "column:t_template.chapter",
         "column:t_template.difficulty",
         "index:t_template.idx_template_chapter",
-        "index:t_template.idx_template_difficulty"
+        "index:t_template.idx_template_difficulty",
+        "column:t_dept.class_kind",
+        "column:t_dept.allow_register"
       ]
     }
   ]

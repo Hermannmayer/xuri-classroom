@@ -297,9 +297,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	@Override
 	public List<RegisterRoleView> getRegisterRoles() {
-		List<String> defaultRegisterRoleCodes = systemService.getSystemInfo().getRegisterInfo().getRoles();
-		if (defaultRegisterRoleCodes.size() > 0) {
-			return roleService.listByIds(systemService.getSystemInfo().getRegisterInfo().getRoles()).stream()
+		SystemInfo.RegisterInfo registerInfo = systemService.getSystemInfo().getRegisterInfo();
+		List<String> defaultRegisterRoleCodes = registerInfo == null || registerInfo.getRoles() == null
+				? Collections.emptyList() : registerInfo.getRoles();
+		if (!defaultRegisterRoleCodes.isEmpty()) {
+			return roleService.listByIds(defaultRegisterRoleCodes).stream()
 					.map(role -> {
 						RegisterRoleView roleView = new RegisterRoleView();
 						roleView.setId(role.getId());

@@ -49,6 +49,8 @@ interface ClassNode {
   managerId?: string;
   managerName?: string;
   memberCount?: number;
+  /** group=容器班 / teaching=教学班 */
+  classKind?: 'group' | 'teaching';
   /** 是否开放学员自助注册（班级设置里打开后，注册页会出现这个班） */
   allowRegister?: boolean;
   /** 班级设置回显：有效期 */
@@ -72,6 +74,15 @@ interface ClassMember {
   status?: number | null;
   deptId?: string;
   deptName?: string;
+  /** 主班 */
+  primaryDeptId?: string;
+  primaryDeptName?: string;
+  /** 兼报班 */
+  extraDeptIds?: string[];
+  extraDeptNames?: string[];
+  primary?: boolean;
+  classCount?: number;
+  canAssign?: boolean;
   phone?: string;
   email?: string;
   createAt?: string;
@@ -212,7 +223,16 @@ function toTreeData(nodes: ClassNode[]): TreeDataNode[] {
         <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-text-soft)' }}>
           {node.accessible === false ? '（上级）' : `${node.memberCount ?? 0} 人`}
         </span>
-        {node.allowRegister && (
+        {node.classKind === 'group' ? (
+          <Tag color="default" style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px' }}>
+            容器
+          </Tag>
+        ) : (
+          <Tag color="blue" style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px' }}>
+            教学班
+          </Tag>
+        )}
+        {node.allowRegister && node.classKind !== 'group' && (
           <Tag color="green" style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px' }}>
             开放注册
           </Tag>
@@ -261,6 +281,8 @@ export default function TeachingClasses() {
   const canDetail = can(authorities, PERMISSION_CODES.classDetail);
   const canGrant = can(authorities, PERMISSION_CODES.classGrant);
   const canCreateMember = can(authorities, PERMISSION_CODES.classMemberCreate);
+  const canApprove = can(authorities, PERMISSION_CODES.classMemberApprove);
+  const canAssign = can(authorities, PERMISSION_CODES.classMemberAssign);
   // 组织设置权限（system:dept:*）留给管理员：设置弹窗可见性、删除分组
   const canDeptUpdate = can(authorities, PERMISSION_CODES.systemDeptUpdate);
   const canDeptDelete = can(authorities, PERMISSION_CODES.systemDeptDelete);
@@ -270,6 +292,7 @@ export default function TeachingClasses() {
   /* ---------------- 班级树 ---------------- */
   const [tree, setTree] = useState<ClassNode[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
+  const [globalRegisterEnabled, setGlobalRegisterEnabled] = useState<boolean>();
   const [keyword, setKeyword] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string>();
@@ -301,6 +324,9 @@ export default function TeachingClasses() {
 
   useEffect(() => {
     void loadTree();
+    get<{ globalEnabled: boolean }>('/api/public/registerOptions')
+      .then((options) => setGlobalRegisterEnabled(Boolean(options?.globalEnabled)))
+      .catch(() => setGlobalRegisterEnabled(undefined));
   }, [loadTree]);
 
   // 搜索/换树之后默认展开全部（班级树不该折叠，多层班级找不到）
@@ -310,6 +336,11 @@ export default function TeachingClasses() {
   }, [visibleTree]);
 
   const treeData = useMemo<TreeDataNode[]>(() => toTreeData(visibleTree), [visibleTree]);
+  const hasOpenRegisterClass = useMemo(() => {
+    const walk = (nodes: ClassNode[]): boolean =>
+      nodes.some((node) => Boolean(node.allowRegister) || walk(node.children ?? []));
+    return walk(tree);
+  }, [tree]);
 
   const selected = useMemo(() => (selectedId ? findNode(tree, selectedId) : undefined), [tree, selectedId]);
 
@@ -325,7 +356,7 @@ export default function TeachingClasses() {
 
   const loadMembers = useCallback(
     async (deptId?: string) => {
-      if (!deptId || !canDetail) {
+      if (!deptId || !canDetail || selected?.classKind === 'group') {
         setMembers([]);
         setMemberLoading(false);
         return;
@@ -341,7 +372,7 @@ export default function TeachingClasses() {
         setMemberLoading(false);
       }
     },
-    [canDetail, message],
+    [canDetail, message, selected?.classKind],
   );
 
   useEffect(() => {
@@ -369,7 +400,8 @@ export default function TeachingClasses() {
       nodes.forEach((node) => {
         const name = node.name || '(未命名班级)';
         const label = prefix ? `${prefix} / ${name}` : name;
-        result.push({ value: node.id, label });
+        // 容器班只做层级，不能收学员/开放注册/分资源；下拉里只列教学班
+        if (node.classKind !== 'group') result.push({ value: node.id, label });
         if (node.children?.length) walk(node.children, label);
       });
     };
@@ -412,7 +444,7 @@ export default function TeachingClasses() {
   };
 
   const approvePending = async (row: ClassMember) => {
-    if (!canMemberUpdate) return;
+    if (!canApprove) return;
     const deptId = pendingDept[row.id] || row.deptId;
     if (!deptId) {
       message.warning('请先为这个学员选择班级');
@@ -446,7 +478,7 @@ export default function TeachingClasses() {
       key: 'dept',
       width: 220,
       render: (_: unknown, row) =>
-        canMemberUpdate ? (
+        canApprove ? (
           <Select
             size="small"
             showSearch
@@ -467,7 +499,7 @@ export default function TeachingClasses() {
       key: 'ops',
       width: 90,
       render: (_: unknown, row) =>
-        canMemberUpdate ? (
+        canApprove ? (
           <Button
             type="primary"
             size="small"
@@ -481,6 +513,63 @@ export default function TeachingClasses() {
         ),
     },
   ];
+
+
+  /* ---------------- 班级归属（主班 + 兼报班） ---------------- */
+  const [assignTarget, setAssignTarget] = useState<ClassMember | null>(null);
+  const [assignPrimary, setAssignPrimary] = useState<string>();
+  const [assignExtras, setAssignExtras] = useState<string[]>([]);
+  const [assignSaving, setAssignSaving] = useState(false);
+
+  const openAssign = (row: ClassMember) => {
+    setAssignTarget(row);
+    setAssignPrimary(row.primaryDeptId || row.deptId || '');
+    setAssignExtras(row.extraDeptIds ?? []);
+  };
+
+  const closeAssign = () => {
+    setAssignTarget(null);
+    setAssignPrimary(undefined);
+    setAssignExtras([]);
+  };
+
+  const submitAssign = async () => {
+    if (!assignTarget || !assignPrimary || assignSaving) return;
+    if (assignExtras.length > 2) {
+      message.warning('兼报班最多 2 个，加上主班一共最多 3 个班');
+      return;
+    }
+    if (assignExtras.includes(assignPrimary)) {
+      message.warning('兼报班不能和主班相同');
+      return;
+    }
+    setAssignSaving(true);
+    try {
+      await post('/api/teaching/classes/member/assign', {
+        userId: assignTarget.id,
+        primaryDeptId: assignPrimary,
+        extraDeptIds: assignExtras,
+      });
+      message.success('已更新班级归属');
+      closeAssign();
+      await Promise.all([loadMembers(selected?.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  const removeExtraMember = async (row: ClassMember) => {
+    if (!selected) return;
+    try {
+      await post('/api/teaching/classes/member/remove-extra', { deptId: selected.id, id: row.id });
+      message.success('已把「' + (row.name || row.username || '该学员') + '」移出本班');
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
 
   /* ---------------- 班级设置 ---------------- */
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -575,6 +664,106 @@ export default function TeachingClasses() {
       setMemberSaving(false);
     }
   };
+
+
+  /* ------ 从其他班级添加（兼报班） ------ */
+  const [addExistingOpen, setAddExistingOpen] = useState(false);
+  const [candidateSource, setCandidateSource] = useState<string>();
+  const [candidateKeyword, setCandidateKeyword] = useState('');
+  const [candidates, setCandidates] = useState<ClassMember[]>([]);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [candidateSelected, setCandidateSelected] = useState<string[]>([]);
+  const [addingExisting, setAddingExisting] = useState(false);
+
+  const openAddExisting = () => {
+    setAddExistingOpen(true);
+    setCandidateSource(undefined);
+    setCandidateKeyword('');
+    setCandidates([]);
+    setCandidateSelected([]);
+  };
+
+  const loadCandidates = useCallback(async () => {
+    if (!selected || !candidateSource) {
+      setCandidates([]);
+      return;
+    }
+    setCandidateLoading(true);
+    try {
+      const list = await get<ClassMember[]>('/api/teaching/classes/member/candidates', {
+        targetDeptId: selected.id,
+        sourceDeptId: candidateSource,
+        keyword: candidateKeyword.trim() || undefined,
+      });
+      setCandidates(Array.isArray(list) ? list : []);
+    } catch (e) {
+      message.error((e as Error).message || '读取候选学员失败');
+      setCandidates([]);
+    } finally {
+      setCandidateLoading(false);
+    }
+  }, [candidateKeyword, candidateSource, message, selected]);
+
+  useEffect(() => {
+    if (!addExistingOpen || !candidateSource) {
+      setCandidates([]);
+      return;
+    }
+    const timer = window.setTimeout(() => void loadCandidates(), 250);
+    return () => window.clearTimeout(timer);
+  }, [addExistingOpen, candidateSource, candidateKeyword, loadCandidates]);
+
+  const submitAddExisting = async () => {
+    if (!selected || !candidateSource || candidateSelected.length === 0 || addingExisting) return;
+    setAddingExisting(true);
+    try {
+      const result = await post<{ added: number; skipped?: { name?: string; reason?: string }[] }>(
+        '/api/teaching/classes/member/add-existing',
+        { deptId: selected.id, sourceDeptId: candidateSource, userIds: candidateSelected },
+      );
+      if (result.added > 0) {
+        message.success('已把 ' + result.added + ' 名学员加入本班（兼报）');
+      }
+      if (result.skipped?.length) {
+        message.warning(
+          '跳过 ' + result.skipped.length + ' 人：' +
+            result.skipped.map((item) => (item.name || '') + '（' + (item.reason || '') + '）').join('、'),
+        );
+      }
+      setCandidateSelected([]);
+      setAddExistingOpen(false);
+      await Promise.all([loadMembers(selected.id), loadTree()]);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setAddingExisting(false);
+    }
+  };
+
+  const candidateColumns: ColumnsType<ClassMember> = [
+    { title: '姓名', dataIndex: 'name', width: 110, render: (v?: string) => v || '—' },
+    {
+      title: '手机号 / 登录账号',
+      key: 'account',
+      width: 150,
+      render: (_: unknown, row) => row.phone || row.username || '—',
+    },
+    { title: '主班', dataIndex: 'primaryDeptName', width: 150, render: (v?: string) => v || '未分班' },
+    {
+      title: '已加入',
+      key: 'classCount',
+      width: 110,
+      render: (_: unknown, row) => {
+        const count = row.classCount ?? 1;
+        return (
+          <Tag color={count >= 3 ? 'orange' : 'blue'}>
+            {count} / 3 个班
+          </Tag>
+        );
+      },
+    },
+    { title: '状态', dataIndex: 'status', width: 90, render: (v?: number | null) => <MemberStatus status={v} /> },
+  ];
 
   const openEditMember = (row: ClassMember) => {
     setEditingMember(row);
@@ -771,9 +960,26 @@ export default function TeachingClasses() {
     },
     { title: '状态', dataIndex: 'status', width: 100, render: (v?: number | null) => <MemberStatus status={v} /> },
     {
+      title: '班级归属',
+      key: 'classAssign',
+      width: 250,
+      render: (_: unknown, row: ClassMember) => (
+        <Space size={4} wrap>
+          <Tag color={row.primary ? 'green' : 'default'}>{row.primary ? '主班' : '兼报'}</Tag>
+          <span>{row.primaryDeptName || '未分班'}</span>
+          {row.extraDeptNames && row.extraDeptNames.length > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+              兼报：{row.extraDeptNames.join('、')}
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {row.classCount ?? 1} 个班</span>
+        </Space>
+      ),
+    },
+    {
       title: '角色',
       dataIndex: 'roleNames',
-      width: 220,
+      width: 200,
       render: (names?: string[]) =>
         names && names.length ? (
           <Space size={4} wrap>
@@ -788,16 +994,28 @@ export default function TeachingClasses() {
         ),
     },
     { title: '加入时间', dataIndex: 'createAt', width: 160, render: (v?: string) => v || '—' },
-    ...((canMemberUpdate || canMemberDelete) && !readOnlyClass
+    ...((canMemberUpdate || canMemberDelete || canAssign) && !readOnlyClass
       ? [
           {
             title: '操作',
             key: 'memberOps',
-            width: 120,
+            width: 220,
             render: (_: unknown, row: ClassMember) => (
-              <Space size={8}>
-                {canMemberUpdate && <LinkAction onClick={() => openEditMember(row)}>编辑</LinkAction>}
-                {canMemberDelete && (
+              <Space size={8} wrap>
+                {row.primary && canMemberUpdate && <LinkAction onClick={() => openEditMember(row)}>编辑</LinkAction>}
+                {canAssign && row.canAssign && <LinkAction onClick={() => openAssign(row)}>班级归属</LinkAction>}
+                {!row.primary && canAssign && (
+                  <Popconfirm
+                    title={`把「${row.name || row.username || '该学员'}」移出本班？`}
+                    description="只解除本班的兼报关系，不删除账号；主班和其他班不受影响。"
+                    okText="移出本班"
+                    cancelText="取消"
+                    onConfirm={() => removeExtraMember(row)}
+                  >
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>移出本班</LinkAction>
+                  </Popconfirm>
+                )}
+                {row.primary && canMemberDelete && (
                   <Popconfirm
                     title={`删除学员「${row.name || row.username || '该学员'}」？`}
                     description="账号会被删除，无法再登录；不可恢复。"
@@ -806,7 +1024,7 @@ export default function TeachingClasses() {
                     cancelText="取消"
                     onConfirm={() => removeMember(row)}
                   >
-                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                    <LinkAction style={{ color: 'var(--bp-orange)' }}>删除账号</LinkAction>
                   </Popconfirm>
                 )}
               </Space>
@@ -874,7 +1092,11 @@ export default function TeachingClasses() {
         </div>
         <Space wrap>
           {canList && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreateClass(selected?.id)}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => openCreateClass(selected?.classKind === 'group' ? selected.id : undefined)}
+            >
               新建班级
             </Button>
           )}
@@ -890,6 +1112,20 @@ export default function TeachingClasses() {
           </Button>
         </Space>
       </div>
+
+      {canList && globalRegisterEnabled && !hasOpenRegisterClass && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={tree.length === 0 ? '还没有班级，学员暂时无法注册' : '全局注册已开启，但你的班级还没有开放注册'}
+          description={
+            tree.length === 0
+              ? '先新建教学班，并在班级设置里打开「开放注册」，登录页才会出现注册入口。'
+              : '学员登录页不会出现你的班；请选中教学班 → 班级设置 → 打开「开放注册」。'
+          }
+        />
+      )}
 
       <div
         style={{
@@ -999,12 +1235,17 @@ export default function TeachingClasses() {
                   </div>
                 </div>
                 <Space wrap>
-                  {canCreateMember && !readOnlyClass && (
+                  {canCreateMember && !readOnlyClass && selected.classKind !== 'group' && (
                     <Button type="primary" icon={<UserAddOutlined />} onClick={openMemberModal}>
                       添加学员
                     </Button>
                   )}
-                  {canCreateMember && !readOnlyClass && (
+                  {canAssign && !readOnlyClass && selected.classKind !== 'group' && (
+                    <Button icon={<UserAddOutlined />} onClick={openAddExisting}>
+                      从其他班级添加
+                    </Button>
+                  )}
+                  {canCreateMember && !readOnlyClass && selected.classKind !== 'group' && (
                     <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
                       批量导入
                     </Button>
@@ -1027,6 +1268,16 @@ export default function TeachingClasses() {
                   )}
                 </Space>
               </div>
+
+              {selected.classKind === 'group' && (
+                <Alert
+                  style={{ marginTop: 12 }}
+                  type="info"
+                  showIcon
+                  message="这是容器班，只做层级"
+                  description="容器班不直接收学员、不开放注册、不分配考试/题库；请从左侧选择下级的教学班。"
+                />
+              )}
 
               {readOnlyClass && (
                 <Alert
@@ -1077,7 +1328,7 @@ export default function TeachingClasses() {
                     loading={memberLoading}
                     dataSource={members}
                     columns={memberColumns}
-                    scroll={{ x: 1000 }}
+                    scroll={{ x: 1200 }}
                     pagination={{ pageSize: 10, hideOnSinglePage: true, size: 'small' }}
                     locale={{
                       emptyText: (
@@ -1088,7 +1339,7 @@ export default function TeachingClasses() {
                 </TableScrollRegion>
               )}
 
-              {selected.manageable === true && (
+              {selected.manageable === true && selected.classKind !== 'group' && (
                 <>
                   <hr className="bp-dim" style={{ margin: '14px 0' }} />
 
@@ -1099,6 +1350,145 @@ export default function TeachingClasses() {
           )}
         </Card>
       </div>
+
+
+
+      <Modal
+        title={'从其他班级添加' + (selected?.name ? '：' + selected.name : '')}
+        open={addExistingOpen}
+        onCancel={() => setAddExistingOpen(false)}
+        footer={
+          <Space>
+            <Button onClick={() => setAddExistingOpen(false)}>取消</Button>
+            <Button
+              type="primary"
+              loading={addingExisting}
+              disabled={candidateSelected.length === 0}
+              onClick={() => void submitAddExisting()}
+            >
+              加入本班（兼报）
+              {candidateSelected.length > 0 ? ' · ' + candidateSelected.length + ' 人' : ''}
+            </Button>
+          </Space>
+        }
+        width={isMobile ? '100%' : 860}
+        destroyOnClose
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="把已有学员加入本班作为兼报班"
+          description="不改变学员的主班；兼报班能看到本班分配的考试/题库，成绩仍记主班。每人最多 3 个班（1 主班 + 2 兼报）。"
+        />
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            style={{ minWidth: 240, flex: '1 1 240px' }}
+            placeholder="1. 选择来源班级"
+            value={candidateSource}
+            options={classOptions.filter((option) => option.value !== selected?.id)}
+            onChange={(value: string) => {
+              setCandidateSource(value);
+              setCandidateSelected([]);
+            }}
+            aria-label="选择来源班级"
+          />
+          <Input
+            allowClear
+            style={{ minWidth: 220, flex: '1 1 220px' }}
+            placeholder="2. 按姓名/手机号搜索"
+            value={candidateKeyword}
+            onChange={(event) => setCandidateKeyword(event.target.value)}
+            aria-label="搜索候选学员"
+          />
+        </div>
+        <TableScrollRegion label="候选学员（可横向滚动）">
+          <Table<ClassMember>
+            rowKey="id"
+            size="small"
+            loading={candidateLoading}
+            dataSource={candidates}
+            columns={candidateColumns}
+            pagination={false}
+            scroll={{ x: 700 }}
+            rowSelection={{
+              selectedRowKeys: candidateSelected,
+              onChange: (keys) => setCandidateSelected(keys.map(String)),
+              getCheckboxProps: (row) => ({ disabled: (row.classCount ?? 1) >= 3 }),
+            }}
+            locale={{
+              emptyText: (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={candidateSource ? '没有可加入的学员' : '先选择来源班级'}
+                />
+              ),
+            }}
+          />
+        </TableScrollRegion>
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+          已在当前班的学员不会重复出现；已满 3 个班的学员会置灰。
+        </div>
+      </Modal>
+
+      <Modal
+        title={'班级归属' + (assignTarget?.name ? '：' + assignTarget.name : '')}
+        open={Boolean(assignTarget)}
+        onCancel={closeAssign}
+        onOk={() => void submitAssign()}
+        confirmLoading={assignSaving}
+        okText="保存"
+        cancelText="取消"
+        width={isMobile ? '94%' : 560}
+        destroyOnClose
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 14 }}
+          message="1 个主班 + 最多 2 个兼报班"
+          description="主班决定学籍、资料维护和成绩归属；兼报班能看到该班分配的考试/题库。只能选择你有管理权限的教学班。"
+        />
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 6 }}>主班（必选）</div>
+        <Select
+          showSearch
+          optionFilterProp="label"
+          style={{ width: '100%', marginBottom: 14 }}
+          value={assignPrimary}
+          placeholder="选择主班"
+          options={classOptions}
+          onChange={(value: string) => {
+            setAssignPrimary(value);
+            setAssignExtras((prev) => prev.filter((deptId) => deptId !== value));
+          }}
+          aria-label="选择主班"
+        />
+        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 6 }}>
+          兼报班（最多 2 个，可不选）
+        </div>
+        <Select
+          mode="multiple"
+          showSearch
+          optionFilterProp="label"
+          style={{ width: '100%', marginBottom: 14 }}
+          value={assignExtras}
+          placeholder="选择兼报班"
+          maxCount={2}
+          options={classOptions.filter((option) => option.value !== assignPrimary)}
+          onChange={(values: string[]) => setAssignExtras(values)}
+          aria-label="选择兼报班"
+        />
+        {assignTarget && (
+          <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+            当前：主班 {assignTarget.primaryDeptName || '未分班'}
+            {assignTarget.extraDeptNames?.length
+              ? '；兼报 ' + assignTarget.extraDeptNames.join('、')
+              : '；没有兼报班'}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         title={'添加学员' + (selected?.name ? '：' + selected.name : '')}

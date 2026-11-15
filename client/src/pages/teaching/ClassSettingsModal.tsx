@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, DatePicker, Form, Input, Modal, Switch, TreeSelect } from 'antd';
+import { Alert, App, DatePicker, Form, Input, Modal, Select, Switch, TreeSelect } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { post } from '../../api';
+import { getSystem, post } from '../../api';
 import LinkAction from '../../components/LinkAction';
 import DeleteDeptDialog from './DeleteDeptDialog';
 
@@ -11,6 +11,7 @@ export interface DeptNode {
   id: string;
   name: string;
   parentId?: string;
+  classKind?: 'group' | 'teaching';
   allowRegister?: boolean;
   validFrom?: string;
   validTo?: string;
@@ -20,7 +21,9 @@ export interface DeptNode {
 interface DeptFormValues {
   name: string;
   parentId?: string;
-  /** 是否开放学员自助注册（只对班级有意义） */
+  /** group=容器班 / teaching=教学班 */
+  classKind?: 'group' | 'teaching';
+  /** 是否开放学员自助注册（只对 teaching 班有意义） */
   allowRegister?: boolean;
   validity?: [Dayjs, Dayjs] | undefined;
 }
@@ -42,7 +45,7 @@ function collectSubtreeIds(node: DeptNode): string[] {
 /** 编辑时上级不能选自己或自己的子孙，否则后端会以「成环」拒绝 */
 function toParentTree(nodes: DeptNode[], exclude: Set<string>): { value: string; title: string; children?: any[] }[] {
   return nodes
-    .filter((node) => !exclude.has(node.id))
+    .filter((node) => !exclude.has(node.id) && node.classKind === 'group')
     .map((node) => ({
       value: node.id,
       title: node.name || '(未命名)',
@@ -78,13 +81,19 @@ export default function ClassSettingsModal({
 }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<DeptFormValues>();
+  const classKind = Form.useWatch<string>('classKind', form);
   const [saving, setSaving] = useState(false);
+  /** 全局注册总闸：关着时班级的「开放注册」置灰 */
+  const [globalRegisterEnabled, setGlobalRegisterEnabled] = useState(true);
   /** 删除统一走 DeleteDeptDialog（预检子组/成员，成员二选一：移出或迁移） */
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setDeleteOpen(false);
+    getSystem()
+      .then((sys) => setGlobalRegisterEnabled(sys?.registerInfo?.registerEnabled !== false))
+      .catch(() => setGlobalRegisterEnabled(true));
   }, [open]);
 
   useEffect(() => {
@@ -94,6 +103,7 @@ export default function ClassSettingsModal({
       form.setFieldsValue({
         name: node.name || '',
         parentId: parentInTree ? node.parentId : undefined,
+        classKind: node.classKind || 'teaching',
         allowRegister: Boolean(node.allowRegister),
         validity:
           node.validFrom || node.validTo
@@ -107,6 +117,7 @@ export default function ClassSettingsModal({
       form.setFieldsValue({
         name: '',
         parentId: defaultParentId,
+        classKind: 'teaching',
         allowRegister: false,
         validity: undefined,
       });
@@ -130,7 +141,8 @@ export default function ClassSettingsModal({
     const payload = {
       name: values.name.trim(),
       parentId: values.parentId || undefined,
-      allowRegister: Boolean(values.allowRegister),
+      classKind: values.classKind || 'teaching',
+      allowRegister: values.classKind === 'group' ? false : Boolean(values.allowRegister),
       validFrom: from ? from.startOf('day').toISOString() : null,
       validTo: to ? to.endOf('day').toISOString() : null,
     };
@@ -179,7 +191,24 @@ export default function ClassSettingsModal({
           <Input placeholder="例如：2025 级护理 1 班" maxLength={64} autoComplete="off" />
         </Form.Item>
 
-        <Form.Item name="parentId" label="上级班级" extra="留空表示放在根级">
+        <Form.Item
+          name="classKind"
+          label="节点类型"
+          extra="容器班只做层级；教学班才能收学员、开放注册、分配考试/题库"
+          rules={[{ required: true, message: '请选择节点类型' }]}
+        >
+          <Select
+            options={[
+              { value: 'teaching', label: '教学班（真实班级，可收学员）' },
+              { value: 'group', label: '容器班（只做层级，不收学员）' },
+            ]}
+            onChange={(value: string) => {
+              if (value === 'group') form.setFieldValue('allowRegister', false);
+            }}
+          />
+        </Form.Item>
+
+        <Form.Item name="parentId" label="上级班级" extra="只能选择容器班；教学班是叶子，不能再挂子班">
           <TreeSelect
             allowClear
             showSearch
@@ -195,10 +224,30 @@ export default function ClassSettingsModal({
           name="allowRegister"
           label="开放注册"
           valuePropName="checked"
-          extra="开启后，学员注册页会出现这个班级；注册的学员需要审核通过后才能登录"
+          extra={
+            !globalRegisterEnabled
+              ? '管理员未开启全局注册，暂时不能开放；请先在系统设置里打开'
+              : classKind === 'group'
+                ? '容器班只做层级，不能开放注册；请到具体教学班开放'
+                : '开启后，学员注册页会出现这个班级；注册学员需要审核通过后才能登录'
+          }
         >
-          <Switch checkedChildren="开放" unCheckedChildren="关闭" />
+          <Switch
+            checkedChildren="开放"
+            unCheckedChildren="关闭"
+            disabled={!globalRegisterEnabled || classKind === 'group'}
+          />
         </Form.Item>
+
+        {!globalRegisterEnabled && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 14 }}
+            message="全局注册已关闭"
+            description="班级的「开放注册」不会生效，登录页也不会显示注册入口。请联系管理员在「系统设置 → 登录与注册」里打开。"
+          />
+        )}
 
         <Form.Item name="validity" label="班级有效期" extra="留空表示永久有效">
           <DatePicker.RangePicker style={{ width: '100%' }} allowEmpty={[true, true]} />

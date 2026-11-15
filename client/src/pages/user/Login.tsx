@@ -3,8 +3,8 @@ import { Button, Form, Input, message } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
-import { getCurrentUser, getSystem, login } from '../../api';
-import type { SystemInfo } from '../../api';
+import { get, getCurrentUser, getSystem, login } from '../../api';
+import type { RegisterOptions, SystemInfo } from '../../api';
 import { notifyAuthChanged } from '../../auth/permissions';
 import { encryptPassword } from '../../utils/crypto';
 import { t } from '../../i18n';
@@ -16,6 +16,7 @@ function versionTag(version?: string) {
 
 export default function Login() {
   const [system, setSystem] = useState<SystemInfo>();
+  const [registerOptions, setRegisterOptions] = useState<RegisterOptions>();
   const [loading, setLoading] = useState(false);
   const [captchaVerification, setCaptchaVerification] = useState<string>();
   // 登录失败时后端已消费验证码，换 key 让滑块重新拉一张
@@ -27,6 +28,10 @@ export default function Login() {
     getSystem()
       .then(setSystem)
       .catch(() => message.error('系统信息加载失败，请确认后端已启动'));
+    // 注册入口只在「全局开 + 至少一个教学班开放」时显示；这里静默失败，不阻塞登录
+    get<RegisterOptions>('/api/public/registerOptions')
+      .then(setRegisterOptions)
+      .catch(() => setRegisterOptions(undefined));
   }, []);
 
   const onFinish = async (values: { username: string; password: string }) => {
@@ -159,7 +164,7 @@ export default function Login() {
             >
               {t('pages.login.submit', '登录')}
             </Button>
-            {system?.registerInfo?.registerEnabled && (
+            {registerOptions?.enabled && (
               <div style={{ marginTop: 12, textAlign: 'center', fontSize: 12 }}>
                 还没有账号？
                 <LinkAction onClick={() => navigate('/user/register')} style={{ marginLeft: 4 }}>

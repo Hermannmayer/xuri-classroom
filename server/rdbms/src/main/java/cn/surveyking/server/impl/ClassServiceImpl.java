@@ -202,7 +202,10 @@ public class ClassServiceImpl implements ClassService {
 		request.setRoleIds(null);
 		String classKind = request.getClassKind() == null ? classKindOf(current) : normalizeClassKind(request.getClassKind());
 		request.setClassKind(classKind);
-		assertRegisterAllowedForClassKind(classKind, request.getAllowRegister());
+		// 只有「从关到开」才校验全局/权限；全局关闭期间已有班级保持开启不会被改名请求误拦
+		boolean turningOnRegister = Boolean.TRUE.equals(request.getAllowRegister())
+				&& !Boolean.TRUE.equals(current.getAllowRegister());
+		assertRegisterAllowedForClassKind(classKind, turningOnRegister ? Boolean.TRUE : null);
 		if (Dept.CLASS_KIND_GROUP.equals(classKind)) {
 			request.setAllowRegister(false);
 		}

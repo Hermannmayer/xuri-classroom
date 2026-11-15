@@ -239,8 +239,8 @@ public class TeachingApi {
 	/** 兼报班移出本班（不删账号）；主班不能走这里 */
 	@PostMapping("/classes/member/remove-extra")
 	@PreAuthorize("hasAuthority('class:member:assign') or hasRole('admin')")
-	public void removeExtraClassMember(@RequestParam String deptId, @RequestParam String userId) {
-		classService.removeExtraClassMember(deptId, userId);
+	public void removeExtraClassMember(@RequestBody ClassMemberUpdateRequest request) {
+		classService.removeExtraClassMember(request.getDeptId(), request.getId());
 	}
 
 	/** 某班已分配的老师；同时用于「是否能看到分配入口」的判断 */

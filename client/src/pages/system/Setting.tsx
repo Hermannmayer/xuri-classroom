@@ -23,6 +23,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
 import { WATERMARK_EVENT } from '../../components/Watermark';
 import type { WatermarkMode } from '../../components/Watermark';
+import type { RegisterOptions } from '../../api';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 /** 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏） */
@@ -106,6 +107,8 @@ export default function SystemSetting() {
   const [saving, setSaving] = useState<TabKey>();
   const [uploading, setUploading] = useState(false);
   const [roleOptions, setRoleOptions] = useState<Role[]>([]);
+  /** 已开放注册的教学班数量：全局开但为 0 时提示老师去开班级 */
+  const [openClassCount, setOpenClassCount] = useState(0);
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
   const logo = Form.useWatch<string | undefined>('avatar', form);
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
@@ -144,14 +147,16 @@ export default function SystemSetting() {
   }, []);
 
   const load = useCallback(async () => {
-    const [sys, ai, roleRes] = await Promise.all([
+    const [sys, ai, roleRes, registerOptions] = await Promise.all([
       getSystem(),
       get<AiSetting>('/api/system/aiSetting').catch(() => ({}) as AiSetting),
       get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 }).catch(
         (): { list?: Role[] } => ({ list: [] }),
       ),
+      get<RegisterOptions>('/api/public/registerOptions').catch(() => undefined),
     ]);
     setRoleOptions(roleRes?.list ?? []);
+    setOpenClassCount(registerOptions?.classes?.length ?? 0);
     const anonymous = (sys?.setting ?? {}) as unknown as AnonymousCleanupSetting;
     setLastCleanupAt(anonymous.anonymousLastCleanupAt);
     setLastCleanupCount(anonymous.anonymousLastCleanupCount);
@@ -163,7 +168,7 @@ export default function SystemSetting() {
       recordNum: sys?.setting?.recordNum,
       favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
-      registerEnabled: Boolean(sys?.registerInfo?.registerEnabled),
+      registerEnabled: sys?.registerInfo?.registerEnabled !== false,
       // 注册默认角色存的是角色 id；没配置时是空数组
       roles: sys?.registerInfo?.roles ?? [],
       // 缺省与后端一致：开启 + 90 天；只有显式 false 才关闭
@@ -477,12 +482,21 @@ export default function SystemSetting() {
                     </Form.Item>
                     <Form.Item
                       name="registerEnabled"
-                      label="开放注册"
+                      label="开放注册（全局总闸）"
                       valuePropName="checked"
-                      extra="关闭后只能由管理员在用户管理里创建账号"
+                      extra="总闸；关闭后所有班级的开放注册都不生效，登录页不显示注册入口。老师还需要在班级设置里打开具体教学班"
                     >
                       <Switch checkedChildren="开启" unCheckedChildren="关闭" />
                     </Form.Item>
+                    {registerEnabled && openClassCount === 0 && (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="全局已开启，但还没有班级开放注册"
+                        description="学员登录页不会显示「注册」入口。请让班主任/管理员在「班级管理 → 选中教学班 → 班级设置 → 开放注册」里打开至少一个班。"
+                      />
+                    )}
                     <Form.Item
                       name="roles"
                       label="注册默认角色"

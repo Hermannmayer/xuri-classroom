@@ -37,6 +37,21 @@ export interface SystemInfo {
   oauthProviders?: Record<string, boolean>;
 }
 
+/** 注册页可选的教学班 */
+export interface RegisterClass {
+  id: string;
+  name?: string;
+  path?: string;
+}
+
+/** /api/public/registerOptions：登录页只有 enabled=true 才显示「注册」 */
+export interface RegisterOptions {
+  globalEnabled: boolean;
+  enabled: boolean;
+  reason?: string | null;
+  classes?: RegisterClass[];
+}
+
 export interface Authority {
   authority?: string;
 }

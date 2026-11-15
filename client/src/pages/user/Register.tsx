@@ -4,14 +4,7 @@ import { Alert, Button, Card, Form, Input, message, Select, Spin, Tag } from 'an
 import { ArrowLeftOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { get, post } from '../../api';
-import type { SystemInfo } from '../../api';
-
-/** 与后端 RegisterClassView 对齐：只返回开启了「开放注册」的班级 */
-interface RegisterClass {
-  id: string;
-  name?: string;
-  path?: string;
-}
+import type { RegisterOptions, SystemInfo } from '../../api';
 
 /** 注册成功后的回执：不再立刻跳走，先让学员看清「等谁审核、用什么登录」 */
 interface SubmittedInfo {
@@ -29,24 +22,26 @@ interface SubmittedInfo {
 export default function Register() {
   const navigate = useNavigate();
   const [system, setSystem] = useState<SystemInfo>();
-  const [classes, setClasses] = useState<RegisterClass[]>([]);
+  const [options, setOptions] = useState<RegisterOptions>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState<SubmittedInfo>();
   const [form] = Form.useForm<{ classId: string; phone: string; name: string; password: string; confirm: string }>();
 
-  const enabled = Boolean(system?.registerInfo?.registerEnabled);
+  const classes = options?.classes ?? [];
+  const globalEnabled = options?.globalEnabled === true;
+  const enabled = options?.enabled === true;
 
   useEffect(() => {
     let alive = true;
     Promise.all([
       get<SystemInfo>('/api/system').catch(() => undefined),
-      get<RegisterClass[]>('/api/public/registerClasses').catch(() => [] as RegisterClass[]),
+      get<RegisterOptions>('/api/public/registerOptions').catch(() => undefined),
     ])
-      .then(([sys, list]) => {
+      .then(([sys, opts]) => {
         if (!alive) return;
         setSystem(sys);
-        setClasses(Array.isArray(list) ? list : []);
+        setOptions(opts);
       })
       .finally(() => alive && setLoading(false));
     return () => {
@@ -107,7 +102,7 @@ export default function Register() {
         </div>
         <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>REGISTER / 学员注册</div>
         <div className="bp-title" style={{ fontSize: 18, margin: '6px 0 6px' }}>
-          注册新账号
+          {system?.name || '注册新账号'}
         </div>
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 18 }}>
           注册后由老师审核；审核通过前不能登录。
@@ -151,13 +146,13 @@ export default function Register() {
     );
   }
 
-  if (!enabled) {
+  if (!globalEnabled) {
     return shell(
       <Alert
         type="warning"
         showIcon
         message="当前系统未开放注册"
-        description="请联系班主任或管理员直接开通账号。"
+        description="管理员关闭了全局注册；请联系班主任或管理员直接开通账号。"
         action={
           <Button size="small" onClick={() => navigate('/user/login')}>
             去登录
@@ -167,13 +162,13 @@ export default function Register() {
     );
   }
 
-  if (classes.length === 0) {
+  if (!enabled || classes.length === 0) {
     return shell(
       <Alert
         type="warning"
         showIcon
         message="当前没有班级开放注册"
-        description="请联系班主任或管理员，在「班级设置 → 开放注册」里打开一个班级后再注册。"
+        description="全局注册已开启，但还没有教学班开放注册；请联系班主任或管理员在「班级设置 → 开放注册」里打开一个班。"
         action={
           <Button size="small" onClick={() => navigate('/user/login')}>
             去登录
