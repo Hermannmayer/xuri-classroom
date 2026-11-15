@@ -69,7 +69,8 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 
 - 匿名收集、需要登录、凭密码、白名单、回收上限、每 IP 限次、每台设备限次、回收截止时间。
 - 答题页按题型自动选择「一页一题」或「瀑布流」；题目**逐题下发**，一次请求拿不到整卷。
-- 交卷后立即出成绩单；主观题标注「待人工评分」，不假装已经判过。
+- **问卷默认不判分**：不显示分值、正确答案、成绩单、排名和正确率；计分作为项目级开关，问卷也可以手动开启，开启后才按考试规则判分。
+- 问卷数据看板提供已开始、已提交、完成率、匿名答卷数、平均填写时长、选项分布和文本答案聚合。
 
 ### 题库
 
@@ -86,7 +87,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 ### 数据与统计
 
 - 答卷列表、逐份查看、按条件筛选、导出 Excel、批量评分。
-- 每日收集趋势、单题正确率与选项分布，分析并入数据页，不再单独开一个入口。
+- 每日收集趋势、单题正确率与选项分布；问卷只看收集指标和选项分布，开启计分后才看正确率，分析并入数据页，不再单独开一个入口。
 
 ### 账号与权限
 
@@ -182,6 +183,47 @@ docker compose -f docker-compose.release.yml up -d
 
 ---
 
+## 更新方式
+
+> 更新前先备份数据库和附件目录；升级只跑增量迁移，**不要对已有数据的库执行 `init-mysql.sql`**。
+
+### 标准安装包更新
+
+1. 停服务（Windows `stop.cmd`；Linux `sudo systemctl stop xuri-classroom`；Docker `docker compose down`）。
+2. 备份数据库和附件目录。
+3. 解压新版本安装包，保留原 `data/`、`config/` 或 `.env`。
+4. 启动服务；应用启动时会自动执行 `db/migration/V*.sql` 中缺失的迁移。
+5. 打开 `/api/system` 确认版本号，再抽查登录、考试列表和一份答卷。
+6. 出问题按 [版本与升级](docs/deploy/versioning.md) 回滚到上一份备份/上一版安装包。
+
+### 本地开发 + NAS 运行副本更新
+
+本仓库的 NAS 部署使用「本地仓库 → 裸仓库 → 运行副本」的方式：
+
+```bash
+# 1. 本地提交并做发布前检查
+npm run check
+npm run build
+python scripts/release/check_schema.py
+npm run docs:check
+
+# 2. 推送到 NAS 裸仓库
+git push nas main
+
+# 3. NAS 上同步运行副本并重载后端
+ssh Home@192.168.0.2
+cd /vol2/1000/xuri/src/work
+git fetch origin && git reset --hard origin/main
+XURI_SRC=/vol2/1000/xuri/src/work bash scripts/nas/live-reload.sh
+```
+
+- `live-reload.sh` 会编译后端、替换 `app.jar` 并重启 `xuri-live-app`；后端启动时自动跑迁移。
+- 前端由 `xuri-live-web-watch` 常驻构建；只改 `client/**` 时保存后会自动重建。若改了 `client/package.json` 或 `package-lock.json`，需要重启 watcher 让它重新 `npm ci`：`docker restart xuri-live-web-watch`。
+- 更新后验证：`/api/system` 版本号、登录页、项目列表、答题页、数据页；涉及权限/班级的改动再抽查一个班级。
+- 回滚：`git revert` 后重新执行上面的推送/重载；数据库迁移只做加表/加列/加索引，旧版本可继续运行。
+
+---
+
 ## 数据与备份
 
 - **数据只有两样：数据库 + 附件目录。**
@@ -225,3 +267,12 @@ docker compose -f docker-compose.release.yml up -d
 ## 许可
 
 本项目采用 MIT 协议，详见 [LICENSE](LICENSE)。
+
+---
+
+## 说明
+
+后端代码部分来自卷王开源版本 SurveyKing，感谢原作者的开源工作：
+
+- [javahuang/SurveyKing](https://github.com/javahuang/SurveyKing)
+- [SurveyKing 开源版介绍](https://www.surveykingpro.cn/en/open-source/update/)
