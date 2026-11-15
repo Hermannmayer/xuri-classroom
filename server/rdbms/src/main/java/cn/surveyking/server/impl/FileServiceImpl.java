@@ -648,8 +648,11 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			headers.putAll(query.getHeaders());
 		}
 		headers.add("X-Content-Type-Options", "nosniff");
-		headers.add("Content-Security-Policy", "default-src 'none'; sandbox");
 		boolean safeInline = query.getDispositionType() == AppConsts.DispositionTypeEnum.inline && isSafeInline(file);
+		if (safeInline && isSupportImage(file.getOriginalName())) {
+			// 图片响应再补一层 CSP；PDF/下载文件不加 sandbox，避免影响内置阅读器
+			headers.add("Content-Security-Policy", "default-src 'none'; sandbox");
+		}
 		MediaType responseMediaType = safeInline ? mediaType.orElse(MediaType.APPLICATION_OCTET_STREAM)
 				: MediaType.APPLICATION_OCTET_STREAM;
 		String contentDisposition = safeInline ? AppConsts.DispositionTypeEnum.inline.name()
