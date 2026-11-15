@@ -1,6 +1,7 @@
 import BackButton from '../../components/BackButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   AutoComplete,
   Button,
   Card,
@@ -196,6 +197,7 @@ export default function SurveyOverview() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
+  const isSurvey = project?.mode === 'survey';
   const canEdit = can(authorities ?? [], PERMISSION_CODES.projectUpdate);
   const canPublish = can(authorities ?? [], PERMISSION_CODES.projectPublish);
   const canViewAnswers = can(authorities ?? [], PERMISSION_CODES.answerList);
@@ -592,6 +594,16 @@ export default function SurveyOverview() {
         )}
       </div>
 
+      {isSurvey && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 14 }}
+          message="当前是问卷模式：不判分，不显示成绩单、排名和答案解析"
+          description="用「回收限制」控制收集范围与截止时间；用「答题显示」控制填写体验。需要考试判分请新建考试项目。"
+        />
+      )}
+
       <Form
         form={form}
         layout="vertical"
@@ -735,8 +747,8 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ③ 题型分值：按题型统一改所有题的分值，不用逐题设置 */}
-          <Col xs={24} lg={12}>
+          {/* ③ 题型分值：按题型统一改所有题的分值，不用逐题设置（问卷不判分，不展示） */}
+          {!isSurvey && <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('SCORE', '题型分值')}
@@ -825,7 +837,7 @@ export default function SurveyOverview() {
                 </Space>
               )}
             </Card>
-          </Col>
+          </Col>}
 
           {/* ④ 答题显示（「自动暂存」取代旧概述页的「自动保存」，只此一处） */}
           <Col xs={24} lg={12}>
@@ -850,7 +862,7 @@ export default function SurveyOverview() {
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
-              title={cardTitle('COLLECT', '回收限制')}
+              title={cardTitle('COLLECT', isSurvey ? '问卷收集' : '回收限制')}
               style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
@@ -905,8 +917,8 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ⑤ 考试控制（「交卷后显示排名」取代投放里的「显示排名」，只此一处） */}
-          <Col xs={24} lg={12}>
+          {/* ⑤ 考试控制（问卷模式不展示） */}
+          {!isSurvey && <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('EXAM', '考试控制')}
@@ -952,13 +964,13 @@ export default function SurveyOverview() {
                 {switchItem('favoriteEnabled', '允许收藏题目')}
               </Row>
             </Card>
-          </Col>
+          </Col>}
 
           {/* ⑥ 投放与分享：链接/二维码 + 发布状态（取代旧概述页的「开启收集」） */}
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
-              title={cardTitle('PUBLISH', '投放与分享')}
+              title={cardTitle('PUBLISH', isSurvey ? '问卷投放' : '投放与分享')}
               style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
@@ -1016,8 +1028,8 @@ export default function SurveyOverview() {
                 {canPublish &&
                   switchItem('status', '发布状态', '开启后任何人可通过链接作答；关闭后答题链接打不开')}
                 {switchItem('enableUpdate', '允许修改答案')}
-                {switchItem('transcriptVisible', '显示成绩单')}
-                {switchItem('answerAnalysis', '显示答案解析')}
+                {!isSurvey && switchItem('transcriptVisible', '显示成绩单')}
+                {!isSurvey && switchItem('answerAnalysis', '显示答案解析')}
                 <Col xs={24} md={12}>
                   <Form.Item name="redirectUrl" label="完成跳转">
                     <Input placeholder="https://…（选填）" allowClear />

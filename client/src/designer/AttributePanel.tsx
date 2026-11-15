@@ -13,6 +13,8 @@ export interface AttributePanelProps {
   questions?: FlatQuestion[];
   /** 改非 attribute 的节点字段（选项等），由设计器传入 patchNode */
   onPatchNode?: (patch: Partial<SurveySchema>) => void;
+  /** 是否显示分值/正确答案/解析；问卷默认关闭 */
+  scoring?: boolean;
 }
 
 const ITEM_STYLE = { marginBottom: 12 };
@@ -21,7 +23,7 @@ const ITEM_STYLE = { marginBottom: 12 };
  * 数据驱动的属性面板：字段全部来自 attributeSchema，按 group 折叠。
  * 值直接取自 schema.attribute（受控），不另建表单状态，避免与设计器其它入口互相覆盖。
  */
-export function AttributePanel({ schema, onChange, questions, onPatchNode }: AttributePanelProps) {
+export function AttributePanel({ schema, onChange, questions, onPatchNode, scoring = true }: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
   const choiceTypes = new Set(['Radio', 'Checkbox', 'Judge', 'Select']);
   const isChoice = choiceTypes.has(schema.type);
@@ -224,7 +226,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
       {onPatchNode && MATRIX_TYPES.has(schema.type) && <MatrixEditor schema={schema} onPatch={onPatchNode} />}
 
       <Form layout="vertical" size="small" requiredMark={false}>
-        {isChoice ? (
+        {scoring && isChoice ? (
           <Form.Item label="正确答案" extra="选择题答案存在选项节点上，选中后画布/打印/判分都按它来" style={ITEM_STYLE}>
             <Select
               mode={isMultiChoice ? 'multiple' : undefined}
@@ -237,7 +239,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
               options={answerOptions}
             />
           </Form.Item>
-        ) : isMultipleBlank ? (
+        ) : scoring && isMultipleBlank ? (
           <Form.Item label="正确答案（逐空）" style={ITEM_STYLE}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {(schema.children ?? []).map((child, index) => (
@@ -250,7 +252,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
               ))}
             </div>
           </Form.Item>
-        ) : (
+        ) : scoring ? (
           <Form.Item label="正确答案" style={ITEM_STYLE}>
             <Input
               value={answerText}
@@ -258,29 +260,33 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
               onChange={(e) => patchTextAnswer(e.target.value)}
             />
           </Form.Item>
-        )}
+        ) : null}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Form.Item label="必填" style={{ marginBottom: 12 }}>
             <Switch checked={Boolean(attribute.required)} onChange={(checked) => set('required', checked)} />
           </Form.Item>
-          <Form.Item label="分值" style={{ marginBottom: 12 }}>
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              step={0.5}
-              value={typeof attribute.examScore === 'number' ? attribute.examScore : undefined}
-              onChange={(value) => set('examScore', value ?? undefined)}
+          {scoring && (
+            <Form.Item label="分值" style={{ marginBottom: 12 }}>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                step={0.5}
+                value={typeof attribute.examScore === 'number' ? attribute.examScore : undefined}
+                onChange={(value) => set('examScore', value ?? undefined)}
+              />
+            </Form.Item>
+          )}
+        </div>
+        {scoring && (
+          <Form.Item label="答案解析" style={{ marginBottom: 12 }}>
+            <Input.TextArea
+              autoSize={{ minRows: 2, maxRows: 6 }}
+              value={(attribute.examAnalysis as string | undefined) ?? ''}
+              onChange={(e) => set('examAnalysis', e.target.value)}
             />
           </Form.Item>
-        </div>
-        <Form.Item label="答案解析" style={{ marginBottom: 12 }}>
-          <Input.TextArea
-            autoSize={{ minRows: 2, maxRows: 6 }}
-            value={(attribute.examAnalysis as string | undefined) ?? ''}
-            onChange={(e) => set('examAnalysis', e.target.value)}
-          />
-        </Form.Item>
+        )}
         <Collapse size="small" defaultActiveKey={[]} items={items} />
       </Form>
     </div>

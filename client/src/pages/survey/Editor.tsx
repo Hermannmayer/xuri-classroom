@@ -1098,9 +1098,11 @@ export default function SurveyEditor() {
                       patchAnswerSetting({ loginRequired: value }),
                     )}
                     <Space direction="vertical" style={{ width: '100%', marginTop: 10 }}>
-                      <Button block onClick={openScoreModal}>
-                        批量设置分值
-                      </Button>
+                      {setting.mode !== 'survey' && (
+                        <Button block onClick={openScoreModal}>
+                          批量设置分值
+                        </Button>
+                      )}
                       <Button block onClick={openRequireModal}>
                         批量设置必填
                       </Button>
@@ -1179,6 +1181,7 @@ export default function SurveyEditor() {
                       onChange={patchAttribute}
                       questions={candidateQuestions}
                       onPatchNode={patchNode}
+                      scoring={setting.mode !== 'survey'}
                     />
                   </>
                 ) : (
