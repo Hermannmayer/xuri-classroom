@@ -94,8 +94,9 @@ public class ProjectStatisticsService {
 		java.util.Map<String, ProjectClassAnonymousStatsView.ClassStat> classes = new java.util.LinkedHashMap<>();
 		for (java.util.Map<String, Object> row : rows) {
 			long count = row.get("cnt") == null ? 0 : ((Number) row.get("cnt")).longValue();
-			boolean anonymous = row.get("is_anonymous") != null
-					&& ((Number) row.get("is_anonymous")).intValue() == 1;
+			Object anonymousValue = row.get("is_anonymous");
+			boolean anonymous = anonymousValue instanceof Boolean ? (Boolean) anonymousValue
+					: anonymousValue != null && ((Number) anonymousValue).intValue() == 1;
 			String classId = row.get("class_id") == null ? null : String.valueOf(row.get("class_id"));
 			view.setTotal(view.getTotal() + count);
 			if (anonymous) {
