@@ -65,7 +65,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 5906c4675aa37566818c1ad30edc32d9fb2f3b21
+verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 ---
 
 # 考试编辑器与题型
@@ -166,7 +166,7 @@ verified_against: 5906c4675aa37566818c1ad30edc32d9fb2f3b21
 - **考试模式公开视图会剥答案**：如果自定义页面直接读 `/api/public/loadProject` 的 `survey` 找 `examCorrectAnswer`，在非练习模式下永远拿不到；这是防泄题，不是 bug。
 - **成绩单解析可能回退到项目 schema**：随机卷的历史快照可能已被剥掉正确答案，`loadExamResult` 只有在快照里确实有答案时才用快照，否则回退项目 schema。
 - **规则表达式分隔符敏感**：`buildExpression` 输出用 `" ,"` 连接；把分隔符改成 `","` 会让 `splitTopLevel` 解析出空参数，规则静默失效。
-- **`Remark` 的文字在 `attribute.content`**：设计器右侧「说明内容」用 `RichTextEditor` 编辑这个字段（不是 `title`/`description`）；渲染端 `DOMPurify.sanitize` 后 `dangerouslySetInnerHTML`。普通题的 `description` 也走同一个编辑器，保存时后端 `RichTextSanitizer` 再做白名单消毒；图片 src 只允许 `/api/public/preview/{id}`。`RichText` 题型目前只有枚举/导入类型，未注册编辑器与渲染组件，不要把它和 `Remark` 混用。
+- **`Remark` 的文字在 `attribute.content`**：设计器右侧「说明内容」用 `RichTextEditor` 编辑这个字段（不是 `title`/`description`）；渲染端 `DOMPurify.sanitize` 后 `dangerouslySetInnerHTML`。普通题的 `description` 也走同一个编辑器，保存时后端 `RichTextSanitizer` 再做白名单消毒；图片 src 只允许 `/api/public/preview/{id}`。`RichText` 是**答题者输入的富文本题**：编辑器支持字号/颜色/对齐/列表/缩进/链接/代码块/公式/题目引用/图片，答案按 HTML 字符串存，保存时 `AnswerScoringService` 再消毒；`Remark` 是只读展示题，两者不要混用。公式编辑态显示 LaTeX，阅读态由 `RichTextContent` 用 KaTeX 渲染。
 - **矩阵题行列标题**：`AttributePanel` 的矩阵编辑器维护 `schema.row` 与 `dataSource`/`children`；新增/删除行或列会同步选项节点，避免只改显示不改答案 key。
 - **题目描述图片安全**：编辑器上传后后端按魔数解码并重编码 JPEG/PNG/BMP/WBMP；图片响应禁止 MIME 嗅探并带 CSP；SVG 不在支持列表。
 - **`randomSurvey` 没有前端入口**：`ExamSetting.randomSurvey` 只能通过接口/直接改 JSON 配置；编辑器只提供 `randomSurveyWrong` 开关。

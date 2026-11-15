@@ -55,7 +55,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-15
-verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
+verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 ---
 
 # 任务中心、练习与错题本
@@ -68,6 +68,7 @@ verified_against: 1a0df00e02f1249c6647e232a3494874d9763492
 
 - 学员说"练习记录里没有我刚才做的练习"。
 - 要改"我的任务"的页签、练习进度、错题本筛选/标记。
+- 富文本题答案图片：答题态走 `/api/public/upload`，图片挂在本次答卷上下文；保存答案时后端消毒 HTML。
 - 学员说「练习记录和考试安排重复」：练习记录走 `/api/exercise/list`，只返回本人 `t_answer` 的 `exam_exercise_type` 非空记录；考试安排走 `/api/project/list?flat=true`。
 - 要改考试「禁止收藏题目」：`ProjectSetting.ExamSetting.favoriteEnabled`，默认 true；收藏接口在写 `t_user_book` 前校验。
 - 要确认"我的成绩"为什么没有某场考试，或分数/次数不对。
