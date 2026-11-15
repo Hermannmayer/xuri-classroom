@@ -62,7 +62,9 @@ docker run --rm -u 0:0 \
     set -e
     # build.gradle 会读仓库根的 VERSION（rootProject.file("../VERSION")），所以挂载仓库根而不是只挂 server
     gradle :api:bootJar -x test --no-daemon --console=plain
-    JAR=$(ls -1 api/build/libs/*.jar | grep -v -- "-plain" | head -1)
+    # 必须按修改时间取最新：api/build/libs 里会留着旧版本的 jar（2.0.0/1.13.0…），
+    # 按文件名排序的 head -1 会拿到旧包，导致「代码已更新、线上还是旧接口」。
+    JAR=$(ls -1t api/build/libs/*.jar | grep -v -- "-plain" | head -1)
     [ -n "$JAR" ] || { echo "没有产出 jar" >&2; exit 1; }
     cp -f "$JAR" /out/app.jar
     ls -l /out/app.jar
