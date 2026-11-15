@@ -5,6 +5,8 @@ import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.uitls.HTTPUtils;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
+import cn.surveyking.server.domain.dto.AddExistingStudentsRequest;
+import cn.surveyking.server.domain.dto.AddExistingStudentsResult;
 import cn.surveyking.server.domain.dto.AnswerQuery;
 import cn.surveyking.server.domain.dto.AnswerView;
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
@@ -21,6 +23,7 @@ import cn.surveyking.server.domain.dto.ClassResourceView;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
+import cn.surveyking.server.domain.dto.StudentClassAssignRequest;
 import cn.surveyking.server.domain.dto.TeachingClassView;
 import cn.surveyking.server.domain.dto.TeachingProjectView;
 import cn.surveyking.server.domain.dto.UserOptionView;
@@ -205,9 +208,39 @@ public class TeachingApi {
 
 	/** 审核通过：启用账号；body 里的 deptId 为空表示沿用注册时选的班级。 */
 	@PostMapping("/classes/pending-students/approve")
-	@PreAuthorize("hasAuthority('class:member:update') or hasRole('admin')")
+	@PreAuthorize("hasAuthority('class:member:approve') or hasRole('admin')")
 	public void approvePendingStudent(@RequestBody PendingStudentApproveRequest request) {
 		classService.approvePendingStudent(request);
+	}
+
+
+	/** 从其他班级添加学员时，源班候选名单（排除已在目标班的、待审核/停用的） */
+	@GetMapping("/classes/member/candidates")
+	@PreAuthorize("hasAuthority('class:member:assign') or hasRole('admin')")
+	public List<ClassMemberView> memberCandidates(@RequestParam String targetDeptId,
+			@RequestParam String sourceDeptId, @RequestParam(required = false) String keyword) {
+		return classService.listMemberCandidates(targetDeptId, sourceDeptId, keyword);
+	}
+
+	/** 把已有学员批量加入当前班作为兼报班；逐条跳过超限/已在班里的 */
+	@PostMapping("/classes/member/add-existing")
+	@PreAuthorize("hasAuthority('class:member:assign') or hasRole('admin')")
+	public AddExistingStudentsResult addExistingStudents(@RequestBody AddExistingStudentsRequest request) {
+		return classService.addExistingStudents(request);
+	}
+
+	/** 调整学员班级归属：1 个主班 + 最多 2 个兼报班 */
+	@PostMapping("/classes/member/assign")
+	@PreAuthorize("hasAuthority('class:member:assign') or hasRole('admin')")
+	public void assignStudentClasses(@RequestBody StudentClassAssignRequest request) {
+		classService.assignStudentClasses(request);
+	}
+
+	/** 兼报班移出本班（不删账号）；主班不能走这里 */
+	@PostMapping("/classes/member/remove-extra")
+	@PreAuthorize("hasAuthority('class:member:assign') or hasRole('admin')")
+	public void removeExtraClassMember(@RequestParam String deptId, @RequestParam String userId) {
+		classService.removeExtraClassMember(deptId, userId);
 	}
 
 	/** 某班已分配的老师；同时用于「是否能看到分配入口」的判断 */

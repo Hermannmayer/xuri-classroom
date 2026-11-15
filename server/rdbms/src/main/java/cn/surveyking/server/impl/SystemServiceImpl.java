@@ -92,6 +92,16 @@ public class SystemServiceImpl implements SystemService {
 		if (systemInfo.getOauthProviders() == null) {
 			systemInfo.setOauthProviders(new OAuthProviderAvailability());
 		}
+		// 注册总闸默认开启：老库没有 register_info / 缺字段时按「允许老师开放班级注册」处理；
+		// 管理员显式关掉（false）仍然生效。
+		if (systemInfo.getRegisterInfo() == null) {
+			SystemInfo.RegisterInfo registerInfo = new SystemInfo.RegisterInfo();
+			registerInfo.setRegisterEnabled(true);
+			systemInfo.setRegisterInfo(registerInfo);
+		}
+		else if (systemInfo.getRegisterInfo().getRegisterEnabled() == null) {
+			systemInfo.getRegisterInfo().setRegisterEnabled(true);
+		}
 		// 安全：GET /api/system 是公开接口，绝不能回显导出密码明文。
 		// 只告诉前端「是否已设置」，密码本身只在写入时使用。
 		if (systemInfo.getSetting() != null) {

@@ -188,7 +188,8 @@ CREATE TABLE `t_dept` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `parent_id` varchar(64) NOT NULL,
   `dept_type` varchar(16) NOT NULL DEFAULT 'org' COMMENT 'org=用户组(教职工) class=班级(学员)',
-  `allow_register` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=开放学员自助注册（只对班级有效）',
+  `class_kind` varchar(16) NOT NULL DEFAULT 'group' COMMENT 'group=容器班(只做层级) teaching=教学班(可收学员/开放注册/分资源)',
+  `allow_register` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=开放学员自助注册（只对 teaching 班有效）',
   `name` varchar(64) DEFAULT NULL COMMENT '名称',
   `short_name` varchar(64) NOT NULL COMMENT '简称',
   `code` varchar(64) DEFAULT NULL COMMENT '数据权限类型',
@@ -501,7 +502,7 @@ INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is
 -- 学员：答题、练习、错题本、看题库；没有 project:create/update 等管理权限，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:upload,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:upload,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
 ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
@@ -532,7 +533,7 @@ CREATE TABLE `t_sys_info` (
 -- Records of t_sys_info
 -- ----------------------------
 BEGIN;
-INSERT INTO `t_sys_info` (`id`, `name`, `description`, `avatar`, `locale`, `version`, `setting`, `ai_setting`, `oauth_setting`, `register_info`, `is_default`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '2.0.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":false,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
+INSERT INTO `t_sys_info` (`id`, `name`, `description`, `avatar`, `locale`, `version`, `setting`, `ai_setting`, `oauth_setting`, `register_info`, `is_default`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '2.0.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":true,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
 COMMIT;
 
 -- ----------------------------

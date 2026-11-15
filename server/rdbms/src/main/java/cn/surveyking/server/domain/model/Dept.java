@@ -25,13 +25,22 @@ public class Dept extends BaseModel {
 	/** 班级：学员的教学单位，不绑角色，只放 student */
 	public static final String TYPE_CLASS = "class";
 
+	/** 容器班：只做层级/可见范围，不收学员、不开放注册、不分配资源 */
+	public static final String CLASS_KIND_GROUP = "group";
+
+	/** 教学班：真实班级，可收学员、开放注册、分配考试/题库 */
+	public static final String CLASS_KIND_TEACHING = "teaching";
+
 	private String parentId;
 
 	/** org=用户组(教职工) class=班级(学员)；历史数据为空时按 org 处理 */
 	private String deptType;
 
-	/** 是否开放学员自助注册（只对 class 节点有意义；1=开放，0/空=不开放） */
+	/** 是否开放学员自助注册（只对 teaching 班有意义；1=开放，0/空=不开放） */
 	private Boolean allowRegister;
+
+	/** class 节点类型：group=容器班 / teaching=教学班；历史数据按 group 处理 */
+	private String classKind;
 
 	private String name;
 

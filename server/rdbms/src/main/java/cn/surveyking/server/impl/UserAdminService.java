@@ -147,6 +147,9 @@ public class UserAdminService {
 		if (targetDeptIds.isEmpty()) {
 			return;
 		}
+		if (student && targetDeptIds.size() > 3) {
+			throw new ValidationException("一个学员最多加入 3 个班（1 个主班 + 2 个兼报班）");
+		}
 		String expected = student ? Dept.TYPE_CLASS : Dept.TYPE_ORG;
 		String message = student ? "学员只能加入班级（class）" : "教职工只能加入用户组（org）";
 		for (Dept dept : deptMapper.selectBatchIds(targetDeptIds)) {
@@ -156,6 +159,9 @@ public class UserAdminService {
 			String actual = Dept.TYPE_CLASS.equals(dept.getDeptType()) ? Dept.TYPE_CLASS : Dept.TYPE_ORG;
 			if (!expected.equals(actual)) {
 				throw new ValidationException(message);
+			}
+			if (student && !Dept.CLASS_KIND_TEACHING.equals(dept.getClassKind())) {
+				throw new ValidationException("学员只能加入教学班（teaching），不能加入容器班");
 			}
 		}
 	}

@@ -108,6 +108,16 @@ public class UserApi {
 		return userService.getRegisterClasses();
 	}
 
+	/**
+	 * 注册入口可用性：登录页只有 enabled=true 才显示「注册」。
+	 *
+	 * <p>全局总闸开 + 至少一个教学班开放注册时才可用；reason 用于注册页提示。
+	 */
+	@GetMapping("/public/registerOptions")
+	public RegisterOptionsView getRegisterOptions() {
+		return userService.getRegisterOptions();
+	}
+
 	@GetMapping("/currentUser")
 	@PreAuthorize("isAuthenticated()")
 	public UserInfo currentUser() {

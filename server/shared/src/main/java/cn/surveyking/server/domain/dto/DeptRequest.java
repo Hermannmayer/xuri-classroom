@@ -19,8 +19,11 @@ public class DeptRequest {
 	 */
 	private String deptType;
 
-	/** 是否开放学员自助注册（只对班级有意义） */
+	/** 是否开放学员自助注册（只对 teaching 班有意义） */
 	private Boolean allowRegister;
+
+	/** group=容器班 / teaching=教学班；不传时新建班级默认 teaching，用户组忽略 */
+	private String classKind;
 
 	private String name;
 

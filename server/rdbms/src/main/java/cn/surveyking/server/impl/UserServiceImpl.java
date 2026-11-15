@@ -176,7 +176,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	public void register(RegisterRequest request) {
 		SystemInfo systemInfo = systemService.getSystemInfo();
 		SystemInfo.RegisterInfo registerInfo = systemInfo.getRegisterInfo();
-		if (registerInfo == null || !Boolean.TRUE.equals(registerInfo.getRegisterEnabled())) {
+		if (registerInfo == null) {
+			registerInfo = new SystemInfo.RegisterInfo();
+			registerInfo.setRegisterEnabled(true);
+		}
+		if (Boolean.FALSE.equals(registerInfo.getRegisterEnabled())) {
 			throw new ErrorCodeException(ErrorCode.RegisterError);
 		}
 		// 注册账号 = 手机号：与班级管理里建学员保持同一套口径，避免「账号和手机号不是同一个」
@@ -209,6 +213,9 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (registerDept == null || !Dept.TYPE_CLASS.equals(registerDept.getDeptType())) {
 			throw new ValidationException("请选择要注册的班级");
 		}
+		if (!Dept.CLASS_KIND_TEACHING.equals(registerDept.getClassKind())) {
+			throw new ValidationException("只能注册到教学班，请重新选择");
+		}
 		if (!Boolean.TRUE.equals(registerDept.getAllowRegister())) {
 			throw new ValidationException("该班级未开放注册，请重新选择");
 		}
@@ -233,8 +240,31 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 
 	@Override
 	public List<RegisterClassView> getRegisterClasses() {
+		return getRegisterOptions().getClasses();
+	}
+
+	@Override
+	public RegisterOptionsView getRegisterOptions() {
+		RegisterOptionsView options = new RegisterOptionsView();
+		SystemInfo.RegisterInfo registerInfo = systemService.getSystemInfo().getRegisterInfo();
+		boolean globalEnabled = registerInfo == null || !Boolean.FALSE.equals(registerInfo.getRegisterEnabled());
+		options.setGlobalEnabled(globalEnabled);
+		List<RegisterClassView> classes = globalEnabled ? loadOpenRegisterClasses() : Collections.emptyList();
+		options.setClasses(classes);
+		options.setEnabled(globalEnabled && !classes.isEmpty());
+		if (!globalEnabled) {
+			options.setReason("GLOBAL_OFF");
+		}
+		else if (classes.isEmpty()) {
+			options.setReason("NO_CLASS_OPEN");
+		}
+		return options;
+	}
+
+	private List<RegisterClassView> loadOpenRegisterClasses() {
 		List<Dept> classes = deptMapper.selectList(Wrappers.<Dept>lambdaQuery()
-				.eq(Dept::getDeptType, Dept.TYPE_CLASS).eq(Dept::getAllowRegister, true)
+				.eq(Dept::getDeptType, Dept.TYPE_CLASS).eq(Dept::getClassKind, Dept.CLASS_KIND_TEACHING)
+				.eq(Dept::getAllowRegister, true)
 				.orderByAsc(Dept::getSortCode).orderByAsc(Dept::getCreateAt));
 		if (classes.isEmpty()) {
 			return Collections.emptyList();

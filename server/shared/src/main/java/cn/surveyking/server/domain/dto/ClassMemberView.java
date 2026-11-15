@@ -27,6 +27,25 @@ public class ClassMemberView {
 
 	private String deptName;
 
+	/** 主班 id/名称（主班是 t_user.dept_id） */
+	private String primaryDeptId;
+
+	private String primaryDeptName;
+
+	/** 兼报班（t_user_dept，不含主班，最多 2 个） */
+	private List<String> extraDeptIds;
+
+	private List<String> extraDeptNames;
+
+	/** 当前行所在班是否就是主班 */
+	private Boolean primary;
+
+	/** 当前学员一共加入几个班（主班 + 兼报班） */
+	private Integer classCount;
+
+	/** 当前登录人能否调整这个学员的班级归属 */
+	private Boolean canAssign;
+
 	private String phone;
 
 	private String email;

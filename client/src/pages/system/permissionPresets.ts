@@ -39,6 +39,9 @@ const WRITE_ACTIONS = new Set([
   'publish',
   'partner',
   'restore',
+  'register',
+  'approve',
+  'assign',
 ]);
 /**
  * 这些串整体是「基础能力」，最后一个词恰好会命中上面的动词表：
@@ -96,6 +99,9 @@ export const PERMISSION_MENU: Record<string, string> = {
   [PERMISSION_CODES.repoPractice]: '题库中心 / 开始练习',
   [PERMISSION_CODES.classList]: '班级管理',
   [PERMISSION_CODES.classGrant]: '班级管理 / 分配老师',
+  [PERMISSION_CODES.classRegister]: '班级管理 / 班级设置 / 开放注册',
+  [PERMISSION_CODES.classMemberApprove]: '班级管理 / 待审核学员',
+  [PERMISSION_CODES.classMemberAssign]: '班级管理 / 成员 / 班级归属',
   [PERMISSION_CODES.systemUserList]: '系统管理 / 用户管理',
   [PERMISSION_CODES.systemDeptList]: '系统管理 / 用户组（有班级管理时合并）',
   [PERMISSION_CODES.systemRoleList]: '系统管理 / 系统设置、权限配置',

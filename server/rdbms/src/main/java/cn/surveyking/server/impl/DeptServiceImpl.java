@@ -11,6 +11,7 @@ import cn.surveyking.server.domain.dto.DeptView;
 import cn.surveyking.server.domain.dto.SelectDeptRequest;
 import cn.surveyking.server.domain.mapper.DeptDtoMapper;
 import cn.surveyking.server.domain.model.ClassPartner;
+import cn.surveyking.server.domain.model.ClassResource;
 import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.DeptRole;
 import cn.surveyking.server.domain.model.ProjectPartner;
@@ -160,10 +161,14 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		// 类型：不传默认 org（用户组）；只接受 org / class
 		String deptType = normalizeDeptType(request.getDeptType());
 		request.setDeptType(deptType);
+		String classKind = Dept.TYPE_CLASS.equals(deptType) ? normalizeClassKind(request.getClassKind()) : null;
+		request.setClassKind(classKind);
 		assertParentDeptType(request.getParentId(), deptType);
 		Dept dept = deptDtoMapper.fromRequest(request);
-		// 开放注册只对班级有意义；用户组一律强制关闭，避免脏配置出现在注册页
-		dept.setAllowRegister(Dept.TYPE_CLASS.equals(deptType) && Boolean.TRUE.equals(request.getAllowRegister()));
+		dept.setClassKind(classKind);
+		// 开放注册只对教学班有意义；用户组/容器班一律强制关闭，避免脏配置出现在注册页
+		dept.setAllowRegister(Dept.TYPE_CLASS.equals(deptType) && Dept.CLASS_KIND_TEACHING.equals(classKind)
+				&& Boolean.TRUE.equals(request.getAllowRegister()));
 		// 顶层节点（parent 为空）统一挂到 "0"；排序号也按这个真实父节点算，
 		// 否则老师建多个顶层班级时 sort_code 全是 0，班级树的顺序会不稳定
 		String parentId = StringUtils.isEmpty(request.getParentId()) ? ROOT_DEPT_PARENT_ID : request.getParentId();
@@ -195,9 +200,18 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		// 无论前端传什么，落库的 dept_type 永远是现有类型
 		request.setDeptType(currentType);
 		assertParentPlacementAllowed(request.getId(), request.getParentId());
+		String currentKind = Dept.TYPE_CLASS.equals(currentType) ? classKindOf(current) : null;
+		String nextKind = Dept.TYPE_CLASS.equals(currentType)
+				? normalizeClassKind(request.getClassKind() != null ? request.getClassKind() : currentKind)
+				: null;
+		if (Dept.TYPE_CLASS.equals(currentType) && !Objects.equals(currentKind, nextKind)) {
+			assertClassKindChangeAllowed(current, currentKind, nextKind);
+		}
+		request.setClassKind(nextKind);
 		Dept update = deptDtoMapper.fromRequest(request);
-		// 用户组不能开放注册；班级不传 allowRegister 时显式沿用原值，别依赖 MyBatis 的 null 更新策略
-		if (Dept.TYPE_CLASS.equals(currentType)) {
+		update.setClassKind(nextKind);
+		// 用户组/容器班不能开放注册；教学班不传 allowRegister 时显式沿用原值
+		if (Dept.TYPE_CLASS.equals(currentType) && Dept.CLASS_KIND_TEACHING.equals(nextKind)) {
 			update.setAllowRegister(request.getAllowRegister() != null ? request.getAllowRegister()
 					: Boolean.TRUE.equals(current.getAllowRegister()));
 		}
@@ -531,6 +545,45 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		Dept parent = getById(parentId);
 		if (parent == null || !Objects.equals(deptTypeOf(parent), deptType)) {
 			throw new ValidationException("上级用户组/班级类型不一致");
+		}
+		// 班级树里只有容器班能做上级：教学班是叶子，不能再挂子班
+		if (Dept.TYPE_CLASS.equals(deptType) && !Dept.CLASS_KIND_GROUP.equals(classKindOf(parent))) {
+			throw new ValidationException("教学班下面不能再建子班，请选择容器班作为上级");
+		}
+	}
+
+	/** class_kind：空/非法值默认按 group；新建教学班时前端显式传 teaching */
+	private String normalizeClassKind(String value) {
+		return Dept.CLASS_KIND_GROUP.equalsIgnoreCase(value) ? Dept.CLASS_KIND_GROUP : Dept.CLASS_KIND_TEACHING;
+	}
+
+	/** 库里存的 class_kind：只有 teaching 是教学班，其余（含历史空值）按容器班解释 */
+	private String classKindOf(Dept dept) {
+		return dept != null && Dept.CLASS_KIND_TEACHING.equals(dept.getClassKind()) ? Dept.CLASS_KIND_TEACHING
+				: Dept.CLASS_KIND_GROUP;
+	}
+
+	/**
+	 * 容器班 ↔ 教学班互转的结构保护：
+	 * <ul>
+	 * <li>有子班的节点不能改成教学班（教学班必须是叶子）；</li>
+	 * <li>有学员（主班或兼报）、有班级资源、有子班的节点不能改成容器班（否则数据会“悬空”）。</li>
+	 * </ul>
+	 */
+	private void assertClassKindChangeAllowed(Dept current, String currentKind, String nextKind) {
+		boolean hasChildren = count(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, current.getId())
+				.eq(Dept::getDeptType, Dept.TYPE_CLASS)) > 0;
+		if (Dept.CLASS_KIND_TEACHING.equals(nextKind) && hasChildren) {
+			throw new ValidationException("这个节点下面还有班级，不能改成教学班；请先把子班移走");
+		}
+		if (Dept.CLASS_KIND_GROUP.equals(nextKind) && Dept.CLASS_KIND_TEACHING.equals(currentKind)) {
+			long students = userMapper.selectCount(Wrappers.<User>lambdaQuery().eq(User::getDeptId, current.getId()))
+					+ userDeptMapper.selectCount(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getDeptId, current.getId()));
+			long resources = classResourceMapper.selectCount(
+					Wrappers.<ClassResource>lambdaQuery().eq(ClassResource::getClassId, current.getId()));
+			if (students > 0 || resources > 0 || hasChildren) {
+				throw new ValidationException("这个班还有学员/资源/子班，不能改成容器班；请先清理后再改");
+			}
 		}
 	}
 

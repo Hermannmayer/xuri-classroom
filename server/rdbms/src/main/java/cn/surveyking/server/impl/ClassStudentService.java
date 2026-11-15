@@ -192,6 +192,9 @@ public class ClassStudentService {
 		if (!Dept.TYPE_CLASS.equals(dept.getDeptType())) {
 			throw new ValidationException("只能把学员加入班级");
 		}
+		if (!Dept.CLASS_KIND_TEACHING.equals(dept.getClassKind())) {
+			throw new ValidationException("只能把学员加入教学班（teaching），不能加入容器班");
+		}
 	}
 
 	/** 手机号必填 + 格式校验，返回去掉首尾空白的手机号 */

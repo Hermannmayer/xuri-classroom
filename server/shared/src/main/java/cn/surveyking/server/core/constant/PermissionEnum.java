@@ -88,6 +88,12 @@ public enum PermissionEnum {
 	CLASS_MEMBER_CREATE("class:member:create", "在班级中新增学员", Group.CLASS, "班主任在自己可见的班里添加学员账号"),
 	CLASS_MEMBER_UPDATE("class:member:update", "编辑班级学员", Group.CLASS, "改学员姓名/联系方式/状态、重置密码；不改角色与所属组"),
 	CLASS_MEMBER_DELETE("class:member:delete", "删除班级学员", Group.CLASS, "删除学员账号；管理员与班主任可用"),
+	CLASS_REGISTER("class:register", "开放班级注册", Group.CLASS,
+			"开放/关闭本班学员自助注册；只有教学班、且管理员开启全局注册时有效"),
+	CLASS_MEMBER_APPROVE("class:member:approve", "审核注册学员", Group.CLASS,
+			"通过自己注册的待审核学员；不改资料/密码，只启用账号"),
+	CLASS_MEMBER_ASSIGN("class:member:assign", "调整学员班级归属", Group.CLASS,
+			"设置主班与兼报班（1 个主班 + 最多 2 个兼报班）；只能操作自己有管理权限的班"),
 
 	/* ---------------------------------------------------------------- 文件 */
 

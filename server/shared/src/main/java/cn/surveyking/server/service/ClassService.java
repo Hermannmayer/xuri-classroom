@@ -1,5 +1,7 @@
 package cn.surveyking.server.service;
 
+import cn.surveyking.server.domain.dto.AddExistingStudentsRequest;
+import cn.surveyking.server.domain.dto.AddExistingStudentsResult;
 import cn.surveyking.server.domain.dto.ClassMemberCreateRequest;
 import cn.surveyking.server.domain.dto.ClassMemberImportRequest;
 import cn.surveyking.server.domain.dto.ClassMemberImportResult;
@@ -10,6 +12,7 @@ import cn.surveyking.server.domain.dto.ClassPartnerRequest;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
+import cn.surveyking.server.domain.dto.StudentClassAssignRequest;
 import cn.surveyking.server.domain.dto.UserOptionView;
 
 import java.util.List;
@@ -51,6 +54,9 @@ public interface ClassService {
 	 */
 	void assertVisible(String deptId);
 
+	/** 当前节点必须是教学班（class_kind=teaching），否则抛业务异常。 */
+	void assertTeaching(String deptId);
+
 	List<ClassMemberView> listClassMembers(String deptId);
 
 	List<ClassTeacherView> listClassTeachers(String deptId);
@@ -69,6 +75,18 @@ public interface ClassService {
 	void updateClassMember(ClassMemberUpdateRequest request);
 
 	void deleteClassMember(String deptId, String userId);
+
+	/** 把学员从兼报班移出（不删账号）；主班不能走这个接口。 */
+	void removeExtraClassMember(String deptId, String userId);
+
+	/** 从其他班级挑选已有学员时，源班的候选名单（排除已在目标班的）。 */
+	List<ClassMemberView> listMemberCandidates(String targetDeptId, String sourceDeptId, String keyword);
+
+	/** 把已有学员批量加入当前班作为兼报班；逐条跳过超限/已在班里的。 */
+	AddExistingStudentsResult addExistingStudents(AddExistingStudentsRequest request);
+
+	/** 调整学员班级归属：1 个主班 + 最多 2 个兼报班。 */
+	void assignStudentClasses(StudentClassAssignRequest request);
 
 	/**
 	 * 待审核学员：自己注册、账号尚未启用的学员。

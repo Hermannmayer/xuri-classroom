@@ -34,6 +34,9 @@ public class ClassNodeView {
 	/** 是否开放学员自助注册；班级设置弹窗回显用 */
 	private Boolean allowRegister;
 
+	/** group=容器班 / teaching=教学班；只有 teaching 能收学员/开放注册/分资源 */
+	private String classKind;
+
 	/** 组有效期（空=永久）；班级设置弹窗回显用 */
 	private java.util.Date validFrom;
 

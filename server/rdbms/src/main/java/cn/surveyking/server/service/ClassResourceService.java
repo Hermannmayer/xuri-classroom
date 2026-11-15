@@ -482,6 +482,7 @@ public class ClassResourceService {
 		if (!Dept.TYPE_CLASS.equals(dept.getDeptType())) {
 			throw new ValidationException("该用户组不是班级");
 		}
+		classService.assertTeaching(id);
 		return dept;
 	}
 
