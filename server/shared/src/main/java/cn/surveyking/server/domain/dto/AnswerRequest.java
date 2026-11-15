@@ -44,6 +44,9 @@ public class AnswerRequest {
 	 */
 	private String examExerciseType;
 
+	/** 题库练习的来源题库；练习记录列表用它跳回练习页 */
+	private String repoId;
+
 	private AnswerExamInfo examInfo;
 
 	/**

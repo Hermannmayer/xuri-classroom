@@ -1392,7 +1392,7 @@
   "pages.system.setting.avatar.change": "更换图标",
   "pages.system.setting.avatar.title": "系统图标",
   "pages.system.setting.backup.alert.description": "导入会覆盖当前数据和附件。请先导出现有备份，并在暂停答题、上传等写入操作后进行迁移。",
-  "pages.system.setting.backup.alert.message": "备份包含数据库和上传附件，支持相同系统版本的 H2 与 MySQL 双向迁移。",
+  "pages.system.setting.backup.alert.message": "备份包含数据库和上传附件；当前只支持 MySQL 8，H2 已停止支持。",
   "pages.system.setting.backup.export": "导出备份",
   "pages.system.setting.backup.export.error": "导出备份失败",
   "pages.system.setting.backup.export.success": "备份导出已开始",

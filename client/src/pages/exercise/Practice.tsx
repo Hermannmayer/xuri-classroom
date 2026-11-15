@@ -493,6 +493,8 @@ export default function Practice() {
       // 因此不会出现在 /api/exercise/list 的练习记录里（见汇报）。
       await post('/api/public/saveAnswer', {
         projectId: 'exercise',
+        repoId,
+        examExerciseType: mode === 'random' ? 'R' : 'O',
         survey: finalRoot,
         answer: values,
         tempSave: 1,
