@@ -374,6 +374,31 @@ public class ClassServiceImpl implements ClassService {
 	}
 
 	@Override
+	@CacheEvict(cacheNames = "userCache", key = "#userId")
+	public void rejectPendingStudent(String userId) {
+		if (!StringUtils.hasText(userId)) {
+			throw new ValidationException("缺少待审核学员 id");
+		}
+		User user = userMapper.selectById(userId);
+		if (user == null || !"student".equals(user.getUserType())) {
+			throw new ValidationException("只能拒绝学员账号");
+		}
+		if (Objects.equals(user.getStatus(), AppConsts.USER_STATUS.VALID)) {
+			throw new ValidationException("该学员已审核通过，不能拒绝；请到班级成员里处理");
+		}
+		boolean seeAll = SecurityContextUtils.isAdmin()
+				|| SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode());
+		if (!seeAll) {
+			if (!StringUtils.hasText(user.getDeptId())) {
+				throw new AccessDeniedException("未分班的申请只有管理员可以拒绝");
+			}
+			assertClassManage(user.getDeptId());
+		}
+		// 删除待审核账号：手机号释放，学员可以重新注册；记录已由审计日志留痕
+		userService.deleteClassStudent(userId);
+	}
+
+	@Override
 	public List<ClassTeacherView> listClassTeachers(String deptId) {
 		assertClassVisible(deptId);
 		List<ClassPartner> partners = classPartnerMapper

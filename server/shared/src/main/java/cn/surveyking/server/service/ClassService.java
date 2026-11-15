@@ -99,6 +99,9 @@ public interface ClassService {
 	/** 审核通过：启用账号；deptId 为空表示沿用注册时选的班级。 */
 	void approvePendingStudent(PendingStudentApproveRequest request);
 
+	/** 拒绝注册申请：删除待审核账号（手机号可重新注册）；已审核通过的不能走这里。 */
+	void rejectPendingStudent(String userId);
+
 	/** 批量导入学员（Excel）；整批事务，任一行失败全部回滚 */
 	ClassMemberImportResult importClassMembers(ClassMemberImportRequest request);
 

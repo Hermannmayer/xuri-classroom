@@ -210,7 +210,7 @@ verified_against: 3bda1c6301875491b5be7c717bc9c5b4bf36b717
 4. **注册页选班**：`Register.tsx` 用 `registerOptions.classes` 渲染下拉（带完整路径，如「养老护理 / 5级」）；只有一个班时自动选中；一个都没开时提示「当前没有班级开放注册」。不再配置全局默认班，也不会回退到组织树根。
 5. **提交注册**：`POST /api/public/register` 带 `deptId`；`UserServiceImpl.register` 校验目标班存在、是 teaching、已开放注册，账号强制 = 手机号（`^1[3-9]\d{9}$`），创建 `t_user.status=0`、`t_account.status=0` 的学员并直接落在该班。审核通过前登录会被账号状态拒绝。
 6. **待审核列表**：`GET /api/teaching/classes/pending-students`（`class:detail` / admin）返回当前用户可见教学班里的 `user_type=student AND status=0` 学员；管理员 / `class:grant` 全量，班主任看自己创建/负责的班，老师看被授权的班及下级。
-7. **审核通过**：`POST /api/teaching/classes/pending-students/approve`（`class:member:approve` / admin），body `{userId, deptId?}`。服务层校验目标班是 teaching；非管理员还要能管理目标班；把 `t_user.status` 与 `t_account.status` 一起置 1，`deptId` 为空沿用注册时选的班。只读授权老师能看名单但不能通过（403）。
+7. **审核通过 / 拒绝**：通过走 `POST /api/teaching/classes/pending-students/approve`（`class:member:approve` / admin），body `{userId, deptId?}`；服务层校验目标班是 teaching，非管理员还要能管理目标班，把 `t_user.status` 与 `t_account.status` 一起置 1。拒绝走 `POST /api/teaching/classes/pending-students/reject`（同一权限），body `{userId}`：删除待审核账号，手机号释放可重新注册；已审核通过的不能拒绝，只能去班级成员里删除。只读授权老师能看名单但不能通过/拒绝（403）。
 8. **前端入口**：班级管理页头「待审核学员」按钮（有 `class:detail` 即显示，带数量 Badge）；弹窗里每行可换班再点「通过」。班级树节点显示「容器 / 教学班 / 开放注册」标签；全局开但自己名下无开放班时页面顶部给黄色提示。
 
 ### 3.2 主班 + 兼报班（最多 3 个班）

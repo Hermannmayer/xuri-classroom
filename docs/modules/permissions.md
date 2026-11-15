@@ -214,7 +214,7 @@ verified_against: 3bda1c6301875491b5be7c717bc9c5b4bf36b717
 5. 用户管理页的「用户组管理 / 新建用户组」固定跳 `/system/group`，不再重定向到班级页；班级页入口是 `/teaching/classes`（`class:list`）。
 6. 班级节点再加一层 `class_kind`：`group` 是容器班（只做层级/可见范围），`teaching` 是教学班（可收学员/开放注册/分资源）。只有 teaching 能出现在 `GET /api/public/registerOptions` 里，注册/建学员/导入/资源分配都会再校验一次。
 7. 学员自助注册是「全局总闸 + 班级开关」：`registerInfo.registerEnabled`（系统设置，默认开启）是总闸；`t_dept.allow_register=1` 是班级开关。登录页只有 `registerOptions.enabled=true` 才显示「注册」；全局开但无班级时显示 `NO_CLASS_OPEN`，不显示入口。开放班级开关需要 `class:register`（管理员自动拥有）。
-8. 审核通过需要 `class:member:approve`（不再用 `class:member:update`）；只读授权（`class:detail`）只能看名单。调整主班/兼报班需要 `class:member:assign`，服务层还要求能管理目标主班、原主班与所有目标兼报班。一个学员最多 3 个班（1 主班 + 2 兼报，`t_user.dept_id` + `t_user_dept`）。
+8. 审核通过/拒绝都需要 `class:member:approve`（不再用 `class:member:update`）；拒绝会删除待审核账号并释放手机号。只读授权（`class:detail`）只能看名单。调整主班/兼报班需要 `class:member:assign`，服务层还要求能管理目标主班、原主班与所有目标兼报班。一个学员最多 3 个班（1 主班 + 2 兼报，`t_user.dept_id` + `t_user_dept`）。
 
 ### 3. 权限矩阵保存
 

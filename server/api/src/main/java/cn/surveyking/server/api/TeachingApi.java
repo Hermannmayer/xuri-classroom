@@ -214,6 +214,13 @@ public class TeachingApi {
 	}
 
 
+	/** 拒绝注册申请：删除待审核账号，手机号可重新注册；已审核通过的不能走这里。 */
+	@PostMapping("/classes/pending-students/reject")
+	@PreAuthorize("hasAuthority('class:member:approve') or hasRole('admin')")
+	public void rejectPendingStudent(@RequestBody PendingStudentApproveRequest request) {
+		classService.rejectPendingStudent(request.getUserId());
+	}
+
 	/** 从其他班级添加学员时，源班候选名单（排除已在目标班的、待审核/停用的） */
 	@GetMapping("/classes/member/candidates")
 	@PreAuthorize("hasAuthority('class:member:assign') or hasRole('admin')")

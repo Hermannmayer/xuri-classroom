@@ -464,6 +464,17 @@ export default function TeachingClasses() {
     }
   };
 
+  const rejectPending = async (row: ClassMember) => {
+    try {
+      await post('/api/teaching/classes/pending-students/reject', { userId: row.id });
+      message.success('已拒绝 ' + (row.name || row.phone || '该学员') + ' 的注册申请');
+      setPending((prev) => prev.filter((item) => item.id !== row.id));
+      await loadTree();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
   const pendingColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 110, render: (v?: string) => v || '—' },
     {
@@ -497,17 +508,29 @@ export default function TeachingClasses() {
     {
       title: '操作',
       key: 'ops',
-      width: 90,
+      width: 170,
       render: (_: unknown, row) =>
         canApprove ? (
-          <Button
-            type="primary"
-            size="small"
-            loading={approvingId === row.id}
-            onClick={() => void approvePending(row)}
-          >
-            通过
-          </Button>
+          <Space size={8}>
+            <Button
+              type="primary"
+              size="small"
+              loading={approvingId === row.id}
+              onClick={() => void approvePending(row)}
+            >
+              通过
+            </Button>
+            <Popconfirm
+              title={'拒绝「' + (row.name || row.phone || '该学员') + '」的注册申请？'}
+              description="账号会被删除，手机号可以重新注册；不可恢复。已审核通过的学员不能在这里拒绝。"
+              okText="拒绝并删除"
+              okButtonProps={{ danger: true }}
+              cancelText="取消"
+              onConfirm={() => void rejectPending(row)}
+            >
+              <LinkAction style={{ color: 'var(--bp-orange)' }}>拒绝</LinkAction>
+            </Popconfirm>
+          </Space>
         ) : (
           <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>只读</span>
         ),
