@@ -227,13 +227,14 @@ public class AnswerExporter {
 				&& Boolean.TRUE.equals(project.getSetting().getExamSetting().getScoringEnabled())) {
 			exportMode = ProjectModeEnum.exam;
 		}
+		final ProjectModeEnum scoringMode = exportMode;
 		int[] indexArr = { 0 };
 		new ExcelExporter.Builder().setSheetName(project.getName()).setOutputStream(outputStream)
 				.setRows(answerViews.stream().map(answer -> {
 					indexArr[0] = indexArr[0] += 1;
-					return SchemaHelper.parseRowData(answer, schemaDataTypes, indexArr[0], exportMode);
+					return SchemaHelper.parseRowData(answer, schemaDataTypes, indexArr[0], scoringMode);
 				}).collect(Collectors.toList()))
-				.setColumns(SchemaHelper.parseColumns(schemaDataTypes, exportMode)).build().exportToStream();
+				.setColumns(SchemaHelper.parseColumns(schemaDataTypes, scoringMode)).build().exportToStream();
 	}
 
 	/**
