@@ -176,7 +176,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode, scori
     </div>
   );
 
-  const items = ATTRIBUTE_GROUPS.map((group) => ({
+  const items = ATTRIBUTE_GROUPS.filter((group) => scoring || group !== '考试').map((group) => ({
     key: group,
     label: group,
     children: (
