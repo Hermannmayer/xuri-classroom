@@ -196,32 +196,6 @@ docker compose -f docker-compose.release.yml up -d
 5. 打开 `/api/system` 确认版本号，再抽查登录、考试列表和一份答卷。
 6. 出问题按 [版本与升级](docs/deploy/versioning.md) 回滚到上一份备份/上一版安装包。
 
-### 本地开发 + NAS 运行副本更新
-
-本仓库的 NAS 部署使用「本地仓库 → 裸仓库 → 运行副本」的方式：
-
-```bash
-# 1. 本地提交并做发布前检查
-npm run check
-npm run build
-python scripts/release/check_schema.py
-npm run docs:check
-
-# 2. 推送到 NAS 裸仓库
-git push nas main
-
-# 3. NAS 上同步运行副本并重载后端
-ssh Home@192.168.0.2
-cd /vol2/1000/xuri/src/work
-git fetch origin && git reset --hard origin/main
-XURI_SRC=/vol2/1000/xuri/src/work bash scripts/nas/live-reload.sh
-```
-
-- `live-reload.sh` 会编译后端、替换 `app.jar` 并重启 `xuri-live-app`；后端启动时自动跑迁移。
-- 前端由 `xuri-live-web-watch` 常驻构建；只改 `client/**` 时保存后会自动重建。若改了 `client/package.json` 或 `package-lock.json`，需要重启 watcher 让它重新 `npm ci`：`docker restart xuri-live-web-watch`。
-- 更新后验证：`/api/system` 版本号、登录页、项目列表、答题页、数据页；涉及权限/班级的改动再抽查一个班级。
-- 回滚：`git revert` 后重新执行上面的推送/重载；数据库迁移只做加表/加列/加索引，旧版本可继续运行。
-
 ---
 
 ## 数据与备份
