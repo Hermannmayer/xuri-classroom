@@ -703,3 +703,51 @@ body {
 .rich-text-editor .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
 .rich-text-content .rt-formula { color: var(--bp-blue); }
 .rich-text-content .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
+/* ------ 移动端通用兜底（页面级卡片布局之外的表格/弹窗/表单） */
+@media (max-width: 767.98px) {
+  .bp-title { font-size: 16px !important; line-height: 1.45; }
+  h1.bp-title, h2.bp-title { font-size: 18px !important; }
+  .bp-card { padding: 12px !important; }
+  .ant-card-body { padding: 12px !important; }
+  .ant-card-head { min-height: 42px; padding: 0 12px; }
+  .ant-card-head-title { font-size: 14px; padding: 10px 0; }
+  .ant-modal-root .ant-modal { max-width: calc(100vw - 16px) !important; width: auto !important; margin: 8px auto; top: 8px; padding-bottom: 8px; }
+  .ant-modal-root .ant-modal-content { padding: 14px; }
+  .ant-modal-root .ant-modal-body { max-height: calc(100vh - 150px); overflow-y: auto; }
+  .ant-drawer-content-wrapper { max-width: 100vw !important; }
+  .ant-picker-dropdown, .ant-select-dropdown { max-width: calc(100vw - 16px) !important; }
+  .ant-form-item { margin-bottom: 10px; }
+  .ant-form-item-label { padding-bottom: 2px !important; }
+  .ant-form-item-label > label { font-size: 12px; }
+  .ant-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ant-table { font-size: 12px; }
+  .ant-table-thead > tr > th { white-space: normal; word-break: break-word; padding: 7px 6px !important; font-size: 11px; }
+  .ant-table-tbody > tr > td { padding: 7px 6px !important; word-break: break-word; }
+  .ant-table-content, .ant-table-body { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .ant-pagination { flex-wrap: wrap; justify-content: center; gap: 4px; }
+  .ant-pagination .ant-pagination-options { display: none; }
+  .ant-space { flex-wrap: wrap; }
+  .ant-tabs-nav { margin-bottom: 10px !important; }
+  .ant-tabs-tab { padding: 8px 0 !important; font-size: 13px; }
+  .ant-tabs-tab + .ant-tabs-tab { margin-left: 16px !important; }
+  .ant-descriptions-item-label, .ant-descriptions-item-content { padding-bottom: 4px !important; }
+  .ant-descriptions-view table { table-layout: auto !important; }
+  .ant-empty-description { font-size: 12px; }
+  .ant-btn { max-width: 100%; }
+  .ant-btn > span { overflow: hidden; text-overflow: ellipsis; }
+  .ant-upload-wrapper .ant-upload-list { max-width: 100%; }
+  .ant-dropdown-menu { max-width: calc(100vw - 16px); }
+  .ant-message { max-width: calc(100vw - 16px); }
+  .rich-text-editor .rt-toolbar { gap: 1px; padding: 4px; }
+  .rich-text-editor .rt-btn { width: 26px; height: 25px; }
+  .rich-text-editor .rt-select { max-width: 62px; }
+  .rich-text-editor .rt-hint { font-size: 9px; }
+}
+@media (max-width: 480px) {
+  .bp-title { font-size: 15px !important; }
+  h1.bp-title, h2.bp-title { font-size: 17px !important; }
+  .ant-modal-root .ant-modal { margin: 4px auto; max-width: calc(100vw - 8px) !important; }
+  .ant-modal-root .ant-modal-content { padding: 10px; }
+  .ant-table-thead > tr > th { font-size: 10px; }
+  .ant-table-tbody > tr > td { font-size: 12px; }
+}

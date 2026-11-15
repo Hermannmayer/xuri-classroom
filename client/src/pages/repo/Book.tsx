@@ -10,6 +10,7 @@ import {
   Input,
   message,
   Modal,
+  Pagination,
   Popconfirm,
   Segmented,
   Select,
@@ -33,6 +34,20 @@ import { getWithPagination, post } from '../../api';
 import { pager, TABLE_COMPONENTS } from './table';
 
 const { RangePicker } = DatePicker;
+
+const MOBILE_QUERY = '(max-width: 767.98px)';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
 
 /** 与后端 UserBookView 对齐 */
 export interface UserBookView {
@@ -198,6 +213,7 @@ function presetRange(preset: RangePreset): { startDate?: string; endDate?: strin
 
 export default function RepoBook() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const typeParam = searchParams.get('type');
   const initialType: TypeFilter = typeParam === '1' ? 'wrong' : typeParam === '2' ? 'favorite' : 'all';
@@ -651,7 +667,7 @@ export default function RepoBook() {
         <Input.Search
           allowClear
           placeholder="搜索题目名称"
-          style={{ width: 190 }}
+          style={{ width: isMobile ? '100%' : 190 }}
           onSearch={(value) => setNameKeyword(value.trim())}
           onChange={(e) => {
             if (!e.target.value) setNameKeyword('');
@@ -660,7 +676,7 @@ export default function RepoBook() {
         <Input.Search
           allowClear
           placeholder="搜索笔记内容"
-          style={{ width: 190 }}
+          style={{ width: isMobile ? '100%' : 190 }}
           onSearch={(value) => setNoteKeyword(value.trim())}
           onChange={(e) => {
             if (!e.target.value) setNoteKeyword('');
@@ -671,6 +687,45 @@ export default function RepoBook() {
         </Button>
       </div>
 
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.length ? rows.map((row) => (
+            <div key={row.id} className="bp-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <Checkbox
+                  checked={selectedKeys.includes(row.id)}
+                  onChange={(e) => setSelectedKeys((prev) => (e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id)))}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, lineHeight: 1.55, overflowWrap: 'anywhere' }}>{row.name || '(无标题)'}</div>
+                  <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', marginTop: 3 }}>
+                    {row.type === BOOK_TYPE_FAVORITE ? '收藏' : '错题'} · 来源：{projectLabel(row.projectId)}
+                  </div>
+                </div>
+                <LinkAction onClick={() => void toggleFocus(row)} title={isFocus(row) ? '取消重点' : '标为重点'}>
+                  {isFocus(row) ? <StarFilled style={{ color: 'var(--bp-orange)' }} /> : <StarOutlined style={{ color: 'var(--bp-text-soft)' }} />}
+                </LinkAction>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {statusTag(row)}
+                <Tag color={(row.wrongTimes ?? 0) >= 3 ? 'orange' : 'default'}>{row.wrongTimes ?? 0} 次</Tag>
+                <span style={{ fontSize: 11, color: 'var(--bp-hint)' }}>{row.updateAt || row.createAt || '—'}</span>
+              </div>
+              {row.note ? (
+                <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.note}</div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Button size="small" type="primary" icon={<PlayCircleOutlined />} onClick={() => practiceOne(row)}>练这题</Button>
+                <Button size="small" onClick={() => setEditing(row)}>笔记</Button>
+                <Popconfirm title="从错题本移除这条记录？" description="题库里的题目不受影响。" okText="移除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => void removeOne(row)}>
+                  <Button size="small" danger>移除</Button>
+                </Popconfirm>
+              </div>
+            </div>
+          )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={hasFilter ? '没有符合条件的错题' : '练习后错题会出现在这里'} />}
+          {total > pageSize && <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><Pagination current={page} pageSize={pageSize} total={total} onChange={(p, s) => { setPage(p); setPageSize(s); }} /></div>}
+        </div>
+      ) : (
       <TableScrollRegion label="错题/收藏列表（可横向滚动）">
       <Table<UserBookView>
         rowKey="id"
@@ -804,6 +859,7 @@ export default function RepoBook() {
         ]}
       />
       </TableScrollRegion>
+      )}
 
       <Modal
         title="编辑笔记"

@@ -10,9 +10,11 @@ import {
   InputNumber,
   message,
   Modal,
+  Pagination,
   Popconfirm,
   Select,
   Space,
+  Spin,
   Table,
   Tag,
 } from 'antd';
@@ -35,6 +37,20 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import ImportWizard from '../import/ImportWizard';
 import RichTextEditor from '../../components/RichTextEditor';
+
+const MOBILE_QUERY = '(max-width: 767.98px)';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
 
 /** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
 interface TemplateView {
@@ -141,6 +157,7 @@ export default function RepoQuestions() {
     };
   }, [repoId, stateRepoName, queryRepoName]);
 
+  const isMobile = useIsMobile();
   const [rows, setRows] = useState<TemplateView[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -647,7 +664,7 @@ export default function RepoQuestions() {
           allowClear
           value={questionType}
           placeholder="全部题型"
-          style={{ width: 140, flexShrink: 0 }}
+          style={{ width: isMobile ? '100%' : 140, flexShrink: 0 }}
           onChange={(v) => {
             setQuestionType(v);
             setPage(1);
@@ -661,7 +678,7 @@ export default function RepoQuestions() {
         <Input.Search
           allowClear
           placeholder="搜索题干"
-          style={{ width: 220, flexShrink: 0 }}
+          style={{ width: isMobile ? '100%' : 220, flexShrink: 0 }}
           onSearch={(v) => {
             setKeyword(v.trim());
             setPage(1);
@@ -728,6 +745,76 @@ export default function RepoQuestions() {
             <Button onClick={() => navigate('/repo/index')}>返回题库</Button>
           </Space>
         </div>
+      ) : isMobile ? (
+        <Spin spinning={loading}>
+          {rows.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {rows.map((row, index) => {
+                const tags = row.tag?.length ? row.tag : row.template?.tags;
+                const score = row.template?.attribute?.examScore;
+                return (
+                  <div key={row.id} className="bp-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {canDelete && (
+                        <Checkbox
+                          checked={selectedKeys.includes(row.id)}
+                          onChange={(e) =>
+                            setSelectedKeys((prev) =>
+                              e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id),
+                            )
+                          }
+                        />
+                      )}
+                      <span style={{ color: 'var(--bp-text-soft)', fontSize: 11, flex: '0 0 auto' }}>
+                        {(page - 1) * pageSize + index + 1}
+                      </span>
+                      <Tag color={TYPE_COLOR[row.questionType ?? ''] ?? 'default'} style={{ flex: '0 0 auto' }}>
+                        {TYPE_LABEL[row.questionType ?? ''] ?? row.questionType ?? '—'}
+                      </Tag>
+                      {row.difficulty || row.template?.difficulty ? (
+                        <Tag style={{ flex: '0 0 auto' }}>{row.difficulty || row.template?.difficulty}</Tag>
+                      ) : null}
+                      <div style={{ flex: 1 }} />
+                      {score != null && <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>{score} 分</span>}
+                    </div>
+                    <div style={{ fontSize: 14, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+                      {row.template?.title || row.name || '(无题干)'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                      <span>{row.chapter || row.template?.chapter || '未分章节'}</span>
+                      <span>{row.createAt || '—'}</span>
+                    </div>
+                    {(tags?.length || canEdit || canDelete) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        {tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+                        <div style={{ flex: 1 }} />
+                        {canEdit && <Button size="small" onClick={() => setEditing(row)}>编辑</Button>}
+                        {canDelete && (
+                          <Popconfirm
+                            title="删除这道题？"
+                            description="删除后不可恢复。"
+                            okText="删除"
+                            cancelText="取消"
+                            onConfirm={() => removeOne(row)}
+                          >
+                            <Button size="small" danger>删除</Button>
+                          </Popconfirm>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={hasFilter ? '没有匹配的题目' : '题库还没有题目'} />
+          )}
+          {total > pageSize && (
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+              <Pagination current={page} pageSize={pageSize} total={total} onChange={setPage} />
+            </div>
+          )}
+        </Spin>
       ) : (
       <TableScrollRegion label="题目列表（可横向滚动）">
       <Table<TemplateView>

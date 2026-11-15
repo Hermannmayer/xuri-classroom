@@ -1348,6 +1348,41 @@ export default function TeachingClasses() {
                     }
                   />
                 </div>
+              ) : isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {members.length ? members.map((row) => (
+                    <div key={row.id || row.username || ''} className="bp-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{row.name || row.username || '—'}</span>
+                        <MemberStatus status={row.status} />
+                        <div style={{ flex: 1 }} />
+                        <Tag color={row.primary ? 'green' : 'default'}>{row.primary ? '主班' : '兼报'}</Tag>
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                        {row.phone || row.username || '—'} · {row.primaryDeptName || '未分班'}
+                        {row.extraDeptNames?.length ? ' · 兼报：' + row.extraDeptNames.join('、') : ''}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {(row.roleNames ?? []).map((name) => <Tag key={name} color="blue">{name}</Tag>)}
+                        <span style={{ fontSize: 11, color: 'var(--bp-hint)' }}>共 {row.classCount ?? 1} 个班 · {row.createAt || '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {row.primary && canMemberUpdate && <Button size="small" onClick={() => openEditMember(row)}>编辑</Button>}
+                        {canAssign && row.canAssign && <Button size="small" onClick={() => openAssign(row)}>班级归属</Button>}
+                        {!row.primary && canAssign && (
+                          <Popconfirm title={`把「${row.name || row.username || '该学员'}」移出本班？`} description="只解除本班的兼报关系，不删除账号。" okText="移出本班" cancelText="取消" onConfirm={() => removeExtraMember(row)}>
+                            <Button size="small" danger>移出本班</Button>
+                          </Popconfirm>
+                        )}
+                        {row.primary && canMemberDelete && (
+                          <Popconfirm title={`删除学员「${row.name || row.username || '该学员'}」？`} description="账号会被删除，无法再登录；不可恢复。" okText="删除账号" cancelText="取消" onConfirm={() => removeMember(row)}>
+                            <Button size="small" danger>删除账号</Button>
+                          </Popconfirm>
+                        )}
+                      </div>
+                    </div>
+                  )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这个班级还没有学员" />}
+                </div>
               ) : (
                 <TableScrollRegion label="班级成员（可横向滚动）">
                   <Table<ClassMember>
