@@ -43,6 +43,10 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.servlet.http.HttpServletRequest;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
@@ -218,7 +222,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		}
 
 		if (isSupportImage(originalName)) {
-			assertImageDimensions(uploadFile);
+			// 不能只信扩展名：解码确认是图片，再把 JPEG/PNG/BMP/WBMP 重新编码，剥掉 EXIF/尾部附加数据
+			uploadFile = sanitizeImage(uploadFile, originalName);
+			request.setFile(uploadFile);
 		}
 
 		String fileName = getFileNameByStrategy(originalName);
@@ -421,7 +427,40 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 				now);
 	}
 
+	private MultipartFile sanitizeImage(MultipartFile uploadFile, String originalName) {
+		try (InputStream inputStream = uploadFile.getInputStream()) {
+			String ext = StringUtils.substringAfterLast(originalName, ".").toLowerCase(java.util.Locale.ROOT);
+			String format = ext.equals("jpg") ? "jpeg" : ext;
+			if (!Arrays.asList("jpeg", "png", "gif", "bmp", "wbmp").contains(format)) {
+				throw new ErrorCodeException(FileUploadError);
+			}
+			// 先用 reader 校验尺寸，避免解码图片炸弹
+			assertImageDimensions(uploadFile, format);
+			if ("gif".equals(format)) {
+				// GIF 可能带动画，保留原文件；尺寸/解码校验已经挡住伪造图片
+				return uploadFile;
+			}
+			BufferedImage image = ImageIO.read(uploadFile.getInputStream());
+			if (image == null) {
+				throw new ErrorCodeException(FileUploadError);
+			}
+			ByteArrayOutputStream output = new ByteArrayOutputStream();
+			if (!ImageIO.write(image, format, output)) {
+				throw new ErrorCodeException(FileUploadError);
+			}
+			return new ByteArrayMultipartFile(uploadFile.getName(), originalName, uploadFile.getContentType(),
+					output.toByteArray());
+		}
+		catch (IOException e) {
+			throw new ErrorCodeException(FileUploadError);
+		}
+	}
+
 	private void assertImageDimensions(MultipartFile uploadFile) {
+		assertImageDimensions(uploadFile, null);
+	}
+
+	private void assertImageDimensions(MultipartFile uploadFile, String expectedFormat) {
 		try (InputStream inputStream = uploadFile.getInputStream();
 				ImageInputStream imageInputStream = ImageIO.createImageInputStream(inputStream)) {
 			if (imageInputStream == null) {
@@ -433,6 +472,10 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			}
 			ImageReader reader = readers.next();
 			try {
+				if (expectedFormat != null
+						&& !reader.getFormatName().equalsIgnoreCase(expectedFormat)) {
+					throw new ErrorCodeException(FileUploadError);
+				}
 				reader.setInput(imageInputStream, true, true);
 				long pixels = Math.multiplyExact((long) reader.getWidth(0), (long) reader.getHeight(0));
 				if (pixels <= 0 || pixels > storageProperties.getMaxImagePixels()) {
@@ -605,6 +648,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			headers.putAll(query.getHeaders());
 		}
 		headers.add("X-Content-Type-Options", "nosniff");
+		headers.add("Content-Security-Policy", "default-src 'none'; sandbox");
 		boolean safeInline = query.getDispositionType() == AppConsts.DispositionTypeEnum.inline && isSafeInline(file);
 		MediaType responseMediaType = safeInline ? mediaType.orElse(MediaType.APPLICATION_OCTET_STREAM)
 				: MediaType.APPLICATION_OCTET_STREAM;
@@ -692,6 +736,68 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 
 		private synchronized boolean isExpired(long now) {
 			return now - windowStart >= 60000;
+		}
+
+	}
+
+	/** 重新编码后的图片：只带安全字节，不带原文件名之外的元数据。 */
+	private static final class ByteArrayMultipartFile implements MultipartFile {
+
+		private final String name;
+
+		private final String originalFilename;
+
+		private final String contentType;
+
+		private final byte[] content;
+
+		private ByteArrayMultipartFile(String name, String originalFilename, String contentType, byte[] content) {
+			this.name = name;
+			this.originalFilename = originalFilename;
+			this.contentType = contentType;
+			this.content = content == null ? new byte[0] : content;
+		}
+
+		@Override
+		public String getName() {
+			return name;
+		}
+
+		@Override
+		public String getOriginalFilename() {
+			return originalFilename;
+		}
+
+		@Override
+		public String getContentType() {
+			return contentType;
+		}
+
+		@Override
+		public boolean isEmpty() {
+			return content.length == 0;
+		}
+
+		@Override
+		public long getSize() {
+			return content.length;
+		}
+
+		@Override
+		public byte[] getBytes() {
+			return content;
+		}
+
+		@Override
+		public InputStream getInputStream() {
+			return new ByteArrayInputStream(content);
+		}
+
+		@Override
+		public void transferTo(java.io.File dest) throws IOException, IllegalStateException {
+			try (FileOutputStream output = new FileOutputStream(dest)) {
+				output.write(content);
+			}
 		}
 
 	}

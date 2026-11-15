@@ -1,4 +1,4 @@
-import { Collapse, Form, Input, InputNumber, Select, Switch } from 'antd';
+import { Button, Collapse, Form, Input, InputNumber, Select, Switch } from 'antd';
 import type { Attribute, SurveySchema } from '../schema/types';
 import type { FlatQuestion } from '../schema/flatten';
 import { ATTRIBUTE_GROUPS, attributeSchema, type AttributeField } from './attributeSchema';
@@ -221,6 +221,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
       <hr className="bp-dim" style={{ margin: '0 0 10px' }} />
 
       {onPatchNode && <OptionEditor schema={schema} onPatch={onPatchNode} />}
+      {onPatchNode && MATRIX_TYPES.has(schema.type) && <MatrixEditor schema={schema} onPatch={onPatchNode} />}
 
       <Form layout="vertical" size="small" requiredMark={false}>
         {isChoice ? (
@@ -282,6 +283,96 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode }: Att
         </Form.Item>
         <Collapse size="small" defaultActiveKey={[]} items={items} />
       </Form>
+    </div>
+  );
+}
+
+const MATRIX_TYPES = new Set(['MatrixRadio', 'MatrixCheckbox', 'MatrixFillBlank', 'MatrixScore', 'MatrixNps']);
+
+/** 矩阵题：行/列标题必须能编辑，否则导入/新建矩阵题只能显示默认的“矩阵行1/选项一”。 */
+function MatrixEditor({
+  schema,
+  onPatch,
+}: {
+  schema: SurveySchema;
+  onPatch: (patch: Partial<SurveySchema>) => void;
+}) {
+  const rows = schema.row ?? [];
+  const columns = schema.dataSource ?? [];
+  const nextId = (prefix: string) => prefix + Math.random().toString(36).slice(2, 8);
+
+  const patchRows = (next: { id: string; title: string }[]) => onPatch({ row: next });
+  const patchColumns = (next: { label: string; value: string }[]) => {
+    const children = (schema.children ?? []).map((child) => {
+      const found = next.find((column) => column.value === child.id);
+      return found ? { ...child, title: found.label } : child;
+    });
+    for (const column of next) {
+      if (!children.some((child) => child.id === column.value)) {
+        children.push({ id: column.value, title: column.label, type: 'Option', attribute: {} });
+      }
+    }
+    onPatch({ dataSource: next, children });
+  };
+
+  return (
+    <div style={{ marginBottom: 14, padding: '8px 10px', border: '1px solid var(--bp-line-soft)' }}>
+      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 6 }}>矩阵行</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map((row, index) => (
+          <div key={row.id} style={{ display: 'flex', gap: 6 }}>
+            <Input
+              size="small"
+              value={row.title}
+              placeholder={'第 ' + (index + 1) + ' 行'}
+              onChange={(e) => patchRows(rows.map((item, i) => (i === index ? { ...item, title: e.target.value } : item)))}
+            />
+            <Button
+              size="small"
+              danger
+              type="text"
+              disabled={rows.length <= 1}
+              onClick={() => patchRows(rows.filter((_, i) => i !== index))}
+            >
+              删除
+            </Button>
+          </div>
+        ))}
+        <Button size="small" onClick={() => patchRows([...rows, { id: nextId('row_'), title: '新行' }])}>
+          添加行
+        </Button>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', margin: '10px 0 6px' }}>矩阵列</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {columns.map((column, index) => (
+          <div key={column.value} style={{ display: 'flex', gap: 6 }}>
+            <Input
+              size="small"
+              value={column.label}
+              placeholder={'第 ' + (index + 1) + ' 列'}
+              onChange={(e) =>
+                patchColumns(columns.map((item, i) => (i === index ? { ...item, label: e.target.value } : item)))
+              }
+            />
+            <Button
+              size="small"
+              danger
+              type="text"
+              disabled={columns.length <= 1}
+              onClick={() => patchColumns(columns.filter((_, i) => i !== index))}
+            >
+              删除
+            </Button>
+          </div>
+        ))}
+        <Button
+          size="small"
+          onClick={() => patchColumns([...columns, { label: '新列', value: nextId('col_') }])}
+        >
+          添加列
+        </Button>
+      </div>
     </div>
   );
 }
