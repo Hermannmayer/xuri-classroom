@@ -935,4 +935,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
+    verified_against: f5e0524b3d1b9a5148de351aaae6e0df705fa23b

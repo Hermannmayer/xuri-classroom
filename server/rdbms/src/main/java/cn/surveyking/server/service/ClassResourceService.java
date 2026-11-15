@@ -745,8 +745,8 @@ public class ClassResourceService {
 		}
 		answerMapper
 				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getRepoId, Answer::getExamScore)
-						.eq(Answer::getTempSave, 1).eq(Answer::getClassId, classId)
-						.in(Answer::getRepoId, repoIds))
+						.eq(Answer::getTempSave, 1).eq(Answer::getProjectId, ExerciseProjectTemplate.EXERCISE_PROJECT_ID)
+						.eq(Answer::getClassId, classId).in(Answer::getRepoId, repoIds))
 				.forEach(answer -> {
 					if (answer == null || !StringUtils.hasText(answer.getRepoId())) {
 						return;

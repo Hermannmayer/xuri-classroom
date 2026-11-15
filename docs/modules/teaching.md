@@ -123,7 +123,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
+verified_against: f5e0524b3d1b9a5148de351aaae6e0df705fa23b
 ---
 
 # 班级与教学工作台
@@ -422,11 +422,10 @@ npm run docs:check
 2. 在班里添加学员：手机号格式错、重复手机号应被拒；成功后学员用手机号登录；改手机号后旧号登录失败、新号成功。
 3. 下载学员导入模板，填两行（一行合法、一行手机号重复）导入：整批失败并提示「第 N 行：该手机号已被其他账号使用」；修正后成功，导入行数正确。
 
-## 相关文档
 
-- [建班与授权](../flows/class-grant.md)：建班 → 加学员 → 分配老师 → 分配考试/题库 → 学生按班进入的完整链路。
-- [考试与问卷（项目）](./project.md)：项目列表可见性、按班准入与全局窗口。
-- [答卷、判分与报表](./answer.md)：`t_answer.class_id` 的写入与统计口径。
-- [权限、角色与用户组](./permissions.md)：org/class 分离、`class:*`、`system:dept:*` 与审计。
-- [题库与题目](./repo.md)：题库授权、按班级分配题库与题库导出。
-- [文档入口与维护规则](../start/docs-workflow.md)
+### 班级扩展设置（2026-11）
+
+- `t_class_resource.settings` 存 JSON，DTO 为 `ClassResourceSetting`；资源面板「编辑」可配置。
+- 考试/问卷：`extraAttempts`（额外补考次数）、`answerAnalysis`（交卷后看解析，null=继承）、`passScore`（班级及格线，仅报表判定）。
+- 题库：`practiceEnabled`（false 时本班可看题库列表，但打开/练习被拒）；题库行「练习记录」复用班级答卷抽屉，`projectId=exercise` + `repo_id` + `class_id`。
+- 补考次数/解析开关目前是班级配置项，实际限次/结果页解析仍以项目设置为准；后续要做强约束需在 `AnswerLimitGuard` 与结果页读取 class settings。

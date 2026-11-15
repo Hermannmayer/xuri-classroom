@@ -17,4 +17,4 @@
 | `module-project` | 2026-11-15 | `5918696b29b5123fe29561d827cf8f9866f7e234` | 26 |
 | `module-repo` | 2026-11-15 | `903ed1ca8eaf97ecd50fcce7684d7c88145ef826` | 32 |
 | `module-survey` | 2026-11-15 | `903ed1ca8eaf97ecd50fcce7684d7c88145ef826` | 67 |
-| `module-teaching` | 2026-11-15 | `5918696b29b5123fe29561d827cf8f9866f7e234` | 42 |
+| `module-teaching` | 2026-11-15 | `f5e0524b3d1b9a5148de351aaae6e0df705fa23b` | 42 |
