@@ -119,7 +119,7 @@ public class AnswerScoringService {
 	 * 历史答卷快照缺失时仍然回退到项目 schema（保持原有兼容行为）。
 	 */
 	private void computeExamScore(Answer answer, ProjectView project, Answer previousAnswer) {
-		if (project != null && ProjectModeEnum.exam.equals(project.getMode()) && answer != null
+		if (project != null && scoringEnabled(project) && answer != null
 				&& answer.getAnswer() != null && !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
 			SurveySchema srcSchema = trustedScoreSchema(project, previousAnswer);
 			if (srcSchema == null) {
@@ -131,6 +131,13 @@ public class AnswerScoringService {
 			examInfo.setQuestionScore(evaluator.getQuestionScore());
 			answer.setExamInfo(examInfo);
 		}
+	}
+
+	/** 计分开关：显式配置优先；未配置时考试默认计分、问卷默认不计分。 */
+	private static boolean scoringEnabled(ProjectView project) {
+		Boolean flag = project.getSetting() == null || project.getSetting().getExamSetting() == null ? null
+				: project.getSetting().getExamSetting().getScoringEnabled();
+		return flag != null ? flag : ProjectModeEnum.exam.equals(project.getMode());
 	}
 
 	/**

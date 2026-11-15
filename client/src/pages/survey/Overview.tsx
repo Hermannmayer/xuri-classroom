@@ -198,6 +198,7 @@ export default function SurveyOverview() {
   }, []);
 
   const isSurvey = project?.mode === 'survey';
+  const scoringEnabled = Form.useWatch('scoringEnabled', form) ?? project?.mode === 'exam';
   const canEdit = can(authorities ?? [], PERMISSION_CODES.projectUpdate);
   const canPublish = can(authorities ?? [], PERMISSION_CODES.projectPublish);
   const canViewAnswers = can(authorities ?? [], PERMISSION_CODES.answerList);
@@ -292,6 +293,7 @@ export default function SurveyOverview() {
       setCurrent(value);
       form.setFieldsValue({
         status: value.status === 1,
+        scoringEnabled: value.examSetting?.scoringEnabled ?? value.mode === 'exam',
         password: value.answerSetting?.password,
         loginRequired: value.answerSetting?.loginRequired,
         progressBar: value.answerSetting?.progressBar,
@@ -477,6 +479,7 @@ export default function SurveyOverview() {
 
     const examSetting: ExamSetting = {
       ...(current.examSetting ?? {}),
+      scoringEnabled: Boolean(v.scoringEnabled),
       startTime: v.examStartTime ? (v.examStartTime as Dayjs).valueOf() : undefined,
       endTime: v.examEndTime ? (v.examEndTime as Dayjs).valueOf() : undefined,
       minSubmitMinutes: (v.minSubmitMinutes as number) ?? undefined,
@@ -599,8 +602,8 @@ export default function SurveyOverview() {
           type="info"
           showIcon
           style={{ marginBottom: 14 }}
-          message="当前是问卷模式：不判分，不显示成绩单、排名和答案解析"
-          description="用「回收限制」控制收集范围与截止时间；用「答题显示」控制填写体验。需要考试判分请新建考试项目。"
+          message={scoringEnabled ? '当前是问卷模式：已启用计分，可显示成绩单和正确率' : '当前是问卷模式：不判分，不显示成绩单、排名和答案解析'}
+          description="用「回收限制」控制收集范围与截止时间；用「答题显示」控制填写体验。需要完整考试控制请新建考试项目。"
         />
       )}
 
@@ -748,7 +751,7 @@ export default function SurveyOverview() {
           </Col>
 
           {/* ③ 题型分值：按题型统一改所有题的分值，不用逐题设置（问卷不判分，不展示） */}
-          {!isSurvey && <Col xs={24} lg={12}>
+          {scoringEnabled && <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
               title={cardTitle('SCORE', '题型分值')}
@@ -854,6 +857,7 @@ export default function SurveyOverview() {
                 {switchItem('answerSheetVisible', '显示答题卡')}
                 {switchItem('questionNumber', '显示题目序号')}
                 {switchItem('copyEnabled', '允许复制题目')}
+                {switchItem('scoringEnabled', '启用计分', '考试默认开启；问卷默认关闭，开启后显示分值、成绩单和正确率')}
               </Row>
             </Card>
           </Col>
@@ -1028,8 +1032,8 @@ export default function SurveyOverview() {
                 {canPublish &&
                   switchItem('status', '发布状态', '开启后任何人可通过链接作答；关闭后答题链接打不开')}
                 {switchItem('enableUpdate', '允许修改答案')}
-                {!isSurvey && switchItem('transcriptVisible', '显示成绩单')}
-                {!isSurvey && switchItem('answerAnalysis', '显示答案解析')}
+                {scoringEnabled && switchItem('transcriptVisible', '显示成绩单')}
+                {scoringEnabled && switchItem('answerAnalysis', '显示答案解析')}
                 <Col xs={24} md={12}>
                   <Form.Item name="redirectUrl" label="完成跳转">
                     <Input placeholder="https://…（选填）" allowClear />

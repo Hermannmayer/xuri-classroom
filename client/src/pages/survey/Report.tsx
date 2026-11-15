@@ -131,6 +131,30 @@ export default function SurveyReport() {
     return keyword ? questions.filter((q) => (q.title ?? '').toLowerCase().includes(keyword)) : questions;
   }, [questions, search]);
 
+  const overview = useMemo(() => {
+    const started = answers.length;
+    const submitted = answers.filter((answer) => answer.tempSave === 1).length;
+    const anonymous = answers.filter((answer) => answer.isAnonymous).length;
+    const durations = answers
+      .map((answer) => {
+        const info = answer.metaInfo as { answerInfo?: { startTime?: number; endTime?: number } } | undefined;
+        const start = info?.answerInfo?.startTime;
+        const end = info?.answerInfo?.endTime;
+        return typeof start === 'number' && typeof end === 'number' && end > start ? end - start : undefined;
+      })
+      .filter((value): value is number => typeof value === 'number');
+    const averageDuration = durations.length
+      ? durations.reduce((sum, value) => sum + value, 0) / durations.length
+      : undefined;
+    return {
+      started,
+      submitted,
+      anonymous,
+      completion: started > 0 ? (submitted / started) * 100 : 0,
+      averageDuration,
+    };
+  }, [answers]);
+
   const daily = useMemo(() => {
     const entries = Object.entries(report?.dailyCountStat ?? {}).sort(([a], [b]) => a.localeCompare(b));
     const max = Math.max(1, ...entries.map(([, v]) => v));
@@ -218,6 +242,19 @@ export default function SurveyReport() {
         </Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Card
+            className="bp-corners bp-card"
+            title={<span className="bp-title" style={{ fontSize: 12 }}>OVERVIEW / 答卷概览</span>}
+          >
+            <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12 }}>
+              <div><div style={{ color: 'var(--bp-text-soft)' }}>已开始</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.started}</div></div>
+              <div><div style={{ color: 'var(--bp-text-soft)' }}>已提交</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-blue)' }}>{overview.submitted}</div></div>
+              <div><div style={{ color: 'var(--bp-text-soft)' }}>完成率</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.completion.toFixed(1)}%</div></div>
+              <div><div style={{ color: 'var(--bp-text-soft)' }}>匿名答卷</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-orange)' }}>{overview.anonymous}</div></div>
+              <div><div style={{ color: 'var(--bp-text-soft)' }}>平均填写时长</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.averageDuration == null ? '—' : `${Math.round(overview.averageDuration / 1000)} 秒`}</div></div>
+            </div>
+          </Card>
+
           {/* 每日答卷趋势 */}
           {daily.entries.length > 0 && (
             <Card

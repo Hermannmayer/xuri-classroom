@@ -61,6 +61,8 @@ export interface SubmittedSetting {
 }
 
 export interface ExamSetting {
+  /** 是否计分；缺省按模式：考试 true，问卷 false */
+  scoringEnabled?: boolean;
   startTime?: number;
   endTime?: number;
   minSubmitMinutes?: number;

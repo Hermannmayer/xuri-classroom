@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   AutoComplete,
   Breadcrumb,
   Button,
@@ -481,7 +482,7 @@ function ManagerProjectList({
         mode: v.mode,
         category: v.category?.trim() || undefined,
         parentId,
-        setting: DEFAULT_SETTING,
+        setting: { ...DEFAULT_SETTING, examSetting: { scoringEnabled: v.mode === 'exam' } },
         // 先给一份空表，设计器打开时不会拿到 null
         survey: { title: v.name, type: 'Survey', attribute: { mode: v.mode }, children: [] },
       };
@@ -1175,6 +1176,23 @@ function ManagerProjectList({
               ]}
             />
           </Form.Item>
+          {createMode === 'survey' ? (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 14 }}
+              message="问卷：适合收集、调研、报名"
+              description="默认不判分；有回收上限、截止时间、匿名/登录和选项统计。需要成绩、排名、考试控制请选考试。"
+            />
+          ) : (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 14 }}
+              message="考试：适合测验、考核、练习"
+              description="默认计分；支持限时、切屏、排名、成绩单、补考和正确率分析。"
+            />
+          )}
           <Form.Item name="category" label="分类" extra="可自由输入；留空表示未分类">
             <AutoComplete
               allowClear

@@ -83,6 +83,8 @@ export default function SurveyData() {
   const mobile = useIsMobile();
 
   const [project, setProject] = useState<Project>();
+  const scoringEnabled =
+    project?.mode === 'exam' ? project.setting?.examSetting?.scoringEnabled !== false : project?.setting?.examSetting?.scoringEnabled === true;
   const [rows, setRows] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -261,7 +263,7 @@ export default function SurveyData() {
         render: (v?: number) =>
           v === 1 ? <Tag color="success">已提交</Tag> : <Tag color="warning">暂存</Tag>,
       },
-      ...(project?.mode !== 'survey'
+      ...(scoringEnabled
         ? [
             {
               title: '得分',
@@ -307,7 +309,7 @@ export default function SurveyData() {
     ];
 
     return [...fixedColumns, ...questionColumns, ...opsColumn];
-  }, [questions, cells, page, pageSize, project?.mode]);
+  }, [questions, cells, page, pageSize, scoringEnabled]);
 
   const submitAnswer = async (values: Record<string, AnswerValue>) => {
     if (!editor) return;
@@ -695,7 +697,7 @@ export default function SurveyData() {
             <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
               提交时间 {detail.createAt || EMPTY}
               {detail.createByName ? ` · ${detail.createByName}` : ''}
-              {project?.mode !== 'survey' && typeof detail.examScore === 'number' && detail.examScore > 0
+              {scoringEnabled && typeof detail.examScore === 'number' && detail.examScore > 0
                 ? ` · 得分 ${detail.examScore}`
                 : ''}
             </div>

@@ -232,6 +232,8 @@ export default function SurveyEditor() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [setting, setSetting] = useState<ProjectSetting>({});
+  const scoringEnabled =
+    setting.mode === 'exam' ? setting.examSetting?.scoringEnabled !== false : setting.examSetting?.scoringEnabled === true;
   const { state: survey, set: setSurvey, reset, undo, redo, canUndo, canRedo } = useHistoryState<SurveySchema>(
     createSurvey('未命名'),
   );
@@ -1098,7 +1100,7 @@ export default function SurveyEditor() {
                       patchAnswerSetting({ loginRequired: value }),
                     )}
                     <Space direction="vertical" style={{ width: '100%', marginTop: 10 }}>
-                      {setting.mode !== 'survey' && (
+                      {scoringEnabled && (
                         <Button block onClick={openScoreModal}>
                           批量设置分值
                         </Button>
@@ -1181,7 +1183,7 @@ export default function SurveyEditor() {
                       onChange={patchAttribute}
                       questions={candidateQuestions}
                       onPatchNode={patchNode}
-                      scoring={setting.mode !== 'survey'}
+                      scoring={scoringEnabled}
                     />
                   </>
                 ) : (

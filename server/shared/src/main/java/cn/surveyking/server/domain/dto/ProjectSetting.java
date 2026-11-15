@@ -242,6 +242,11 @@ public class ProjectSetting {
 	public static class ExamSetting {
 
 		/**
+		 * 是否计分；null=按模式默认（考试 true，问卷 false）。
+		 */
+		private Boolean scoringEnabled;
+
+		/**
 		 * 考试开始时间
 		 */
 		private Long startTime;
