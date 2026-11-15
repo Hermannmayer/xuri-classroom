@@ -117,6 +117,9 @@ public class ClassServiceImpl implements ClassService {
 	/** 班级也是 t_dept 的一行，建班/改班复用组织树的写路径（缓存失效、上级校验都在那里） */
 	private final DeptService deptService;
 
+	/** 学员多班归属的读写已从 DeptService 拆到这里（与 UserAdminService 保持一致） */
+	private final UserDeptMembershipService userDeptMembershipService;
+
 	private final ClassStudentImportService classStudentImportService;
 
 	@Override
@@ -853,7 +856,7 @@ public class ClassServiceImpl implements ClassService {
 		update.setId(user.getId());
 		update.setDeptId(primary.getId());
 		userMapper.updateById(update);
-		deptService.saveUserDepts(user.getId(), primary.getId(), extras);
+		userDeptMembershipService.saveUserDepts(user.getId(), primary.getId(), extras);
 	}
 
 	private boolean isMemberOfClass(User user, String deptId) {
