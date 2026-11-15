@@ -653,6 +653,9 @@ export default function TeachingClasses() {
   /* ---------------- 编辑/删除学员 ---------------- */
   const [editingMember, setEditingMember] = useState<ClassMember | null>(null);
   const [memberEditSaving, setMemberEditSaving] = useState(false);
+  const [deleteMemberTarget, setDeleteMemberTarget] = useState<ClassMember | null>(null);
+  const [deleteMemberInput, setDeleteMemberInput] = useState('');
+  const [deleteMemberSaving, setDeleteMemberSaving] = useState(false);
   const [memberEditForm] = Form.useForm<{
     name: string;
     phone: string;
@@ -827,14 +830,31 @@ export default function TeachingClasses() {
     }
   };
 
-  const removeMember = async (row: ClassMember) => {
-    if (!selected) return;
+  const openDeleteMember = (row: ClassMember) => {
+    setDeleteMemberTarget(row);
+    setDeleteMemberInput('');
+  };
+
+  const removeMember = async () => {
+    if (!selected || !deleteMemberTarget) return;
+    const typed = deleteMemberInput.trim();
+    const name = (deleteMemberTarget.name || '').trim();
+    const phone = (deleteMemberTarget.phone || '').trim();
+    if (!typed || (typed !== name && typed !== phone)) {
+      message.warning('请输入该学员的姓名或手机号确认删除');
+      return;
+    }
+    setDeleteMemberSaving(true);
     try {
-      await post('/api/teaching/classes/member/delete', { deptId: selected.id, id: row.id });
-      message.success('已删除学员 ' + (row.name || ''));
+      await post('/api/teaching/classes/member/delete', { deptId: selected.id, id: deleteMemberTarget.id });
+      message.success('已删除学员 ' + (deleteMemberTarget.name || ''));
+      setDeleteMemberTarget(null);
+      setDeleteMemberInput('');
       await Promise.all([loadMembers(selected.id), loadTree()]);
     } catch (e) {
       message.error((e as Error).message);
+    } finally {
+      setDeleteMemberSaving(false);
     }
   };
 
@@ -1001,22 +1021,6 @@ export default function TeachingClasses() {
     }
   };
 
-  const batchRemoveExtra = async () => {
-    if (!selected || !selectedMembers.length) return;
-    try {
-      for (const row of selectedMembers) {
-        if (!row.primary) {
-          await post('/api/teaching/classes/member/remove-extra', { deptId: selected.id, id: row.id });
-        }
-      }
-      message.success('已批量移出兼报学员');
-      setSelectedMemberKeys([]);
-      await Promise.all([loadMembers(selected.id), loadTree()]);
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  };
-
   const memberColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 120, render: (v?: string) => v || '—' },
     // 手机号即登录账号，两列同值：合并成一列，避免重复展示
@@ -1090,7 +1094,7 @@ export default function TeachingClasses() {
                     okText="删除"
                     okButtonProps={{ danger: true }}
                     cancelText="取消"
-                    onConfirm={() => removeMember(row)}
+                    onConfirm={() => openDeleteMember(row)}
                   >
                     <LinkAction style={{ color: 'var(--bp-orange)' }}>删除账号</LinkAction>
                   </Popconfirm>
@@ -1415,7 +1419,7 @@ export default function TeachingClasses() {
                           </Popconfirm>
                         )}
                         {row.primary && canMemberDelete && (
-                          <Popconfirm title={`删除学员「${row.name || row.username || '该学员'}」？`} description="账号会被删除，无法再登录；不可恢复。" okText="删除账号" cancelText="取消" onConfirm={() => removeMember(row)}>
+                          <Popconfirm title={`删除学员「${row.name || row.username || '该学员'}」？`} description="账号会被删除，无法再登录；不可恢复。" okText="删除账号" cancelText="取消" onConfirm={() => openDeleteMember(row)}>
                             <Button size="small" danger>删除账号</Button>
                           </Popconfirm>
                         )}
@@ -1430,11 +1434,6 @@ export default function TeachingClasses() {
                       <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>已选 {selectedMemberKeys.length} 人</span>
                       {canMemberUpdate && <Button size="small" onClick={() => void batchMemberStatus(1)}>批量启用</Button>}
                       {canMemberUpdate && <Button size="small" onClick={() => void batchMemberStatus(0)}>批量停用</Button>}
-                      {canAssign && (
-                        <Popconfirm title="把选中的兼报学员移出本班？" description="主班学员不会被移出；只解除本班兼报关系。" okText="移出" cancelText="取消" onConfirm={() => void batchRemoveExtra()}>
-                          <Button size="small" danger>批量移出本班</Button>
-                        </Popconfirm>
-                      )}
                     </div>
                   )}
                   <Table<ClassMember>
@@ -1712,6 +1711,30 @@ export default function TeachingClasses() {
             <Input.Password placeholder="8-32 位，留空不改" maxLength={32} autoComplete="new-password" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="删除学员账号"
+        open={!!deleteMemberTarget}
+        onCancel={() => setDeleteMemberTarget(null)}
+        onOk={() => void removeMember()}
+        confirmLoading={deleteMemberSaving}
+        okText="确认删除账号"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        width={isMobile ? '94%' : 460}
+        destroyOnClose
+      >
+        <p style={{ marginTop: 0 }}>
+          即将删除学员「{deleteMemberTarget?.name || deleteMemberTarget?.phone || '—'}」的账号，删除后无法登录，且不可恢复。
+        </p>
+        <p style={{ color: 'var(--bp-orange)' }}>这是第二步确认，请输入该学员的姓名或手机号后继续：</p>
+        <Input
+          value={deleteMemberInput}
+          onChange={(e) => setDeleteMemberInput(e.target.value)}
+          placeholder={deleteMemberTarget?.name || deleteMemberTarget?.phone || '姓名或手机号'}
+          autoComplete="off"
+        />
       </Modal>
 
       <Modal

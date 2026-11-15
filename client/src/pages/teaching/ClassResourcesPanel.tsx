@@ -76,7 +76,6 @@ interface ClassResource {
 interface ClassResourceSetting {
   extraAttempts?: number | null;
   answerAnalysis?: boolean | null;
-  passScore?: number | null;
   practiceEnabled?: boolean | null;
 }
 
@@ -85,7 +84,6 @@ interface WindowValues {
   status?: boolean;
   extraAttempts?: number | null;
   answerAnalysis?: 'inherit' | 'yes' | 'no';
-  passScore?: number | null;
   practiceEnabled?: boolean;
 }
 
@@ -298,7 +296,6 @@ export default function ClassResourcesPanel({
           : editing.settings?.answerAnalysis === false
             ? 'no'
             : 'inherit',
-      passScore: editing.settings?.passScore ?? undefined,
       practiceEnabled: editing.settings?.practiceEnabled !== false,
     });
   }, [editing, editForm]);
@@ -369,7 +366,6 @@ export default function ClassResourcesPanel({
                   extraAttempts: values.extraAttempts ?? null,
                   answerAnalysis:
                     values.answerAnalysis === 'inherit' ? null : values.answerAnalysis === 'yes',
-                  passScore: values.passScore ?? null,
                 },
         });
       }
@@ -421,7 +417,6 @@ export default function ClassResourcesPanel({
                 extraAttempts: values.extraAttempts ?? null,
                 answerAnalysis:
                   values.answerAnalysis === 'inherit' ? null : values.answerAnalysis === 'yes',
-                passScore: values.passScore ?? null,
               },
       });
       message.success('已保存班级设置');
@@ -777,9 +772,6 @@ export default function ClassResourcesPanel({
                   ]}
                 />
               </Form.Item>
-              <Form.Item name="passScore" label="班级及格线（可选）">
-                <InputNumber min={0} max={10000} precision={1} style={{ width: '100%' }} placeholder="不设置" />
-              </Form.Item>
             </>
           )}
         </Form>
@@ -911,13 +903,6 @@ export default function ClassResourcesPanel({
                     { label: '禁止本班查看', value: 'no' },
                   ]}
                 />
-              </Form.Item>
-              <Form.Item
-                name="passScore"
-                label="班级及格线（可选）"
-                extra="只用于本班报表判定，不改试卷总分"
-              >
-                <InputNumber min={0} max={10000} precision={1} style={{ width: '100%' }} placeholder="不设置" />
               </Form.Item>
             </>
           )}
