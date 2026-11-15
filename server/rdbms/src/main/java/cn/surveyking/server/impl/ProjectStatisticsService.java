@@ -100,7 +100,7 @@ public class ProjectStatisticsService {
 			view.setTotal(view.getTotal() + count);
 			if (anonymous) {
 				view.setAnonymous(view.getAnonymous() + count);
-				if (classId == null || classId.isBlank()) {
+				if (classId == null || classId.trim().isEmpty()) {
 					view.setUnassignedAnonymous(view.getUnassignedAnonymous() + count);
 					continue;
 				}
@@ -108,7 +108,7 @@ public class ProjectStatisticsService {
 			else {
 				view.setIdentified(view.getIdentified() + count);
 			}
-			if (classId == null || classId.isBlank()) {
+			if (classId == null || classId.trim().isEmpty()) {
 				continue;
 			}
 			ProjectClassAnonymousStatsView.ClassStat stat = classes.computeIfAbsent(classId,
