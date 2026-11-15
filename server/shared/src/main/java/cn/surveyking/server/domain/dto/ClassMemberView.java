@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * 班级成员列表行。
  *
- * <p>只给班主任/授权老师看本班学员，不返回手机号、邮箱等敏感资料。
+ * <p>只给班主任/授权老师看本班学员；包含审核/调班所需的最小资料。
  */
 @Data
 public class ClassMemberView {

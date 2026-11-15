@@ -445,9 +445,11 @@ export default function TeachingClasses() {
 
   const approvePending = async (row: ClassMember) => {
     if (!canApprove) return;
-    const deptId = pendingDept[row.id] || row.deptId;
+    // 历史申请的 deptId 可能指向容器班（不在教学班下拉里）：必须让管理员重新选教学班
+    const currentValid = classOptions.some((option) => option.value === row.deptId);
+    const deptId = pendingDept[row.id] || (currentValid ? row.deptId : undefined);
     if (!deptId) {
-      message.warning('请先为这个学员选择班级');
+      message.warning('请先为这个学员选择教学班');
       return;
     }
     setApprovingId(row.id);
@@ -494,8 +496,11 @@ export default function TeachingClasses() {
             size="small"
             showSearch
             optionFilterProp="label"
-            value={pendingDept[row.id] || row.deptId}
-            placeholder="选择班级"
+            value={
+              pendingDept[row.id] ||
+              (classOptions.some((option) => option.value === row.deptId) ? row.deptId : undefined)
+            }
+            placeholder={row.deptName ? '原申请：' + row.deptName + '（请改选教学班）' : '选择教学班'}
             style={{ width: '100%' }}
             options={classOptions}
             onChange={(value: string) => setPendingDept((prev) => ({ ...prev, [row.id]: value }))}
