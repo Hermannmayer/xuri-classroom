@@ -462,7 +462,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			return;
 		}
 		try {
-			fileRefService.syncHtml("project", projectId, objectMapper.writeValueAsString(survey));
+			fileService.replaceOwnerRefs("project", projectId, objectMapper.writeValueAsString(survey));
 		}
 		catch (Exception ignored) {
 			// 引用登记失败不能阻断试卷保存；图片仍在，后续保存会补登记

@@ -136,6 +136,19 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		fileRefService.syncHtml(ownerType, ownerId, html);
 	}
 
+	@Override
+	@CacheEvict(cacheNames = "fileCache", allEntries = true)
+	public void replaceOwnerRefs(String ownerType, String ownerId, String html) {
+		Set<String> removed = fileRefService.replaceHtml(ownerType, ownerId, html);
+		for (String fileId : removed) {
+			File file = getById(fileId);
+			if (file == null || StringUtils.isNotBlank(file.getAnswerId()) || fileRefService.countByFile(fileId) > 0) {
+				continue;
+			}
+			removeFileAndPhysical(file);
+		}
+	}
+
 	private void removeFileAndPhysical(File file) {
 		deletePhysicalFileIfUnreferenced(file.getId(), file.getFilePath());
 		deletePhysicalFileIfUnreferenced(file.getId(), file.getThumbFilePath());

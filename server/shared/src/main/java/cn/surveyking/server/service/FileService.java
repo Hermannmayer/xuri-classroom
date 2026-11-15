@@ -38,6 +38,9 @@ public interface FileService {
 	/** 保存 schema 时扫描 HTML 中的图片并登记引用。 */
 	void syncOwnerRefs(String ownerType, String ownerId, String html);
 
+	/** 用完整 HTML 替换 owner 的引用，并删除变成孤儿的物理文件。 */
+	void replaceOwnerRefs(String ownerType, String ownerId, String html);
+
 	void validateAndBindAnswerFiles(String projectId, String answerId, SurveySchema survey,
 			LinkedHashMap<String, Object> answer, LinkedHashMap<String, Object> previousAnswer);
 

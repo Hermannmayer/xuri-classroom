@@ -26,6 +26,9 @@ public interface FileRefService {
 	/** 从 HTML/JSON 里扫描 /api/public/preview/{id} 并绑定。 */
 	void syncHtml(String ownerType, String ownerId, String html);
 
+	/** 用一份完整 HTML 替换某个 owner 的引用；返回被移除引用的文件 id。 */
+	Set<String> replaceHtml(String ownerType, String ownerId, String html);
+
 	/** 一个文件还剩多少引用。 */
 	long countByFile(String fileId);
 

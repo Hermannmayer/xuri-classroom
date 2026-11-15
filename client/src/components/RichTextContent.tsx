@@ -1,6 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import DOMPurify from 'dompurify';
-import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
 const ALLOWED_TAGS = [
@@ -21,7 +20,7 @@ export interface RichTextContentProps {
 
 /**
  * 只读富文本：消毒后渲染，并把 [data-formula] 用 KaTeX 渲染。
- * 编辑器保存的是 LaTeX，阅读/打印/成绩单统一走这里，避免公式在展示端变成源码。
+ * KaTeX 按需动态加载，避免所有答题页首屏都背上公式引擎。
  */
 export default function RichTextContent({ html, style, className }: RichTextContentProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -35,16 +34,23 @@ export default function RichTextContent({ html, style, className }: RichTextCont
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    root.querySelectorAll<HTMLElement>('[data-formula]').forEach((element) => {
-      const latex = element.getAttribute('data-formula') || '';
-      if (!latex.trim()) return;
-      try {
-        katex.render(latex, element, { throwOnError: false, displayMode: false });
-      } catch {
-        // 公式写错时保留源码，不要让整页渲染失败
-        element.textContent = latex;
-      }
-    });
+    const formulas = Array.from(root.querySelectorAll<HTMLElement>('[data-formula]'));
+    if (!formulas.length) return;
+    let alive = true;
+    void import('katex').then(({ default: katex }) => {
+      if (!alive) return;
+      formulas.forEach((element) => {
+        const latex = element.getAttribute('data-formula') || '';
+        if (!latex.trim()) return;
+        try {
+          katex.render(latex, element, { throwOnError: false, displayMode: false });
+        } catch {
+          // 公式写错时保留源码，不要让整页渲染失败
+          element.textContent = latex;
+        }
+      });
+    }).catch(() => undefined);
+    return () => { alive = false; };
   }, [clean]);
 
   return (

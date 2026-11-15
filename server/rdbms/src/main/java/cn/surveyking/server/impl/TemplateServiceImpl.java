@@ -19,6 +19,7 @@ import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.FileRefService;
+import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.TemplateService;
 import cn.surveyking.server.service.UserDeptScopeService;
@@ -63,6 +64,8 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	private final FileRefService fileRefService;
 
 	private final ObjectMapper objectMapper;
+
+	private final FileService fileService;
 
 	@Resource
 	@Lazy
@@ -112,6 +115,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		Template template = templateViewMapper.fromRequest(request);
 		save(template);
 		syncTemplateRefs(template.getRepoId(), template.getTemplate());
+		gcRepoRefs(template.getRepoId());
 		return template.getId();
 	}
 
@@ -126,6 +130,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		List<Template> templates = templateViewMapper.fromRequest(templateRequests);
 		saveBatch(templates);
 		templates.forEach(template -> syncTemplateRefs(template.getRepoId(), template.getTemplate()));
+		templates.stream().map(Template::getRepoId).filter(Objects::nonNull).distinct().forEach(this::gcRepoRefs);
 	}
 
 	/**
@@ -199,8 +204,9 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		assertTemplateUpdateAllowed(existing, request);
 		RichTextSanitizer.sanitizeSchema(request.getTemplate());
 		updateById(templateViewMapper.fromRequest(request));
-		syncTemplateRefs(request.getRepoId() != null ? request.getRepoId() : existing == null ? null : existing.getRepoId(),
-				request.getTemplate());
+		String repoId = request.getRepoId() != null ? request.getRepoId() : existing == null ? null : existing.getRepoId();
+		syncTemplateRefs(repoId, request.getTemplate());
+		gcRepoRefs(repoId);
 	}
 
 	private void syncTemplateRefs(String repoId, SurveySchema schema) {
@@ -224,8 +230,34 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 			throw new AccessDeniedException("模板不存在或无权删除");
 		}
 		templates.forEach(this::assertManageTemplate);
+		Set<String> repoIds = templates.stream().map(Template::getRepoId).filter(Objects::nonNull)
+				.collect(Collectors.toSet());
 		if (!templateIds.isEmpty()) {
 			removeBatchByIds(templateIds);
+		}
+		repoIds.forEach(this::gcRepoRefs);
+	}
+
+	private void gcRepoRefs(String repoId) {
+		if (repoId == null) {
+			return;
+		}
+		try {
+			StringBuilder html = new StringBuilder();
+			list(Wrappers.<Template>lambdaQuery().eq(Template::getRepoId, repoId)).forEach(template -> {
+				if (template.getTemplate() != null) {
+					try {
+						html.append(objectMapper.writeValueAsString(template.getTemplate()));
+					}
+					catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+						// 单个模板序列化失败不影响其它模板的引用回收
+					}
+				}
+			});
+			fileService.replaceOwnerRefs("repo", repoId, html.toString());
+		}
+		catch (Exception ignored) {
+			// 引用回收失败不能阻断题目保存
 		}
 	}
 

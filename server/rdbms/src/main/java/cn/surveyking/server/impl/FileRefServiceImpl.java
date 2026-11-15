@@ -100,6 +100,33 @@ public class FileRefServiceImpl implements FileRefService {
 	}
 
 	@Override
+	public Set<String> replaceHtml(String ownerType, String ownerId, String html) {
+		Set<String> next = new LinkedHashSet<>();
+		if (StringUtils.hasText(html)) {
+			Matcher matcher = PREVIEW.matcher(html);
+			while (matcher.find()) {
+				next.add(matcher.group(1));
+			}
+		}
+		Set<String> existing = listFileIds(ownerType, ownerId);
+		Set<String> removed = new LinkedHashSet<>(existing);
+		removed.removeAll(next);
+		if (removed.isEmpty() && next.containsAll(existing)) {
+			return removed;
+		}
+		if (next.isEmpty()) {
+			fileRefMapper.delete(Wrappers.<FileRef>lambdaQuery().eq(FileRef::getOwnerType, ownerType)
+					.eq(FileRef::getOwnerId, ownerId));
+		}
+		else {
+			fileRefMapper.delete(Wrappers.<FileRef>lambdaQuery().eq(FileRef::getOwnerType, ownerType)
+					.eq(FileRef::getOwnerId, ownerId).notIn(FileRef::getFileId, next));
+		}
+		next.forEach(fileId -> bind(fileId, ownerType, ownerId, null));
+		return removed;
+	}
+
+	@Override
 	public long countByFile(String fileId) {
 		if (!StringUtils.hasText(fileId)) {
 			return 0;
