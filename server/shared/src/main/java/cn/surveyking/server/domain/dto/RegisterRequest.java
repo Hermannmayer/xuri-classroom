@@ -18,6 +18,9 @@ public class RegisterRequest {
 	 */
 	private String phone;
 
+	/** 注册目标班级 id（t_dept.id，dept_type=class 且 allow_register=1） */
+	private String deptId;
+
 	@NotBlank
 	private String username;
 

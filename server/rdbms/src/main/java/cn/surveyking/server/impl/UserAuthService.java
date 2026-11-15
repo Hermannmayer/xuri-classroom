@@ -23,6 +23,7 @@ import com.anji.captcha.service.CaptchaService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.AccessDeniedException;
@@ -49,6 +50,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class UserAuthService {
 
 	private final AccountMapper accountMapper;
@@ -192,21 +194,35 @@ public class UserAuthService {
 			// 验证码已开启
 			CaptchaVO captchaVO = new CaptchaVO();
 			captchaVO.setCaptchaVerification(request.getCaptchaVerification());
-			ResponseModel response = captchaService.verification(captchaVO);
-			if (response.isSuccess() == false) {
-				// 验证码校验失败，返回信息告诉前端
-				// repCode 0000 无异常，代表成功
-				// repCode 9999 服务器内部异常
-				// repCode 0011 参数不能为空
-				// repCode 6110 验证码已失效，请重新获取
-				// repCode 6111 验证失败
-				// repCode 6112 获取验证码失败,请联系管理员
-				// repCode 6113 底图未初始化成功，请检查路径
-				// repCode 6201 get接口请求次数超限，请稍后再试!
-				// repCode 6206 无效请求，请重新获取验证码
-				// repCode 6202 接口验证失败数过多，请稍后再试
-				// repCode 6204 check接口请求次数超限，请稍后再试!
-				throw new ValidationException(response.getRepMsg());
+			try {
+				ResponseModel response = captchaService.verification(captchaVO);
+				if (response == null || !Boolean.TRUE.equals(response.isSuccess())) {
+					// 验证码校验失败，返回信息告诉前端
+					// repCode 0000 无异常，代表成功
+					// repCode 9999 服务器内部异常
+					// repCode 0011 参数不能为空
+					// repCode 6110 验证码已失效，请重新获取
+					// repCode 6111 验证失败
+					// repCode 6112 获取验证码失败,请联系管理员
+					// repCode 6113 底图未初始化成功，请检查路径
+					// repCode 6201 get接口请求次数超限，请稍后再试!
+					// repCode 6206 无效请求，请重新获取验证码
+					// repCode 6202 接口验证失败数过多，请稍后再试
+					// repCode 6204 check接口请求次数超限，请稍后再试!
+					String message = response == null ? null : response.getRepMsg();
+					if (message == null || message.contains("服务出了点问题")) {
+						message = "验证码服务暂时不可用，请稍后重试";
+					}
+					throw new ValidationException(message);
+				}
+			}
+			catch (ValidationException e) {
+				throw e;
+			}
+			catch (Exception e) {
+				// AWT 字体缺失等底层异常不要直接甩给前端「服务出了点问题」；日志里保留完整栈
+				log.error("验证码校验异常", e);
+				throw new ValidationException("验证码服务暂时不可用，请稍后重试");
 			}
 		}
 	}

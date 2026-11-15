@@ -79,6 +79,8 @@ public class UserQueryService {
 				.like(isNotBlank(query.getName()), User::getName, query.getName())
 				// 用户管理与班级管理各看各的：staff / student
 				.eq(isNotBlank(query.getUserType()), User::getUserType, query.getUserType())
+				// 状态筛选：待审核学员列表用 status=0；不传则查全部
+				.eq(query.getStatus() != null, User::getStatus, query.getStatus())
 				.exists(isNotBlank(query.getRoleId()),
 						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
 						query.getRoleId())

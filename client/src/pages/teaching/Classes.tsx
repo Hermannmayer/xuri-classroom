@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
   App,
+  Badge,
   Button,
   Card,
   Empty,
@@ -48,6 +49,8 @@ interface ClassNode {
   managerId?: string;
   managerName?: string;
   memberCount?: number;
+  /** 是否开放学员自助注册（班级设置里打开后，注册页会出现这个班） */
+  allowRegister?: boolean;
   /** 班级设置回显：有效期 */
   validFrom?: string;
   validTo?: string;
@@ -209,6 +212,11 @@ function toTreeData(nodes: ClassNode[]): TreeDataNode[] {
         <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-text-soft)' }}>
           {node.accessible === false ? '（上级）' : `${node.memberCount ?? 0} 人`}
         </span>
+        {node.allowRegister && (
+          <Tag color="green" style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px' }}>
+            开放注册
+          </Tag>
+        )}
       </span>
     ),
     children: node.children && node.children.length > 0 ? toTreeData(node.children) : undefined,
@@ -346,6 +354,133 @@ export default function TeachingClasses() {
     // 选中项没变时上面的 effect 不会重跑，这里手动刷新成员；变了就交给 effect
     if (nextId && nextId === before) await loadMembers(nextId);
   };
+
+  /* ---------------- 待审核学员 ---------------- */
+  const [pendingOpen, setPendingOpen] = useState(false);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pending, setPending] = useState<ClassMember[]>([]);
+  /** 每行审核通过后进入的班级；默认沿用注册时选的班，允许管理员改 */
+  const [pendingDept, setPendingDept] = useState<Record<string, string>>({});
+  const [approvingId, setApprovingId] = useState<string>();
+
+  const classOptions = useMemo(() => {
+    const result: { value: string; label: string }[] = [];
+    const walk = (nodes: ClassNode[], prefix: string) => {
+      nodes.forEach((node) => {
+        const name = node.name || '(未命名班级)';
+        const label = prefix ? `${prefix} / ${name}` : name;
+        result.push({ value: node.id, label });
+        if (node.children?.length) walk(node.children, label);
+      });
+    };
+    walk(tree, '');
+    return result;
+  }, [tree]);
+
+  const loadPending = useCallback(async () => {
+    if (!canDetail) {
+      setPending([]);
+      return;
+    }
+    setPendingLoading(true);
+    try {
+      const list = await get<ClassMember[]>('/api/teaching/classes/pending-students');
+      const rows = Array.isArray(list) ? list : [];
+      setPending(rows);
+      setPendingDept((prev) => {
+        const next = { ...prev };
+        rows.forEach((row) => {
+          if (!next[row.id]) next[row.id] = row.deptId || selected?.id || '';
+        });
+        return next;
+      });
+    } catch (e) {
+      message.error((e as Error).message || '读取待审核学员失败');
+      setPending([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, [canDetail, message, selected?.id]);
+
+  useEffect(() => {
+    if (canDetail) void loadPending();
+  }, [canDetail, loadPending]);
+
+  const openPending = () => {
+    setPendingOpen(true);
+    void loadPending();
+  };
+
+  const approvePending = async (row: ClassMember) => {
+    if (!canMemberUpdate) return;
+    const deptId = pendingDept[row.id] || row.deptId;
+    if (!deptId) {
+      message.warning('请先为这个学员选择班级');
+      return;
+    }
+    setApprovingId(row.id);
+    try {
+      await post('/api/teaching/classes/pending-students/approve', { userId: row.id, deptId });
+      message.success('已通过 ' + (row.name || row.phone || '该学员') + ' 的注册申请');
+      setPending((prev) => prev.filter((item) => item.id !== row.id));
+      await loadTree();
+      if (selected?.id === deptId) await loadMembers(deptId);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setApprovingId(undefined);
+    }
+  };
+
+  const pendingColumns: ColumnsType<ClassMember> = [
+    { title: '姓名', dataIndex: 'name', width: 110, render: (v?: string) => v || '—' },
+    {
+      title: '手机号 / 登录账号',
+      key: 'account',
+      width: 150,
+      render: (_: unknown, row) => row.phone || row.username || '—',
+    },
+    { title: '注册时间', dataIndex: 'createAt', width: 150, render: (v?: string) => v || '—' },
+    {
+      title: '注册班级',
+      key: 'dept',
+      width: 220,
+      render: (_: unknown, row) =>
+        canMemberUpdate ? (
+          <Select
+            size="small"
+            showSearch
+            optionFilterProp="label"
+            value={pendingDept[row.id] || row.deptId}
+            placeholder="选择班级"
+            style={{ width: '100%' }}
+            options={classOptions}
+            onChange={(value: string) => setPendingDept((prev) => ({ ...prev, [row.id]: value }))}
+            aria-label={'为 ' + (row.name || '该学员') + ' 选择班级'}
+          />
+        ) : (
+          row.deptName || '—'
+        ),
+    },
+    {
+      title: '操作',
+      key: 'ops',
+      width: 90,
+      render: (_: unknown, row) =>
+        canMemberUpdate ? (
+          <Button
+            type="primary"
+            size="small"
+            loading={approvingId === row.id}
+            onClick={() => void approvePending(row)}
+          >
+            通过
+          </Button>
+        ) : (
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>只读</span>
+        ),
+    },
+  ];
 
   /* ---------------- 班级设置 ---------------- */
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -742,6 +877,13 @@ export default function TeachingClasses() {
             <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreateClass(selected?.id)}>
               新建班级
             </Button>
+          )}
+          {canDetail && (
+            <Badge count={pending.length} size="small" offset={[-2, 2]}>
+              <Button icon={<UserAddOutlined />} onClick={openPending}>
+                待审核学员
+              </Button>
+            </Badge>
           )}
           <Button icon={<ReloadOutlined />} loading={treeLoading} onClick={() => void refreshAll()}>
             刷新
@@ -1158,6 +1300,55 @@ export default function TeachingClasses() {
         onClose={() => setDeleteTarget(null)}
         onDeleted={handleClassDeleted}
       />
+
+
+      <Modal
+        title="待审核学员"
+        open={pendingOpen}
+        onCancel={() => setPendingOpen(false)}
+        footer={null}
+        width={isMobile ? '100%' : 820}
+        destroyOnClose
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="学员自己注册后会出现在这里"
+          description="确认班级无误后点「通过」，学员就能用手机号 + 注册时设置的密码登录。需要换班时先改下拉里的班级再通过。"
+        />
+        {classOptions.length === 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message="还没有可分配的班级"
+            description="请先在左侧新建班级，并在「班级设置 → 开放注册」里打开，学员注册页才会出现这个班。"
+          />
+        )}
+        <TableScrollRegion label="待审核学员（可横向滚动）">
+          <Table<ClassMember>
+            rowKey="id"
+            size="small"
+            loading={pendingLoading}
+            dataSource={pending}
+            columns={pendingColumns}
+            pagination={false}
+            scroll={{ x: 720 }}
+            locale={{
+              emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待审核学员" />,
+            }}
+          />
+        </TableScrollRegion>
+        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={() => void loadPending()} loading={pendingLoading}>
+            刷新
+          </Button>
+          <Button type="primary" onClick={() => setPendingOpen(false)}>
+            完成
+          </Button>
+        </div>
+      </Modal>
 
       <ClassSettingsModal
         open={settingsOpen}

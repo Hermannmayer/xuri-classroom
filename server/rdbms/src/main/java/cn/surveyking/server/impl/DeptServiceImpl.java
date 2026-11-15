@@ -162,6 +162,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		request.setDeptType(deptType);
 		assertParentDeptType(request.getParentId(), deptType);
 		Dept dept = deptDtoMapper.fromRequest(request);
+		// 开放注册只对班级有意义；用户组一律强制关闭，避免脏配置出现在注册页
+		dept.setAllowRegister(Dept.TYPE_CLASS.equals(deptType) && Boolean.TRUE.equals(request.getAllowRegister()));
 		// 顶层节点（parent 为空）统一挂到 "0"；排序号也按这个真实父节点算，
 		// 否则老师建多个顶层班级时 sort_code 全是 0，班级树的顺序会不稳定
 		String parentId = StringUtils.isEmpty(request.getParentId()) ? ROOT_DEPT_PARENT_ID : request.getParentId();
@@ -193,7 +195,16 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		// 无论前端传什么，落库的 dept_type 永远是现有类型
 		request.setDeptType(currentType);
 		assertParentPlacementAllowed(request.getId(), request.getParentId());
-		updateById(deptDtoMapper.fromRequest(request));
+		Dept update = deptDtoMapper.fromRequest(request);
+		// 用户组不能开放注册；班级不传 allowRegister 时显式沿用原值，别依赖 MyBatis 的 null 更新策略
+		if (Dept.TYPE_CLASS.equals(currentType)) {
+			update.setAllowRegister(request.getAllowRegister() != null ? request.getAllowRegister()
+					: Boolean.TRUE.equals(current.getAllowRegister()));
+		}
+		else {
+			update.setAllowRegister(false);
+		}
+		updateById(update);
 		// roleIds 为 null 表示本次不改角色（只改名字/上级）；传空数组表示清空
 		if (request.getRoleIds() != null) {
 			saveDeptRoles(request.getId(), request.getRoleIds());

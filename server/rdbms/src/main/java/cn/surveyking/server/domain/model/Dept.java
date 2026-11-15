@@ -30,6 +30,9 @@ public class Dept extends BaseModel {
 	/** org=用户组(教职工) class=班级(学员)；历史数据为空时按 org 处理 */
 	private String deptType;
 
+	/** 是否开放学员自助注册（只对 class 节点有意义；1=开放，0/空=不开放） */
+	private Boolean allowRegister;
+
 	private String name;
 
 	private String shortName;

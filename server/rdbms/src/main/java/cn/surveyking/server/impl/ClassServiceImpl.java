@@ -12,6 +12,7 @@ import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
+import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
 import cn.surveyking.server.domain.dto.UserOptionView;
 import cn.surveyking.server.domain.dto.UserRequest;
 import cn.surveyking.server.domain.model.Account;
@@ -33,8 +34,10 @@ import cn.surveyking.server.mapper.UserRoleMapper;
 import cn.surveyking.server.service.ClassService;
 import cn.surveyking.server.service.DeptService;
 import cn.surveyking.server.service.UserService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -229,6 +232,103 @@ public class ClassServiceImpl implements ClassService {
 			view.setRoleNames(roleNames.getOrDefault(user.getId(), Collections.emptyList()));
 			return view;
 		}).collect(Collectors.toList());
+	}
+
+
+	@Override
+	public List<ClassMemberView> listPendingStudents() {
+		List<Dept> depts = deptMapper.selectList(
+				Wrappers.<Dept>lambdaQuery().eq(Dept::getDeptType, Dept.TYPE_CLASS).orderByAsc(Dept::getSortCode));
+		Map<String, Dept> byId = depts.stream().filter(d -> StringUtils.hasText(d.getId()))
+				.collect(Collectors.toMap(Dept::getId, d -> d, (a, b) -> a, LinkedHashMap::new));
+		boolean seeAll = SecurityContextUtils.isAdmin()
+				|| SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode());
+		Set<String> visible = visibleDeptIds(depts, byId);
+		if (!seeAll && visible.isEmpty()) {
+			return Collections.emptyList();
+		}
+		LambdaQueryWrapper<User> query = Wrappers.<User>lambdaQuery()
+				.eq(User::getUserType, "student")
+				.eq(User::getStatus, AppConsts.USER_STATUS.INVALID)
+				.orderByDesc(User::getCreateAt);
+		// 老师只看自己可见班级里的待审核学员；管理员/class:grant 看全部（含历史上未分班的）
+		if (!seeAll) {
+			query.in(User::getDeptId, visible);
+		}
+		List<User> users = userMapper.selectList(query);
+		if (users.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<String> userIds = users.stream().map(User::getId).collect(Collectors.toList());
+		Map<String, String> usernames = accountMapper
+				.selectList(Wrappers.<Account>lambdaQuery().in(Account::getUserId, userIds)
+						.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()))
+				.stream().filter(a -> StringUtils.hasText(a.getUserId()))
+				.collect(Collectors.toMap(Account::getUserId, Account::getAuthAccount, (a, b) -> a));
+		// 状态以登录账号为准：t_user.status=0 但账号已被单独启用的，不算待审核
+		Set<String> pendingAccountUserIds = accountMapper
+				.selectList(Wrappers.<Account>lambdaQuery().in(Account::getUserId, userIds)
+						.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name())
+						.eq(Account::getStatus, AppConsts.USER_STATUS.INVALID))
+				.stream().map(Account::getUserId).filter(StringUtils::hasText).collect(Collectors.toSet());
+		Map<String, String> deptNames = depts.stream().filter(d -> StringUtils.hasText(d.getId()) && StringUtils.hasText(d.getName()))
+				.collect(Collectors.toMap(Dept::getId, Dept::getName, (a, b) -> a));
+		Map<String, List<String>> roleNames = loadRoleNames(userIds);
+		return users.stream().filter(user -> pendingAccountUserIds.contains(user.getId())).map(user -> {
+			ClassMemberView view = new ClassMemberView();
+			view.setId(user.getId());
+			view.setName(user.getName());
+			view.setUsername(usernames.get(user.getId()));
+			view.setStatus(user.getStatus());
+			view.setDeptId(user.getDeptId());
+			view.setDeptName(StringUtils.hasText(user.getDeptId()) ? deptNames.get(user.getDeptId()) : null);
+			view.setPhone(user.getPhone());
+			view.setEmail(user.getEmail());
+			view.setCreateAt(user.getCreateAt());
+			view.setRoleNames(roleNames.getOrDefault(user.getId(), Collections.emptyList()));
+			return view;
+		}).collect(Collectors.toList());
+	}
+
+	@Override
+	@CacheEvict(cacheNames = "userCache", key = "#request.userId")
+	public void approvePendingStudent(PendingStudentApproveRequest request) {
+		if (request == null || !StringUtils.hasText(request.getUserId())) {
+			throw new ValidationException("缺少待审核学员 id");
+		}
+		User user = userMapper.selectById(request.getUserId());
+		if (user == null || !"student".equals(user.getUserType())) {
+			throw new ValidationException("只能审核学员账号");
+		}
+		if (Objects.equals(user.getStatus(), AppConsts.USER_STATUS.VALID)) {
+			throw new ValidationException("该学员已审核通过");
+		}
+		String targetDeptId = StringUtils.hasText(request.getDeptId()) ? request.getDeptId().trim() : user.getDeptId();
+		if (!StringUtils.hasText(targetDeptId)) {
+			throw new ValidationException("请先为学员选择班级");
+		}
+		Dept target = deptMapper.selectById(targetDeptId);
+		if (target == null || !Dept.TYPE_CLASS.equals(target.getDeptType())) {
+			throw new ValidationException("审核通过时只能分配到班级（class）");
+		}
+		if (!SecurityContextUtils.isAdmin() && !SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode())) {
+			// 老师只能审核自己能管理的班；把学员改到别的班时，原班也必须在自己的管理范围内
+			assertClassManage(targetDeptId);
+			if (!Objects.equals(targetDeptId, user.getDeptId()) && StringUtils.hasText(user.getDeptId())) {
+				assertClassManage(user.getDeptId());
+			}
+		}
+		user.setDeptId(targetDeptId);
+		user.setStatus(AppConsts.USER_STATUS.VALID);
+		userMapper.updateById(user);
+
+		Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery()
+				.eq(Account::getUserId, user.getId()).eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
+		if (account == null) {
+			throw new ValidationException("该学员没有可用的登录账号，请联系管理员");
+		}
+		account.setStatus(AppConsts.USER_STATUS.VALID);
+		accountMapper.updateById(account);
 	}
 
 	@Override
@@ -626,6 +726,7 @@ public class ClassServiceImpl implements ClassService {
 		view.setAccessible(visible.contains(dept.getId()));
 		view.setManageable(manageable.contains(dept.getId()));
 		view.setRoleIds(roleIdsByDept.getOrDefault(dept.getId(), Collections.emptyList()));
+		view.setAllowRegister(Boolean.TRUE.equals(dept.getAllowRegister()));
 		view.setValidFrom(dept.getValidFrom());
 		view.setValidTo(dept.getValidTo());
 		if (StringUtils.hasText(dept.getManagerId())) {

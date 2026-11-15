@@ -89,7 +89,9 @@ verified_against: '765fc89'
 6. **登录成功后的前端动作**：`Login.tsx` 再调 `GET /api/currentUser` 确认会话可用，`notifyAuthChanged()` 清本页权限缓存并广播到其它标签页，然后 `navigate('/home')`。`BasicLayout` 挂载时 `Promise.all([getCurrentUser(), getSystem()])`；任一失败跳 `/user/login`。权限判定由 `client/src/auth/permissions.ts` 的 `loadAuthorities()` 拉 `/api/currentUser` 的 `authorityList`。
 7. **后续请求**：浏览器自动带 `sk-token`。`JwtTokenFilter` 从 Cookie（或开启 URL token 时的 `sk-token` 参数）取 token，`jwtTokenUtil.validate` 校验签名/过期，再用 `userService.loadUserById(userId)` 加载用户；检查 `enabled/isAccountNonLocked/isAccountNonExpired/isCredentialsNonExpired`，通过后写入 `SecurityContext`。如果 token 来自 URL 参数且没有 Cookie，过滤器会补一个 HttpOnly Cookie。
 8. **退出登录**：`POST /api/public/logout` 返回 `Set-Cookie: sk-token=; Max-Age=0`，浏览器删除 Cookie；后端是 STATELESS，没有服务端 session 可销毁。
-9. **注册**：`/user/register` 先读 `GET /api/system` 的 `registerInfo.registerEnabled`；开启时 `POST /api/public/register { username, phone, name, password }`。`UserServiceImpl.register` 校验开关、强密码、账号唯一，创建 `status=0` 的用户（"待审核"），`userType=student`，角色取 `registerInfo.roles`；管理员在班级/用户管理里启用后才能登录。注册页的密码是**明文提交**（依赖 HTTPS），不是 RSA。
+9. **注册（学员自己选班 → 待审核）**：`/user/register` 先读 `GET /api/system` 的 `registerInfo.registerEnabled` 和 `GET /api/public/registerClasses`（只返回 `dept_type=class` 且 `allow_register=1` 的班）。开启时 `POST /api/public/register { deptId, username, phone, name, password }`。`UserServiceImpl.register` 校验开关、手机号（`^1[3-9]\d{9}$`，账号强制等于手机号）、强密码、账号唯一、目标班必须是 class 且已开放注册；创建 `status=0` 的学员（"待审核"），`userType=student`，角色取 `registerInfo.roles`（没配时兜底内置 student/xueyuan 角色）。**不再回退到组织树根（org）**，也不再依赖全局默认班。管理员/班主任在「班级管理 → 待审核学员」里点「通过」（`POST /api/teaching/classes/pending-students/approve`）把 `t_user.status` 与 `t_account.status` 一起置 1 后才能登录。注册页的密码是**明文提交**（依赖 HTTPS），不是 RSA。
+
+   注册页的班级开关在班级设置：「班级管理 → 选中班级 → 班级设置 → 开放注册」。多个班都开放时由学员自己选，不设全局默认；一个都没开时注册页直接提示「当前没有班级开放注册」。
 10. **会话失效**：见下一节。前端 `request.ts` 收到 `body.code=401` 时调用 `onUnauthorized`，当前不在 `/user/` 下就 `location.replace('/user/login')`；403 只提示"没有权限"，不跳登录。
 
 ## 会话失效判定
@@ -112,7 +114,10 @@ verified_against: '765fc89'
 | `GET /api/system` | 公开 | 返回 `publicKey`、验证码开关、注册开关；不返回导出密码 |
 | `POST /api/public/login` | 公开 | 验证码 + RSA + 账号状态 + 组有效期 |
 | `POST /api/public/logout` | 公开 | 清 Cookie |
-| `POST /api/public/register` | 公开（受系统开关限制） | 只能建学员，`status=0` |
+| `POST /api/public/register` | 公开（受系统开关限制） | 选开放注册的班级，只能建学员，`status=0` |
+| `GET /api/public/registerClasses` | 公开 | 注册页可选班级（class + `allow_register=1`） |
+| `GET /api/teaching/classes/pending-students` | `class:detail` / admin | 当前用户可见班级里的待审核学员 |
+| `POST /api/teaching/classes/pending-students/approve` | `class:member:update` / admin | 启用账号，可同时确认/调整班级 |
 | `GET /api/currentUser` | `isAuthenticated()` | 返回资料与 `authorityList` |
 | `GET /api/public/listRegisterRole` | 公开 | 注册可选角色（当前注册逻辑只认 `registerInfo.roles`） |
 | `/captcha/get`、`/captcha/check` | 公开 | 滑块验证码 |
@@ -124,6 +129,9 @@ verified_against: '765fc89'
 - **登录失败统一 1024**：密码错、账号禁用、组过期、鉴权链异常都转成 `UsernameOrPasswordError`；真实原因只在后端日志里（`UserApi#login` 的 WARN）。排查不要只看前端提示。
 - **连续失败会锁 10 分钟**：`LoginAttemptLimiter` 按"用户名 + IP"计 10 次失败/10 分钟；触发后即使密码正确也返回 1024，等窗口过期或重启（内存缓存）才恢复。
 - **验证码失败会被消费**：后端校验失败后前端要换 `captchaKey` 重新拉一张；旧 token 不能复用。
+- **`/captcha/get` 报 500「服务出了点问题」先看运行时镜像**：anji-captcha 的滑块图用 Java AWT 绘制，Alpine 的 `eclipse-temurin:8-jre-alpine` 缺 `libgcc_s.so.1` 时 `libfontmanager.so` 初始化失败，日志是 `NoClassDefFoundError: Could not initialize class sun.awt.X11FontManager`。两个 Dockerfile（根目录与 `deploy/nas/live/Dockerfile.runtime`）都已加 `libgcc fontconfig freetype ttf-dejavu` 和 `-Djava.awt.headless=true`；改完必须重建 `xuri-runtime:8`，只重启容器不够。自检：`docker exec xuri-live-app sh -c 'ldd /opt/java/openjdk/lib/amd64/libfontmanager.so | grep libgcc'`。
+- **注册不再回退组织树根**：旧逻辑在没配 `registerInfo.deptId` 时把学员放进 `parent_id=0` 的 org 节点，新加的「学员只能加入班级」校验会直接拒绝。现在必须由学员在注册页选一个 `dept_type=class` 且 `allow_register=1` 的班；没班开放时注册页提示「当前没有班级开放注册」，不会生成无班/org 学员。全局 `registerInfo.deptId` 已不再参与注册。
+- **待审核学员按班级可见性收敛**：`listPendingStudents` 只返回当前用户可见班级里的 `t_user.status=0` 学员；管理员 / `class:grant` 看全部。通过时必须能管理目标班（老师）或管理员；只读授权只能看名单、不能通过。
 - **`sk-token` 是 HttpOnly**：JS 读不到 `document.cookie`，调试看 Network 的 `Set-Cookie` 或后端日志；Vite 开发必须用同源代理，跨域 CORS 下 Cookie 不会带。
 - **HTTPS 反代要传 `X-Forwarded-Proto`**：`AuthenticationCookieService.isSecure` 依赖它决定 `Secure` 属性；代理没传时 HTTPS 站点可能下发非 Secure Cookie（或反过来在 HTTP 上下发 Secure 导致浏览器不保存）。
 - **未配 `JWT_SECRET` 会全员掉线**：`application.yml` 默认 `secret: ${SK_JWT_SECRET:}`，为空就随机；docker-compose 把 `.env` 的 `JWT_SECRET` 注入为 `SK_JWT_SECRET`。生产必须配。
@@ -146,9 +154,10 @@ python scripts/nas/smoke-test.py
 
 1. 错误密码登录：提示"账号或者密码错误"，连续 10 次后正确密码也被拒；等 10 分钟或重启后端恢复。
 2. 正确登录：Network 里 `Set-Cookie: sk-token=...; HttpOnly; SameSite=Lax`；刷新页面不掉登录；退出后 `/api/currentUser` 返回 401 并跳登录。
-3. 开启验证码：不完成滑块时登录按钮禁用；失败后滑块自动换图。
-4. 注册开关关闭时 `/user/register` 显示"当前系统未开放注册"；开启后注册成功提示"等待管理员审核"，未启用前登录失败。
-5. 改 `JWT_SECRET` 重启后端，旧页面下一次请求 401；不配 secret 重启同样全员掉线（日志有 WARN）。
+3. 开启验证码：`POST /captcha/get {captchaType:"blockPuzzle",clientUid:"..."}` 返回 `repCode=0000` 且带两张 base64 图；不完成滑块时登录按钮禁用；失败后滑块自动换图。若返回 9999/「服务出了点问题」，按上一条检查运行时镜像。
+4. 注册：没有班级开「开放注册」时 `/user/register` 显示「当前没有班级开放注册」；在班级设置里打开一个班后，注册页出现该班；提交后 `t_user.status=0`、`t_account.status=0`、`dept_id` 为目标班；审核前登录失败。
+5. 审核：管理员/班主任在「班级管理 → 待审核学员」看到该学员，确认班级后点「通过」；`t_user.status` 与 `t_account.status` 变 1，学员用手机号 + 密码登录成功；只读授权老师看不到「通过」按钮或后端 403。
+6. 改 `JWT_SECRET` 重启后端，旧页面下一次请求 401；不配 secret 重启同样全员掉线（日志有 WARN）。
 
 ## 相关文档
 

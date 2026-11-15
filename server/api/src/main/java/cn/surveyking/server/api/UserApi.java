@@ -98,6 +98,16 @@ public class UserApi {
 		userService.register(request);
 	}
 
+	/**
+	 * 注册页可选的班级：只返回开启了「开放注册」的班级，未登录可访问。
+	 *
+	 * <p>学员注册时必须选一个班；不提供全局默认班，避免多个班都开放时被分错。
+	 */
+	@GetMapping("/public/registerClasses")
+	public List<RegisterClassView> getRegisterClasses() {
+		return userService.getRegisterClasses();
+	}
+
 	@GetMapping("/currentUser")
 	@PreAuthorize("isAuthenticated()")
 	public UserInfo currentUser() {

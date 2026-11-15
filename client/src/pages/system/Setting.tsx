@@ -109,7 +109,6 @@ export default function SystemSetting() {
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
   const logo = Form.useWatch<string | undefined>('avatar', form);
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
-  const [depts, setDepts] = useState<{ id: string; name: string }[]>([]);
   const roles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
   // 内容与隐私三项不进 Form，改完即存
   const [protection, setProtection] = useState<ProtectionSetting>(DEFAULT_PROTECTION);
@@ -145,16 +144,14 @@ export default function SystemSetting() {
   }, []);
 
   const load = useCallback(async () => {
-    const [sys, ai, deptRes, roleRes] = await Promise.all([
+    const [sys, ai, roleRes] = await Promise.all([
       getSystem(),
       get<AiSetting>('/api/system/aiSetting').catch(() => ({}) as AiSetting),
-      get<{ id: string; name: string }[]>('/api/system/dept/list').catch((): { id: string; name: string }[] => []),
       get<{ list?: Role[] }>('/api/system/role/list', { current: 1, pageSize: 100 }).catch(
         (): { list?: Role[] } => ({ list: [] }),
       ),
     ]);
     setRoleOptions(roleRes?.list ?? []);
-    setDepts(Array.isArray(deptRes) ? deptRes : []);
     const anonymous = (sys?.setting ?? {}) as unknown as AnonymousCleanupSetting;
     setLastCleanupAt(anonymous.anonymousLastCleanupAt);
     setLastCleanupCount(anonymous.anonymousLastCleanupCount);
@@ -167,7 +164,6 @@ export default function SystemSetting() {
       favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
       registerEnabled: Boolean(sys?.registerInfo?.registerEnabled),
-      registerDeptId: sys?.registerInfo?.deptId,
       // 注册默认角色存的是角色 id；没配置时是空数组
       roles: sys?.registerInfo?.roles ?? [],
       // 缺省与后端一致：开启 + 90 天；只有显式 false 才关闭
@@ -340,7 +336,7 @@ export default function SystemSetting() {
         // registerEnabled 和 roles 一起提交；roles 传空数组会清空后端配置（merge 按非 null 覆盖）
         await post('/api/system/update', {
           setting: { captchaEnabled: Boolean(v.captchaEnabled) },
-          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles: selectedRoles, deptId: v.registerDeptId },
+          registerInfo: { registerEnabled: Boolean(v.registerEnabled), roles: selectedRoles },
         });
       } else if (key === 'anonymous') {
         await post('/api/system/update', {
@@ -504,13 +500,13 @@ export default function SystemSetting() {
                         }))}
                       />
                     </Form.Item>
-                    <Form.Item name="registerDeptId" label="新用户默认部门" extra="注册用户会自动进入这个部门；不选则进根部门">
-                      <Select
-                        allowClear
-                        placeholder="默认根部门"
-                        options={depts.map((d) => ({ value: d.id, label: d.name }))}
-                      />
-                    </Form.Item>
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="学员注册时自己选班级"
+                      description="在「班级管理 → 班级设置 → 开放注册」里打开某个班，注册页才会出现它；注册学员会先进入该班并保持「待审核」，通过后才能登录。这里不再配置全局默认班。"
+                    />
                     {registerEnabled && roles.length === 0 && (
                       <Alert
                         type="warning"

@@ -61,6 +61,9 @@ public interface UserService extends UserDetailsService {
 
 	void register(RegisterRequest request);
 
+	/** 注册页可选的班级：只返回 dept_type=class 且 allow_register=1 的节点。 */
+	List<RegisterClassView> getRegisterClasses();
+
 	List<RegisterRoleView> getRegisterRoles();
 
 	UserOverview getUserOverviewData();

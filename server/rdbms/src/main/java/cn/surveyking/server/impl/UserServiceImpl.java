@@ -4,10 +4,10 @@ import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
-import cn.surveyking.server.core.exception.InternalServerError;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.model.Account;
 import cn.surveyking.server.domain.model.Dept;
+import cn.surveyking.server.domain.model.Role;
 import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.mapper.AccountMapper;
 import cn.surveyking.server.mapper.DeptMapper;
@@ -22,7 +22,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import javax.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -50,8 +52,6 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 public class UserServiceImpl extends BaseService<UserMapper, User> implements UserService {
-
-	private static final String ROOT_DEPT_PARENT_ID = "0";
 
 	private final AccountMapper accountMapper;
 
@@ -179,38 +179,90 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (registerInfo == null || !Boolean.TRUE.equals(registerInfo.getRegisterEnabled())) {
 			throw new ErrorCodeException(ErrorCode.RegisterError);
 		}
+		// 注册账号 = 手机号：与班级管理里建学员保持同一套口径，避免「账号和手机号不是同一个」
+		String phone = StringUtils.hasText(request.getPhone()) ? request.getPhone().trim()
+				: StringUtils.hasText(request.getUsername()) ? request.getUsername().trim() : "";
+		if (!ClassStudentService.PHONE_PATTERN.matcher(phone).matches()) {
+			throw new ValidationException("请输入正确的 11 位手机号");
+		}
+		String name = StringUtils.hasText(request.getName()) ? request.getName().trim() : "";
+		if (name.isEmpty()) {
+			throw new ValidationException("请输入姓名");
+		}
 		userAdminService.validateStrongPassword(request.getPassword(), null);
 
 		long total = accountMapper
 				.selectCount(Wrappers.<Account>lambdaQuery().eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name())
-						.eq(Account::getAuthAccount, request.getUsername()));
+						.eq(Account::getAuthAccount, phone));
 		if (total > 0) {
 			throw new ErrorCodeException(ErrorCode.UsernameExists);
 		}
 		UserRequest createUserRequest = new UserRequest();
-		createUserRequest.setUsername(request.getUsername());
+		createUserRequest.setUsername(phone);
 		createUserRequest.setPassword(request.getPassword());
-		createUserRequest.setName(request.getName());
-		createUserRequest.setPhone(request.getPhone());
-		String registerDeptId = registerInfo.getDeptId() != null && !registerInfo.getDeptId().isEmpty()
-				? registerInfo.getDeptId()
-				: getRootDeptId();
-		createUserRequest.setDeptId(registerDeptId);
-		// 注册用户先进待审核状态（status=0），管理员在班级管理里启用后才能登录
+		createUserRequest.setName(name);
+		createUserRequest.setPhone(phone);
+		// 注册目标班级由学员在注册页选择：必须是 dept_type=class 且该班开启了「开放注册」。
+		// 不再回退到组织树根（org），否则会被「学员只能加入班级」校验拒绝。
+		String registerDeptId = StringUtils.hasText(request.getDeptId()) ? request.getDeptId().trim() : null;
+		Dept registerDept = registerDeptId == null ? null : deptMapper.selectById(registerDeptId);
+		if (registerDept == null || !Dept.TYPE_CLASS.equals(registerDept.getDeptType())) {
+			throw new ValidationException("请选择要注册的班级");
+		}
+		if (!Boolean.TRUE.equals(registerDept.getAllowRegister())) {
+			throw new ValidationException("该班级未开放注册，请重新选择");
+		}
+		createUserRequest.setDeptId(registerDept.getId());
+		// 注册用户先进待审核状态（status=0），管理员审核通过后才能登录
 		createUserRequest.setStatus(0);
 		createUserRequest.setUserType("student");
-		// 注册只能是学员；老师/管理员只能由后台分配
-		String role = null;
-		if (role != null) {
-			if (!registerInfo.getRoles().contains(role)) {
-				throw new ErrorCodeException(ErrorCode.RegisterError);
-			}
-			createUserRequest.setRoles(Collections.singletonList(request.getRole()));
+		// 注册只能是学员；老师/管理员只能由后台分配。没配置默认角色时兜底到系统内置学员角色，
+		// 否则审核通过后账号没有任何菜单权限。
+		List<String> registerRoles = registerInfo.getRoles() == null ? Collections.emptyList()
+				: registerInfo.getRoles().stream().filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+		if (registerRoles.isEmpty()) {
+			roleService.list(Wrappers.<Role>lambdaQuery().in(Role::getCode, "student", "xueyuan")
+					.eq(Role::getStatus, AppConsts.USER_STATUS.VALID).orderByAsc(Role::getCreateAt)).stream().findFirst()
+					.ifPresent(role -> createUserRequest.setRoles(Collections.singletonList(role.getId())));
 		}
-		else if (registerInfo.getRoles().size() > 0) {
-			createUserRequest.setRoles(registerInfo.getRoles());
+		else {
+			createUserRequest.setRoles(registerRoles);
 		}
 		createUser(createUserRequest);
+	}
+
+	@Override
+	public List<RegisterClassView> getRegisterClasses() {
+		List<Dept> classes = deptMapper.selectList(Wrappers.<Dept>lambdaQuery()
+				.eq(Dept::getDeptType, Dept.TYPE_CLASS).eq(Dept::getAllowRegister, true)
+				.orderByAsc(Dept::getSortCode).orderByAsc(Dept::getCreateAt));
+		if (classes.isEmpty()) {
+			return Collections.emptyList();
+		}
+		Map<String, Dept> byId = deptMapper.selectList(null).stream().filter(dept -> StringUtils.hasText(dept.getId()))
+				.collect(Collectors.toMap(Dept::getId, dept -> dept, (a, b) -> a));
+		return classes.stream().map(dept -> {
+			RegisterClassView view = new RegisterClassView();
+			view.setId(dept.getId());
+			view.setName(dept.getName());
+			view.setPath(buildDeptPath(dept, byId));
+			return view;
+		}).sorted(Comparator.comparing(RegisterClassView::getPath, Comparator.nullsLast(String::compareTo)))
+				.collect(Collectors.toList());
+	}
+
+	/** 组织树路径（只用于注册页下拉展示，避免多级班级同名时分不清） */
+	private String buildDeptPath(Dept dept, Map<String, Dept> byId) {
+		Deque<String> names = new ArrayDeque<>();
+		Dept cursor = dept;
+		int depth = 0;
+		while (cursor != null && depth++ < 32) {
+			if (StringUtils.hasText(cursor.getName())) {
+				names.addFirst(cursor.getName());
+			}
+			cursor = byId.get(cursor.getParentId());
+		}
+		return String.join(" / ", names);
 	}
 
 	@Override
@@ -251,14 +303,6 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 	@Override
 	public PaginationResponse<MyTaskView> queryHistoryTask(MyTaskQuery query) {
 		return userQueryService.queryHistoryTask(query);
-	}
-
-	private String getRootDeptId() {
-		return deptMapper
-				.selectList(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, ROOT_DEPT_PARENT_ID)
-						.orderByAsc(Dept::getSortCode).orderByAsc(Dept::getCreateAt))
-				.stream().findFirst().map(Dept::getId)
-				.orElseThrow(() -> new InternalServerError(userAuthService.i18n("user.register.rootDeptNotFound")));
 	}
 
 }

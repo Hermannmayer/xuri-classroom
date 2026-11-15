@@ -20,6 +20,7 @@ import cn.surveyking.server.domain.dto.ClassResourceUpdateRequest;
 import cn.surveyking.server.domain.dto.ClassResourceView;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
+import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
 import cn.surveyking.server.domain.dto.TeachingClassView;
 import cn.surveyking.server.domain.dto.TeachingProjectView;
 import cn.surveyking.server.domain.dto.UserOptionView;
@@ -188,6 +189,25 @@ public class TeachingApi {
 	@PreAuthorize("hasAuthority('class:detail') or hasRole('admin')")
 	public List<ClassMemberView> classMembers(@RequestParam String deptId) {
 		return classService.listClassMembers(deptId);
+	}
+
+	/**
+	 * 待审核学员：自己注册、账号尚未启用的学员。
+	 *
+	 * <p>学员注册时已经选过班级，所以按 t_user.dept_id 就能定位；只返回当前用户可见班级里的记录，
+	 * 管理员 / class:grant 看全部。只读老师也能看到名单，但通过按钮需要 {@code class:member:update}。
+	 */
+	@GetMapping("/classes/pending-students")
+	@PreAuthorize("hasAuthority('class:detail') or hasRole('admin')")
+	public List<ClassMemberView> pendingStudents() {
+		return classService.listPendingStudents();
+	}
+
+	/** 审核通过：启用账号；body 里的 deptId 为空表示沿用注册时选的班级。 */
+	@PostMapping("/classes/pending-students/approve")
+	@PreAuthorize("hasAuthority('class:member:update') or hasRole('admin')")
+	public void approvePendingStudent(@RequestBody PendingStudentApproveRequest request) {
+		classService.approvePendingStudent(request);
 	}
 
 	/** 某班已分配的老师；同时用于「是否能看到分配入口」的判断 */

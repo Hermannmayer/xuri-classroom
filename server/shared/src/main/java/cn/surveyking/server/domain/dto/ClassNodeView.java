@@ -31,6 +31,9 @@ public class ClassNodeView {
 	/** 组绑定的角色 id，班级设置弹窗回显用 */
 	private List<String> roleIds;
 
+	/** 是否开放学员自助注册；班级设置弹窗回显用 */
+	private Boolean allowRegister;
+
 	/** 组有效期（空=永久）；班级设置弹窗回显用 */
 	private java.util.Date validFrom;
 

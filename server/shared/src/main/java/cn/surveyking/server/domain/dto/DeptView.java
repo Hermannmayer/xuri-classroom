@@ -16,6 +16,9 @@ public class DeptView {
 	/** org=用户组(教职工) class=班级(学员) */
 	private String deptType;
 
+	/** 是否开放学员自助注册（只对班级有意义） */
+	private Boolean allowRegister;
+
 	private String name;
 
 	private String shortName;

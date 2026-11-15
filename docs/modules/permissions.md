@@ -212,6 +212,7 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 3. 新建节点默认 `org`；上级必须同类型；`dept_type` 是节点身份，不能通过更新互转。老师建班走 `POST /api/teaching/classes/create`（`class:list`），服务端强制 `class` 且 `roleIds=null`；用户组仍走 `/api/system/dept/create`（`system:dept:create`）。
 4. 成员类型也被约束：staff 只能进 org，student 只能进 class（`UserAdminService#assertUserDeptTypes`）；`/api/system/dept/list` 的用户筛选只列 staff，班级成员只列 student。
 5. 用户管理页的「用户组管理 / 新建用户组」固定跳 `/system/group`，不再重定向到班级页；班级页入口是 `/teaching/classes`（`class:list`）。
+6. 学员自助注册按「班级级开关」走：`t_dept.allow_register=1` 的 class 才会出现在公开的 `GET /api/public/registerClasses` 里；注册必须选一个这样的班，不能再回退到 org 根。审核通过由 `class:member:update`（或 admin）在「班级管理 → 待审核学员」完成，只读授权（`class:detail`）只能看名单。
 
 ### 3. 权限矩阵保存
 

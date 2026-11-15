@@ -8,9 +8,11 @@ import cn.surveyking.server.core.uitls.RSAUtils;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.RoleViewMapper;
+import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.Role;
 import cn.surveyking.server.domain.model.SysInfo;
 import cn.surveyking.server.domain.model.UserRole;
+import cn.surveyking.server.mapper.DeptMapper;
 import cn.surveyking.server.mapper.DeptRoleMapper;
 import cn.surveyking.server.mapper.SysInfoMapper;
 import cn.surveyking.server.mapper.UserRoleMapper;
@@ -61,6 +63,8 @@ public class SystemServiceImpl implements SystemService {
 	private final UserRoleMapper userRoleMapper;
 
 	private final SysInfoMapper sysInfoMapper;
+
+	private final DeptMapper deptMapper;
 
 	private final DeptRoleMapper deptRoleMapper;
 
@@ -628,7 +632,19 @@ public class SystemServiceImpl implements SystemService {
 				registerInfo.setStrongPasswordEnabled(source.getStrongPasswordEnabled());
 			}
 			if (source.getDeptId() != null) {
-				registerInfo.setDeptId(source.getDeptId());
+				// 空字符串 = 清空默认班级；非空必须是 dept_type=class。
+				// 历史脏数据里可能是 org 根节点，这里直接拒绝，避免注册时又把学员塞进用户组。
+				String deptId = source.getDeptId().trim();
+				if (deptId.isEmpty()) {
+					registerInfo.setDeptId(null);
+				}
+				else {
+					Dept dept = deptMapper.selectById(deptId);
+					if (dept == null || !Dept.TYPE_CLASS.equals(dept.getDeptType())) {
+						throw new ValidationException("注册默认班级必须选择班级（class）");
+					}
+					registerInfo.setDeptId(deptId);
+				}
 			}
 		}
 		if (request.getSetting() != null) {

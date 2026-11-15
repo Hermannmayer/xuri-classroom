@@ -72,7 +72,10 @@ public class SystemInfo {
 		private Boolean strongPasswordEnabled;
 
 		/**
-		 * 新用户注册后默认进入的部门
+		 * 历史字段：旧的「全局默认注册部门」。
+		 *
+		 * <p>新流程改为班级级 allow_register + 学员注册时自己选班，注册接口不再读取本字段；
+		 * 保留是为了兼容旧的设置 JSON，不再在系统设置页展示。
 		 */
 		private String deptId;
 

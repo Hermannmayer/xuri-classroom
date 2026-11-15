@@ -3,7 +3,8 @@
 """
 旭日云课堂 · 线上冒烟测试（从开发机跑，打 NAS 上的 live 环境）
 
-检查 8 件事，全过才算"这次改动没把线上搞坏"：
+检查 8 件事，全过才算"这次改动没把线上搞坏"。
+验证码开启时，冒烟无法自动完成滑块，登录相关项会标记为 SKIP（上线后需人工验一次登录）：
   1. 前端首页 200 且 <title> 是「考试与学习平台」
   2. 首页引用的 JS 产物能取到（说明 web-watch 构建产物已就位）
   3. /api/system 200，且返回的站点名不是空的
@@ -117,11 +118,14 @@ def main():
         assert data.get('name'), '站点名为空'
         assert args.expect_name in data['name'], f'站点名是 {data["name"]!r}，不含 {args.expect_name!r}'
         state['publicKey'] = data['publicKey']
-        return f'{data["name"]} / v{data.get("version")}'
+        state['captchaEnabled'] = bool((data.get('setting') or {}).get('captchaEnabled'))
+        return f'{data["name"]} / v{data.get("version")} / captcha={state["captchaEnabled"]}'
     check('系统信息', c3)
 
     # 4. 登录（RSA，与浏览器同路径）
     def c4():
+        if state.get('captchaEnabled'):
+            return 'SKIP: 验证码已开启，登录需要人工拖滑块'
         enc = rsa_encrypt(state['publicKey'], args.password)
         status, headers, _ = http(base + '/api/public/login',
                                   data={'username': args.user, 'password': enc})
@@ -134,6 +138,8 @@ def main():
 
     # 5. 试卷数据
     def c5():
+        if 'cookie' not in state:
+            return 'SKIP: 未登录（验证码开启时登录由人工验证）'
         _, _, body = http(base + '/api/project/list?page=1&size=100', cookie=state['cookie'])
         data = json.loads(body.decode())
         assert data.get('code') == 200, f'接口返回 {data.get("code")}: {data.get("message")}'
@@ -167,6 +173,8 @@ def main():
 
     # 8. 登录失败 → 401 + 业务码 1024（S3-7）
     def c8():
+        if state.get('captchaEnabled'):
+            return 'SKIP: 验证码已开启，错误账号会先被验证码拦下'
         enc = rsa_encrypt(state['publicKey'], args.password)
         status, _, body = http_any(base + '/api/public/login',
                                    data={'username': '__smoke_probe__', 'password': enc})
@@ -179,7 +187,9 @@ def main():
     print(f'\n冒烟测试 → {base}\n' + '-' * 60)
     ok = True
     for passed, name, detail in results:
-        print(f'  {"✅" if passed else "❌"}  {name:<10} {detail}')
+        skipped = isinstance(detail, str) and detail.startswith('SKIP:')
+        mark = '⏭️' if skipped else ('✅' if passed else '❌')
+        print(f'  {mark}  {name:<10} {detail}')
         ok = ok and passed
     print('-' * 60)
     print('全部通过' if ok else '有失败项，先别继续')

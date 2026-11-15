@@ -15,8 +15,12 @@
 
 FROM eclipse-temurin:8-jre-alpine
 
-# 时区 + curl（容器健康检查 / 手工排查都要用；基础镜像里没有）
-RUN apk add --no-cache tzdata curl \
+# 时区 + curl（健康检查/排查看日志用）+ 验证码图片渲染依赖。
+# libgcc：anji-captcha 的 BlockPuzzle 用 Java AWT 画图，libfontmanager.so 依赖 libgcc_s.so.1；
+#         Alpine 的 temurin JRE 镜像不带它，缺了会在 /captcha/get 报
+#         NoClassDefFoundError: Could not initialize class sun.awt.X11FontManager。
+# fontconfig/freetype/ttf-dejavu：保证 AWT 能找到字体，避免换基础镜像后又踩同一个坑。
+RUN apk add --no-cache tzdata curl libgcc fontconfig freetype ttf-dejavu \
     && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone
 
@@ -27,4 +31,5 @@ ENV TZ=Asia/Shanghai
 EXPOSE 7007
 
 # jar 由 compose 以 bind mount 方式挂到 /app/app.jar
-ENTRYPOINT ["java", "-jar", "/app/app.jar", "--server.port=7007"]
+# headless：服务端只画验证码，不需要 X11；显式关闭避免日后再依赖图形环境
+ENTRYPOINT ["java", "-Djava.awt.headless=true", "-jar", "/app/app.jar", "--server.port=7007"]

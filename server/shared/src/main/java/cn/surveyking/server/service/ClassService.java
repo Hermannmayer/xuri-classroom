@@ -9,6 +9,7 @@ import cn.surveyking.server.domain.dto.ClassNodeView;
 import cn.surveyking.server.domain.dto.ClassPartnerRequest;
 import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
+import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
 import cn.surveyking.server.domain.dto.UserOptionView;
 
 import java.util.List;
@@ -68,6 +69,17 @@ public interface ClassService {
 	void updateClassMember(ClassMemberUpdateRequest request);
 
 	void deleteClassMember(String deptId, String userId);
+
+	/**
+	 * 待审核学员：自己注册、账号尚未启用的学员。
+	 *
+	 * <p>只返回当前用户可见班级里的学员；管理员 / class:grant 看全部。
+	 * 注册时学员已经选过班级，所以这里按主组（t_user.dept_id）就能定位。
+	 */
+	List<ClassMemberView> listPendingStudents();
+
+	/** 审核通过：启用账号；deptId 为空表示沿用注册时选的班级。 */
+	void approvePendingStudent(PendingStudentApproveRequest request);
 
 	/** 批量导入学员（Excel）；整批事务，任一行失败全部回滚 */
 	ClassMemberImportResult importClassMembers(ClassMemberImportRequest request);

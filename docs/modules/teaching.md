@@ -146,7 +146,9 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 |---|---|---|
 | 教学页 | `client/src/pages/teaching/TeachingHome.tsx` | `/teaching` 两个 Tab：考试/问卷（`ProjectList embedded`）与学情（紧凑版 Workbench）；`?tab=exam|insight` 同步 URL |
 | 班级管理页 | `client/src/pages/teaching/Classes.tsx` | 左树右表：班级树、成员、任课老师、班级资源、删除分组；`class:list` 即可建班 |
-| 班级设置弹窗 | `client/src/pages/teaching/ClassSettingsModal.tsx` | 新建/编辑只维护名称、上级、有效期；走 `/api/teaching/classes/create` / `update`，不再绑角色 |
+| 班级设置弹窗 | `client/src/pages/teaching/ClassSettingsModal.tsx` | 新建/编辑维护名称、上级、开放注册、有效期；走 `/api/teaching/classes/create` / `update`，不再绑角色 |
+| 注册页 | `client/src/pages/user/Register.tsx` | 学员选开放注册的班级 → 填手机号/姓名/密码 → 提交后等待审核；无开放班时给明确提示 |
+| 待审核学员 | `client/src/pages/teaching/Classes.tsx` | 班级管理页头弹窗：按可见班级列 `status=0` 学员，可换班并通过；数量 Badge |
 | 班级资源面板 | `client/src/pages/teaching/ClassResourcesPanel.tsx` | 给本班分配考试/问卷、设置班级窗口与开关；考试候选走 `/api/project/tree` 递归取全量项目（文件夹里的也能选），不再用根级列表；只有 `manageable=true` 的班才渲染 |
 | 学员导入 | `client/src/pages/teaching/ImportMembersModal.tsx` | 下载 `学员导入模板.xlsx`、上传 xlsx 批量建号；逐行报错 |
 | 统一删除弹窗 | `client/src/pages/teaching/DeleteDeptDialog.tsx` | 三个入口共用：先 `delete-check`，有成员时二选一 MOVE / UNASSIGN |
@@ -199,6 +201,15 @@ verified_against: 2a1d7f0f3d82e1d36529ff67f0af8db9194c329e
 2. 节点上的 `accessible=false` 表示只是补出来的路径祖先（点开会 403）；`manageable` 表示当前用户能不能改这个班（见第 5 节）。
 3. `GET /api/teaching/classes/members?deptId=`（`class:detail`）先 `assertClassVisible`，再只查 `user_type='student'`，条件是主组 `t_user.dept_id` 或附加组 `t_user_dept` 命中该班；回填登录账号（`t_account`）、手机号、邮箱、角色名。
 4. 成员数按「主组 + 附加组」统计，同一学员同时在两个班会在两个班各出现一次。
+
+### 3.1 开放注册与待审核学员
+
+1. **班级级开关**：`t_dept.allow_register`（迁移 `41-class-open-registration.sql`），只对 `dept_type=class` 有意义。班级设置弹窗（`ClassSettingsModal`）里勾选「开放注册」，走 `POST /api/teaching/classes/update`（`class:list` + `assertClassManage`）；用户组节点在 `DeptServiceImpl` 里被强制写 0。
+2. **注册页选班**：`GET /api/public/registerClasses`（公开）只返回 `dept_type=class AND allow_register=1` 的班，带完整路径（如「养老护理 / 5级」）。`Register.tsx` 必须选一个班；只有一个班时自动选中；一个都没开时提示「当前没有班级开放注册」。不再配置全局默认班，也不会回退到组织树根。
+3. **提交注册**：`POST /api/public/register` 带 `deptId`；`UserServiceImpl.register` 校验目标班存在、是 class、已开放注册，账号强制 = 手机号（`^1[3-9]\d{9}$`），创建 `t_user.status=0`、`t_account.status=0` 的学员并直接落在该班。审核通过前登录会被账号状态拒绝。
+4. **待审核列表**：`GET /api/teaching/classes/pending-students`（`class:detail` / admin）返回当前用户可见班级里的 `user_type=student AND status=0` 学员；`ClassServiceImpl.visibleDeptIds` 决定范围（管理员 / `class:grant` 全量，班主任看自己创建/负责的班，老师看被授权的班及下级）。返回 `ClassMemberView`（姓名/手机号/注册时间/班级）。
+5. **审核通过**：`POST /api/teaching/classes/pending-students/approve`（`class:member:update` / admin），body `{userId, deptId?}`。服务层校验目标班是 class；非管理员还要能管理目标班（改班时原班也要可管理）；把 `t_user.status` 与 `t_account.status` 一起置 1，`deptId` 为空沿用注册时选的班。只读授权老师能看名单但不能通过（403）。
+6. **前端入口**：班级管理页头「待审核学员」按钮（有 `class:detail` 即显示，带数量 Badge）；弹窗里每行可直接换班再点「通过」。班级树节点会显示绿色「开放注册」标签。
 
 ### 4. 学员账号 = 手机号 / 批量导入
 

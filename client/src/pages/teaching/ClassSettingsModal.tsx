@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, DatePicker, Form, Input, Modal, TreeSelect } from 'antd';
+import { App, DatePicker, Form, Input, Modal, Switch, TreeSelect } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { post } from '../../api';
@@ -11,6 +11,7 @@ export interface DeptNode {
   id: string;
   name: string;
   parentId?: string;
+  allowRegister?: boolean;
   validFrom?: string;
   validTo?: string;
   children?: DeptNode[];
@@ -19,6 +20,8 @@ export interface DeptNode {
 interface DeptFormValues {
   name: string;
   parentId?: string;
+  /** 是否开放学员自助注册（只对班级有意义） */
+  allowRegister?: boolean;
   validity?: [Dayjs, Dayjs] | undefined;
 }
 
@@ -91,6 +94,7 @@ export default function ClassSettingsModal({
       form.setFieldsValue({
         name: node.name || '',
         parentId: parentInTree ? node.parentId : undefined,
+        allowRegister: Boolean(node.allowRegister),
         validity:
           node.validFrom || node.validTo
             ? [
@@ -103,6 +107,7 @@ export default function ClassSettingsModal({
       form.setFieldsValue({
         name: '',
         parentId: defaultParentId,
+        allowRegister: false,
         validity: undefined,
       });
     }
@@ -125,6 +130,7 @@ export default function ClassSettingsModal({
     const payload = {
       name: values.name.trim(),
       parentId: values.parentId || undefined,
+      allowRegister: Boolean(values.allowRegister),
       validFrom: from ? from.startOf('day').toISOString() : null,
       validTo: to ? to.endOf('day').toISOString() : null,
     };
@@ -164,7 +170,7 @@ export default function ClassSettingsModal({
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 12 }}>
         {mode === 'edit'
-          ? '这里维护班级名称、上级和有效期；学员与任课老师在班级管理页维护。'
+          ? '这里维护班级名称、上级、开放注册和有效期；学员与任课老师在班级管理页维护。'
           : '新建的班级会出现在左侧班级树里；建好后可以继续添加学员、分配任课老师。'}
       </div>
 
@@ -183,6 +189,15 @@ export default function ClassSettingsModal({
             treeData={parentTreeData}
             dropdownStyle={{ maxHeight: 360, overflow: 'auto' }}
           />
+        </Form.Item>
+
+        <Form.Item
+          name="allowRegister"
+          label="开放注册"
+          valuePropName="checked"
+          extra="开启后，学员注册页会出现这个班级；注册的学员需要审核通过后才能登录"
+        >
+          <Switch checkedChildren="开放" unCheckedChildren="关闭" />
         </Form.Item>
 
         <Form.Item name="validity" label="班级有效期" extra="留空表示永久有效">

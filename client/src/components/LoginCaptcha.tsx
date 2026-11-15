@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowRightOutlined, LoadingOutlined, ReloadOutlined } from '@ant-design/icons';
 import CryptoJS from 'crypto-js';
 import LinkAction from './LinkAction';
@@ -31,6 +31,14 @@ interface CaptchaResponse {
 }
 
 type Phase = 'loading' | 'ready' | 'checking' | 'ok' | 'fail';
+
+/** 后端 9999 / 「服务出了点问题」对用户没有意义，统一换成能照着做的提示 */
+function friendlyMessage(raw?: string): string {
+  if (!raw || raw.includes('服务出了点问题')) {
+    return '验证码服务暂时不可用，请稍后重试；如果一直失败，请联系管理员';
+  }
+  return raw;
+}
 
 /** AES-ECB-PKCS7 → base64，与后端 aj-captcha AESUtil 对齐 */
 function aesEncrypt(text: string, secretKey: string): string {
@@ -78,6 +86,9 @@ export default function LoginCaptcha({
     setMsg('');
     setLeft(0);
     leftRef.current = 0;
+    tokenRef.current = '';
+    secretRef.current = '';
+    setImages(undefined);
     try {
       const res = await post<CaptchaResponse>('/captcha/get', {
         captchaType: CAPTCHA_TYPE,
@@ -93,7 +104,7 @@ export default function LoginCaptcha({
         !data.jigsawImageBase64
       ) {
         setPhase('fail');
-        setMsg(res?.repMsg || '验证码加载失败');
+        setMsg(friendlyMessage(res?.repMsg));
         return;
       }
       tokenRef.current = data.token;
@@ -101,8 +112,10 @@ export default function LoginCaptcha({
       setImages({ bg: data.originalImageBase64, piece: data.jigsawImageBase64 });
       setPhase('ready');
     } catch (e) {
+      // 网络/网关异常：不要直接把 fetch failed 这类英文错误丢给学员
+      console.error('captcha get failed', e);
       setPhase('fail');
-      setMsg((e as Error).message || '验证码加载失败');
+      setMsg('验证码加载失败，请检查网络后重试');
     }
   }, []);
 
@@ -141,12 +154,31 @@ export default function LoginCaptcha({
       }
       setPhase('fail');
       // 6111 是坐标不匹配，统一提示重试；其它 repCode（如 6204 限流）直接透出后端文案
-      setMsg(res?.repCode === '6111' ? '验证失败，请重试' : res?.repMsg || '验证失败，请重试');
+      setMsg(res?.repCode === '6111' ? '验证失败，请重试' : friendlyMessage(res?.repMsg));
       setTimeout(() => void refresh(), 1000);
     } catch (e) {
       setPhase('fail');
-      setMsg((e as Error).message || '验证失败，请重试');
+      setMsg('验证失败，请重试');
       setTimeout(() => void refresh(), 1000);
+    }
+  };
+
+  /** 键盘也能完成验证：方向键微调，Enter/空格提交（role=slider 的标准交互） */
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (phase !== 'ready') return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      moveTo(leftRef.current + (e.key === 'ArrowRight' ? 2 : -2));
+      return;
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      moveTo(0);
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (leftRef.current >= MIN_DRAG) void check();
     }
   };
 
@@ -221,6 +253,10 @@ export default function LoginCaptcha({
                 const bgW = e.currentTarget.naturalWidth;
                 setDims((d) => ({ ...d, bgW }));
               }}
+              onError={() => {
+                setPhase('fail');
+                setMsg('验证码图片加载失败，请重试');
+              }}
               style={{ width: '100%', display: 'block', userSelect: 'none' }}
             />
             <img
@@ -230,6 +266,10 @@ export default function LoginCaptcha({
               onLoad={(e) => {
                 const pieceW = e.currentTarget.naturalWidth;
                 setDims((d) => ({ ...d, pieceW }));
+              }}
+              onError={() => {
+                setPhase('fail');
+                setMsg('验证码图片加载失败，请重试');
               }}
               style={{
                 position: 'absolute',
@@ -277,6 +317,27 @@ export default function LoginCaptcha({
               >
                 <LoadingOutlined style={{ marginRight: 6 }} />
                 验证码加载中…
+              </div>
+            )}
+            {phase === 'fail' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: 12,
+                  textAlign: 'center',
+                  background: 'var(--bp-mask)',
+                  fontSize: 11,
+                  color: 'var(--bp-text-soft)',
+                }}
+              >
+                <span>{msg || '验证码加载失败，请重试'}</span>
+                <LinkAction onClick={() => void refresh()}>重新加载</LinkAction>
               </div>
             )}
           </div>
@@ -328,6 +389,7 @@ export default function LoginCaptcha({
             }}
           />
           <span
+            aria-live="polite"
             style={{
               position: 'absolute',
               inset: 0,
@@ -347,10 +409,15 @@ export default function LoginCaptcha({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(left)}
+            aria-valuetext={`已拖动 ${Math.round(left)} 像素`}
+            aria-disabled={phase !== 'ready'}
+            tabIndex={phase === 'ready' ? 0 : -1}
+            title="拖动到拼图缺口位置；也可用方向键微调，Enter 提交"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
+            onKeyDown={onKeyDown}
             style={{
               position: 'absolute',
               left,
