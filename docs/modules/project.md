@@ -9,6 +9,8 @@ keywords:
   - 发布
   - 协作者
   - 班级分配
+  - 班级专属链接
+  - 匿名班级统计
   - 按班窗口
   - 教学页
   - embedded
@@ -79,6 +81,7 @@ apis:
   - GET /api/project/categories
   - GET /api/project
   - GET /api/project/setting
+  - GET /api/project/class-anonymous-stats
   - POST /api/project/create
   - POST /api/project/update
   - POST /api/project/status
@@ -101,7 +104,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-15
-verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
+verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
 ---
 
 # 考试与问卷（项目）
@@ -115,6 +118,7 @@ verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
 - 新建考试/问卷失败、列表看不到某份试卷、文件夹进不去。
 - 要改发布开关、答题时间、回收上限、密码/登录/白名单等发布设置。
 - 要加协作者、把考试授权给班级，或排查"授权了但学员看不到"。
+- 要发班级专属链接，或核对匿名答卷归到哪个班、总面板匿名数。
 - 回收站里找不到项目、恢复/彻底删除报"没有权限访问本问卷"。
 - 列表里某份试卷的答卷数、文件夹子项数不对。
 - 老师点「教学管理」被带到 `/teaching`，或 `/project` 打不开/重定向循环。
@@ -344,3 +348,11 @@ npm run docs:check
 - [建班、加学员、分配老师与数据可见范围](../flows/class-grant.md)
 - [权限、角色与用户组](./permissions.md)
 - [数据模型](../architecture/data-model.md)
+
+### 班级专属链接与匿名班级统计（2026-11）
+
+- 每个「班级 × 考试」分配行可以在资源面板生成 `share_token`，链接格式 `/s/{projectId}?classToken=...`；token 只由服务端反查 `t_class_resource`，校验分配存在、班级开关、项目/班级窗口。
+- 带 token 的匿名答卷写 `t_answer.class_id`，因此班级答卷列表、资源面板答卷数/平均分、班级学情都能看到；普通公开链接匿名仍是 NULL，只计入总面板的「未归属班级」。
+- 总面板新增 `GET /api/project/class-anonymous-stats?projectId=`（`project:report` + 数据范围），返回 `total / identified / anonymous / unassignedAnonymous / classes[]`；Overview 的「匿名答卷 / 班级」卡片据此展示。
+- 登录学员使用非本班 token 会被拒绝；token 不随项目复制链接自动带出，必须从班级资源面板复制。
+

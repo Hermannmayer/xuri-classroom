@@ -19,7 +19,7 @@
 | `t_dashboard` | id:varchar(64)<br>key:varchar(256)<br>type:int<br>project_id:varchar(64)<br>setting:varchar(1024)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_dept` | id:varchar(64)<br>parent_id:varchar(64)<br>dept_type:varchar(16)<br>class_kind:varchar(16)<br>allow_register:tinyint(1)<br>name:varchar(64)<br>short_name:varchar(64)<br>code:varchar(64)<br>manager_id:varchar(64)<br>valid_from:timestamp<br>valid_to:timestamp<br>sort_code:int |
 | `t_class_partner` | id:varchar(64)<br>dept_id:varchar(64)<br>user_id:varchar(64)<br>access_level:tinyint<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
-| `t_class_resource` | id:varchar(64)<br>class_id:varchar(64)<br>resource_type:varchar(16)<br>resource_id:varchar(64)<br>status:tinyint<br>start_at:datetime<br>end_at:datetime<br>assigned_by:varchar(64)<br>settings:text<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256) |
+| `t_class_resource` | id:varchar(64)<br>class_id:varchar(64)<br>resource_type:varchar(16)<br>resource_id:varchar(64)<br>share_token:varchar(64)<br>status:tinyint<br>start_at:datetime<br>end_at:datetime<br>assigned_by:varchar(64)<br>settings:text<br>is_deleted:tinyint(1)<br>create_at:timestamp |
 | `t_file` | id:varchar(64)<br>original_name:varchar(256)<br>file_name:varchar(256)<br>file_path:varchar(512)<br>thumb_file_path:varchar(512)<br>storage_type:int<br>shared:int<br>project_id:varchar(64)<br>question_id:varchar(64)<br>answer_id:varchar(64)<br>file_size:bigint<br>is_deleted:tinyint(1) |
 | `t_file_ref` | id:varchar(64)<br>file_id:varchar(64)<br>owner_type:varchar(16)<br>owner_id:varchar(64)<br>question_id:varchar(64)<br>create_at:timestamp |
 | `t_position` | id:varchar(64)<br>name:varchar(50)<br>code:varchar(20)<br>is_virtual:tinyint(1)<br>data_permission_type:varchar(256)<br>property_json:varchar(20)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
@@ -46,6 +46,7 @@
 - `server/rdbms/src/main/resources/db/migration/V2.1.0__class_open_registration_and_kind.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.1.0__template_chapter_difficulty.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.1.1__file_ref.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.1.2__class_share_token.sql`
 
 ## 历史运维脚本（只读，不再维护）
 

@@ -711,7 +711,10 @@ export default function SurveyOverview() {
                   <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 12 }}>
                     <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>总答卷</div><div style={{ fontSize: 22, fontWeight: 600 }}>{classStats.total}</div></div>
                     <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>匿名</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-orange)' }}>{classStats.anonymous}</div></div>
-                    <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>未归属班级</div><div style={{ fontSize: 22, fontWeight: 600 }}>{classStats.unassignedAnonymous}</div></div>
+                    <div><div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>普通链接匿名</div><div style={{ fontSize: 22, fontWeight: 600 }}>{classStats.unassignedAnonymous}</div></div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--bp-hint)', marginBottom: 8 }}>
+                    普通公开链接的匿名答卷没有班级归属，只在这里计数；班级老师看不到。要归到班级，请在班级资源里复制「班级链接」。
                   </div>
                   {classStats.classes.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有带班级归属的答卷；在班级资源里复制班级专属链接。</div>

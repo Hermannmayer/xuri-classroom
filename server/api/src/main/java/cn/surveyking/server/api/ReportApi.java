@@ -4,6 +4,7 @@ import cn.surveyking.server.core.annotation.EnableDataPerm;
 import cn.surveyking.server.domain.dto.ProjectQuery;
 import cn.surveyking.server.domain.dto.PublicStatisticsView;
 import cn.surveyking.server.domain.dto.ReportData;
+import cn.surveyking.server.service.ClassService;
 import cn.surveyking.server.service.ReportService;
 import cn.surveyking.server.service.SurveyService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,8 @@ public class ReportApi {
 
 	private final SurveyService surveyService;
 
+	private final ClassService classService;
+
 	/**
 	 * 答卷分布统计。
 	 *
@@ -40,6 +43,16 @@ public class ReportApi {
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public PublicStatisticsView statProject(@RequestBody ProjectQuery query) {
 		return surveyService.statProject(query);
+	}
+
+	/** 班级报表：班级可见即可看本班，不要求项目协作者；只统计该班（含班级链接匿名）。 */
+	@GetMapping("/class/{shortId}")
+	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
+	public ReportData getClassData(@PathVariable String shortId,
+			@RequestParam("classId") String classId,
+			@RequestParam(value = "includeAnonymous", defaultValue = "true") boolean includeAnonymous) {
+		classService.assertVisible(classId);
+		return reportService.getData(shortId, includeAnonymous, classId);
 	}
 
 	@GetMapping("/{shortId}")

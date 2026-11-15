@@ -16,6 +16,9 @@ modules:
       - 按班导出
       - classId
       - 匿名答卷
+      - 班级专属链接
+      - classToken
+      - share_token
       - sk-anon
       - is_anonymous
       - anonymous_subject_id
@@ -104,8 +107,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-10
-    verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
+    last_verified: 2026-11-15
+    verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -550,6 +553,8 @@ modules:
       - 发布
       - 协作者
       - 班级分配
+      - 班级专属链接
+      - 匿名班级统计
       - 按班窗口
       - 教学页
       - embedded
@@ -620,6 +625,7 @@ modules:
       - GET /api/project/categories
       - GET /api/project
       - GET /api/project/setting
+      - GET /api/project/class-anonymous-stats
       - POST /api/project/create
       - POST /api/project/update
       - POST /api/project/status
@@ -641,8 +647,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-10
-    verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
+    last_verified: 2026-11-15
+    verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -815,6 +821,9 @@ modules:
       - 班级资源
       - 题库分配
       - 按班窗口
+      - 班级专属链接
+      - share_token
+      - 匿名答卷归属
       - 题库窗口
       - 题库全局期
       - 教学页
@@ -893,6 +902,7 @@ modules:
       - POST /api/teaching/classes/update
       - GET /api/teaching/classes/resources
       - POST /api/teaching/classes/resources/assign
+      - POST /api/teaching/classes/resources/link
       - POST /api/teaching/classes/resources/update
       - POST /api/teaching/classes/resources/delete
       - GET /api/teaching/classes/members
@@ -925,4 +935,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-15
-    verified_against: b4cffcfb13ff0866fe8976f0163293645309e521
+    verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234

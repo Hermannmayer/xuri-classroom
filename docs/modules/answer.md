@@ -14,6 +14,9 @@ keywords:
   - 按班导出
   - classId
   - 匿名答卷
+  - 班级专属链接
+  - classToken
+  - share_token
   - sk-anon
   - is_anonymous
   - anonymous_subject_id
@@ -103,8 +106,9 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-15
-verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
+verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
 ---
+
 
 # 答卷、判分与报表
 
@@ -162,7 +166,7 @@ verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
 ### 按班级作答与 class_id
 
 1. 学生能不能打开/交卷，先由 `ClassResourceService#assertStudentCanAnswer` 决定（见 [project](./project.md)）：未分配 → 404，未开始/已结束/关闭分别对应业务错误；匿名、staff、管理员不受限。
-2. 新建答卷时 `AnswerServiceImpl#createAnswer` 写 `t_answer.class_id`：`resolveForStudent` 先取学生主班，主班没有有效分配时按附加组顺序取任一有效分配的班；查不到/非 student/匿名 → NULL。
+2. 新建答卷时 `AnswerServiceImpl#createAnswer` 写 `t_answer.class_id`：优先解析 `classToken`（班级专属链接，匿名也写）；没有 token 才 `resolveForStudent` 先取学生主班，主班没有有效分配时按附加组顺序取任一有效分配的班；普通链接的匿名/教职工 → NULL。
 3. **更新答卷不重算 `class_id`**：换班后历史答卷仍算在原班。这是有意的语义，不要改成「每次保存都按当前班级覆盖」。
 4. 班级资源面板的「本班答卷数」= `t_answer` 中 `project_id + class_id + temp_save=1` 的条数；上线前/无 `class_id` 的历史答卷不会计入。
 5. 学情页（`TeachingMapper#listClasses`）按答题时班级聚合：新答卷用 `a.class_id`，老数据 `class_id` 为空时回退当前主组；`LEFT JOIN t_dept d ON d.id = COALESCE(a.class_id, u.dept_id) AND d.dept_type='class' AND d.is_deleted=0`，输出 `COALESCE(d.id,'')` / `COALESCE(d.name,'未分组')`，`GROUP BY COALESCE(a.class_id,u.dept_id), d.id, d.name`。只有真实 class 节点才算班级，org 组/已删班/找不到的归「未分组」。
@@ -183,11 +187,12 @@ verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
 2. 身份：`AnonymousIdentityServiceImpl` 在公开答题页未登录且项目 `answerSetting.loginRequired != true` 时写 `sk-anon` cookie（HttpOnly、SameSite=Lax、Secure=request.isSecure、path=/、90 天）；cookie 只放 32 字节随机 token，库里只存 SHA-256，过期主体靠 `purgeExpired()` 清理。
 3. 提交：`SurveyApi#loadProject` 先 ensureSubject；`AnswerServiceImpl#createAnswer` 再兜底 ensure，并写 `create_by=null`、`is_anonymous=1`、`anonymous_subject_id=<subject>`；已登录、教职工、白名单伪身份保持原 `create_by` 逻辑。`updateAnswer` 不重算匿名标识（与 `class_id` 同原则），否则第二次保存会把匿名改成非匿名。
 4. 找回/认领：`GET /api/public/anonymous/answers?projectId=` 未登录按 `sk-anon` 主体、登录按 `create_by` 返回 `List<PublicAttemptView>`（`answerId / examScore / createAt`），没有身份返回空。`POST /api/public/anonymous/claim` 必须登录；把当前 cookie 主体的匿名答卷改成 `create_by=userId`、`is_anonymous=0`、`anonymous_subject_id=null`，按 `ClassResourceService#resolveForStudent` 重算 `class_id`、重新分配 `attempt_no`（避免撞唯一键），返回认领条数。
-5. 管理端可见性（2026-11 修复）：`listAnswer` / `downloadSurvey` / `ReportServiceImpl` 都支持 `includeAnonymous`；数据页默认「含匿名」，概览/报表/导出跟随同一口径，导出「提交人」写「匿名」。`listAnswer` / `ReportServiceImpl` 的 API 默认仍是 `false`（旧调用方兼容），`downloadSurvey` 不传时默认包含。`listAnswerByClass` / `downloadByClass` / `downloadAttachment` 仍不含匿名（匿名答卷 `class_id` 为 NULL，无法按班归属）。
+5. 管理端可见性（2026-11 修复）：`listAnswer` / `downloadSurvey` / `ReportServiceImpl` 都支持 `includeAnonymous`；数据页默认「含匿名」，概览/报表/导出跟随同一口径，导出「提交人」写「匿名」。班级链接匿名带 `class_id`，因此 `listAnswerByClass` 与班级资源统计也能看到，但只显示「匿名」标识。`listAnswer` / `ReportServiceImpl` 的 API 默认仍是 `false`（旧调用方兼容），`downloadSurvey` 不传时默认包含。`listAnswerByClass` / `downloadByClass` / `downloadAttachment` 仍不含匿名（匿名答卷 `class_id` 为 NULL，无法按班归属）。
 6. 统计：`listAnswersForStat` 与 `ProjectStatisticsService` 包含匿名答卷，选项配额/投票/公开统计按实际提交计数；`ReportServiceImpl` 的 `includeAnonymous` 由管理端传 true。`ProjectServiceImpl` 的项目列表/回收站 total 也包含匿名。班级资源面板/班级学情仍不含匿名（按 `class_id` 归属）。
 7. 成绩单归属：匿名答卷没有 `create_by`，`PublicAnswerSubmitter` 提交成功后写 `rd_result_<projectId>` cookie（HttpOnly、7 天），`AnswerLookup` 在 `rd_answer_id_` 之外接受它，用于成绩单/结果页/「我的答卷」回看；`rd_answer_id_` 仍只负责随机卷续答，不复用。
 8. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体。匿名答卷在管理端可见，但详情不显示身份，导出只有「匿名」标识。
-9. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
+9. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#
+10. 班级链接归属（2026-11）：`ProjectQuery.classToken` / `AnswerRequest.classToken` 从公开页透传，`AnswerServiceImpl` 调 `ClassResourceService#resolveShareToken` 反查，前端不能直接传 `classId`。token 存在 `t_class_resource.share_token`，按班级 × 考试生成；匿名答卷写 `class_id` 后进本班列表/统计，普通链接匿名仍为 NULL（总面板「未归属」）。登录学员用别班 token 会被拒绝。cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
 
 ## 修改指南
 

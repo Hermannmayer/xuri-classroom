@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   App,
@@ -8,8 +9,8 @@ import {
   Form,
   Input,
   Modal,
-  QRCode,
   Popconfirm,
+  Spin,
   Segmented,
   Select,
   Space,
@@ -21,10 +22,12 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
+import QRCode from 'qrcode';
 import { get, getWithPagination, post } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
+import ClassAnswersDrawer from './ClassAnswersDrawer';
 
 /** 与后端 RepoView 对齐（面板只用展示字段） */
 interface RepoView {
@@ -122,6 +125,7 @@ export default function ClassResourcesPanel({
   manageable: boolean;
 }) {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   /** 当前资源类型：考试/问卷 or 题库 */
   const [kind, setKind] = useState<ResourceKind>('project');
   const [rows, setRows] = useState<ClassResource[]>([]);
@@ -138,6 +142,8 @@ export default function ClassResourcesPanel({
   const [linkRow, setLinkRow] = useState<ClassResource>();
   const [linkToken, setLinkToken] = useState<string>('');
   const [linkLoading, setLinkLoading] = useState(false);
+  const [linkQr, setLinkQr] = useState<string>();
+  const [answersRow, setAnswersRow] = useState<ClassResource>();
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignForm] = Form.useForm<AssignValues>();
 
@@ -364,6 +370,18 @@ export default function ClassResourcesPanel({
     ? window.location.origin + '/s/' + linkRow.resourceId + '?classToken=' + encodeURIComponent(linkToken)
     : '';
 
+  useEffect(() => {
+    if (!classLink) {
+      setLinkQr(undefined);
+      return;
+    }
+    let alive = true;
+    QRCode.toDataURL(classLink, { width: 360, margin: 1, color: { dark: '#ffffff', light: '#1e3a5f' } })
+      .then((url) => { if (alive) setLinkQr(url); })
+      .catch(() => { if (alive) setLinkQr(undefined); });
+    return () => { alive = false; };
+  }, [classLink]);
+
   const columns: ColumnsType<ClassResource> = [
     {
       title: '名称',
@@ -413,9 +431,28 @@ export default function ClassResourcesPanel({
           {
             title: '操作',
             key: 'ops',
-            width: 180,
+            width: 230,
             render: (_: unknown, row: ClassResource) => (
               <Space size={12} wrap>
+                {kind === 'project' && (
+                  <LinkAction
+                    onClick={() =>
+                      navigate(
+                        '/survey/' +
+                          row.resourceId +
+                          '/report?classId=' +
+                          encodeURIComponent(row.classId || classId) +
+                          '&className=' +
+                          encodeURIComponent(row.className || ''),
+                      )
+                    }
+                  >
+                    数据分析
+                  </LinkAction>
+                )}
+                {kind === 'project' && (
+                  <LinkAction onClick={() => setAnswersRow(row)}>查看答卷</LinkAction>
+                )}
                 {kind === 'project' && (
                   <LinkAction onClick={() => void openClassLink(row)}>班级链接</LinkAction>
                 )}
@@ -507,7 +544,7 @@ export default function ClassResourcesPanel({
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message="这个链接提交的匿名答卷会归到本班；普通考试链接仍归到「未归属」"
+          message="这个链接提交的匿名答卷会归到本班；普通公开链接没有班级归属，只在项目总面板的「普通链接匿名」里计数"
         />
         {linkLoading ? (
           <div style={{ padding: 24, textAlign: 'center' }}>生成中…</div>
@@ -528,13 +565,26 @@ export default function ClassResourcesPanel({
               </span>
             </Space>
             <div style={{ display: 'flex', justifyContent: 'center', padding: 8, background: '#fff' }}>
-              <QRCode value={classLink} size={180} />
+              {linkQr ? (
+                <img src={linkQr} alt="班级专属链接二维码" style={{ width: 180, height: 180, display: 'block' }} />
+              ) : (
+                <Spin />
+              )}
             </div>
           </Space>
         ) : (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="链接生成失败，请重试" />
         )}
       </Modal>
+
+      <ClassAnswersDrawer
+        open={!!answersRow}
+        projectId={answersRow?.resourceId || ''}
+        deptId={answersRow?.classId || classId}
+        deptName={answersRow?.className}
+        projectName={answersRow?.resourceName}
+        onClose={() => setAnswersRow(undefined)}
+      />
 
       <Modal
         title={kind === 'repo' ? '添加题库' : '添加考试 / 问卷'}

@@ -3,7 +3,7 @@ import { App, Button, Card, Empty, Space, Spin, Table, Tabs, Tag, Tree } from 'a
 import type { TreeDataNode } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined } from '@ant-design/icons';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { get } from '../../api';
 import LinkAction from '../../components/LinkAction';
@@ -138,6 +138,7 @@ export default function TeachingWorkbench() {
   const { message } = App.useApp();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const classId = searchParams.get('classId') ?? undefined;
 
   const [tree, setTree] = useState<ClassNode[]>([]);
@@ -326,7 +327,21 @@ export default function TeachingWorkbench() {
       width: 150,
       render: (_: unknown, row: ClassResource) =>
         row.resourceId || row.id ? (
-          <Space size={12}>
+          <Space size={12} wrap>
+            <LinkAction
+              onClick={() =>
+                navigate(
+                  '/survey/' +
+                    row.resourceId +
+                    '/report?classId=' +
+                    encodeURIComponent(row.classId || classId || '') +
+                    '&className=' +
+                    encodeURIComponent(currentClass?.name || ''),
+                )
+              }
+            >
+              数据分析
+            </LinkAction>
             <LinkAction onClick={() => openAnswers(row)}>查看答卷</LinkAction>
             <LinkAction onClick={() => void exportAnswers(row)}>导出</LinkAction>
           </Space>

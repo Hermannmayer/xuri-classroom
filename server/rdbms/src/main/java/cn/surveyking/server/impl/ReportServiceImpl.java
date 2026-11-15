@@ -31,9 +31,15 @@ public class ReportServiceImpl implements ReportService {
 
 	@Override
 	public ReportData getData(String shortId, boolean includeAnonymous) {
+		return getData(shortId, includeAnonymous, null);
+	}
+
+	@Override
+	public ReportData getData(String shortId, boolean includeAnonymous, String classId) {
 		List<Answer> answerList = answerMapper.selectList(
 				Wrappers.<Answer>lambdaQuery().select(Answer::getAnswer, Answer::getCreateAt, Answer::getProjectId)
 						.eq(Answer::getProjectId, shortId).eq(!includeAnonymous, Answer::getIsAnonymous, false)
+						.eq(org.springframework.util.StringUtils.hasText(classId), Answer::getClassId, classId)
 						.orderByAsc(Answer::getCreateAt));
 		ReportData result = new ReportData();
 		result.setTotal(answerList.size());

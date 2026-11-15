@@ -15,4 +15,12 @@ public interface ReportService {
 	 */
 	ReportData getData(String shortId, boolean includeAnonymous);
 
+	/**
+	 * 班级报表：只统计该班答卷（含班级链接匿名）。
+	 * @param shortId 项目 id
+	 * @param includeAnonymous 是否包含匿名
+	 * @param classId 班级 id；为空等价于全项目
+	 */
+	ReportData getData(String shortId, boolean includeAnonymous, String classId);
+
 }

@@ -210,6 +210,22 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
   const [kind, setKind] = useState<ChartKind>('bar');
   const { rows, answered } = useMemo(() => buildRows(q, answers), [q, answers]);
   const isChoice = CHOICE.has(q.type);
+  const score = useMemo(() => {
+    const max = Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0);
+    let scored = 0;
+    let correct = 0;
+    for (const answer of answers) {
+      const value = (answer.answer ?? {})[q.id];
+      if (value === undefined || value === null || value === '') continue;
+      const info = answer.examInfo as { questionScore?: Record<string, number> } | undefined;
+      const got = info?.questionScore?.[q.id];
+      if (typeof got === 'number' && max > 0) {
+        scored += 1;
+        if (got >= max - 0.0001) correct += 1;
+      }
+    }
+    return { scored, correct, rate: scored > 0 ? (correct / scored) * 100 : undefined };
+  }, [q, answers]);
 
   const columns: ColumnsType<OptionRow> = [
     {
@@ -247,8 +263,14 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
         <span className="bp-tag" style={{ marginTop: 2 }}>
           {q.number ?? q.index + 1}
         </span>
-        <div style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.6, wordBreak: 'break-word' }}>
-          {q.title || TYPE_NAME[q.type] || q.type}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: 'break-word' }}>
+            {q.title || TYPE_NAME[q.type] || q.type}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+            答题 {answered} 人
+            {score.scored > 0 && ` · 判分 ${score.scored} 人 · 正确率 ${score.rate?.toFixed(1)}%`}
+          </div>
         </div>
         <Segmented
           size="small"
