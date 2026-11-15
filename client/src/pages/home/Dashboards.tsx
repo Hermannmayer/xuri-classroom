@@ -44,7 +44,8 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
     setLoading(true);
     try {
       const [p, r] = await Promise.all([
-        listProjects({ current: 1, pageSize: 50 }).catch(() => ({ data: [] as ProjectView[], total: 0 })),
+        // 班级分配的考试可能在文件夹里，学员首页必须拉全层级
+        listProjects({ current: 1, pageSize: 50, flat: true }).catch(() => ({ data: [] as ProjectView[], total: 0 })),
         get<MyReportRow[]>('/api/my-report/list').catch(() => [] as MyReportRow[]),
       ]);
       setProjects((p.data ?? []).filter((row) => row.mode !== 'folder'));

@@ -172,6 +172,7 @@ export async function loadProjectOptions(): Promise<ProjectOption[]> {
     const res = await getWithPagination<{ id: string; name?: string; mode?: string }>('/api/project/list', {
       current: 1,
       pageSize: 200,
+      flat: true,
     });
     return res.data
       .filter((project) => Boolean(project.name))
