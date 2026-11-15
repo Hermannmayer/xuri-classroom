@@ -24,6 +24,12 @@
         "column:t_dept.class_kind",
         "column:t_dept.allow_register"
       ]
+    },
+    {
+      "version": "2.1.1",
+      "requires": [
+        "table:t_file_ref"
+      ]
     }
   ]
 }

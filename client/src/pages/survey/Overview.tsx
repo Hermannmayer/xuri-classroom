@@ -305,6 +305,7 @@ export default function SurveyOverview() {
         randomOrder: value.examSetting?.randomOrder,
         randomSurveyWrong: value.examSetting?.randomSurveyWrong,
         maxSwitchScreenTimes: value.examSetting?.maxSwitchScreenTimes,
+        favoriteEnabled: value.examSetting?.favoriteEnabled !== false,
       });
     },
     [form],
@@ -454,6 +455,7 @@ export default function SurveyOverview() {
       randomOrder: Boolean(v.randomOrder),
       randomSurveyWrong: Boolean(v.randomSurveyWrong),
       maxSwitchScreenTimes: (v.maxSwitchScreenTimes as number) ?? undefined,
+      favoriteEnabled: v.favoriteEnabled !== false,
     };
 
     const setting: ProjectSetting = {
@@ -878,6 +880,7 @@ export default function SurveyOverview() {
                 {switchItem('randomSurveyWrong', '错题练习')}
                 {switchItem('randomOrder', '随机题目顺序')}
                 {switchItem('passMode', '闯关模式')}
+                {switchItem('favoriteEnabled', '允许收藏题目')}
               </Row>
             </Card>
           </Col>

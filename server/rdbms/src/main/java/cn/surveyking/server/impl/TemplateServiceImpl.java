@@ -3,6 +3,7 @@ package cn.surveyking.server.impl;
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.core.constant.TagCategoryEnum;
 import cn.surveyking.server.core.uitls.ContextHelper;
+import cn.surveyking.server.core.uitls.RichTextSanitizer;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.TemplateViewMapper;
@@ -17,12 +18,14 @@ import cn.surveyking.server.mapper.RepoMapper;
 import cn.surveyking.server.mapper.RepoPartnerMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.BaseService;
+import cn.surveyking.server.service.FileRefService;
 import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.TemplateService;
 import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.AccessDeniedException;
@@ -56,6 +59,10 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	private final RepoPartnerMapper repoPartnerMapper;
 
 	private final UserMapper userMapper;
+
+	private final FileRefService fileRefService;
+
+	private final ObjectMapper objectMapper;
 
 	@Resource
 	@Lazy
@@ -101,8 +108,10 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		if (request.getRepoId() != null) {
 			assertManageRepo(request.getRepoId());
 		}
+		RichTextSanitizer.sanitizeSchema(request.getTemplate());
 		Template template = templateViewMapper.fromRequest(request);
 		save(template);
+		syncTemplateRefs(template.getRepoId(), template.getTemplate());
 		return template.getId();
 	}
 
@@ -110,8 +119,13 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	public void batchAddTemplate(List<TemplateRequest> templateRequests) {
 		templateRequests.stream().map(TemplateRequest::getRepoId).filter(Objects::nonNull).distinct()
 				.forEach(this::assertManageRepo);
-		templateRequests.forEach(this::fillChapterAndDifficulty);
-		saveBatch(templateViewMapper.fromRequest(templateRequests));
+		templateRequests.forEach(request -> {
+			RichTextSanitizer.sanitizeSchema(request.getTemplate());
+			fillChapterAndDifficulty(request);
+		});
+		List<Template> templates = templateViewMapper.fromRequest(templateRequests);
+		saveBatch(templates);
+		templates.forEach(template -> syncTemplateRefs(template.getRepoId(), template.getTemplate()));
 	}
 
 	/**
@@ -181,8 +195,24 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 
 	@Override
 	public void updateTemplate(TemplateRequest request) {
-		assertTemplateUpdateAllowed(getById(request.getId()), request);
+		Template existing = getById(request.getId());
+		assertTemplateUpdateAllowed(existing, request);
+		RichTextSanitizer.sanitizeSchema(request.getTemplate());
 		updateById(templateViewMapper.fromRequest(request));
+		syncTemplateRefs(request.getRepoId() != null ? request.getRepoId() : existing == null ? null : existing.getRepoId(),
+				request.getTemplate());
+	}
+
+	private void syncTemplateRefs(String repoId, SurveySchema schema) {
+		if (repoId == null || schema == null) {
+			return;
+		}
+		try {
+			fileRefService.syncHtml("repo", repoId, objectMapper.writeValueAsString(schema));
+		}
+		catch (Exception ignored) {
+			// 引用登记失败不能阻断题目保存
+		}
 	}
 
 	@Override

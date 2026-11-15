@@ -1,13 +1,7 @@
 # 配置文件不能放在根目录下面，否则会被 api 的 application-dev.yml 覆盖
+# 只支持 MySQL 8（H2 已停止支持）。
 spring:
-  h2:
-    enabled:
-      true console:
   datasource:
-#    username: sa
-#    password: sa
-#    url: jdbc:h2:tcp://localhost/~/survey
-#    driver-class-name: org.h2.Driver
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:123456}
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8

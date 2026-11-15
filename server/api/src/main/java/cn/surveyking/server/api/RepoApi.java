@@ -187,6 +187,20 @@ public class RepoApi {
 		repoService.createUserBook(request);
 	}
 
+	/** 当前用户收藏的题目 id；答题页一次拉回，避免逐题查询。 */
+	@GetMapping("/book/favorites")
+	@PreAuthorize("hasAnyAuthority('repo:book','repo:practice')")
+	public List<String> listFavorites() {
+		return repoService.listFavoriteTemplateIds();
+	}
+
+	/** 收藏/取消收藏一道题；考试可在设置里禁止收藏。 */
+	@PostMapping("/book/favorite")
+	@PreAuthorize("hasAuthority('repo:book')")
+	public boolean toggleFavorite(@RequestBody UserBookRequest request) {
+		return repoService.toggleFavorite(request);
+	}
+
 	@PostMapping("/book/update")
 	@PreAuthorize("hasAuthority('repo:book')")
 	public UserBookView updateUserBook(@RequestBody UserBookRequest request) {

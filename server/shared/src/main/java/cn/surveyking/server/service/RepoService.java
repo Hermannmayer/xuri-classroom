@@ -89,6 +89,12 @@ public interface RepoService {
 
 	void createUserBook(UserBookRequest request);
 
+	/** 当前用户收藏的题目 id（去重）。 */
+	List<String> listFavoriteTemplateIds();
+
+	/** 切换收藏，返回切换后的状态：true=已收藏。 */
+	boolean toggleFavorite(UserBookRequest request);
+
 	UserBookView updateUserBook(UserBookRequest request);
 
 	void deleteUserBook(UserBookRequest request);

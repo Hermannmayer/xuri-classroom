@@ -27,6 +27,7 @@ import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ClassResourceService;
+import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.RepoService;
 import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -82,6 +83,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	private final ClassResourceService classResourceService;
 
 	private final UserMapper userMapper;
+
+	private final ProjectService projectService;
 
 	/** 分类列表里表示「题库没填分类」的节点名 */
 	private static final String UNCATEGORIZED_NAME = "未分类";
@@ -655,7 +658,80 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@Override
 	public void createUserBook(UserBookRequest request) {
 		UserBook userBook = userBookViewMapper.fromRequest(request);
+		if (UserBookServiceImpl.BOOK_TYPE_FAVORITE.equals(request.getType())) {
+			assertFavoriteAllowed(request.getProjectId());
+			fillFavoriteMeta(userBook, request);
+		}
 		userBookService.save(userBook);
+	}
+
+	@Override
+	public List<String> listFavoriteTemplateIds() {
+		return userBookService
+				.list(Wrappers.<UserBook>lambdaQuery().eq(UserBook::getCreateBy, SecurityContextUtils.getUserId())
+						.eq(UserBook::getType, UserBookServiceImpl.BOOK_TYPE_FAVORITE).select(UserBook::getTemplateId))
+				.stream().map(UserBook::getTemplateId).filter(StringUtils::hasText).distinct()
+				.collect(Collectors.toList());
+	}
+
+	@Override
+	public boolean toggleFavorite(UserBookRequest request) {
+		if (!StringUtils.hasText(request.getTemplateId())) {
+			throw new ValidationException("缺少题目 id");
+		}
+		assertFavoriteAllowed(request.getProjectId());
+		String userId = SecurityContextUtils.getUserId();
+		LambdaQueryWrapper<UserBook> query = Wrappers.<UserBook>lambdaQuery()
+				.eq(UserBook::getTemplateId, request.getTemplateId())
+				.eq(UserBook::getType, UserBookServiceImpl.BOOK_TYPE_FAVORITE).eq(UserBook::getCreateBy, userId);
+		if (StringUtils.hasText(request.getProjectId())) {
+			query.eq(UserBook::getProjectId, request.getProjectId());
+		}
+		else {
+			query.isNull(UserBook::getProjectId);
+		}
+		UserBook existing = userBookService.getOne(query.last("LIMIT 1"));
+		if (existing != null) {
+			userBookService.removeById(existing.getId());
+			return false;
+		}
+		UserBook favorite = new UserBook();
+		favorite.setTemplateId(request.getTemplateId());
+		favorite.setType(UserBookServiceImpl.BOOK_TYPE_FAVORITE);
+		favorite.setProjectId(StringUtils.hasText(request.getProjectId()) ? request.getProjectId() : null);
+		fillFavoriteMeta(favorite, request);
+		userBookService.save(favorite);
+		return true;
+	}
+
+	private void assertFavoriteAllowed(String projectId) {
+		if (!StringUtils.hasText(projectId)) {
+			return;
+		}
+		ProjectView project = projectService.getProject(projectId);
+		if (project != null && project.getSetting() != null && project.getSetting().getExamSetting() != null
+				&& Boolean.FALSE.equals(project.getSetting().getExamSetting().getFavoriteEnabled())) {
+			throw new ValidationException("本场考试已禁止收藏题目");
+		}
+	}
+
+	private void fillFavoriteMeta(UserBook userBook, UserBookRequest request) {
+		String name = request.getName();
+		String repoId = request.getRepoId();
+		if (StringUtils.hasText(request.getTemplateId())) {
+			try {
+				Template template = templateService.getReadableTemplate(request.getTemplateId());
+				if (template != null) {
+					name = StringUtils.hasText(template.getName()) ? template.getName() : name;
+					repoId = template.getRepoId();
+				}
+			}
+			catch (Exception ignored) {
+				// 设计器自建题没有模板行，用前端传的题干兜底
+			}
+		}
+		userBook.setName(StringUtils.hasText(name) ? name : "题目 " + request.getTemplateId());
+		userBook.setRepoId(repoId);
 	}
 
 	@Override

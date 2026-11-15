@@ -11,6 +11,7 @@ import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.FileViewMapper;
 import cn.surveyking.server.domain.model.File;
 import cn.surveyking.server.mapper.FileMapper;
+import cn.surveyking.server.service.FileRefService;
 import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.SurveyService;
@@ -79,6 +80,8 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 
 	private final StorageProperties storageProperties;
 
+	private final FileRefService fileRefService;
+
 	private final AtomicLong seq = new AtomicLong(System.currentTimeMillis());
 
 	private final ConcurrentMap<String, UploadRateWindow> publicUploadRateWindows = new ConcurrentHashMap<>();
@@ -99,9 +102,36 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			return;
 		}
 		assertCurrentUserOwnsFile(file);
+		fileRefService.deleteByFile(id);
+		removeFileAndPhysical(file);
+	}
+
+	@Override
+	@CacheEvict(cacheNames = "fileCache", allEntries = true)
+	public void deleteByOwner(String ownerType, String ownerId) {
+		Set<String> fileIds = fileRefService.deleteByOwner(ownerType, ownerId);
+		for (String fileId : fileIds) {
+			File file = getById(fileId);
+			if (file == null || StringUtils.isNotBlank(file.getAnswerId())) {
+				continue;
+			}
+			// 还被别的项目/题库引用时保留物理文件
+			if (fileRefService.countByFile(fileId) > 0) {
+				continue;
+			}
+			removeFileAndPhysical(file);
+		}
+	}
+
+	@Override
+	public void syncOwnerRefs(String ownerType, String ownerId, String html) {
+		fileRefService.syncHtml(ownerType, ownerId, html);
+	}
+
+	private void removeFileAndPhysical(File file) {
 		deletePhysicalFileIfUnreferenced(file.getId(), file.getFilePath());
 		deletePhysicalFileIfUnreferenced(file.getId(), file.getThumbFilePath());
-		removeById(id);
+		removeById(file.getId());
 	}
 
 	private void deletePhysicalFileIfUnreferenced(String fileId, String filePath) {
@@ -204,8 +234,10 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 				? SurveySchema.QuestionType.RichText.equals(uploadSchema.getType())
 				: Boolean.TRUE.equals(request.getPublicRead());
 		file.setShared(publicRead ? 1 : 0);
-		file.setProjectId(Boolean.TRUE.equals(request.getPublicUpload()) ? request.getProjectId() : null);
-		file.setQuestionId(Boolean.TRUE.equals(request.getPublicUpload()) ? request.getQuestionId() : null);
+		boolean projectOwner = "project".equals(request.getOwnerType());
+		file.setProjectId(Boolean.TRUE.equals(request.getPublicUpload()) ? request.getProjectId()
+				: projectOwner ? request.getOwnerId() : null);
+		file.setQuestionId(request.getQuestionId());
 		file.setFileSize(uploadFile.getSize());
 
 		String barcodeContent = null;
@@ -223,6 +255,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			}
 			storageService.uploadFile(uploadFile.getInputStream(), filePath);
 			save(file);
+			if (StringUtils.isNotBlank(request.getOwnerType()) && StringUtils.isNotBlank(request.getOwnerId())) {
+				fileRefService.bind(fileId, request.getOwnerType(), request.getOwnerId(), request.getQuestionId());
+			}
 			FileView fileView = fileViewMapper.toView(file);
 			fileView.setQuestionId(file.getQuestionId());
 			fileView.setContent(barcodeContent);

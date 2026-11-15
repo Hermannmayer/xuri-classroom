@@ -7,6 +7,7 @@ import cn.surveyking.server.core.constant.ProjectPartnerTypeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.uitls.ClassUtils;
 import cn.surveyking.server.core.uitls.NanoIdUtils;
+import cn.surveyking.server.core.uitls.RichTextSanitizer;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.ProjectViewMapper;
@@ -15,13 +16,18 @@ import cn.surveyking.server.domain.model.Project;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.service.BaseService;
+import cn.surveyking.server.service.FileRefService;
+import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.ProjectPartnerService;
 import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +65,14 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	private final ProjectViewMapper projectViewMapper;
 
 	private final ProjectPartnerService projectPartnerService;
+
+	private final FileRefService fileRefService;
+
+	private final ObjectMapper objectMapper;
+
+	@Autowired
+	@Lazy
+	private FileService fileService;
 
 	private SpelExpressionParser spelParser = new SpelExpressionParser();
 
@@ -276,6 +290,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public ProjectView addProject(ProjectRequest request) {
+		RichTextSanitizer.sanitizeSchema(request.getSurvey());
 		Project project = projectViewMapper.fromRequest(request);
 		// 分类：trim，空白转 null（不做长度校验，前端限制 64）
 		project.setCategory(normalizeCategory(project.getCategory()));
@@ -303,6 +318,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 					count(Wrappers.<Project>lambdaQuery().ne(Project::getMode, ProjectModeEnum.folder)) + 1000);
 		}
 		save(project);
+		syncOwnerRefs(project.getId(), project.getSurvey());
 
 		ProjectPartnerRequest partnerRequest = new ProjectPartnerRequest();
 		partnerRequest.setType(ProjectPartnerTypeEnum.OWNER.getType());
@@ -388,6 +404,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	@SneakyThrows
 	public void updateProject(ProjectRequest request) {
 		assertCanEditProject(request == null ? null : request.getId());
+		RichTextSanitizer.sanitizeSchema(request.getSurvey());
 		// 分类：显式传空串表示「清空分类」。MyBatis-Plus 的 updateById 会跳过 null 字段，
 		// 所以清空要单独 set 一次；不带 category 的部分更新（settingKey 单字段、批量设置）
 		// 传的是 null，不会走到这里，不会被误清空。
@@ -410,6 +427,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				}
 			}
 			updateById(project);
+			if (request.getSurvey() != null) {
+				syncOwnerRefs(request.getId(), request.getSurvey());
+			}
 			if (clearCategory) {
 				getBaseMapper().update(null, Wrappers.<Project>lambdaUpdate().eq(Project::getId, request.getId())
 						.set(Project::getCategory, null));
@@ -433,7 +453,20 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	@Override
 	public void deleteProject(ProjectRequest request) {
 		assertCanEditProject(request == null ? null : request.getId());
+		fileService.deleteByOwner("project", request.getId());
 		removeById(request.getId());
+	}
+
+	private void syncOwnerRefs(String projectId, SurveySchema survey) {
+		if (projectId == null || survey == null) {
+			return;
+		}
+		try {
+			fileRefService.syncHtml("project", projectId, objectMapper.writeValueAsString(survey));
+		}
+		catch (Exception ignored) {
+			// 引用登记失败不能阻断试卷保存；图片仍在，后续保存会补登记
+		}
 	}
 
 	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权）。 */

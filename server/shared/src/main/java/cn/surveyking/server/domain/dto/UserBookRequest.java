@@ -52,4 +52,10 @@ public class UserBookRequest {
 
 	private String answerId;
 
+	/** 来源考试（收藏时用于校验该场考试是否允许收藏） */
+	private String projectId;
+
+	/** 题库练习的来源题库 */
+	private String repoId;
+
 }

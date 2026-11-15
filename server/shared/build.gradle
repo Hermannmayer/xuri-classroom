@@ -25,6 +25,8 @@ dependencies {
 
     implementation 'com.google.zxing:javase:3.5.0'
     implementation 'net.coobird:thumbnailator:0.4.14'
+    // 题库/试卷富文本：服务端白名单消毒（前端 DOMPurify 只是第一道）
+    implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20220608.1'
     implementation 'com.github.ben-manes.caffeine:caffeine:2.9.2'
     implementation 'com.belerweb:pinyin4j:2.5.0'
 

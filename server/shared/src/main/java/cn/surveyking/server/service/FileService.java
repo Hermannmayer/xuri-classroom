@@ -32,6 +32,12 @@ public interface FileService {
 
 	void deleteFile(String id);
 
+	/** 删除项目/题库的全部文件引用；无其他引用时删除物理文件。 */
+	void deleteByOwner(String ownerType, String ownerId);
+
+	/** 保存 schema 时扫描 HTML 中的图片并登记引用。 */
+	void syncOwnerRefs(String ownerType, String ownerId, String html);
+
 	void validateAndBindAnswerFiles(String projectId, String answerId, SurveySchema survey,
 			LinkedHashMap<String, Object> answer, LinkedHashMap<String, Object> previousAnswer);
 

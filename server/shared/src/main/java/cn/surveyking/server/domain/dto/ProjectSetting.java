@@ -301,6 +301,11 @@ public class ProjectSetting {
 		 */
 		private Integer maxSwitchScreenTimes;
 
+		/**
+		 * 是否允许收藏题目；缺省 true，兼容历史考试。
+		 */
+		private Boolean favoriteEnabled = true;
+
 	}
 
 	/**

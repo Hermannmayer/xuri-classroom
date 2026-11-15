@@ -73,6 +73,8 @@ export interface ExamSetting {
   randomSurvey?: import('./types').RandomSurveyCondition[];
   randomSurveyWrong?: boolean;
   maxSwitchScreenTimes?: number;
+  /** 是否允许收藏题目；缺省 true */
+  favoriteEnabled?: boolean;
 }
 
 export interface ProjectSetting {

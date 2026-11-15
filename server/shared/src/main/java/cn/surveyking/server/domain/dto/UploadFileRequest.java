@@ -24,6 +24,11 @@ public class UploadFileRequest {
 
 	private String projectId;
 
+	/** 富文本图片归属：project 或 repo；与 ownerId 一起用于引用计数。 */
+	private String ownerType;
+
+	private String ownerId;
+
 	private String questionId;
 
 	/**

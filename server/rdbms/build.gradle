@@ -18,7 +18,6 @@ dependencies {
     implementation 'org.dhatim:fastexcel:0.12.13'
     implementation 'org.dhatim:fastexcel-reader:0.12.3'
     
-//    implementation 'com.h2database:h2:2.1.214'
     implementation 'mysql:mysql-connector-java:8.0.26'
 }
 

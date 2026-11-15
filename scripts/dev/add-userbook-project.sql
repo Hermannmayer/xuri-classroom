@@ -5,7 +5,7 @@
 -- 用法：mysql -u<user> -p<pwd> <db> < scripts/dev/add-userbook-project.sql
 -- 注意：本脚本是 MySQL 版 —— MySQL 的 ADD COLUMN / ADD INDEX 没有 IF NOT EXISTS，
 --       所以用 information_schema 判重 + 预处理语句保证幂等。
---       H2 直接跑 server/rdbms/src/main/resources/scripts/init-h2.sql 即可（那边已有建表语句与索引）。
+--       只支持 MySQL 8；H2 已停止支持。
 
 -- 1. 加列（历史数据保持 NULL = 来源未知；题库练习产生的错题也是 NULL）
 SET @col_exists := (
