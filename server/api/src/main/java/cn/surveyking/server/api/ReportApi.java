@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -44,8 +45,9 @@ public class ReportApi {
 	@GetMapping("/{shortId}")
 	@PreAuthorize("hasAuthority('project:report')")
 	@EnableDataPerm(key = "#shortId")
-	public ReportData getData(@PathVariable String shortId) {
-		return reportService.getData(shortId);
+	public ReportData getData(@PathVariable String shortId,
+			@RequestParam(value = "includeAnonymous", defaultValue = "false") boolean includeAnonymous) {
+		return reportService.getData(shortId, includeAnonymous);
 	}
 
 }

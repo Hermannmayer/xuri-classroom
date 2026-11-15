@@ -62,6 +62,7 @@ export default defineConfig({
           { text: '后端结构', link: '/architecture/backend' },
           { text: '数据模型', link: '/architecture/data-model' },
           { text: '功能范围', link: '/architecture/scope' },
+          { text: '问卷结果收集规划', link: '/architecture/survey-plan' },
         ],
       },
       {

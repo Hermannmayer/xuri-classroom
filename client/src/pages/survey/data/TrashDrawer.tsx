@@ -158,7 +158,11 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
             title: '答卷人',
             dataIndex: 'createByName',
             width: 110,
-            render: (v: string, row) => <span style={{ fontSize: 12 }}>{v || row.createBy?.slice(0, 8) || '匿名'}</span>,
+            render: (v: string, row) => (
+              <span style={{ fontSize: 12 }}>
+                {row.isAnonymous ? '匿名' : v || row.createBy?.slice(0, 8) || '匿名'}
+              </span>
+            ),
           },
           ...(canOperate ? [actionColumn] : []),
         ]}

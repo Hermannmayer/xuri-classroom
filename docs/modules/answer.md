@@ -102,8 +102,8 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-10
-verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
+last_verified: 2026-11-15
+verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
 ---
 
 # 答卷、判分与报表
@@ -153,10 +153,10 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 3. **提交**：`doSubmit` 调 `POST /api/public/saveAnswer`，带 `projectId`、`id`、`answer`、`survey`、`freshAttempt`、`metaInfo`。后端 `SurveyServiceImpl.saveAnswer` 先做提交路径校验（`validateSubmittable`：状态/截止/回收上限；`validateAnswerGate`：密码/登录/白名单/开始时间/限次），再处理随机卷 Cookie、公开查询修改、允许修改答案、`freshAttempt` 新轮次。
 4. **保存与判分**：`AnswerServiceImpl.saveAnswer` 对新答卷做 15 秒应用级幂等（key = projectId + 答题人 + 答案指纹，实现在 `AnswerSubmitIdempotency`），生成 UUID 作为 `t_answer.id`；新建答卷还会调 `ClassResourceService#resolveForStudent` 写 `t_answer.class_id`（主班优先；匿名/教职工为 NULL），更新答卷不改该字段；`AnswerScoringService#beforeSaveAnswer` 丢弃考试模式下客户端上传的 `survey`（防伪造正确答案刷分），校验最长/最短答题时间，绑定附件，调 `computeExamScore`。判分 schema 只来自服务端：库里随机卷快照优先，否则项目 `survey`。
 5. **判分口径**：`AnswerScoreEvaluator` 按每题的 `attribute.examAnswerMode` 选 evaluator：`onlyOne`（唯一正确项且只选一个）、`selectAll`（全对才得分）、`selectCorrect`（选择类选错整题 0 分，填空类按正确项累加）、`select`（按选中项分值累加）。`manual` / `none` 没有 evaluator，按 0 分或人工处理；自动判分只覆盖 `examType()` 的 7 种题型。结果写 `exam_score` 与 `exam_info.questionScore`。
-6. **成绩单**：`/s/:id/exam-result/:answerId` 调 `POST /api/public/loadExamResult`。只有 `submittedSetting.answerAnalysis=true` 且考试已结束（`examFinished`）才返回答案/schema/examInfo；`transcriptVisible` 控制总分，`rankVisible` 控制排名。随机卷快照若已剥掉正确答案，会回退项目 schema 渲染解析。
-7. **数据页**：`/survey/:id/data`（`answer:list`）用 `pageSize=-1` 拉全量，前端筛选/排序/分页。列由项目 schema 的 `flattenSchema(...).filter(isDataQuestion)` 生成；单元格文本由 `data/format.ts` 统一格式化。补录走 `POST /api/answer/create`，编辑走 `POST /api/answer/update`，删除走 `/delete`（进回收站）。
-8. **导出**：先 `POST /api/repo/export/token { exportPassword }`（数据页）或 `POST /api/answer/export/token`（班级答卷抽屉）换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`（按班再加 `classId`）。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。
-9. **报表**：`GET /api/report/{shortId}`（`project:report` + `@EnableDataPerm`）。`ReportServiceImpl.getData` 按 `project_id` 取全部答卷，递归统计选项/数值，再算每日答卷数；前端用项目 schema 或最新答卷快照渲染每题区块。
+6. **成绩单**：`/s/:id/exam-result/:answerId` 调 `POST /api/public/loadExamResult`。只有 `submittedSetting.answerAnalysis=true` 且考试已结束（`examFinished`）才返回答案/schema/examInfo；`transcriptVisible` 控制总分，`rankVisible` 控制排名。随机卷快照若已剥掉正确答案，会回退项目 schema 渲染解析。匿名答卷没有 `create_by`，成绩单页靠提交成功后写入的 `rd_result_<projectId>` cookie 通过 `AnswerLookup` 归属校验。
+7. **数据页**：`/survey/:id/data`（`answer:list`）用 `pageSize=-1` 拉全量，前端筛选/排序/分页。列由项目 schema 的 `flattenSchema(...).filter(isDataQuestion)` 生成；单元格文本由 `data/format.ts` 统一格式化。补录走 `POST /api/answer/create`，编辑走 `POST /api/answer/update`，删除走 `/delete`（进回收站）。管理端默认 `includeAnonymous=true`，页面有「含匿名/仅实名」开关；匿名行显示「匿名」标签。
+8. **导出**：先 `POST /api/repo/export/token { exportPassword }`（数据页）或 `POST /api/answer/export/token`（班级答卷抽屉）换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`（按班再加 `classId`）。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。`DownloadQuery.includeAnonymous` 不传时默认包含匿名（数据页按开关传），导出「提交人」列对匿名答卷写「匿名」。
+9. **报表**：`GET /api/report/{shortId}`（`project:report` + `@EnableDataPerm`）。`ReportServiceImpl.getData` 按 `project_id` 取答卷，递归统计选项/数值，再算每日答卷数；`includeAnonymous=true` 时匿名答卷计入（管理端 UI 默认 true，API 默认 false 兼容旧调用）。前端用项目 schema 或最新答卷快照渲染每题区块。
 10. **回收站**：`POST /api/answer/delete` 只把 `is_deleted` 置 1；`GET /api/answer/trash` 查已删；`/restore` 恢复（`answer:restore` 或 admin），`/destroy` 物理删除（`answer:delete`）。`listAnswer` 默认过滤逻辑删除，回收站列表用 Mapper 的 `selectLogicDeleted`。
 
 ### 按班级作答与 class_id
@@ -183,10 +183,11 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 2. 身份：`AnonymousIdentityServiceImpl` 在公开答题页未登录且项目 `answerSetting.loginRequired != true` 时写 `sk-anon` cookie（HttpOnly、SameSite=Lax、Secure=request.isSecure、path=/、90 天）；cookie 只放 32 字节随机 token，库里只存 SHA-256，过期主体靠 `purgeExpired()` 清理。
 3. 提交：`SurveyApi#loadProject` 先 ensureSubject；`AnswerServiceImpl#createAnswer` 再兜底 ensure，并写 `create_by=null`、`is_anonymous=1`、`anonymous_subject_id=<subject>`；已登录、教职工、白名单伪身份保持原 `create_by` 逻辑。`updateAnswer` 不重算匿名标识（与 `class_id` 同原则），否则第二次保存会把匿名改成非匿名。
 4. 找回/认领：`GET /api/public/anonymous/answers?projectId=` 未登录按 `sk-anon` 主体、登录按 `create_by` 返回 `List<PublicAttemptView>`（`answerId / examScore / createAt`），没有身份返回空。`POST /api/public/anonymous/claim` 必须登录；把当前 cookie 主体的匿名答卷改成 `create_by=userId`、`is_anonymous=0`、`anonymous_subject_id=null`，按 `ClassResourceService#resolveForStudent` 重算 `class_id`、重新分配 `attempt_no`（避免撞唯一键），返回认领条数。
-5. 报表过滤：`listAnswer` 默认 `is_anonymous=0`（管理员/项目管理者可显式 `includeAnonymous`）；`listAnswerByClass`、`listAnswersForStat`、`downloadSurvey`/`downloadAttachment` 默认排除匿名；`AnswerQuery.excludeAnonymous` 专供 `AnswerServiceImpl#count`（统计/项目 total 用，答题限次不传）；`TeachingMapper.listMyProjects/listClasses`、`ProjectServiceImpl` 两处 total、`ProjectStatisticsService`、`ReportServiceImpl`、`ClassResourceService#loadClassAnswerStats` 都已加过滤。
-6. 班级/项目统计：匿名答卷 `class_id` 为 NULL，按班资源面板的答卷数/平均分、按班答卷抽屉、班级学情都不会包含；项目列表/回收站 total、项目报表、公开统计也只统计 `is_anonymous=0`。
-7. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体；匿名答卷没有 `create_by`，数据页/通用导出看不到，需登录 claim 后才进入常规报表。
-8. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
+5. 管理端可见性（2026-11 修复）：`listAnswer` / `downloadSurvey` / `ReportServiceImpl` 都支持 `includeAnonymous`；数据页默认「含匿名」，概览/报表/导出跟随同一口径，导出「提交人」写「匿名」。`listAnswer` / `ReportServiceImpl` 的 API 默认仍是 `false`（旧调用方兼容），`downloadSurvey` 不传时默认包含。`listAnswerByClass` / `downloadByClass` / `downloadAttachment` 仍不含匿名（匿名答卷 `class_id` 为 NULL，无法按班归属）。
+6. 统计：`listAnswersForStat` 与 `ProjectStatisticsService` 包含匿名答卷，选项配额/投票/公开统计按实际提交计数；`ReportServiceImpl` 的 `includeAnonymous` 由管理端传 true。`ProjectServiceImpl` 的项目列表/回收站 total 也包含匿名。班级资源面板/班级学情仍不含匿名（按 `class_id` 归属）。
+7. 成绩单归属：匿名答卷没有 `create_by`，`PublicAnswerSubmitter` 提交成功后写 `rd_result_<projectId>` cookie（HttpOnly、7 天），`AnswerLookup` 在 `rd_answer_id_` 之外接受它，用于成绩单/结果页/「我的答卷」回看；`rd_answer_id_` 仍只负责随机卷续答，不复用。
+8. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体。匿名答卷在管理端可见，但详情不显示身份，导出只有「匿名」标识。
+9. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
 
 ## 修改指南
 
@@ -218,7 +219,7 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 | 匿名找回 | 无（公开） | 只按当前 `sk-anon` cookie 主体；返回 `PublicAttemptView`，不返回主体 id/token |
 | 匿名 claim | 登录（无额外权限点） | 只认当前 cookie 主体；重算 `class_id`/`attempt_no`，不合并其他主体 |
 | 匿名清理设置/立即清理 | `system:setting:update` 或 admin | 开关/保留天数；`POST /api/system/anonymous/cleanup` 返回删除条数；只删匿名答卷 |
-| 答卷列表/回收站 | `answer:list` + `@EnableDataPerm` | 管理员/项目 OWNER/COLLABORATOR（含组授权）看全部；其他登录用户只看 `create_by=自己`；默认 `is_anonymous=0` |
+| 答卷列表/回收站 | `answer:list` + `@EnableDataPerm` | 管理员/项目 OWNER/COLLABORATOR（含组授权）看全部；其他登录用户只看 `create_by=自己`；管理端 UI 默认 `includeAnonymous=true`，API 默认 `false` |
 | 查看单份 | `answer:detail` | `assertAnswerAccess`：本人 / 项目管理者 / admin |
 | 补录 | `answer:create` + `@EnableDataPerm` | 项目管理者 |
 | 修改 | `answer:update` | 本人或项目管理者；后台编辑会强制沿用原 `projectId` |
@@ -229,7 +230,7 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 | 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部，不要求项目协作者 |
 | 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的**非匿名**答卷；只支持 `type=answer` |
 | 导入数据 | `answer:upload` | 项目管理者 |
-| 报表 | `project:report` + `@EnableDataPerm` | 项目管理者/admin；匿名答卷不计入 |
+| 报表 | `project:report` + `@EnableDataPerm` | 项目管理者/admin；`includeAnonymous=true` 时计入匿名（管理端默认 true） |
 
 ## 坑与已知限制
 
@@ -242,7 +243,7 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 - **彻底删除不清理附件**：`batchDestroyAnswer` 只执行 `DELETE FROM t_answer`，没有看到删除 `t_file` 或物理附件的代码；回收站提示"附件也会一起清掉"与当前实现不完全一致，需另行确认/补清理任务。
 - **导出 token 在内存里**：`ExportGuardService` 的 token 存在 `ConcurrentHashMap`，60 秒过期、用一次即失效、绑定用户；后端重启或多实例部署会失效/互不认。不要把它当持久下载链接。
 - **旧的 `exportPassword` 参数仍兼容**：`AnswerApi#download` 同时接受 `exportToken` 和 `exportPassword`，优先 token。密码出现在 URL 会进访问日志，前端应继续走"先换 token"。
-- **匿名答卷默认不可见**：`listAnswer` / `listAnswerByClass` / `listAnswersForStat` / `downloadSurvey` / `downloadAttachment` / 班级资源统计都带 `is_anonymous=0`；只有管理员/项目管理者在 `AnswerQuery.includeAnonymous=true` 时 `listAnswer` 才放开。数据页、通用导出、按班导出、项目报表、班级报表都不会出现匿名答卷。
+- **匿名答卷默认包含（2026-11 起）**：数据页/概览/报表/通用导出默认 `includeAnonymous=true`，导出「提交人」写「匿名」；`listAnswer` / `ReportServiceImpl` 的 API 默认 false 以兼容旧调用方。班级维度仍排除匿名（`class_id` 为 NULL），按班导出/班级资源面板/班级学情不受影响。
 - **匿名身份只靠 cookie + localStorage**：`sk-anon` 只存在当前浏览器；换设备/清 cookie/隐私模式/历史匿名数据都找不回。`claim` 只处理当前 cookie 主体，不自动合并多个匿名主体；`purgeExpired()` 仍负责 cookie 主体过期清理，但未接调度；按保留天数的清理由 P7 的 `purgeOlderThan`/`AnonymousCleanupService` 负责。
 - **匿名清理只做逻辑删**：`purgeOlderThan` 与 `purgeExpired` 都走 `@TableLogic`，给 `t_answer.is_deleted=1`，不物理清 `t_answer`，也不清 `t_answer_item` 投影/附件；需要释放空间要另做物理清理。
 - **保留期清理的配置默认/边界**：`anonymousCleanupEnabled` 默认开启（缺省/空也视为开），`anonymousRetentionDays` 默认 90、夹到 1~3650；`anonymousLastCleanupAt/Count` 只由任务写，`mergeSysInfo` 不接收客户端值。
@@ -250,7 +251,7 @@ verified_against: 195a7d45051c0de73bfe0abe6ed1e79342aa7765
 - **定时任务是容器时区**：cron `0 30 3 * * ?` 按 JVM/容器时区，不是用户本地时区；跨时区部署要设 `TZ` 或改 cron。`runNow` 读整行再写回 last 字段，极低概率覆盖并发保存的设置。
 - **`class_id` 与匿名互斥**：匿名答卷 `class_id` 为 NULL，按班报表/资源面板/班级答卷抽屉都不会包含；claim 时才按当前班级资源重算。
 - **公开匿名接口没有权限注解**：`/api/public/anonymous/*` 依赖 `/api/public/**` permitAll；只校验 cookie/登录态，不要把它们当管理接口，也不要在返回体里暴露 token_hash/subject 内部字段。
-- **新增 `t_answer` 统计 SQL 必须带匿名过滤**：默认 `is_anonymous=0`；答题限次/幂等统计用 `AnswerQuery.excludeAnonymous` 按需关闭，不能把默认过滤直接塞进通用 `count`。
+- **新增 `t_answer` 统计 SQL 先想清匿名口径**：数据页/报表看 `includeAnonymous`；答题限次/幂等/配额统计不要默认排除匿名，需要「仅实名」时显式 `excludeAnonymous`；班级维度不要混入匿名。
 - **按班查看/导出绕过项目协作者过滤**：`/api/teaching/classes/answers` 与 `/api/answer/download?classId=` 只要求 `project:report`/`answer:export` + 班级可见（`classService.assertVisible`），不要求项目所有者/协作者；任何能看这个班的老师都能看/导出该项目的本班答卷。
 - **按班列表只认精确 `class_id`**：历史答卷 `class_id` 为空时不会出现在按班列表/导出；学情概览可能按 `COALESCE(class_id,dept_id,'')` 回退主组显示，出现「概览有数、抽屉为空」是正常现象。
 - **按班导出只支持答卷**：`downloadByClass` 对 `type != answer` 报「按班级导出暂只支持答卷」；附件按班导出未实现。且它走真源 JSON，不做 `t_answer_item` 投影优化。
@@ -290,11 +291,12 @@ npm run docs:check
 9. 资源行点「导出」：无导出密码时应下载 xlsx；配置导出密码时当前抽屉会报错（没有密码输入）。只支持 `type=answer`，附件导出会提示不支持。
 10. 不带 `classId` 的 `/api/answer/download` 仍按项目协作者范围校验；用非协作者账号导出应 403，带 `classId` 且班级可见的账号可以导出本班答卷。
 11. 未登录打开一个 `loginRequired=false` 的问卷并交卷：响应应写 `sk-anon` cookie；刷新后 `GET /api/public/anonymous/answers?projectId=` 能看到这次答卷（`answerId/examScore/createAt`），`/api/public/attempts` 同样能看到。清 cookie 或换浏览器后列表为空。
-12. 同一浏览器登录后点「绑定到我的账号」：`POST /api/public/anonymous/claim` 返回认领条数；随后 `/api/public/anonymous/answers` 按 `create_by` 返回，数据页/报表仍默认看不到匿名（claim 后 `is_anonymous=0` 才可见）。
-13. 匿名答卷不进入班级报表：学情资源面板的交卷/平均分、班级答卷抽屉、项目列表/回收站 total、`/api/report/{shortId}` 都不应包含它；管理员显式 `includeAnonymous=true` 时 `/answer/list` 才可看到。
+12. 同一浏览器登录后点「绑定到我的账号」：`POST /api/public/anonymous/claim` 返回认领条数；随后 `/api/public/anonymous/answers` 按 `create_by` 返回，claim 后 `is_anonymous=0`，进入常规实名口径（数据页「仅实名」也能看到）。
+13. 匿名答卷：数据页默认显示（含匿名），切「仅实名」后隐藏；导出/报表/项目 total 与数据页一致；班级报表仍不包含（`class_id` 为 NULL）。
 14. 构造过期 `t_anonymous_subject` 后调用 `purgeExpired()`：主体和其匿名答卷应被清理（答卷逻辑删）；`purgeExpired` 当前没有调度，需手工触发。
 15. 系统设置「匿名答卷」Tab：改开关/保留天数后保存；点「立即清理」应调用 `POST /api/system/anonymous/cleanup` 并提示删除条数；`GET /api/system` 的 `anonymousLastCleanupAt/Count` 应更新（只读字段客户端改不动）。
 16. 把保留天数设为 1，构造一条 2 天前的 `is_anonymous=1` 答卷和一条登录用户答卷：手动/定时清理只删匿名那条（`is_deleted=1`），登录答卷不受影响；主体下无剩余匿名答卷时应被物理删除。
+17. 匿名考试：公开链接提交后，成绩单页能打开并显示分数（`transcriptVisible=true`）；换无 cookie 浏览器打开同一 `answerId` 应 403；数据页/导出能看到该答卷且提交人为「匿名」。
 
 ## 相关文档
 

@@ -35,8 +35,13 @@ export default function SurveyReport() {
     setLoading(true);
     try {
       const [r, list] = await Promise.all([
-        get<ReportData>(`/api/report/${id}`).catch(() => undefined),
-        getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: -1 }).catch(() => ({
+        get<ReportData>(`/api/report/${id}`, { includeAnonymous: true }).catch(() => undefined),
+        getWithPagination<Answer>('/api/answer/list', {
+          projectId: id,
+          current: 1,
+          pageSize: -1,
+          includeAnonymous: true,
+        }).catch(() => ({
           current: 1,
           pageSize: 0,
           total: 0,

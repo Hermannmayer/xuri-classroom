@@ -138,6 +138,8 @@ export interface Answer {  id: string;
   createAt?: string;
   createBy?: string;
   createByName?: string;
+  /** 匿名答卷：无 createBy，管理端据此显示「匿名」标识 */
+  isAnonymous?: boolean;
   updateAt?: string;
 }
 

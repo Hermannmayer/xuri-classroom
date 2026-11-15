@@ -61,7 +61,7 @@ export default function AnswerCards({
           text: texts[q.id] ?? EMPTY,
         }));
         const checked = selected.includes(row.id);
-        const who = row.createByName || row.createBy?.slice(0, 8) || '匿名';
+        const who = row.isAnonymous ? '匿名' : row.createByName || row.createBy?.slice(0, 8) || '匿名';
 
         return (
           <div key={row.id} style={CARD_STYLE} className="bp-corners">

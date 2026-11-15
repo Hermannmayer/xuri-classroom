@@ -56,14 +56,15 @@ public class AnswerLookup {
 	/**
 	 * 答卷归属校验。
 	 *
-	 * <p>合法持有者只有两种：
+	 * <p>合法持有者只有三种：
 	 * <ol>
 	 * <li>登录用户本人（答卷 createBy 等于当前用户；白名单导入的答卷 createBy 是 partner id，
 	 * 靠 {@link AnswerLimitGuard#validateWhitelistLimit} 的同一套 createBy 语义判断）；</li>
 	 * <li>匿名用户本机：浏览器里存着这份答卷的 id（答题时的随机卷 cookie
-	 * {@code rd_answer_id_<projectId>}，或前端 localStorage 走后端暂存时下发的同名 cookie）。</li>
+	 * {@code rd_answer_id_<projectId>}，或前端 localStorage 走后端暂存时下发的同名 cookie）；</li>
+	 * <li>匿名用户本机查看成绩单：提交成功后写入的 {@code rd_result_<projectId>} 查看凭证。</li>
 	 * </ol>
-	 * 两者都不成立一律拒绝，避免「知道 UUID 就能看别人答案」。
+	 * 三者都不成立一律拒绝，避免「知道 UUID 就能看别人答案」。
 	 */
 	private void assertAnswerOwnership(AnswerView answerView) {
 		String userId = SecurityContextUtils.getUserId();
@@ -73,6 +74,13 @@ public class AnswerLookup {
 		String cookieAnswerId = ContextHelper
 				.getCookie(AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + answerView.getProjectId());
 		if (isNotBlank(cookieAnswerId) && Objects.equals(cookieAnswerId, answerView.getId())) {
+			return;
+		}
+		// 匿名答卷提交后写入的独立查看凭证（rd_result_<projectId>）：
+		// 成绩单、结果回显、历史答卷抽屉都靠它证明「这份匿名答卷是本机提交的」。
+		String resultAnswerId = ContextHelper
+				.getCookie(AppConsts.COOKIE_RESULT_PREFIX + answerView.getProjectId());
+		if (isNotBlank(resultAnswerId) && Objects.equals(resultAnswerId, answerView.getId())) {
 			return;
 		}
 		// 白名单场景：答卷 createBy 是 partner 记录 id，由访问白名单的 cookie 关联，这里不做额外放行，
