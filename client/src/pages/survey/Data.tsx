@@ -90,6 +90,8 @@ export default function SurveyData() {
   const [selected, setSelected] = useState<string[]>([]);
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [author, setAuthor] = useState('');
+  /** 管理端默认包含匿名答卷；「仅实名」用于只看登录/白名单答卷的场景 */
+  const [includeAnonymous, setIncludeAnonymous] = useState(true);
 
   const [detail, setDetail] = useState<Answer>();
   const [editor, setEditor] = useState<EditorState>();
@@ -128,8 +130,14 @@ export default function SurveyData() {
         get<Project>('/api/project', { id })
           .then((p) => setProject(p))
           .catch(() => undefined),
-        // pageSize=-1 → 后端返回全量（见 PageQuery.getPageSize）
-        getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: -1 }),
+        // pageSize=-1 → 后端返回全量（见 PageQuery.getPageSize）；
+        // includeAnonymous 只对项目所有者/协作者生效，学员仍只能看自己的答卷
+        getWithPagination<Answer>('/api/answer/list', {
+          projectId: id,
+          current: 1,
+          pageSize: -1,
+          includeAnonymous,
+        }),
       ]);
       setRows(res.data);
     } catch (e) {
@@ -137,16 +145,17 @@ export default function SurveyData() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, includeAnonymous]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // 换筛选条件回到第一页，避免停在空白页
+  // 换筛选条件回到第一页并清空选择，避免把当前不可见的答卷带进批量操作
   useEffect(() => {
     setPage(1);
-  }, [range, author]);
+    setSelected([]);
+  }, [range, author, includeAnonymous]);
 
   /** 列结构取当前问卷；问卷拉不到时退回最新一份答卷的快照 */
   const survey = project?.survey ?? rows[0]?.survey;
@@ -180,12 +189,15 @@ export default function SurveyData() {
         if (to && at.isAfter(to.endOf('day'))) return false;
       }
       if (keyword) {
-        const who = (row.createByName || row.createBy || '匿名').toLowerCase();
+        const who = (row.isAnonymous ? '匿名' : row.createByName || row.createBy || '匿名').toLowerCase();
         if (!who.includes(keyword)) return false;
       }
       return true;
     });
   }, [rows, range, author]);
+
+  /** 顶部提示用：当前拉取范围内有多少份匿名答卷（不随日期/姓名筛选变化） */
+  const anonymousCount = useMemo(() => rows.filter((row) => row.isAnonymous).length, [rows]);
 
   /** 手机端分页在前端切页；桌面端交给 Table 自己的分页 */
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -231,7 +243,15 @@ export default function SurveyData() {
             'zh-Hans-CN',
           ),
         render: (v: string | undefined, row: Answer) => (
-          <span style={{ fontSize: 12 }}>{v || row.createBy?.slice(0, 8) || '匿名'}</span>
+          <span style={{ fontSize: 12 }}>
+            {row.isAnonymous ? (
+              <Tag color="default" style={{ marginInlineEnd: 0 }}>
+                匿名
+              </Tag>
+            ) : (
+              v || row.createBy?.slice(0, 8) || '匿名'
+            )}
+          </span>
         ),
       },
       {
@@ -357,6 +377,8 @@ export default function SurveyData() {
       startTime: from ? from.startOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
       endTime: to ? to.endOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
       ids: selected.length ? selected.join(',') : undefined,
+      // 导出范围跟当前列表口径一致；「仅实名」时只导实名答卷
+      includeAnonymous,
     };
     setExporting(true);
     try {
@@ -441,6 +463,7 @@ export default function SurveyData() {
             style={{ fontSize: 16, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
           >
             {project?.name || id} · 共 {rows.length} 份
+            {anonymousCount > 0 ? `（含匿名 ${anonymousCount} 份）` : ''}
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -493,6 +516,15 @@ export default function SurveyData() {
           )}
           {mobile && deleteButton}
           {!mobile && <div style={{ flex: 1 }} />}
+          <Segmented
+            value={includeAnonymous ? 'all' : 'real'}
+            options={[
+              { label: '含匿名', value: 'all' },
+              { label: '仅实名', value: 'real' },
+            ]}
+            onChange={(value) => setIncludeAnonymous(value === 'all')}
+            style={{ width: mobile ? '100%' : undefined }}
+          />
           <RangePicker
             value={range}
             allowClear

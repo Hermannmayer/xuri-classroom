@@ -140,7 +140,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			}
 			else {
 				view.setTotal(answerMapper.selectCount(Wrappers.<Answer>lambdaQuery().eq(Answer::getTempSave, 1)
-						.eq(Answer::getIsAnonymous, false).eq(Answer::getProjectId, view.getId())));
+						.eq(Answer::getProjectId, view.getId())));
 			}
 		});
 		return result;
@@ -514,7 +514,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		list.forEach(view -> {
 			if (!ProjectModeEnum.folder.equals(view.getMode())) {
 				view.setTotal(answerMapper.selectCount(Wrappers.<Answer>lambdaQuery()
-						.eq(Answer::getIsAnonymous, false).eq(Answer::getProjectId, view.getId())));
+						.eq(Answer::getProjectId, view.getId())));
 			}
 		});
 		return list;

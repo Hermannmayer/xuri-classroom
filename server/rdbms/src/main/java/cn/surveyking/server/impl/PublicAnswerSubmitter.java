@@ -133,11 +133,21 @@ public class PublicAnswerSubmitter {
 		// 白名单更新答题信息
 		request.setId(answerView.getId());
 		updateProjectPartnerByAnswer(request, project);
-		// 完事儿删除 cookie 标识
+		// 完事儿删除「继续上次作答」的 cookie 标识
 		if (isNotBlank(answerIdFromCookie)) {
 			Cookie cookie = new Cookie(randomSurveyCookieName, answerIdFromCookie);
 			cookie.setMaxAge(0);
 			ContextHelper.getCurrentHttpResponse().addCookie(cookie);
+		}
+		// 匿名答卷没有 createBy，成绩单/结果页只能靠独立凭证校验归属；
+		// 不复用 rd_answer_id_，避免打开结果页被当成「继续上次作答」。
+		if (Boolean.TRUE.equals(answerView.getIsAnonymous())
+				&& !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId)) {
+			Cookie resultCookie = new Cookie(AppConsts.COOKIE_RESULT_PREFIX + projectId, answerView.getId());
+			resultCookie.setPath("/");
+			resultCookie.setMaxAge(7 * 24 * 3600);
+			resultCookie.setHttpOnly(true);
+			ContextHelper.getCurrentHttpResponse().addCookie(resultCookie);
 		}
 		return result;
 	}

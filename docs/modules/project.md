@@ -100,8 +100,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-10
-verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
+last_verified: 2026-11-15
+verified_against: 0e3482100bdc034caec9e6ff2858faf0d0f77f83
 ---
 
 # 考试与问卷（项目）
@@ -302,7 +302,7 @@ verified_against: a342c7e69bd148725d0b69b091ffd879ffa81372
 - **文件夹不是独立表**：底层仍是 `t_project.mode='folder'`；FolderAuthModal 只是把 PartnerPanel 内嵌，folder 的授权记录仍写 `t_project_partner`。
 - **文件夹不参与分类**：`listCategories` 显式排除 `mode=folder`；分类筛选 `.ne(mode, folder)`，所以文件夹既不会出现在分类结果，也不会进「未分类」。这和「文件夹按 parent_id 组织」是两套维度。
 - **分类统计与项目列表可见性不完全一致**：`listCategories` 自身只认创建者/partner `type IN (1,2)`（另加父/祖父文件夹授权的子项目），而 `/project/list` 还认 `type=3` 与 `t_class_resource` 班级分配；可能出现「列表里有项目、分类统计里没有/少 count」。
-- **项目列表/回收站的 total 已排除匿名答卷**：P6 起 `ProjectServiceImpl` 两处 `t_answer` count 加 `is_anonymous=0`；不要把 total 当「含匿名提交」的总量。
+- **项目列表/回收站的 total 包含匿名答卷（2026-11 起）**：`ProjectServiceImpl` 两处 `t_answer` count 不再加 `is_anonymous=0`；不要把 total 当「实名提交」数量，实名/匿名的筛选在数据页做（`includeAnonymous`）。
 
 ## 验证
 

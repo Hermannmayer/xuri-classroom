@@ -25,6 +25,12 @@ public class AppConsts {
 	public static final String COOKIE_PWD_PREFIX = "sk_pwd_";
 
 	/**
+	 * 匿名答卷查看凭证前缀：值为 answerId，只用于成绩单/结果页的归属校验，
+	 * 不参与「继续上次作答」（那个语义仍由 {@link #COOKIE_RANDOM_PROJECT_PREFIX} 承担）。
+	 */
+	public static final String COOKIE_RESULT_PREFIX = "rd_result_";
+
+	/**
 	 * 支持的图片类型
 	 */
 	public static final String[] SUPPORT_IMAGE_TYPE = { "JPG", "JPEG", "PNG", "GIF", "BMP", "WBMP" };

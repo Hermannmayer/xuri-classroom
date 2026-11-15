@@ -30,10 +30,10 @@ public class ReportServiceImpl implements ReportService {
 	private final ProjectMapper projectMapper;
 
 	@Override
-	public ReportData getData(String shortId) {
+	public ReportData getData(String shortId, boolean includeAnonymous) {
 		List<Answer> answerList = answerMapper.selectList(
 				Wrappers.<Answer>lambdaQuery().select(Answer::getAnswer, Answer::getCreateAt, Answer::getProjectId)
-						.eq(Answer::getProjectId, shortId).eq(Answer::getIsAnonymous, false)
+						.eq(Answer::getProjectId, shortId).eq(!includeAnonymous, Answer::getIsAnonymous, false)
 						.orderByAsc(Answer::getCreateAt));
 		ReportData result = new ReportData();
 		result.setTotal(answerList.size());

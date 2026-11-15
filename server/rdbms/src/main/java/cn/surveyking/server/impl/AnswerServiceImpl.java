@@ -157,8 +157,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.select(Answer::getId, Answer::getProjectId, Answer::getAnswer, Answer::getMetaInfo,
 						Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
 						Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt)
-				.eq(Answer::getProjectId, projectId).eq(Answer::getIsAnonymous, false)
-				.isNotNull(Answer::getAnswer));
+				.eq(Answer::getProjectId, projectId).isNotNull(Answer::getAnswer));
 		return answerViewMapper.toView(answers);
 	}
 
@@ -437,6 +436,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answerQuery.setEndTime(query.getEndTime());
 		// 按班导出：只导出该班的答卷（class_id 为答题时所在班级）
 		answerQuery.setClassId(query.getClassId());
+		// 匿名答卷：管理端默认导出全部（与数据页「含匿名」口径一致）；
+		// 显式传 false 时保持旧行为，只导出实名答卷。
+		answerQuery.setIncludeAnonymous(!Boolean.FALSE.equals(query.getIncludeAnonymous()));
 		if (query.getPageSize() != 0) {
 			answerQuery.setCurrent(query.getCurrent());
 			answerQuery.setPageSize(query.getPageSize());

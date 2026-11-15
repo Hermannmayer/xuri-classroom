@@ -484,8 +484,9 @@ public class SchemaHelper {
 	 * 解析元数据信息
 	 */
 	private static void parseMetaData(AnswerView answerInfo, List<Object> rowData) {
-		// 提交人信息
-		rowData.add(answerInfo.getCreateByName());
+		// 提交人信息：匿名答卷不写姓名（createBy 为空），统一显示「匿名」，
+		// 避免导出里出现空提交人，也避免把匿名答卷误读成「数据缺失」。
+		rowData.add(Boolean.TRUE.equals(answerInfo.getIsAnonymous()) ? "匿名" : answerInfo.getCreateByName());
 
 		// 提交时间
 		Format formatter = new SimpleDateFormat(DATE_TIME_FORMAT);

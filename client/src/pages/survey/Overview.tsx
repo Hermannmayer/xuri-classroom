@@ -318,12 +318,17 @@ export default function SurveyOverview() {
         get<Project & { category?: string }>('/api/project', { id }),
         get<ProjectSetting>('/api/project/setting', { id }).catch(() => ({}) as ProjectSetting),
         // 没有 project:report 就不请求报表，免得每次都拿一个必 403 的请求去刷错误提示
-        canReport ? get<ReportData>(`/api/report/${id}`).catch(() => undefined) : Promise.resolve(undefined),
+        canReport
+          ? get<ReportData>(`/api/report/${id}`, { includeAnonymous: true }).catch(() => undefined)
+          : Promise.resolve(undefined),
         // 没有 answer:list 就不请求答卷列表
         canViewAnswers
-          ? getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: 5 }).catch(
-              () => ({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }),
-            )
+          ? getWithPagination<Answer>('/api/answer/list', {
+              projectId: id,
+              current: 1,
+              pageSize: 5,
+              includeAnonymous: true,
+            }).catch(() => ({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }))
           : Promise.resolve({ current: 1, pageSize: 5, total: 0, data: [] as Answer[] }),
       ]);
       setProject(p);
@@ -375,11 +380,16 @@ export default function SurveyOverview() {
     const emptyAnswers = { current: 1, pageSize: 5, total: 0, data: [] as Answer[] };
     const [p, r, list] = await Promise.all([
       get<Project>('/api/project', { id }).catch(() => undefined),
-      canReport ? get<ReportData>(`/api/report/${id}`).catch(() => undefined) : Promise.resolve(undefined),
+      canReport
+        ? get<ReportData>(`/api/report/${id}`, { includeAnonymous: true }).catch(() => undefined)
+        : Promise.resolve(undefined),
       canViewAnswers
-        ? getWithPagination<Answer>('/api/answer/list', { projectId: id, current: 1, pageSize: 5 }).catch(
-            () => emptyAnswers,
-          )
+        ? getWithPagination<Answer>('/api/answer/list', {
+            projectId: id,
+            current: 1,
+            pageSize: 5,
+            includeAnonymous: true,
+          }).catch(() => emptyAnswers)
         : Promise.resolve(emptyAnswers),
     ]);
     if (p) setProject(p);

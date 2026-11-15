@@ -55,6 +55,12 @@ public class AnswerView {
 
 	private String createBy;
 
+	/**
+	 * 是否匿名答卷。管理端据此显示「匿名」标识，导出时提交人写「匿名」；
+	 * 不暴露 anonymousSubjectId，避免把同一匿名主体的多份答卷关联起来。
+	 */
+	private Boolean isAnonymous;
+
 	private Date updateAt;
 
 	private String updateBy;
