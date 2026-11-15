@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 190 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 198 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -165,6 +165,12 @@
 | POST | `${api.prefix}/teaching/classes/resources/update` | `TeachingApi#updateClassResource` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/resources/delete` | `TeachingApi#deleteClassResource` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/members` | `TeachingApi#classMembers` | `hasAuthority('class:detail') or hasRole('admin')` | — |
+| GET | `${api.prefix}/teaching/classes/pending-students` | `TeachingApi#pendingStudents` | `hasAuthority('class:detail') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/pending-students/approve` | `TeachingApi#approvePendingStudent` | `hasAuthority('class:member:approve') or hasRole('admin')` | — |
+| GET | `${api.prefix}/teaching/classes/member/candidates` | `TeachingApi#memberCandidates` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/member/add-existing` | `TeachingApi#addExistingStudents` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/member/assign` | `TeachingApi#assignStudentClasses` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
+| POST | `${api.prefix}/teaching/classes/member/remove-extra` | `TeachingApi#removeExtraClassMember` | `hasAuthority('class:member:assign') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/teachers` | `TeachingApi#classTeachers` | `hasAuthority('class:grant') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/teacher-options` | `TeachingApi#classTeacherOptions` | `hasAuthority('class:grant') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/partner/create` | `TeachingApi#addClassPartners` | `hasAuthority('class:grant') or hasRole('admin')` | — |
@@ -187,6 +193,8 @@
 | POST | `${api.prefix}/public/login` | `UserApi#login` | — | — |
 | POST | `${api.prefix}/public/logout` | `UserApi#logout` | — | — |
 | POST | `${api.prefix}/public/register` | `UserApi#register` | — | — |
+| GET | `${api.prefix}/public/registerClasses` | `UserApi#getRegisterClasses` | — | — |
+| GET | `${api.prefix}/public/registerOptions` | `UserApi#getRegisterOptions` | — | — |
 | GET | `${api.prefix}/currentUser` | `UserApi#currentUser` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/userOverview` | `UserApi#userOverview` | `isAuthenticated()` | — |
 | POST | `${api.prefix}/user` | `UserApi#updateUser` | `hasAuthority('user:update')` | — |
