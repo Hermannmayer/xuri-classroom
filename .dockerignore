@@ -7,6 +7,15 @@ server/build
 server/backend.log
 server/backend.err.log
 server/application.properties
+# 本地 .env 含数据库密码 / JWT secret / 加密密钥，绝不能进构建上下文。
+# 运行时镜像只 COPY 一个 jar，本来就不会把它们打进镜像；但 docker build 的上下文
+# 是**整棵仓库**，在 NAS 上构建时 deploy/nas/live/.env 就在里面。
+# 发行版里仍然要带 .env.example（模板），所以下面用 ! 放行。
+.env
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
 server/logs
 backups
 .git
