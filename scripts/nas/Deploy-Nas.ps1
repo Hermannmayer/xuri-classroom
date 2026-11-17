@@ -361,14 +361,22 @@ docker compose restart web-watch
 }
 
 if ($clientChanged) {
-    # 之前靠 grep web-watch 日志里的 "built in" 判断构建完成，会误判：
-    # 依赖变化时旧容器会先失败一次（日志里仍有上一次成功的 built in），而失败构建可能把 dist 清空。
-    # 现在直接探测结果：前端首页 200 且引用的 JS 能取到，才算就绪。
+    # 判定「前端就绪」不能只看「首页 200 + JS 可取」：那是部署前就已经成立的状态。
+    # web-watch 还没重建完时也会立刻满足，脚本报成功、用户看到的却是旧界面
+    # （2026-11-17 实测：改完文案部署，脚本报 READY，首页 hash 还是上一次的）。
+    # 现在先记下 web-watch 当前日志行数，要求这次部署之后新增一条 built in 才算就绪。
     Say '等待前端产物就绪'
+    $beforeLines = 0
+    $probe = Invoke-NasScript -Body 'docker logs xuri-live-web-watch 2>&1 | wc -l' -AllowFail
+    if ($probe.Output -match '^\s*(\d+)') { $beforeLines = [int]$Matches[1] }
+    Write-Host "  (deploy 前 web-watch 日志 $beforeLines 行，等这次构建完成)"
     $wait = @'
-for i in $(seq 1 90); do
+BEFORE=@BEFORE@
+for i in $(seq 1 120); do
+  NEW=$(docker logs xuri-live-web-watch 2>&1 | tail -n +$((BEFORE + 1)) | grep -c 'built in' 2>/dev/null)
+  if [ -z "$NEW" ]; then NEW=0; fi
   code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:201/ 2>/dev/null || true)
-  if [ "$code" = "200" ]; then
+  if [ "$NEW" -gt 0 ] && [ "$code" = "200" ]; then
     js=$(curl -s http://127.0.0.1:201/ 2>/dev/null | grep -o '/assets/index-[A-Za-z0-9_-]*.js' | head -1)
     if [ -n "$js" ]; then
       jcode=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:201$js" 2>/dev/null || true)
@@ -381,7 +389,7 @@ for i in $(seq 1 90); do
   sleep 2
 done
 echo "FRONTEND_TIMEOUT"
-'@
+'@.Replace('@BEFORE@', [string]$beforeLines)
     $w = Invoke-NasScript -Body $wait -AllowFail
     if ($w.Output -match 'FRONTEND_TIMEOUT') { Warn '180 秒内前端产物没就绪，检查：docker logs xuri-live-web-watch' }
     else { $w.Output | Where-Object { $_ -and $_ -ne 'FRONTEND_READY*' } | ForEach-Object { "  $_" } }
