@@ -14,11 +14,11 @@
 | `module-dashboard` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 28 |
 | `module-exercise` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 13 |
 | `module-files` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 31 |
-| `module-import` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 29 |
+| `module-import` | 2026-11-17 | `988d65b0e72960d30932d32b8d3aa7c06df393c7` | 29 |
 | `module-mcp` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 31 |
 | `module-notice` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 18 |
 | `module-permissions` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 107 |
 | `module-project` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 26 |
-| `module-repo` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 33 |
+| `module-repo` | 2026-11-17 | `988d65b0e72960d30932d32b8d3aa7c06df393c7` | 33 |
 | `module-survey` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 79 |
 | `module-teaching` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 41 |

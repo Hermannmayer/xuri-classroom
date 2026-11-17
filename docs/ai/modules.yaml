@@ -564,7 +564,7 @@ modules:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
     last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
   - id: module-mcp
     title: MCP / API 接入
     doc: docs/modules/mcp.md
@@ -1017,7 +1017,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md

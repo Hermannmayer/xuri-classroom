@@ -93,7 +93,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
 ---
 
 # 题库与题目
