@@ -1118,7 +1118,7 @@ public final class AnswerPdfExporter {
 			stream.setNonStrokingColor(COLOR_SOFT);
 			stream.setRenderingMode(RenderingMode.FILL);
 			stream.newLineAtOffset(MARGIN_LEFT + (contentWidth() - width) / 2f, FOOTER_BASELINE);
-			stream.showText(text);
+			stream.showText(sanitize(text));
 			stream.endText();
 		}
 
@@ -1272,8 +1272,10 @@ public final class AnswerPdfExporter {
 			else {
 				stream.setRenderingMode(RenderingMode.FILL);
 			}
+			// 兜底：所有 showText 都过一遍白名单。调用方一般已经过 wrap()（内部已 sanitize），
+			// 但这里是最后一公里——漏一个 ✓ 或 emoji，PDFBox 就会抛 IllegalArgumentException 把整份答卷搞失败。
 			stream.newLineAtOffset(x, baseline);
-			stream.showText(text);
+			stream.showText(sanitize(text));
 			stream.endText();
 		}
 
@@ -1312,8 +1314,8 @@ public final class AnswerPdfExporter {
 	private static final int[][] SAFE_RANGES = { { 0x20, 0x7E }, { 0xA0, 0xFF }, { 0x2000, 0x206F }, { 0x3000, 0x303F },
 			{ 0x4E00, 0x9FFF }, { 0xFF00, 0xFFEF } };
 
-	/** 常见符号的手工映射：字体里没有这些字形，换成等价的中文/ASCII 表达 */
-	private static String sanitize(String text) {
+	/** 常见符号的手工映射：字体里没有这些字形，换成等价的中文/ASCII 表达。包内可见，便于单测。 */
+	static String sanitize(String text) {
 		if (text == null) {
 			return "";
 		}

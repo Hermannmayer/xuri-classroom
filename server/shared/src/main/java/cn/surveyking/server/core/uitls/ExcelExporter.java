@@ -27,17 +27,33 @@ public class ExcelExporter {
 
 	private Map<String, Integer> rowIndexBySheet = new ConcurrentHashMap<>();
 
-	private ByteArrayOutputStream os = new ByteArrayOutputStream();
+	private final ByteArrayOutputStream os = new ByteArrayOutputStream();
+
+	/**
+	 * 这个实例最终把工作簿写到哪里。
+	 *
+	 * <p>
+	 * 无参构造写内部缓冲（配合 {@link #export()} 取字节）；带参构造写调用方给的流（配合
+	 * {@link #exportToStream()}）。早期两个入口混用时会静默拿到空字节——{@code export()} 读的是内部
+	 * 缓冲，而 Workbook 写的是外部流。现在 {@code export()} 发现目标不是内部缓冲会直接报错，
+	 * 不再返回 0 字节。
+	 */
+	private final OutputStream target;
 
 	ThreadLocal<Worksheet> localSheet = new ThreadLocal<>();
 
 	protected static ThreadLocal<Integer> localOpenid = new ThreadLocal<>();
 
 	public ExcelExporter() {
+		this.target = os;
 		this.workbook = new Workbook(os, "survey", "1.0");
 	}
 
 	public ExcelExporter(OutputStream outputStream) {
+		if (outputStream == null) {
+			throw new IllegalArgumentException("outputStream 不能为 null");
+		}
+		this.target = outputStream;
 		this.workbook = new Workbook(outputStream, "survey", "1.0");
 	}
 
@@ -80,23 +96,30 @@ public class ExcelExporter {
 		rowIndexBySheet.put(sheetName, rowNum);
 	}
 
+	/**
+	 * 收尾并返回字节。**只适用于无参构造**：带参构造写的是调用方的流，这里拿不到那份字节。
+	 * @throws IllegalStateException 本实例是写外部流的（用 exportToStream()），或写盘失败
+	 */
 	public ByteArrayInputStream export() {
+		if (this.target != this.os) {
+			throw new IllegalStateException("本实例写的是外部流，请改用 exportToStream()；export() 只适用于无参构造");
+		}
 		try {
 			this.workbook.finish();
-			return new ByteArrayInputStream(this.os.toByteArray());
 		}
 		catch (IOException e) {
-			e.printStackTrace();
+			throw new IllegalStateException("导出 Excel 失败：" + e.getMessage(), e);
 		}
-		return null;
+		return new ByteArrayInputStream(this.os.toByteArray());
 	}
 
+	/** 收尾（把内容写进构造时给的流）。无参构造时内容进内部缓冲，用 {@link #export()} 取。 */
 	public void exportToStream() {
 		try {
 			this.workbook.finish();
 		}
 		catch (IOException e) {
-			e.printStackTrace();
+			throw new IllegalStateException("导出 Excel 失败：" + e.getMessage(), e);
 		}
 	}
 
