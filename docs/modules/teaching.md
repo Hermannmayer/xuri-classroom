@@ -120,8 +120,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-15
-verified_against: f5e0524b3d1b9a5148de351aaae6e0df705fa23b
+last_verified: 2026-11-17
+verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ---
 
 # 班级与教学工作台

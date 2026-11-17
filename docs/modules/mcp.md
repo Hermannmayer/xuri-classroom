@@ -53,7 +53,7 @@ tests:
   - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
   - client:npm run check
 last_verified: 2026-11-17
-verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
+verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ---
 
 # MCP / API 接入

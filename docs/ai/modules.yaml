@@ -64,7 +64,7 @@ modules:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/AiUsageServiceImplTest.java
       - server/rdbms/src/test/java/cn/surveyking/server/impl/AiAssistServiceImplTest.java
     last_verified: 2026-11-17
-    verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-answer
     title: 答卷、判分与报表
     doc: docs/modules/answer.md
@@ -201,8 +201,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-15
-    verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
+    last_verified: 2026-11-17
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -376,8 +376,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-14
-    verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
+    last_verified: 2026-11-17
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -594,7 +594,7 @@ modules:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
       - client:npm run check
     last_verified: 2026-11-17
-    verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-notice
     title: 通知公告
     doc: docs/modules/notice.md
@@ -645,7 +645,7 @@ modules:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/NoticeServiceImplTest.java
       - client:npm run check
     last_verified: 2026-11-17
-    verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md
@@ -788,8 +788,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-15
-    verified_against: 91af1d013ca42a340c19a64d5759b68d05d2289f
+    last_verified: 2026-11-17
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -894,8 +894,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-15
-    verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
+    last_verified: 2026-11-17
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -989,8 +989,8 @@ modules:
     tests:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
-    last_verified: 2026-11-15
-    verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
+    last_verified: 2026-11-17
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -1179,5 +1179,5 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-15
-    verified_against: f5e0524b3d1b9a5148de351aaae6e0df705fa23b
+    last_verified: 2026-11-17
+    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c

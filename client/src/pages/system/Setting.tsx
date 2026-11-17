@@ -32,6 +32,8 @@ import type { RegisterOptions } from '../../api';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import AiCapabilityGuide from '../ai-guide/AiGuide';
 import ApiTokenPanel from './ApiTokenPanel';
+// MCP 三步接入引导：/ai 导览页下线后，这份「照抄就能用」的客户端配置片段挂到令牌面板下面
+import McpGuide from '../ai-guide/McpGuide';
 
 /**
  * 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏）。
@@ -1206,7 +1208,11 @@ export default function SystemSetting() {
                     {/* 令牌面板会拉一次列表：forceRender 会连它一起挂载，所以只在真正点进过这个页签后才渲染
                         （列表、签发、撤销本来就是即时生效的独立接口，与底部「保存」无关） */}
                     {visitedTabs.includes('system') ? (
-                      <ApiTokenPanel canManage={canUpdate} />
+                      <>
+                        <ApiTokenPanel canManage={canUpdate} />
+                        <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
+                        <McpGuide canManageToken={canUpdate} canOpenSettings />
+                      </>
                     ) : null}
                   </>
                 ),
