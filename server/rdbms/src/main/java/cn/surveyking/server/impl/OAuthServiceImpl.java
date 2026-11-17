@@ -21,18 +21,19 @@ import cn.surveyking.server.service.ProjectService;
 import cn.surveyking.server.service.SystemService;
 import cn.surveyking.server.service.UserService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -50,7 +51,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -145,8 +146,12 @@ public class OAuthServiceImpl implements OAuthService {
 		this.userService = userService;
 		this.cacheManager = cacheManager;
 		this.objectMapper = objectMapper;
-		this.restTemplate = restTemplateBuilder.setConnectTimeout(Duration.ofSeconds(5))
-				.setReadTimeout(Duration.ofSeconds(10)).build();
+		// Spring Boot 4 移除了 RestTemplateBuilder#setConnectTimeout / setReadTimeout，
+		// 超时改在 RequestFactory 上设（Boot 3.4 起就是这么推荐的）。
+		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+		requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+		requestFactory.setReadTimeout(Duration.ofSeconds(10));
+		this.restTemplate = restTemplateBuilder.requestFactory(() -> requestFactory).build();
 		this.googleJwtDecoder = NimbusJwtDecoder.withJwkSetUri(GOOGLE_JWK_SET_URL).build();
 		this.googleJwtDecoder.setJwtValidator(JwtValidators.createDefault());
 	}
@@ -604,14 +609,14 @@ public class OAuthServiceImpl implements OAuthService {
 			boolean collectWechatUserInfo) {
 		OAuthSetting.WechatClient client = "wechat-web".equals(channel) ? setting.getWechatWeb()
 				: setting.getWechatOfficial();
-		URI tokenUri = UriComponentsBuilder.fromHttpUrl(WECHAT_TOKEN_URL).queryParam("appid", client.getAppId())
+		URI tokenUri = UriComponentsBuilder.fromUriString(WECHAT_TOKEN_URL).queryParam("appid", client.getAppId())
 				.queryParam("secret", client.getAppSecret()).queryParam("code", code)
 				.queryParam("grant_type", "authorization_code").build().encode().toUri();
 		Map<String, Object> token;
 		try {
 			token = getWechatJson(tokenUri);
 		}
-		catch (RestClientException | JsonProcessingException ex) {
+		catch (RestClientException | JacksonException ex) {
 			LOGGER.warn("WeChat OAuth token request failed, channel={}, exception={}", channel,
 					ex.getClass().getSimpleName());
 			throw new OAuthFlowException("provider_error");
@@ -631,7 +636,7 @@ public class OAuthServiceImpl implements OAuthService {
 		String avatarUrl = null;
 		if ((collectWechatUserInfo || !StringUtils.isNotBlank(unionId)) && StringUtils.isNotBlank(openId)
 				&& StringUtils.isNotBlank(accessToken)) {
-			URI userInfoUri = UriComponentsBuilder.fromHttpUrl(WECHAT_USERINFO_URL)
+			URI userInfoUri = UriComponentsBuilder.fromUriString(WECHAT_USERINFO_URL)
 					.queryParam("access_token", accessToken).queryParam("openid", openId).queryParam("lang", "zh_CN")
 					.build().encode().toUri();
 			try {
@@ -645,7 +650,7 @@ public class OAuthServiceImpl implements OAuthService {
 					throw new OAuthFlowException("provider_error");
 				}
 			}
-			catch (RestClientException | JsonProcessingException ex) {
+			catch (RestClientException | JacksonException ex) {
 				if (collectWechatUserInfo) {
 					throw new OAuthFlowException("provider_error");
 				}
@@ -685,7 +690,7 @@ public class OAuthServiceImpl implements OAuthService {
 
 	private String buildGoogleAuthorizationUrl(OAuthSetting.GoogleClient client, String callback,
 			OAuthFlowTransaction transaction) {
-		return UriComponentsBuilder.fromHttpUrl(GOOGLE_AUTHORIZATION_URL).queryParam("client_id", client.getClientId())
+		return UriComponentsBuilder.fromUriString(GOOGLE_AUTHORIZATION_URL).queryParam("client_id", client.getClientId())
 				.queryParam("redirect_uri", callback).queryParam("response_type", "code")
 				.queryParam("scope", "openid email profile").queryParam("state", transaction.state)
 				.queryParam("nonce", transaction.nonce).queryParam("code_challenge", sha256(transaction.codeVerifier))
@@ -694,7 +699,7 @@ public class OAuthServiceImpl implements OAuthService {
 
 	private String buildWechatOfficialAuthorizationUrl(OAuthSetting.WechatClient client, String callback, String state,
 			String scope) {
-		return UriComponentsBuilder.fromHttpUrl(WECHAT_OFFICIAL_AUTHORIZATION_URL)
+		return UriComponentsBuilder.fromUriString(WECHAT_OFFICIAL_AUTHORIZATION_URL)
 				.queryParam("appid", client.getAppId()).queryParam("redirect_uri", callback)
 				.queryParam("response_type", "code").queryParam("scope", scope).queryParam("state", state)
 				.fragment("wechat_redirect").build().encode().toUriString();
@@ -799,7 +804,7 @@ public class OAuthServiceImpl implements OAuthService {
 		return value == null ? null : String.valueOf(value);
 	}
 
-	private Map<String, Object> getWechatJson(URI uri) throws JsonProcessingException {
+	private Map<String, Object> getWechatJson(URI uri) throws JacksonException {
 		String body = restTemplate.exchange(uri, HttpMethod.GET, HttpEntity.EMPTY, String.class).getBody();
 		return StringUtils.isNotBlank(body) ? objectMapper.readValue(body, JSON_MAP_TYPE) : null;
 	}

@@ -22,7 +22,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;

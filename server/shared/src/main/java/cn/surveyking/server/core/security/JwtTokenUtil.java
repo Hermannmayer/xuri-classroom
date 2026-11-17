@@ -2,11 +2,9 @@ package cn.surveyking.server.core.security;
 
 import cn.surveyking.server.domain.dto.UserTokenView;
 import cn.surveyking.server.domain.dto.SurveyWechatIdentity;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Encoders;
-import io.jsonwebtoken.jackson.io.JacksonDeserializer;
-import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.jsonwebtoken.lang.Maps;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
@@ -39,7 +37,7 @@ public class JwtTokenUtil {
 
 	private String jwtSecret;
 
-	@javax.annotation.PostConstruct
+	@jakarta.annotation.PostConstruct
 	void initJwtSecret() {
 		if (configuredJwtSecret != null && !configuredJwtSecret.trim().isEmpty()) {
 			jwtSecret = configuredJwtSecret.trim();
@@ -54,14 +52,14 @@ public class JwtTokenUtil {
 	private long jwtExpirationSeconds;
 
 	public String generateAccessToken(UserTokenView user) {
-		return Jwts.builder().serializeToJsonWith(new JacksonSerializer(objectMapper)).claim("user", user)
+		return Jwts.builder().serializeToJsonWith(new JwtJsonCodec.Jackson3Serializer(objectMapper)).claim("user", user)
 				.setIssuedAt(new Date())
 				.setExpiration(new Date(System.currentTimeMillis() + jwtExpirationSeconds * 1000))
 				.signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())).compact();
 	}
 
 	public String generateSurveyWechatToken(SurveyWechatIdentity identity) {
-		return Jwts.builder().serializeToJsonWith(new JacksonSerializer(objectMapper)).claim("surveyWechat", identity)
+		return Jwts.builder().serializeToJsonWith(new JwtJsonCodec.Jackson3Serializer(objectMapper)).claim("surveyWechat", identity)
 				.setIssuedAt(new Date())
 				.setExpiration(new Date(System.currentTimeMillis() + jwtExpirationSeconds * 1000))
 				.signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())).compact();
@@ -92,7 +90,7 @@ public class JwtTokenUtil {
 
 	public UserTokenView getUser(String token) {
 		return Jwts.parserBuilder()
-				.deserializeJsonWith(new JacksonDeserializer(Maps.of("user", UserTokenView.class).build()))
+				.deserializeJsonWith(new JwtJsonCodec.Jackson3Deserializer(objectMapper, Maps.of("user", UserTokenView.class).build()))
 				.setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token).getBody()
 				.get("user", UserTokenView.class);
 	}
@@ -100,7 +98,7 @@ public class JwtTokenUtil {
 	public SurveyWechatIdentity getSurveyWechatIdentity(String token) {
 		return Jwts.parserBuilder()
 				.deserializeJsonWith(
-						new JacksonDeserializer(Maps.of("surveyWechat", SurveyWechatIdentity.class).build()))
+						new JwtJsonCodec.Jackson3Deserializer(objectMapper, Maps.of("surveyWechat", SurveyWechatIdentity.class).build()))
 				.setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token).getBody()
 				.get("surveyWechat", SurveyWechatIdentity.class);
 	}

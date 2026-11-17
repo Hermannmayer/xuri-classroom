@@ -4,7 +4,7 @@ import cn.surveyking.server.flow.domain.dto.FlowNodeSetting;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -47,19 +47,19 @@ public class FlowEntryNode implements Serializable {
 	/**
 	 * 字段权限
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, value = "field_permission")
+	@TableField(typeHandler = Jackson3TypeHandler.class, value = "field_permission")
 	private LinkedHashMap<String, Integer> fieldPermission;
 
 	/**
 	 * 流程设置
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, value = "setting")
+	@TableField(typeHandler = Jackson3TypeHandler.class, value = "setting")
 	private FlowNodeSetting setting;
 
 	/**
 	 * 授权用户
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, value = "identity")
+	@TableField(typeHandler = Jackson3TypeHandler.class, value = "identity")
 	private String[] identity;
 
 	/**

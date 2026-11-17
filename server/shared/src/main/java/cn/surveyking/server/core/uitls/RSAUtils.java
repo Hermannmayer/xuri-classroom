@@ -2,15 +2,16 @@ package cn.surveyking.server.core.uitls;
 
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
-import org.springframework.util.Base64Utils;
+import java.util.Base64;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import javax.crypto.Cipher;
 import java.security.*;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.HashMap;
 
 /**
@@ -45,8 +46,8 @@ public class RSAUtils {
 		KeyPair keyPair = keyPairGen.generateKeyPair();
 		RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
 		RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-		String publicKeyStr = Base64Utils.encodeToString(publicKey.getEncoded());
-		String privateKeyStr = Base64Utils.encodeToString(privateKey.getEncoded());
+		String publicKeyStr = Base64.getEncoder().encodeToString(publicKey.getEncoded());
+		String privateKeyStr = Base64.getEncoder().encodeToString(privateKey.getEncoded());
 		keyMap.put("publicKey", publicKeyStr);
 		keyMap.put("privateKey", privateKeyStr);
 		return keyMap;
@@ -60,12 +61,12 @@ public class RSAUtils {
 	 * @throws Exception 加密过程中的异常信息
 	 */
 	public static String encrypt(String str, String publicKey) throws Exception {
-		byte[] decoded = Base64Utils.decodeFromString(publicKey);
+		byte[] decoded = Base64.getDecoder().decode(publicKey);
 		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 		RSAPublicKey RSAKey = (RSAPublicKey) keyFactory.generatePublic(new X509EncodedKeySpec(decoded));
 		Cipher cipher = Cipher.getInstance("RSA");
 		cipher.init(Cipher.ENCRYPT_MODE, RSAKey);
-		return Base64Utils.encodeToString(cipher.doFinal(str.getBytes("UTF-8")));
+		return Base64.getEncoder().encodeToString(cipher.doFinal(str.getBytes("UTF-8")));
 	}
 
 	/**
@@ -76,8 +77,8 @@ public class RSAUtils {
 	 * @throws Exception 解密过程中的异常信息
 	 */
 	public static String decrypt(String str, String privateKey) throws Exception {
-		byte[] inputByte = Base64Utils.decodeFromString(str);
-		byte[] decoded = Base64Utils.decodeFromString(privateKey);
+		byte[] inputByte = Base64.getDecoder().decode(str);
+		byte[] decoded = Base64.getDecoder().decode(privateKey);
 		PKCS8EncodedKeySpec pkcs8KeySpec = new PKCS8EncodedKeySpec(decoded);
 		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 		RSAPrivateKey RSAKey = (RSAPrivateKey) keyFactory.generatePrivate(pkcs8KeySpec);

@@ -10,15 +10,22 @@ repositories {
 
 dependencies {
     implementation project(':shared')
-    implementation 'com.baomidou:mybatis-plus-boot-starter:3.5.0'
+    // Spring Boot 4 / Jakarta 对应的是 spring-boot4-starter 这一支
+    implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.18'
+    // 3.5.9 起 PaginationInnerInterceptor 被拆到 jsqlparser 适配构件里，starter 默认不带
+    implementation 'com.baomidou:mybatis-plus-jsqlparser-4.9:3.5.18'
     // 审计切面需要 AspectJ：shared 里是 implementation，不会传递到本模块
-    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    // Spring Boot 4 把 spring-boot-starter-aop 改名成 spring-boot-starter-aspectj
+    implementation 'org.springframework.boot:spring-boot-starter-aspectj'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.security:spring-security-oauth2-jose'
+    // Spring Boot 4 把 RestTemplateBuilder 从 spring-boot-web 拆到独立模块 spring-boot-restclient，
+    // 包名也从 org.springframework.boot.web.client 变成 org.springframework.boot.restclient。
+    implementation 'org.springframework.boot:spring-boot-restclient'
     implementation 'org.dhatim:fastexcel:0.12.13'
     implementation 'org.dhatim:fastexcel-reader:0.12.3'
     
-    implementation 'mysql:mysql-connector-java:8.0.26'
+    runtimeOnly 'com.mysql:mysql-connector-j'
 }
 
 test {

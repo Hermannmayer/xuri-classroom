@@ -18,8 +18,8 @@ spring:
       request-timeout: -1
     static-path-pattern: /notfound # 覆盖默认的 /**
     throw-exception-if-no-handler-found: true
-    pathmatch:
-      matching-strategy: ant_path_matcher
+    # matching-strategy: ant_path_matcher 已删除：Spring Framework 6 起 AntPathMatcher
+    # 不再参与 MVC 映射，Spring Boot 3.1 移除了这个属性，写在这里只会让人误以为它还在生效。
   web:
     resources:
       add-mappings: false # 静态资源交给 WebConfig 的显式 handler，默认映射关闭

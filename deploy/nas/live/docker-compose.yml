@@ -56,7 +56,7 @@ services:
 
   # ---------------------------------------------------------------- 后端
   app:
-    image: ${XURI_RUNTIME_IMAGE:-xuri-runtime:8}
+    image: ${XURI_RUNTIME_IMAGE:-xuri-runtime:25}
     container_name: xuri-live-app
     restart: unless-stopped
     environment:
@@ -65,7 +65,7 @@ services:
       DB_NAME: ${DB_NAME:-surveyking}
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
-      # 关键：JDK8 的 mysql-connector 默认 useSSL=PREFERRED，跟 MySQL 8.0.46 的
+      # 关键：mysql-connector 默认 useSSL=PREFERRED，跟 MySQL 8.0.46 的
       # TLS 握不上（实测 SSLHandshakeException: handshake_failure）。
       # 走 compose 内网，直接关 SSL 最省事；SPRING_DATASOURCE_URL 会覆盖
       # application-dev.yml 里的 url。
@@ -80,10 +80,10 @@ services:
       UPDATE_CHECK_INTERVAL_HOURS: ${UPDATE_CHECK_INTERVAL_HOURS:-24}
       # JVM 上限：机器还要跑 MySQL、watch 构建和飞牛自己
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
-      # 并发调参（2026-11-07）：默认 Hikari 10 个连接是开考瞬间的瓶颈，
-      # Undertow 默认 8×核数=32 个 worker；这台 4 核机器按实测抬到 20/64。
+      # 并发调参：Hikari 默认 10 个连接是开考瞬间的瓶颈，按实测抬到 20。
+      # 容器从 Undertow 换成 Tomcat（Spring Boot 4 不再支持 Undertow），
+      # Tomcat 默认 max-threads=200，对这台 4 核机器已经足够，不再额外覆盖。
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: '20'
-      SERVER_UNDERTOW_THREADS_WORKER: '64'
       TZ: Asia/Shanghai
     expose:
       - '7007'

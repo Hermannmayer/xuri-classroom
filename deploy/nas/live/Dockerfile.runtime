@@ -8,12 +8,12 @@
 #   jar 通过 bind mount 挂进来，改完只重启容器。
 #
 # 构建（只需一次）：
-#   docker build -f deploy/nas/live/Dockerfile.runtime -t xuri-runtime:8 .
+#   docker build -f deploy/nas/live/Dockerfile.runtime -t xuri-runtime:25 .
 # 也可以直接：
 #   bash scripts/nas/live-bootstrap.sh
 # =============================================================================
 
-FROM eclipse-temurin:8-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 
 # 时区 + curl（健康检查/排查看日志用）+ 验证码图片渲染依赖。
 # libgcc：anji-captcha 的 BlockPuzzle 用 Java AWT 画图，libfontmanager.so 依赖 libgcc_s.so.1；

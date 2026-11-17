@@ -2,15 +2,14 @@ package cn.surveyking.server.core.mybatis;
 
 import com.baomidou.mybatisplus.core.toolkit.Assert;
 import com.baomidou.mybatisplus.extension.handlers.AbstractJsonTypeHandler;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedJdbcTypes;
 import org.apache.ibatis.type.MappedTypes;
 
-import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -18,51 +17,55 @@ import java.util.List;
 /**
  * @author javahuang
  * @date 2021/9/17
+ *
+ * <p>
+ * MyBatis-Plus 3.5.18 的 {@link AbstractJsonTypeHandler} 已经收紧了契约：
+ * 只有 {@code (Class<?>)} / {@code (Class<?>, Field)} 两个构造器，{@code parse/toJson}
+ * 是接口方法（必须 public），且异常一律是非受检的 {@link JacksonException}。
+ * 原来那份按 3.5.0 写的老代码在升级后会直接编译不过，这里按新契约重写。
  */
 @Slf4j
 @MappedTypes({ List.class })
 @MappedJdbcTypes({ JdbcType.VARCHAR })
-public abstract class ListTypeHandler<T> extends AbstractJsonTypeHandler<Object> {
+public abstract class ListTypeHandler<T> extends AbstractJsonTypeHandler<T> {
 
-	protected static ObjectMapper objectMapper = new ObjectMapper();
-
-	private Class<?> type;
-
-	public ListTypeHandler() {
-	}
+	private static ObjectMapper objectMapper = new ObjectMapper();
 
 	public ListTypeHandler(Class<?> type) {
+		super(type);
 		if (log.isTraceEnabled()) {
-			log.trace("JacksonTypeHandler(" + type + ")");
+			log.trace("ListTypeHandler(" + type + ")");
 		}
-
 		Assert.notNull(type, "Type argument cannot be null", new Object[0]);
-		this.type = type;
 	}
 
-	protected Object parse(String json) {
+	@Override
+	@SuppressWarnings("unchecked")
+	public T parse(String json) {
 		try {
 			Type type = getSuperGenricTypes(this.getClass());
 			JavaType javaType = objectMapper.getTypeFactory().constructType(type);
-			return objectMapper.readValue(json, javaType);
+			return (T) objectMapper.readValue(json, javaType);
 		}
-		catch (IOException var3) {
-			throw new RuntimeException(var3);
+		catch (JacksonException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
-	protected String toJson(Object obj) {
+	@Override
+	public String toJson(T obj) {
 		try {
 			return objectMapper.writeValueAsString(obj);
 		}
-		catch (JsonProcessingException var3) {
-			throw new RuntimeException(var3);
+		catch (JacksonException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
-	public static void setObjectMapper(ObjectMapper objectMapper) {
-		Assert.notNull(objectMapper, "ObjectMapper should not be null", new Object[0]);
-		objectMapper = objectMapper;
+	public static void setObjectMapper(ObjectMapper mapper) {
+		Assert.notNull(mapper, "ObjectMapper should not be null", new Object[0]);
+		// 原来是 objectMapper = objectMapper（自己赋给自己，等于没设），顺手修掉
+		ListTypeHandler.objectMapper = mapper;
 	}
 
 	public static Type getSuperGenricTypes(final Class<?> clz) {

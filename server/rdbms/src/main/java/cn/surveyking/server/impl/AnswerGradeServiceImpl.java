@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -395,7 +395,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 	 * 落库总分：exam_score / exam_info.question_score / grade_status / graded_by / graded_at。
 	 *
 	 * <p>用 updateById（实体 + 类型处理器）而不是 UpdateWrapper.set，因为 exam_info 是 JSON 字段，
-	 * 走 wrapper 的 set 不会应用 JacksonTypeHandler。
+	 * 走 wrapper 的 set 不会应用 Jackson3TypeHandler。
 	 */
 	private void persistScore(Answer answer, ScoreView score, String status, String grader, Date now) {
 		AnswerExamInfo examInfo = answer.getExamInfo() == null ? new AnswerExamInfo() : answer.getExamInfo();

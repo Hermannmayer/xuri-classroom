@@ -47,7 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.Arrays;

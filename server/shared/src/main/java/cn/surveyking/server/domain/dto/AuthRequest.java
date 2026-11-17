@@ -3,7 +3,7 @@ package cn.surveyking.server.domain.dto;
 import cn.surveyking.server.core.constant.AppConsts;
 import lombok.Data;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * @author javahuang

@@ -1,7 +1,7 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.domain.model.AnswerItem;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

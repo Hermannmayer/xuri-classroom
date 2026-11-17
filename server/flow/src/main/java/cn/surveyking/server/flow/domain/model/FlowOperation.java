@@ -3,7 +3,7 @@ package cn.surveyking.server.flow.domain.model;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -94,7 +94,7 @@ public class FlowOperation implements Serializable {
 	/**
 	 * 当前节点答案
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, value = "answer")
+	@TableField(typeHandler = Jackson3TypeHandler.class, value = "answer")
 	private LinkedHashMap<String, Object> answer;
 
 	/**

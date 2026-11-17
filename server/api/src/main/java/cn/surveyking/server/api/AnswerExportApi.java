@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -3,7 +3,7 @@ package cn.surveyking.server.domain.model;
 import cn.surveyking.server.core.model.BaseModel;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -44,7 +44,7 @@ public class Repo extends BaseModel {
 	/**
 	 * 标签
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.VARCHAR)
 	private String[] tag;
 
 	/**

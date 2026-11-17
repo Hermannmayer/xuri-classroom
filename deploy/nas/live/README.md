@@ -31,14 +31,14 @@ docker compose restart app
 
 ## 运行时镜像（验证码依赖，改 Dockerfile 后必须重建）
 
-`xuri-runtime:8` 是 `Dockerfile.runtime` 构建的 JRE 底座。2026-11 起它必须带
+`xuri-runtime:25` 是 `Dockerfile.runtime` 构建的 JRE 底座。2026-11 起它必须带
 `libgcc`（以及 fontconfig/freetype/ttf-dejavu）：anji-captcha 的滑块图用 Java AWT 绘制，
 Alpine 的 temurin JRE 缺 `libgcc_s.so.1` 时 `/captcha/get` 会返回 500，
 前端显示「服务出了点问题」。
 
 ```bash
 cd <data-root>/src/work
-docker build -f deploy/nas/live/Dockerfile.runtime -t xuri-runtime:8 .
+docker build -f deploy/nas/live/Dockerfile.runtime -t xuri-runtime:25 .
 cd deploy/nas/live && docker compose up -d --force-recreate app
 ```
 

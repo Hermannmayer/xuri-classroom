@@ -2,8 +2,8 @@ package cn.surveyking.server.api;
 
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.domain.dto.UpdateCheckView;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.impl.AnonymousCleanupService;
@@ -25,8 +25,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 
-import javax.validation.Valid;
-import javax.validation.ValidationException;
+import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;

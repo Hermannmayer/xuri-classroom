@@ -5,7 +5,7 @@
 # 做完这四件事：
 #   1. 建数据目录（/vol2/1000/xuri/live/{mysql,files,build}）
 #   2. 生成 .env（不覆盖已存在的）
-#   3. 构建后端运行时镜像 xuri-runtime:8（只有 curl+JRE，约 1 分钟）
+#   3. 构建后端运行时镜像 xuri-runtime:25（只有 curl+JRE，约 1 分钟）
 #   4. 编译一次后端 jar，然后 docker compose up -d
 #
 # 幂等：重复执行不会覆盖 .env，也不会丢数据。
@@ -23,7 +23,7 @@ COMPOSE_DIR="${XURI_COMPOSE_DIR:-${REPO_ROOT}/deploy/nas/live}"
 SRC="${XURI_SRC:-${REPO_ROOT}}"
 DATA_DIR="${XURI_DATA_DIR:-/vol2/1000/xuri/live}"
 BUILD_DIR="${XURI_BUILD_DIR:-${DATA_DIR}/build}"
-RUNTIME_IMAGE="${XURI_RUNTIME_IMAGE:-xuri-runtime:8}"
+RUNTIME_IMAGE="${XURI_RUNTIME_IMAGE:-xuri-runtime:25}"
 APP_PORT="${APP_PORT:-201}"
 APP_EXTRA_PORT="${APP_EXTRA_PORT:-1201}"
 

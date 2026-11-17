@@ -3,7 +3,6 @@ package cn.surveyking.server.core.config;
 import cn.surveyking.server.core.constant.CacheConsts;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
-import org.checkerframework.checker.index.qual.NonNegative;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -81,13 +80,13 @@ public class CacheConfig extends CachingConfigurerSupport {
 
 					@Override
 					public long expireAfterUpdate(Object key, Object value, long currentTime,
-							@NonNegative long currentDuration) {
+							long currentDuration) {
 						return currentDuration;
 					}
 
 					@Override
 					public long expireAfterRead(Object key, Object value, long currentTime,
-							@NonNegative long currentDuration) {
+							long currentDuration) {
 						return currentDuration;
 					}
 						}).build().asMap(), false);

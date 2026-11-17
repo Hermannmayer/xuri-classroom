@@ -46,7 +46,7 @@ public interface AnswerGradeService {
 
 	/**
 	 * 保存并（可选）完成批改。
-	 * @throws javax.validation.ValidationException 题目不是人工评分题、分数越界等（HTTP 400）
+	 * @throws jakarta.validation.ValidationException 题目不是人工评分题、分数越界等（HTTP 400）
 	 */
 	void submit(AnswerGradeRequest request);
 

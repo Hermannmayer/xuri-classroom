@@ -31,7 +31,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;

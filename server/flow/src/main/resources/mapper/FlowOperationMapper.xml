@@ -14,7 +14,7 @@
             <result property="approvalType" column="approval_type" jdbcType="VARCHAR"/>
             <result property="comment" column="comment" jdbcType="VARCHAR"/>
             <result property="delegateAssignee" column="delegate_assignee" jdbcType="VARCHAR"/>
-            <result property="answer" column="answer" jdbcType="VARCHAR" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+            <result property="answer" column="answer" jdbcType="VARCHAR" typeHandler="com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler"/>
             <result property="createAt" column="create_at" jdbcType="TIMESTAMP"/>
             <result property="createBy" column="create_by" jdbcType="VARCHAR"/>
             <result property="updateAt" column="update_at" jdbcType="TIMESTAMP"/>

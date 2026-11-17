@@ -1,7 +1,7 @@
 package cn.surveyking.server.core.base.mapper;
 
 import cn.surveyking.server.core.uitls.ContextHelper;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.util.CollectionUtils;
 
 import java.util.LinkedList;

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 把 Controller 的写操作记进审计日志。见 {@link AuditRecorder} 的说明。
@@ -31,8 +31,9 @@ public class AuditAspect {
 	public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
 		HttpServletRequest request = currentRequest();
 		String uri = request == null ? null : request.getRequestURI();
-		// 登录、公开答题、验证码：高频且不属于后台审计范围
-		if (uri == null || uri.startsWith("/api/public") || uri.startsWith("/api/captcha")) {
+		// 登录、公开答题、验证码：高频且不属于后台审计范围。
+		// 验证码的真实路径是 /captcha/**（nginx 直接转发），不是 /api/captcha。
+		if (uri == null || uri.startsWith("/api/public") || uri.startsWith("/captcha")) {
 			return joinPoint.proceed();
 		}
 

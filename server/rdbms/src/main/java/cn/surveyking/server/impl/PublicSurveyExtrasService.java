@@ -21,7 +21,7 @@ import cn.surveyking.server.domain.model.CommDictItem;
 import cn.surveyking.server.service.AnonymousIdentityService;
 import cn.surveyking.server.service.ProjectService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;

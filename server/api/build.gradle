@@ -2,7 +2,10 @@ plugins {
     id 'maven-publish'
 }
 
-project.archivesBaseName = 'xuri-classroom'
+// Gradle 9 移除了 project.archivesBaseName，改用 base 扩展
+base {
+    archivesName = 'xuri-classroom'
+}
 
 ext {
     isProd = project.hasProperty("pro")
@@ -26,10 +29,14 @@ dependencies {
     implementation project(':rdbms')
     implementation project(':ai')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'com.tngtech.archunit:archunit-junit5:1.0.1'
+    // Boot 4 把 @WebMvcTest / @AutoConfigureMockMvc 拆到 spring-boot-webmvc-test，
+    // 包名也从 ...test.autoconfigure.web.servlet 变成 ...webmvc.test.autoconfigure
+    testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+	// 1.0.1 的 ASM 读不懂 Java 25 的 class 文件（major 69），会「导入 0 个类 → failed to check any classes」
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.1'
     // 集成测试要直接构造 Wrapper 与调用 BaseMapper：mybatis-plus 在 rdbms 的 implementation 里，
     // 不会传递到 api 的 testCompileClasspath，必须显式声明（版本与 rdbms 对齐）。
-    testImplementation 'com.baomidou:mybatis-plus-boot-starter:3.5.0'
+    testImplementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.18'
 }
 
 test {
@@ -41,11 +48,12 @@ jar {
 }
 
 bootJar {
-    launchScript()
+    // Spring Boot 4 移除了 launchScript()（「完全可执行 jar」特性已删除），
+    // 也不再需要手写 Main-Class：PropertiesLauncher 的包名在 Boot 3.2 起搬到了
+    // org.springframework.boot.loader.launch，而仓库里没有任何地方用 loader.path /
+    // loader.main，所以交给插件用默认的 JarLauncher 最稳。
+    // Linux 安装脚本本来就同时接受 PK 与 #! 两种文件头，不受影响。
     enabled = true
-    manifest {
-        attributes 'Main-Class': 'org.springframework.boot.loader.PropertiesLauncher'
-    }
 }
 
 processResources {

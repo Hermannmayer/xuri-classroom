@@ -37,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;

@@ -7,7 +7,7 @@ import cn.surveyking.server.domain.dto.SurveySchema;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.apache.ibatis.type.JdbcType;
@@ -40,10 +40,10 @@ public class Project extends BaseModel {
 	 */
 	private ProjectModeEnum mode;
 
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
 	private SurveySchema survey;
 
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGNVARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.LONGNVARCHAR)
 	private ProjectSetting setting;
 
 	// 1已发布 0未发布

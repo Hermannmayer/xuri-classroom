@@ -48,7 +48,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -286,7 +286,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 
 	/** 一次取出全部用户组（组表很小），供祖先链解析复用 */
 	private Map<String, Dept> loadDeptMap() {
-		return list(null).stream().filter(Objects::nonNull)
+		// MP 3.5.18 的 list() 有多组重载，传裸 null 会「引用不明确」，显式转型消歧义
+		return list((com.baomidou.mybatisplus.core.conditions.Wrapper<Dept>) null).stream().filter(Objects::nonNull)
 				.collect(Collectors.toMap(Dept::getId, dept -> dept, (a, b) -> a));
 	}
 

@@ -4,7 +4,7 @@ import cn.surveyking.server.domain.dto.DashboardSetting;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -54,7 +54,7 @@ public class Dashboard implements Serializable {
 	/**
 	 * 仪表盘设置
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, value = "setting")
+	@TableField(typeHandler = Jackson3TypeHandler.class, value = "setting")
 	private DashboardSetting setting;
 
 	/**

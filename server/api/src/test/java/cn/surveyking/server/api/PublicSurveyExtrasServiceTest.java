@@ -11,7 +11,7 @@ import cn.surveyking.server.impl.PublicSurveyExtrasService;
 import cn.surveyking.server.impl.WechatAccessGuard;
 import cn.surveyking.server.service.AnonymousIdentityService;
 import cn.surveyking.server.service.ProjectService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

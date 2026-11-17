@@ -26,15 +26,15 @@ import cn.surveyking.server.service.UserDeptScopeService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.Resource;
-import javax.validation.ValidationException;
+import jakarta.annotation.Resource;
+import jakarta.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -249,7 +249,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 					try {
 						html.append(objectMapper.writeValueAsString(template.getTemplate()));
 					}
-					catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+					catch (tools.jackson.core.JacksonException ignored) {
 						// 单个模板序列化失败不影响其它模板的引用回收
 					}
 				}

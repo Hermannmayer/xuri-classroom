@@ -3,21 +3,21 @@
 <mapper namespace="cn.surveyking.server.mapper.AnswerMapper">
 
     <!-- 显式 resultMap：answer / survey / temp_answer / meta_info / exam_info 是 JSON 大字段，
-         必须交给 JacksonTypeHandler，不能用默认的 resultType 自动映射。 -->
+         必须交给 Jackson3TypeHandler，不能用默认的 resultType 自动映射。 -->
     <resultMap id="answerResultMap" type="cn.surveyking.server.domain.model.Answer">
         <id column="id" property="id"/>
         <result column="project_id" property="projectId"/>
         <result column="repo_id" property="repoId"/>
         <result column="temp_answer" property="tempAnswer"
-                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler" jdbcType="LONGVARCHAR"/>
         <result column="answer" property="answer"
-                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler" jdbcType="LONGVARCHAR"/>
         <result column="survey" property="survey"
-                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler" jdbcType="LONGVARCHAR"/>
         <result column="meta_info" property="metaInfo"
-                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler" jdbcType="LONGVARCHAR"/>
         <result column="exam_info" property="examInfo"
-                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler" jdbcType="LONGVARCHAR"/>
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler" jdbcType="LONGVARCHAR"/>
         <result column="exam_score" property="examScore"/>
         <result column="exam_exercise_type" property="examExerciseType"/>
         <result column="temp_save" property="tempSave"/>

@@ -20,7 +20,7 @@ public class AnswerMetaEnricher {
 	public AnswerMetaInfo enrichMetaInfo(AnswerMetaInfo metaInfo) {
 		AnswerMetaInfo meta = metaInfo == null ? new AnswerMetaInfo() : metaInfo;
 		try {
-			javax.servlet.http.HttpServletRequest request = ContextHelper.getCurrentHttpRequest();
+			jakarta.servlet.http.HttpServletRequest request = ContextHelper.getCurrentHttpRequest();
 			if (request == null) {
 				return meta;
 			}
@@ -33,7 +33,7 @@ public class AnswerMetaEnricher {
 				client.setRemoteIp(cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(request));
 			}
 			if (!org.springframework.util.StringUtils.hasText(client.getCookie())) {
-				javax.servlet.http.Cookie limitCookie = org.springframework.web.util.WebUtils.getCookie(request,
+				jakarta.servlet.http.Cookie limitCookie = org.springframework.web.util.WebUtils.getCookie(request,
 						AppConsts.COOKIE_LIMIT_NAME);
 				if (limitCookie != null) {
 					client.setCookie(limitCookie.getValue());

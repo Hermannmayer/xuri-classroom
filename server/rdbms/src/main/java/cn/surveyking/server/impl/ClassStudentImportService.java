@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.Collections;

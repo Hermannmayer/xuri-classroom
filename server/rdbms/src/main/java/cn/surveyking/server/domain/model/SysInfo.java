@@ -5,7 +5,7 @@ import cn.surveyking.server.domain.dto.SystemInfo;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
 import lombok.Data;
 import org.apache.ibatis.type.JdbcType;
 
@@ -66,26 +66,26 @@ public class SysInfo implements Serializable {
 	/**
 	 * 注册信息
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.VARCHAR)
 	private SystemInfo.RegisterInfo registerInfo;
 
 	/**
 	 * 其他设置信息
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.VARCHAR)
 	private SystemInfo.SystemSetting setting;
 
 	/**
 	 * AI设置
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.VARCHAR)
 	private SystemInfo.AiSetting aiSetting;
 
 	/**
 	 * Third-party login settings. This value contains secrets and must only be accessed
 	 * through a masked admin view or internal service methods.
 	 */
-	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.VARCHAR)
 	private OAuthSetting oauthSetting;
 
 	/**
