@@ -13,6 +13,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import jakarta.validation.ValidationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -146,16 +147,16 @@ public class AuditLogService {
 		Date cutoff = parseTime(before);
 		if (cutoff == null) {
 			if (beforeDays == null || beforeDays <= 0) {
-				throw new IllegalArgumentException("请指定保留天数或清理截止时间");
+				throw new ValidationException("请指定保留天数或清理截止时间");
 			}
 			if (beforeDays < MIN_KEEP_DAYS) {
-				throw new IllegalArgumentException("为了保留可追溯性，至少要保留 " + MIN_KEEP_DAYS + " 天");
+				throw new ValidationException("为了保留可追溯性，至少要保留 " + MIN_KEEP_DAYS + " 天");
 			}
 			cutoff = Date.from(LocalDateTime.now().minusDays(beforeDays).atZone(ZoneId.systemDefault()).toInstant());
 		}
 		else if (cutoff.after(Date.from(LocalDateTime.now().minusDays(MIN_KEEP_DAYS)
 				.atZone(ZoneId.systemDefault()).toInstant()))) {
-			throw new IllegalArgumentException("清理截止时间至少要在 " + MIN_KEEP_DAYS + " 天前");
+			throw new ValidationException("清理截止时间至少要在 " + MIN_KEEP_DAYS + " 天前");
 		}
 		return deleteInBatches(cutoff);
 	}
@@ -190,7 +191,7 @@ public class AuditLogService {
 						.atStartOfDay(ZoneId.systemDefault()).toInstant());
 			}
 			catch (Exception alsoIgnored) {
-				throw new IllegalArgumentException("时间格式不正确：" + value);
+				throw new ValidationException("时间格式不正确：" + value);
 			}
 		}
 	}
