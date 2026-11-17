@@ -1369,12 +1369,12 @@ export default function PublicAnswer() {
    * 有这类题时以它为准（问卷星那种「您的姓名：」就是这种），不再额外显示顶部输入框，
    * 否则同一个名字要在两个地方填，答题人一定会疑惑。
    */
-  const nameQuestion = useMemo(
-    () =>
-      flatQuestions.find(
-        (q) => (q.type === 'FillBlank' || q.type === 'Textarea') && /姓名|名字/.test(q.title ?? ''),
-      ),
-    [flatQuestions],
+  // 注意：这里**不能用 useMemo**。上面有 6 处提前返回（loading / fatal / 需要密码 / 需要登录 /
+  // 无 project / 已提交结果），首屏 loading=true 会先返回；等加载完再渲染到这里，hook 数量就比
+  // 上一次多一个 → React #310「Rendered more hooks than during the previous render」，
+  // 整个答题页白屏。flatQuestions 本身就是 useMemo 的结果，这里再 find 一次成本可忽略。
+  const nameQuestion = flatQuestions.find(
+    (q) => (q.type === 'FillBlank' || q.type === 'Textarea') && /姓名|名字/.test(q.title ?? ''),
   );
   /**
    * 什么时候显示顶部「答题人」输入框：
