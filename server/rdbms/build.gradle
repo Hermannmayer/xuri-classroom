@@ -26,8 +26,8 @@ dependencies {
     // Spring Boot 4 把 RestTemplateBuilder 从 spring-boot-web 拆到独立模块 spring-boot-restclient，
     // 包名也从 org.springframework.boot.web.client 变成 org.springframework.boot.restclient。
     implementation 'org.springframework.boot:spring-boot-restclient'
-    implementation 'org.dhatim:fastexcel:0.12.13'
-    implementation 'org.dhatim:fastexcel-reader:0.12.3'
+    implementation 'org.dhatim:fastexcel:0.20.2'
+    implementation 'org.dhatim:fastexcel-reader:0.20.2'
     
     runtimeOnly 'com.mysql:mysql-connector-j'
 }
