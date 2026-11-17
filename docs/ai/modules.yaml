@@ -29,11 +29,13 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AiAssistServiceImpl.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/Ai*.java
       - client/src/pages/survey/ai/**
+      - client/src/pages/ai-guide/**
     entrypoints:
       - server/ai/src/main/java/cn/surveyking/server/ai/core/AiGateway.java
       - server/ai/src/main/java/cn/surveyking/server/ai/core/AiJobService.java
       - server/api/src/main/java/cn/surveyking/server/api/AiApi.java
       - client/src/pages/survey/Editor.tsx
+      - client/src/pages/ai-guide/AiGuide.tsx
     apis:
       - POST /api/ai/paper/generate
       - GET /api/ai/paper/job/{jobId}
@@ -42,6 +44,8 @@ modules:
       - POST /api/ai/grade/suggest
       - POST /api/ai/report/summary
       - GET /api/ai/usage/today
+      - POST /api/ai/chat
+      - GET /api/ai/status
     tables:
       - t_ai_usage
     tests:
@@ -49,7 +53,7 @@ modules:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/AiUsageServiceImplTest.java
       - server/rdbms/src/test/java/cn/surveyking/server/impl/AiAssistServiceImplTest.java
     last_verified: 2026-11-17
-    verified_against: 815f8418
+    verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
   - id: module-answer
     title: 答卷、判分与报表
     doc: docs/modules/answer.md
@@ -556,11 +560,13 @@ modules:
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/ApiTokenRequest.java
       - client/src/api/apiToken.ts
       - client/src/pages/system/ApiTokenPanel.tsx
+      - client/src/pages/ai-guide/**
     entrypoints:
       - server/api/src/main/java/cn/surveyking/server/mcp/McpApi.java
       - server/api/src/main/java/cn/surveyking/server/mcp/McpServer.java
       - server/api/src/main/java/cn/surveyking/server/mcp/McpTools.java
       - server/api/src/main/java/cn/surveyking/server/api/ApiTokenApi.java
+      - client/src/pages/ai-guide/McpGuide.tsx
     apis:
       - POST /mcp
       - POST /api/system/api-token
@@ -577,7 +583,7 @@ modules:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
       - client:npm run check
     last_verified: 2026-11-17
-    verified_against: c7f0099f
+    verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
   - id: module-notice
     title: 通知公告
     doc: docs/modules/notice.md

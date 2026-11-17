@@ -16,6 +16,8 @@ import { PERMISSION_CODES } from './auth/permission-codes';
 const Login = lazy(() => import('./pages/user/Login'));
 const Register = lazy(() => import('./pages/user/Register'));
 const Home = lazy(() => import('./pages/Home'));
+// AI 与智能体引导页：能力清单 + 模型开通 + MCP 三步接入（task-16）
+const AiGuide = lazy(() => import('./pages/ai-guide/AiGuide'));
 const NoticeCenter = lazy(() => import('./pages/notice/NoticeCenter'));
 const ProjectEntry = lazy(() => import('./pages/project/Entry'));
 const TaskCenter = lazy(() => import('./pages/tasks/TaskCenter'));
@@ -75,6 +77,11 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
+      // AI 引导页：能配 AI（system:setting:update）或能用 AI（ai:use）的人都能进——
+      // 前者看「怎么开」，后者看「从哪进」；两个权限都没有的账号不显示这个入口。
+      // path 写死 'ai'（= pages/ai-guide/constants.ts 的 AI_GUIDE_PATH）：
+      // scripts/docs/gen.mjs 解析路由表只认字面量，写成常量会让 /ai 从 docs/reference/routes.md 里消失。
+      { path: 'ai', element: guard([PERMISSION_CODES.aiUse, PERMISSION_CODES.systemSettingUpdate], <AiGuide />) },
       // 公告中心：全角色可见（学员预设也带 notice:list），顶栏铃铛与「检查更新」都指向这里
       { path: 'notice', element: guard(PERMISSION_CODES.noticeList, <NoticeCenter />) },
       // 教学管理与班级学情合并：/teaching 内用 Tabs 分「考试/问卷」「学情」；

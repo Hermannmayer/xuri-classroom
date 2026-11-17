@@ -30,11 +30,13 @@ source_globs:
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/ApiTokenRequest.java
   - client/src/api/apiToken.ts
   - client/src/pages/system/ApiTokenPanel.tsx
+  - client/src/pages/ai-guide/**
 entrypoints:
   - server/api/src/main/java/cn/surveyking/server/mcp/McpApi.java
   - server/api/src/main/java/cn/surveyking/server/mcp/McpServer.java
   - server/api/src/main/java/cn/surveyking/server/mcp/McpTools.java
   - server/api/src/main/java/cn/surveyking/server/api/ApiTokenApi.java
+  - client/src/pages/ai-guide/McpGuide.tsx
 apis:
   - POST /mcp
   - POST /api/system/api-token
@@ -51,7 +53,7 @@ tests:
   - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
   - client:npm run check
 last_verified: 2026-11-17
-verified_against: c7f0099f
+verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
 ---
 
 # MCP / API 接入
@@ -67,7 +69,8 @@ verified_against: c7f0099f
 
 ## 什么时候看这篇
 
-- 要在 Claude Desktop / WorkBuddy 里配 `mcp.json`
+- 要在 Claude Desktop / WorkBuddy / Codex / Cursor / VS Code 里配 `mcp.json`
+- 用户问「MCP 怎么接」：让他打开菜单「AI 助手」→ `#mcp`，页面会按当前站点地址生成片段
 - 客户端报 401 / 工具列表是空的 / 某个工具被拒
 - 要加第 11 个工具，或改工具白名单
 
@@ -81,6 +84,7 @@ verified_against: c7f0099f
 | 鉴权 | `mcp/McpTokenResolver.java` | Bearer → SHA-256 比对 `t_api_token` → 载入用户塞进 SecurityContext（复用 `@PreAuthorize`） |
 | 幂等 | `t_api_idempotency` | 写工具命中已有 `(user_id, key_value)` 直接返回上次结果 |
 | 令牌管理 | `api/ApiTokenApi.java` + `ApiTokenPanel.tsx` | 系统设置「MCP / API 令牌」页：签发（明文只显示一次）、列表、撤销 |
+| 接入引导 | `client/src/pages/ai-guide/McpGuide.tsx` | `/ai` 页的「MCP 接入」：选客户端 → 建令牌 → 复制配置片段（通用 / Cursor / VS Code / Codex），附工具清单、curl 验证与安全说明 |
 
 ## 工具清单
 
@@ -122,6 +126,10 @@ verified_against: c7f0099f
 }
 ```
 
+网页端「AI 助手 → MCP 接入」会按当前站点地址拼出四份片段，字段差异已经写在页面上：
+**VS Code** 顶层键是 `servers`、远程条目 `type` 写 `http`；**Cursor** 的远程条目不要 `type`；
+**Codex** 用 TOML（`~/.codex/config.toml` 的 `[mcp_servers.xuri]`）。照抄错顶层键，客户端会直接看不到这个服务。
+
 自测（服务端换成本机地址即可）：
 
 ```bash
@@ -150,6 +158,7 @@ curl -s -X POST https://<域名>/mcp \
 ## 坑与已知限制
 
 - **令牌只存 SHA-256**：列表里显示的是**哈希指纹**（哈希首尾 4 位），不是令牌的前 4 位——库里不留任何明文线索，辨认靠 `name`。
+- **客户端字段各不相同**：VS Code 用 `servers` + `type: http`，Cursor 不要 `type`，Codex 是 TOML；引导页按客户端切换片段，别把通用 `mcpServers` 片段硬塞进 VS Code。
 - **`/mcp` 不带 `/api` 前缀**：走 servlet 原始流，否则会被全站响应信封包成 `{code,message,data}`。
 - 工具白名单外**返回 200 + JSON-RPC -32001**（不是 401），避免客户端误判为「令牌失效」而去重配。
 - `sk_project_create/update` **不做阻断式 schema 校验**（草稿要能边建边改），只回 `schemaOk/schemaErrors`；硬校验放在 `sk_project_validate`。

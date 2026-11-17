@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 236 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 238 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -12,6 +12,8 @@
 | POST | `${api.prefix}/ai/question/rewrite` | `AiApi#rewriteQuestion` | `hasAuthority('ai:use')` | — |
 | POST | `${api.prefix}/ai/grade/suggest` | `AiApi#suggestGrade` | `hasAuthority('ai:use') and hasAuthority('answer:grade')` | — |
 | POST | `${api.prefix}/ai/report/summary` | `AiApi#summarizeReport` | `hasAuthority('ai:use')` | — |
+| POST | `${api.prefix}/ai/chat` | `AiApi#chat` | `hasAuthority('ai:use')` | — |
+| GET | `${api.prefix}/ai/status` | `AiApi#status` | `hasAuthority('ai:use')` | — |
 | GET | `${api.prefix}/ai/usage/today` | `AiApi#usageToday` | `hasAuthority('ai:use')` | — |
 | GET | `${api.prefix}/answer/list` | `AnswerApi#listAnswer` | `hasAuthority('answer:list')` | 是 |
 | GET | `${api.prefix}/answer/trash` | `AnswerApi#listAnswerDeleted` | `hasAuthority('answer:list')` | 是 |

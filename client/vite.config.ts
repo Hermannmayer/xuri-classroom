@@ -21,6 +21,9 @@ export default defineConfig({
       '/api': { target, changeOrigin: false },
       '/captcha': { target, changeOrigin: false },
       '/files': { target, changeOrigin: false },
+      // MCP 端点（P5）：生产 nginx 已单独转发 POST /mcp，dev server 不加这条会落到 index.html，
+      // 「AI 与智能体」引导页里复制出来的地址在本机就验不通。
+      '/mcp': { target, changeOrigin: false },
     },
   },
   build: {
