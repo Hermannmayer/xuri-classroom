@@ -98,6 +98,9 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			throw new ValidationException("待批改列表需要指定项目");
 		}
 		answerAccessGuard.assertProjectAccess(query.getProjectId());
+		// 班级级老师只看自己带的班：项目级老师（所有者/协作者）不受限
+		Set<String> classScope = answerAccessGuard.canManageProject(query.getProjectId()) ? Collections.emptySet()
+				: answerAccessGuard.readableClassIds(query.getProjectId());
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
 		// 待批改列表只要「谁、什么时候交的、批完没」，不读整卷答案与快照两个大字段
 		LambdaQueryWrapper<Answer> wrapper = Wrappers.<Answer>lambdaQuery()
@@ -114,6 +117,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 				// 匿名答卷默认不进待批改列表，管理员显式 includeAnonymous 才放开（与答卷列表口径一致）
 				.eq(!Boolean.TRUE.equals(query.getIncludeAnonymous()), Answer::getIsAnonymous, false)
 				.eq(StringUtils.hasText(query.getClassId()), Answer::getClassId, query.getClassId())
+				.in(!classScope.isEmpty(), Answer::getClassId, classScope)
 				.in(!CollectionUtils.isEmpty(query.getIds()), Answer::getId, query.getIds())
 				.ge(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
 				.le(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
@@ -132,7 +136,8 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 	@Override
 	public AnswerGradeView detail(String answerId, boolean includeCorrectAnswer) {
 		Answer answer = loadAnswer(answerId);
-		answerAccessGuard.assertProjectAccess(answer.getProjectId());
+		// 按「这一份答卷」判权：班级级老师不能顺着 projectId 打开别的班的答卷
+		answerAccessGuard.assertAnswerAccess(answer);
 		SurveySchema schema = resolveSchema(answer);
 		Map<String, AnswerGrade> grades = loadGrades(answer.getId());
 		List<SurveySchema> questions = schema == null ? Collections.emptyList() : SchemaHelper.flatSurveySchema(schema);
@@ -169,7 +174,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			throw new ValidationException("缺少答卷 id");
 		}
 		Answer answer = loadAnswer(request.getAnswerId());
-		answerAccessGuard.assertProjectAccess(answer.getProjectId());
+		answerAccessGuard.assertAnswerAccess(answer);
 		if (!Integer.valueOf(1).equals(answer.getTempSave())) {
 			throw new ValidationException("暂存卷不能批改，等学员正式交卷后再批改");
 		}
@@ -217,7 +222,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 	@Override
 	public void reset(String answerId, List<String> questionIds) {
 		Answer answer = loadAnswer(answerId);
-		answerAccessGuard.assertProjectAccess(answer.getProjectId());
+		answerAccessGuard.assertAnswerAccess(answer);
 		SurveySchema schema = resolveSchema(answer);
 		if (schema == null) {
 			return;

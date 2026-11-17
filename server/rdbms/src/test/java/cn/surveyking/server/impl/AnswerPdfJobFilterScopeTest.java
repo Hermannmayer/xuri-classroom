@@ -60,7 +60,8 @@ class AnswerPdfJobFilterScopeTest {
 
 	private final AnswerPdfJobServiceImpl service = new AnswerPdfJobServiceImpl(answerMapper,
 			mock(AnswerViewMapper.class), mock(ProjectMapper.class), mock(DeptMapper.class), mock(UserMapper.class),
-			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class));
+			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class),
+			mock(AnswerAccessGuard.class));
 
 	/** 最近一次生成的 Wrapper（SQL 与绑定参数都从这里读） */
 	private LambdaQueryWrapper<Answer> lastWrapper;

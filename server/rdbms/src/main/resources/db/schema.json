@@ -92,6 +92,10 @@
     {
       "version": "2.3.0",
       "requires": []
+    },
+    {
+      "version": "2.3.1",
+      "requires": []
     }
   ]
 }

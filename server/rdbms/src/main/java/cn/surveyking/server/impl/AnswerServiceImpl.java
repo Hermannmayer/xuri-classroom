@@ -207,6 +207,11 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 数据范围：管理员 / 项目所有者或协作者（含组授权）看全部；其他人（学员）只能看自己的答卷。
 		// 之前只靠 @PreAuthorize('answer:list')，学员知道 projectId 就能列出全班答卷。
 		boolean canSeeAll = answerAccessGuard.canManageProject(query.getProjectId());
+		// 班级级老师（考试分配给自己带的班，但不是项目协作者）：只看本班，别顺着 projectId 看别的班。
+		// 空集 = 没有班级级权限，退回「只看自己」的老口径。
+		Set<String> classScope = canSeeAll ? Collections.emptySet()
+				: answerAccessGuard.readableClassIds(query.getProjectId());
+		boolean scopedByClass = !classScope.isEmpty();
 		// 只有能看到项目全部答卷的管理者才允许显式包含匿名；普通学员即使传了也按默认过滤
 		boolean includeAnonymous = canSeeAll && Boolean.TRUE.equals(query.getIncludeAnonymous());
 		String currentUserId = SecurityContextUtils.getUserId();
@@ -236,7 +241,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 							.or()
 							.apply("create_by in (select id from t_user where name like {0})", like);
 				})
-				.eq(!canSeeAll, Answer::getCreateBy, currentUserId)
+				// 班级级老师按班级范围过滤；其余（学员/未分配的老师）只看自己的答卷
+				.in(scopedByClass, Answer::getClassId, classScope)
+				.eq(!canSeeAll && !scopedByClass, Answer::getCreateBy, currentUserId)
 				.orderByDesc(Answer::getCreateAt);
 		if (!withSnapshot) {
 			// 统计路径：只取统计与权限判定需要的列，整卷快照与暂存答案一律不读。

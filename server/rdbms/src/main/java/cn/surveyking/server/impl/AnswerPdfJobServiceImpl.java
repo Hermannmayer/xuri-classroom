@@ -167,6 +167,9 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	private final StorageProperties storageProperties;
 
+	/** 取数范围要跟着权限走：班级级老师只能导自己带的班（见 {@link ExportSpec#getClassScope()}） */
+	private final AnswerAccessGuard answerAccessGuard;
+
 	/**
 	 * 渲染线程池：核心/最大线程数跟着系统设置走（见 {@link #applyConcurrency(int)}），
 	 * 守护线程，队列满直接抛 {@link RejectedExecutionException}（调用方翻译成中文提示）。
@@ -303,6 +306,12 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		if (spec.getOutputs() == null || spec.getOutputs().isEmpty()) {
 			// 直接调 createJob(ExportSpec) 的内部调用方可能没设格式：默认成绩单，和线上行为一致
 			spec.outputs(Collections.singletonList(DownloadQuery.DownloadType.answerPdf));
+		}
+		// 班级级老师（不是项目协作者，只是把这场考试分配给了自己带的班）导出时只能带本班答卷。
+		// 必须在这里算：任务跑在导出线程里，SecurityContext 已经不在，取不到当前用户。
+		if (spec.getClassScope() == null && !answerAccessGuard.canManageProject(spec.getProjectId())) {
+			Set<String> scope = answerAccessGuard.readableClassIds(spec.getProjectId());
+			spec.classScope(scope.isEmpty() ? Collections.emptyList() : new ArrayList<>(scope));
 		}
 		for (DownloadQuery.DownloadType output : spec.getOutputs()) {
 			assertAnswerOutput(output);
@@ -768,6 +777,9 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				// classId 为空表示「不分班」：整卷导出 / 勾选 ids 导出 / 只按时间范围导出，
 				// 这里必须是有值才加条件，否则 eq(class_id, null) 永远查不到数据
 				.eq(StringUtils.hasText(spec.getClassId()), Answer::getClassId, spec.getClassId())
+				// 班级级老师的班级范围：空列表 = 没有班级级权限（或本来就是项目协作者），不加条件
+				.in(spec.getClassScope() != null && !spec.getClassScope().isEmpty(), Answer::getClassId,
+						spec.getClassScope())
 				.isNotNull(Answer::getAnswer)
 				// 只导已交卷的：暂存草稿没有成绩，生成成绩单没有意义
 				.and(wrapper -> wrapper.eq(Answer::getTempSave, 1).or().isNull(Answer::getTempSave))
@@ -1203,6 +1215,12 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		/** 指定导出的答卷 id；为空表示不限（即整个范围内的全部答卷） */
 		private List<String> ids;
 
+		/**
+		 * 班级级权限范围（{@code t_class_resource} 分配给「我带的班」的班级 id）。
+		 * 为空/null 表示没有班级级限制（项目协作者、管理员，或压根没有班级级权限）。
+		 */
+		private List<String> classScope;
+
 		private Integer attemptNo;
 
 		private Date startTime;
@@ -1252,6 +1270,11 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		public ExportSpec ids(List<String> ids) {
 			this.ids = ids;
+			return this;
+		}
+
+		public ExportSpec classScope(List<String> classScope) {
+			this.classScope = classScope;
 			return this;
 		}
 
@@ -1320,6 +1343,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		public List<String> getIds() {
 			return ids;
+		}
+
+		public List<String> getClassScope() {
+			return classScope;
 		}
 
 		public Integer getAttemptNo() {

@@ -54,7 +54,8 @@ class AnswerPdfJobOutputsTest {
 
 	private final AnswerPdfJobServiceImpl service = new AnswerPdfJobServiceImpl(mock(AnswerMapper.class),
 			mock(AnswerViewMapper.class), mock(ProjectMapper.class), mock(DeptMapper.class), mock(UserMapper.class),
-			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class));
+			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class),
+			mock(AnswerAccessGuard.class));
 
 	/* ====== 格式解析 ====== */
 

@@ -45,7 +45,8 @@ class AnswerPdfJobServiceImplScopeTest {
 
 	private final AnswerPdfJobServiceImpl service = new AnswerPdfJobServiceImpl(mock(AnswerMapper.class),
 			mock(AnswerViewMapper.class), mock(ProjectMapper.class), mock(DeptMapper.class), mock(UserMapper.class),
-			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class));
+			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class),
+			mock(AnswerAccessGuard.class));
 
 	/** 单测不启动 MyBatis，Lambda 缓存是空的：{@code Answer::getClassId} 解析不出列名 */
 	@BeforeAll
