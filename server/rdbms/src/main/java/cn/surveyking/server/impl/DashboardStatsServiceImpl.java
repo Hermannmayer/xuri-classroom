@@ -405,8 +405,9 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 	 * {@code TableInfo.isWithLogicDelete()=false}，User/Dept/Project/Answer/ClassResource 都是 true）。
 	 */
 	private void fillQuestions(DashboardOverviewView.Questions questions) {
-		questions.setRepos(safeCount("questions.repos",
-				() -> repoMapper.selectCount(new QueryWrapper<Repo>().eq("is_deleted", 0))));
+		// t_repo 没有软删列（删除是物理删），加 where 反而会 1054 Unknown column 被 safe() 吞成 0，
+		// 首页就会显示「题库 0 个」而实际上有 46 个
+		questions.setRepos(safeCount("questions.repos", () -> repoMapper.selectCount(null)));
 		questions.setTemplates(safeCount("questions.templates", () -> templateMapper.selectCount(new QueryWrapper<Template>())));
 	}
 

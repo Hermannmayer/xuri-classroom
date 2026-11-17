@@ -75,7 +75,8 @@ export function AreaTrend({
     const max = Math.max(...finite);
     const spread = max - min;
     const pad = spread > 0 ? spread * 0.18 : Math.max(1, Math.abs(max) * 0.1);
-    lo = min - pad;
+    // 分数不会是负的：下界贴 0，别让 y 轴出现 -50 这种把图压扁又误导的刻度
+    lo = min >= 0 ? 0 : min - pad;
     hi = max + pad;
   }
   if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
