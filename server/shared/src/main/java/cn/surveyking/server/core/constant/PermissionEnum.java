@@ -151,6 +151,10 @@ public enum PermissionEnum {
 	NOTICE_MANAGE_SYSTEM("notice:manage:system", "管理全站公告", Group.NOTICE, "受众可选 all / admin / teacher / student；只给管理员", false),
 	NOTICE_MANAGE_CLASS("notice:manage:class", "管理班级公告", Group.NOTICE, "只能发给「自己可见的班」；老师用这个，发不了全站", false),
 
+	/* ------ AI */
+
+	AI_USE("ai:use", "使用 AI 助手", Group.AI, "AI 出卷 / 改题 / 批改建议 / 学情总结；默认给 admin 与 teacher，学员不给", false),
+
 	CONTENT_PROTECT("content:protect", "水印与防复制策略", Group.CONTENT, "全站水印与防复制开关；文档里标注可与修改系统设置二选一", true);
 
 	/* ---------------------------------------------------------------- 其它 */
@@ -201,7 +205,7 @@ public enum PermissionEnum {
 	public enum Group {
 
 		PORTAL("视角"), EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), CLASS("班级"), FILE("文件"), USER("用户"),
-		SYSTEM("系统"), NOTICE("公告"), CONTENT("内容保护"), OTHER("其它");
+		SYSTEM("系统"), NOTICE("公告"), AI("AI"), CONTENT("内容保护"), OTHER("其它");
 
 		private final String label;
 

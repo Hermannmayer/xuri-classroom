@@ -1,6 +1,55 @@
 # 由 npm run docs:gen 从 docs/modules/*.md frontmatter 生成；不要手改。
 version: 1
 modules:
+  - id: module-ai
+    title: AI 助手
+    doc: docs/modules/ai.md
+    keywords:
+      - AI
+      - 出卷
+      - 改题
+      - 批改建议
+      - 学情总结
+      - AiGateway
+      - PromptRegistry
+      - AiJobService
+      - AiContentGuard
+      - t_ai_usage
+      - ai:use
+      - 限额
+      - token
+    source_globs:
+      - server/ai/**
+      - server/api/src/main/java/cn/surveyking/server/api/AiApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AiUsage.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/AiUsageMapper.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AiUsageService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AiUsageServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AiAssistService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AiAssistServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/Ai*.java
+      - client/src/pages/survey/ai/**
+    entrypoints:
+      - server/ai/src/main/java/cn/surveyking/server/ai/core/AiGateway.java
+      - server/ai/src/main/java/cn/surveyking/server/ai/core/AiJobService.java
+      - server/api/src/main/java/cn/surveyking/server/api/AiApi.java
+      - client/src/pages/survey/Editor.tsx
+    apis:
+      - POST /api/ai/paper/generate
+      - GET /api/ai/paper/job/{jobId}
+      - POST /api/ai/paper/apply
+      - POST /api/ai/question/rewrite
+      - POST /api/ai/grade/suggest
+      - POST /api/ai/report/summary
+      - GET /api/ai/usage/today
+    tables:
+      - t_ai_usage
+    tests:
+      - server/rdbms/src/test/java/cn/surveyking/server/ai/AiContentGuardTest.java
+      - server/rdbms/src/test/java/cn/surveyking/server/impl/AiUsageServiceImplTest.java
+      - server/rdbms/src/test/java/cn/surveyking/server/impl/AiAssistServiceImplTest.java
+    last_verified: 2026-11-17
+    verified_against: 815f8418
   - id: module-answer
     title: 答卷、判分与报表
     doc: docs/modules/answer.md

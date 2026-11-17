@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Checkbox, Drawer, Dropdown, Input, InputNumber, message, Modal, Radio, Space, Spin, Switch, Tabs, Tooltip, Upload } from 'antd';
+import { Alert, Button, Card, Checkbox, Drawer, Dropdown, Input, InputNumber, message, Modal, Radio, Space, Spin, Switch, Tabs, Tooltip, Upload } from 'antd';
 import {
   ArrowLeftOutlined,
   BgColorsOutlined,
@@ -12,8 +12,10 @@ import {
   ImportOutlined,
   PrinterOutlined,
   RedoOutlined,
+  RobotOutlined,
   UploadOutlined,
   SaveOutlined,
+  ThunderboltOutlined,
   UndoOutlined,
   UpOutlined,
 } from '@ant-design/icons';
@@ -37,6 +39,10 @@ import { useHistoryState } from '../../designer/useHistory';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
 import RichTextEditor from '../../components/RichTextEditor';
 import BankPickModal from './BankPickModal';
+import AiPaperModal from './ai/AiPaperModal';
+import AiRewriteDrawer from './ai/AiRewriteDrawer';
+import { can, loadAuthorities } from '../../auth/permissions';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 import type { ImportFormat } from '../../api/import';
 
 const CONTAINER: Set<QuestionType> = new Set(['Survey', 'QuestionSet', 'Pagination']);
@@ -290,6 +296,17 @@ export default function SurveyEditor() {
   });
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  /* ---- AI 出卷 / AI 改题（P4）：入口全部按 ai:use 门控 ---- */
+  /** 权限列表：没回来之前不渲染 AI 入口（判定统一走 auth/permissions 的 can()） */
+  const [authorities, setAuthorities] = useState<string[]>();
+  const [aiOpen, setAiOpen] = useState(false);
+  /** 正在做 AI 优化的题目 id；undefined = 侧栏关着 */
+  const [aiRewriteId, setAiRewriteId] = useState<string>();
+  /** AI 改题前的题干快照：同一道题只记第一次改之前的样子，「恢复原题干」用它 */
+  const [aiBefore, setAiBefore] = useState<Record<string, { title: string; description?: string }>>({});
+  /** 选中卡片上「AI 优化」浮标的位置（视口坐标，跟着卡片滚动） */
+  const [aiChip, setAiChip] = useState<{ top: number; left: number } | null>(null);
+
   const uploadThemeImage = async (file: File, key: 'backgroundImage' | 'headerImage') => {
     try {
       const form = new FormData();
@@ -355,6 +372,19 @@ export default function SurveyEditor() {
 
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
+  /**
+   * AI 入口的权力判定：没有 ai:use 就完全不渲染（不是灰掉），和权限页同一份数据。
+   * 只有数据题（不是分割线 / 说明这类结构节点）才有题干可改。
+   */
+  const canAi = can(authorities ?? [], PERMISSION_CODES.aiUse);
+  const aiTarget = selected && DATA_TYPES.has(selected.type) ? selected : undefined;
+  /** 右键菜单里的 AI 入口：同样只认数据题 */
+  const contextAiTarget = useMemo(() => {
+    if (!contextMenu || !canAi) return undefined;
+    const node = findNode(survey, contextMenu.id);
+    return node && DATA_TYPES.has(node.type) ? node : undefined;
+  }, [contextMenu, canAi, survey]);
+
   const flatQuestions = useMemo(() => flattenSchema(survey), [survey]);
   const scoreGroups = useMemo(() => collectScoreGroups(survey), [survey]);
   const allScoreSelected = scoreGroups.length > 0 && scoreGroups.every((group) => scoreSelected[group.type]);
@@ -362,6 +392,48 @@ export default function SurveyEditor() {
   useEffect(() => {
     setRightTab(selectedId ? 'question' : 'quick');
   }, [selectedId]);
+
+  // 权限列表：和 Overview / Data 一样，页面自己拉一次
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+
+  /**
+   * 选中题目的「AI 优化」浮标。
+   *
+   * 题目卡片由共享渲染器 SchemaRenderer 画（答题页也在用），不能往里塞编辑器专属按钮；
+   * 这里按卡片在视口中的位置放一个 fixed 定位的小按钮，跟着画布滚动/窗口缩放重新贴位。
+   */
+  useEffect(() => {
+    if (!canAi || !aiTarget) {
+      setAiChip(null);
+      return;
+    }
+    const canvas = canvasRef.current;
+    const el = canvas?.querySelector<HTMLElement>(`[data-qid="${aiTarget.id}"]`);
+    if (!canvas || !el) {
+      setAiChip(null);
+      return;
+    }
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      // 卡片滚出画布可视区就收起，别让按钮飘在别的面板上
+      if (rect.bottom < canvasRect.top + 4 || rect.top > canvasRect.bottom - 4) {
+        setAiChip(null);
+        return;
+      }
+      const next = { top: rect.top + 4, left: Math.max(rect.left + 4, rect.right - 96) };
+      setAiChip((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [canAi, aiTarget, survey]);
 
   /** 快捷设置：立即写 setting，和设置页同一份数据 */
   const patchAnswerSetting = (patch: Record<string, unknown>) => {
@@ -558,6 +630,10 @@ export default function SurveyEditor() {
       setSelectedId(copy.id);
       return;
     }
+    if (key === 'ai') {
+      openAiRewrite(nodeId);
+      return;
+    }
     if (key === 'up') {
       handleMove(nodeId, -1);
       return;
@@ -598,18 +674,98 @@ export default function SurveyEditor() {
     [survey, selectedId, setSurvey],
   );
 
-  const save = async () => {
+  /**
+   * 保存指定的树。
+   *
+   * 单独抽出来是给「AI 采纳后立即保存」用的：setSurvey 是异步的，拿不到下一棵树的 state，
+   * 所以调用方把算好的树传进来，落库和 baseline 都用同一份，避免「保存的是旧的、画布是新的」。
+   */
+  const persist = async (tree: SurveySchema, hint = '已保存') => {
     setSaving(true);
     try {
       // 保存前补齐 children：后端提交链路会直接取每道题的 children.get(0)
-      await updateProject({ id, name, survey: normalizeSchema(survey), setting });
-      baselineRef.current = JSON.stringify({ name, survey });
-      message.success('已保存');
+      await updateProject({ id, name, survey: normalizeSchema(tree), setting });
+      baselineRef.current = JSON.stringify({ name, survey: tree });
+      message.success(hint);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const save = async () => {
+    await persist(survey);
+  };
+
+  /**
+   * AI 出卷结果写进画布。
+   *
+   * 和「从题库添加」一个套路：包成一个题组追加到末尾，一次 setSurvey = 一个撤销步。
+   * **不落库**，除非老师勾了「采纳后立即保存」——计划 §6.3 ① 要求预览后再落库。
+   */
+  const handleAiAdopt = (questions: SurveySchema[], options: { save: boolean }) => {
+    if (!questions.length) return;
+    const group: SurveySchema = {
+      id: newId(),
+      type: 'QuestionSet',
+      title: 'AI 生成（' + questions.length + ' 题）',
+      attribute: {},
+      children: questions.map((question) => ({
+        ...question,
+        attribute: { ...(question.attribute ?? {}), required: question.attribute?.required ?? true },
+      })),
+    };
+    const next = insertNode(survey, undefined, group);
+    setSurvey(next);
+    setSelectedId(questions[0].id);
+    if (options.save) {
+      void persist(next, '已写入 ' + questions.length + ' 题并保存');
+    } else {
+      message.success('已写入 ' + questions.length + ' 题，记得保存');
+    }
+  };
+
+  /**
+   * 打开 AI 优化侧栏。
+   *
+   * 题干随请求带给后端（后端支持可选的 title/type），所以**不用**先保存：
+   * 老师刚改完的题干也能立刻让 AI 改。
+   */
+  const openAiRewrite = (nodeId: string) => {
+    if (!findNode(survey, nodeId)) return;
+    setAiRewriteId(nodeId);
+  };
+
+  /** 采纳 AI 建议：只换题干，并把改之前的题干留成快照（同一道题只记第一次，恢复能回到最初） */
+  const handleAiRewriteAdopt = (text: string) => {
+    const nodeId = aiRewriteId;
+    if (!nodeId) return;
+    const node = findNode(survey, nodeId);
+    if (!node) return;
+    setAiBefore((prev) =>
+      prev[nodeId] ? prev : { ...prev, [nodeId]: { title: node.title, description: node.description } },
+    );
+    setSurvey(updateNode(survey, nodeId, () => ({ title: text })));
+    if (node.attribute?.richTitle) {
+      // AI 只回纯文本：带图的题干换成建议后图片会丢，提醒一句（快照能恢复）
+      message.warning('这道题题干里有富文本/图片，换成 AI 建议后图片会丢，需要时点「恢复原题干」');
+      return;
+    }
+    message.success('已换成 AI 建议的题干，原题干已留快照');
+  };
+
+  /** 恢复 AI 改之前的题干（也算一个撤销步，手滑还能 Ctrl+Z） */
+  const restoreAiBefore = (nodeId: string) => {
+    const snapshot = aiBefore[nodeId];
+    if (!snapshot) return;
+    setSurvey(updateNode(survey, nodeId, () => ({ title: snapshot.title, description: snapshot.description })));
+    setAiBefore((prev) => {
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+    message.success('已恢复 AI 修改前的题干');
   };
 
   // 刷新/关标签页时也拦一下，避免手快丢改动
@@ -767,6 +923,12 @@ export default function SurveyEditor() {
         >
           JSON
         </Button>
+        {/* AI 出卷入口：没有 ai:use 的老师看不到 */}
+        {canAi && (
+          <Button icon={<RobotOutlined />} onClick={() => setAiOpen(true)}>
+            AI 生成试卷
+          </Button>
+        )}
         <Dropdown
           trigger={['click']}
           menu={{
@@ -802,6 +964,31 @@ export default function SurveyEditor() {
           保存
         </Button>
       </div>
+
+      {/* 选中卡片上的「AI 优化」浮标：fixed 定位跟着卡片走，点它不会冒泡到画布（避免触发拖拽/重选） */}
+      {canAi && aiChip && aiTarget && (
+        <Button
+          size="small"
+          icon={<ThunderboltOutlined />}
+          draggable={false}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            openAiRewrite(aiTarget.id);
+          }}
+          style={{
+            position: 'fixed',
+            top: aiChip.top,
+            left: aiChip.left,
+            zIndex: 30,
+            border: '1px solid var(--bp-line)',
+            background: 'var(--bp-panel-strong)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+          }}
+        >
+          AI 优化
+        </Button>
+      )}
 
       <div className="sk-designer" style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
         {/* 左栏：题型 + 大纲 */}
@@ -1123,9 +1310,44 @@ export default function SurveyEditor() {
                 label: '题目',
                 children: selected ? (
                   <>
-                    <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)', marginBottom: 8 }}>
-                      PROPERTIES / 属性 · {selected.type}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'var(--bp-text-soft)' }}>
+                        PROPERTIES / 属性 · {selected.type}
+                      </div>
+                      {canAi && DATA_TYPES.has(selected.type) && (
+                        <Button
+                          size="small"
+                          type="text"
+                          icon={<ThunderboltOutlined />}
+                          onClick={() => openAiRewrite(selected.id)}
+                        >
+                          AI 优化
+                        </Button>
+                      )}
                     </div>
+                    {aiBefore[selected.id] && (
+                      <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 10, alignItems: 'flex-start' }}
+                        message={
+                          <span style={{ fontSize: 12 }}>这道题的题干被 AI 改过，改之前的样子已留快照</span>
+                        }
+                        action={
+                          <Button size="small" onClick={() => restoreAiBefore(selected.id)}>
+                            恢复原题干
+                          </Button>
+                        }
+                      />
+                    )}
                     {selected.type === 'Remark' ? (
                       <>
                         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>
@@ -1349,6 +1571,23 @@ export default function SurveyEditor() {
         </div>
       </Modal>
 
+      {/* AI 出卷：预览后才写画布；AI 改题：采纳后留 before 快照 */}
+      {canAi && (
+        <AiPaperModal open={aiOpen} projectId={id} onAdopt={handleAiAdopt} onClose={() => setAiOpen(false)} />
+      )}
+
+      {canAi && (
+        <AiRewriteDrawer
+          open={Boolean(aiRewriteId)}
+          projectId={id}
+          questionId={aiRewriteId}
+          title={aiRewriteId ? findNode(survey, aiRewriteId)?.title : undefined}
+          type={aiRewriteId ? findNode(survey, aiRewriteId)?.type : undefined}
+          onAdopt={handleAiRewriteAdopt}
+          onClose={() => setAiRewriteId(undefined)}
+        />
+      )}
+
       <BankPickModal
         open={bankOpen}
         excludeIds={flattenSchema(survey)
@@ -1568,6 +1807,7 @@ export default function SurveyEditor() {
           items: [
             { key: 'edit', label: '编辑属性', icon: <EditOutlined /> },
             { key: 'copy', label: '复制一份', icon: <CopyOutlined /> },
+            ...(contextAiTarget ? [{ key: 'ai', label: 'AI 优化题干', icon: <ThunderboltOutlined /> }] : []),
             { type: 'divider' },
             { key: 'up', label: '上移', icon: <UpOutlined /> },
             { key: 'down', label: '下移', icon: <DownOutlined /> },

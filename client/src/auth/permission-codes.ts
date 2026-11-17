@@ -93,6 +93,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { code: "notice:list", name: "查看公告", group: "NOTICE", studentOnly: false },
   { code: "notice:manage:system", name: "管理全站公告", group: "NOTICE", studentOnly: false },
   { code: "notice:manage:class", name: "管理班级公告", group: "NOTICE", studentOnly: false },
+  { code: "ai:use", name: "使用 AI 助手", group: "AI", studentOnly: false },
   { code: "content:protect", name: "水印与防复制策略", group: "CONTENT", studentOnly: false },
 ];
 
@@ -194,5 +195,6 @@ export const PERMISSION_CODES = {
   noticeList: 'notice:list',
   noticeManageSystem: 'notice:manage:system',
   noticeManageClass: 'notice:manage:class',
+  aiUse: 'ai:use',
   contentProtect: 'content:protect',
 } as const;

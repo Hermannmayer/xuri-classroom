@@ -2,10 +2,17 @@
 
 # 接口表（生成）
 
-> 共 225 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 232 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
+| POST | `${api.prefix}/ai/paper/generate` | `AiApi#generatePaper` | `hasAuthority('ai:use')` | — |
+| GET | `${api.prefix}/ai/paper/job/{jobId}` | `AiApi#paperJob` | `hasAuthority('ai:use')` | — |
+| POST | `${api.prefix}/ai/paper/apply` | `AiApi#applyPaper` | `hasAuthority('ai:use') and hasAuthority('project:update')` | — |
+| POST | `${api.prefix}/ai/question/rewrite` | `AiApi#rewriteQuestion` | `hasAuthority('ai:use')` | — |
+| POST | `${api.prefix}/ai/grade/suggest` | `AiApi#suggestGrade` | `hasAuthority('ai:use') and hasAuthority('answer:grade')` | — |
+| POST | `${api.prefix}/ai/report/summary` | `AiApi#summarizeReport` | `hasAuthority('ai:use')` | — |
+| GET | `${api.prefix}/ai/usage/today` | `AiApi#usageToday` | `hasAuthority('ai:use')` | — |
 | GET | `${api.prefix}/answer/list` | `AnswerApi#listAnswer` | `hasAuthority('answer:list')` | 是 |
 | GET | `${api.prefix}/answer/trash` | `AnswerApi#listAnswerDeleted` | `hasAuthority('answer:list')` | 是 |
 | GET | `${api.prefix}/answer` | `AnswerApi#getAnswer` | `hasAuthority('answer:detail')` | — |

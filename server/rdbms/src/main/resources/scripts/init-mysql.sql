@@ -538,14 +538,14 @@ CREATE TABLE `t_role` (
 -- Records of t_role
 -- ----------------------------
 BEGIN;
-INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect,notice:list,notice:manage:system,notice:manage:class', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
+INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect,notice:list,notice:manage:system,notice:manage:class,ai:use', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
 -- 老师：能建/编/发考试与题库、看答卷与报表、管班级；没有 system:*
 -- 答卷侧给了 answer:delete / answer:restore（回收站里能删能恢复），删除范围仍受
 -- AnswerAccessGuard 限制：只能动自己负责项目下的答卷，只有 admin 是全量。
 -- 学员：答题、练习、错题本、看题库；没有 project:create/update 等管理权限，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import,notice:list,notice:manage:class', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import,notice:list,notice:manage:class,ai:use', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
 ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student,notice:list', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
@@ -810,6 +810,26 @@ CREATE TABLE IF NOT EXISTS `t_notice_read` (
   UNIQUE KEY `uk_notice_read` (`notice_id`, `user_id`),
   KEY `idx_notice_read_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告已读记录';
+
+-- ----------------------------
+-- Table structure for t_ai_usage（AI 用量记账）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `t_ai_usage` (
+  `id`                varchar(64)  NOT NULL COMMENT 'ID',
+  `user_id`           varchar(64)  NOT NULL COMMENT '调用人（t_user.id）',
+  `scene`             varchar(32)  NOT NULL COMMENT '场景：paper_generate / question_rewrite / grade_suggest / report_summary',
+  `model`             varchar(120) DEFAULT NULL COMMENT '模型 id',
+  `prompt_tokens`     int          NOT NULL DEFAULT 0 COMMENT '输入 token',
+  `completion_tokens` int          NOT NULL DEFAULT 0 COMMENT '输出 token',
+  `total_tokens`      int          NOT NULL DEFAULT 0 COMMENT '合计 token',
+  `cost_ms`           bigint       NOT NULL DEFAULT 0 COMMENT '耗时（毫秒）',
+  `status`            varchar(16)  NOT NULL DEFAULT 'ok' COMMENT 'ok / error / rejected',
+  `error`             varchar(500) DEFAULT NULL COMMENT '失败原因摘要',
+  `create_at`         timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_usage_user_day` (`user_id`, `create_at`),
+  KEY `idx_ai_usage_scene` (`scene`, `create_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 用量记账';
 
 -- ----------------------------
 -- Table structure for t_audit_log（操作审计）

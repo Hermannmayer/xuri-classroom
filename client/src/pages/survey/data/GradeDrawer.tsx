@@ -13,13 +13,19 @@
  * - 分数框 Enter：保存并跳到下一题；
  * - 评语框 Ctrl/⌘ + Enter：保存并跳到下一题（Enter 仍是换行）；
  * - ← / →：在题目卡片之间切换（焦点在输入框里时保留光标移动，避免打字时跳题）。
+ *
+ * AI 批改建议（计划 §6.3 ③）：每题头部的「AI 建议」→ POST /api/ai/grade/suggest →
+ * 展示建议分 / 把握度 / 评分点命中 / 理由。点「采纳」**只把分数填进上面的输入框**，
+ * AI 不自动落分——确认后仍需老师点「保存批改」走原有批改接口。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Collapse, Drawer, Empty, Input, InputNumber, Space, Spin, Tag, Timeline } from 'antd';
-import { HistoryOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, HistoryOutlined, RobotOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { get, getGradeDetail, resetGrade, submitGrade } from '../../../api';
+import { get, getGradeDetail, post, resetGrade, submitGrade } from '../../../api';
 import type { GradeDetail, GradeItem } from '../../../api';
+import { can, loadAuthorities } from '../../../auth/permissions';
+import { PERMISSION_CODES } from '../../../auth/permission-codes';
 import type { Answer } from '../../../schema/project';
 import { flattenSchema } from '../../../schema/flatten';
 import type { AnswerValue } from '../../../renderer/types';
@@ -211,6 +217,60 @@ function changeParts(
   return parts;
 }
 
+/* ------ AI 批改建议（计划 §6.3 ③）：只给建议、不落分 */
+
+/**
+ * 单题 AI 建议的返回体（后端 `AiGradeSuggestView`）。
+ *
+ * <p>契约见计划 §6.3 ③：{ score, confidence, points: [{ point, hit }], reason }。
+ * 字段一律按「可能缺省」处理——模型偶尔只给理由不给分，前端不能因此整块白掉。
+ */
+interface GradeSuggestion {
+  /** 建议分；后端没算出分时为空 */
+  score?: number;
+  /** 把握程度：0~1 的比例（兼容 >=1 时已经是百分数的口径，见 suggestionConfidence） */
+  confidence?: number;
+  /** 评分点命中情况：point 是评分点描述，hit 表示学员答案有没有答到 */
+  points?: Array<{ point?: string; hit?: boolean }>;
+  /** 一句话理由，展示给老师看 */
+  reason?: string;
+}
+
+/** 单题 AI 建议的面板状态：加载中 / 拿到建议 / 失败，三者互斥 */
+interface AiSuggestionState {
+  loading?: boolean;
+  data?: GradeSuggestion;
+  error?: string;
+}
+
+/** 置信度低于这个值就提示「建议人工复核」（后端 AiGradeSuggestView#confidence 口径：0~1） */
+const LOW_CONFIDENCE = 0.6;
+
+/**
+ * 请求 AI 批改建议（同步，2~5 秒，后端 `AiApi#gradeSuggest`）。
+ *
+ * <p>请求体就是 `{ answerId, questionId }`。按项目约定这类调用应该收敛到
+ * `client/src/api/ai.ts`，但那个文件现在归 AI 出卷/改题那边改（同文件并发容易冲突），
+ * 所以这里先就地调 `post`，等两条线合流再搬过去。
+ */
+const requestGradeSuggestion = (data: { answerId: string; questionId: string }) =>
+  post<GradeSuggestion>('/api/ai/grade/suggest', data);
+
+/** 建议分归一：后端已把分数夹到 0~满分，这里只挡 null / 非法值（取不出来就当「这次没给分」） */
+function suggestionScore(value?: number): number | undefined {
+  // null 要单独挡：Number(null) === 0，会被当成「建议 0 分」静悄悄填进去
+  if (value === null || value === undefined) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+/** 把握程度文案：0~1 当比例、>=1 当已经是百分数；拿不到就不显示，不猜 */
+function suggestionConfidence(value?: number): string | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
+  const percent = value <= 1 ? value * 100 : value;
+  return `把握 ${Math.round(Math.min(percent, 100))}%`;
+}
+
 export default function GradeDrawer({ open, answerId, onClose, onChanged }: GradeDrawerProps) {
   const { message } = App.useApp();
   const [detail, setDetail] = useState<GradeDetail>();
@@ -230,6 +290,14 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
   /** 已经加载过哪份答卷的时间线：同一条反复收起展开不重复请求 */
   const [timelineFor, setTimelineFor] = useState<string>();
   const [timelineKeys, setTimelineKeys] = useState<string[]>([]);
+  /** AI 批改建议（计划 §6.3 ③）：questionId → 状态，两道题同时请求也不会互相覆盖 */
+  const [aiSuggest, setAiSuggest] = useState<Record<string, AiSuggestionState>>({});
+  /** 没有 ai:use 就不渲染「AI 建议」按钮，避免「看得见、点了 403」 */
+  const [authorities, setAuthorities] = useState<string[]>([]);
+
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
 
   const load = useCallback(async () => {
     if (!answerId) return;
@@ -270,6 +338,8 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     setTimelineFor(undefined);
     setTimelineError(undefined);
     setTimelineKeys([]);
+    // AI 建议是按题存的，换一份答卷/重新打开时也不能留着上一份的建议
+    setAiSuggest({});
   }, [answerId, open]);
 
   /**
@@ -332,6 +402,8 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
   const items = useMemo(() => detail?.items ?? [], [detail]);
   const editableItems = useMemo(() => items.filter((item) => item.editable), [items]);
   const unanswered = editableItems.filter((item) => typeof scores[item.questionId] !== 'number').length;
+  /** 权限闸门：AI 建议按钮只在有 ai:use 时出现（后端 @PreAuthorize 也是它） */
+  const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
 
   const move = useCallback(
     (delta: number) => {
@@ -422,6 +494,141 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * 请求某道题的 AI 建议。
+   *
+   * <p>失败只在面板里说明、不弹全局 message：老师正在批改，
+   * 一条失败的 toast 会把刚打的分数挡住；面板就在按钮下面，看得见。
+   */
+  const askAi = async (item: GradeItem) => {
+    if (!detail) return;
+    const questionId = item.questionId;
+    setAiSuggest((prev) => ({ ...prev, [questionId]: { loading: true } }));
+    try {
+      const suggestion = await requestGradeSuggestion({ answerId: detail.answerId, questionId });
+      setAiSuggest((prev) => ({ ...prev, [questionId]: { data: suggestion ?? {} } }));
+    } catch (e) {
+      setAiSuggest((prev) => ({
+        ...prev,
+        [questionId]: { error: (e as Error).message || '请求失败' },
+      }));
+    }
+  };
+
+  /**
+   * 采纳建议：**只把分数写进输入框，不调保存接口**。
+   *
+   * <p>计划 §6.3 ③ 的关键约束——AI 只给建议不落分，判错分的责任留在人身上；
+   * 老师确认后仍然点「保存批改」，走原来的 POST /api/answer/grade 落库（会进审计）。
+   * 后端给的分数已夹在 0~满分之间，这里再夹一次只是二道防线（分数框 max 同口径）。
+   */
+  const adoptSuggestion = (item: GradeItem, score: number) => {
+    const max = typeof item.maxScore === 'number' ? item.maxScore : undefined;
+    const clamped = Math.max(0, typeof max === 'number' ? Math.min(score, max) : score);
+    setScores((prev) => ({ ...prev, [item.questionId]: clamped }));
+    if (clamped !== score) {
+      message.warning(`建议分 ${formatScore(score)} 超出本题满分，已按 ${formatScore(clamped)} 分填入`);
+      return;
+    }
+    message.success(`已填入 ${formatScore(clamped)} 分，确认无误后点「保存批改」`);
+  };
+
+  /**
+   * AI 建议面板：只展示、不改分。
+   *
+   * <p>三种状态各自给明确反馈（加载中 / 拿到建议 / 失败可重试），
+   * 失败时明确写「不影响手动批改」，别让老师以为批改被卡住。
+   */
+  const renderAiPanel = (item: GradeItem, ai: AiSuggestionState) => {
+    const score = suggestionScore(ai.data?.score);
+    const confidence = suggestionConfidence(ai.data?.confidence);
+    const points = ai.data?.points ?? [];
+    /** 把握不高：后端建议「置信度偏低时提示人工复核」，别让老师直接照抄 */
+    const lowConfidence =
+      typeof ai.data?.confidence === 'number' &&
+      ai.data.confidence > 0 &&
+      ai.data.confidence < LOW_CONFIDENCE;
+    // 后端已夹到 0~满分；这里仍留一道，防老版本或模型直出的异常分
+    const outOfRange =
+      typeof score === 'number' && typeof item.maxScore === 'number' && score > item.maxScore;
+    return (
+      <div
+        style={{
+          flex: '1 1 100%',
+          border: '1px solid var(--bp-orange-line)',
+          background: 'var(--bp-orange-weak)',
+          borderRadius: 4,
+          padding: '8px 10px',
+          fontSize: 12,
+          lineHeight: 1.7,
+        }}
+      >
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <b>
+            <RobotOutlined /> AI 建议
+          </b>
+          {ai.loading ? (
+            <span style={{ color: 'var(--bp-text-soft)' }}>AI 正在看这道题（2~5 秒）…</span>
+          ) : typeof score === 'number' ? (
+            <span>
+              建议 <b style={{ color: 'var(--bp-orange)' }}>{formatScore(score)}</b> 分
+              {typeof item.maxScore === 'number' ? ` / 满分 ${formatScore(item.maxScore)} 分` : ''}
+            </span>
+          ) : ai.data ? (
+            <span style={{ color: 'var(--bp-text-soft)' }}>这次没给出分数，只能参考下面的理由</span>
+          ) : null}
+          {confidence ? <Tag style={{ marginInlineEnd: 0 }}>{confidence}</Tag> : null}
+          <span style={{ flex: 1 }} />
+          {!ai.loading && typeof score === 'number' ? (
+            <Button size="small" type="primary" onClick={() => adoptSuggestion(item, score)}>
+              采纳
+            </Button>
+          ) : null}
+          {ai.error ? (
+            <Button size="small" onClick={() => void askAi(item)}>
+              重试
+            </Button>
+          ) : null}
+        </div>
+        {ai.error ? (
+          <div style={{ marginTop: 4, color: 'var(--bp-text-soft)' }}>
+            AI 建议暂时拿不到（{ai.error}），不影响手动批改。
+          </div>
+        ) : null}
+        {lowConfidence ? (
+          <div style={{ marginTop: 4, color: 'var(--bp-orange)' }}>
+            把握不高，建议人工复核——AI 可能漏看采分点。
+          </div>
+        ) : null}
+        {points.length > 0 ? (
+          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {points.map((point, index) => (
+              <div key={index} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                <span style={{ width: 14, color: point.hit ? 'var(--bp-blue)' : 'var(--bp-text-soft)' }}>
+                  {point.hit ? <CheckOutlined /> : <CloseOutlined />}
+                </span>
+                <span style={{ color: point.hit ? 'var(--bp-text)' : 'var(--bp-text-soft)' }}>
+                  {point.point || '未命名的评分点'}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {ai.data?.reason ? <div style={{ marginTop: 6 }}>理由：{ai.data.reason}</div> : null}
+        {outOfRange ? (
+          <div style={{ marginTop: 4, color: 'var(--bp-orange)' }}>
+            建议分超过本题满分，采纳时会按满分截断。
+          </div>
+        ) : null}
+        {ai.data && !ai.error ? (
+          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+            采纳只是把分数填进上面的输入框，不会自动落分——确认后仍需点「保存批改」。
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   /** 学员答案：优先用整卷 schema 的题目信息格式化（选项题能还原成选项文字） */
@@ -525,6 +732,8 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                 : -1;
               const graded = typeof item.score === 'number';
               const scored = typeof scores[item.questionId] === 'number';
+              /** 这道题的 AI 建议状态（没请求过就是 undefined） */
+              const ai = aiSuggest[item.questionId];
               return (
                 <div
                   key={item.questionId}
@@ -555,6 +764,20 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                         ) : (
                           <Tag>机器判分</Tag>
                         )}
+                        {/* AI 建议入口：放在题头右侧，面板在分数框下面展开（不挡输入） */}
+                        {item.editable && canUseAi ? (
+                          <span style={{ marginLeft: 'auto' }}>
+                            <Button
+                              size="small"
+                              icon={<RobotOutlined />}
+                              loading={ai?.loading}
+                              title="让 AI 给出建议分与理由（只填分数，不会自动落分）"
+                              onClick={() => void askAi(item)}
+                            >
+                              {ai?.data || ai?.error ? '重新建议' : 'AI 建议'}
+                            </Button>
+                          </span>
+                        ) : null}
                       </div>
                       {renderTitle(item)}
                       <div
@@ -630,6 +853,10 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                               撤销
                             </Button>
                           )}
+                          {/* 建议面板独占一行（flex 换行），填分时不会把输入框挤走 */}
+                          {canUseAi && ai && (ai.loading || ai.data || ai.error)
+                            ? renderAiPanel(item, ai)
+                            : null}
                         </div>
                       ) : (
                         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>

@@ -23,6 +23,7 @@
 - [从文件/文本导入一份试卷](https://hermannmayer.github.io/xuri-classroom/flows/paper-import)
 - [权限变更流程](https://hermannmayer.github.io/xuri-classroom/flows/permission-change)
 - [从题库组卷到考试](https://hermannmayer.github.io/xuri-classroom/flows/repo-compose)
+- [AI 助手](https://hermannmayer.github.io/xuri-classroom/modules/ai)
 - [答卷、判分与报表](https://hermannmayer.github.io/xuri-classroom/modules/answer)
 - [操作审计](https://hermannmayer.github.io/xuri-classroom/modules/audit)
 - [登录与账号](https://hermannmayer.github.io/xuri-classroom/modules/auth)

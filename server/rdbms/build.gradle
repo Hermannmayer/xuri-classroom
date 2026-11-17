@@ -10,6 +10,10 @@ repositories {
 
 dependencies {
     implementation project(':shared')
+    // AI 内核（AiGateway / PromptRegistry / AiJobService / AiContentGuard）。
+    // 方向是 rdbms → ai → shared，ai 不依赖任何 DB 模块，所以不会成环；
+    // 四个场景的实现必须在 rdbms（要读项目 schema / 答卷 / 报表，还要过答卷行级权限）。
+    implementation project(':ai')
     // Spring Boot 4 / Jakarta 对应的是 spring-boot4-starter 这一支
     implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.18'
     // 3.5.9 起 PaginationInnerInterceptor 被拆到 jsqlparser 适配构件里，starter 默认不带

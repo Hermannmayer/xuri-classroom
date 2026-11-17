@@ -69,6 +69,12 @@
         "column:t_audit_log.request_id",
         "index:t_audit_log.idx_audit_target"
       ]
+    },
+    {
+      "version": "2.2.4",
+      "requires": [
+        "table:t_ai_usage"
+      ]
     }
   ]
 }

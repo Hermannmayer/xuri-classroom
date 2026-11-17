@@ -323,6 +323,12 @@ public class SystemApi {
 		response.setModels(storedSetting.getModels());
 		response.setDefaultModel(storedSetting.getDefaultModel());
 		response.setPrompt(storedSetting.getPrompt());
+		// 限额：库里没填时回落到默认值，管理员在设置页看到的就是真正生效的数字；
+		// 显式存 0 表示「不限」，原样返回 0（页面显示「不限」）
+		response.setDailyTokenLimit(storedSetting.getDailyTokenLimit() == null
+				? Integer.valueOf(AiUsageService.DEFAULT_DAILY_TOKEN_LIMIT) : storedSetting.getDailyTokenLimit());
+		response.setPerUserDailyLimit(storedSetting.getPerUserDailyLimit() == null
+				? Integer.valueOf(AiUsageService.DEFAULT_PER_USER_TOKEN_LIMIT) : storedSetting.getPerUserDailyLimit());
 		if (!StringUtils.hasText(response.getBaseUrl()) && !StringUtils.hasText(storedSetting.getApiKey())
 				&& StringUtils.hasText(storedSetting.getToken())) {
 			response.setBaseUrl("https://api.siliconflow.cn/v1");

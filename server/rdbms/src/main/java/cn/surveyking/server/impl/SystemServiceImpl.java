@@ -612,6 +612,19 @@ public class SystemServiceImpl implements SystemService {
 		return days;
 	}
 
+	/**
+	 * AI token 限额：负数/0 统一按「不限」处理，上限夹到 1 亿。
+	 *
+	 * <p>为什么不在这里补默认值：null 表示「这次不改这个字段」（前端只改一个开关时不该把限额覆盖成默认值），
+	 * 真正的默认值在 {@code AiUsageServiceImpl#limit} 里兜，只在一处兜才不会「设置里显示 200 万、判断时按不限」。
+	 */
+	private Integer clampTokenLimit(Integer limit) {
+		if (limit == null || limit <= 0) {
+			return Integer.valueOf(0);
+		}
+		return Integer.valueOf(Math.min(limit.intValue(), 100_000_000));
+	}
+
 	private void mergeSysInfo(SysInfo target, SystemInfoRequest request) {
 		if (isNotBlank(request.getName())) {
 			target.setName(request.getName());
@@ -768,6 +781,13 @@ public class SystemServiceImpl implements SystemService {
 			}
 			if (source.getPrompt() != null) {
 				aiSetting.setPrompt(source.getPrompt());
+			}
+			// 双层限额：null 表示「不改」，<= 0 表示「不限」，上限夹到 1 亿（防手滑输天文数字）
+			if (source.getDailyTokenLimit() != null) {
+				aiSetting.setDailyTokenLimit(clampTokenLimit(source.getDailyTokenLimit()));
+			}
+			if (source.getPerUserDailyLimit() != null) {
+				aiSetting.setPerUserDailyLimit(clampTokenLimit(source.getPerUserDailyLimit()));
 			}
 		}
 	}

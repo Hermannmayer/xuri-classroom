@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Empty, Input, Spin, Table, Tag, message } from 'antd';
-import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Button, Card, Empty, Input, Spin, Table, Tag, message } from 'antd';
+import { ReloadOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import { useParams, useSearchParams } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
-import { get, getWithPagination } from '../../api';
+import { get, getWithPagination, post } from '../../api';
+import { can, loadAuthorities } from '../../auth/permissions';
+import { PERMISSION_CODES } from '../../auth/permission-codes';
 import type { Answer } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
 import type { FlatQuestion } from '../../schema/flatten';
@@ -78,6 +80,16 @@ export default function SurveyReport() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  /** AI 学情总结（计划 §6.3 ④）：只吃统计数字，不发送学员原始答卷 */
+  const [authorities, setAuthorities] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  /** 已生成的总结正文；undefined = 还没生成过 */
+  const [aiText, setAiText] = useState<string>();
+  const [aiError, setAiError] = useState<string>();
+  /** 点过按钮才渲染 AI 卡片，避免页面一打开就空占一块位置 */
+  const [aiAsked, setAiAsked] = useState(false);
+  /** 当前总结对应的「项目 + 班级」：切走后旧请求的回包不许再覆盖新页面 */
+  const aiKeyRef = useRef('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,6 +129,52 @@ export default function SurveyReport() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 权限闸门：没有 ai:use 就不渲染「AI 学情总结」，避免「看得见、点了 403」
+  useEffect(() => {
+    void loadAuthorities().then(setAuthorities);
+  }, []);
+  const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
+
+  // 换项目 / 换班级：上一份总结跟新数据没关系，顺手作废在途请求（见 aiKeyRef）
+  useEffect(() => {
+    aiKeyRef.current = '';
+    setAiAsked(false);
+    setAiText(undefined);
+    setAiError(undefined);
+    setAiLoading(false);
+  }, [id, classId]);
+
+  /**
+   * 生成学情总结（同步，3~8 秒）。
+   *
+   * <p>请求体只带 projectId / classId，统计口径由后端自己取（计划 §6.3 ④，后端 `AiReportSummaryView`）：
+   * 「只吃统计数字，不把学员原始答卷发给模型」——隐私与成本双赢。
+   * 失败在卡片里给原因 + 重试入口，不弹 toast（重试按钮就在卡片右上角）。
+   * 按项目约定这类调用应收敛到 `client/src/api/ai.ts`，那边归 AI 出卷/改题在改，先就地调。
+   */
+  const generateSummary = useCallback(async () => {
+    const key = `${id}|${classId ?? ''}`;
+    aiKeyRef.current = key;
+    setAiAsked(true);
+    setAiLoading(true);
+    setAiError(undefined);
+    try {
+      const result = await post<{ text?: string }>('/api/ai/report/summary', {
+        projectId: id,
+        classId,
+      });
+      // 期间切到了别的项目/班级：这份回包作废，不能覆盖新页面的状态
+      if (aiKeyRef.current !== key) return;
+      setAiText((result?.text ?? '').trim());
+    } catch (e) {
+      if (aiKeyRef.current !== key) return;
+      setAiText(undefined);
+      setAiError((e as Error).message || '请求失败');
+    } finally {
+      if (aiKeyRef.current === key) setAiLoading(false);
+    }
+  }, [id, classId]);
 
   /** 问卷结构取最新一份答卷的快照（没有答卷时报表就是空的） */
   const survey = answers[0]?.survey as SurveySchema | undefined;
@@ -214,7 +272,8 @@ export default function SurveyReport() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      {/* 工具条多了「AI 学情总结」一个按钮：窄屏时允许换行，不要横向溢出 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <BackButton label="返回" fallback={'/survey/' + id} style={{ paddingLeft: 0 }} />
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>REPORT / 分析</div>
@@ -231,6 +290,17 @@ export default function SurveyReport() {
           onChange={(e) => setSearch(e.target.value)}
           style={{ width: 200 }}
         />
+        {canUseAi ? (
+          <Button
+            icon={<RobotOutlined />}
+            loading={aiLoading}
+            disabled={answers.length === 0}
+            title={answers.length === 0 ? '还没有答卷，生成学情总结没有意义' : undefined}
+            onClick={() => void generateSummary()}
+          >
+            AI 学情总结
+          </Button>
+        ) : null}
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>
           刷新
         </Button>
@@ -254,6 +324,50 @@ export default function SurveyReport() {
               <div><div style={{ color: 'var(--bp-text-soft)' }}>平均填写时长</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.averageDuration == null ? '—' : `${Math.round(overview.averageDuration / 1000)} 秒`}</div></div>
             </div>
           </Card>
+
+          {/* AI 学情总结（计划 §6.3 ④）：点按钮才生成，加载中 / 失败都有明确状态 */}
+          {aiAsked && (
+            <Card
+              className="bp-corners bp-card"
+              title={<span className="bp-title" style={{ fontSize: 12 }}>AI / 学情总结</span>}
+              extra={
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  loading={aiLoading}
+                  onClick={() => void generateSummary()}
+                >
+                  重新生成
+                </Button>
+              }
+            >
+              {aiLoading ? (
+                <div style={{ padding: '18px 0', textAlign: 'center' }}>
+                  <Spin size="small" />
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                    AI 正在根据本页统计数据生成学情总结（约 3~8 秒）…
+                  </div>
+                </div>
+              ) : aiError ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="学情总结生成失败"
+                  description={`${aiError}。可以点右上角「重新生成」再试一次。`}
+                />
+              ) : aiText ? (
+                <div style={{ fontSize: 13, lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{aiText}</div>
+              ) : (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="这次没有拿到内容，点右上角「重新生成」再试一次"
+                />
+              )}
+              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                AI 生成，仅供参考 · 只读取本页统计数字，不发送学员答卷
+              </div>
+            </Card>
+          )}
 
           {/* 每日答卷趋势 */}
           {daily.entries.length > 0 && (

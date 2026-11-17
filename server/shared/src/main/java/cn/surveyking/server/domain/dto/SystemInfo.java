@@ -239,6 +239,21 @@ public class SystemInfo {
 
 		private String prompt;
 
+		/**
+		 * 全站每日 token 上限（默认 200 万）。
+		 *
+		 * <p>双层限额的第一层：AI 成本失控是这条功能唯一的「账单级」风险，先给保守默认值。
+		 * 为 null 或 <= 0 表示不限（自建模型、学校自己的 key 想放开时用）。
+		 */
+		private Integer dailyTokenLimit;
+
+		/**
+		 * 单用户每日 token 上限（默认 20 万）。
+		 *
+		 * <p>双层限额的第二层：拦住「一个人把全站额度用光」。同样为 null 或 <= 0 表示不限。
+		 */
+		private Integer perUserDailyLimit;
+
 	}
 
 }
