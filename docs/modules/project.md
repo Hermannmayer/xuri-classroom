@@ -103,8 +103,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+last_verified: 2026-11-18
+verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
 ---
 
 # 考试与问卷（项目）
@@ -251,6 +251,12 @@ verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 3. 前端：`client/src/schema/project.ts` 的类型、`client/src/api/index.ts` 的请求、页面表单。
 4. 更新本页 frontmatter 的 `source_globs` 与 `apis`。
 
+## 班级级数据权限（2026-11）
+
+`ProjectPartnerService#getProjectPerms` 仍是「我可见的项目」缓存（所有者/协作者，含按组）；另外新增
+`hasProjectAccess(projectId)`：在缓存结果之外**实时**查 `t_class_resource`——考试分配给自己带的班时也算可访问。
+`DataPermAspect` 与 `AnswerApi#assertProjectExportAllowed` 都改用它，避免「班级资源里有入口、数据页 403」。
+具体能看哪些班的答卷仍由 `AnswerServiceImpl#listAnswer` 按 `class_id` 收窄。
 ## 权限与数据范围
 
 | 动作 | 权限 | 数据范围 |

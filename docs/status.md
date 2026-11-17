@@ -7,7 +7,7 @@
 | 模块 | 最后核对 | 核对 commit | 覆盖文件数 |
 |---|---|---|---|
 | `module-ai` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 103 |
-| `module-answer` | 2026-11-17 | `039ce52f136e995b51f9eaced09a73a8d3b6c652` | 60 |
+| `module-answer` | 2026-11-18 | `8e240e6419dd02fa223eb90b23c1f535328d33c5` | 60 |
 | `module-audit` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 16 |
 | `module-auth` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 14 |
 | `module-compose` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 15 |
@@ -17,8 +17,8 @@
 | `module-import` | 2026-11-17 | `988d65b0e72960d30932d32b8d3aa7c06df393c7` | 29 |
 | `module-mcp` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 31 |
 | `module-notice` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 18 |
-| `module-permissions` | 2026-11-17 | `039ce52f136e995b51f9eaced09a73a8d3b6c652` | 107 |
-| `module-project` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 26 |
+| `module-permissions` | 2026-11-18 | `8e240e6419dd02fa223eb90b23c1f535328d33c5` | 107 |
+| `module-project` | 2026-11-18 | `8e240e6419dd02fa223eb90b23c1f535328d33c5` | 26 |
 | `module-repo` | 2026-11-17 | `988d65b0e72960d30932d32b8d3aa7c06df393c7` | 33 |
 | `module-survey` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 79 |
 | `module-teaching` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 41 |

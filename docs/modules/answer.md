@@ -135,8 +135,8 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-17
-verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
+last_verified: 2026-11-18
+verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
 ---
 
 # 答卷、判分与报表
@@ -381,7 +381,7 @@ verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
 老师把考试分配给「自己带的班」（`t_class_resource`）之后，即使不是项目协作者，也能看这个班的答卷与未交名单。
 范围只限这些班：`listAnswer` 会追加 `class_id IN (...)`，PDF/长图/确认单任务在创建时把班级范围固化进 `ExportSpec.classScope`，
 批改列表同样按班级过滤，批改详情/提交/重置走逐份 `assertAnswerAccess`（不能顺着 projectId 打开别班答卷）。
-管理员与项目所有者/协作者仍是项目级全量。
+管理员与项目所有者/协作者仍是项目级全量。数据页 / 报表这类带 `@EnableDataPerm` 的接口也认这条：`ProjectPartnerService#hasProjectAccess` 先看协作者缓存，再实时查班级分配，否则老师从考试列表点「数据」会 403。
 ## 坑与已知限制
 
 - **答题页的 hook 绝对不能写在提前返回之后**（2026-11-17 线上白屏事故）：`PublicAnswer` 里有

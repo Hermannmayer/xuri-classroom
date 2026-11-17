@@ -143,8 +143,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
+last_verified: 2026-11-18
+verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
 ---
 
 # 权限、角色与用户组
@@ -323,7 +323,7 @@ verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
 - **老师补了题库维护权限**（`repo:create/update/delete/export`、`template:create/update/delete`）：此前老师只能看题库、导入题目（`template:import`），
   新建/改题/删题/导出按钮全被前端按权限点隐藏；已部署库由迁移 `V2.3.1` 幂等补上，自定义角色不自动扩权。
 - **答卷的读权限多了「班级级」**：考试分配给「我带的班」（`t_class_resource`）后，老师能看这个班的答卷、未交名单与批改，
-  但**只能看这些班**——列表、导出、批改都按 `class_id` 收窄；项目协作者/管理员才是项目级全量。
+  但**只能看这些班**——列表、导出、批改都按 `class_id` 收窄；项目协作者/管理员才是项目级全量。数据页/报表的 `@EnableDataPerm` 走 `ProjectPartnerService#hasProjectAccess`（协作者缓存 + 班级分配实时查），不认这条会「有入口、点进去 403」。
 
 学员专属权限（`PermissionEnum.studentOnly=true`，前端 `STUDENT_ONLY_PERMISSIONS` 必须逐条对应）：
 

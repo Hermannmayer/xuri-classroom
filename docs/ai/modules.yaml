@@ -202,8 +202,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-17
-    verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
+    last_verified: 2026-11-18
+    verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -815,8 +815,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
+    last_verified: 2026-11-18
+    verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -921,8 +921,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    last_verified: 2026-11-18
+    verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
