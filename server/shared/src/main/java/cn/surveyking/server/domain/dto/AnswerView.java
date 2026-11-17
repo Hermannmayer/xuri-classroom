@@ -49,6 +49,11 @@ public class AnswerView {
 	 */
 	private Integer tempSave;
 
+	/**
+	 * 第几次作答（0 开始）。补考场景下同一学员会有多条，班级答卷抽屉据它显示「第 N 次」。
+	 */
+	private Integer attemptNo;
+
 	private Date createAt;
 
 	private String createByName;

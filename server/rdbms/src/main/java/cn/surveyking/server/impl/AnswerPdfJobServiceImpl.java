@@ -3,6 +3,8 @@ package cn.surveyking.server.impl;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.exception.InternalServerError;
+import cn.surveyking.server.core.export.AnswerConfirmSheetExporter;
+import cn.surveyking.server.core.export.AnswerImageExporter;
 import cn.surveyking.server.core.export.AnswerPdfExporter;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.AnswerView;
@@ -52,6 +54,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -77,6 +80,11 @@ import java.util.zip.ZipOutputStream;
  * 为什么是内存任务而不是建表：一次导出是「老师点一下、几十秒、下载完就不要了」的短生命周期任务，
  * 建表要配迁移、清理、多实例一致性，收益不抵成本。进程重启后未完成的任务直接消失（前端轮询会拿到
  * 「任务不存在或已过期」，重新导出即可）。
+ *
+ * <p>
+ * 一次任务可以产出多种格式（成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单 PDF），
+ * 由 {@code DownloadQuery.outputs} 决定，ZIP 内按格式分子目录。为什么不拆成四个任务：
+ * 同一批答卷要渲染四遍、前端要轮询四个任务、老师要下载四个 ZIP —— 在 4 核机器上纯属浪费。
  *
  * <p>
  * 资源约束（这台机器只有 4 核，学生可能还在答题）：
@@ -193,26 +201,71 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 * <p>
 	 * classId 是可选的：不传 = 整个项目（可再用 ids / 时间范围收窄），对应「勾选若干份导出」和
 	 * 「整卷导出」。ids 为空数组同样按「不限」处理，所以空选不会导出一份空 ZIP 之外的意外内容。
-	 * @param query 导出请求（projectId 必填；classId / ids / 时间范围 / 轮次可选）
+	 *
+	 * <p>
+	 * 格式由 {@code outputs} 决定（见 {@link #resolveOutputs(DownloadQuery)}）：不传就按 {@code type}
+	 * 走老逻辑（只出成绩单），传了就按列出的顺序全部生成。includeImages 一律按 true 处理，
+	 * DTO 里那个字段已经废弃。
+	 * @param query 导出请求（projectId 必填；classId / ids / 时间范围 / 轮次 / outputs 可选）
 	 * @return 任务 id
 	 */
 	@Override
 	public String createJob(DownloadQuery query) {
 		if (query == null || !StringUtils.hasText(query.getProjectId())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷 PDF 需要项目 id");
+			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷需要项目 id");
 		}
-		if (query.getType() != null && query.getType() != DownloadQuery.DownloadType.answerPdf) {
-			// 与 downloadByClass 同样的原则：宁可报错，也不要回一份「不是你要的格式」的文件
-			throw new ErrorCodeException(ErrorCode.ValidationError, "按班级导出 PDF 只支持 answerPdf 类型");
-		}
+		List<DownloadQuery.DownloadType> outputs = resolveOutputs(query);
 		if (projectMapper.selectById(query.getProjectId()) == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "项目不存在");
 		}
 		ExportSpec spec = new ExportSpec().projectId(query.getProjectId()).classId(query.getClassId())
 				.ids(query.getIds()).attemptNo(query.getAttemptNo()).startTime(query.getStartTime())
 				.endTime(query.getEndTime()).includeAnalysis(Boolean.TRUE.equals(query.getIncludeAnalysis()))
-				.includeImages(Boolean.TRUE.equals(query.getIncludeImages()));
+				// 签名/上传图片是学员作答的一部分，永远带上；DTO 的 includeImages 已废弃，传 false 不生效
+				.includeImages(true).outputs(outputs);
 		return createJob(spec);
+	}
+
+	/** 导出任务能产出的四种格式（都是「每人一份」的答卷产物，全班一份的成绩册不在此列） */
+	private static final List<DownloadQuery.DownloadType> ANSWER_OUTPUT_TYPES = Collections
+			.unmodifiableList(Arrays.asList(DownloadQuery.DownloadType.answerPdf,
+					DownloadQuery.DownloadType.answerSheetPdf, DownloadQuery.DownloadType.answerImage,
+					DownloadQuery.DownloadType.confirmSheetPdf));
+
+	/**
+	 * 把导出台账（outputs / type）归一成真正要生成的文件类型列表。
+	 *
+	 * <p>
+	 * 独立成静态方法是为了能被单测直接盯住：这里错一次，老师拿到的就是一包缺格式的 ZIP，
+	 * 而任务状态还是 done —— 这种「静默少文件」比报错更难发现。
+	 * @param query 导出请求
+	 * @return 去重后的格式列表（顺序即渲染顺序），永不为空
+	 */
+	static List<DownloadQuery.DownloadType> resolveOutputs(DownloadQuery query) {
+		List<DownloadQuery.DownloadType> requested = query == null ? null : query.getOutputs();
+		if (requested == null || requested.isEmpty()) {
+			// 老调用方只传 type（McpTools / 按班导出入口）：按它走，type 也缺省时是线上的成绩单
+			DownloadQuery.DownloadType type = query == null || query.getType() == null
+					? DownloadQuery.DownloadType.answerPdf : query.getType();
+			assertAnswerOutput(type);
+			return Collections.singletonList(type);
+		}
+		List<DownloadQuery.DownloadType> resolved = new ArrayList<>();
+		for (DownloadQuery.DownloadType output : requested) {
+			// null 混在数组里按脏数据拒掉：悄悄补一个默认值，前端就会以为「不就是没选吗」
+			assertAnswerOutput(output);
+			if (!resolved.contains(output)) {
+				resolved.add(output);
+			}
+		}
+		return Collections.unmodifiableList(resolved);
+	}
+
+	private static void assertAnswerOutput(DownloadQuery.DownloadType type) {
+		if (type == null || !ANSWER_OUTPUT_TYPES.contains(type)) {
+			throw new ErrorCodeException(ErrorCode.ValidationError,
+					"答卷导出任务只支持答卷相关导出类型（成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单 PDF）");
+		}
 	}
 
 	/**
@@ -222,7 +275,14 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 */
 	public String createJob(ExportSpec spec) {
 		if (spec == null || !StringUtils.hasText(spec.getProjectId())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷 PDF 需要项目 id");
+			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷需要项目 id");
+		}
+		if (spec.getOutputs() == null || spec.getOutputs().isEmpty()) {
+			// 直接调 createJob(ExportSpec) 的内部调用方可能没设格式：默认成绩单，和线上行为一致
+			spec.outputs(Collections.singletonList(DownloadQuery.DownloadType.answerPdf));
+		}
+		for (DownloadQuery.DownloadType output : spec.getOutputs()) {
+			assertAnswerOutput(output);
 		}
 		if (!AnswerPdfExporter.isFontAvailable()) {
 			// 部署问题：提前报错，别让老师等 30 秒才看到一堆失败
@@ -243,8 +303,9 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			JOBS.remove(job.getId());
 			throw new ErrorCodeException(ErrorCode.ValidationError, "当前 PDF 导出任务过多，请稍后再试");
 		}
-		log.info("创建答卷 PDF 导出任务: jobId={}, projectId={}, classId={}, attemptNo={}, operator={}", job.getId(),
-				spec.getProjectId(), spec.getClassId(), spec.getAttemptNo(), job.getOperatorId());
+		log.info("创建答卷导出任务: jobId={}, projectId={}, classId={}, attemptNo={}, outputs={}, operator={}",
+				job.getId(), spec.getProjectId(), spec.getClassId(), spec.getAttemptNo(), spec.getOutputs(),
+				job.getOperatorId());
 		return job.getId();
 	}
 
@@ -338,9 +399,22 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		view.put("error", job.getError());
 		view.put("message", job.getMessage());
 		view.put("fileName", job.getFileName());
+		// 导出的是哪几种格式：审计要逐项记清（不能一律记成 answerPdf），前端也能按它显示「生成了什么」
+		view.put("outputs", outputNames(job.getSpec().getOutputs()));
 		int total = job.getTotal();
 		view.put("progress", Integer.valueOf(total <= 0 ? 0 : Math.min(100, job.getDone() * 100 / total)));
 		return view;
+	}
+
+	/** 格式枚举名列表（审计/前端用英文枚举，别把中文目录名当接口字段） */
+	private static List<String> outputNames(List<DownloadQuery.DownloadType> outputs) {
+		List<String> names = new ArrayList<>();
+		if (outputs != null) {
+			for (DownloadQuery.DownloadType output : outputs) {
+				names.add(output == null ? "" : output.name());
+			}
+		}
+		return names;
 	}
 
 	/* ======================= 任务执行 ======================= */
@@ -361,8 +435,8 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				job.setStatus(STATUS_FAILED);
 				// 不选班级时范围是整个项目（或一段时间 / 一批勾选的 id），说「这个班」会让人以为选错了班
 				job.setError(StringUtils.hasText(job.getSpec().getClassId())
-						? "这个班还没有可导出的答卷（暂存草稿不会生成成绩单）"
-						: "这个范围里还没有可导出的答卷（暂存草稿不会生成成绩单）");
+						? "这个班还没有可导出的答卷（暂存草稿不会生成导出文件）"
+						: "这个范围里还没有可导出的答卷（暂存草稿不会生成导出文件）");
 				job.touchFinished();
 				return;
 			}
@@ -393,34 +467,44 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				}
 			}
 			assertNotCanceled(job);
+			if (allFailed(job)) {
+				// 一份都没生成出来（通常是环境问题，例如字体之外还缺了渲染依赖）：
+				// 不发布一个空 ZIP，整任务按失败处理并给出能查的那部分原因，让前端直接显示 error
+				job.setStatus(STATUS_FAILED);
+				job.setError("全部 " + job.getTotal() + " 份答卷都生成失败：" + failedDetail(job));
+				job.touchFinished();
+				log.warn("答卷导出全部失败: jobId={}, failed={}", job.getId(), Integer.valueOf(job.getFailed()));
+				return;
+			}
 			Path target = exportFile(job.getId());
 			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
 			temp = null;
 			job.setBytes(Files.size(target));
-			job.setFileName(zipFileName(project, className));
+			job.setFileName(zipFileName(project, className, job.getSpec().getOutputs()));
 			job.setMessage(summary(job));
 			job.setStatus(STATUS_DONE);
 			job.touchFinished();
-			log.info("答卷 PDF 导出完成: jobId={}, done={}, failed={}, bytes={}", job.getId(), job.getDone(),
-					job.getFailed(), job.getBytes());
+			log.info("答卷导出完成: jobId={}, done={}, files={}, failed={}, bytes={}", job.getId(),
+					Integer.valueOf(job.getDone()), Integer.valueOf(job.getFilesWritten()),
+					Integer.valueOf(job.getFailed()), Long.valueOf(job.getBytes()));
 		}
 		catch (CanceledException e) {
 			job.setStatus(STATUS_CANCELED);
 			job.setMessage("已取消");
 			job.touchFinished();
-			log.info("答卷 PDF 导出已取消: jobId={}", job.getId());
+			log.info("答卷导出已取消: jobId={}", job.getId());
 		}
 		catch (ErrorCodeException e) {
 			job.setStatus(STATUS_FAILED);
 			job.setError(e.getMessage());
 			job.touchFinished();
-			log.warn("答卷 PDF 导出失败: jobId={}, {}", job.getId(), e.getMessage());
+			log.warn("答卷导出失败: jobId={}, {}", job.getId(), e.getMessage());
 		}
 		catch (Exception e) {
 			job.setStatus(STATUS_FAILED);
-			job.setError("生成答卷 PDF 失败：" + e.getMessage());
+			job.setError("生成答卷导出文件失败：" + e.getMessage());
 			job.touchFinished();
-			log.error("答卷 PDF 导出异常: jobId={}", job.getId(), e);
+			log.error("答卷导出异常: jobId={}", job.getId(), e);
 		}
 		finally {
 			if (temp != null) {
@@ -429,26 +513,100 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/** 渲染一份，写进 ZIP；单份失败只记失败数，不中断整批 */
-	private void renderOne(ZipOutputStream zip, ProjectView project, String className, Answer answer, AnswerView view,
-			Set<String> usedNames, ExportJob job) {
+	/**
+	 * 渲染一份答卷的所有格式（真渲染器），逐个写进 ZIP；单份/单格式失败只记失败数，不中断整批。
+	 *
+	 * <p>
+	 * 包内可见：单测既可以用它走一遍真链路（四种格式真的出 PDF/PNG），
+	 * 也可以走下面那个带渲染函数的重载替换掉渲染器。
+	 */
+	void renderOne(ZipOutputStream zip, ProjectView project, String className, Answer answer, AnswerView view,
+			Set<String> usedNames, ExportJob job) throws IOException {
+		renderOne(zip, project, className, answer, view, usedNames, job, this::renderOutput);
+	}
+
+	/**
+	 * 渲染一份答卷的所有格式（包内可见，单测用假渲染器替换真正的 PDF/PNG 生成）。
+	 *
+	 * <p>
+	 * 失败粒度是「学员 × 格式」：长图因为某张图坏了失败，不该把同一份的成绩单 PDF 也一起丢掉；
+	 * 反过来，某个学员所有格式都失败时，他就不算 done，失败明细里也会带上格式名，
+	 * 老师才知道去找哪一份的哪一种。
+	 */
+	void renderOne(ZipOutputStream zip, ProjectView project, String className, Answer answer, AnswerView view,
+			Set<String> usedNames, ExportJob job, OutputRenderer renderer) throws IOException {
 		String displayName = displayName(answer);
-		try {
-			AnswerPdfExporter.PdfOptions options = new AnswerPdfExporter.PdfOptions()
-					.attemptNo(answer.getAttemptNo()).includeAnalysis(job.getSpec().isIncludeAnalysis())
-					.includeImages(job.getSpec().isIncludeImages()).classLabel(className)
-					.imageLoader(this::loadFileBytes);
-			byte[] pdf = AnswerPdfExporter.renderAnswer(project, view, options);
-			String entryName = uniqueEntryName(usedNames, entryBaseName(answer));
-			zip.putNextEntry(new ZipEntry(entryName));
-			zip.write(pdf);
-			zip.closeEntry();
+		boolean anyOk = false;
+		for (DownloadQuery.DownloadType output : job.getSpec().getOutputs()) {
+			try {
+				byte[] bytes = renderer.render(output, project, view, answer, className, job.getSpec());
+				// 统一放子目录：导出弹窗会按格式列出「成绩单/、答题卷/…」，单格式也保持一致，
+				// 免得多一种格式就多一套路径规则（外部脚本按子目录取即可）
+				String entryName = uniqueEntryName(usedNames, outputDir(output), output, entryBaseName(answer));
+				zip.putNextEntry(new ZipEntry(entryName));
+				zip.write(bytes);
+				zip.closeEntry();
+				anyOk = true;
+				job.incWritten();
+			}
+			catch (Exception e) {
+				// ZipOutputStream 自己抛的 IOException 也会落到这里：那属于整包坏掉，
+				// 但让单份失败带走整任务不值得，记下来继续，最后由「全部失败」兜底
+				job.incFailed(displayName + "（" + outputDir(output) + "）");
+				log.warn("答卷导出失败，已跳过: answerId={}, name={}, output={}, {}", answer.getId(), displayName, output,
+						e.getMessage());
+			}
+		}
+		if (anyOk) {
 			job.incDone();
 		}
-		catch (Exception e) {
-			job.incFailed(displayName);
-			log.warn("答卷 PDF 渲染失败，已跳过: answerId={}, name={}, {}", answer.getId(), displayName, e.getMessage());
+	}
+
+	/** 渲染单个格式的字节：四种格式对应四个导出器，这里只负责把选项装好 */
+	private byte[] renderOutput(DownloadQuery.DownloadType output, ProjectView project, AnswerView view, Answer answer,
+			String className, ExportSpec spec) {
+		// 每份答卷重建一次选项：图片加载回调与轮次是这份答卷私有的，跨答卷复用会串数据
+		AnswerPdfExporter.PdfOptions options = new AnswerPdfExporter.PdfOptions().attemptNo(answer.getAttemptNo())
+				.includeAnalysis(spec.isIncludeAnalysis())
+				// 签名/上传图片是作答的一部分，永远带上（DTO 的 includeImages 已废弃）
+				.includeImages(true).classLabel(className).imageLoader(this::loadFileBytes);
+		switch (output) {
+			case answerSheetPdf:
+				return AnswerPdfExporter.renderAnswer(project, view,
+						options.style(AnswerPdfExporter.Style.ANSWER_SHEET));
+			case answerImage:
+				// 长图内部一律按答题卷版式渲染（它会 copy 一份选项再强制 style），所以这里不用改 style
+				return AnswerImageExporter.renderAnswerImage(project, view, options);
+			case confirmSheetPdf:
+				return AnswerConfirmSheetExporter.renderConfirmSheet(project, view, className,
+						new AnswerConfirmSheetExporter.ConfirmOptions().attemptNo(answer.getAttemptNo()));
+			case answerPdf:
+			default:
+				return AnswerPdfExporter.renderAnswer(project, view,
+						options.style(AnswerPdfExporter.Style.GRADE_REPORT));
 		}
+	}
+
+	/**
+	 * 渲染函数签名：生产实现是 {@link #renderOutput}，单测传假实现，
+	 * 这样「子目录 / 重名 / 失败统计」不用真的跑 PDFBox。
+	 */
+	interface OutputRenderer {
+
+		byte[] render(DownloadQuery.DownloadType output, ProjectView project, AnswerView view, Answer answer,
+				String className, ExportSpec spec);
+
+	}
+
+	/** 全部文件都失败才算整任务失败：有任何一个格式成功，任务就是 done（失败数照实报） */
+	static boolean allFailed(ExportJob job) {
+		return job != null && job.getFilesWritten() <= 0 && job.getFailed() > 0;
+	}
+
+	/** 失败明细：优先列「谁（哪种格式）」，一条都没有时给一句可查的提示 */
+	private String failedDetail(ExportJob job) {
+		List<String> names = job.getFailedNames();
+		return names.isEmpty() ? "请检查答卷数据与服务端日志" : "失败项：" + String.join("、", names);
 	}
 
 	private void assertNotCanceled(ExportJob job) {
@@ -470,9 +628,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	private String summary(ExportJob job) {
 		StringBuilder text = new StringBuilder();
-		text.append("成功 ").append(job.getDone()).append(" 份");
+		// 「份」是学员数，「个」是文件数：导了 10 份成绩单+长图，成功是 10 份 / 20 个文件
+		text.append("成功 ").append(job.getDone()).append(" 份（").append(job.getFilesWritten()).append(" 个文件）");
 		if (job.getFailed() > 0) {
-			text.append("，失败 ").append(job.getFailed()).append(" 份");
+			text.append("，失败 ").append(job.getFailed()).append(" 个");
 			List<String> names = job.getFailedNames();
 			if (!names.isEmpty()) {
 				text.append("（").append(String.join("、", names)).append("）");
@@ -581,15 +740,48 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return name.toString();
 	}
 
-	private String uniqueEntryName(Set<String> usedNames, String baseName) {
+	/**
+	 * ZIP 条目名：{@code 子目录/姓名.扩展名}，重名在同一个子目录里加 (2)、(3)…
+	 *
+	 * <p>
+	 * 去重必须按「子目录 + 文件名」整体算：叫「张三」的同学在同一批里可能既有一份成绩单
+	 * 又有一份确认单，那是两个不同的文件，不能因为重名就把其中一个改名成「张三(2)」。
+	 */
+	private String uniqueEntryName(Set<String> usedNames, String dir, DownloadQuery.DownloadType output,
+			String baseName) {
+		String ext = outputExt(output);
 		String safe = sanitizeEntryName(baseName);
-		String candidate = safe + ".pdf";
+		String prefix = StringUtils.hasText(dir) ? dir + "/" : "";
+		String candidate = prefix + safe + "." + ext;
 		int index = 2;
 		while (!usedNames.add(candidate)) {
-			candidate = safe + "(" + index + ").pdf";
+			candidate = prefix + safe + "(" + index + ")." + ext;
 			index = index + 1;
 		}
 		return candidate;
+	}
+
+	/**
+	 * ZIP 子目录名。这四个名字是前端导出弹窗里写死给老师看的提示（「内部按格式分子目录：成绩单/、答题卷/…」），
+	 * 改一个名字，老师按目录认内容就认错了，所以别动。
+	 */
+	static String outputDir(DownloadQuery.DownloadType output) {
+		switch (output) {
+			case answerSheetPdf:
+				return "答题卷";
+			case answerImage:
+				return "长图";
+			case confirmSheetPdf:
+				return "确认单";
+			case answerPdf:
+			default:
+				return "成绩单";
+		}
+	}
+
+	/** 长图是 PNG，其余都是 PDF：扩展名错了 Windows 会拿错程序打开（也发不进微信九宫格） */
+	static String outputExt(DownloadQuery.DownloadType output) {
+		return output == DownloadQuery.DownloadType.answerImage ? "png" : "pdf";
 	}
 
 	/** ZIP 条目名：去掉路径分隔符与 Windows 非法字符，最长 120 字 */
@@ -613,14 +805,39 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return result.length() > 120 ? result.substring(0, 120) : result;
 	}
 
-	private String zipFileName(Project project, String className) {
+	/**
+	 * ZIP 文件名：{@code 项目名[-班级]-格式标签-时间.zip}。
+	 *
+	 * <p>
+	 * 格式标签按勾选的格式拼（「答题卷+长图」），老师不用解压就知道里面有什么；
+	 * 只有一种格式时沿用单格式命名 —— 其中成绩单仍然是历史上的「答卷PDF」，
+	 * 免得按文件名找归档的老脚本/老习惯突然对不上。
+	 */
+	private String zipFileName(Project project, String className, List<DownloadQuery.DownloadType> outputs) {
 		StringBuilder name = new StringBuilder();
 		name.append(StringUtils.hasText(project.getName()) ? project.getName() : "答卷");
 		if (StringUtils.hasText(className)) {
 			name.append("-").append(className);
 		}
-		name.append("-答卷PDF-").append(new SimpleDateFormat("yyyyMMddHHmm").format(new Date())).append(".zip");
+		name.append("-").append(zipFormatTag(outputs)).append("-")
+				.append(new SimpleDateFormat("yyyyMMddHHmm").format(new Date())).append(".zip");
 		return name.toString();
+	}
+
+	/** ZIP 名里的格式标签（见 {@link #zipFileName}），单独抽出来是为了能被单测直接盯住 */
+	static String zipFormatTag(List<DownloadQuery.DownloadType> outputs) {
+		if (outputs == null || outputs.isEmpty()) {
+			return "答卷PDF";
+		}
+		if (outputs.size() == 1) {
+			DownloadQuery.DownloadType only = outputs.get(0);
+			return only == DownloadQuery.DownloadType.answerPdf ? "答卷PDF" : outputDir(only);
+		}
+		List<String> tags = new ArrayList<>();
+		for (DownloadQuery.DownloadType output : outputs) {
+			tags.add(outputDir(output));
+		}
+		return String.join("+", tags);
 	}
 
 	/** 产物目录：跟着 file-storage.local.root-path 走（不硬编码），没配就放系统临时目录 */
@@ -840,6 +1057,12 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		private boolean includeImages;
 
+		/**
+		 * 要产出哪些格式，按顺序渲染。为空时由 {@code createJob} 兜底成成绩单 PDF，
+		 * 保证直接 new ExportSpec() 的内部调用方也不会导出个空包。
+		 */
+		private List<DownloadQuery.DownloadType> outputs;
+
 		public ExportSpec projectId(String projectId) {
 			this.projectId = projectId;
 			return this;
@@ -880,6 +1103,11 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			return this;
 		}
 
+		public ExportSpec outputs(List<DownloadQuery.DownloadType> outputs) {
+			this.outputs = outputs;
+			return this;
+		}
+
 		public String getProjectId() {
 			return projectId;
 		}
@@ -912,6 +1140,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			return includeImages;
 		}
 
+		public List<DownloadQuery.DownloadType> getOutputs() {
+			return outputs;
+		}
+
 	}
 
 	/** 一个导出任务的可变状态：字段是 volatile，轮询线程读到的进度不会因可见性问题停住 */
@@ -935,6 +1167,9 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		private volatile int failed;
 
+		/** 成功写进 ZIP 的文件数（份 × 格式）：判断「是不是全灭」只能看它 */
+		private volatile int filesWritten;
+
 		private volatile long bytes;
 
 		private volatile String error;
@@ -949,21 +1184,32 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		private volatile Future<?> future;
 
-		private ExportJob(String id, ExportSpec spec) {
+		ExportJob(String id, ExportSpec spec) {
 			this.id = id;
 			this.spec = spec;
 			this.operatorId = SecurityContextUtils.isAuthenticated() ? SecurityContextUtils.getUserId() : null;
 		}
 
-		private void incDone() {
+		/** 一份答卷（至少有一种格式成功）算一份；包内可见是为了单测能直接喂失败场景 */
+		void incDone() {
 			done = done + 1;
 		}
 
-		private void incFailed(String name) {
+		/** 一个文件失败记一次；明细最多留 20 条，避免几万条把人名列表撑爆 */
+		void incFailed(String name) {
 			failed = failed + 1;
 			if (failedNames.size() < 20 && StringUtils.hasText(name)) {
 				failedNames.add(name);
 			}
+		}
+
+		/** 成功写出一个文件（份数不变）；包内可见同上 */
+		void incWritten() {
+			filesWritten = filesWritten + 1;
+		}
+
+		public int getFilesWritten() {
+			return filesWritten;
 		}
 
 		private void touchFinished() {

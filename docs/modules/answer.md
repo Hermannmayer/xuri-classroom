@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
+verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
 ---
 
 # 答卷、判分与报表
@@ -246,12 +246,22 @@ verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
 
 **交卷侧钩子**在 `AnswerScoringService#beforeSaveAnswer` 末尾（`AnswerGradeService#onSubmitted`），不是 `AnswerServiceImpl` —— 那是 create/update 的唯一共同入口。
 
-### 答卷 PDF 导出（2.2.1）
+### 答卷导出（2.2.1，2026-11 扩成多格式）
 
-班级答卷抽屉里除了 Excel 明细，还能导出 PDF：每人一份「答卷归档」（题目 + 作答 + 得分 + 可选解析 + 签名/上传图），整体打成一个 ZIP。
-数据页（`/survey/:id/data`）也有同一个入口：勾选若干份就只导这几份，不勾选就按当前筛选（班级 / 时间 / 状态 / 分数段）导。
+班级答卷抽屉里除了 Excel 明细，还能导出「每人一份」的四种产物，整体打成一个 ZIP：
 
-- 接口：`POST /api/answer/export/pdf-job` 建任务 → `GET /{id}` 2 秒轮询进度（没有 SSE/WebSocket，只能轮询）→ `GET /{id}/file` 下载 → `DELETE /{id}` 取消；权限 `answer:export` + 一次性导出 token。
+| outputs | 产物 | 用途 |
+|---|---|---|
+| `answerPdf` | `成绩单/<姓名>.pdf` | 现有「问卷星成绩单」版式：分数卡 + 逐题得分 + 可选解析 |
+| `answerSheetPdf` | `答题卷/<姓名>.pdf` | **答题页还原**：题号/题干/选项方框（选中实心）、填空与简答原文、签名与上传图片，不标对错、不显示每题得分 |
+| `answerImage` | `长图/<姓名>.png` | 上面那份答题卷的**整页纵向长图**（150 DPI，省纸、可直接发微信；页脚会关掉，免得落在图片中间） |
+| `confirmSheetPdf` | `确认单/<姓名>.pdf` | **成绩确认单**：一页 A4，姓名/班级/考试/交卷时间/总分/客观与主观小计/是否及格 + 考生签名与日期空位 |
+
+- 一次任务可以同时要多种格式（`outputs: [...]`），只建一个任务、只轮询一份进度；ZIP 内**总是按格式分子目录**。
+- **签名题 / 上传题图片总是包含**（`includeImages` 已废弃，传什么都按 true 处理）；「附解析」仍可关，考试期间别开。
+- 数据页（`/survey/:id/data`）同一个入口：勾选若干份就只导这几份，不勾选就按当前筛选（班级 / 时间 / 状态 / 分数段）导。
+
+- 接口：`POST /api/answer/export/pdf-job`（body 可带 `outputs`）建任务 → `GET /{id}` 2 秒轮询进度（没有 SSE/WebSocket，只能轮询）→ `GET /{id}/file` 下载 → `DELETE /{id}` 取消；权限 `answer:export` + 一次性导出 token。
 - **范围**（2026-11 起）：`classId` 可空，支持 `ids`（勾选导出）与 `startTime/endTime`（时间段）任意组合；
   `classId` 有值仍走 `classService.assertVisible`，为空改走 `AnswerAccessGuard#assertProjectAccess`（管理员 / 项目所有者 / 协作者），
   **不能**退化成「班级可见即可导整卷」——否则学员凭一次指派就能打包整场答卷。`ids` 不传 = 不限（整卷）。
@@ -261,6 +271,8 @@ verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
 - **字体**：`classpath:/fonts/answer-pdf.ttf`（霞鹜文楷 v1.530 子集，OFL-1.1，25.9MB → 12.6MB，覆盖 U+4E00–9FFF）。启动时读成 `static byte[]` 缓存一次；每份 PDF 各自 `PDType0Font.load(..., true)` 子集嵌入（PDFBox 的字体对象不能跨文档复用）。**缺字体会抛明确中文错误**，不会静默出一个方块 PDF。
 - 后端容器是 alpine，只有 `ttf-dejavu`，**没有任何中文字体** —— 所以字体必须随 jar 走。
 - 结果行用文字（回答正确/部分正确/回答错误/待老师批改）而不是 ✓/✕：字体子集不含 Dingbats，缺字会让 PDFBox 抛异常。
+- **答题卷的选项方框是矢量画的**：字体子集同样不含 □/■（U+25A1/U+25A0），直接 showText 会被 sanitize 换成「·」，所以选中/未选靠描边与填充区分。
+- **成绩确认单的及格线是绝对值 60**（可传 `passScore` 覆盖）：满分低于 60 的卷子会全部判「不及格」，这种极少见的卷子需要在调用处传比例。
 - 产物落 `{file-storage.local.root-path}/export/{jobId}.zip`，**24 小时**后由 `@Scheduled` 每小时清一次（含进程重启后 JOBS 丢失的孤儿文件）。
 
 ### 文件生命周期（2.2.1）

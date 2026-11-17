@@ -7,7 +7,7 @@
 | 模块 | 最后核对 | 核对 commit | 覆盖文件数 |
 |---|---|---|---|
 | `module-ai` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 103 |
-| `module-answer` | 2026-11-17 | `cbde3de028435591145eb7daca940c0f349ba7f1` | 60 |
+| `module-answer` | 2026-11-17 | `8a4e7acace4f86580efb3deedce51c81f29e9ba8` | 60 |
 | `module-audit` | 2026-11-17 | `120dbd4056587d04d31f5e05ce9c5018c96722f6` | 16 |
 | `module-auth` | 2026-11-09 | `6c14ecfdf35a6c2610f436152c616e25e525c5b6` | 14 |
 | `module-compose` | 2026-11-14 | `e5cf39996b1d0757f1814f314d8e812dbf49c4a1` | 15 |
@@ -21,4 +21,4 @@
 | `module-project` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 26 |
 | `module-repo` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 33 |
 | `module-survey` | 2026-11-15 | `903ed1ca8eaf97ecd50fcce7684d7c88145ef826` | 79 |
-| `module-teaching` | 2026-11-17 | `cbde3de028435591145eb7daca940c0f349ba7f1` | 41 |
+| `module-teaching` | 2026-11-17 | `8a4e7acace4f86580efb3deedce51c81f29e9ba8` | 41 |

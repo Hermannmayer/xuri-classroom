@@ -48,6 +48,11 @@ import java.util.function.Function;
  * 结果行 + 可选解析 + 可选签名/上传图片）。
  *
  * <p>
+ * 版式有两套（见 {@link Style}）：{@code GRADE_REPORT} 就是上面这套「阅卷结果」，线上基线，行为不许变；
+ * {@code ANSWER_SHEET} 是「答题卷还原」——只还原卷面与学员作答，不打分、不标对错、不带分数卡，
+ * 供「像学员答题时那样」的 PDF 与长图导出使用。两套版式走各自独立的绘制方法，
+ * 避免为了改一边顺手把另一边改坏。
+ * <p>
  * 两个硬性约束：
  * <ul>
  * <li><b>中文不能变方块</b>：字体从 classpath 的 {@code /fonts/answer-pdf.ttf} 读一次缓存成 byte[]，
@@ -141,12 +146,43 @@ public final class AnswerPdfExporter {
 	/** 字宽缓存：码位 -> 千分之一 em 宽度。字体固定，缓存可以跨文档共享。 */
 	private static final Map<Integer, Float> WIDTH_CACHE = new ConcurrentHashMap<>();
 
+	/* ------ 答题卷还原版式（Style.ANSWER_SHEET）的版面常量 ------ */
+
+	/** 行高系数：答题页比成绩单松一点，长图上更好读 */
+	private static final float SHEET_LINE_RATIO = 1.62f;
+
+	/** 题干/作答相对内容左边距的缩进 */
+	private static final float SHEET_BODY_INDENT = 14f;
+
+	/** 选项相对题干的额外缩进（题干换行后与选项文字左边对齐） */
+	private static final float SHEET_OPTION_HANG = 12f;
+
+	/** 作答底块内部的左右内边距 */
+	private static final float SHEET_BLOCK_PADDING = 12f;
+
+	/** 作答底块的上下留白 */
+	private static final float SHEET_BLOCK_GAP = 4f;
+
+	/** 选项方框的边长占字号的比例 */
+	private static final float SHEET_BOX_RATIO = 0.66f;
+
+	/** 题与题之间的留白 */
+	private static final float SHEET_QUESTION_GAP = 12f;
+
 	private AnswerPdfExporter() {
 	}
 
 	/** 字体是否可用：任务创建阶段用它提前给出明确的部署错误，而不是让 50 份任务全失败 */
 	public static boolean isFontAvailable() {
 		return FONT_BYTES != null && FONT_BYTES.length > 0;
+	}
+
+	/**
+	 * 字体字节（包内可见）。成绩确认单等同样要嵌入这份 TTF 的渲染器直接复用，
+	 * 免得为了一个 12.6MB 的子集字体再读一次资源。
+	 */
+	static byte[] fontBytes() {
+		return FONT_BYTES;
 	}
 
 	/**
@@ -168,18 +204,25 @@ public final class AnswerPdfExporter {
 		try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream(64 * 1024)) {
 			// 字体对象不能跨文档复用，但字节数组可以：每份 PDF 重新 load 一次
 			PDType0Font font = PDType0Font.load(doc, new ByteArrayInputStream(FONT_BYTES), true);
-			Layout layout = new Layout(doc, font);
+			Layout layout = new Layout(doc, font, opts.isShowPageFooter());
 			try {
 				doc.getDocumentInformation().setTitle(displayTitle(project, answer));
 				doc.getDocumentInformation().setCreator("SurveyKing");
 				doc.getDocumentInformation().setProducer("SurveyKing / Apache PDFBox");
 				List<QuestionItem> questions = collectQuestions(project.getSurvey());
-				AnswerStats stats = buildStats(questions, answer);
-				drawHeader(layout, project, answer, opts);
-				drawInfoCard(layout, answer, opts, stats);
-				drawSectionTitle(layout, "答题解析");
-				for (QuestionItem item : questions) {
-					drawQuestion(layout, item, answer, opts);
+				if (opts.getStyle() == Style.ANSWER_SHEET) {
+					// 答题卷还原：另一条渲染通路（为什么分开，见 drawAnswerSheet 的注释）
+					drawAnswerSheet(layout, answer, opts, questions);
+				}
+				else {
+					// 成绩单版式是线上基线：这里的调用顺序一个字节都不要动
+					AnswerStats stats = buildStats(questions, answer);
+					drawHeader(layout, project, answer, opts);
+					drawInfoCard(layout, answer, opts, stats);
+					drawSectionTitle(layout, "答题解析");
+					for (QuestionItem item : questions) {
+						drawQuestion(layout, item, answer, opts);
+					}
 				}
 				layout.finish();
 				doc.save(out);
@@ -195,6 +238,24 @@ public final class AnswerPdfExporter {
 		catch (IOException e) {
 			throw new InternalServerError("生成答卷 PDF 失败：" + e.getMessage(), e);
 		}
+	}
+
+	/* ======================= 版式 ======================= */
+
+	/**
+	 * 导出 PDF 的版式。
+	 * <p>
+	 * GRADE_REPORT：成绩单版式（分数卡 + 统计卡 + 判分 + 每题得分），线上既有基线，渲染结果不允许变；
+	 * ANSWER_SHEET：答题卷还原，只还原卷面与学员作答，不打分、不标对错。
+	 */
+	public enum Style {
+
+		/** 成绩单：阅卷结果（默认） */
+		GRADE_REPORT,
+
+		/** 答题卷还原：卷面 + 作答原样（不含分数卡、不含对错标记） */
+		ANSWER_SHEET
+
 	}
 
 	/* ======================= 导出选项 ======================= */
@@ -218,6 +279,18 @@ public final class AnswerPdfExporter {
 
 		/** 图片加载回调：fileId -> 原图字节；为空时跳过图片 */
 		private Function<String, byte[]> imageLoader;
+
+		/** 版式：默认成绩单（现有线上行为），答题卷还原需要显式指定 */
+		private Style style = Style.GRADE_REPORT;
+
+		/**
+		 * 是否在页脚画「第 N 页」。
+		 *
+		 * <p>PDF 保留（打印时有用）；长图要关掉——长图是把多页纵向拼成一张，
+		 * 页脚会正好落在图片中间，看起来像「内容断了」。
+		 */
+		private boolean showPageFooter = true;
+
 
 		public PdfOptions attemptNo(Integer attemptNo) {
 			this.attemptNo = attemptNo;
@@ -244,6 +317,21 @@ public final class AnswerPdfExporter {
 			return this;
 		}
 
+		/** 传 null 按成绩单处理：调用方从请求参数翻过来的枚举可能是空的 */
+		public PdfOptions style(Style style) {
+			this.style = style == null ? Style.GRADE_REPORT : style;
+			return this;
+		}
+
+		public PdfOptions showPageFooter(boolean showPageFooter) {
+			this.showPageFooter = showPageFooter;
+			return this;
+		}
+
+		public boolean isShowPageFooter() {
+			return showPageFooter;
+		}
+
 		public Integer getAttemptNo() {
 			return attemptNo;
 		}
@@ -262,6 +350,26 @@ public final class AnswerPdfExporter {
 
 		public Function<String, byte[]> getImageLoader() {
 			return imageLoader;
+		}
+
+		public Style getStyle() {
+			return style;
+		}
+
+		/**
+		 * 复制一份选项。长图导出要在副本上把版式强制成「答题卷」，不能改调用方手里那份
+		 * （同一个对象可能还要拿去导成绩单）。
+		 */
+		public PdfOptions copy() {
+			PdfOptions copy = new PdfOptions();
+			copy.attemptNo = attemptNo;
+			copy.includeAnalysis = includeAnalysis;
+			copy.includeImages = includeImages;
+			copy.classLabel = classLabel;
+			copy.imageLoader = imageLoader;
+			copy.style = style;
+			copy.showPageFooter = showPageFooter;
+			return copy;
 		}
 
 	}
@@ -411,7 +519,7 @@ public final class AnswerPdfExporter {
 
 	/* ======================= 抬头 / 信息卡 ======================= */
 
-	private static String displayTitle(ProjectView project, AnswerView answer) {
+	static String displayTitle(ProjectView project, AnswerView answer) {
 		SurveySchema survey = project.getSurvey();
 		if (survey != null && survey.getAttribute() != null && hasText(survey.getAttribute().getHeaderTitle())) {
 			return SchemaHelper.trimHtmlTag(survey.getAttribute().getHeaderTitle());
@@ -522,7 +630,7 @@ public final class AnswerPdfExporter {
 		layout.advance(6f);
 	}
 
-	private static String answererName(AnswerView answer) {
+	static String answererName(AnswerView answer) {
 		if (hasText(answer.getAnswererName())) {
 			return SchemaHelper.trimHtmlTag(answer.getAnswererName());
 		}
@@ -870,6 +978,337 @@ public final class AnswerPdfExporter {
 		return schema.getAttribute() == null ? null : schema.getAttribute().getExamScore();
 	}
 
+	/* ======================= 答题卷还原版式（Style.ANSWER_SHEET） ======================= */
+
+	/**
+	 * 答题卷还原版式：一行紧凑抬头 + 按卷面顺序逐题还原「题目 + 作答」。
+	 * <p>
+	 * 为什么不给成绩单多套几个 if：成绩单是「阅卷结果」（分数卡、对错色、每题得分），
+	 * 答题卷是「卷面还原」（原样呈现学员看到并写下的一切）。两者排版语义不同，塞进一套代码里
+	 * 迟早把某一方改坏，而成绩单是线上基线——一个字节都不能动。
+	 */
+	private static void drawAnswerSheet(Layout layout, AnswerView answer, PdfOptions options,
+			List<QuestionItem> questions) throws IOException {
+		AnswerStats stats = buildStats(questions, answer);
+		drawSheetHeader(layout, answer, options, stats);
+		for (QuestionItem item : questions) {
+			drawSheetQuestion(layout, item, answer, options);
+		}
+	}
+
+	/**
+	 * 答题卷抬头：只留一行「姓名 / 班级 / 交卷时间 / 作答轮次 / 得分」。
+	 * <p>
+	 * 成绩单那套标题 + 分数卡 + 统计卡在这里全部不要：长图是老师在手机上看答卷用的，
+	 * 半屏抬头换不来信息量，还费纸。
+	 */
+	private static void drawSheetHeader(Layout layout, AnswerView answer, PdfOptions options, AnswerStats stats)
+			throws IOException {
+		List<String> parts = new ArrayList<>();
+		parts.add("姓名：" + answererName(answer));
+		if (hasText(options.getClassLabel())) {
+			parts.add("班级：" + SchemaHelper.trimHtmlTag(options.getClassLabel()));
+		}
+		String submitTime = dateText(answer.getCreateAt());
+		if (hasText(submitTime)) {
+			parts.add("交卷时间 " + submitTime);
+		}
+		String attempt = attemptTag(options);
+		if (hasText(attempt)) {
+			parts.add(attempt);
+		}
+		parts.add("得分 " + scoreText(answer, stats));
+		layout.ensure(SECTION_SIZE * 2.6f);
+		layout.advance(2f);
+		for (String text : layout.wrap(String.join("    ", parts), SUBTITLE_SIZE, layout.contentWidth())) {
+			layout.drawText(text, MARGIN_LEFT, SUBTITLE_SIZE, true, COLOR_TEXT);
+			layout.advance(SUBTITLE_SIZE * 1.5f);
+		}
+		layout.horizontalLine(layout.y() + 4f, COLOR_LINE, 0.8f);
+		layout.advance(10f);
+		if (stats.manualPending) {
+			// 待批改必须说出来，否则「得分」会被当成最终成绩
+			layout.drawText("卷内含人工批改题，最终得分待老师批改后确定", MARGIN_LEFT, META_SIZE, false, COLOR_PARTIAL);
+			layout.advance(META_SIZE * 1.6f);
+		}
+	}
+
+	/** 一道题：题号 + 题干 → 选项方框 / 作答底块 → 可选解析 → 签名与上传图片（永远带） */
+	private static void drawSheetQuestion(Layout layout, QuestionItem item, AnswerView answer, PdfOptions options)
+			throws IOException {
+		List<SheetLine> lines = new ArrayList<>();
+		if (item.schema == null) {
+			// 大题标题 / 卷末说明：学员答题时看得见，还原卷面就要留着
+			lines.add(SheetLine.spacer(SHEET_QUESTION_GAP, false));
+			addSheetLines(lines, layout, item.heading, 0f, 0f, QUESTION_SIZE, true, COLOR_TEXT);
+			lines.add(SheetLine.spacer(SHEET_QUESTION_GAP, false));
+			drawSheetLines(layout, lines);
+			return;
+		}
+		SurveySchema schema = item.schema;
+		LinkedHashMap<String, Object> answerMap = answer.getAnswer();
+		Object value = answerMap == null ? null : answerMap.get(schema.getId());
+
+		// 题号 + 题干：答题页上没有分值，也不标对错
+		String title = SchemaHelper.trimHtmlTag(schema.getTitle()).replace('\u00a0', ' ');
+		String head = item.number + ". " + (hasText(title) ? title : "（无题干）");
+		addSheetLines(lines, layout, head, SHEET_BODY_INDENT, SHEET_BODY_INDENT + SHEET_OPTION_HANG, QUESTION_SIZE,
+				true, COLOR_TEXT);
+		if (hasOptions(schema.getType())) {
+			appendSheetOptions(lines, layout, schema, value);
+		}
+		else {
+			appendSheetAnswerBlock(lines, layout, schema, value);
+		}
+		if (options.isIncludeAnalysis()) {
+			appendSheetAnalysis(lines, layout, schema);
+		}
+		lines.add(SheetLine.spacer(SHEET_QUESTION_GAP, false));
+		drawSheetLines(layout, lines);
+		drawSheetImages(layout, schema, value, options);
+	}
+
+	/**
+	 * 选项竖排：学员选中的选项前画实心方框，其余画空心方框（判断题同）。
+	 * <p>
+	 * 方框是矢量矩形，不是「□ / ■」字符：字体子集（见 fonts/README.md）不含 U+25A0 / U+25A1，
+	 * 塞进 showText 会被 sanitize 换成「·」，卷面就毁了。
+	 */
+	private static void appendSheetOptions(List<SheetLine> lines, Layout layout, SurveySchema schema, Object value)
+			throws IOException {
+		List<SurveySchema> options = schema.getChildren();
+		if (options == null || options.isEmpty()) {
+			return;
+		}
+		Map<?, ?> selected = value instanceof Map ? (Map<?, ?>) value : Collections.emptyMap();
+		float indent = SHEET_BODY_INDENT + SHEET_OPTION_HANG;
+		float boxWidth = ANSWER_SIZE * SHEET_BOX_RATIO + ANSWER_SIZE * 0.45f;
+		int index = 0;
+		for (SurveySchema option : options) {
+			if (option == null) {
+				continue;
+			}
+			index = index + 1;
+			boolean mine = selected != null && selected.containsKey(option.getId());
+			String text = optionLetter(index) + ". " + SchemaHelper.trimHtmlTag(option.getTitle());
+			List<String> wrapped = layout.wrap(text, ANSWER_SIZE, layout.contentWidth() - indent - boxWidth);
+			for (int i = 0; i < wrapped.size(); i++) {
+				// 方框只画在选项第一行；续行跳过方框宽度对齐，免得文字压到方框上
+				lines.add(SheetLine.option(wrapped.get(i), i == 0 ? indent : indent + boxWidth, ANSWER_SIZE,
+						i == 0 ? Boolean.valueOf(mine) : null));
+			}
+		}
+	}
+
+	/**
+	 * 填空/简答/矩阵等：题干下方用一块浅底显示学员原文，保留换行；没作答就写「（未作答）」。
+	 * <p>
+	 * 签名/上传题也走这里：先用一句「已签名 / 已上传 N 个附件」占位，图片在正文之后统一贴。
+	 */
+	private static void appendSheetAnswerBlock(List<SheetLine> lines, Layout layout, SurveySchema schema,
+			Object value) throws IOException {
+		List<String> parts = flattenAnswer(schema, value);
+		lines.add(SheetLine.spacer(SHEET_BLOCK_GAP, true));
+		float textWidth = layout.contentWidth() - SHEET_BLOCK_PADDING * 2f;
+		if (parts.isEmpty()) {
+			lines.add(SheetLine.block("（未作答）", SHEET_BLOCK_PADDING, ANSWER_SIZE, COLOR_SOFT));
+		}
+		else {
+			for (String part : parts) {
+				for (String one : layout.wrap(part, ANSWER_SIZE, textWidth)) {
+					lines.add(SheetLine.block(one, SHEET_BLOCK_PADDING, ANSWER_SIZE, COLOR_TEXT));
+				}
+			}
+		}
+		lines.add(SheetLine.spacer(SHEET_BLOCK_GAP, true));
+	}
+
+	/** 解析（可选）：和成绩单一样用浅色小字附在题后 */
+	private static void appendSheetAnalysis(List<SheetLine> lines, Layout layout, SurveySchema schema)
+			throws IOException {
+		SurveySchema.Attribute attribute = schema.getAttribute();
+		if (attribute == null || !hasText(attribute.getExamAnalysis())) {
+			return;
+		}
+		String analysis = SchemaHelper.trimHtmlTag(attribute.getExamAnalysis());
+		if (!hasText(analysis)) {
+			return;
+		}
+		// 老师写解析时经常自己带「解析：」前缀，不要再叠一层
+		String text = analysis.startsWith("解析") ? analysis : "解析：" + analysis;
+		float size = ANSWER_SIZE - 0.5f;
+		float indent = SHEET_BODY_INDENT + SHEET_OPTION_HANG;
+		for (String one : layout.wrap(text, size, layout.contentWidth() - indent)) {
+			lines.add(SheetLine.text(one, indent, size, false, COLOR_SOFT));
+		}
+	}
+
+	/**
+	 * 签名/上传题的图片：答题卷版式里永远嵌入，不再看 includeImages。
+	 * <p>
+	 * 「附签名/上传图片」这个选项取消掉了：老师要确认的是学员到底交了什么，
+	 * 勾漏一次这张卷子就变成「没作答」，责任说不清。
+	 */
+	private static void drawSheetImages(Layout layout, SurveySchema schema, Object value, PdfOptions options)
+			throws IOException {
+		for (Img image : loadImages(layout, schema, value, options)) {
+			// 图片不跨页：放不下就换页，免得半张签名图被切在页脚上
+			layout.ensure(image.height + 8f);
+			layout.drawImage(image);
+		}
+	}
+
+	/** 普通文本行：{@link #addWrapped} 的答题卷版本，只是产出 {@link SheetLine} */
+	private static void addSheetLines(List<SheetLine> out, Layout layout, String text, float firstIndent,
+			float restIndent, float size, boolean bold, Color color) throws IOException {
+		float maxWidth = layout.contentWidth() - Math.max(firstIndent, restIndent);
+		List<String> wrapped = layout.wrap(text, size, maxWidth);
+		for (int i = 0; i < wrapped.size(); i++) {
+			out.add(SheetLine.text(wrapped.get(i), i == 0 ? firstIndent : restIndent, size, bold, color));
+		}
+	}
+
+	/**
+	 * 画一批答题卷行。
+	 * <p>
+	 * 默认整批不跨页（题目不能被截成两半）；但单题高过一页时（超长简答）必须退化成逐行流动——
+	 * 否则「不跨页」会把学员的作答直接画到纸外，那不是排版，是丢内容。
+	 */
+	private static void drawSheetLines(Layout layout, List<SheetLine> lines) throws IOException {
+		float total = 0f;
+		for (SheetLine line : lines) {
+			total = total + line.height;
+		}
+		if (total <= layout.bodyHeight()) {
+			layout.ensure(total);
+			drawSheetChunk(layout, lines);
+			return;
+		}
+		int index = 0;
+		while (index < lines.size()) {
+			if (layout.remaining() < lines.get(index).height) {
+				layout.newPage();
+			}
+			List<SheetLine> chunk = new ArrayList<>();
+			float used = 0f;
+			while (index < lines.size()) {
+				SheetLine line = lines.get(index);
+				if (!chunk.isEmpty() && used + line.height > layout.remaining()) {
+					break;
+				}
+				chunk.add(line);
+				used = used + line.height;
+				index = index + 1;
+			}
+			drawSheetChunk(layout, chunk);
+		}
+	}
+
+	/** 一批行（保证当前页放得下）：先铺作答底块，再写字——顺序反了底块会把字盖住 */
+	private static void drawSheetChunk(Layout layout, List<SheetLine> chunk) throws IOException {
+		float chunkTop = layout.y();
+		float cursor = chunkTop;
+		int index = 0;
+		while (index < chunk.size()) {
+			if (!chunk.get(index).inBlock) {
+				cursor = cursor - chunk.get(index).height;
+				index = index + 1;
+				continue;
+			}
+			float top = cursor;
+			while (index < chunk.size() && chunk.get(index).inBlock) {
+				cursor = cursor - chunk.get(index).height;
+				index = index + 1;
+			}
+			layout.fillRect(MARGIN_LEFT, cursor, layout.contentWidth(), top - cursor, COLOR_CARD);
+		}
+		cursor = chunkTop;
+		for (SheetLine line : chunk) {
+			drawSheetLine(layout, line, cursor);
+			cursor = cursor - line.height;
+		}
+		layout.advance(chunkTop - cursor);
+	}
+
+	/** 一行：方框（可选）+ 文字；基线偏移与 {@link Layout#drawText} 保持一致 */
+	private static void drawSheetLine(Layout layout, SheetLine line, float top) throws IOException {
+		if (line.text == null) {
+			return;
+		}
+		float baseline = top - line.size * 0.86f;
+		float x = MARGIN_LEFT + line.indent;
+		if (line.selected != null) {
+			float box = line.size * SHEET_BOX_RATIO;
+			float bottom = baseline - line.size * 0.12f;
+			if (line.selected.booleanValue()) {
+				layout.fillRect(x, bottom, box, box, COLOR_TEXT);
+			}
+			else {
+				layout.strokeRect(x, bottom, box, box, COLOR_TEXT, 0.7f);
+			}
+			x = x + box + line.size * 0.45f;
+		}
+		layout.drawTextAt(line.text, x, baseline, line.size, line.bold, line.color);
+	}
+
+	/**
+	 * 答题卷版式的一行。
+	 * <p>
+	 * 比 {@link QLine} 多两件事：选项前面的方框、以及「属于浅底作答块」这个标记。用独立类型而不是给
+	 * QLine 加字段，是为了让成绩单那条通路连一个字段都不多——成绩单的渲染结果不许有任何变化。
+	 */
+	private static final class SheetLine {
+
+		/** 行文本；null 表示只占位的空行（作答底块的上下留白） */
+		private final String text;
+
+		private final float indent;
+
+		private final float size;
+
+		private final boolean bold;
+
+		private final Color color;
+
+		/** 选项方框：null=不画；TRUE=实心（学员选中）；FALSE=空心 */
+		private final Boolean selected;
+
+		/** 属于学员作答的浅底块：底块先铺底，再写字 */
+		private final boolean inBlock;
+
+		private final float height;
+
+		private SheetLine(String text, float indent, float size, boolean bold, Color color, Boolean selected,
+				boolean inBlock, float height) {
+			this.text = text;
+			this.indent = indent;
+			this.size = size;
+			this.bold = bold;
+			this.color = color;
+			this.selected = selected;
+			this.inBlock = inBlock;
+			this.height = height;
+		}
+
+		private static SheetLine text(String text, float indent, float size, boolean bold, Color color) {
+			return new SheetLine(text, indent, size, bold, color, null, false, size * SHEET_LINE_RATIO);
+		}
+
+		private static SheetLine block(String text, float indent, float size, Color color) {
+			return new SheetLine(text, indent, size, false, color, null, true, size * SHEET_LINE_RATIO);
+		}
+
+		private static SheetLine option(String text, float indent, float size, Boolean selected) {
+			return new SheetLine(text, indent, size, false, COLOR_TEXT, selected, false, size * SHEET_LINE_RATIO);
+		}
+
+		/** 只占位的空行：作答底块的上下留白靠它撑出来，底块会把留白一起铺上底色 */
+		private static SheetLine spacer(float height, boolean inBlock) {
+			return new SheetLine(null, 0f, 0f, false, COLOR_TEXT, null, inBlock, height);
+		}
+
+	}
+
 	/* ======================= 图片 ======================= */
 
 	private static final class Img {
@@ -1059,6 +1498,9 @@ public final class AnswerPdfExporter {
 
 		private final PDType0Font font;
 
+		/** 长图导出时关掉页脚（页脚会落在拼好的图片中间） */
+		private final boolean showFooter;
+
 		private PDPage page;
 
 		private PDPageContentStream stream;
@@ -1067,9 +1509,10 @@ public final class AnswerPdfExporter {
 
 		private int pageNumber;
 
-		private Layout(PDDocument doc, PDType0Font font) throws IOException {
+		private Layout(PDDocument doc, PDType0Font font, boolean showFooter) throws IOException {
 			this.doc = doc;
 			this.font = font;
+			this.showFooter = showFooter;
 			newPage();
 		}
 
@@ -1109,7 +1552,20 @@ public final class AnswerPdfExporter {
 			}
 		}
 
+		/** 当前页还能用掉多少高度（算到页脚留白为止） */
+		private float remaining() {
+			return cursorY - MARGIN_BOTTOM;
+		}
+
+		/** 一页正文可用高度：判断「这道题放不放得下」用 */
+		private float bodyHeight() {
+			return page.getMediaBox().getHeight() - MARGIN_TOP - MARGIN_BOTTOM;
+		}
+
 		private void drawFooter() throws IOException {
+			if (!showFooter) {
+				return;
+			}
 			String text = "第 " + pageNumber + " 页";
 			float size = 8f;
 			float width = textWidth(text, size);
@@ -1285,6 +1741,15 @@ public final class AnswerPdfExporter {
 			stream.fill();
 		}
 
+		/** 只描边不填充的矩形：答题卷里表示「这个选项没选」 */
+		private void strokeRect(float x, float y, float width, float height, Color color, float lineWidth)
+				throws IOException {
+			stream.setStrokingColor(color);
+			stream.setLineWidth(lineWidth);
+			stream.addRect(x, y, width, height);
+			stream.stroke();
+		}
+
 		private void horizontalLine(float y, Color color, float lineWidth) throws IOException {
 			stream.setStrokingColor(color);
 			stream.setLineWidth(lineWidth);
@@ -1366,7 +1831,7 @@ public final class AnswerPdfExporter {
 		return text != null && !text.trim().isEmpty();
 	}
 
-	private static String formatScore(Double value) {
+	static String formatScore(Double value) {
 		if (value == null) {
 			return "0";
 		}

@@ -177,7 +177,7 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 - 入口：`/teaching?tab=classes`（原独立的「班级管理」菜单与「学情」Tab 已合并进来）。左侧班级树来自 `GET /api/teaching/classes/tree`（`class:list` 或 admin），选中班级写入 `?classId=`；`accessible=false` 的祖先只能显示路径、不能选。
 - 班级资源面板：`GET /api/teaching/classes/resources?deptId=&resourceType=project`，服务层 `assertManage`；列显示分配状态、本班窗口、交卷、平均分，行内可「查看答卷/导出」。只读授权能看班级/成员，但打不开资源面板（403）。
 - 成员名单：`GET /api/teaching/classes/members?deptId=`（`class:detail` + `assertVisible`），只读名单，增删改走班级页的学员管理。
-- 答卷下钻/导出：`ClassAnswersDrawer` 走 `GET /api/teaching/classes/answers` 与 `/api/answer/download?classId=`；按 `t_answer.class_id` 精确过滤，历史 `class_id` 为空不进抽屉；只支持 `type=answer`。
+- 答卷下钻/导出：`ClassAnswersDrawer` 走 `GET /api/teaching/classes/answers` 与 `/api/answer/download?classId=`（PDF/长图/确认单走 `POST /api/answer/export/pdf-job` 的 `outputs`，ZIP 内按格式分子目录）；按 `t_answer.class_id` 精确过滤，历史 `class_id` 为空不进抽屉；只支持 `type=answer`。
 - **匿名不进入班级报表**：公开匿名答卷 `class_id=NULL`、`is_anonymous=1`，不进入按班资源统计/班级答卷抽屉/项目 total/公开统计；匿名用户登录 claim 后才会重算 `class_id` 并按 `is_anonymous=0` 进入常规报表。
 
 ### 6. 退场

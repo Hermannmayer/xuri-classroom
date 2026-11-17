@@ -57,6 +57,7 @@ modules:
       - POST /api/ai/chat
       - GET /api/ai/status
       - GET /api/ai/usage/today
+      - POST /api/system/aiModels
     tables:
       - t_ai_usage
     tests:
@@ -202,7 +203,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-17
-    verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
+    verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -1181,4 +1182,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
+    verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8

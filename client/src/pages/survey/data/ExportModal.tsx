@@ -1,13 +1,17 @@
 /**
- * 答卷导出弹窗：Excel 明细（同步下载）+ 每人一份 PDF（异步任务，2 秒轮询进度）。
+ * 答卷导出弹窗：Excel 明细（同步下载）+ 多种「每人一份」产物（异步任务，2 秒轮询进度）。
  *
- * <p>两个出口的令牌是分开的：Excel 走 /api/repo/export/token、PDF 走 /api/answer/export/token，
- * 都要带导出密码（系统没配密码时留空）。一次性 token 只能用一次，所以 PDF 建任务、下载 ZIP
+ * <p>两个出口的令牌是分开的：Excel 走 /api/repo/export/token、异步任务走 /api/answer/export/token，
+ * 都要带导出密码（系统没配密码时留空）。一次性 token 只能用一次，所以建任务、下载 ZIP
  * 各自换一个新的——这和教学页的 ClassAnswersDrawer 是同一套实现，这里只是多了「仅勾选」范围。
  *
  * <p>范围默认「当前筛选结果」；表格里勾了卷子就多一个「仅勾选」并默认选中——老师从一大张表里
  * 挑了几份再点导出，意图几乎总是「就导这几份」。勾选范围只按 ids 取数，班级/时间/分数一律不再叠加，
  * 免得「我明明勾了 5 份，导出只有 3 份」。
+ *
+ * <p>异步产物现在有四种（成绩单 / 答题卷还原 / 长图 PNG / 成绩确认单），但只建一个任务：
+ * 后端按 outputs 一次渲染完，统一打进一个 ZIP 并分子目录。拆成四次导出只是在 4 核机器上
+ * 把同一批答卷多渲染三遍、多等三倍，没有任何收益。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App, Checkbox, Input, Modal, Progress, Radio, Space } from 'antd';
@@ -24,25 +28,50 @@ import type { AnswerFilterParams } from './filters';
 
 type ExportScope = 'filtered' | 'selected';
 
+/**
+ * pdf-job 的 outputs 取值（后端契约已冻结），每个值产出「每人一份」的东西。
+ * 名字是后端的，别改；界面文案见 PDF_FORMATS。
+ */
+type PdfOutput = 'answerPdf' | 'answerSheetPdf' | 'answerImage' | 'confirmSheetPdf';
+
+/**
+ * 四种异步产物的界面配置。
+ *
+ * <p>dir 是后端 ZIP 里的子目录名（契约固定），提示文案必须照着它写，别自己发明名字——
+ * 老师拿到 ZIP 会按目录名去认里面是什么。
+ *
+ * <p>数组顺序 = 勾选顺序 = ZIP 子目录提示的列举顺序。
+ */
+const PDF_FORMATS: { key: PdfOutput; label: string; dir: string }[] = [
+  { key: 'answerPdf', label: '成绩单 PDF（每人一份，含得分与批改结果）', dir: '成绩单' },
+  { key: 'answerSheetPdf', label: '答题卷 PDF（和学员答题时一样）', dir: '答题卷' },
+  { key: 'answerImage', label: '答卷长图（PNG，每人一张，省纸）', dir: '长图' },
+  { key: 'confirmSheetPdf', label: '成绩确认单（一页，可打印签字）', dir: '确认单' },
+];
+
 interface ExportOptions {
   /** Excel 明细（.xlsx，同步下载） */
   excel: boolean;
-  /** 每人一份 PDF 打包成 ZIP（异步任务） */
-  pdf: boolean;
+  /** 以下四种都走同一个异步任务，勾几种就生成几种，最后打成一个 ZIP */
+  answerPdf: boolean;
+  answerSheetPdf: boolean;
+  answerImage: boolean;
+  confirmSheetPdf: boolean;
   /** 导出范围：当前筛选结果 / 仅勾选 */
   scope: ExportScope;
   /** 是否附答案解析：默认关 —— 考试没结束时放解析等于泄题 */
   includeAnalysis: boolean;
-  /** 是否附签名/上传图片：默认开 —— 成绩单没有签名图没法核对 */
-  includeImages: boolean;
 }
 
 const DEFAULT_OPTIONS: ExportOptions = {
+  // 默认「Excel + 成绩单 PDF」：日常最常用的两样，一个进表格、一个发学员/归档
   excel: true,
-  pdf: true,
+  answerPdf: true,
+  answerSheetPdf: false,
+  answerImage: false,
+  confirmSheetPdf: false,
   scope: 'filtered',
   includeAnalysis: false,
-  includeImages: true,
 };
 
 const jobStatusText = (status: AnswerPdfJobView['status']): string => {
@@ -110,6 +139,12 @@ export default function ExportModal({
 
   const running = !!job && (job.status === 'queued' || job.status === 'running');
   const hasSelection = selectedIds.length > 0;
+  /** 勾了哪几种异步产物：顺序按 PDF_FORMATS，正好也是 ZIP 子目录的顺序 */
+  const outputs = PDF_FORMATS.filter((format) => options[format.key]).map((format) => format.key);
+  /** ZIP 里会出现哪些子目录：提示照着勾选动态变，别让人猜里面有没有「长图」 */
+  const zipDirs = PDF_FORMATS.filter((format) => options[format.key]).map(
+    (format) => `${format.dir}/`,
+  );
 
   useEffect(() => {
     jobRef.current = job;
@@ -141,9 +176,10 @@ export default function ExportModal({
       }
       try {
         const tokenRes = await issueToken('/api/answer/export/token');
-        const fallback = `${projectName || '答卷'}-答卷PDF.zip`;
+        // 产物是混合格式的 ZIP（可能含 成绩单/ 答题卷/ 长图/ 确认单/ 几个子目录），名字别再写死 PDF
+        const fallback = `${projectName || '答卷'}-答卷导出.zip`;
         await downloadAnswerPdfJob(current.jobId, tokenRes?.exportToken, current.fileName || fallback);
-        message.success(current.message ? `${current.message}，已开始下载` : 'PDF 已生成，开始下载');
+        message.success(current.message ? `${current.message}，已开始下载` : '导出包已生成，开始下载');
         setJob(null);
         onClose();
       } catch (e) {
@@ -215,6 +251,19 @@ export default function ExportModal({
     setExporting(false);
   }, [open, selectedIds.length]);
 
+  /**
+   * 勾/取消一种异步产物。
+   *
+   * <p>写成「先拷贝再按键赋值」而不是物化计算属性：四种产物都是 boolean，这样 TS 能确认
+   * next[key] 的赋值类型对得上，不会把整个 options 摊成索引签名（那样其它字段就悄悄失去类型了）。
+   */
+  const toggleFormat = (key: PdfOutput, checked: boolean) =>
+    setOptions((prev) => {
+      const next: ExportOptions = { ...prev };
+      next[key] = checked;
+      return next;
+    });
+
   const closeModal = () => {
     if (exporting) return;
     abortRunningJob();
@@ -226,7 +275,7 @@ export default function ExportModal({
 
   const submit = async () => {
     if (exporting || running) return;
-    if (!options.excel && !options.pdf) {
+    if (!options.excel && outputs.length === 0) {
       setJobError('请至少选择一种导出格式');
       return;
     }
@@ -260,22 +309,18 @@ export default function ExportModal({
         }
       }
 
-      if (options.pdf) {
+      if (outputs.length > 0) {
         const tokenRes = await issueToken('/api/answer/export/token');
-        /**
-         * 冻结契约里 pdf-job 只要班级 / ids / 时间，classId 可空；而 api 层的 AnswerPdfJobRequest
-         * 还是「classId 必填、没有 ids」的旧形状（api 层由别人维护，本任务不改）。
-         * 所以这里按契约拼 body，只在这一处断言，别处仍用原来的类型。
-         */
-        const body = {
+        // 仅勾选时只给 ids；否则给班级 + 交卷时间。includeImages 已废弃（后端永远带签名/上传图片）
+        const body: AnswerPdfJobRequest = {
           projectId,
-          // 契约里就这几个字段：仅勾选只给 ids；否则给班级 + 交卷时间
           ...(byIds
             ? { ids }
             : { classId: filters.classId, startTime: filters.startTime, endTime: filters.endTime }),
           includeAnalysis: options.includeAnalysis,
-          includeImages: options.includeImages,
-        } as unknown as AnswerPdfJobRequest;
+          // 不传 outputs 时后端按 type 走老逻辑（只出成绩单）；要哪种格式就显式列出来
+          outputs,
+        };
         const created = await createAnswerPdfJob(body, tokenRes?.exportToken);
         const initial: AnswerPdfJobView = {
           jobId: created.jobId,
@@ -294,7 +339,7 @@ export default function ExportModal({
       }
 
       if (excelFailed) {
-        // Excel 失败但 PDF 已在跑：把原因留在弹窗里，别静默吞掉
+        // Excel 失败但异步任务已在跑：把原因留在弹窗里，别静默吞掉
         setJobError(`Excel 明细导出失败：${excelFailed}`);
       }
     } catch (e) {
@@ -333,14 +378,26 @@ export default function ExportModal({
             >
               Excel 明细（.xlsx，每题一列，含分数与提交信息）
             </Checkbox>
-            <Checkbox
-              checked={options.pdf}
-              disabled={running}
-              onChange={(e) => setOptions((prev) => ({ ...prev, pdf: e.target.checked }))}
-            >
-              PDF 成绩单（.zip，每人一份）
-            </Checkbox>
+            {PDF_FORMATS.map((format) => (
+              <Checkbox
+                key={format.key}
+                checked={options[format.key]}
+                disabled={running}
+                onChange={(e) => toggleFormat(format.key, e.target.checked)}
+              >
+                {format.label}
+              </Checkbox>
+            ))}
           </Space>
+          {/* 格式一多，光看名字分不清用途，把「拿它干什么」直接写在弹窗里 */}
+          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+            长图适合直接发微信（手机上看不用缩放）；确认单只有一页，打印后交给学员签字。
+          </div>
+          {zipDirs.length > 0 && (
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              PDF / 长图会打包成一个 ZIP，内部按格式分子目录：{zipDirs.join('、')}
+            </div>
+          )}
         </div>
 
         <div>
@@ -369,9 +426,9 @@ export default function ExportModal({
           </Radio.Group>
         </div>
 
-        {options.pdf && (
+        {outputs.length > 0 && (
           <div>
-            <div style={{ marginBottom: 6 }}>PDF 内容</div>
+            <div style={{ marginBottom: 6 }}>PDF / 长图内容</div>
             <Space orientation="vertical" size={4}>
               <Checkbox
                 checked={options.includeAnalysis}
@@ -380,18 +437,14 @@ export default function ExportModal({
               >
                 附答案解析（考试未结束时请勿勾选）
               </Checkbox>
-              <Checkbox
-                checked={options.includeImages}
-                disabled={running}
-                onChange={(e) => setOptions((prev) => ({ ...prev, includeImages: e.target.checked }))}
-              >
-                附签名题 / 上传题图片
-              </Checkbox>
             </Space>
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              签名题 / 上传题的图片始终包含，不用再选；勾了「附解析」，上面每种格式都会带上解析。
+            </div>
             {!running && options.scope === 'filtered' && filterHints.length > 0 && (
               // 契约里 pdf-job 只收班级 + 交卷时间；批改状态/分数/姓名只有 Excel 明细认
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-                PDF 成绩单按「班级 + 交卷时间」取数；批改状态 / 分数段 / 姓名只作用于 Excel 明细
+              <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                PDF / 长图按「班级 + 交卷时间」取数；批改状态 / 分数段 / 姓名只作用于 Excel 明细
               </div>
             )}
           </div>
@@ -425,14 +478,14 @@ export default function ExportModal({
             </div>
             <Progress percent={percent} size="small" status={job.status === 'failed' ? 'exception' : undefined} />
             <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-              关掉弹窗会取消正在生成的 PDF 任务
+              关掉弹窗会取消正在生成的任务
             </div>
           </div>
         )}
 
-        {!job && options.pdf && !running && (
+        {!job && outputs.length > 0 && !running && (
           <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
-            每人一份 PDF 是一份一份渲染的（几十份要等一会儿），生成期间可以关掉弹窗取消。
+            每份答卷是逐份渲染的（几十份 × 几种格式要等一会儿），生成期间可以关掉弹窗取消。
           </div>
         )}
       </div>

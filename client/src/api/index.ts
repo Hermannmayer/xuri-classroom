@@ -180,9 +180,15 @@ export interface AnswerPdfJobView {
   progress?: number;
 }
 
+/** 一次导出任务可以产出多种文件（ZIP 内按格式分子目录） */
+export type AnswerExportOutput = 'answerPdf' | 'answerSheetPdf' | 'answerImage' | 'confirmSheetPdf';
+
 export interface AnswerPdfJobRequest {
   projectId: string;
-  classId: string;
+  /** 按班级导出时必填；按 ids 或整卷导出可空（后端改校验项目级权限） */
+  classId?: string;
+  /** 勾选导出：只导这些答卷；不传 = 按班级 / 时间范围 / 整卷 */
+  ids?: string[];
   /** 第几次作答（从 0 开始）；不传 = 全部轮次 */
   attemptNo?: number;
   /** 交卷时间范围，格式 yyyy-MM-dd HH:mm:ss */
@@ -190,8 +196,15 @@ export interface AnswerPdfJobRequest {
   endTime?: string;
   /** 是否附答案解析（默认关：考试没结束时放解析等于泄题） */
   includeAnalysis?: boolean;
-  /** 是否嵌入签名题/上传题图片 */
+  /**
+   * @deprecated 签名题 / 上传题图片现在**总是包含**，前端不再传；字段保留仅为兼容旧调用。
+   */
   includeImages?: boolean;
+  /**
+   * 产出哪些文件：成绩单 / 答题卷还原 / 长图 / 成绩确认单。可多选，后端合成一个 ZIP。
+   * 不传时按老逻辑（type=answerPdf，只出成绩单）。
+   */
+  outputs?: AnswerExportOutput[];
 }
 
 /**
@@ -203,7 +216,8 @@ export interface AnswerPdfJobRequest {
 export const createAnswerPdfJob = (data: AnswerPdfJobRequest, exportToken?: string) =>
   post<{ jobId: string }>(
     `/api/answer/export/pdf-job${exportToken ? `?exportToken=${encodeURIComponent(exportToken)}` : ''}`,
-    { ...data, type: 'answerPdf' },
+    // 新调用方用 outputs 指定多格式；老调用方不带 outputs 时仍按 answerPdf 走（后端兼容）
+    data.outputs && data.outputs.length > 0 ? { ...data } : { ...data, type: 'answerPdf' },
   );
 
 /** 查进度（前端每 2 秒轮询一次） */

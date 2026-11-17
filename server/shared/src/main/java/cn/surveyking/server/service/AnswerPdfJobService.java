@@ -22,9 +22,13 @@ import java.util.Map;
 public interface AnswerPdfJobService {
 
 	/**
-	 * 创建导出任务（校验项目/班级 → 固化成任务快照 → 丢进线程池）。
-	 * @param query 导出范围：projectId、classId 必填；attemptNo / startTime / endTime 可选；
-	 * includeAnalysis（默认关）、includeImages 可选
+	 * 创建导出任务（校验范围 → 固化成任务快照 → 丢进线程池）。
+	 *
+	 * <p>
+	 * 范围三选一：只给 classId（按班）、只给 ids（勾选导出）、都不给（整卷）；可再叠加
+	 * startTime / endTime / attemptNo。权限：classId 有值时校验班级可见，为空时校验项目级权限。
+	 * @param query 导出范围与产出格式。outputs 可选（成绩单 / 答题卷还原 / 长图 / 确认单），
+	 * 为空时按 type 走老逻辑（只出成绩单）。includeImages 已废弃：签名与上传图片总是包含。
 	 * @return 任务 id
 	 */
 	String createJob(DownloadQuery query);

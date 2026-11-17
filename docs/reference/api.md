@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 246 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 247 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -161,6 +161,7 @@
 | GET | `${api.prefix}/system/update/check` | `SystemApi#checkUpdate` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/system` | `SystemApi#getSystemInfo` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/system/aiSetting` | `SystemApi#getSystemAiSetting` | `hasRole('admin')` | — |
+| POST | `${api.prefix}/system/aiModels` | `SystemApi#aiModels` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/oauthSetting` | `SystemApi#getOAuthSetting` | `hasRole('admin')` | — |
 | POST | `${api.prefix}/system/oauthSetting` | `SystemApi#updateOAuthSetting` | `hasRole('admin')` | — |
 | POST | `${api.prefix}/system/update` | `SystemApi#updateSystemInfo` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |

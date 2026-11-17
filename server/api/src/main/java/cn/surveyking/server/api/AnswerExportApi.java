@@ -28,10 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.ValidationException;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * 班级答卷批量导出 PDF（异步任务版）。
+ * 班级答卷批量导出（异步任务版）：一次任务可产出成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单 PDF，
+ * 打成一个 ZIP 按格式分子目录。
  *
  * <p>
  * 单独一个 Controller 而不是往 {@code AnswerApi} 里塞：按班导出 PDF 的入口、权限口径
@@ -84,7 +86,7 @@ public class AnswerExportApi {
 	private final AnswerPdfJobService answerPdfJobService;
 
 	/**
-	 * 创建「导出答卷 PDF」任务（按班 / 整卷 / 勾选若干份都走这里）。
+	 * 创建「导出答卷」任务（按班 / 整卷 / 勾选若干份都走这里）。
 	 *
 	 * <p>
 	 * 返回 {@code {jobId}} 后前端每 2 秒轮询 {@code GET /pdf-job/{id}} 拿进度，完成后再走
@@ -94,8 +96,14 @@ public class AnswerExportApi {
 	 * 导出范围由三个可选条件组合而成：{@code classId}（按班）、{@code ids}（勾选若干份）、
 	 * {@code startTime/endTime}（时间段）。三者都可以不传，那就是整场考试；
 	 * {@code ids} 传空数组与不传等价（都表示「不限」，不是「一份都不要」）。
+	 *
+	 * <p>
+	 * 格式由 {@code outputs} 决定（answerPdf / answerSheetPdf / answerImage / confirmSheetPdf，可多选）；
+	 * 不传就按 {@code type} 走老逻辑（只出成绩单）。只收答卷相关类型：Excel 明细、
+	 * 全班成绩册这类传上来会按 400 拒绝，不会给一份「不是你要的格式」的文件。
 	 * @param query 导出范围：projectId 必填；classId / ids / startTime / endTime / attemptNo 可选；
-	 * includeAnalysis（默认关，考试没结束放解析等于泄题）、includeImages 可选
+	 * includeAnalysis（默认关，考试没结束放解析等于泄题）、outputs 可选。
+	 * includeImages 已废弃：签名/上传图片总是包含
 	 * @param exportToken 一次性导出令牌（优先）
 	 * @param exportPassword 导出密码（兼容旧调用）
 	 * @return {jobId}
@@ -109,7 +117,7 @@ public class AnswerExportApi {
 		assertExportAllowed(exportToken, exportPassword);
 		// projectId 是范围的地基：没有它既查不了项目、也没法做项目级权限判定
 		if (query == null || !StringUtils.hasText(query.getProjectId())) {
-			throw new ValidationException("导出答卷 PDF 需要项目 id");
+			throw new ValidationException("导出答卷需要项目 id");
 		}
 		if (StringUtils.hasText(query.getClassId())) {
 			// 班级可见性：学员即使有 answer:export，也只能导自己可见的班
@@ -140,7 +148,7 @@ public class AnswerExportApi {
 	}
 
 	/**
-	 * 下载产物 ZIP（每份答卷一个 PDF）。
+	 * 下载产物 ZIP（按格式分子目录，一份答卷可能同时有 PDF 与 PNG）。
 	 *
 	 * <p>
 	 * 权限复查：任务归属 + 班级可见性 + 导出令牌/密码都要过；文件被清理或还没生成时按
@@ -164,8 +172,9 @@ public class AnswerExportApi {
 		InputStream stream = answerPdfJobService.openArtifact(id);
 		long size = answerPdfJobService.artifactSize(id);
 		Object fileNameValue = job.get("fileName");
+		// 兜底文件名别再写死 PDF：产物可能是成绩单/答题卷/长图/确认单的混合包
 		String fileName = fileNameValue == null || !StringUtils.hasText(String.valueOf(fileNameValue))
-				? "答卷PDF.zip" : String.valueOf(fileNameValue);
+				? "答卷导出.zip" : String.valueOf(fileNameValue);
 		Object doneValue = job.get("done");
 		int done = doneValue instanceof Number ? ((Number) doneValue).intValue() : 0;
 		Object projectIdValue = job.get("projectId");
@@ -175,9 +184,11 @@ public class AnswerExportApi {
 		Map<String, Object> exportScope = new LinkedHashMap<>();
 		exportScope.put("projectId", projectId);
 		exportScope.put("classId", classId);
-		exportScope.put("type", "answerPdf");
+		// 导出的是哪种（哪几种）格式：一次任务可以同时出成绩单/答题卷/长图/确认单，
+		// 一律记成 answerPdf 会让审计看不出到底导了什么
+		exportScope.put("type", outputNames(job.get("outputs")));
 		exportScope.put("count", done);
-		exportGuardService.record(ExportGuardService.EXPORT_ANSWER, projectId, null, "导出答卷 PDF（" + done + " 份）",
+		exportGuardService.record(ExportGuardService.EXPORT_ANSWER, projectId, null, "导出答卷文件（" + done + " 份）",
 				exportScope);
 		return ResponseEntity.ok()
 				.header(HttpHeaders.CONTENT_DISPOSITION, HTTPUtils.getContentDispositionValue(fileName))
@@ -193,6 +204,25 @@ public class AnswerExportApi {
 	@PreAuthorize("hasAuthority('answer:export')")
 	public void cancelPdfJob(@PathVariable("id") String id) {
 		answerPdfJobService.cancelJob(id);
+	}
+
+	/**
+	 * 任务里记录的格式列表转成审计里的一个字段值：
+	 * {@code ["answerPdf","answerImage"] → "answerPdf+answerImage"}。任务描述里没有（老任务/异常路径）
+	 * 就退回 answerPdf —— 审计字段不能为空，但也不能瞎编没发生过的格式。
+	 */
+	private static String outputNames(Object outputs) {
+		if (!(outputs instanceof List<?>) || ((List<?>) outputs).isEmpty()) {
+			return "answerPdf";
+		}
+		StringBuilder text = new StringBuilder();
+		for (Object one : (List<?>) outputs) {
+			if (text.length() > 0) {
+				text.append('+');
+			}
+			text.append(String.valueOf(one));
+		}
+		return text.toString();
 	}
 
 	/** 与 {@code /api/answer/download} 同一套校验：优先一次性 token，其次密码，没配置密码时放行 */
