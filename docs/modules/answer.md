@@ -326,6 +326,13 @@ verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
 
 ## 坑与已知限制
 
+- **答题页的 hook 绝对不能写在提前返回之后**（2026-11-17 线上白屏事故）：`PublicAnswer` 里有
+  6 处提前返回（loading / fatal / 需要密码 / 需要登录 / 无 project / 已提交结果），首屏
+  `loading=true` 会先返回；任何写在它们之后的 `useMemo/useState/...` 都会让第二次渲染多出一个
+  hook，React 直接抛 #310「Rendered more hooks than during the previous render」，整页白屏。
+  当前 `nameQuestion` 已改成普通 `find`——加新逻辑时请要么用普通计算，要么把 hook 提到所有
+  提前返回之前。
+
 - **统计有两条路径，且会自动切换**：`t_answer_item` 覆盖了该场全部答卷时走 SQL 聚合（`AnswerItemMapper` + `ProjectStatHelper.statFromProjection`），否则回退到内存算法。判断条件是 `COUNT(DISTINCT answer_id) >= COUNT(*)`，所以「未回填 / 回填中 / 已回填」三个阶段统计数字都不会变少。回填是 `AnswerItemBackfill`，用 `surveyking.answer-items.backfill=true` 触发一次（幂等，可重跑）。覆盖判断看 `t_answer.items_synced`（每份处理过就置 1），不要改成「投影表行数」——没有选项答案的答卷展开后是 0 行。
 - **投影表是派生数据**：`t_answer.answer` 才是真源，`t_answer_item` 丢了可以随时重建。交卷与回填都走 `AnswerItemProjector.rebuild`，保证两条路径产出一致；投影写入失败只 warn，不让交卷失败。
 - **统计接口的权限注解必须写在 Controller**：统计接口的 URL 前缀是 public（实际路径 `/api/report/statistics`），但统计暴露答卷分布。`@PreAuthorize` 写在 `SurveyServiceImpl` 上不生效（JDK 动态代理只看接口注解），已改到 `SurveyApi.statProject`。
