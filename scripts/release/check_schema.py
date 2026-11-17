@@ -75,6 +75,14 @@ def strip_comments(sql: str) -> str:
     return "\n".join(line for line in without_block.splitlines() if not line.strip().startswith("--"))
 
 
+def parse_init_blocks(sql: str) -> dict[str, str]:
+    """每张表建表语句的正文（括号内那一段）。索引检查按表作用域用，避免「索引名写在别的表里」也算通过。"""
+    blocks: dict[str, str] = {}
+    for match in re.finditer(r"CREATE TABLE (?:IF NOT EXISTS )?`?(\w+)`?\s*\((.*?)\n\)\s*ENGINE", sql, re.DOTALL):
+        blocks[match.group(1)] = match.group(2)
+    return blocks
+
+
 def parse_init_tables(sql: str) -> dict[str, set[str]]:
     """解析 init-mysql.sql 里每张表的列集合。"""
     tables: dict[str, set[str]] = {}
@@ -114,7 +122,11 @@ def check_requires_format(schema: dict) -> None:
 
 
 def check_init_has_requires(sql: str, schema: dict) -> None:
+    # 先剥注释再解析：早期版本直接拿原文正则匹配，导致「注释里写了一句 KEY idx_xxx」
+    # 也能让索引检查通过（实测：删掉真的索引、只在注释里留名字，检查仍然绿）。
+    sql = strip_comments(sql)
     tables = parse_init_tables(sql)
+    blocks = parse_init_blocks(sql)
     if not tables:
         fail("从 init-mysql.sql 里没解析出任何 CREATE TABLE，检查文件是否完整")
         return
@@ -138,8 +150,11 @@ def check_init_has_requires(sql: str, schema: dict) -> None:
                 if detail not in tables[table]:
                     fail("schema.json 要求列 " + table + "." + str(detail) + "，但 init-mysql.sql 的建表语句里没有")
             elif kind == "index":
-                if not re.search(r"KEY\s+`?" + re.escape(str(detail)) + r"`?\b", sql):
-                    fail("schema.json 要求索引 " + str(detail) + "，但 init-mysql.sql 里找不到")
+                # 只在该表的建表语句里找，且要求后面跟着 "("（真的声明了索引列）
+                block = blocks.get(table, "")
+                if not re.search(r"\bKEY\s+`?" + re.escape(str(detail)) + r"`?\s*\(", block):
+                    fail("schema.json 要求索引 " + str(detail) + "，但 init-mysql.sql 的 " + table
+                         + " 建表语句里没有（注意：写在注释里不算）")
 
 
 def check_migrations(version: str) -> None:

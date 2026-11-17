@@ -52,6 +52,13 @@ jobs:
       - name: 版本一致性（VERSION / CHANGELOG / package.json / pom.xml / tag）
         run: python scripts/release/release.py check --tag
 
+      # 结构契约：VERSION 必须等于 schema.json 最高版本、init-mysql.sql 要有这些对象、
+      # 迁移脚本不能有破坏性语句、迁移版本不能高于 VERSION。
+      # 以前只有 NAS 的部署脚本在跑，本地打包和 CI 都不跑 —— 于是「加了迁移忘了改 VERSION」
+      # 这类问题只能等到线上启动时才暴露（2.2.1 就这么踩过）。
+      - name: 数据库结构契约（init-mysql / schema.json / 迁移脚本）
+        run: python scripts/release/check_schema.py
+
   build:
     name: 构建 SPA jar
     runs-on: ubuntu-latest
