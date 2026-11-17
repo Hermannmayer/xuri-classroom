@@ -66,6 +66,17 @@ public class AiChatRequest {
 		/** 当前答卷 id（可空；页面把答卷 id 写进 URL 或推给侧栏时才有） */
 		private String answerId;
 
+		/**
+		 * 当前班级 id（可空）。
+		 *
+		 * <p>「把这个班没批的卷子批了」里的「这个班」全靠它——没有它只能按整份试卷批，
+		 * 老师在报表页按班级看数据时批错范围就是事故。
+		 */
+		private String classId;
+
+		/** 当前题库 id（可空）：题库题目页的体检 / 抽题动作要它 */
+		private String repoId;
+
 	}
 
 }

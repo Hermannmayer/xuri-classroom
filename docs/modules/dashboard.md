@@ -71,7 +71,7 @@ verified_against: a2c77513fd34005dc0738252dec2e2b1f91fbfe2
 | 路由 | `client/src/router.tsx` | `/home` 无守卫（登录即可进）；`/tasks` 要 `project:answer` |
 | 页面外壳 | `client/src/pages/Home.tsx` | 从 `BasicLayout` 的 `outlet context` 取 `user.authorityList`，交给 `Dashboards` |
 | 三种视角 | `client/src/pages/home/Dashboards.tsx` | `StudentHome` / `TeacherHome` / `AdminHome` + 默认导出的分发函数 `Dashboard` |
-| 菜单 | `client/src/layout/BasicLayout.tsx` | 教学管理与班级学情合并为一个「教学」`/teaching`（`portal:teacher` && (`project:list` 或 `project:report`)）；`/teaching/classes` 独立按 `class:list` |
+| 菜单 | `client/src/layout/BasicLayout.tsx` | 「教学」`/teaching` 一个入口（`project:list` 或 `class:list`），页面内分「考试/问卷」「班级」两个 Tab；原来的独立「班级管理」菜单已并入 |
 | 我的成绩接口 | `server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java` | `GET /api/my-report/list`，`project:report or admin` |
 | 我的成绩实现 | `server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java` | 只查 `create_by = 当前用户` 且 `temp_save=1` 的答卷，按项目聚合成 `MyReportView` |
 | 教学接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | `GET /api/teaching/projects`、`/teaching/classes`，都要 `project:report` |
@@ -182,8 +182,8 @@ TeacherHome 的跳转已跟教学页合并对齐：「班级学情」卡与答�
 - `t_dashboard` 在 `init-mysql.sql` 里没有 `is_deleted` 列，而 `Dashboard` 继承 `BaseModel`（`@TableLogic` 会自动拼 `is_deleted = 0`）。老库不改表，`/api/dashboard/list` 稳定 500；补列脚本是 `scripts/dev/add-dashboard-is-deleted.sql`。
 - `Dashboard` 的 `key` 字段必须把列名写成 MySQL 的反引号转义形式（见 `Dashboard.java` 里 `@TableField` 上的注释），`type` 也不能映射成别的字段名，否则 SELECT 直接语法/未知列错误——这两个坑都修过一次。
 - 前端从未调用 `/api/dashboard/*`，所以这套接口目前没有回归覆盖；改它只能靠手工请求验证。
-- 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。教学管理与班级学情合并后，移动端只剩一个「教学」tab；`/teaching/classes` 仍是独立「班级」tab。
-- 首页/快捷入口的 `?tab=exam|insight` 只是前端状态：直接访问 `/teaching` 默认 exam；没有 `project:report` 的账号访问 `?tab=insight` 会被 `TeachingHome` 回退到 exam，不要把该 URL 当权限校验。
+- 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。教学、班级合并后两处都只有一个「教学」入口，`/teaching/classes` 已重定向到 `/teaching?tab=classes`。
+- 首页/快捷入口的 `?tab=exam|classes` 只是前端状态：直接访问 `/teaching` 默认取第一个可用 Tab；没有 `class:list` 的账号访问 `?tab=classes` 会被 `TeachingHome` 归一回去，不要把该 URL 当权限校验（旧值 `insight`/`class`/`survey` 也会归一）。
 
 ## 验证
 

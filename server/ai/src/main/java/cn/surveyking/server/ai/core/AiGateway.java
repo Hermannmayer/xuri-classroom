@@ -67,8 +67,8 @@ public class AiGateway {
 	/** 首次重试等待；之后翻倍（1s → 2s） */
 	private static final long RETRY_BACKOFF_MILLIS = 1000L;
 
-	/** 每用户窗口内允许的调用次数 */
-	private static final int RATE_LIMIT_PER_WINDOW = 10;
+	/** 每用户窗口内允许的调用次数默认值（系统设置里没填时用它） */
+	private static final int DEFAULT_RATE_LIMIT_PER_WINDOW = 10;
 
 	/** 限流窗口 */
 	private static final long RATE_WINDOW_MILLIS = 60_000L;
@@ -113,7 +113,7 @@ public class AiGateway {
 			turns.add(AiChatTurn.system(request.getSystemPrompt()));
 		}
 		turns.add(AiChatTurn.user(request.getUserPrompt() == null ? "" : request.getUserPrompt()));
-		return dispatch(turns, request.getModel(), request.getTemperature());
+		return dispatch(turns, request.getModel(), request.getTemperature(), request.isBackground());
 	}
 
 	/**
@@ -131,7 +131,7 @@ public class AiGateway {
 			// 只有 system/assistant 的请求一定是调用方拼错了，早点报错比让模型自问自答便宜
 			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 对话里没有问题");
 		}
-		return dispatch(turns, conversation.getModel(), conversation.getTemperature());
+		return dispatch(turns, conversation.getModel(), conversation.getTemperature(), conversation.isBackground());
 	}
 
 	/**
@@ -180,7 +180,7 @@ public class AiGateway {
 	/* ====== 内部实现 ====== */
 
 	/** 两条入口的公共后半段：解析配置 → 组装 payload → 限流 → 带重试地调用 */
-	private AiCompletion dispatch(List<AiChatTurn> turns, String requestedModel, Double temperature) {
+	private AiCompletion dispatch(List<AiChatTurn> turns, String requestedModel, Double temperature, boolean background) {
 		Resolution resolution = resolve();
 		if (resolution.reason() != null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, resolution.reason());
@@ -191,7 +191,7 @@ public class AiGateway {
 			throw new ErrorCodeException(ErrorCode.ValidationError, MSG_NO_MODEL);
 		}
 		String url = chatCompletionsUrl(resolution.setting());
-		assertNotTooFrequent();
+		assertNotTooFrequent(background);
 		return callWithRetry(url, resolution.apiKey(), buildPayload(turns, model, temperature), model);
 	}
 
@@ -212,10 +212,27 @@ public class AiGateway {
 	private record Resolution(SystemInfo.AiSetting setting, String apiKey, String model, String reason) {
 	}
 
-	private void assertNotTooFrequent() {
+	/**
+	 * 每用户窗口限流。
+	 *
+	 * <p>两个例外必须说清楚：
+	 * <ul>
+	 * <li><b>后台任务不限流</b>：批量批改 / 组卷 / 题库体检本身就是「一次请求里连调几十次模型」，
+	 * 按人限流会把自己卡死在第三次；它们的成本由每日 token 限额兜底、并发由 {@code AiJobService} 兜底。</li>
+	 * <li><b>频率可配</b>：默认 10 次/分钟，管理员在系统设置里能调（大校自建模型时想放开）。</li>
+	 * </ul>
+	 */
+	private void assertNotTooFrequent(boolean background) {
+		if (background) {
+			return;
+		}
+		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
+		int perWindow = setting == null || setting.getRateLimitPerMinute() == null ? DEFAULT_RATE_LIMIT_PER_WINDOW
+				: Math.max(1, setting.getRateLimitPerMinute().intValue());
 		String userId = SecurityContextUtils.getUserId();
-		if (!rateLimiter.tryAcquire("ai:gateway:" + userId, RATE_LIMIT_PER_WINDOW, RATE_WINDOW_MILLIS)) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 调用过于频繁，请稍等几秒再试");
+		if (!rateLimiter.tryAcquire("ai:gateway:" + userId, perWindow, RATE_WINDOW_MILLIS)) {
+			throw new ErrorCodeException(ErrorCode.ValidationError,
+					"AI 调用过于频繁（每分钟上限 " + perWindow + " 次），请稍等几秒再试");
 		}
 	}
 

@@ -15,13 +15,16 @@ import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.SurveySchema;
+import cn.surveyking.server.domain.dto.SystemInfo;
 import cn.surveyking.server.domain.dto.UserInfo;
 import cn.surveyking.server.domain.model.AiUsage;
 import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.mapper.AnswerMapper;
+import cn.surveyking.server.service.AiActionService;
 import cn.surveyking.server.service.AiUsageService;
 import cn.surveyking.server.service.ProjectPartnerService;
 import cn.surveyking.server.service.ProjectService;
+import cn.surveyking.server.service.SystemService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -82,6 +85,14 @@ class AiAssistantServiceImplTest {
 
 	private final AnswerAccessGuard answerAccessGuard = mock(AnswerAccessGuard.class);
 
+	/**
+	 * 意图识别与系统设置：默认「不是系统动作」+ 「限额未配置」，
+	 * 这样这些用例仍然只测聊天链路；动作链路由 AiActionServiceImpl 自己的用例覆盖。
+	 */
+	private final AiActionService aiActionService = mock(AiActionService.class);
+
+	private final SystemService systemService = mock(SystemService.class);
+
 	/** 真实模板：提示词里的占位符漏替换必须在单测里暴露 */
 	private final PromptRegistry promptRegistry = new PromptRegistry();
 
@@ -91,7 +102,7 @@ class AiAssistantServiceImplTest {
 	void setUp() {
 		login("teacher-1");
 		service = new AiAssistantServiceImpl(aiGateway, promptRegistry, aiUsageService, projectService,
-				projectPartnerService, answerMapper, answerAccessGuard);
+				projectPartnerService, answerMapper, answerAccessGuard, aiActionService, systemService);
 	}
 
 	@AfterEach
@@ -158,9 +169,12 @@ class AiAssistantServiceImplTest {
 	}
 
 	@Test
-	@DisplayName("历史超过 12 条：只带最近 12 条（省钱，也避免超出上下文窗口）")
+	@DisplayName("历史超过上限：只带最近 N 条（N 来自系统设置 maxChatTurns，省钱也避免超上下文）")
 	void truncateHistory() {
 		when(aiGateway.completeConversation(any())).thenReturn(completion("好。"));
+		SystemInfo.AiSetting setting = new SystemInfo.AiSetting();
+		setting.setMaxChatTurns(Integer.valueOf(12));
+		when(systemService.getSystemAiSetting()).thenReturn(setting);
 		AiChatRequest request = new AiChatRequest();
 		List<AiChatRequest.Message> messages = new ArrayList<>();
 		for (int index = 0; index < 10; index++) {
@@ -173,7 +187,7 @@ class AiAssistantServiceImplTest {
 
 		service.chat(request);
 		List<AiChatTurn> turns = captureTurns();
-		assertEquals(13, turns.size(), "1 条 system + 12 条历史");
+		assertEquals(13, turns.size(), "1 条 system + 配置的 12 条历史");
 		assertEquals("第4答", turns.get(1).content(), "应该从最新往前数 12 条");
 		assertEquals("第10问", turns.get(12).content());
 	}

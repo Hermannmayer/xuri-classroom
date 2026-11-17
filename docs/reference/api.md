@@ -2,15 +2,22 @@
 
 # 接口表（生成）
 
-> 共 238 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 245 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
-| POST | `${api.prefix}/ai/paper/generate` | `AiApi#generatePaper` | `hasAuthority('ai:use')` | — |
-| GET | `${api.prefix}/ai/paper/job/{jobId}` | `AiApi#paperJob` | `hasAuthority('ai:use')` | — |
+| POST | `${api.prefix}/ai/paper/pick` | `AiApi#pickPaper` | `hasAuthority('ai:use')` | — |
+| GET | `${api.prefix}/ai/paper/job/{jobId}` | `AiApi#job` | `hasAuthority('ai:use')` | — |
 | POST | `${api.prefix}/ai/paper/apply` | `AiApi#applyPaper` | `hasAuthority('ai:use') and hasAuthority('project:update')` | — |
+| POST | `${api.prefix}/ai/paper/check` | `AiApi#checkPaper` | `hasAuthority('ai:use')` | — |
+| POST | `${api.prefix}/ai/repo/audit` | `AiApi#auditRepo` | `hasAuthority('ai:use')` | — |
+| POST | `${api.prefix}/ai/repo/audit/apply` | `AiApi#applyRepoAudit` | `hasAuthority('ai:use') and (hasAuthority('repo:update') or hasAuthority('template:update'))` | — |
+| POST | `${api.prefix}/ai/practice/recommend` | `AiApi#recommendPractice` | `hasAuthority('ai:use') and (hasAuthority('project:report') or hasRole('admin'))` | — |
+| POST | `${api.prefix}/ai/notice/draft` | `AiApi#draftNotice` | `hasAuthority('ai:use')` | — |
 | POST | `${api.prefix}/ai/question/rewrite` | `AiApi#rewriteQuestion` | `hasAuthority('ai:use')` | — |
 | POST | `${api.prefix}/ai/grade/suggest` | `AiApi#suggestGrade` | `hasAuthority('ai:use') and hasAuthority('answer:grade')` | — |
+| POST | `${api.prefix}/ai/grade/batch` | `AiApi#batchGrade` | `hasAuthority('ai:use') and hasAuthority('answer:grade')` | — |
+| POST | `${api.prefix}/ai/grade/undo` | `AiApi#undoGrade` | `hasAuthority('ai:use') and hasAuthority('answer:grade')` | — |
 | POST | `${api.prefix}/ai/report/summary` | `AiApi#summarizeReport` | `hasAuthority('ai:use')` | — |
 | POST | `${api.prefix}/ai/chat` | `AiApi#chat` | `hasAuthority('ai:use')` | — |
 | GET | `${api.prefix}/ai/status` | `AiApi#status` | `hasAuthority('ai:use')` | — |

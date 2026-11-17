@@ -20,8 +20,23 @@ import cn.surveyking.server.domain.dto.AiUsageView;
  */
 public interface AiUsageService {
 
-	/** 场景：AI 出卷 */
-	String SCENE_PAPER_GENERATE = "paper_generate";
+	/** 场景：AI 出卷（从题库抽题组卷，原「凭空生成」已下线） */
+	String SCENE_PAPER_PICK = "paper_pick";
+
+	/** 场景：试卷质检 */
+	String SCENE_PAPER_CHECK = "paper_check";
+
+	/** 场景：题库体检（含补解析 / 查重） */
+	String SCENE_REPO_AUDIT = "repo_audit";
+
+	/** 场景：公告草稿 */
+	String SCENE_NOTICE_DRAFT = "notice_draft";
+
+	/** 场景：错题重练推荐 */
+	String SCENE_PRACTICE_RECOMMEND = "practice_recommend";
+
+	/** 场景：批量 AI 批改 */
+	String SCENE_GRADE_BATCH = "grade_batch";
 
 	/** 场景：AI 改题 */
 	String SCENE_QUESTION_REWRITE = "question_rewrite";
@@ -32,14 +47,26 @@ public interface AiUsageService {
 	/** 场景：AI 学情总结 */
 	String SCENE_REPORT_SUMMARY = "report_summary";
 
-	/** 场景：侧栏 AI 助手对话 */
+	/** 场景：AI 助手对话 */
 	String SCENE_CHAT = "chat";
+
+	/** 场景：对话前的意图识别（判断这句话是不是要执行系统动作） */
+	String SCENE_CHAT_INTENT = "chat_intent";
 
 	/** 全站每日 token 上限默认值（200 万） */
 	int DEFAULT_DAILY_TOKEN_LIMIT = 2_000_000;
 
 	/** 单用户每日 token 上限默认值（20 万） */
 	int DEFAULT_PER_USER_TOKEN_LIMIT = 200_000;
+
+	/** 一次对话最多带多少条历史（默认 20）：再长的历史基本是绕圈子，重发一遍纯烧钱 */
+	int DEFAULT_MAX_CHAT_TURNS = 20;
+
+	/** 单条消息最多多少字（默认 4000） */
+	int DEFAULT_MAX_TURN_CHARS = 4_000;
+
+	/** 每用户每分钟最多调用几次（默认 10）：只挡手抖连点，后台任务不走这条 */
+	int DEFAULT_RATE_LIMIT_PER_MINUTE = 10;
 
 	/**
 	 * 限额闸门：超限直接抛 {@code ErrorCodeException}（中文提示），<b>不调用模型</b>。

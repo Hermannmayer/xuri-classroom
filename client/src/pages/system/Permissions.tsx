@@ -201,7 +201,7 @@ type VisibleGroup = {
   items: PermissionItem[];
 };
 
-export default function SystemPermissions() {
+export default function SystemPermissions({ embedded = false }: { embedded?: boolean } = {}) {
   const { message, modal } = App.useApp();
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
   const [roles, setRoles] = useState<RoleView[]>([]);
@@ -624,17 +624,20 @@ export default function SystemPermissions() {
 
   return (
     <div>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-          SYSTEM / 权限配置
+      {/* 页头交给外层「用户与权限」：这里只在单独打开本页（旧链接）时显示标题与计数 */}
+      {!embedded && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+            SYSTEM / 权限配置
+          </div>
+          <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
+            角色与权限
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+            共 {allItems.length} 个权限点、{roles.length} 个角色。左边勾选、右边核对；新角色可以从老师或学员预设起步。
+          </div>
         </div>
-        <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-          角色与权限
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-          共 {allItems.length} 个权限点、{roles.length} 个角色。左边勾选、右边核对；新角色可以从老师或学员预设起步。
-        </div>
-      </div>
+      )}
 
       {/* 1. 角色选择 */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>

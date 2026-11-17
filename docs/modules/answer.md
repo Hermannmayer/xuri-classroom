@@ -236,7 +236,12 @@ verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
 - 状态机：交卷时卷内有 manual 题 → `pending`；所有 manual 题都有分 → `graded`；**学生重新提交 → 回 `pending` 并清空 `t_answer_grade`**（旧批改作废）。
 - 学生端：`grade_status != graded` 时 `loadExamResult` / `listPublicAttempts` 都**不下发 examScore**，避免学生把「客观题部分分」当成最终成绩。
 
-**接口**：`GET /api/answer/grade/list`（待批改，认 `gradeStatus` 过滤）、`GET /grade/detail`（默认剥掉 `examCorrectAnswer`）、`POST /api/answer/grade`、`POST /grade/reset`；权限 `answer:grade or admin`。前端入口在数据页行操作「批改」（`pending` 时显示）+ 顶部「待批改」筛选。
+**接口**：`GET /api/answer/grade/list`（待批改，认 `gradeStatus` 过滤）、`GET /grade/detail`（默认剥掉 `examCorrectAnswer`）、`POST /api/answer/grade`、`POST /grade/reset`
+
+**AI 批量批改**（`POST /api/ai/grade/batch`，答卷数据页「批量 AI 批改」或对话框一句「把这个班没批的卷子批了」）：
+只取 `pending` 的正式答卷、只补 `score == null` 的主观题（**已有分数绝不覆盖**），题目必须有参考答案与分值；
+写入走同一个 `AnswerGradeService#submit`，审计照常记 `ANSWER_GRADE`（操作人=发起人）；
+返回 24 小时有效的 `undoToken`，`POST /api/ai/grade/undo?token=` 只清这次写入的分数。详见 [ai](./ai.md)。；权限 `answer:grade or admin`。前端入口在数据页行操作「批改」（`pending` 时显示）+ 顶部「待批改」筛选。
 
 **交卷侧钩子**在 `AnswerScoringService#beforeSaveAnswer` 末尾（`AnswerGradeService#onSubmitted`），不是 `AnswerServiceImpl` —— 那是 create/update 的唯一共同入口。
 

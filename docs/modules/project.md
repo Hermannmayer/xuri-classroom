@@ -157,7 +157,7 @@ verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
 
 - `/project` 路由守卫仍是 `project:list`，但组件换成 `ProjectEntry`：有 `portal:teacher + project:list` 的账号重定向到 `/teaching?tab=exam`；学员、以及没有 `portal:teacher` 的只读账号继续渲染 `ProjectList` 的「考试安排」。
 - `/teaching` 守卫是 `portal:teacher + project:list`；「考试/问卷」Tab 渲染 `<ProjectList embedded />`，隐藏 ProjectList 自己的页头/分隔线，保留搜索、新建、回收站、批量等工具条。
-- 「学情」Tab 是另一套 `Workbench`（左班级树 + 右「考试/问卷/学员」Tabs），不是 ProjectList；没有 `project:report` 时不渲染该 Tab。
+- 教学页的另一个 Tab 是「班级」（`TeachingClasses embedded`，原班级管理页），不是 ProjectList；没有 `class:list` 时不渲染该 Tab。原「学情」Tab 已删除。
 - 菜单只剩一个「教学」`/teaching`（`portal:teacher && (project:list || project:report)`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
 - 学员侧不变：菜单/首页仍走「我的任务」，`/project` 是可访问的「考试安排」，不会被重定向。
 

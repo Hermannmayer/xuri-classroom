@@ -30,4 +30,8 @@ public class AiConversation {
 	/** 温度；为空不下发（由服务端默认值决定）。对话场景建议 0.4~0.7 */
 	private final Double temperature;
 
+	/** 是否后台任务发起的调用（语义同 {@code AiRequest#background}）；对话场景一般为 false */
+	@Builder.Default
+	private final boolean background = false;
+
 }

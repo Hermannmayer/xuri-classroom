@@ -1,42 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ComponentRef, ReactNode } from 'react';
+import type { ComponentRef } from 'react';
 import { Alert, Button, Empty, Input, Spin, Tag, Tooltip } from 'antd';
-import {
-  BarChartOutlined,
-  BookOutlined,
-  BulbOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  FileAddOutlined,
-  MenuFoldOutlined,
-  RobotOutlined,
-  SendOutlined,
-} from '@ant-design/icons';
+import { BookOutlined, CloseOutlined, DeleteOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getAiUsageToday, type AiUsageToday } from '../../api/ai';
-import { AI_GUIDE_PATH } from '../../pages/ai-guide/constants';
-import { useAiAssistant, type AiChatBubble } from './AiAssistantContext';
+import { getAiUsageToday } from '../../api/ai';
+import type { AiUsageToday } from '../../api/ai';
+import { useAiAssistant } from './AiAssistantContext';
+import type { AiChatBubble } from './AiAssistantContext';
+import AiActionCard from './AiActionCard';
+import { AI_TOOL_SHORTCUTS } from './tools';
 import { formatTokens, limitText } from './format';
-import { AI_QUICK_ACTIONS, type AiQuickAction } from './quickActions';
 
 /**
- * 侧栏面板本体：头部（状态 / 说明 / 清空 / 收起）+ 上下文行 + 对话区 + 快捷指令 + 输入框。
+ * AI 对话框本体：头部 + 上下文行 + 对话区 + 工具快捷入口 + 输入框。
  *
- * 桌面与手机渲染的是同一个组件，区别只在外面那层容器（停靠列 / 抽屉），见 `AiAssistantSidebar`。
+ * <p>与旧版「左侧停靠侧栏」的区别不只是位置：
+ * <ul>
+ * <li>助手回复可以带「动作结果卡」（真的批改了答卷 / 打开了工具 / 给出了统计），
+ * 见 {@link AiActionCard}；</li>
+ * <li>底部多了一排工具按钮，点一下直接打开对应面板，不必先跟 AI 说一句话；</li>
+ * <li>整块是浮层（桌面右下、手机全屏抽屉），不再挤压正文宽度。</li>
+ * </ul>
  */
 
-/** 快捷指令的图标：文案在 `quickActions.ts`，图标留在这里（那边保持零依赖的纯数据） */
-const QUICK_ICONS: Record<string, ReactNode> = {
-  paper: <FileAddOutlined />,
-  rewrite: <EditOutlined />,
-  explain: <BulbOutlined />,
-  grade: <BarChartOutlined />,
-};
-
 /** 空会话时的示例问题：点一下填进输入框，给不知道能问什么的人一个起点 */
-const EXAMPLES = ['这份试卷的难度分布合理吗？', '帮我出一份 20 题的单元测验', '这道题的考点怎么讲更清楚？'];
+const EXAMPLES = [
+  '把这个班没批改的卷子批了吧',
+  '这份卷子有什么问题？',
+  '从题库给我抽 20 道题组一份单元测验',
+  '这次考试考得怎么样？',
+];
 
-export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => void }) {
+export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
   const { messages, sending, status, statusLoading, context, send, clear, refreshStatus } = useAiAssistant();
   const [draft, setDraft] = useState('');
   const [usage, setUsage] = useState<AiUsageToday>();
@@ -47,7 +42,7 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
   /** 状态还没拿到时不拦用户（网络抖动不该让人以为 AI 坏了），明确 false 才禁用输入 */
   const ready = status?.ready !== false;
 
-  // 新消息 / 正在思考时贴到底部：侧栏一屏放不下几轮，不自动滚就会以为没反应
+  // 新消息 / 正在思考时贴到底部：一屏放不下几轮，不自动滚就会以为没反应
   useEffect(() => {
     const list = listRef.current;
     if (list) {
@@ -55,7 +50,7 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
     }
   }, [messages.length, sending]);
 
-  // 用量随每轮回复刷新：让老师知道这一问问掉了多少额度（拿不到就显示提示语，不拦主流程）
+  // 用量随每轮回复刷新：让老师知道这一问问掉了多少额度
   useEffect(() => {
     if (!ready) {
       return;
@@ -86,36 +81,21 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
     void send(text);
   };
 
-  /** 快捷指令只填不发：模板的第一句往往还要改成自己的学科/题量 */
-  const fill = (action: AiQuickAction) => {
-    setDraft(action.prompt(context));
-    window.setTimeout(() => inputRef.current?.focus(), 0);
-  };
-
   const usageLine = usage
-    ? `今日额度：我 ${formatTokens(usage.userTokens)} / ${limitText(usage.userLimit)} · 全站 ${formatTokens(usage.dailyTokens)} / ${limitText(usage.dailyLimit)}`
+    ? '今日额度：我 ' + formatTokens(usage.userTokens) + ' / ' + limitText(usage.userLimit) + ' · 全站 ' + formatTokens(usage.dailyTokens) + ' / ' + limitText(usage.dailyLimit)
     : 'AI 生成内容仅供参考，重要结论请自己核对';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 0,
-        background: 'var(--bp-panel)',
-        borderRight: '1px solid var(--bp-line-soft)',
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bp-panel)' }}>
       {/* 头部 */}
       <div
         style={{
           flex: '0 0 auto',
-          height: 56,
+          height: 48,
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '0 10px 0 12px',
+          padding: '0 8px 0 12px',
           borderBottom: '1px solid var(--bp-line-soft)',
         }}
       >
@@ -124,7 +104,7 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
           AI 助手
         </span>
         {status?.ready ? (
-          <Tooltip title={status.model ? `当前模型：${status.model}` : undefined}>
+          <Tooltip title={status.model ? '当前模型：' + status.model : undefined}>
             <Tag color="green" style={{ marginInlineEnd: 0, fontSize: 10 }}>
               {status.model || '已就绪'}
             </Tag>
@@ -135,13 +115,13 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
           </Tag>
         ) : null}
         <div style={{ flex: 1 }} />
-        <Tooltip title="AI 能做什么、怎么配模型">
+        <Tooltip title="AI 能力说明与模型设置">
           <Button
             type="text"
             size="small"
             aria-label="AI 使用说明"
             icon={<BookOutlined />}
-            onClick={() => navigate(AI_GUIDE_PATH)}
+            onClick={() => navigate('/system/setting?tab=ai')}
           />
         </Tooltip>
         <Tooltip title={messages.length ? '清空当前对话' : '还没有对话'}>
@@ -154,14 +134,12 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
             onClick={clear}
           />
         </Tooltip>
-        {onCollapse && (
-          <Tooltip title="收起 AI 侧栏">
-            <Button type="text" size="small" aria-label="收起 AI 侧栏" icon={<MenuFoldOutlined />} onClick={onCollapse} />
-          </Tooltip>
-        )}
+        <Tooltip title="收起">
+          <Button type="text" size="small" aria-label="收起 AI 助手" icon={<CloseOutlined />} onClick={onClose} />
+        </Tooltip>
       </div>
 
-      {/* 上下文行：发送之前就让用户知道 AI 会看到哪份试卷 */}
+      {/* 上下文行：发送之前就让用户知道 AI 会看到哪份试卷/哪个班 */}
       <div
         style={{
           flex: '0 0 auto',
@@ -173,9 +151,9 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}
-        title={context.label ? `AI 会看到：${context.label}` : '当前页面没有可用的上下文'}
+        title={context.label ? 'AI 会看到：' + context.label : '当前页面没有可用的上下文'}
       >
-        {context.label ? `上下文：${context.label}` : '当前页面没有可用的上下文，可以直接问通用问题'}
+        {context.label ? '上下文：' + context.label : '当前页面没有可用的上下文，可以直接问通用问题'}
       </div>
 
       {/* 未配置模型：直接给引导，而不是让用户打完字才收到 400 */}
@@ -187,17 +165,13 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
             title="AI 还没配好"
             description={status.reason || '请先在系统设置里启用 AI 并填写模型与 API Key'}
             action={
-              <Button size="small" type="primary" onClick={() => navigate('/system/setting')}>
+              <Button size="small" type="primary" onClick={() => navigate('/system/setting?tab=ai')}>
                 去系统设置
               </Button>
             }
           />
           <div style={{ marginTop: 6, fontSize: 11, color: 'var(--bp-hint)' }}>
-            配好之后点下面的「重新检查」就能开始对话；完整的开通步骤见
-            <a style={{ marginLeft: 2 }} onClick={() => navigate(AI_GUIDE_PATH)}>
-              AI 使用说明
-            </a>
-            。
+            配好之后点下面的「重新检查」就能开始对话。
           </div>
         </div>
       )}
@@ -219,7 +193,7 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
           <div style={{ paddingTop: 8 }}>
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={<span style={{ fontSize: 12 }}>可以问试卷、题目、成绩，也可以让我出题</span>}
+              description={<span style={{ fontSize: 12 }}>可以直接让我办事：批卷、组卷、体检题库、写通知</span>}
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
               {EXAMPLES.map((example) => (
@@ -229,7 +203,7 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
                   disabled={!ready}
                   onClick={() => {
                     setDraft(example);
-                    window.setTimeout(() => inputRef.current?.focus(), 0);
+                    inputRef.current?.focus();
                   }}
                   style={{
                     textAlign: 'left',
@@ -253,31 +227,30 @@ export default function AiAssistantPanel({ onCollapse }: { onCollapse?: () => vo
         {sending && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--bp-text-soft)' }}>
             <Spin size="small" />
-            正在想…（最长可能要 120 秒）
+            正在处理…（批改类动作会在后台继续跑，关掉窗口也不影响）
           </div>
         )}
       </div>
 
-      {/* 快捷指令 + 输入 */}
+      {/* 工具快捷入口 + 输入 */}
       <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--bp-line-soft)', padding: '8px 10px 10px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {AI_QUICK_ACTIONS.map((action) => (
-            <Button
-              key={action.key}
-              size="small"
-              icon={QUICK_ICONS[action.key]}
-              disabled={!ready || sending}
-              onClick={() => fill(action)}
-            >
-              {action.label}
-            </Button>
-          ))}
+          {AI_TOOL_SHORTCUTS.map((tool) => {
+            const link = tool.link(context);
+            return (
+              <Tooltip key={tool.key} title={link ? '打开「' + tool.label + '」面板' : tool.hint}>
+                <Button size="small" disabled={!link} onClick={() => link && navigate(link)}>
+                  {tool.label}
+                </Button>
+              </Tooltip>
+            );
+          })}
         </div>
         <Input.TextArea
           ref={inputRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={ready ? '问点什么…（Enter 发送，Shift+Enter 换行）' : 'AI 还没配置好，先按上面的提示配一下模型'}
+          placeholder={ready ? '直接说要做什么，例如「把这个班没批的卷子批了」' : 'AI 还没配置好，先按上面的提示配一下模型'}
           autoSize={{ minRows: 2, maxRows: 5 }}
           maxLength={2000}
           disabled={!ready}
@@ -319,27 +292,29 @@ function Bubble({ bubble }: { bubble: AiChatBubble }) {
   }
   const mine = bubble.role === 'user';
   const meta = [
-    bubble.contextLabel ? `已带上：${bubble.contextLabel}` : '',
-    bubble.totalTokens ? `${bubble.totalTokens} tokens` : '',
+    bubble.contextLabel ? '已带上：' + bubble.contextLabel : '',
+    bubble.totalTokens ? bubble.totalTokens + ' tokens' : '',
   ]
     .filter(Boolean)
     .join(' · ');
   return (
     <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
-      <div
-        style={{
-          maxWidth: mine ? '88%' : '100%',
-          background: mine ? 'var(--bp-blue-weak)' : 'var(--bp-panel-strong)',
-          border: '1px solid var(--bp-line-soft)',
-          padding: '7px 9px',
-          fontSize: 12.5,
-          lineHeight: 1.75,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
-      >
-        {bubble.content}
-        {!mine && meta && <div style={{ marginTop: 4, fontSize: 10, color: 'var(--bp-hint)' }}>{meta}</div>}
+      <div style={{ maxWidth: mine ? '88%' : '100%' }}>
+        <div
+          style={{
+            background: mine ? 'var(--bp-blue-weak)' : 'var(--bp-panel-strong)',
+            border: '1px solid var(--bp-line-soft)',
+            padding: '7px 9px',
+            fontSize: 12.5,
+            lineHeight: 1.75,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {bubble.content}
+          {!mine && meta && <div style={{ marginTop: 4, fontSize: 10, color: 'var(--bp-hint)' }}>{meta}</div>}
+        </div>
+        {!mine && bubble.action && <AiActionCard action={bubble.action} />}
       </div>
     </div>
   );

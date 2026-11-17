@@ -4,7 +4,6 @@ import cn.surveyking.server.ai.core.AiContentGuard;
 import cn.surveyking.server.ai.core.AiPaperSpec;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
-import cn.surveyking.server.domain.dto.AiPaperGenerateRequest;
 import cn.surveyking.server.domain.dto.AiPaperJobView;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import org.junit.jupiter.api.DisplayName;
@@ -126,16 +125,10 @@ class AiContentGuardTest {
 	@DisplayName("多出了没要求的题型：拒收")
 	void rejectsUnexpectedQuestionType() {
 		List<SurveySchema> questions = List.of(radio("题干", 5D), radio("题干二", 5D), textarea("简答题", 0D));
-		AiPaperGenerateRequest request = new AiPaperGenerateRequest();
-		request.setSubject("养老护理员");
-		request.setLevel("五级");
-		request.setQuestionCount(3);
-		request.setTotalScore(10D);
 		LinkedHashMap<String, Double> ratio = new LinkedHashMap<>();
 		ratio.put("Radio", 1D);
-		request.setTypeRatio(ratio);
 		ErrorCodeException ex = assertThrows(ErrorCodeException.class,
-				() -> AiContentGuard.check(AiPaperSpec.of(request), questions));
+				() -> AiContentGuard.check(AiPaperSpec.of(3, 10D, ratio, "mixed", "养老护理员", "五级", null), questions));
 		assertMessage(ex, "没有要求的题型");
 	}
 
@@ -181,16 +174,11 @@ class AiContentGuardTest {
 
 	/** 两型对半的卷（Radio / FillBlank 各一半），够覆盖「配比 + 总分」两条 */
 	private static AiPaperSpec spec(int questionCount, double totalScore) {
-		AiPaperGenerateRequest request = new AiPaperGenerateRequest();
-		request.setSubject("养老护理员");
-		request.setLevel("五级");
-		request.setQuestionCount(Integer.valueOf(questionCount));
-		request.setTotalScore(Double.valueOf(totalScore));
 		LinkedHashMap<String, Double> ratio = new LinkedHashMap<>();
 		ratio.put("Radio", Double.valueOf(0.5D));
 		ratio.put("FillBlank", Double.valueOf(0.5D));
-		request.setTypeRatio(ratio);
-		return AiPaperSpec.of(request);
+		return AiPaperSpec.of(Integer.valueOf(questionCount), Double.valueOf(totalScore), ratio, "mixed", "养老护理员",
+				"五级", null);
 	}
 
 	static SurveySchema radio(String title, double score) {

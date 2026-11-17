@@ -329,6 +329,13 @@ public class SystemApi {
 				? Integer.valueOf(AiUsageService.DEFAULT_DAILY_TOKEN_LIMIT) : storedSetting.getDailyTokenLimit());
 		response.setPerUserDailyLimit(storedSetting.getPerUserDailyLimit() == null
 				? Integer.valueOf(AiUsageService.DEFAULT_PER_USER_TOKEN_LIMIT) : storedSetting.getPerUserDailyLimit());
+		// 每对话上限与限流同样回落到默认值：设置页要显示「真正生效的数字」，而不是一个空框
+		response.setMaxChatTurns(storedSetting.getMaxChatTurns() == null
+				? Integer.valueOf(AiUsageService.DEFAULT_MAX_CHAT_TURNS) : storedSetting.getMaxChatTurns());
+		response.setMaxTurnChars(storedSetting.getMaxTurnChars() == null
+				? Integer.valueOf(AiUsageService.DEFAULT_MAX_TURN_CHARS) : storedSetting.getMaxTurnChars());
+		response.setRateLimitPerMinute(storedSetting.getRateLimitPerMinute() == null
+				? Integer.valueOf(AiUsageService.DEFAULT_RATE_LIMIT_PER_MINUTE) : storedSetting.getRateLimitPerMinute());
 		if (!StringUtils.hasText(response.getBaseUrl()) && !StringUtils.hasText(storedSetting.getApiKey())
 				&& StringUtils.hasText(storedSetting.getToken())) {
 			response.setBaseUrl("https://api.siliconflow.cn/v1");

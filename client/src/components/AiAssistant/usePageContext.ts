@@ -20,6 +20,10 @@ export interface AiPushedContext {
   projectId?: string;
   questionId?: string;
   answerId?: string;
+  /** 当前选中的班级（教学页/报表页按班筛选时推过来） */
+  classId?: string;
+  /** 当前题库（题库题目页） */
+  repoId?: string;
   /** 给用户看的补充说明，例如「第 3 题《跌倒的预防》」；不进提示词，只显示在上下文行 */
   label?: string;
 }
@@ -43,6 +47,10 @@ export function pushAiAssistantContext(detail: AiPushedContext | undefined) {
 export interface AiPageContextInfo {
   /** 发给后端的上下文（只放定位，不放文案） */
   payload: AiChatContext;
+  /** 当前班级 id（有的话） */
+  classId?: string;
+  /** 当前题库 id（有的话） */
+  repoId?: string;
   /** 给用户看的摘要，如「试卷编辑器 · 试卷《2026 春季考试》」 */
   label?: string;
   /** 路由对应的页面名 */
@@ -53,28 +61,26 @@ export interface AiPageContextInfo {
   projectName?: string;
 }
 
-/** 路由 → 页面名 + 从哪个捕获组取项目 id */
-const ROUTE_TABLE: Array<{ re: RegExp; page: string; projectGroup?: number }> = [
+/** 路由 → 页面名 + 从哪个捕获组取项目 id / 题库 id */
+const ROUTE_TABLE: Array<{ re: RegExp; page: string; projectGroup?: number; repoGroup?: number }> = [
   { re: /^\/survey\/([^/]+)\/edit\/?$/, page: '试卷编辑器', projectGroup: 1 },
   { re: /^\/survey\/([^/]+)\/data\/?$/, page: '答卷数据', projectGroup: 1 },
   { re: /^\/survey\/([^/]+)\/report\/?$/, page: '学情报表', projectGroup: 1 },
   { re: /^\/survey\/([^/]+)\/print\/?$/, page: '试卷打印', projectGroup: 1 },
   { re: /^\/survey\/([^/]+)\/setting\/?$/, page: '发布设置', projectGroup: 1 },
   { re: /^\/survey\/([^/]+)\/?$/, page: '试卷概览', projectGroup: 1 },
-  { re: /^\/repo\/[^/]+\/questions\/[^/]+\/?$/, page: '题库题目' },
+  { re: /^\/repo\/([^/]+)\/questions\/[^/]+\/?$/, page: '题库题目', repoGroup: 1 },
   { re: /^\/repo\/book\/?$/, page: '练习册' },
   { re: /^\/repo\/?$/, page: '题库中心' },
   { re: /^\/tasks\/?$/, page: '我的任务' },
-  { re: /^\/teaching\/classes\/?$/, page: '班级管理' },
-  { re: /^\/teaching\/?$/, page: '教学管理' },
+  // 班级管理与教学合并后，同一个路由用 ?tab= 区分；页面名跟着 tab 走（下面按 search 再修一次）
+  { re: /^\/teaching\/?$/, page: '教学' },
   { re: /^\/exercise\/?.*$/, page: '我的练习' },
   { re: /^\/home\/?$/, page: '首页' },
   { re: /^\/notice\/?$/, page: '公告中心' },
-  { re: /^\/ai\/?$/, page: 'AI 助手导览' },
-  { re: /^\/system\/user\/?$/, page: '用户管理' },
-  { re: /^\/system\/group\/?$/, page: '用户组' },
+  { re: /^\/system\/access\/?$/, page: '用户与权限' },
   { re: /^\/system\/setting\/?$/, page: '系统设置' },
-  { re: /^\/system\/permissions\/?$/, page: '权限配置' },
+  { re: /^\/system\/notice\/?$/, page: '公告管理' },
   { re: /^\/system\/audit\/?$/, page: '操作日志' },
   { re: /^\/account\/settings\/?$/, page: '账号设置' },
 ];
@@ -97,14 +103,15 @@ function loadProjectName(projectId: string): Promise<string | undefined> {
   return task;
 }
 
-function matchRoute(pathname: string): { page?: string; projectId?: string } {
+function matchRoute(pathname: string): { page?: string; projectId?: string; repoId?: string } {
   for (const item of ROUTE_TABLE) {
     const matched = item.re.exec(pathname);
     if (!matched) {
       continue;
     }
     const projectId = item.projectGroup ? matched[item.projectGroup] : undefined;
-    return { page: item.page, projectId };
+    const repoId = item.repoGroup ? matched[item.repoGroup] : undefined;
+    return { page: item.page, projectId, repoId };
   }
   return {};
 }
@@ -126,6 +133,9 @@ export function usePageContext(): AiPageContextInfo {
   const projectId = matched.projectId ?? clean(search.get('projectId')) ?? clean(pushed?.projectId);
   const questionId = clean(search.get('questionId')) ?? clean(pushed?.questionId);
   const answerId = clean(search.get('answerId')) ?? clean(pushed?.answerId);
+  // 班级：报表页与教学页都放在 ?classId= 里；页面也可以主动推（班级资源面板里选中的班）
+  const classId = clean(search.get('classId')) ?? clean(pushed?.classId);
+  const repoId = matched.repoId ?? clean(search.get('repoId')) ?? clean(pushed?.repoId);
 
   // 换页面就把上一页推的上下文丢掉：否则从「答卷详情」跳到「首页」还会带着那份答卷
   useEffect(() => {
@@ -170,6 +180,12 @@ export function usePageContext(): AiPageContextInfo {
     if (answerId) {
       payload.answerId = answerId;
     }
+    if (classId) {
+      payload.classId = classId;
+    }
+    if (repoId) {
+      payload.repoId = repoId;
+    }
     const parts: string[] = [];
     if (matched.page) {
       parts.push(matched.page);
@@ -186,6 +202,8 @@ export function usePageContext(): AiPageContextInfo {
       page: matched.page,
       projectId,
       projectName,
+      classId,
+      repoId,
     };
-  }, [answerId, location.pathname, matched.page, projectId, projectName, pushed, questionId]);
+  }, [answerId, classId, location.pathname, matched.page, projectId, projectName, pushed, questionId, repoId]);
 }

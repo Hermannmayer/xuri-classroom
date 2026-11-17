@@ -23,10 +23,11 @@ import {
   PlusOutlined,
   ReloadOutlined,
   RestOutlined,
+  RobotOutlined,
   SearchOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import BackButton from '../../components/BackButton';
 import LinkAction from '../../components/LinkAction';
@@ -41,6 +42,7 @@ import AnswerEditorModal from './data/AnswerEditorModal';
 import AnswerCards from './data/AnswerCards';
 import TrashDrawer from './data/TrashDrawer';
 import GradeDrawer, { type GradableAnswer } from './data/GradeDrawer';
+import AiGradeBatchModal from './data/AiGradeBatchModal';
 import {
   EMPTY,
   compareText,
@@ -87,9 +89,14 @@ type EditorState = { mode: 'create' } | { mode: 'edit'; row: Answer };
  */
 export default function SurveyData() {
   const { id = '' } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { modal } = App.useApp();
   const mobile = useIsMobile();
+  /** 从教学页 / AI 侧栏带过来的班级：有就只批这个班，不传 = 整份试卷 */
+  const classId = searchParams.get('classId') || undefined;
+  /** 批量 AI 批改弹窗；?ai=grade 进来会自动打开（AI 侧栏「批改未批改」快捷入口） */
+  const [batchOpen, setBatchOpen] = useState(false);
 
   const [project, setProject] = useState<Project>();
   const scoringEnabled =
@@ -139,6 +146,30 @@ export default function SurveyData() {
   const canGrade = can(authorities, PERMISSION_CODES.answerGrade);
   /** 恢复和彻底删除都没有权限时，回收站入口本身也没东西可做，不渲染 */
   const canOpenTrash = canRestore || canDelete;
+  // 批量 AI 批改要 answer:grade + ai:use（后端 AiApi#batchGrade 两个都判），缺一个就不渲染入口
+  const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
+  const canBatchGrade = canGrade && canUseAi;
+
+  // ?ai=grade 进来就自动打开确认框（AI 侧栏的「批改未批改」快捷入口就是这个地址）
+  // 权限拉回来才判：缺 answer:grade / ai:use 的人不该看到这个入口能点
+  useEffect(() => {
+    if (canBatchGrade && searchParams.get('ai') === 'grade') setBatchOpen(true);
+  }, [canBatchGrade, searchParams]);
+
+  /**
+   * 关掉批量批改弹窗：顺手把 ?ai= 抹掉。
+   *
+   * <p>用 replace 而不是 push —— 关掉之后按 F5 不该再弹一次；只删 ai 这个键，
+   * classId 之类的筛选条件要留着（报表页、教学页跳过来时会带）。
+   */
+  const closeBatch = useCallback(() => {
+    setBatchOpen(false);
+    if (searchParams.get('ai') === 'grade') {
+      const next = new URLSearchParams(searchParams);
+      next.delete('ai');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -517,6 +548,17 @@ export default function SurveyData() {
             if (value === 'report') navigate(`/survey/${id}/report`);
           }}
         />
+        {/* 批量 AI 批改（计划 §6.3 ⑥）：只批未批改的卷子、只补没给分的主观题，批完可撤销 */}
+        {canBatchGrade ? (
+          <Button
+            icon={<RobotOutlined />}
+            disabled={rows.length === 0}
+            title={rows.length === 0 ? '还没有答卷，没有可批改的内容' : undefined}
+            onClick={() => setBatchOpen(true)}
+          >
+            批量 AI 批改
+          </Button>
+        ) : null}
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>
           刷新
         </Button>
@@ -728,6 +770,16 @@ export default function SurveyData() {
           autoComplete="off"
         />
       </Modal>
+
+      {/* 批量批改的结果不在这里，只负责发起与撤销；「去复核」用它打开下面这个单题批改抽屉 */}
+      <AiGradeBatchModal
+        open={batchOpen}
+        projectId={id}
+        classId={classId}
+        onClose={closeBatch}
+        onChanged={() => void load()}
+        onReview={(answerId) => setGrading(answerId)}
+      />
 
       <GradeDrawer
         open={Boolean(grading)}

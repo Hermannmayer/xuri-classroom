@@ -209,8 +209,9 @@ export function TeacherHome() {
         </Col>
         <Col xs={12} md={6}>
           <Card className="bp-corners" size="small">
-            <Statistic title="班级学情" value="查看" styles={{ content: { fontSize: 18 } }} />
-            <a style={{ fontSize: 12 }} onClick={() => navigate('/teaching?tab=insight')}>
+            <Statistic title="班级与学情" value="查看" styles={{ content: { fontSize: 18 } }} />
+            {/* 学情已并入「教学 → 班级」：班级资源面板里就能看本班交卷与平均分 */}
+            <a style={{ fontSize: 12 }} onClick={() => navigate('/teaching?tab=classes')}>
               按班级看作答 →
             </a>
           </Card>
@@ -219,7 +220,7 @@ export function TeacherHome() {
 
       <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
         <Col xs={12} md={6}>
-          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=class')}>
+          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=classes')}>
             <Statistic title="我的班级" value={classCount} suffix="个" />
           </Card>
         </Col>
@@ -229,7 +230,7 @@ export function TeacherHome() {
           </Card>
         </Col>
         <Col xs={12} md={6}>
-          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=insight')}>
+          <Card className="bp-corners" size="small" hoverable onClick={() => navigate('/teaching?tab=exam')}>
             <Statistic title="未发布" value={rows.length - published} suffix="场" />
           </Card>
         </Col>
@@ -269,7 +270,7 @@ export function TeacherHome() {
                   <>
                     <a onClick={() => navigate(`/survey/${r.projectId}`)}>数据</a>
                     <span style={{ margin: '0 6px', color: 'var(--bp-line)' }}>|</span>
-                    <a onClick={() => navigate('/teaching?tab=insight')}>按班级</a>
+                    <a onClick={() => navigate('/teaching?tab=classes')}>按班级</a>
                   </>
                 ),
               },
@@ -338,13 +339,13 @@ export function AdminHome() {
     <Shell eyebrow="HOME / 管理员" title="系统概览" desc="全站规模与入口。">
       <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
         {[
-          { title: '用户', value: stat.users, to: '/system/user' },
+          { title: '用户', value: stat.users, to: '/system/access?tab=user' },
           { title: '题库', value: stat.repos, to: '/repo/index' },
           { title: '题库题目', value: stat.repoQuestions, to: '/repo/index' },
           { title: '考试', value: stat.exams, to: '/teaching?tab=exam' },
-          { title: '问卷', value: stat.surveys, to: '/teaching?tab=survey' },
+          { title: '问卷', value: stat.surveys, to: '/teaching?tab=exam' },
           { title: '文件夹', value: stat.folders, to: '/teaching?tab=exam' },
-          { title: '累计答卷', value: stat.answers, to: '/teaching?tab=insight' },
+          { title: '累计答卷', value: stat.answers, to: '/teaching?tab=classes' },
           { title: '考试 + 问卷', value: stat.projects, to: '/teaching?tab=exam' },
         ].map((item) => (
           <Col xs={12} md={6} key={item.title}>
@@ -357,9 +358,9 @@ export function AdminHome() {
       <Card className="bp-corners" size="small" title="常用入口">
         <Row gutter={[12, 12]}>
           {[
-            { label: '权限配置', to: '/system/permissions' },
-            { label: '用户管理', to: '/system/user' },
-            { label: '用户组', to: '/system/group' },
+            { label: '权限配置', to: '/system/access?tab=role' },
+            { label: '用户管理', to: '/system/access?tab=user' },
+            { label: '用户组', to: '/system/access?tab=group' },
             { label: '系统设置', to: '/system/setting' },
             { label: '操作日志', to: '/system/audit' },
             { label: '教学管理', to: '/teaching?tab=exam' },

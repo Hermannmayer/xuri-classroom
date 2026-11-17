@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, Input, Spin, Table, Tag, message } from 'antd';
-import { ReloadOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
+import { ReadOutlined, ReloadOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import { useParams, useSearchParams } from 'react-router-dom';
 import BackButton from '../../components/BackButton';
 import { get, getWithPagination, post } from '../../api';
@@ -12,6 +12,7 @@ import type { FlatQuestion } from '../../schema/flatten';
 import { flattenSchema } from '../../schema/flatten';
 import { isDataQuestion } from './data/format';
 import QuestionBlock, { Bar } from './report/QuestionBlock';
+import AiPracticeRecommendDrawer from './ai/AiPracticeRecommendDrawer';
 
 interface ReportStat {
   min?: number;
@@ -73,7 +74,7 @@ function scoreStat(q: FlatQuestion, answers: Answer[]): QuestionScoreStat {
 
 export default function SurveyReport() {
   const { id = '' } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const classId = searchParams.get('classId') || undefined;
   const className = searchParams.get('className') || undefined;
   const [report, setReport] = useState<ReportData>();
@@ -90,6 +91,8 @@ export default function SurveyReport() {
   const [aiAsked, setAiAsked] = useState(false);
   /** 当前总结对应的「项目 + 班级」：切走后旧请求的回包不许再覆盖新页面 */
   const aiKeyRef = useRef('');
+  /** 错题重练抽屉：除了点按钮，从 AI 侧栏带 ?ai=recommend 进来也要自动展开 */
+  const [recommendOpen, setRecommendOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,6 +138,29 @@ export default function SurveyReport() {
     void loadAuthorities().then(setAuthorities);
   }, []);
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
+  // 追加进卷子走 /api/ai/paper/apply，后端还要 project:update；没有就只让预览，别给点了 403 的按钮
+  const canUpdateProject = can(authorities, PERMISSION_CODES.projectUpdate);
+
+  // ?ai=recommend 进来就自动展开（AI 侧栏的「错题重练」快捷入口就是这个地址）
+  // 要等权限拉回来再判：没有 ai:use 的人不该看到这个抽屉（后端 @PreAuthorize 也是它）
+  useEffect(() => {
+    if (canUseAi && searchParams.get('ai') === 'recommend') setRecommendOpen(true);
+  }, [canUseAi, searchParams]);
+
+  /**
+   * 关闭抽屉：顺手把 ?ai= 抹掉。
+   *
+   * <p>用 replace 而不是 push —— 老师关掉之后按 F5 不该再弹一次；
+   * 只删 ai 这一个键，classId / className 这些筛选条件要留着。
+   */
+  const closeRecommend = useCallback(() => {
+    setRecommendOpen(false);
+    if (searchParams.get('ai') === 'recommend') {
+      const next = new URLSearchParams(searchParams);
+      next.delete('ai');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // 换项目 / 换班级：上一份总结跟新数据没关系，顺手作废在途请求（见 aiKeyRef）
   useEffect(() => {
@@ -299,6 +325,17 @@ export default function SurveyReport() {
             onClick={() => void generateSummary()}
           >
             AI 学情总结
+          </Button>
+        ) : null}
+        {/* 错题重练：读完报表才能算薄弱考点，所以没答卷时不给点 */}
+        {canUseAi ? (
+          <Button
+            icon={<ReadOutlined />}
+            disabled={answers.length === 0}
+            title={answers.length === 0 ? '还没有答卷，算不出哪些考点最弱' : undefined}
+            onClick={() => setRecommendOpen(true)}
+          >
+            错题重练
           </Button>
         ) : null}
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>
@@ -474,6 +511,19 @@ export default function SurveyReport() {
           )}
         </div>
       )}
+
+      {/*
+        错题重练（计划 §6.3 ④）：入口放在页头，也可以从 AI 侧栏带 ?ai=recommend 直接展开。
+        生成只是预览，勾了「同时追加到本卷」还要再点一次才会写进卷子。
+      */}
+      <AiPracticeRecommendDrawer
+        open={recommendOpen}
+        projectId={id}
+        classId={classId}
+        classLabel={className}
+        canAppend={canUpdateProject}
+        onClose={closeRecommend}
+      />
     </div>
   );
 }

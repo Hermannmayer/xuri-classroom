@@ -789,6 +789,17 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getPerUserDailyLimit() != null) {
 				aiSetting.setPerUserDailyLimit(clampTokenLimit(source.getPerUserDailyLimit()));
 			}
+			// 每对话上限与限流：null 表示「不改」，范围夹到有意义的区间，别让手滑输 0 把 AI 锁死
+			if (source.getMaxChatTurns() != null) {
+				aiSetting.setMaxChatTurns(Integer.valueOf(Math.max(2, Math.min(100, source.getMaxChatTurns().intValue()))));
+			}
+			if (source.getMaxTurnChars() != null) {
+				aiSetting.setMaxTurnChars(Integer.valueOf(Math.max(200, Math.min(20000, source.getMaxTurnChars().intValue()))));
+			}
+			if (source.getRateLimitPerMinute() != null) {
+				aiSetting.setRateLimitPerMinute(
+						Integer.valueOf(Math.max(1, Math.min(600, source.getRateLimitPerMinute().intValue()))));
+			}
 		}
 	}
 

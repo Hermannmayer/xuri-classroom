@@ -260,8 +260,12 @@ function MemberStatus({ status }: { status?: number | null }) {
  * - class:member:create → 在自己管的班里添加学员
  *
  * 数据全部来自后端（/api/teaching/classes/tree 只返回班级节点），没有班级时显示引导而不是假数据。
+ *
+ * <p>embedded=true 时本页被「教学」的班级 Tab 嵌进去用：页头（CLASS 标签、标题、说明）交给外层，
+ * 这里只留「新建班级 / 待审核 / 刷新」工具条并靠右；其余布局与独立访问完全一致，
+ * 这样两侧任何一个入口看到的都是同一套行为，不会出现「嵌入版少了个按钮」。
  */
-export default function TeachingClasses() {
+export default function TeachingClasses({ embedded = false }: { embedded?: boolean }) {
   const { message } = App.useApp();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -295,7 +299,9 @@ export default function TeachingClasses() {
   const [globalRegisterEnabled, setGlobalRegisterEnabled] = useState<boolean>();
   const [keyword, setKeyword] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-  const [selectedId, setSelectedId] = useState<string>();
+  // 初始选中项优先取 URL 的 ?classId=：这一页会被 Tab 卸载重挂，只有 URL 能跨重挂活下来；
+  // 从旧链接 /teaching/classes?classId=xxx 进来也应当停在那个班，而不是一律跳回第一个
+  const [selectedId, setSelectedId] = useState<string | undefined>(() => searchParams.get('classId') || undefined);
   useEffect(() => {
     setSelectedMemberKeys([]);
   }, [selectedId]);
@@ -304,6 +310,28 @@ export default function TeachingClasses() {
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+
+  /**
+   * 选中班级镜像到 URL（?classId=），选班只改状态、URL 统一由这里写，避免两处各写一遍。
+   *
+   * <p>为什么要进 URL：本页嵌在「教学」的 Tab 里，切 Tab / 刷新都会重挂组件，本地 state 留不住。
+   * 为什么要函数式更新：外层维护 tab、本页还维护 create，整串覆盖 URL 会把它们的参数冲掉。
+   * 树加载完再写：那之前还判断不出这个 id 是否还有效（班可能已被删或不再授权）。
+   */
+  useEffect(() => {
+    if (treeLoading) return;
+    const inTree = selectedId && findNode(tree, selectedId) ? selectedId : undefined;
+    if (inTree === (searchParams.get('classId') || undefined)) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (inTree) next.set('classId', inTree);
+        else next.delete('classId');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [selectedId, tree, treeLoading, searchParams, setSearchParams]);
 
   const loadTree = useCallback(async (): Promise<string | undefined> => {
     setTreeLoading(true);
@@ -654,9 +682,15 @@ export default function TeachingClasses() {
     if (searchParams.get('create') !== '1') return;
     if (!authoritiesReady || treeLoading) return;
     createFromQuery.current = true;
-    const next = new URLSearchParams(searchParams);
-    next.delete('create');
-    setSearchParams(next, { replace: true });
+    // 函数式更新：同一轮里 ?classId= 的同步 effect 也在写 URL，整串覆盖会把刚写进去的 classId 抹掉
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('create');
+        return next;
+      },
+      { replace: true },
+    );
     if (canList) openCreateClass();
   }, [searchParams, setSearchParams, authoritiesReady, treeLoading, canList]);
 
@@ -1242,27 +1276,30 @@ export default function TeachingClasses() {
 
   return (
     <div>
+      {/* 嵌进 Tab 后外层已经有页头：这里只留工具条并靠右，避免叠出两层「班级管理」 */}
       <div
         style={{
           display: 'flex',
           alignItems: isMobile ? 'flex-start' : 'flex-end',
-          justifyContent: 'space-between',
+          justifyContent: embedded ? 'flex-end' : 'space-between',
           gap: 12,
           flexWrap: 'wrap',
-          marginBottom: 14,
+          marginBottom: embedded ? 12 : 14,
         }}
       >
-        <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-            CLASS / 班级管理
+        {!embedded && (
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+              CLASS / 班级管理
+            </div>
+            <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
+              班级管理
+            </h2>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+              班级是学员的教学单位：维护学员、任课老师；题库/考试/问卷在资源授权里分配
+            </div>
           </div>
-          <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
-            班级管理
-          </h2>
-          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            班级是学员的教学单位：维护学员、任课老师；题库/考试/问卷在资源授权里分配
-          </div>
-        </div>
+        )}
         <Space wrap>
           {canList && (
             <Button
@@ -1354,7 +1391,7 @@ export default function TeachingClasses() {
                 onExpand={(keys) => setExpandedKeys(keys.map(String))}
                 selectedKeys={selectedId ? [selectedId] : []}
                 onSelect={(keys) => {
-                  // 再点一次同一个节点会取消选中，这里保持选中不丢
+                  // 再点一次同一个节点会取消选中，这里保持选中不丢；URL 由上面的 ?classId= 同步 effect 统一写
                   if (keys.length > 0) setSelectedId(String(keys[0]));
                 }}
               />
@@ -1458,7 +1495,7 @@ export default function TeachingClasses() {
                   type="info"
                   showIcon
                   title="你对该班级只有查看权限"
-                  description="成员名单和学情仍可查看；添加学员、批量导入、编辑和删除需要「可管理」级别的授权。"
+                  description="成员名单仍可查看；添加学员、批量导入、编辑和删除需要「可管理」级别的授权。"
                 />
               )}
 
@@ -1908,7 +1945,7 @@ export default function TeachingClasses() {
         destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
-          只读：可以查看本班（含下级班）的成员与学情；可管理：还能添加、编辑学员。两种级别都不能修改班级设置。
+          只读：可以查看本班（含下级班）的成员名单；可管理：还能添加、编辑学员。两种级别都不能修改班级设置。
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>

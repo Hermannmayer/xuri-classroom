@@ -34,4 +34,11 @@ public class AiChatReply {
 	 */
 	private String contextLabel;
 
+	/**
+	 * 这次对话真正执行了的系统动作（批量批改 / 打开工具 / 统计直答）。
+	 *
+	 * <p>为 null 表示只是一次普通问答。界面据此渲染结果卡：进度、去查看、撤销、预填参数。
+	 */
+	private AiChatAction action;
+
 }

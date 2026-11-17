@@ -77,7 +77,7 @@ function sameIds(a: string[] = [], b: string[] = []): boolean {
   return b.every((id) => set.has(id));
 }
 
-export default function SystemGroup() {
+export default function SystemGroup({ embedded = false }: { embedded?: boolean } = {}) {
   const [tree, setTree] = useState<Dept[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   // 角色候选读不到时（403 或无权限）把原因留在页面上，避免角色列静默显示成「未分配」
@@ -253,21 +253,24 @@ export default function SystemGroup() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>GROUP / 用户组</div>
-          <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-            用户组
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            教职工组织与角色：组内成员继承绑定角色的权限；班级与学员在「班级管理」维护。
-          </div>
-          {roleError && (
-            <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginTop: 4 }}>
-              {roleError}
-              {roleDenied && '：当前账号缺少 system:role:list，角色下拉已禁用；保存不会改动组已绑定的角色。'}
+        {/* 页头交给外层「用户与权限」；embedded 时这里只剩刷新 / 新建 */}
+        {!embedded && (
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>GROUP / 用户组</div>
+            <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
+              用户组
             </div>
-          )}
-        </div>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+              教职工组织与角色：组内成员继承绑定角色的权限；班级与学员在「班级管理」维护。
+            </div>
+            {roleError && (
+              <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginTop: 4 }}>
+                {roleError}
+                {roleDenied && '：当前账号缺少 system:role:list，角色下拉已禁用；保存不会改动组已绑定的角色。'}
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
         {canCreate && (
@@ -277,7 +280,23 @@ export default function SystemGroup() {
         )}
       </div>
 
-      <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)' }}>
+      {/* 角色候选读不到是这个页面的「状态」，不是页头：embedded 时页头没了，这条提示也不能跟着消失 */}
+      {embedded && roleError && (
+        <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginBottom: 10 }}>
+          {roleError}
+          {roleDenied && '：当前账号缺少 system:role:list，角色下拉已禁用；保存不会改动组已绑定的角色。'}
+        </div>
+      )}
+
+      <Card
+        /* 嵌进「用户与权限」的 Tab 时不再画第二层边框：外层那张 Card 已经是容器 */
+        className={embedded ? undefined : 'bp-corners'}
+        variant={embedded ? 'borderless' : undefined}
+        style={
+          embedded ? { background: 'transparent' } : { border: '1px solid var(--bp-line)' }
+        }
+        styles={embedded ? { body: { padding: 0 } } : undefined}
+      >
         <Table<Dept>
           rowKey="id"
           size="small"

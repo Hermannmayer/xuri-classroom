@@ -9,10 +9,8 @@ import {
   MenuUnfoldOutlined,
   MoonOutlined,
   ProjectOutlined,
-  RobotOutlined,
   SettingOutlined,
   SunOutlined,
-  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -27,8 +25,7 @@ import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
 import NoticeBell from '../pages/notice/NoticeBell';
 import { PERMISSION_CODES } from '../auth/permission-codes';
-import { AiAssistantProvider, AiAssistantSidebar } from '../components/AiAssistant';
-import { AI_GUIDE_LABEL, AI_GUIDE_PATH } from '../pages/ai-guide/constants';
+import { AiAssistantFloat, AiAssistantProvider } from '../components/AiAssistant';
 
 const { Header, Sider, Content } = Layout;
 
@@ -112,26 +109,14 @@ export default function BasicLayout() {
 
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
-    // AI 助手（导览页 /ai）：默认给 admin 与 teacher（ai:use）；能改系统设置的人也能进，
-    // 因为「怎么配模型」是这个页面的另一半内容，而配置入口就在系统设置里。
-    // 条件与 router.tsx 里 /ai 的守卫一一对应，避免「菜单能点、进去 403」。
-    if (allow(PERMISSION_CODES.aiUse) || allow(PERMISSION_CODES.systemSettingUpdate)) {
-      menu.push({ key: AI_GUIDE_PATH, icon: <RobotOutlined />, label: AI_GUIDE_LABEL });
-    }
-
     // 三个视角分开：
-    // - 老师/管理员：教学（考试/问卷 + 班级学情）；不做题，所以没有「我的任务」
+    // - 老师/管理员：教学（考试/问卷 + 班级，已经合并成一页两个 Tab）；不做题，所以没有「我的任务」
     // - 学员：只有「我的任务」（考试安排 / 练习记录 / 我的成绩）
-    // 门户权限只决定「有没有教学视角」；/teaching 的入口要 project:list，
-    // 「学情」tab 再按 project:report 控制（学员预设也带 report，所以必须再叠 portal:teacher）。
-    const canTeach = allow(PERMISSION_CODES.portalTeacher);
-    // 教学管理 + 班级学情合并为一个「教学」入口：/teaching 内分「考试/问卷」「学情」两个 tab
-    if (canTeach && (allow(PERMISSION_CODES.projectList) || allow(PERMISSION_CODES.projectReport))) {
+    // 入口按「能上课（project:list）」或「能带班（class:list）」任一命中，与 router.tsx 的守卫一致；
+    // 只带班不带课的班主任也有入口，合并之后他不会反而进不去。
+    const canTeach = allow(PERMISSION_CODES.projectList) || allow(PERMISSION_CODES.classList);
+    if (canTeach) {
       menu.push({ key: '/teaching', icon: <ProjectOutlined />, label: '教学' });
-    }
-    // 班级管理：班主任/管理员维护自己负责的班；条件用 class:list 与路由守卫一致
-    if (allow(PERMISSION_CODES.classList)) {
-      menu.push({ key: '/teaching/classes', icon: <TeamOutlined />, label: '班级管理' });
     }
     // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
     // 不再显示「我的任务」——管理员和老师不做题。
@@ -152,16 +137,22 @@ export default function BasicLayout() {
       menu.push({ key: '/repo', icon: <DatabaseOutlined />, label: t('menu.repo', '题库中心'), children: repoChildren });
     }
 
-    // 系统管理：逐个判权，和 router.tsx 的 guard 一一对应
+    // 系统管理：4 项（用户与权限 / 系统设置 / 公告管理 / 操作日志）。
+    // 原来 5 项：用户、用户组、系统设置、权限配置、日志——前三个合并成「用户与权限」一页三 Tab。
     const systemChildren: NonNullable<MenuProps['items']> = [];
-    if (allow(PERMISSION_CODES.systemUserList)) systemChildren.push({ key: '/system/user', label: t('menu.system.user', '用户管理') });
-    // 用户组 = 教职工组织与角色，班级 = 学员教学单位：两套页面独立，有 system:dept:list 就显示
-    if (allow(PERMISSION_CODES.systemDeptList)) {
-      systemChildren.push({ key: '/system/group', label: t('menu.system.group', '用户组') });
+    if (
+      allow(PERMISSION_CODES.systemUserList) ||
+      allow(PERMISSION_CODES.systemRoleList) ||
+      allow(PERMISSION_CODES.systemDeptList)
+    ) {
+      systemChildren.push({ key: '/system/access', label: '用户与权限' });
     }
     if (allow(PERMISSION_CODES.systemRoleList)) {
       systemChildren.push({ key: '/system/setting', label: t('menu.system.setting', '系统设置') });
-      systemChildren.push({ key: '/system/permissions', label: t('menu.system.permissions', '权限配置') });
+    }
+    // 公告管理：管理员发全站（notice:manage:system），老师发自己带的班（notice:manage:class）
+    if (allow(PERMISSION_CODES.noticeManageSystem) || allow(PERMISSION_CODES.noticeManageClass)) {
+      systemChildren.push({ key: '/system/notice', label: '公告管理' });
     }
     if (allow(PERMISSION_CODES.systemLogList)) systemChildren.push({ key: '/system/audit', label: t('menu.system.audit', '操作日志') });
     if (systemChildren.length > 0) {
@@ -183,8 +174,11 @@ export default function BasicLayout() {
   }
 
   const siderWidth = 208;
-  // 侧栏的入口权限：ai:use（admin / teacher 默认有，学员没有——学员侧的 AI 只有答题解析）
-  const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
+  // AI 悬浮入口的显示条件（两条都要）：
+  // 1. 账号有 ai:use（admin / teacher 默认有，学员没有——学员侧的 AI 只有答题解析）；
+  // 2. 系统设置里 AI 总开关是开着的（/api/system 的 aiEnabled）——停用后按钮直接不出现，
+  //    而不是出现一个点开就说「未启用」的按钮。
+  const canUseAi = can(authorities, PERMISSION_CODES.aiUse) && system?.aiEnabled !== false;
 
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
@@ -259,12 +253,13 @@ export default function BasicLayout() {
       )}
 
       {/*
-        AI 助手侧栏：挂在布局里而不是每页各写一份，所以换页时对话历史不丢、上下文自动跟着路由变。
-        provider 放在这一层，是因为它是「全站唯一一份状态」的宿主（见 components/AiAssistant/AiAssistantContext.tsx）。
+        AI 助手（右下角悬浮对话框）：挂在布局里而不是每页各写一份，所以换页时对话历史不丢、
+        上下文自动跟着路由变。provider 放在这一层，是因为它是「全站唯一一份状态」的宿主
+        （见 components/AiAssistant/AiAssistantContext.tsx）。
       */}
       {canUseAi && (
         <AiAssistantProvider>
-          <AiAssistantSidebar isMobile={isMobile} />
+          <AiAssistantFloat isMobile={isMobile} />
         </AiAssistantProvider>
       )}
 

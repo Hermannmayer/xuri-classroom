@@ -57,6 +57,8 @@ verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
 ## 30 秒摘要
 
 管理员发全站公告，老师只发**本班**公告，师生在站内看到未读提醒。
+2026-11 起界面拆成两页：**顶栏铃铛进的 `/notice` 只读**（看通知、标已读），
+**写入口在 系统管理 → 公告管理（`/system/notice`）**——铃铛不再承担任何配置功能。
 管理员公告与班级公告共用一张 `t_notice`，靠 `audience`（all/admin/teacher/student）和
 `scope_type`（NULL=全站 / class=某个班）两个维度区分；已读状态单独落 `t_notice_read`。
 「检查更新」发现新版本时不再单独弹提示，而是往这里写一条 `type='system_update'` 的系统公告。
@@ -72,8 +74,9 @@ verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 页面 | `client/src/pages/notice/NoticeCenter.tsx` | `/notice`：左分类（全部/系统更新/未读，管理员另有草稿/已归档）+ 列表 + 详情 |
-| 页面 | `client/src/pages/notice/NoticeEditor.tsx` | 写公告抽屉：标题、富文本、受众、选班、置顶、过期 |
+| 页面 | `client/src/pages/notice/NoticeCenter.tsx` | 一份组件两种模式：`mode='read'`（`/notice`，顶栏铃铛进入）只有全部/系统更新/未读 + 详情 + 标已读；`mode='manage'`（`/system/notice`）多出草稿/已归档分类与全部写入口 |
+| 页面 | `client/src/pages/notice/NoticeAdmin.tsx` | 公告管理台薄壳：渲染 `<NoticeCenter mode="manage" />`，入口在 系统管理 → 公告管理 |
+| 页面 | `client/src/pages/notice/NoticeEditor.tsx` | 写公告抽屉：标题、富文本、受众（按权限收敛：管理员 all/admin/teacher/student/class，老师只能 class）、选班、置顶、过期；顶部「AI 起草」把几句要点补成草稿（只填不发布） |
 | 顶栏 | `client/src/pages/notice/NoticeBell.tsx` | 未读数 badge：60 秒轮询 + 窗口 focus 立即刷；顺带触发登录后的自动检查更新 |
 | 后端接口 | `server/api/.../api/NoticeApi.java` | `@PreAuthorize` 只做粗筛，真正的判定在 Service |
 | 业务实现 | `server/rdbms/.../impl/NoticeServiceImpl.java` | 受众过滤 + 班级可见性 + 富文本消毒 + 系统更新去重 |
@@ -86,6 +89,8 @@ verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
    再按 `scope_type` 过滤（class 要求当前用户在这个班组链里）。
 3. 点开某条 → `GET /api/notice?id=`，服务端顺带写已读；返回体里的 `read` 已是已读后的值。
 4. 写公告 → create 只落草稿（`status=draft`），再调 `publish` 才对外可见。草稿只有 `notice:manage:*` 看得到。
+5. AI 起草 → `POST /api/ai/notice/draft`（要 `ai:use`，且系统设置里 AI 开着）把老师写的要点补成标题+正文草稿；
+   返回的 audience/classIds 只是建议，**表单仍以老师所选为准**（模型无权替人决定发给谁，后端也会再判一次范围）。
 
 ## 修改指南
 

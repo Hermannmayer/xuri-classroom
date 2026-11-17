@@ -28,7 +28,6 @@ source_globs:
   - client/src/pages/teaching/**
   - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/system/Group.tsx
-  - client/src/pages/system/GroupEntry.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java
@@ -55,7 +54,6 @@ entrypoints:
   - client/src/pages/teaching/Classes.tsx
   - client/src/pages/teaching/ClassSettingsModal.tsx
   - client/src/pages/teaching/ClassResourcesPanel.tsx
-  - client/src/pages/teaching/Workbench.tsx
   - client/src/pages/project/ProjectTree.tsx
   - client/src/pages/teaching/ImportMembersModal.tsx
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
@@ -172,13 +170,13 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 - **题库详情**：`/api/repo/detail` 接受 `repo:detail` 或 `repo:questions:read`；学员可调，但服务层 `assertReadableRepo` 仍只放行自己可见（共享/partner/班级分配）的题库。
 - **题库窗口**：列表只判断「有没有分配」；打开/练习时 `canStudentReadRepo` 才校验「班级开关 → 题库全局期 → 本班窗口（为空用全局）」，关闭/未开始/已结束会失败。
 - **多班**：学生同时在多个班时，任一班的分配有效即可参加；解析「答题时所在班级」时主班优先，其次按附加组绑定时间。
-- **答卷**：新建答卷时 `AnswerServiceImpl` 写 `t_answer.class_id`；更新答卷不改 `class_id`，换班后历史答卷仍算在原班。旧的 `/api/teaching/classes` 学情接口按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组；Workbench 新路径见 5.1。
+- **答卷**：新建答卷时 `AnswerServiceImpl` 写 `t_answer.class_id`；更新答卷不改 `class_id`，换班后历史答卷仍算在原班。旧的 `/api/teaching/classes` 聚合接口按 `COALESCE(class_id, dept_id, '')` 聚合，老数据回退当前主组；按班看答卷见 5.1。
 
-### 5.1 老师按班看学情与答卷（Workbench）
+### 5.1 老师按班看答卷（教学 → 班级）
 
-- 入口：`/teaching?tab=insight`。左侧班级树来自 `GET /api/teaching/classes/tree`（`class:list` 或 admin），选中班级写入 `?classId=`；没有有效 id 时默认第一个 `accessible=true` 的叶子班，`accessible=false` 的祖先只能显示路径、不能选。
-- 右侧「考试/问卷」Tab：`GET /api/teaching/classes/resources?deptId=&resourceType=project`，服务层 `assertManage`；列显示分配状态、本班窗口、交卷、平均分，行内可「查看答卷/导出」。只读授权能看班级/成员，但打不开资源 Tab（403）。
-- 右侧「学员」Tab：`GET /api/teaching/classes/members?deptId=`（`class:detail` + `assertVisible`），只读名单，不提供增删改。
+- 入口：`/teaching?tab=classes`（原独立的「班级管理」菜单与「学情」Tab 已合并进来）。左侧班级树来自 `GET /api/teaching/classes/tree`（`class:list` 或 admin），选中班级写入 `?classId=`；`accessible=false` 的祖先只能显示路径、不能选。
+- 班级资源面板：`GET /api/teaching/classes/resources?deptId=&resourceType=project`，服务层 `assertManage`；列显示分配状态、本班窗口、交卷、平均分，行内可「查看答卷/导出」。只读授权能看班级/成员，但打不开资源面板（403）。
+- 成员名单：`GET /api/teaching/classes/members?deptId=`（`class:detail` + `assertVisible`），只读名单，增删改走班级页的学员管理。
 - 答卷下钻/导出：`ClassAnswersDrawer` 走 `GET /api/teaching/classes/answers` 与 `/api/answer/download?classId=`；按 `t_answer.class_id` 精确过滤，历史 `class_id` 为空不进抽屉；只支持 `type=answer`。
 - **匿名不进入班级报表**：公开匿名答卷 `class_id=NULL`、`is_anonymous=1`，不进入按班资源统计/班级答卷抽屉/项目 total/公开统计；匿名用户登录 claim 后才会重算 `class_id` 并按 `is_anonymous=0` 进入常规报表。
 
@@ -204,9 +202,9 @@ verified_against: c0d830fc6162b403d71ac63db629f0b9801d8e99
 | 下载学员模板 | `class:member:create` 或 admin | 固定 classpath 模板 |
 | 分配/改级别/取消老师 | `class:grant` 或管理员 | 全部班级；级别 1 只读 / 2 可管理 |
 | 查看/写班级资源 | `class:list` + `assertClassManage` | 只有可管理该班的人能看面板与写入 |
-| Workbench 班级树 | `class:list` 或 admin | 自己创建/负责 + 被授权；`accessible=false` 祖先只显示路径 |
-| Workbench 资源 Tab | `class:list` + `assertClassManage` | 只读授权可看学员但不能看资源（403） |
-| Workbench 学员/按班答卷 | `class:detail` / `project:report` + `assertVisible` | 成员只读；答卷/导出另要 `answer:export` |
+| 班级 Tab 的班级树 | `class:list` 或 admin | 自己创建/负责 + 被授权；`accessible=false` 祖先只显示路径 |
+| 班级资源面板 | `class:list` + `assertClassManage` | 只读授权可看成员但不能看资源（403） |
+| 班级成员/按班答卷 | `class:detail` / `project:report` + `assertVisible` | 成员只读；答卷/导出另要 `answer:export` |
 | 匿名公开答卷 | 无（`/api/public/**`） | `sk-anon` cookie；`is_anonymous=1`、`class_id=NULL`，不进班级报表 |
 | 删除班级/用户组 | `system:dept:delete`（或 admin） | 有子组先处理；成员 MOVE/UNASSIGN |
 | 读组树（选组） | `system:dept:list` 或 `org:list` | 只读；传 `deptType=org/class` 过滤 |

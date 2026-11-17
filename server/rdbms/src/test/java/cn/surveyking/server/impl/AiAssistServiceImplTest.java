@@ -9,8 +9,6 @@ import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.domain.dto.AiGradeSuggestRequest;
 import cn.surveyking.server.domain.dto.AiGradeSuggestView;
-import cn.surveyking.server.domain.dto.AiPaperGenerateRequest;
-import cn.surveyking.server.domain.dto.AiPaperJobView;
 import cn.surveyking.server.domain.dto.AiQuestionRewriteRequest;
 import cn.surveyking.server.domain.dto.AiQuestionRewriteView;
 import cn.surveyking.server.domain.dto.AiReportSummaryRequest;
@@ -123,92 +121,6 @@ class AiAssistServiceImplTest {
 		info.setAuthorities(granted);
 		SecurityContextHolder.getContext()
 				.setAuthentication(new UsernamePasswordAuthenticationToken(info, null, granted));
-	}
-
-	/* ====== ① 出卷 ====== */
-
-	@Test
-	@DisplayName("出卷参数不合法：同步 400，不建任务、不调模型")
-	void generatePaperRejectsInvalidSpec() {
-		AiPaperGenerateRequest request = paperRequest(0, 100D);
-		ErrorCodeException ex = assertThrows(ErrorCodeException.class, () -> service.generatePaper(request));
-		assertTrue(ex.getMessage().contains("题量"), ex.getMessage());
-		verify(aiGateway, never()).completeJson(any());
-	}
-
-	@Test
-	@DisplayName("出卷成功：题目结构可直接判分，题量/总分/题型配比都对得上")
-	void generatePaperSucceeds() throws InterruptedException {
-		when(aiGateway.completeJson(any())).thenReturn(completion(TWO_QUESTION_JSON));
-		String jobId = service.generatePaper(paperRequest(2, 10D));
-		AiPaperJobView view = waitForJob(jobId);
-
-		assertEquals(AiPaperJobView.STATUS_DONE, view.getStatus());
-		assertEquals(Integer.valueOf(100), view.getProgress());
-		assertNull(view.getError());
-		assertNotNull(view.getResult());
-		List<SurveySchema> questions = view.getResult().getQuestions();
-		assertEquals(2, questions.size());
-
-		SurveySchema radio = questions.get(0);
-		assertEquals(SurveySchema.QuestionType.Radio, radio.getType());
-		assertNotNull(radio.getId());
-		assertEquals(4, radio.getChildren().size());
-		assertEquals(4, radio.getDataSource().size());
-		long correctCount = radio.getChildren().stream()
-				.filter(child -> child.getAttribute().getExamCorrectAnswer() != null).count();
-		assertEquals(1L, correctCount, "单选题必须只有一个正确选项");
-		// dataSource 的 value 必须指向真实的选项 id，否则设计器渲染不出选项
-		assertTrue(radio.getChildren().stream()
-				.anyMatch(child -> child.getId().equals(radio.getDataSource().get(0).getValue())));
-
-		SurveySchema blank = questions.get(1);
-		assertEquals(SurveySchema.QuestionType.FillBlank, blank.getType());
-		assertEquals("防煤气中毒", blank.getChildren().get(0).getAttribute().getExamCorrectAnswer());
-
-		assertEquals(Integer.valueOf(2), view.getResult().getStats().getQuestionCount());
-		assertEquals(Double.valueOf(10D), view.getResult().getStats().getTotalScore());
-		assertEquals(Integer.valueOf(1), view.getResult().getStats().getTypeCount().get("Radio"));
-
-		verify(aiUsageService).record(eq("teacher-1"), eq(AiUsageService.SCENE_PAPER_GENERATE), eq("mock-model"),
-				eq(1200), eq(800), anyLong(), eq(AiUsage.STATUS_OK), any());
-	}
-
-	@Test
-	@DisplayName("内容不合规（题量少一题）：任务失败并给出中文原因，同时记「被拒收」")
-	void generatePaperFailsWhenContentRejected() throws InterruptedException {
-		when(aiGateway.completeJson(any())).thenReturn(completion(ONE_QUESTION_JSON));
-		String jobId = service.generatePaper(paperRequest(2, 10D));
-		AiPaperJobView view = waitForJob(jobId);
-
-		assertEquals(AiPaperJobView.STATUS_FAILED, view.getStatus());
-		assertNull(view.getResult());
-		assertTrue(view.getError().contains("未通过校验"), view.getError());
-		assertTrue(view.getError().contains("题量不符"), view.getError());
-		verify(aiUsageService).record(eq("teacher-1"), eq(AiUsageService.SCENE_PAPER_GENERATE), eq("mock-model"),
-				eq(1200), eq(800), anyLong(), eq(AiUsage.STATUS_REJECTED), anyString());
-	}
-
-	@Test
-	@DisplayName("模型返回的不是 JSON：任务失败且提示「不是合法 JSON」")
-	void generatePaperFailsWhenModelReturnsGarbage() throws InterruptedException {
-		when(aiGateway.completeJson(any())).thenReturn(completion("我不太确定，请再问一次。"));
-		String jobId = service.generatePaper(paperRequest(2, 10D));
-		AiPaperJobView view = waitForJob(jobId);
-		assertEquals(AiPaperJobView.STATUS_FAILED, view.getStatus());
-		assertTrue(view.getError().contains("JSON"), view.getError());
-	}
-
-	@Test
-	@DisplayName("传了别人的项目 id：403，且在提交任务前就拦住")
-	void generatePaperChecksProjectVisibility() {
-		AiPaperGenerateRequest request = paperRequest(2, 10D);
-		request.setProjectId("p1");
-		when(projectService.getProject("p1")).thenReturn(project());
-		when(projectPartnerService.accessLevel("p1")).thenReturn(0);
-		assertThrows(org.springframework.security.access.AccessDeniedException.class,
-				() -> service.generatePaper(request));
-		verify(aiGateway, never()).completeJson(any());
 	}
 
 	/* ====== ② 改题 ====== */
@@ -347,24 +259,6 @@ class AiAssistServiceImplTest {
 
 	/* ====== 测试数据 ====== */
 
-	private static final String TWO_QUESTION_JSON = """
-			{"questions": [
-			  {"type": "Radio", "title": "养老护理员冬季四防中首先要做的是？", "score": 5, "difficulty": "easy",
-			   "analysis": "解析一", "options": [
-			     {"text": "防滑", "correct": true}, {"text": "防晒", "correct": false},
-			     {"text": "防蚊", "correct": false}, {"text": "防风", "correct": false}]},
-			  {"type": "FillBlank", "title": "冬季四防包括防滑、防火、防冻和 ___ 。", "score": 5,
-			   "answer": "防煤气中毒", "analysis": "解析二"}
-			]}
-			""";
-
-	private static final String ONE_QUESTION_JSON = """
-			{"questions": [
-			  {"type": "Radio", "title": "只有一道题", "score": 5, "analysis": "解析", "options": [
-			     {"text": "对", "correct": true}, {"text": "错", "correct": false}]}
-			]}
-			""";
-
 	private static final String SUGGESTIONS_JSON = """
 			{"suggestions": [
 			  {"text": "老年人跌倒的主要危险因素有哪些？", "reason": "把口语化表达改成考试用语"},
@@ -381,19 +275,6 @@ class AiAssistServiceImplTest {
 	private static AiCompletion completion(String text) {
 		return AiCompletion.builder().text(text).model("mock-model").promptTokens(1200).completionTokens(800)
 				.totalTokens(2000).costMs(1500L).build();
-	}
-
-	private static AiPaperGenerateRequest paperRequest(int questionCount, double totalScore) {
-		AiPaperGenerateRequest request = new AiPaperGenerateRequest();
-		request.setSubject("养老护理员");
-		request.setLevel("五级");
-		request.setQuestionCount(Integer.valueOf(questionCount));
-		request.setTotalScore(Double.valueOf(totalScore));
-		LinkedHashMap<String, Double> ratio = new LinkedHashMap<>();
-		ratio.put("Radio", Double.valueOf(0.5D));
-		ratio.put("FillBlank", Double.valueOf(0.5D));
-		request.setTypeRatio(ratio);
-		return request;
 	}
 
 	private static ProjectView project() {
@@ -477,18 +358,5 @@ class AiAssistServiceImplTest {
 		return answer;
 	}
 
-	/** 轮询任务直到终态（真实线程池，最多等 5 秒） */
-	private AiPaperJobView waitForJob(String jobId) throws InterruptedException {
-		for (int attempt = 0; attempt < 250; attempt++) {
-			AiPaperJobView view = service.describePaperJob(jobId);
-			if (!AiPaperJobView.STATUS_QUEUED.equals(view.getStatus())
-					&& !AiPaperJobView.STATUS_RUNNING.equals(view.getStatus())) {
-				return view;
-			}
-			Thread.sleep(20L);
-		}
-		fail("AI 任务在 5 秒内没有结束");
-		return null;
-	}
 
 }

@@ -6,14 +6,18 @@ modules:
     doc: docs/modules/ai.md
     keywords:
       - AI
-      - 出卷
-      - 改题
-      - 批改建议
-      - 学情总结
+      - 抽题组卷
+      - 试卷质检
+      - 题库体检
+      - 错题重练
+      - 公告草稿
+      - 批量批改
+      - 意图识别
       - AiGateway
       - PromptRegistry
       - AiJobService
       - AiContentGuard
+      - AiActionService
       - t_ai_usage
       - ai:use
       - 限额
@@ -21,31 +25,38 @@ modules:
     source_globs:
       - server/ai/**
       - server/api/src/main/java/cn/surveyking/server/api/AiApi.java
-      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AiUsage.java
-      - server/rdbms/src/main/java/cn/surveyking/server/mapper/AiUsageMapper.java
-      - server/rdbms/src/main/java/cn/surveyking/server/service/AiUsageService.java
-      - server/rdbms/src/main/java/cn/surveyking/server/impl/AiUsageServiceImpl.java
-      - server/rdbms/src/main/java/cn/surveyking/server/service/AiAssistService.java
-      - server/rdbms/src/main/java/cn/surveyking/server/impl/AiAssistServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/Ai*.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/Ai*.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/Ai*.java
+      - client/src/api/ai.ts
+      - client/src/components/AiAssistant/**
       - client/src/pages/survey/ai/**
-      - client/src/pages/ai-guide/**
+      - client/src/pages/repo/ai/**
     entrypoints:
       - server/ai/src/main/java/cn/surveyking/server/ai/core/AiGateway.java
       - server/ai/src/main/java/cn/surveyking/server/ai/core/AiJobService.java
       - server/api/src/main/java/cn/surveyking/server/api/AiApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AiActionServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AiGradeBatchServiceImpl.java
+      - client/src/components/AiAssistant/AiAssistantFloat.tsx
       - client/src/pages/survey/Editor.tsx
-      - client/src/pages/ai-guide/AiGuide.tsx
     apis:
-      - POST /api/ai/paper/generate
+      - POST /api/ai/paper/pick
       - GET /api/ai/paper/job/{jobId}
       - POST /api/ai/paper/apply
+      - POST /api/ai/paper/check
+      - POST /api/ai/repo/audit
+      - POST /api/ai/repo/audit/apply
+      - POST /api/ai/practice/recommend
+      - POST /api/ai/notice/draft
       - POST /api/ai/question/rewrite
       - POST /api/ai/grade/suggest
+      - POST /api/ai/grade/batch
+      - POST /api/ai/grade/undo
       - POST /api/ai/report/summary
-      - GET /api/ai/usage/today
       - POST /api/ai/chat
       - GET /api/ai/status
+      - GET /api/ai/usage/today
     tables:
       - t_ai_usage
     tests:
@@ -1064,7 +1075,7 @@ modules:
       - 题库全局期
       - 教学页
       - TeachingHome
-      - 学情
+      - 班级 Tab
       - 班级答卷
       - 按班导出
       - access_level
@@ -1087,7 +1098,6 @@ modules:
       - client/src/layout/BasicLayout.tsx
       - client/src/layout/MobileTabBar.tsx
       - client/src/pages/system/Group.tsx
-      - client/src/pages/system/GroupEntry.tsx
       - client/src/pages/system/User.tsx
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/api/src/main/java/cn/surveyking/server/api/SystemApi.java
@@ -1122,7 +1132,6 @@ modules:
       - client/src/pages/teaching/ClassResourcesPanel.tsx
       - client/src/pages/teaching/ImportMembersModal.tsx
       - client/src/pages/teaching/DeleteDeptDialog.tsx
-      - client/src/pages/teaching/Workbench.tsx
       - client/src/pages/project/List.tsx
       - client/src/pages/project/ProjectTree.tsx
       - client/src/pages/project/Entry.tsx

@@ -2,7 +2,6 @@ package cn.surveyking.server.ai.core;
 
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
-import cn.surveyking.server.domain.dto.AiPaperGenerateRequest;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import lombok.Getter;
 import org.springframework.util.StringUtils;
@@ -14,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 出卷参数（{@link AiPaperGenerateRequest} 归一化之后的产物）。
+ * 组卷参数（调用方从自己的请求 DTO 里取出来之后的归一化产物）。
  *
  * <p>为什么要有这一层：出卷的参数既要给提示词用（「单选 8 题、多选 4 题」），
  * 又要给 {@link AiContentGuard} 用（校验题量/题型配比/总分），两处必须用<b>同一份</b>归一化结果，
@@ -88,39 +87,36 @@ public final class AiPaperSpec {
 	}
 
 	/**
-	 * 校验并归一化出卷参数。
+	 * 校验并归一化组卷参数。
+	 *
+	 * <p>刻意不接请求 DTO：组卷请求（{@code AiPaperPickRequest}）与历史出卷请求字段名不同，
+	 * 而「题量 / 总分 / 题型配比 / 难度」才是真正参与校验的四个量，调用方各自取出来即可。
+	 * 学科与级别只是提示词上下文，可空。
+	 *
 	 * @throws ErrorCodeException 参数不合法（中文提示，可直接弹给老师）
 	 */
-	public static AiPaperSpec of(AiPaperGenerateRequest request) {
-		if (request == null) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "出卷参数不能为空");
-		}
-		if (!StringUtils.hasText(request.getSubject())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "请填写学科（如「养老护理员」）");
-		}
-		if (!StringUtils.hasText(request.getLevel())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "请填写级别（如「五级」）");
-		}
-		Integer count = request.getQuestionCount();
-		if (count == null || count <= 0) {
+	public static AiPaperSpec of(Integer questionCount, Double totalScore, Map<String, Double> typeRatio,
+			String difficulty, String subject, String level, String requirements) {
+		if (questionCount == null || questionCount.intValue() <= 0) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "题量必须大于 0");
 		}
+		int count = questionCount.intValue();
 		if (count > MAX_QUESTIONS) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "一次最多生成 " + MAX_QUESTIONS + " 题，请分批生成");
+			throw new ErrorCodeException(ErrorCode.ValidationError, "一次最多 " + MAX_QUESTIONS + " 题，请分批");
 		}
-		Double totalScore = request.getTotalScore();
-		if (totalScore == null || totalScore <= 0) {
+		if (totalScore == null || totalScore.doubleValue() <= 0) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "总分必须大于 0");
 		}
-		LinkedHashMap<String, Double> ratios = normalizeRatio(request.getTypeRatio());
-		String difficulty = StringUtils.hasText(request.getDifficulty()) ? request.getDifficulty().trim().toLowerCase()
+		LinkedHashMap<String, Double> ratios = normalizeRatio(typeRatio);
+		String normalizedDifficulty = StringUtils.hasText(difficulty) ? difficulty.trim().toLowerCase()
 				: DIFFICULTY_MIXED;
-		if (!DIFFICULTY_LABELS.containsKey(difficulty)) {
+		if (!DIFFICULTY_LABELS.containsKey(normalizedDifficulty)) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "难度只能是 easy / medium / hard / mixed");
 		}
-		return new AiPaperSpec(count.intValue(), totalScore.doubleValue(), ratios, difficulty,
-				request.getSubject().trim(), request.getLevel().trim(),
-				StringUtils.hasText(request.getRequirements()) ? request.getRequirements().trim() : null);
+		return new AiPaperSpec(count, totalScore.doubleValue(), ratios, normalizedDifficulty,
+				StringUtils.hasText(subject) ? subject.trim() : null,
+				StringUtils.hasText(level) ? level.trim() : null,
+				StringUtils.hasText(requirements) ? requirements.trim() : null);
 	}
 
 	private static LinkedHashMap<String, Double> normalizeRatio(Map<String, Double> input) {

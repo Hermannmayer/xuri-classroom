@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { JSX } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import BasicLayout from './layout/BasicLayout';
 import RequirePerm from './components/RequirePerm';
 import Placeholder from './pages/Placeholder';
@@ -17,12 +17,13 @@ const Login = lazy(() => import('./pages/user/Login'));
 const Register = lazy(() => import('./pages/user/Register'));
 const Home = lazy(() => import('./pages/Home'));
 // AI 与智能体引导页：能力清单 + 模型开通 + MCP 三步接入（task-16）
-const AiGuide = lazy(() => import('./pages/ai-guide/AiGuide'));
+// AI 说明页已并入「系统设置 → AI」：这里只保留旧链接的入口组件
 const NoticeCenter = lazy(() => import('./pages/notice/NoticeCenter'));
+// 公告管理台：系统管理里的写入口（铃铛进的 /notice 是只读中心）
+const NoticeAdmin = lazy(() => import('./pages/notice/NoticeAdmin'));
 const ProjectEntry = lazy(() => import('./pages/project/Entry'));
 const TaskCenter = lazy(() => import('./pages/tasks/TaskCenter'));
 const TeachingHome = lazy(() => import('./pages/teaching/TeachingHome'));
-const TeachingClasses = lazy(() => import('./pages/teaching/Classes'));
 const ProjectTrash = lazy(() => import('./pages/project/Trash'));
 const SurveyEditor = lazy(() => import('./pages/survey/Editor'));
 const SurveyPrint = lazy(() => import('./pages/survey/Print'));
@@ -30,10 +31,9 @@ const SurveySetting = lazy(() => import('./pages/survey/Setting'));
 const SurveyOverview = lazy(() => import('./pages/survey/Overview'));
 const SurveyData = lazy(() => import('./pages/survey/Data'));
 const SurveyReport = lazy(() => import('./pages/survey/Report'));
-const SystemUser = lazy(() => import('./pages/system/User'));
-const SystemGroupEntry = lazy(() => import('./pages/system/GroupEntry'));
+// 用户 / 角色权限 / 用户组合并成一页三 Tab：系统管理从 5 项降到 4 项
+const SystemAccess = lazy(() => import('./pages/system/Access'));
 const SystemSetting = lazy(() => import('./pages/system/Setting'));
-const SystemPermissions = lazy(() => import('./pages/system/Permissions'));
 const SystemAudit = lazy(() => import('./pages/system/Audit'));
 const AccountSettings = lazy(() => import('./pages/account/Settings'));
 const RepoList = lazy(() => import('./pages/repo/List'));
@@ -57,6 +57,19 @@ const PageLoading = () => (
 /** 顶层路由（布局与公开页）包一层 Suspense；布局内的子路由由它一并覆盖 */
 const withSuspense = (element: JSX.Element) => <Suspense fallback={<PageLoading />}>{element}</Suspense>;
 
+/**
+ * 旧链接 /teaching/classes → /teaching?tab=classes。
+ *
+ * <p>为什么不直接用 `<Navigate to="/teaching?tab=classes" />`：那样会把旧链接里的 ?classId=
+ * 丢掉——老师从「按班级看作答」收藏过来的链接正好带着它，跳过去却回到了第一个班。
+ */
+function TeachingClassesRedirect() {
+  const { search } = useLocation();
+  const next = new URLSearchParams(search);
+  next.set('tab', 'classes');
+  return <Navigate to={'/teaching?' + next.toString()} replace />;
+}
+
 /** 页面级权限守卫：角色权限在 auth/permissions.ts 里统一判定 */
 const guard = (perm: string | string[], element: JSX.Element) => (
   <RequirePerm perm={perm}>{element}</RequirePerm>
@@ -77,17 +90,16 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
-      // AI 引导页：能配 AI（system:setting:update）或能用 AI（ai:use）的人都能进——
-      // 前者看「怎么开」，后者看「从哪进」；两个权限都没有的账号不显示这个入口。
-      // path 写死 'ai'（= pages/ai-guide/constants.ts 的 AI_GUIDE_PATH）：
-      // scripts/docs/gen.mjs 解析路由表只认字面量，写成常量会让 /ai 从 docs/reference/routes.md 里消失。
-      { path: 'ai', element: guard([PERMISSION_CODES.aiUse, PERMISSION_CODES.systemSettingUpdate], <AiGuide />) },
-      // 公告中心：全角色可见（学员预设也带 notice:list），顶栏铃铛与「检查更新」都指向这里
+      // AI 说明已并入「系统设置 → AI」页；旧的 /ai 链接保留成重定向，别让书签和文档链接 404
+      { path: 'ai', element: <Navigate to="/system/setting?tab=ai" replace /> },
+      // 公告中心（只读）：全角色可见（学员预设也带 notice:list），顶栏铃铛指向这里。
+      // 写入口在系统管理 → 公告管理（/system/notice），两个页面共用同一套接口与权限。
       { path: 'notice', element: guard(PERMISSION_CODES.noticeList, <NoticeCenter />) },
-      // 教学管理与班级学情合并：/teaching 内用 Tabs 分「考试/问卷」「学情」；
-      // 页面本身的入口是 project:list，学情 tab 再按 project:report 单独控制。
-      { path: 'teaching', element: guard(PERMISSION_CODES.portalTeacher, guard(PERMISSION_CODES.projectList, <TeachingHome />)) },
-      { path: 'teaching/classes', element: guard(PERMISSION_CODES.classList, <TeachingClasses />) },
+      // 教学 = 考试/问卷 + 班级（原「班级管理」独立菜单已并入）。
+      // 守卫用「任一命中」：只带班不带课的班主任（class:list）也要能进来，否则合并之后他反而没入口了。
+      { path: 'teaching', element: guard([PERMISSION_CODES.projectList, PERMISSION_CODES.classList], <TeachingHome />) },
+      // 旧链接保留：/teaching/classes → /teaching?tab=classes（书签、文档、别人发过的链接都还活）
+      { path: 'teaching/classes', element: <TeachingClassesRedirect /> },
       // 「我的任务」是学员入口：没有 project:answer 的教职工不再能直接打开答题列表
       { path: 'tasks', element: guard(PERMISSION_CODES.projectAnswer, <TaskCenter />) },
       // /project 只保留给学员/只读协作者；老师与管理员由 Entry 重定向到 /teaching?tab=exam
@@ -118,12 +130,24 @@ export const router = createBrowserRouter([
       // 报表接口要 project:report（ReportApi），守卫不能只看 answer:list
       { path: 'survey/:id/report', element: guard(PERMISSION_CODES.projectReport, <SurveyReport />) },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
-      { path: 'system/user', element: guard(PERMISSION_CODES.systemUserList, <SystemUser />) },
-      // 用户组设置已并入班级管理：有 class:list 的账号进来会重定向，避免两棵树
-      { path: 'system/group', element: guard(PERMISSION_CODES.systemDeptList, <SystemGroupEntry />) },
+      // 用户 / 角色权限 / 用户组三合一（Tab 内再按各自权限逐个判）
+      {
+        path: 'system/access',
+        element: guard(
+          [PERMISSION_CODES.systemUserList, PERMISSION_CODES.systemRoleList, PERMISSION_CODES.systemDeptList],
+          <SystemAccess />,
+        ),
+      },
+      // 旧链接：分别指向合并后页面里对应的 Tab
+      { path: 'system/user', element: <Navigate to="/system/access?tab=user" replace /> },
+      { path: 'system/group', element: <Navigate to="/system/access?tab=group" replace /> },
+      { path: 'system/permissions', element: <Navigate to="/system/access?tab=role" replace /> },
       { path: 'system/setting', element: guard(PERMISSION_CODES.systemRoleList, <SystemSetting />) },
-      // 权限目录与角色矩阵：按任务要求用 system:user:update 守卫
-      { path: 'system/permissions', element: guard(PERMISSION_CODES.systemRoleList, <SystemPermissions />) },
+      // 公告管理：管理员发全站、老师发自己带的班；范围判定在后端，这里只管入口
+      {
+        path: 'system/notice',
+        element: guard([PERMISSION_CODES.noticeManageSystem, PERMISSION_CODES.noticeManageClass], <NoticeAdmin />),
+      },
       { path: 'system/audit', element: guard(PERMISSION_CODES.systemLogList, <SystemAudit />) },
     ],
   },

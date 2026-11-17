@@ -1,19 +1,39 @@
 import { useEffect, useState } from 'react';
-import { Spin, Tabs } from 'antd';
+import { Result, Spin, Tabs } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import ProjectList from '../project/List';
-import TeachingWorkbench from './Workbench';
+import TeachingClasses from './Classes';
 
-type TabKey = 'exam' | 'insight';
+type TabKey = 'exam' | 'classes';
+
+/** Tab 顺序与各自的权限点：顺序决定 Tab 从左到右怎么排，权限点决定它在不在 */
+const TAB_ORDER: TabKey[] = ['exam', 'classes'];
+const TAB_PERMISSION: Record<TabKey, string> = {
+  exam: PERMISSION_CODES.projectList,
+  classes: PERMISSION_CODES.classList,
+};
+const TAB_LABEL: Record<TabKey, string> = {
+  exam: '考试/问卷',
+  classes: '班级',
+};
+/**
+ * 旧参数值归一到现在的 Tab。
+ * insight 是被删掉的「学情」—它的内容是班级视角，所以归到「班级」而不是「考试/问卷」；
+ * class 是首页卡片里写下的单数形式。不归一会让这些入口静默落到考试/问卷页，用户以为点错了。
+ */
+const LEGACY_TAB: Record<string, TabKey> = { insight: 'classes', class: 'classes' };
 
 /**
- * 教学页：把原「教学管理」(/project) 与「班级学情」(/teaching) 合并成两个 Tab。
+ * 教学页：考试/问卷与班级合并成一页两个 Tab。
  *
- * <p>考试/问卷沿用 ProjectList 的管理视图（embedded 隐藏它自己的页头）；
- * 学情是紧凑版 Workbench（考试下拉 + 班级分布），没有 project:report 的账号不显示该 Tab。
- * Tab 与 URL 的 ?tab= 同步，刷新/前进后退都能保持。
+ * <p>为什么合并：这两件事是同一条动线——先看班、再给班发考试/问卷，拆成两个菜单的代价是
+ * 侧栏多一项、老师为一件事跳两次页。原「班级学情」只是班级资源面板的另一种视图，直接删掉，
+ * 学员与班级成员统一在「班级」Tab 里维护。
+ *
+ * <p>权限没有放松：两个 Tab 各自按自己的权限点判定，只留当前账号真能看的那个；
+ * 一个都没有时给 403 结果页，而不是渲染一个空 Tabs——空壳页会被当成加载失败。
  */
 export default function TeachingHome() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,17 +43,35 @@ export default function TeachingHome() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  const canReport = authorities ? can(authorities, PERMISSION_CODES.projectReport) : false;
-  const requested: TabKey = searchParams.get('tab') === 'insight' ? 'insight' : 'exam';
-  // 没权限时即使 URL 写了 insight 也只显示考试/问卷
-  const activeKey: TabKey = canReport ? requested : 'exam';
+  const tabs: TabKey[] = authorities ? TAB_ORDER.filter((key) => can(authorities, TAB_PERMISSION[key])) : [];
 
+  // ?tab= 只认 exam / classes（外加两个旧值），其余乱值退回第一个可用 Tab
+  const requestedParam = searchParams.get('tab');
+  const requested: TabKey | undefined =
+    requestedParam === 'exam' || requestedParam === 'classes'
+      ? requestedParam
+      : requestedParam
+        ? LEGACY_TAB[requestedParam]
+        : undefined;
+  const active: TabKey | undefined = requested && tabs.includes(requested) ? requested : tabs[0];
+
+  /**
+   * 把实际显示的 Tab 写回 URL：刷新、前进后退、把链接发给别人，看到的都还是同一个 Tab。
+   *
+   * <p>用函数式更新只改 tab 一个参数——班级 Tab 里的 classId / create 是它自己的状态，
+   * 这一层如果整串覆盖 URL，就等于把「链接直达某个班」这件事弄丢了。
+   */
   useEffect(() => {
-    if (!authorities || canReport || requested !== 'insight') return;
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', 'exam');
-    setSearchParams(next, { replace: true });
-  }, [authorities, canReport, requested, searchParams, setSearchParams]);
+    if (!active || searchParams.get('tab') === active) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', active);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [active, searchParams, setSearchParams]);
 
   if (!authorities) {
     return (
@@ -43,31 +81,46 @@ export default function TeachingHome() {
     );
   }
 
-  const changeTab = (key: string) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', key);
-    setSearchParams(next, { replace: true });
-  };
+  if (!active) {
+    return (
+      <Result
+        status="403"
+        title="没有访问权限"
+        subTitle="当前账号既没有考试/问卷（project:list）也没有班级（class:list）的查看权限，请联系管理员分配角色。"
+      />
+    );
+  }
 
   return (
     <div>
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>TEACHING / 教学</div>
         <h2 className="bp-title" style={{ fontSize: 18, margin: '6px 0 0', letterSpacing: '0.06em' }}>
-          教学
+          教学与班级
         </h2>
         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-          考试/问卷与班级学情集中在这里；班级与学员在左侧「班级管理」维护。
+          考试/问卷与班级都在这里；学员与班级成员在「班级」里维护，题库在「题库中心」。
         </div>
       </div>
 
       <Tabs
-        activeKey={activeKey}
-        onChange={changeTab}
-        items={[
-          { key: 'exam', label: '考试/问卷', children: <ProjectList embedded /> },
-          ...(canReport ? [{ key: 'insight', label: '学情', children: <TeachingWorkbench /> }] : []),
-        ]}
+        activeKey={active}
+        onChange={(key) => {
+          const next = key as TabKey;
+          setSearchParams(
+            (prev) => {
+              const params = new URLSearchParams(prev);
+              params.set('tab', next);
+              return params;
+            },
+            { replace: true },
+          );
+        }}
+        items={tabs.map((key) => ({
+          key,
+          label: TAB_LABEL[key],
+          children: key === 'exam' ? <ProjectList embedded /> : <TeachingClasses embedded />,
+        }))}
       />
     </div>
   );

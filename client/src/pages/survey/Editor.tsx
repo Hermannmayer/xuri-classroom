@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Drawer, Dropdown, Input, InputNumber, message, Modal, Radio, Space, Spin, Switch, Tabs, Tooltip, Upload } from 'antd';
 import {
   ArrowLeftOutlined,
+  AuditOutlined,
   BgColorsOutlined,
   CodeOutlined,
   CopyOutlined,
@@ -19,7 +20,7 @@ import {
   UndoOutlined,
   UpOutlined,
 } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -39,6 +40,7 @@ import { useHistoryState } from '../../designer/useHistory';
 import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
 import RichTextEditor from '../../components/RichTextEditor';
 import BankPickModal from './BankPickModal';
+import AiPaperCheckDrawer from './ai/AiPaperCheckDrawer';
 import AiPaperModal from './ai/AiPaperModal';
 import AiRewriteDrawer from './ai/AiRewriteDrawer';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -233,6 +235,8 @@ function OutlineList({
 export default function SurveyEditor() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  /** ?ai=pick|check|rewrite：对话里的「打开工具」就是靠这个参数把面板直接弹出来的 */
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -296,16 +300,33 @@ export default function SurveyEditor() {
   });
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  /* ---- AI 出卷 / AI 改题（P4）：入口全部按 ai:use 门控 ---- */
+  /* ---- AI 组卷 / 质检 / 改题：入口全部按 ai:use 门控 ---- */
   /** 权限列表：没回来之前不渲染 AI 入口（判定统一走 auth/permissions 的 can()） */
   const [authorities, setAuthorities] = useState<string[]>();
   const [aiOpen, setAiOpen] = useState(false);
+  /** 试卷质检抽屉：读的是服务端已保存的卷子 */
+  const [aiCheckOpen, setAiCheckOpen] = useState(false);
+  /** ?ai= 只处理一次：同一个参数下选来选去不该反复重开面板 */
+  const handledAiParamRef = useRef<string | null>(null);
   /** 正在做 AI 优化的题目 id；undefined = 侧栏关着 */
   const [aiRewriteId, setAiRewriteId] = useState<string>();
   /** AI 改题前的题干快照：同一道题只记第一次改之前的样子，「恢复原题干」用它 */
   const [aiBefore, setAiBefore] = useState<Record<string, { title: string; description?: string }>>({});
   /** 选中卡片上「AI 优化」浮标的位置（视口坐标，跟着卡片滚动） */
   const [aiChip, setAiChip] = useState<{ top: number; left: number } | null>(null);
+
+  /**
+   * 关掉 AI 面板就把 ?ai= 去掉。
+   *
+   * 用 replace 而不是 push：参数是「一次性开门指令」，留着会让刷新页面又弹一次，
+   * 也会在浏览器后退时莫名重开面板。
+   */
+  const clearAiParam = useCallback(() => {
+    if (!searchParams.has('ai')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('ai');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const uploadThemeImage = async (file: File, key: 'backgroundImage' | 'headerImage') => {
     try {
@@ -386,6 +407,14 @@ export default function SurveyEditor() {
   }, [contextMenu, canAi, survey]);
 
   const flatQuestions = useMemo(() => flattenSchema(survey), [survey]);
+  /** 题号索引：质检结果里只有题目 id，界面上要显示成「第 N 题」得按当前卷子算 */
+  const questionNumberById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const question of flatQuestions) {
+      if (question.number) map.set(question.id, question.number);
+    }
+    return map;
+  }, [flatQuestions]);
   const scoreGroups = useMemo(() => collectScoreGroups(survey), [survey]);
   const allScoreSelected = scoreGroups.length > 0 && scoreGroups.every((group) => scoreSelected[group.type]);
 
@@ -677,8 +706,8 @@ export default function SurveyEditor() {
   /**
    * 保存指定的树。
    *
-   * 单独抽出来是给「AI 采纳后立即保存」用的：setSurvey 是异步的，拿不到下一棵树的 state，
-   * 所以调用方把算好的树传进来，落库和 baseline 都用同一份，避免「保存的是旧的、画布是新的」。
+   * 单独抽出来是因为 setSurvey 是异步的，拿不到下一棵树的 state：
+   * 调用方把算好的树传进来，落库和 baseline 都用同一份，避免「保存的是旧的、画布是新的」。
    */
   const persist = async (tree: SurveySchema, hint = '已保存') => {
     setSaving(true);
@@ -699,31 +728,26 @@ export default function SurveyEditor() {
   };
 
   /**
-   * AI 出卷结果写进画布。
+   * AI 组卷的结果写进画布。
    *
    * 和「从题库添加」一个套路：包成一个题组追加到末尾，一次 setSurvey = 一个撤销步。
-   * **不落库**，除非老师勾了「采纳后立即保存」——计划 §6.3 ① 要求预览后再落库。
+   * **不落库**：题目先落在画布上，老师确认后点「保存」才写库（组卷面板里也不写库）。
    */
-  const handleAiAdopt = (questions: SurveySchema[], options: { save: boolean }) => {
+  const handleAiAdopt = (questions: SurveySchema[]) => {
     if (!questions.length) return;
     const group: SurveySchema = {
       id: newId(),
       type: 'QuestionSet',
-      title: 'AI 生成（' + questions.length + ' 题）',
+      title: 'AI 组卷（' + questions.length + ' 题）',
       attribute: {},
       children: questions.map((question) => ({
         ...question,
         attribute: { ...(question.attribute ?? {}), required: question.attribute?.required ?? true },
       })),
     };
-    const next = insertNode(survey, undefined, group);
-    setSurvey(next);
+    setSurvey(insertNode(survey, undefined, group));
     setSelectedId(questions[0].id);
-    if (options.save) {
-      void persist(next, '已写入 ' + questions.length + ' 题并保存');
-    } else {
-      message.success('已写入 ' + questions.length + ' 题，记得保存');
-    }
+    message.success('已写入 ' + questions.length + ' 题，记得保存');
   };
 
   /**
@@ -735,6 +759,17 @@ export default function SurveyEditor() {
   const openAiRewrite = (nodeId: string) => {
     if (!findNode(survey, nodeId)) return;
     setAiRewriteId(nodeId);
+  };
+
+  /**
+   * 打开试卷质检。
+   *
+   * 体检接口吃的是 projectId，读的是**服务端那份**卷子；画布上没保存的改动不参与。
+   * 这里不替老师自动保存（保存是明确动作，不该被看报告顺手触发），只提醒一句。
+   */
+  const openAiCheck = () => {
+    setAiCheckOpen(true);
+    if (dirty) message.info('质检读的是已保存的试卷，刚才的改动要先保存才会算进去');
   };
 
   /** 采纳 AI 建议：只换题干，并把改之前的题干留成快照（同一道题只记第一次，恢复能回到最初） */
@@ -767,6 +802,46 @@ export default function SurveyEditor() {
     });
     message.success('已恢复 AI 修改前的题干');
   };
+
+  /**
+   * 外部链接直接打开 AI 面板：/survey/:id/edit?ai=pick|check|rewrite。
+   *
+   * 参数只认一次：同一份卷子里反复点选题目不该把面板重开一遍；
+   * 面板关闭时各自调 clearAiParam 把参数摘掉（见下面的 onClose）。
+   * canAi 到位之前先按兵不动——权限接口回来后会再跑一次，那时才知道能不能给入口。
+   */
+  useEffect(() => {
+    if (!canAi) return;
+    const ai = searchParams.get('ai');
+    if (!ai) {
+      handledAiParamRef.current = null;
+      return;
+    }
+    if (handledAiParamRef.current === ai) return;
+    handledAiParamRef.current = ai;
+    if (ai === 'pick') {
+      setAiOpen(true);
+      return;
+    }
+    if (ai === 'check') {
+      openAiCheck();
+      return;
+    }
+    if (ai === 'rewrite') {
+      // 改题必须有题目：URL 里没有题目 id，只能借用当前选中的那道题
+      const target = selectedId ? findNode(survey, selectedId) : undefined;
+      if (target && DATA_TYPES.has(target.type)) setAiRewriteId(target.id);
+      else {
+        message.info('先选中一道题，再让 AI 优化题干');
+        clearAiParam();
+      }
+      return;
+    }
+    // 不认识的取值（老链接、手改的 URL）直接摘掉，别让参数一直挂在地址栏上
+    clearAiParam();
+    // openAiCheck 每次渲染都是新函数，放进依赖会让整个 effect 空转；它只读 dirty 与 setState
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAi, searchParams, selectedId, survey, dirty, clearAiParam]);
 
   // 刷新/关标签页时也拦一下，避免手快丢改动
   useEffect(() => {
@@ -923,11 +998,19 @@ export default function SurveyEditor() {
         >
           JSON
         </Button>
-        {/* AI 出卷入口：没有 ai:use 的老师看不到 */}
+        {/* AI 入口：没有 ai:use 的老师看不到。组卷 = 从题库抽题；质检 = 体检已保存的这份卷子 */}
         {canAi && (
-          <Button icon={<RobotOutlined />} onClick={() => setAiOpen(true)}>
-            AI 生成试卷
-          </Button>
+          <>
+            <Button icon={<RobotOutlined />} onClick={() => setAiOpen(true)}>
+              AI 组卷
+            </Button>
+            {/* 按钮名跟「AI 组卷」成套，悬停写清楚它就是文档里的「试卷质检」 */}
+            <Tooltip title="试卷质检：查重复题、缺分值、缺答案、难度分布与考点覆盖">
+              <Button icon={<AuditOutlined />} onClick={openAiCheck}>
+                AI 质检
+              </Button>
+            </Tooltip>
+          </>
         )}
         <Dropdown
           trigger={['click']}
@@ -1571,11 +1654,34 @@ export default function SurveyEditor() {
         </div>
       </Modal>
 
-      {/* AI 出卷：预览后才写画布；AI 改题：采纳后留 before 快照 */}
+      {/* AI 组卷：预览后才写画布；关闭时摘掉 ?ai=，刷新不会再弹 */}
       {canAi && (
-        <AiPaperModal open={aiOpen} projectId={id} onAdopt={handleAiAdopt} onClose={() => setAiOpen(false)} />
+        <AiPaperModal
+          open={aiOpen}
+          projectId={id}
+          onAdopt={handleAiAdopt}
+          onClose={() => {
+            setAiOpen(false);
+            clearAiParam();
+          }}
+        />
       )}
 
+      {/* AI 质检：只读已保存的卷子；点题号定位复用编辑器自己的选中逻辑 */}
+      {canAi && (
+        <AiPaperCheckDrawer
+          open={aiCheckOpen}
+          projectId={id}
+          onLocate={(questionId) => setSelectedId(questionId)}
+          questionNumberOf={(questionId) => questionNumberById.get(questionId)}
+          onClose={() => {
+            setAiCheckOpen(false);
+            clearAiParam();
+          }}
+        />
+      )}
+
+      {/* AI 改题：采纳后留 before 快照 */}
       {canAi && (
         <AiRewriteDrawer
           open={Boolean(aiRewriteId)}
@@ -1584,7 +1690,10 @@ export default function SurveyEditor() {
           title={aiRewriteId ? findNode(survey, aiRewriteId)?.title : undefined}
           type={aiRewriteId ? findNode(survey, aiRewriteId)?.type : undefined}
           onAdopt={handleAiRewriteAdopt}
-          onClose={() => setAiRewriteId(undefined)}
+          onClose={() => {
+            setAiRewriteId(undefined);
+            clearAiParam();
+          }}
         />
       )}
 

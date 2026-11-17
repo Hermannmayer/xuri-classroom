@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Alert, App, Badge, Button, Empty, Pagination, Popconfirm, Spin, Tag } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { get, post } from '../../api';
+import { useNavigate } from 'react-router-dom';
+import { get, getSystem, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import LinkAction from '../../components/LinkAction';
@@ -18,6 +19,7 @@ import {
   noticeTypeText,
   type NoticeCategory,
   type NoticeCategoryDef,
+  type NoticeMode,
   type NoticeView,
 } from './types';
 
@@ -25,10 +27,11 @@ import {
 const PAGE_SIZE = 10;
 
 /**
- * 左栏分类：4.6 要求的是「全部 / 系统更新 / 未读」，草稿与已归档只给 notice:manage:* 看。
+ * 左栏分类：4.6 要求的是「全部 / 系统更新 / 未读」。
  *
- * <p>为什么多这两个：后端 create 只落草稿、列表默认只回已发布（NoticeServiceImpl#visibleQuery），
- * 没有「草稿」分类的话刚保存的草稿会凭空消失；归档同理，得留一个能找回来的入口（重新发布会回到已发布）。
+ * <p>草稿与已归档是写流程的一部分（后端 create 只落草稿、列表默认只回已发布，
+ * 见 NoticeServiceImpl#visibleQuery），所以标成 managerOnly，只在公告管理台出现：
+ * 只读中心是「看通知」的地方，不该出现刚保存却没发布的东西。
  */
 const CATEGORIES: NoticeCategoryDef[] = [
   { key: 'all', label: '全部公告', hint: '我能看到的全部已发布公告，置顶在前', managerOnly: false },
@@ -108,7 +111,13 @@ function fmtTime(value?: string | number): string {
 }
 
 /**
- * 公告中心（/notice）：左分类、右列表 + 详情（实施计划 4.6）。
+ * 公告页的共用实现：左分类、中列表、右详情（实施计划 4.6）。
+ *
+ * <p>同一份列表搭两个入口，靠 mode 区分，不复制第二套页面：
+ * - read（/notice，顶栏铃铛）：只读中心。分类只有「全部 / 系统更新 / 未读」，
+ *   能做的只有看详情与标记已读——铃铛只负责显示通知，不再有配置功能；
+ * - manage（/system/notice，系统管理 → 公告管理）：全部写能力（新建 / 编辑 / 发布 / 归档 / 删除），
+ *   外加草稿与已归档两个分类。
  *
  * <p>数据全走 4.5 的接口（后端实现见 NoticeApi.java / NoticeServiceImpl）：
  * - GET /api/notice/list?current=&pageSize=&onlyUnread=&type=&status=
@@ -119,14 +128,16 @@ function fmtTime(value?: string | number): string {
  * - POST /api/notice/read  body { ids }
  * - POST /api/notice/create | update | publish | archive | delete
  *
- * <p>写操作的入口只对 notice:manage:* 显示，具体某一条能不能改则看后端算好的
+ * <p>写操作的入口只在管理台出现，具体某一条能不能改还要看后端算好的
  * NoticeView.manageable（老师只能改自己创建的班级公告）。
  *
  * <p>「系统更新」分类把 type=system_update 传给后端做服务端过滤；返回后再本地筛一遍，
  * 保证这个分类里永远不会混进普通公告（缓存脏数据 / 后端回归时的双保险）。
  */
-export default function NoticeCenter() {
+export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
   const { message, modal } = App.useApp();
+  const navigate = useNavigate();
+  const isManage = mode === 'manage';
   const [category, setCategory] = useState<NoticeCategory>('all');
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<NoticeView[]>([]);
@@ -153,23 +164,48 @@ export default function NoticeCenter() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
+  /**
+   * AI 总开关（/api/system 的 aiEnabled）：只有管理台要用它决定「AI 起草」出不出现。
+   * 只在管理台查一次，只读中心不为这一颗按钮多花一次请求。
+   */
+  const [aiEnabled, setAiEnabled] = useState<boolean>();
+  useEffect(() => {
+    if (!isManage) return;
+    let alive = true;
+    getSystem()
+      .then((info) => {
+        if (alive) setAiEnabled(info?.aiEnabled);
+      })
+      // 拿不到就不藏按钮：真关着时后端会用中文原因拒绝，别让一次网络抖动把功能藏掉
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [isManage]);
+
   // notice:manage:system 管全站/按角色，notice:manage:class 只管班级（4.3 / 4.4）
   const canManageSystem = can(authorities, PERMISSION_CODES.noticeManageSystem);
   const canManageClass = can(authorities, PERMISSION_CODES.noticeManageClass);
-  const canManage = canManageSystem || canManageClass;
+  /**
+   * 写入口只在管理台出现：只读中心即使有权限也不给，
+   * 免得「铃铛里能发通知」和「系统管理 → 公告管理」变成两个都要维护的写界面。
+   */
+  const canWrite = isManage && (canManageSystem || canManageClass);
+
   /**
    * 左栏可见分类：
    * - 系统更新：这类公告的受众固定是 admin（NoticeServiceImpl#recordSystemUpdate），
    *   非管理员点进去永远是空的，干脆不显示；
-   * - 草稿 / 已归档：只有持 notice:manage:* 的人才有意义。
+   * - 草稿 / 已归档：写流程的一部分，只在管理台出现（见 types.ts 的 NoticeCategory 注释）。
    */
   const categories = useMemo(
     () =>
       CATEGORIES.filter((item) => {
         if (item.key === 'system_update') return canManageSystem;
-        return !item.managerOnly || canManage;
+        if (item.managerOnly) return canWrite;
+        return true;
       }),
-    [canManage, canManageSystem],
+    [canManageSystem, canWrite],
   );
 
   /** 详情接口的并发保护：连点两条公告时只认最后一次的结果 */
@@ -423,26 +459,39 @@ export default function NoticeCenter() {
 
   return (
     <div>
-      {/* 页头：标题 + 说明 + 刷新 / 写公告 */}
+      {/* 页头：只读中心说清「这里只负责看」，管理台说清谁能发给谁 */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
-            NOTICE / 公告中心
+            {isManage ? 'NOTICE / 公告管理' : 'NOTICE / 公告中心'}
           </div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-            通知公告
+            {isManage ? '公告管理' : '公告中心'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            {unread !== undefined && unread > 0
-              ? `还有 ${unread} 条未读；打开详情即视为已读，顶栏铃铛会同步更新。`
-              : '打开详情即视为已读；管理员公告按受众过滤，班级公告只有该班师生能看到。'}
+            {isManage
+              ? '管理员可发全站公告，老师只能发自己带的班；新建先存草稿，确认无误再发布。'
+              : canManageSystem || canManageClass
+                ? '这里只负责看通知：发通知请到 系统管理 → 公告管理。'
+                : '打开详情即视为已读，顶栏铃铛会同步更新。'}
           </div>
+          {unread !== undefined && unread > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginTop: 2 }}>
+              还有 {unread} 条未读，打开详情即视为已读。
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Button size="small" icon={<ReloadOutlined />} loading={listLoading} onClick={() => void refresh()}>
             刷新
           </Button>
-          {canManage && (
+          {/* 只读中心给有写权限的人留一个跳板，不用自己翻菜单 */}
+          {!isManage && (canManageSystem || canManageClass) && (
+            <Button size="small" type="primary" icon={<EditOutlined />} onClick={() => navigate('/system/notice')}>
+              去公告管理
+            </Button>
+          )}
+          {canWrite && (
             <Button size="small" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               写公告
             </Button>
@@ -482,7 +531,9 @@ export default function NoticeCenter() {
               );
             })}
             <div style={{ ...MUTED_STYLE, marginTop: 10, lineHeight: 1.7 }}>
-              系统更新类公告由「系统设置 → 检查更新」自动生成，管理员可在这里归档。
+              {canWrite
+                ? '系统更新类公告由「系统设置 → 检查更新」自动生成，管理员可在这里归档。'
+                : '系统更新类公告由「系统设置 → 检查更新」自动生成。'}
             </div>
           </div>
         </div>
@@ -634,7 +685,8 @@ export default function NoticeCenter() {
             <span className="bp-title" style={{ fontSize: 13 }}>
               公告详情
             </span>
-            {detail && canEdit(detail) && (
+            {/* 只读中心没有写入口：编辑 / 发布 / 归档 / 删除一律只在管理台出现 */}
+            {canWrite && detail && canEdit(detail) && (
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {/* 系统更新公告的正文由「检查更新」生成，后端也拒绝人工写入该类型
                     （NoticeServiceImpl#normalizeType），所以只给归档 / 删除，不给编辑 */}
@@ -739,11 +791,12 @@ export default function NoticeCenter() {
         </div>
       </div>
 
-      {/* 写公告：只有 notice:manage:* 才挂载，没有权限的人连组件都不出现 */}
-      {canManage && (
+      {/* 写公告：只在管理台挂载，没有权限的人连组件都不出现 */}
+      {canWrite && (
         <NoticeEditor
           open={editorOpen}
           notice={editing}
+          aiEnabled={aiEnabled}
           onClose={() => setEditorOpen(false)}
           onSaved={(publish) => void handleSaved(publish)}
         />

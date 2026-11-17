@@ -27,4 +27,13 @@ public class AiRequest {
 	/** 温度；为空不下发（由服务端默认值决定） */
 	private final Double temperature;
 
+	/**
+	 * 是否后台任务发起的调用（批量批改 / 组卷 / 题库体检）。
+	 *
+	 * <p>为 true 时跳过「每用户每分钟 N 次」的窗口限流：那种场景本来就是一次请求里连调几十次模型，
+	 * 走限流必然自己把自己卡死。成本仍由每日 token 限额兜底，并发由任务线程池兜底。
+	 */
+	@Builder.Default
+	private final boolean background = false;
+
 }

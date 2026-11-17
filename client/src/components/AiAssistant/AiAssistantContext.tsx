@@ -1,17 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { chatWithAi, getAiStatus, type AiStatus } from '../../api/ai';
+import { chatWithAi, getAiStatus, type AiChatAction, type AiStatus } from '../../api/ai';
 import { usePageContext, type AiPageContextInfo } from './usePageContext';
 
 /**
- * 侧栏 AI 助手的状态容器（挂在 BasicLayout 里，全站唯一一份）。
+ * AI 助手（右下角悬浮对话框）的状态容器，挂在 BasicLayout 里，全站唯一一份。
  *
- * 为什么状态放在布局层而不是侧栏组件里：
- * 1. 对话历史要**跨页面保留**——老师从编辑器跳到报表，刚才那轮对话不该消失（任务要求「会话内保留」）；
- * 2. 侧栏在桌面是停靠面板、在手机上是一个抽屉，两处渲染的是同一份状态；
- * 3. 页面上下文要跟着路由变，而路由只在布局层能拿到。
+ * <p>为什么状态放在布局层而不是对话框组件里：
+ * <ol>
+ * <li>对话历史要<b>跨页面保留</b>——老师从编辑器跳到报表，刚才那一轮对话不该消失；</li>
+ * <li>对话框在桌面是浮层、在手机上是全屏抽屉，两处渲染的是同一份状态；</li>
+ * <li>页面上下文要跟着路由变，而路由只在布局层能拿到。</li>
+ * </ol>
  *
- * 历史只存在内存里：刷新即丢（任务允许），也就不需要为它设计表和迁移。
+ * <p>历史只存在内存里：刷新即丢（不落库，也就不需要为它设计表和迁移）。
+ *
+ * <p>2026-11 起多了一件事：一条助手回复可能带 {@code action}（真的批改了答卷、打开了工具、
+ * 给出了统计）。那份结构化结果跟着气泡一起存，界面就能在对话里渲染「进度 / 去查看 / 撤销」。
  */
 
 export interface AiChatBubble {
@@ -26,6 +31,8 @@ export interface AiChatBubble {
   model?: string;
   /** 这次回复消耗的 token */
   totalTokens?: number;
+  /** 这次回复真的干了什么（批改 / 打开工具 / 统计直答） */
+  action?: AiChatAction;
 }
 
 export interface AiAssistantValue {
@@ -36,26 +43,15 @@ export interface AiAssistantValue {
   statusLoading: boolean;
   /** 当前页面上下文（发给后端之前就显示出来，用户知道 AI 看得到什么） */
   context: AiPageContextInfo;
-  /** 桌面端是否展开停靠面板（手机上用抽屉，状态在侧栏组件里） */
-  docked: boolean;
-  setDocked: (docked: boolean) => void;
+  /** 对话框是否展开（不记住上次状态：悬浮按钮每次进站都是收起的，避免挡内容） */
+  open: boolean;
+  setOpen: (open: boolean) => void;
   send: (text: string) => Promise<void>;
   clear: () => void;
   refreshStatus: () => void;
 }
 
 const AiAssistantContext = createContext<AiAssistantValue | null>(null);
-
-/** 桌面端面板展开状态：记住上次的选择，别每次都手动点开 */
-const DOCKED_KEY = 'ai-assistant:docked';
-
-function readDocked(): boolean {
-  try {
-    return localStorage.getItem(DOCKED_KEY) !== '0';
-  } catch {
-    return true;
-  }
-}
 
 let bubbleSeq = 0;
 
@@ -72,16 +68,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
   const sendingRef = useRef(false);
   const [status, setStatus] = useState<AiStatus>();
   const [statusLoading, setStatusLoading] = useState(false);
-  const [docked, setDockedState] = useState<boolean>(() => readDocked());
-
-  const setDocked = useCallback((next: boolean) => {
-    setDockedState(next);
-    try {
-      localStorage.setItem(DOCKED_KEY, next ? '1' : '0');
-    } catch {
-      // 隐私模式禁用了 localStorage：本次会话仍然生效，只是下次进来回到默认展开
-    }
-  }, []);
+  const [open, setOpen] = useState(false);
 
   const refreshStatus = useCallback(() => {
     setStatusLoading(true);
@@ -120,6 +107,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
           contextLabel: reply.contextLabel,
           model: reply.model,
           totalTokens: reply.totalTokens,
+          action: reply.action,
         };
         messagesRef.current = [...messagesRef.current, bubble];
         setMessages(messagesRef.current);
@@ -128,7 +116,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
         const bubble: AiChatBubble = { id: newBubbleId(), role: 'assistant', content: '', error: message };
         messagesRef.current = [...messagesRef.current, bubble];
         setMessages(messagesRef.current);
-        // 多半是「还没配模型 / 额度用完」这类配置问题：顺手刷一次状态，让引导和「去系统设置」浮出来
+        // 多半是「还没配模型 / 额度用完」这类配置问题：顺手刷一次状态，让引导浮出来
         refreshStatus();
       } finally {
         sendingRef.current = false;
@@ -150,19 +138,19 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
       status,
       statusLoading,
       context,
-      docked,
-      setDocked,
+      open,
+      setOpen,
       send,
       clear,
       refreshStatus,
     }),
-    [clear, context, docked, messages, refreshStatus, send, sending, setDocked, status, statusLoading],
+    [clear, context, messages, open, refreshStatus, send, sending, status, statusLoading],
   );
 
   return <AiAssistantContext.Provider value={value}>{children}</AiAssistantContext.Provider>;
 }
 
-/** 侧栏内部组件用它拿状态；放在 provider 外面时会直接抛错（比拿到 undefined 再炸更容易定位） */
+/** 组件内部用它拿状态；放在 provider 外面时会直接抛错（比拿到 undefined 再炸更容易定位） */
 export function useAiAssistant(): AiAssistantValue {
   const value = useContext(AiAssistantContext);
   if (!value) {

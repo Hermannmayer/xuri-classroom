@@ -254,6 +254,30 @@ public class SystemInfo {
 		 */
 		private Integer perUserDailyLimit;
 
+		/**
+		 * 一次对话最多带多少条历史消息（默认 20）。
+		 *
+		 * <p>这是「每对话限额」：每轮都要把全部历史重发给模型，条数越多越贵、越容易超上下文。
+		 * 超出时保留最近的若干条（系统提示另行拼装，不占这个名额）。
+		 */
+		private Integer maxChatTurns;
+
+		/**
+		 * 单条消息最多多少字（默认 4000）。
+		 *
+		 * <p>另一条「每对话限额」：贴一整篇教案进来会把预算烧光，也会让模型丢掉真正的问题。
+		 * 超长部分截断并在提示里告知用户。
+		 */
+		private Integer maxTurnChars;
+
+		/**
+		 * 每用户每分钟最多调用几次模型（默认 10）。
+		 *
+		 * <p>挡「手抖连点」而不是挡账单（账单由每日 token 限额负责）。
+		 * 后台任务（批量批改 / 组卷 / 体检）不走这条限流，否则一次批改 30 份卷子必然被自己限死。
+		 */
+		private Integer rateLimitPerMinute;
+
 	}
 
 }

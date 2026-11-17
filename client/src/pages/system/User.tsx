@@ -92,8 +92,11 @@ function useIsMobile() {
 /**
  * 用户管理：列表 / 新建 / 编辑 / 删除。
  * 后端字段：UserRequest{ id, username, name, password, roles[], phone, email, status }
+ *
+ * <p>embedded=true 时本页被「用户与权限」的 Tab 嵌进去用：页头（SYSTEM 标签、账号数、说明）交给外层，
+ * 自己只留搜索 / 导入 / 新建这一排工具条，表格也不再套一层 Card——否则会出现「卡片套卡片」的双层边框。
  */
-export default function SystemUser() {
+export default function SystemUser({ embedded = false }: { embedded?: boolean } = {}) {
   const isMobile = useIsMobile();
   const [rows, setRows] = useState<SysUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -354,15 +357,18 @@ export default function SystemUser() {
           marginBottom: 14,
         }}
       >
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SYSTEM / 教职工</div>
-          <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-            共 {total} 个教职工账号
+        {/* 页头交给外层「用户与权限」：这里只留工具条，靠 flex 占位把它推到右边 */}
+        {!embedded && (
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SYSTEM / 教职工</div>
+            <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
+              共 {total} 个教职工账号
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+              只显示老师 / 管理员 / 职工；学员请到「班级管理」里按班维护
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            只显示老师 / 管理员 / 职工；学员请到「班级管理」里按班维护
-          </div>
-        </div>
+        )}
         <div style={{ flex: 1 }} />
         {isMobile && (
           <Select
@@ -402,12 +408,12 @@ export default function SystemUser() {
           </Button>
         )}
         {canManageGroups && (
-          <Button icon={<TeamOutlined />} onClick={() => navigate('/system/group')}>
+          <Button icon={<TeamOutlined />} onClick={() => navigate('/system/access?tab=group')}>
             用户组管理
           </Button>
         )}
         {canManageGroups && (
-          <Button icon={<PlusOutlined />} onClick={() => navigate('/system/group')}>
+          <Button icon={<PlusOutlined />} onClick={() => navigate('/system/access?tab=group')}>
             新建用户组
           </Button>
         )}
@@ -546,7 +552,13 @@ export default function SystemUser() {
           )}
         </>
       ) : (
-      <Card className="bp-corners bp-card">
+      <Card
+        /* 嵌进「用户与权限」的 Tab 时不再画第二层边框与内边距：外层那张 Card 已经是容器 */
+        className={embedded ? undefined : 'bp-corners bp-card'}
+        variant={embedded ? 'borderless' : undefined}
+        style={embedded ? { background: 'transparent' } : undefined}
+        styles={embedded ? { body: { padding: 0 } } : undefined}
+      >
         <Table<SysUser>
           rowKey={(row) => userKey(row)}
           size="small"

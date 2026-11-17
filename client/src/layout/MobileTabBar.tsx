@@ -1,11 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-  DatabaseOutlined,
-  HomeOutlined,
-  ProjectOutlined,
-  TeamOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+import { DatabaseOutlined, HomeOutlined, ProjectOutlined, UserOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { can } from '../auth/permissions';
 import { t } from '../i18n';
@@ -25,7 +19,9 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
 export default function MobileTabBar({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const canTeach = can(authorities, PERMISSION_CODES.portalTeacher);
+  // 教学 = 考试/问卷 + 班级（已合并），入口按「能上课」或「能带班」任一命中
+  const canTeach =
+    can(authorities, PERMISSION_CODES.projectList) || can(authorities, PERMISSION_CODES.classList);
 
   const tabs: TabItem[] = [
     {
@@ -36,28 +32,15 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => p === '/home' || p === '/',
     },
   ];
-  // 三个视角和桌面端一致：
-  // - 老师/管理员：教学（考试/问卷 + 班级学情），入口叠加 project:list / project:report
-  // - 学员：我的任务（考试安排 / 练习记录 / 我的成绩）
-  // 教学管理 + 班级学情合并成一个「教学」tab；班级管理是独立 tab
-  if (canTeach && (can(authorities, PERMISSION_CODES.projectList) || can(authorities, PERMISSION_CODES.projectReport))) {
+  // 三个视角和桌面端一致：老师/管理员一个「教学」（考试/问卷 + 班级两个 Tab），学员一个「我的任务」。
+  // 原来的独立「班级」tab 已经并进教学——底栏 5 个位置本来就挤。
+  if (canTeach) {
     tabs.push({
       key: 'teaching',
       path: '/teaching',
       label: '教学',
       icon: <ProjectOutlined />,
-      // /teaching/classes 属于下面的「班级」tab，不能把「教学」点亮
-      active: (p) => under(p, '/teaching') && !under(p, '/teaching/classes'),
-    });
-  }
-  // 班级管理与教学视角无关：有 class:list 就该有入口（桌面端菜单也是独立判定）
-  if (can(authorities, PERMISSION_CODES.classList)) {
-    tabs.push({
-      key: 'classes',
-      path: '/teaching/classes',
-      label: '班级',
-      icon: <TeamOutlined />,
-      active: (p) => under(p, '/teaching/classes'),
+      active: (p) => under(p, '/teaching'),
     });
   }
   if (!canTeach && !can(authorities, PERMISSION_CODES.portalAdmin) && can(authorities, PERMISSION_CODES.portalStudent)) {

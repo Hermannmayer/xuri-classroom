@@ -1,18 +1,18 @@
 /**
- * 「AI 与智能体」引导页的路径与菜单文案（task-16）。
+ * AI 说明里用到的入口地址（2026-11 导航收敛后）。
  *
- * 单独放一个零依赖模块：路由（client/src/router.tsx）与左侧 AI 侧栏 / 布局菜单
- * 都从这里取，避免两处各写一份字符串——改路径时漏掉一边就会变成「菜单能点、页面 404」。
+ * 说明不再是一个独立页面：原来 /ai 的「AI 与智能体」导览已并进「系统设置 → AI」页签底部
+ * （见 ./AiGuide.tsx 的 AiCapabilityGuide），/ai 只保留一条重定向（client/src/router.tsx）。
+ * 这里集中放能力卡片底部的「去…」地址：路径写错的表现是「点了跳到 404 或别的页」，
+ * 而这类链接分散在每张卡片里最容易漏改，所以统一收在这里。
  */
-export const AI_GUIDE_PATH = '/ai';
-export const AI_GUIDE_LABEL = 'AI 助手';
-
-/** 页面内的章节锚点：目录与各节标题共用，避免手写两遍 id 写岔 */
-export const AI_GUIDE_SECTIONS = [
-  { id: 'capabilities', label: 'AI 能做什么' },
-  { id: 'get-started', label: '三步开通' },
-  { id: 'faq', label: '常见问题' },
-  { id: 'mcp', label: 'MCP 接入' },
-  { id: 'mcp-tools', label: '工具清单' },
-  { id: 'mcp-verify', label: '验证与安全' },
-] as const;
+export const AI_ENTRY_PATHS = {
+  /** 老师 / 管理员：「教学」页的考试 Tab（Tab 键与 TeachingHome 的 ?tab= 一致） */
+  projectList: '/teaching?tab=exam',
+  /** 只有 project:list 的协作者与学员视角没有「教学」菜单，退回试卷列表 */
+  projectListShared: '/project',
+  /** 题库中心 → 题库列表：题库体检从这里点进具体题库 */
+  repoList: '/repo/index',
+  /** 系统管理 → 公告管理：「写通知」的落点 */
+  noticeAdmin: '/system/notice',
+} as const;

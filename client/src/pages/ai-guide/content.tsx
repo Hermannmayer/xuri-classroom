@@ -1,68 +1,109 @@
 import type { ReactNode } from 'react';
 import {
-  BarChartOutlined,
+  AimOutlined,
   CheckCircleOutlined,
-  EditOutlined,
+  DatabaseOutlined,
   FileTextOutlined,
+  MessageOutlined,
+  NotificationOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 
 /**
- * 「AI 与智能体」引导页的静态内容（task-16）。
+ * 「AI 使用说明」的静态内容（系统设置 → AI 页签底部折叠展示）。
  *
- * 文案全部是产品口径，不写实现细节；改文案只改这个文件，页面组件不掺内容。
- * 每条能力都写清「从哪进」——这是这次要解决的核心缺口：
- * 用户知道有 AI，但不知道入口藏在哪个按钮下面。
+ * 文案全部是产品口径，不写实现细节；改文案只改这个文件，组件不掺内容。
+ * 每条能力都必须写清「从哪进」——用户知道有 AI，但不知道入口藏在哪个按钮下面，
+ * 这一栏就是把「能力 → 入口 → 权限 → 限制」对齐，缺一条就会变成「听说有但找不到」。
  */
+
+/** 能力卡片底部的「去…」指向哪一类页面：决定用哪个列表页做落点 */
+export type CapabilityTarget = 'project' | 'repo' | 'notice';
 
 export interface Capability {
   key: string;
   title: string;
   icon: ReactNode;
   summary: string;
-  /** 界面里的点击路径，文案与页面上的按钮名保持一致（AI 生成试卷 / AI 优化 / AI 建议 / AI 学情总结） */
+  /** 界面里的点击路径，文案与页面上的按钮名保持一致 */
   entry: string;
   /** 所需权限，直接写权限码，和权限配置页的分组一致 */
   permission: string;
-  /** 一句话限制或注意事项，避免用户误以为 AI 会自动改卷 */
+  /** 一句话限制或注意事项，避免用户误以为 AI 会自己发布 / 自己改卷 */
   tip: string;
+  /** 落点页面；不给表示这条能力没有「先选一份试卷/题库」的前置步骤 */
+  target?: CapabilityTarget;
 }
 
 export const CAPABILITIES: Capability[] = [
   {
-    key: 'paper',
-    title: 'AI 出卷',
+    key: 'paper_pick',
+    title: '抽题组卷',
     icon: <FileTextOutlined />,
-    summary: '按学科、题量、总分、题型配比和难度一次生成整卷。生成完先进预览，勾选后才写进画布。',
-    entry: '教学 → 打开一份考试 → 编辑器工具栏「AI 生成试卷」',
-    permission: 'ai:use；采纳写入还要 project:update',
-    tip: '生成通常 30~90 秒。分值是硬校验：模型给的分值合计对不上要求的总分，整卷作废，重试一次通常就好。',
+    summary: '按题型配比、难度与章节从题库里抽题组整卷。模型只负责挑题和排序，不编题——题面来自你自己的题库。',
+    entry: '打开一份试卷 → 编辑器工具栏「AI 组卷」；也可以在 AI 对话框里说「从题库抽 20 道题组一份单元测验」',
+    permission: 'ai:use；勾选采纳写入还要 project:update',
+    tip: '生成先落到预览，逐题勾选后才写进画布；题库里不够时提示会直接写「缺 N 道」，这时放宽章节或难度再试。',
+    target: 'project',
   },
   {
-    key: 'rewrite',
-    title: 'AI 改题',
-    icon: <EditOutlined />,
-    summary: '选中一道题，让 AI 给 3 条改写建议（讲清楚 / 中性 / 更短），选一条采纳即可。',
-    entry: '编辑器里点题卡旁的「AI 优化」浮标，或右键选「AI 优化题干」',
+    key: 'paper_check',
+    title: '试卷质检',
+    icon: <SafetyCertificateOutlined />,
+    summary: '开考前把整卷过一遍：缺分值、缺参考答案、题干重复、题型配比与难度分布异常，最后补一段考点覆盖建议。',
+    entry: '试卷编辑器工具栏「试卷质检」；对话框里说「这份卷子有什么问题」',
     permission: 'ai:use',
-    tip: '只换题干，选项、分值和正确答案都不动；题干里有图片时会提示，采纳后还能点「恢复原题干」。',
+    tip: '分值 / 答案 / 重复这类确定性检查不花 token 也能跑，只有「考点覆盖建议」会调模型。',
+    target: 'project',
   },
   {
-    key: 'grade',
-    title: 'AI 批改建议',
+    key: 'grade_batch',
+    title: '批量 AI 批改',
     icon: <CheckCircleOutlined />,
-    summary: '主观题逐题给出建议分、采分点命中情况和理由，先把最容易判偏的题挑出来。',
-    entry: '答卷列表 → 打开一份答卷 → 批改抽屉 → 题目右侧「AI 建议」',
+    summary: '把一场考试里还没批的主观题一次批完：只处理未批答卷、只补没给分的题，写入可撤销。',
+    entry: '答卷数据页工具栏「批量 AI 批改」；对话框里说「把这个班没批的卷子批了」',
     permission: 'ai:use + answer:grade',
-    tip: '只给建议、不自动落分；最终分数仍由你确认保存，操作日志里记的是人工批改。',
+    tip: '分数会写进库、审计记在你名下；低置信度的题列进「需复核」，撤销令牌 24 小时内有效。',
+    target: 'project',
   },
   {
-    key: 'report',
-    title: 'AI 学情总结',
-    icon: <BarChartOutlined />,
-    summary: '把本页的统计数字写成一段学情分析：总量、平均分、逐题分布，可直接贴进家长会或教研记录。',
-    entry: '试卷 → 报表 → 工具栏「AI 学情总结」',
+    key: 'repo_audit',
+    title: '题库体检',
+    icon: <DatabaseOutlined />,
+    summary: '按题库做体检：重复题、缺解析、缺难度 / 章节 / 标签，逐条给修改建议，勾选后才写回题目。',
+    entry: '题库题目页工具栏「题库体检」',
+    permission: 'ai:use；应用建议还要 repo:update 或 template:update',
+    tip: '重复题先按字面相似度预筛再交给模型；一轮最多 120 道，大题库分章节跑更准。',
+    target: 'repo',
+  },
+  {
+    key: 'practice',
+    title: '错题重练',
+    icon: <AimOutlined />,
+    summary: '按某场考试（或某个班）的逐题得分率找出薄弱考点，再从题库抽一组「最该重练」的题。',
+    entry: '试卷报表（学情）页工具栏「错题重练」',
     permission: 'ai:use + project:report',
-    tip: '只发送统计数字，不发送学员原始答卷；还没有答卷时按钮是灰的。',
+    tip: '只把统计数字发给模型，不发送学员姓名与原始答案。',
+    target: 'project',
+  },
+  {
+    key: 'notice_draft',
+    title: '写通知',
+    icon: <NotificationOutlined />,
+    summary: '把几句要点补成一条规范通知（标题 + 正文 + 受众），先在编辑框里改，确认后才发布。',
+    entry: '系统管理 → 公告管理 → 新建公告 → 「AI 起草」',
+    permission: 'ai:use；发布会按 notice:manage:system / notice:manage:class 判定范围',
+    tip: 'AI 只给草稿，不会自己发布；班级公告只有带这个班的老师能发。',
+    target: 'notice',
+  },
+  {
+    key: 'chat',
+    title: 'AI 对话（能动手）',
+    icon: <MessageOutlined />,
+    summary: '右下角悬浮对话框：不用记按钮在哪，直接说要做的事，它会带上当前页面的试卷 / 题库 / 班级。',
+    entry: '任何页面右下角「AI 助手」；例如说「把这个班没批的卷子批了」「从题库抽 20 道题组一份单元测验」',
+    permission: 'ai:use',
+    tip: '能执行的动作（批改 / 组卷 / 体检 / 报表）会给出结果卡和「去查看」；没配模型时对话框会直接告诉你差哪一步。',
   },
 ];
 
@@ -80,9 +121,9 @@ export interface ModelFaq {
  */
 export const MODEL_FAQS: ModelFaq[] = [
   {
-    question: '页面上找不到任何 AI 按钮',
+    question: '页面上找不到任何 AI 入口',
     cause: '当前账号没有 ai:use 权限。学员默认没有，自定义角色也可能没勾。',
-    fix: '管理员在「系统设置 → 权限配置」里给对应角色勾上「AI」组的「使用 AI 助手」，重新登录后按钮才会出现。',
+    fix: '管理员在「用户与权限 → 权限配置」里给对应角色勾上「AI」组的「使用 AI 助手」，重新登录后入口才会出现。',
   },
   {
     question: '提示「AI 功能未启用，请先在系统设置里配置模型」',
@@ -106,8 +147,8 @@ export const MODEL_FAQS: ModelFaq[] = [
   },
   {
     question: '模型服务返回 403 / insufficient permissions',
-    cause: '这个 Key 没有该模型的权限，或账号被风控/限流。',
-    fix: '换一个已开通的模型；仍然 403 就找供应商确认权限与实名/额度状态。',
+    cause: '这个 Key 没有该模型的权限，或账号被风控 / 限流。',
+    fix: '换一个已开通的模型；仍然 403 就找供应商确认权限与实名 / 额度状态。',
   },
   {
     question: '模型服务返回 404',
@@ -117,22 +158,32 @@ export const MODEL_FAQS: ModelFaq[] = [
   {
     question: '提示「调用超时（120 秒）」或连接失败',
     cause: '服务端单次调用 120 秒超时，失败会重试 2 次（1 秒、2 秒）；内网地址不通、模型排队也会这样。',
-    fix: '先在服务器上 curl 同一地址确认网络和 Key；出卷换更快的模型；自建网关确认没被限速。',
+    fix: '先在服务器上 curl 同一地址确认网络和 Key；质检 / 体检换更快的模型；自建网关确认没被限速。',
   },
   {
-    question: '提示「模型返回的不是 JSON」或「AI 出卷结果未通过校验」',
-    cause: '模型没按 JSON 输出、输出被截断，或题量/分值/选项/答案没凑齐。',
-    fix: '换指令遵循更好的模型（四个场景都要求只输出 JSON）；按提示调小题量或改分值再试。',
+    question: '提示「模型返回的不是 JSON」或「结果未通过校验」',
+    cause: '模型没按 JSON 输出、输出被截断，或组卷的题量 / 分值没凑齐。质检、体检、批改都要求模型只输出 JSON。',
+    fix: '换指令遵循更好的模型；体检按章节分批（一轮 ≤120 题）、组卷调小题量后重试。',
   },
   {
     question: '提示「AI 调用过于频繁，请稍等几秒再试」',
-    cause: '同一账号每分钟最多 10 次 AI 调用（防连点）。',
-    fix: '等几秒再点；批量操作时一次只开一道题。',
+    cause: '同一账号每分钟最多 10 次 AI 调用（防连点），可在「系统设置 → AI → 限额」调整。',
+    fix: '等几秒再点；批量操作时一次只开一道题。批改 / 组卷这类后台任务不受这条限流约束。',
   },
   {
     question: '提示「今日 AI 用量已达单人上限 / 全站上限」',
     cause: '按 token 记账的每日限额到了（默认单人 20 万、全站 200 万）。',
-    fix: '次日自动恢复；确实需要提高额度，联系系统维护人员调整 AI 限额（dailyTokenLimit / perUserDailyLimit）。',
+    fix: '次日零点自动恢复；确实需要提高额度，管理员在「系统设置 → AI → 限额」把 dailyTokenLimit / perUserDailyLimit 调大（0 表示不限）。',
+  },
+  {
+    question: '组卷说「题库里不够」，或者抽出来的题不是想要的',
+    cause: '章节 / 难度 / 题型配比这几项一起卡，候选池变小了。',
+    fix: '放宽章节或难度、减少题型配比里的种类；确认选中的题库确实有对应题型的题。',
+  },
+  {
+    question: '批量批改只批了一部分，很多题被跳过',
+    cause: '这条路径只处理「未批改」的答卷、只补还没给分的题，且题目要有参考答案。',
+    fix: '先把参考答案补齐；已经人工给过分的题不会被覆盖，需要改动请在批改抽屉里手改。',
   },
 ];
 

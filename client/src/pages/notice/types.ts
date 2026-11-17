@@ -105,16 +105,42 @@ export function noticeScopeText(notice: NoticeView): string {
 /**
  * 列表分类。
  *
- * <p>「全部 / 系统更新 / 未读」是 4.6 要求的三个；草稿与已归档只对 notice:manage:* 显示：
- * 后端 create 只落草稿、默认列表只回已发布（NoticeServiceImpl#visibleQuery），
- * 没有「草稿」分类的话，刚保存的草稿会凭空消失；同样，归档后想找回也得有个入口。
+ * <p>「全部 / 系统更新 / 未读」是 4.6 要求的三个，只读中心（/notice）只有这三个。
+ * 草稿与已归档是写流程的一部分：后端 create 只落草稿、默认列表只回已发布
+ * （NoticeServiceImpl#visibleQuery），没有「草稿」分类的话刚保存的草稿会凭空消失，
+ * 归档后想找回也得有个入口——所以这两个只出现在公告管理台（/system/notice）。
  */
 export type NoticeCategory = 'all' | 'system_update' | 'unread' | 'draft' | 'archived';
 
-/** 分类定义：managerOnly 的分类只给持 notice:manage:* 的人看 */
+/** 分类定义：managerOnly 的分类只在管理台出现，只读中心一律不给 */
 export interface NoticeCategoryDef {
   key: NoticeCategory;
   label: string;
   hint: string;
   managerOnly: boolean;
 }
+
+/**
+ * 公告页的两种形态。
+ *
+ * <p>read = 顶栏铃铛进的只读中心：只能看、只能标记已读；
+ * manage = 系统管理 → 公告管理：全部写能力都在这里。两份界面共用一份列表实现。
+ */
+export type NoticeMode = 'read' | 'manage';
+
+/**
+ * 写公告时「受众」下拉的五个目标。
+ *
+ * <p>前四个本身就是后端 audience 列的值；class 不是——它对应 scopeType=class（发给某个班），
+ * 分开写是因为把它们混进同一个枚举，会让人以为 audience 列能存 class。
+ */
+export type NoticeAudienceTarget = 'all' | 'admin' | 'teacher' | 'student' | 'class';
+
+/** 受众目标文案：前四项与 AUDIENCE_LABEL 一致，另加「指定班级」 */
+export const NOTICE_TARGET_LABEL: Record<NoticeAudienceTarget, string> = {
+  all: '全站所有人',
+  admin: '仅管理员',
+  teacher: '仅老师',
+  student: '仅学员',
+  class: '指定班级',
+};

@@ -4,7 +4,6 @@ import cn.surveyking.server.ai.core.AiCompletion;
 import cn.surveyking.server.ai.core.AiContentGuard;
 import cn.surveyking.server.ai.core.AiGateway;
 import cn.surveyking.server.ai.core.AiJobService;
-import cn.surveyking.server.ai.core.AiPaperSpec;
 import cn.surveyking.server.ai.core.AiRequest;
 import cn.surveyking.server.ai.core.PromptRegistry;
 import cn.surveyking.server.core.constant.ErrorCode;
@@ -16,8 +15,6 @@ import cn.surveyking.server.domain.dto.AiGradeSuggestRequest;
 import cn.surveyking.server.domain.dto.AiGradeSuggestView;
 import cn.surveyking.server.domain.dto.AiPaperApplyRequest;
 import cn.surveyking.server.domain.dto.AiPaperApplyView;
-import cn.surveyking.server.domain.dto.AiPaperGenerateRequest;
-import cn.surveyking.server.domain.dto.AiPaperJobView;
 import cn.surveyking.server.domain.dto.AiQuestionRewriteRequest;
 import cn.surveyking.server.domain.dto.AiQuestionRewriteView;
 import cn.surveyking.server.domain.dto.AiReportSummaryRequest;
@@ -60,9 +57,8 @@ import java.util.stream.Collectors;
  *
  * <p>三条贯穿全类的口径：
  * <ol>
- * <li><b>模型只负责产出内容，结构由后端补齐</b>：题目 id、选项 id、dataSource、examCorrectAnswer、
- * examAnswerMode 全部由 {@link #buildQuestion} 生成，模型只给「题干 / 选项文本 / 对错 / 分值」。
- * 这样判分链路（{@code AnswerScoreEvaluator}）拿到的结构与手工出的卷子完全一致；</li>
+ * <li><b>模型只负责产出内容，结构由后端补齐</b>：改题/批改/学情只拿文本与结构化建议，
+ * 写库（采纳、落分）全部走既有业务服务，判分口径只有一份；</li>
  * <li><b>记账就地发生</b>：每次调模型都写一条 {@code t_ai_usage}（ok / error / rejected），
  * 失败也要记——排障时最想知道的恰恰是「哪次失败了、为什么」；</li>
  * <li><b>后台线程里没有登录态</b>：userId 在提交任务时抓一次传进去，
@@ -126,80 +122,9 @@ public class AiAssistServiceImpl implements AiAssistService {
 
 	private final AnswerAccessGuard answerAccessGuard;
 
-	/* ====== ① AI 出卷 ====== */
-
 	@Override
-	public String generatePaper(AiPaperGenerateRequest request) {
-		AiPaperSpec spec = AiPaperSpec.of(request);
-		String projectId = request.getProjectId();
-		String projectName = null;
-		if (StringUtils.hasText(projectId)) {
-			ProjectView project = projectService.getProject(projectId);
-			if (project == null) {
-				throw new ErrorCodeException(ErrorCode.ProjectNotFound, "项目不存在");
-			}
-			assertCanRead(projectId);
-			projectName = project.getName();
-		}
-		String userId = SecurityContextUtils.getUserId();
-		// 限额在提交时就挡一次：出卷要 30~90 秒，让老师等完一分半才看到「今天用完了」是最差体验
-		aiUsageService.assertQuota(userId);
-		String finalProjectName = projectName;
-		return aiJobService.submit(AiUsageService.SCENE_PAPER_GENERATE, userId, context -> {
-			context.progress(5);
-			AiRequest aiRequest = buildPaperRequest(spec, finalProjectName);
-			long start = System.currentTimeMillis();
-			AiCompletion completion;
-			try {
-				// 排队期间额度可能已经被别的老师用掉：真正调模型前再判一次，超限就整单失败（不烧 token）
-				aiUsageService.assertQuota(userId);
-				completion = aiGateway.completeJson(aiRequest);
-			}
-			catch (ErrorCodeException e) {
-				recordUsage(userId, AiUsageService.SCENE_PAPER_GENERATE, null, AiUsage.STATUS_REJECTED,
-						System.currentTimeMillis() - start, e.getMessage());
-				throw e;
-			}
-			catch (RuntimeException e) {
-				recordUsage(userId, AiUsageService.SCENE_PAPER_GENERATE, null, AiUsage.STATUS_ERROR,
-						System.currentTimeMillis() - start, messageOf(e));
-				throw e;
-			}
-			context.progress(70);
-			try {
-				List<SurveySchema> questions = buildQuestions(completion.getText(), spec);
-				context.progress(85);
-				// 校验不过直接拒绝，不修补（见 AiContentGuard 的类注释）
-				AiPaperJobView.Stats stats = AiContentGuard.check(spec, questions);
-				AiPaperJobView.Result result = new AiPaperJobView.Result();
-				result.setQuestions(questions);
-				result.setStats(stats);
-				recordUsage(userId, AiUsageService.SCENE_PAPER_GENERATE, completion, AiUsage.STATUS_OK,
-						completion.getCostMs(), null);
-				context.progress(99);
-				context.result(result);
-			}
-			catch (ErrorCodeException e) {
-				// 模型已经烧了 token，只是内容不合规：记 rejected（token 照样算进用量）
-				recordUsage(userId, AiUsageService.SCENE_PAPER_GENERATE, completion, AiUsage.STATUS_REJECTED,
-						completion.getCostMs(), e.getMessage());
-				throw e;
-			}
-		});
-	}
-
-	@Override
-	public AiPaperJobView describePaperJob(String jobId) {
-		Map<String, Object> job = aiJobService.describe(jobId);
-		AiPaperJobView view = new AiPaperJobView();
-		view.setJobId(job.get("jobId") == null ? jobId : String.valueOf(job.get("jobId")));
-		view.setStatus(job.get("status") == null ? null : String.valueOf(job.get("status")));
-		view.setProgress(Integer.valueOf(job.get("progress") instanceof Number number ? number.intValue() : 0));
-		view.setError(job.get("error") == null ? null : String.valueOf(job.get("error")));
-		if (job.get("result") instanceof AiPaperJobView.Result result) {
-			view.setResult(result);
-		}
-		return view;
+	public Map<String, Object> describeJob(String jobId) {
+		return aiJobService.describe(jobId);
 	}
 
 	@Override
@@ -367,139 +292,6 @@ public class AiAssistServiceImpl implements AiAssistService {
 		AiReportSummaryView view = new AiReportSummaryView();
 		view.setText(completion.getText() == null ? null : completion.getText().trim());
 		return view;
-	}
-
-	/* ====== 提示词 ====== */
-
-	private AiRequest buildPaperRequest(AiPaperSpec spec, String projectName) {
-		LinkedHashMap<String, String> vars = new LinkedHashMap<>();
-		vars.put("subject", spec.getSubject());
-		vars.put("level", spec.getLevel());
-		vars.put("questionCount", String.valueOf(spec.getQuestionCount()));
-		vars.put("totalScore", formatScore(spec.getTotalScore()));
-		vars.put("typeCounts", spec.describeTypeCounts());
-		vars.put("difficulty", spec.difficultyLabel());
-		vars.put("requirements",
-				spec.getRequirements() == null ? "" : "- 补充要求：" + spec.getRequirements());
-		String userPrompt = projectName == null ? "请开始命题，只输出 JSON。"
-				: "本卷用于「" + projectName + "」项目。请开始命题，只输出 JSON。";
-		return AiRequest.builder().systemPrompt(promptRegistry.render(PROMPT_PAPER, vars)).userPrompt(userPrompt)
-				// 出卷要「稳定 + 略有变化」：0.4 是实测比较平衡的值
-				.temperature(Double.valueOf(0.4D)).build();
-	}
-
-	/* ====== 模型输出 → SurveySchema ====== */
-
-	/**
-	 * 把模型吐的 JSON 变成可以直接判分的题目。
-	 *
-	 * <p>模型只负责「内容」（题干、选项文本、对错、分值、解析），
-	 * 结构（id / dataSource / children / examCorrectAnswer / examAnswerMode）全部由这里补齐，
-	 * 与 {@code TextQuestionParser} 生成的结构保持一致——判分器不认识第二种结构。
-	 */
-	private List<SurveySchema> buildQuestions(String json, AiPaperSpec spec) {
-		JsonNode root;
-		try {
-			root = objectMapper.readTree(json);
-		}
-		catch (Exception e) {
-			throw new ErrorCodeException(ErrorCode.ValidationError,
-					"AI 出卷结果未通过校验：返回的不是合法 JSON（" + messageOf(e) + "）");
-		}
-		JsonNode array = root != null && root.isArray() ? root : (root == null ? null : root.path("questions"));
-		if (array == null || !array.isArray() || array.isEmpty()) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 出卷结果未通过校验：模型没有返回题目列表");
-		}
-		List<SurveySchema> questions = new ArrayList<>(array.size());
-		for (JsonNode node : array) {
-			questions.add(buildQuestion(node));
-		}
-		return questions;
-	}
-
-	/** 一道题：题干/选项/答案来自模型，结构由后端补 */
-	private SurveySchema buildQuestion(JsonNode node) {
-		SurveySchema.QuestionType type = AiPaperSpec.parseType(asText(node, "type"));
-		double score = node.path("score").asDouble(0D);
-		SurveySchema question = SurveySchema.builder().id(newId()).title(asText(node, "title")).type(type)
-				.difficulty(asText(node, "difficulty")).attribute(buildAttribute(type, score, asText(node, "analysis")))
-				.build();
-		if (type == null) {
-			// 题型不认识：不猜，留给 AiContentGuard 拒收并说明「第 N 题缺题型 / 题型不支持」
-			return question;
-		}
-		if (type == SurveySchema.QuestionType.Radio || type == SurveySchema.QuestionType.Checkbox
-				|| type == SurveySchema.QuestionType.Judge) {
-			buildOptions(node, question);
-			return question;
-		}
-		question.setChildren(buildBlankChildren(asText(node, "answer")));
-		return question;
-	}
-
-	private void buildOptions(JsonNode node, SurveySchema question) {
-		List<SurveySchema> children = new ArrayList<>();
-		List<SurveySchema.DataSource> sources = new ArrayList<>();
-		JsonNode options = node.path("options");
-		if (options.isArray()) {
-			for (JsonNode option : options) {
-				String optionId = newId();
-				String text = asText(option, "text");
-				boolean correct = option.path("correct").asBoolean(false);
-				children.add(SurveySchema.builder().id(optionId).title(text)
-						.type(SurveySchema.QuestionType.Option)
-						.attribute(SurveySchema.Attribute.builder().examCorrectAnswer(correct ? optionId : null).build())
-						.build());
-				SurveySchema.DataSource source = new SurveySchema.DataSource();
-				source.setLabel(text);
-				source.setValue(optionId);
-				sources.add(source);
-			}
-		}
-		question.setChildren(children);
-		question.setDataSource(sources.isEmpty() ? null : sources);
-	}
-
-	/**
-	 * 填空题 / 简答题的标准答案：多个空用 {@code |} 分隔，同一个空的多种写法用 {@code &} 分隔。
-	 * <p>模型没给答案时放一个空答案的子题，交给 {@link AiContentGuard} 拒收——<b>不替它编答案</b>。
-	 */
-	private List<SurveySchema> buildBlankChildren(String answer) {
-		List<SurveySchema> children = new ArrayList<>();
-		if (!StringUtils.hasText(answer)) {
-			children.add(SurveySchema.builder().id(newId())
-					.attribute(SurveySchema.Attribute.builder().examCorrectAnswer("").build()).build());
-			return children;
-		}
-		for (String part : answer.split("\\|")) {
-			// 同一个空允许多个可接受答案：按判分器的约定用换行分隔（见 AnswerScoreEvaluator）
-			String value = part.replace("&", "\n").replace("＆", "\n").trim();
-			children.add(SurveySchema.builder().id(newId())
-					.attribute(SurveySchema.Attribute.builder().examCorrectAnswer(value).build()).build());
-		}
-		return children;
-	}
-
-	/** 计分方式与题型一一对应（与 {@code TextQuestionParser#buildAttribute} 完全一致） */
-	private SurveySchema.Attribute buildAttribute(SurveySchema.QuestionType type, double score, String analysis) {
-		SurveySchema.Attribute attribute = SurveySchema.Attribute.builder()
-				.examScore(score > 0D ? Double.valueOf(score) : null).examAnalysis(analysis).required(Boolean.FALSE)
-				.build();
-		if (type == null) {
-			return attribute;
-		}
-		switch (type) {
-			case Radio, Judge -> attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.onlyOne);
-			case Checkbox -> attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.selectAll);
-			case FillBlank, MultipleBlank -> {
-				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.selectAll);
-				attribute.setExamMatchRule(SurveySchema.ExamMatchRule.completeSame);
-			}
-			case Textarea -> attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.manual);
-			default -> {
-			}
-		}
-		return attribute;
 	}
 
 	/* ====== 解析其它三种场景的结果 ====== */

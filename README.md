@@ -6,8 +6,9 @@
 > 部署安装、版本升级、常见问题、开发指南、模块地图、架构与决策记录都在这里。
 > 只想尽快跑起来？看 **[QUICKSTART.md](QUICKSTART.md)**（一屏看完）。
 >
-> 🧩 **AI 与智能体**：左栏 AI 助手 + MCP 接入（Codex / Cursor / VS Code）见
-> [AI 助手导览](https://hermannmayer.github.io/xuri-classroom/modules/ai)。
+> 🧩 **AI 与智能体**：右下角 AI 助手（对话框里直接说「把这个班没批的卷子批了」就能批卷）+
+> 从题库抽题组卷 / 试卷质检 / 题库体检 / 错题重练 / 公告草稿，以及 MCP 接入（Codex / Cursor / VS Code），
+> 见 [AI 模块](https://hermannmayer.github.io/xuri-classroom/modules/ai)。
 
 ## 🚀 部署安装
 

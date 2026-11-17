@@ -8,6 +8,7 @@ import cn.surveyking.server.ai.core.AiGateway;
 import cn.surveyking.server.ai.core.AiPageContext;
 import cn.surveyking.server.ai.core.AiReadiness;
 import cn.surveyking.server.ai.core.PromptRegistry;
+import cn.surveyking.server.ai.domain.AiChatAction;
 import cn.surveyking.server.ai.domain.AiChatReply;
 import cn.surveyking.server.ai.domain.AiChatRequest;
 import cn.surveyking.server.ai.domain.AiStatusView;
@@ -18,13 +19,16 @@ import cn.surveyking.server.core.uitls.SchemaHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.SurveySchema;
+import cn.surveyking.server.domain.dto.SystemInfo;
 import cn.surveyking.server.domain.model.AiUsage;
 import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.mapper.AnswerMapper;
+import cn.surveyking.server.service.AiActionService;
 import cn.surveyking.server.service.AiAssistantService;
 import cn.surveyking.server.service.AiUsageService;
 import cn.surveyking.server.service.ProjectPartnerService;
 import cn.surveyking.server.service.ProjectService;
+import cn.surveyking.server.service.SystemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -68,13 +72,13 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 	private static final int ACCESS_LEVEL_VIEW = 1;
 
 	/**
-	 * 最多带多少条历史给模型：一轮问答 = 1 条，12 条 ≈ 最近 6 轮。
-	 * 再多既贵又容易超出上下文窗口，而侧栏的问题大多是「接着上一句问」。
+	 * 最多带多少条历史给模型的默认值（系统设置里可改，见 {@code AiSetting.maxChatTurns}）。
+	 * 20 条 ≈ 最近 10 轮；再多既贵又容易超出上下文窗口，而侧栏的问题大多是「接着上一句问」。
 	 */
-	private static final int MAX_HISTORY_TURNS = 12;
+	private static final int DEFAULT_MAX_HISTORY_TURNS = AiUsageService.DEFAULT_MAX_CHAT_TURNS;
 
-	/** 单条消息最多带多少字：整份答卷粘进来时不能让提示词无限膨胀 */
-	private static final int MAX_TURN_CHARS = 4000;
+	/** 单条消息最多带多少字的默认值（系统设置里可改）：整份答卷粘进来时不能让提示词无限膨胀 */
+	private static final int DEFAULT_MAX_TURN_CHARS = AiUsageService.DEFAULT_MAX_TURN_CHARS;
 
 	/** 题干最多带多少字进上下文（已经由 AiPageContext 再截一次，这里控制得更松一些） */
 	private static final int MAX_QUESTION_TITLE_CHARS = 300;
@@ -101,10 +105,18 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
 	private final AnswerAccessGuard answerAccessGuard;
 
+	/** 意图识别 / 动作执行（「把这个班没批的卷子批了」这类话由它落地） */
+	private final AiActionService aiActionService;
+
+	/** 读 AI 设置里的「每对话上限 / 单条消息上限」 */
+	private final SystemService systemService;
+
 	@Override
 	public AiStatusView status() {
 		AiReadiness readiness = aiGateway.readiness();
 		AiStatusView view = new AiStatusView();
+		// enabled=false 时前端连悬浮按钮都不显示；ready=false 但 enabled=true 时才提示「还差哪一步」
+		view.setEnabled(Boolean.valueOf(aiGateway.isEnabled()));
 		view.setReady(Boolean.valueOf(readiness.isReady()));
 		view.setReason(readiness.getReason());
 		view.setModel(readiness.getModel());
@@ -127,6 +139,22 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
 		String userId = SecurityContextUtils.getUserId();
 		ContextFacts facts = collectContext(request.getContext());
+
+		// 先看这句话是不是「让我干一件事」：能执行就直接执行，不执行就回退成普通问答。
+		// 顺序很重要——「把这个班没批的卷子批了」如果先走聊天，模型只会回一段「好的，我来帮你」的废话。
+		String lastMessage = history.get(history.size() - 1).content();
+		// firstTurn：这轮对话的第一句（历史里只有这一条 user 消息）才允许「无关键词也识别一次」
+		AiChatAction action = aiActionService.handle(lastMessage, request.getContext(), userId, history.size() == 1);
+		if (action != null) {
+			AiChatReply acted = new AiChatReply();
+			acted.setReply(composeActionReply(action));
+			acted.setContextLabel(facts.label());
+			acted.setAction(action);
+			log.info("AI 对话触发动作: user={}, key={}, tool={}, jobId={}", userId, action.getKey(), action.getTool(),
+					action.getJobId());
+			return acted;
+		}
+
 		List<AiChatTurn> turns = new ArrayList<>(history.size() + 1);
 		turns.add(AiChatTurn.system(renderSystemPrompt(facts)));
 		turns.addAll(history);
@@ -165,6 +193,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 	 * <p><b>system 一律丢弃</b>：否则在浏览器控制台里加一条 system 就能改写 AI 的行为。
 	 */
 	private List<AiChatTurn> sanitize(List<AiChatRequest.Message> messages) {
+		int maxTurns = configuredMaxTurns();
+		int maxChars = configuredMaxChars();
 		List<AiChatTurn> turns = new ArrayList<>(messages.size());
 		for (AiChatRequest.Message message : messages) {
 			if (message == null) {
@@ -178,12 +208,52 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 			if (!StringUtils.hasText(content)) {
 				continue;
 			}
-			turns.add(new AiChatTurn(role, truncate(content, MAX_TURN_CHARS)));
+			turns.add(new AiChatTurn(role, truncate(content, maxChars)));
 		}
-		if (turns.size() > MAX_HISTORY_TURNS) {
-			return new ArrayList<>(turns.subList(turns.size() - MAX_HISTORY_TURNS, turns.size()));
+		if (turns.size() > maxTurns) {
+			return new ArrayList<>(turns.subList(turns.size() - maxTurns, turns.size()));
 		}
 		return turns;
+	}
+
+	/** 一次对话最多带多少条历史（系统设置可改，缺省 20；夹到 2~100，别让 0 把 AI 锁死） */
+	private int configuredMaxTurns() {
+		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
+		Integer configured = setting == null ? null : setting.getMaxChatTurns();
+		if (configured == null) {
+			return DEFAULT_MAX_HISTORY_TURNS;
+		}
+		return Math.max(2, Math.min(100, configured.intValue()));
+	}
+
+	/** 单条消息最多多少字（系统设置可改，缺省 4000；夹到 200~20000） */
+	private int configuredMaxChars() {
+		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
+		Integer configured = setting == null ? null : setting.getMaxTurnChars();
+		if (configured == null) {
+			return DEFAULT_MAX_TURN_CHARS;
+		}
+		return Math.max(200, Math.min(20000, configured.intValue()));
+	}
+
+	/**
+	 * 动作结果 → 一句话正文。
+	 *
+	 * <p>为什么还要正文：{@code action} 是给界面渲染卡片的，正文才是对话气泡里那一段。
+	 * 两者都写同一份摘要，用户不会看到「卡片说批了 12 份、气泡说批完了」这种不一致。
+	 */
+	private String composeActionReply(AiChatAction action) {
+		StringBuilder text = new StringBuilder();
+		if (StringUtils.hasText(action.getTitle())) {
+			text.append(action.getTitle()).append('。');
+		}
+		if (StringUtils.hasText(action.getSummary())) {
+			text.append(action.getSummary());
+		}
+		if (StringUtils.hasText(action.getTool()) || StringUtils.hasText(action.getJobId())) {
+			text.append("\n（这一步是我替你做的，结果都在下面的卡片里，可以点开确认或撤销。）");
+		}
+		return text.length() == 0 ? "好的。" : text.toString();
 	}
 
 	/* ====== 当前页面上下文 ====== */
@@ -221,6 +291,14 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 			}
 			if (StringUtils.hasText(context.getAnswerId())) {
 				appendAnswer(lines, labels, context.getAnswerId());
+			}
+			// 班级 / 题库只带 id 与一句说明：名称留白比编一个「某班」更安全
+			if (StringUtils.hasText(context.getClassId())) {
+				lines.put("班级", "当前按班级筛选（id " + AiAssistSupport.oneLine(context.getClassId(), 40) + "）");
+				labels.add("按班级筛选");
+			}
+			if (StringUtils.hasText(context.getRepoId())) {
+				lines.put("题库", "当前在题库题目页（id " + AiAssistSupport.oneLine(context.getRepoId(), 40) + "）");
 			}
 		}
 		String label = labels.isEmpty() ? null : String.join(" · ", labels);

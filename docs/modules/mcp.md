@@ -70,7 +70,7 @@ verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
 ## 什么时候看这篇
 
 - 要在 Claude Desktop / WorkBuddy / Codex / Cursor / VS Code 里配 `mcp.json`
-- 用户问「MCP 怎么接」：让他打开菜单「AI 助手」→ `#mcp`，页面会按当前站点地址生成片段
+- 用户问「MCP 怎么接」：让他打开 系统管理 → 系统设置 → AI（「怎么用」折叠区里写着 MCP 三步接入），页面会按当前站点地址生成片段
 - 客户端报 401 / 工具列表是空的 / 某个工具被拒
 - 要加第 11 个工具，或改工具白名单
 
@@ -126,7 +126,7 @@ verified_against: 1735ce8059194bc15de297e95244ccf20e23102c
 }
 ```
 
-网页端「AI 助手 → MCP 接入」会按当前站点地址拼出四份片段，字段差异已经写在页面上：
+网页端「系统设置 → AI → 怎么用 → MCP 接入」会按当前站点地址拼出四份片段，字段差异已经写在页面上：
 **VS Code** 顶层键是 `servers`、远程条目 `type` 写 `http`；**Cursor** 的远程条目不要 `type`；
 **Codex** 用 TOML（`~/.codex/config.toml` 的 `[mcp_servers.xuri]`）。照抄错顶层键，客户端会直接看不到这个服务。
 

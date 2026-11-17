@@ -24,9 +24,10 @@ import {
   DownOutlined,
   DownloadOutlined,
   PlusOutlined,
+  SafetyCertificateOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { download, get, getWithPagination, post } from '../../api';
@@ -35,6 +36,7 @@ import type { QuestionType, SurveySchema } from '../../schema/types';
 import { pager, TABLE_COMPONENTS } from './table';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
+import AiRepoAuditDrawer from './ai/AiRepoAuditDrawer';
 import ImportWizard from '../import/ImportWizard';
 import RichTextEditor from '../../components/RichTextEditor';
 
@@ -200,6 +202,36 @@ export default function RepoQuestions() {
   const canExport = can(authorities, PERMISSION_CODES.repoExport);
   const canEdit = can(authorities, PERMISSION_CODES.templateUpdate);
   const canDelete = can(authorities, PERMISSION_CODES.templateDelete);
+
+  // AI 体检：入口只认 ai:use（拿不到权限就整块不显示，不用「点了才知道没权限」）；
+  // 应用建议是写题库，后端另要 repo:update 或 template:update，这里提前对齐，免得按钮点了才 403
+  const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
+  const canApplyAiAudit =
+    can(authorities, PERMISSION_CODES.templateUpdate) || can(authorities, PERMISSION_CODES.repoUpdate);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const aiParam = searchParams.get('ai');
+
+  // AI 助手 / 对话框里的「题库体检」快捷入口会带 ?ai=audit 跳进来，读到就自动展开；
+  // 其它 ai 值（pick / check / recommend…）属于别的页面，这里不认识也不处理
+  useEffect(() => {
+    if (aiParam === 'audit' && canUseAi) setAuditOpen(true);
+  }, [aiParam, canUseAi]);
+
+  /** 关闭抽屉：顺手用 replace 把 ?ai= 去掉，否则刷新又会弹一次；repoName 等其它参数保持不动 */
+  const closeAudit = useCallback(() => {
+    setAuditOpen(false);
+    if (!aiParam) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('ai');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [aiParam, setSearchParams]);
+
   const [editing, setEditing] = useState<TemplateView | null>(null);
   const [saving, setSaving] = useState(false);
   const [editDescription, setEditDescription] = useState('');
@@ -604,6 +636,11 @@ export default function RepoQuestions() {
           </div>
         </div>
         <Space wrap>
+          {canUseAi && (
+            <Button icon={<SafetyCertificateOutlined />} onClick={() => setAuditOpen(true)}>
+              AI 体检
+            </Button>
+          )}
           {canImport && (
             <>
               <Dropdown
@@ -1143,6 +1180,14 @@ export default function RepoQuestions() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <AiRepoAuditDrawer
+        open={auditOpen}
+        repoId={repoId}
+        canApply={canApplyAiAudit}
+        onClose={closeAudit}
+        onApplied={() => void load()}
+      />
 
       <RepoExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
 
