@@ -77,6 +77,7 @@
 
 ### 构建
 
+- **deps**: 声明 esbuild（Vite 8 起不再是传递依赖），修复 CI 前端规则测试 (`5187cdf`)
 - **deps**: 前端大版本升级 React 19 / antd 6 / Vite 8 / tiptap 3 (`68832d7`)
 - **deps**: fastexcel 0.12.13 / fastexcel-reader 0.12.3 -> 0.20.2 (`755e903`)
 - **deps**: poi-ooxml 5.2.5 -> 6.0.0 (`3745bfb`)
