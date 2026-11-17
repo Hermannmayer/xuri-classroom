@@ -719,14 +719,11 @@ export default function SystemSetting() {
                 forceRender: true,
                 children: (
                   <>
-                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
-                      批量导出班级答卷 PDF（每人一份成绩单，打包成 ZIP）时用这里的设置。Excel 明细导出不受影响。
-                    </div>
                     <Form.Item
                       name="answerPdfConcurrency"
                       label="PDF 渲染并发数"
                       rules={[{ required: true, message: '请选择并发数' }]}
-                      extra="这台机器只有 4 核：并发 1 最稳；调到 2 能把导出时间砍一半，但考试高峰答题页会有感"
+                      extra="同时渲染的任务数，越大越快、越占资源"
                     >
                       <InputNumber min={1} max={2} style={{ width: 200 }} addonAfter="个任务" />
                     </Form.Item>
@@ -734,7 +731,7 @@ export default function SystemSetting() {
                       name="pauseAnswerPdfDuringExam"
                       label="考试期间暂停 PDF 导出"
                       valuePropName="checked"
-                      extra="开启后，有考试正在进行时不接受新的 PDF 导出任务（会给出明确提示），避免和交卷抢 CPU；Excel 明细导出不受影响"
+                      extra="考试进行中不接受新的导出任务"
                     >
                       <Switch checkedChildren="暂停" unCheckedChildren="允许" />
                     </Form.Item>
@@ -750,7 +747,7 @@ export default function SystemSetting() {
                 children: (
                   <>
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
-                      匿名答卷是未登录访客提交的答卷；按保留天数自动清理可以控制数据量，登录用户与班级成绩不受影响。
+                      只处理未登录访客提交的答卷。
                     </div>
                     <Form.Item
                       name="anonymousCleanupEnabled"
@@ -769,24 +766,11 @@ export default function SystemSetting() {
                       <InputNumber min={1} max={3650} addonAfter="天" style={{ width: 200 }} />
                     </Form.Item>
 
-                    <div
-                      style={{
-                        borderTop: '1px dashed var(--bp-line-soft)',
-                        margin: '4px 0 16px',
-                        paddingTop: 14,
-                        fontSize: 12,
-                        color: 'var(--bp-text-soft)',
-                        lineHeight: 1.7,
-                      }}
-                    >
-                      上面两步只把过期匿名答卷「移进回收站」，还能恢复，附件也还在。长期不处理会一直占磁盘，
-                      需要真正抹掉时打开下面这个开关。
-                    </div>
                     <Form.Item
                       name="anonymousPurgeEnabled"
                       label="物理清理已删除的匿名答卷"
                       valuePropName="checked"
-                      extra="开启后，进回收站满保留天数的匿名答卷会被真正删除，签名图/上传附件一并清理；删了不能恢复"
+                      extra="满保留天数后真正删除，含附件，不可恢复"
                     >
                       <Switch checkedChildren="开启" unCheckedChildren="关闭" />
                     </Form.Item>

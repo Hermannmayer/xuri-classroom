@@ -862,7 +862,7 @@ export default function SurveyOverview() {
                 {switchItem(
                   'answererNameRequired',
                   '答题人姓名必填',
-                  '答题页顶部有「答题人」输入框；开启后不填姓名不能交卷，成绩单与 PDF 导出会显示该姓名',
+                  '不填姓名不能交卷',
                 )}
                 {switchItem('copyEnabled', '允许复制题目')}
                 {switchItem('scoringEnabled', '启用计分', '考试默认开启；问卷默认关闭，开启后显示分值、成绩单和正确率')}
