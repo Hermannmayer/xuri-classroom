@@ -104,6 +104,9 @@ public class SchemaUpgradeService {
 		assertBaseline(spec, snapshot);
 		String dbVersion = detectVersion(spec, snapshot);
 		log.info("[schema] 程序版本 {}，数据库结构版本 {}", appVersion, dbVersion);
+		// fail-fast：迁移脚本比程序新、且库也还没升 → 这些脚本会被静默跳过，必然缺结构。
+		// 放在 AHEAD 判定之前：回滚场景（库比程序新）由 assertNoFutureScripts 内部的 dbVersion 条件放行。
+		assertNoFutureScripts(appVersion, dbVersion);
 
 		if (compare(dbVersion, appVersion) > 0) {
 			String message = "数据库结构版本 " + dbVersion + " 高于程序版本 " + appVersion
@@ -200,7 +203,8 @@ public class SchemaUpgradeService {
 				+ "可能是库被手工改过，或程序与数据库不是同一套发布。请先备份数据库，再联系维护人员。");
 	}
 
-	List<MigrationScript> pendingScripts(String dbVersion, String appVersion) {
+	/** 加载 classpath 下所有命名合规的迁移脚本（不按版本过滤）。 */
+	List<MigrationScript> loadAllScripts() {
 		List<MigrationScript> scripts = new ArrayList<>();
 		Resource[] resources;
 		try {
@@ -219,13 +223,51 @@ public class SchemaUpgradeService {
 				log.warn("[schema] 忽略命名不合规的迁移脚本：{}（应为 V主.次.修订__描述.sql）", name);
 				continue;
 			}
-			String version = matcher.group(1);
-			if (compare(version, dbVersion) > 0 && compare(version, appVersion) <= 0) {
-				scripts.add(new MigrationScript(version, name, resource));
-			}
+			scripts.add(new MigrationScript(matcher.group(1), name, resource));
 		}
 		scripts.sort(Comparator.comparing(s -> s.version, SchemaUpgradeService::compare));
 		return scripts;
+	}
+
+	List<MigrationScript> pendingScripts(String dbVersion, String appVersion) {
+		List<MigrationScript> scripts = new ArrayList<>();
+		for (MigrationScript script : loadAllScripts()) {
+			if (compare(script.version, dbVersion) > 0 && compare(script.version, appVersion) <= 0) {
+				scripts.add(script);
+			}
+		}
+		return scripts;
+	}
+
+	/**
+	 * 拒绝启动：存在「比程序新、且数据库也还没到」的迁移脚本。
+	 *
+	 * <p>典型事故（2026-11-17）：加了 {@code V2.2.1__*.sql} 却忘了改仓库根 {@code VERSION}。
+	 * {@link #pendingScripts} 的过滤条件是「脚本版本 ≤ 程序版本」，于是这批脚本被**静默丢弃**，
+	 * 数据库缺列；而实体已经带上新字段，MyBatis 的 SELECT 直接报 Unknown column，
+	 * 表现为答卷列表/成绩单/批改大面积 500 —— 比启动失败难排查得多。
+	 *
+	 * <p>判定条件刻意带上 {@code dbVersion}：**只拦「库也还没到这个版本」的情况**。
+	 * 程序回滚时（库结构已经比程序新）不该拦，否则回滚就起不来了——
+	 * 迁移只加不删，旧程序读新结构是安全的。
+	 * @param appVersion 当前程序版本（仓库根 VERSION）
+	 * @param dbVersion 当前数据库结构版本
+	 */
+	void assertNoFutureScripts(String appVersion, String dbVersion) {
+		List<String> newer = new ArrayList<>();
+		for (MigrationScript script : loadAllScripts()) {
+			boolean newerThanApp = compare(script.version, appVersion) > 0;
+			boolean newerThanDb = compare(script.version, dbVersion) > 0;
+			if (newerThanApp && newerThanDb) {
+				newer.add(script.name);
+			}
+		}
+		if (!newer.isEmpty()) {
+			throw new SchemaUpgradeException("发现版本高于当前程序的迁移脚本：" + String.join("、", newer)
+					+ "。当前程序版本（仓库根 VERSION 文件）是 " + appVersion + "，数据库结构版本是 " + dbVersion
+					+ "。继续启动会让这些脚本被静默跳过，运行时报列/表不存在。"
+					+ "处理办法：把 VERSION 升到这些脚本的最高版本，重新构建并发布。");
+		}
 	}
 
 	void execute(MigrationScript script) {

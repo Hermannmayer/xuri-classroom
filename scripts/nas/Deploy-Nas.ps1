@@ -2,6 +2,9 @@
 # 旭日云课堂 · 一条命令把本地改动发布到 NAS 的 live 环境
 #
 # 它做的事（顺序固定，出问题就停在原地，不会往下走）：
+#   0. 检查工作区 / 分支 / 远端
+#   0.2 跑 check_schema.py：VERSION 必须等于 schema.json 最高版本（否则迁移会被静默跳过）
+#   0.5 改了 client/** 就跑 tsc；0.6 跑后端单测
 #   1. 检查工作区：有未提交改动就必须给 -Message，否则拒绝
 #   2. git push nas main
 #   3. 在 NAS 上 git fetch + reset --hard（运行副本永远等于裸仓库，不产生分叉）
@@ -80,7 +83,21 @@ function Invoke-NasScript {
 }
 
 function Resolve-SmokePython {
-    # 冒烟测试要 RSA 加密密码，得挑一个装了 cryptography 的解释器。
+    # 结构契约检查只需要标准库，不能因为「没装 cryptography」就跳过它。
+function Resolve-AnyPython {
+    foreach ($n in 'python', 'python3') {
+        $cmd = Get-Command $n -ErrorAction SilentlyContinue
+        if ($cmd) { return @{ Exe = $cmd.Source; Args = @() } }
+    }
+    $cmd = Get-Command py -ErrorAction SilentlyContinue
+    if ($cmd) { return @{ Exe = $cmd.Source; Args = @('-3') } }
+    $bundled = Get-ChildItem "$env:USERPROFILE\.dsh\dsh-runtimes" -Recurse -Filter python.exe -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($bundled) { return @{ Exe = $bundled.FullName; Args = @() } }
+    return $null
+}
+
+# 冒烟测试要 RSA 加密密码，得挑一个装了 cryptography 的解释器。
     # 优先 PATH 上的 python/python3/py -3，最后兜底到 DSH 自带的 python。
     $cands = @()
     foreach ($n in 'python', 'python3') {
@@ -117,6 +134,26 @@ if ($branch -ne 'main') { Die "当前分支是 $branch，本流程只在 main �
 $remotes = git remote
 if ($remotes -notcontains 'nas') { Die "没有名为 nas 的远端。先执行：git remote add nas ssh://$NasUser@$NasHost/vol2/1000/xuri/src/repo.git" }
 Ok "仓库 $repoRoot，分支 main，远端 nas 就绪"
+
+# ------ 0.2 数据库结构契约检查
+# 事故复盘（2026-11-17）：加了 V2.2.1 迁移脚本却忘了改 VERSION，部署照常「成功」，
+# 但应用启动时按「程序版本 2.2.0」判定「无需迁移」，V2.2.1 被静默跳过；
+# 而 Answer 实体已经带 answerer_name 等新字段，MyBatis 的 SELECT 直接报列不存在，
+# 答卷列表 / 成绩单 / 批改全部 500。修复靠手动补 SQL + 改版本号。
+# check_schema.py 第 1 条就是「VERSION 必须等于 schema.json 的最高版本」，
+# 这里必须跑；**找不到 python 也不许跳过** —— 静默跳过正是上次踩坑的方式。
+if (-not $ReloadOnly) {
+    Say '0.2/6 数据库结构契约检查'
+    $schemaPy = Resolve-AnyPython
+    if (-not $schemaPy) {
+        Die '找不到 python，无法执行数据库结构契约检查（scripts/release/check_schema.py）。请安装 Python 或加入 PATH 后重试；不允许跳过。'
+    }
+    & $schemaPy.Exe @($schemaPy.Args) (Join-Path $repoRoot 'scripts/release/check_schema.py')
+    if ($LASTEXITCODE -ne 0) {
+        Die '数据库结构契约检查没通过（VERSION 与 schema.json 最高版本不一致，或迁移脚本不合规），已中止发布。详见上面的输出。'
+    }
+    Ok '结构契约检查通过（VERSION 与 schema.json 一致）'
+}
 
 # ------ 0.5 前端类型检查
 # 生产构建走 web-watch 的 vite build --watch，它不跑 tsc；类型错误会直接上线。
