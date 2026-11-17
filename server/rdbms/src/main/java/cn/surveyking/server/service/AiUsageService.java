@@ -32,6 +32,9 @@ public interface AiUsageService {
 	/** 场景：AI 学情总结 */
 	String SCENE_REPORT_SUMMARY = "report_summary";
 
+	/** 场景：侧栏 AI 助手对话 */
+	String SCENE_CHAT = "chat";
+
 	/** 全站每日 token 上限默认值（200 万） */
 	int DEFAULT_DAILY_TOKEN_LIMIT = 2_000_000;
 

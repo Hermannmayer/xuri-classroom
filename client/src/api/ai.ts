@@ -103,3 +103,66 @@ export const rewriteAiQuestion = (data: {
  * 拿不到（老版本后端 / 未启用 AI）时不拦主流程，静默忽略即可。
  */
 export const getAiUsageToday = () => get<AiUsageToday>('/api/ai/usage/today');
+
+/* ---------- 侧栏 AI 助手（多轮对话） ---------- */
+
+/** 对话消息：只允许 user / assistant；system 由后端生成，前端传了也会被丢掉 */
+export interface AiChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * 当前页面上下文：只放「在哪一页、哪个 id」。
+ *
+ * 试卷名 / 题干 / 答卷信息一律由后端按 id 查库补齐——不让前端传文案，是因为这段内容会进系统提示，
+ * 前端能自由填就等于任何人在控制台里都能往提示词里塞指令。
+ */
+export interface AiChatContext {
+  /** 当前路由，如 /survey/1/edit */
+  route?: string;
+  /** 页面名称，如「试卷编辑器」 */
+  page?: string;
+  /** 试卷/项目 id */
+  projectId?: string;
+  /** 当前题目 id */
+  questionId?: string;
+  /** 当前答卷 id */
+  answerId?: string;
+}
+
+/** 一轮对话的返回：正文 + 用量 + 后端实际带上的上下文摘要 */
+export interface AiChatReply {
+  reply: string;
+  model?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  /** 本次调用耗时（含重试），毫秒 */
+  costMs?: number;
+  /** 后端带给模型的上下文摘要，例如「试卷《2026 春季考试》· 第 3 题」 */
+  contextLabel?: string;
+}
+
+/** AI 可用性自检（GET /api/ai/status）：ready=false 时 reason 是可直接展示的中文原因 */
+export interface AiStatus {
+  ready: boolean;
+  reason?: string;
+  model?: string;
+}
+
+/**
+ * 现在能不能聊：侧栏打开时先问一次，不能聊就直接显示「去系统设置」的引导，
+ * 而不是等用户打完字、点了发送才看到 400。
+ */
+export const getAiStatus = () => get<AiStatus>('/api/ai/status');
+
+/**
+ * 一轮对话：把历史消息 + 当前页面上下文交给后端。
+ *
+ * 后端会过限额、记用量（t_ai_usage 的 chat 场景）、做内容校验；
+ * 没配模型时返回 400 + 中文原因，调用方直接用 `ApiError.message` 展示即可。
+ */
+export const chatWithAi = (data: { messages: AiChatMessage[]; context?: AiChatContext; model?: string }) =>
+  post<AiChatReply>('/api/ai/chat', data);
+

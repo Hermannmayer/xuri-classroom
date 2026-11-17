@@ -9,6 +9,7 @@ import cn.surveyking.server.service.SystemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * AI 统一调用入口（非流式）。
@@ -42,6 +44,12 @@ import java.util.Map;
  * <li><b>每用户限流</b>：进程内滑动窗口，默认 10 次/分钟。限额（每日 token）是另一层，
  * 见 {@code AiUsageService}——这里挡的是「手抖连点」，那边挡的是「账单」。</li>
  * </ol>
+ *
+ * <p>两条入口共用同一套治理（重试 / 限流 / 配置校验只写一份）：
+ * <ul>
+ * <li>{@link #complete(AiRequest)}：单轮的「系统提示 + 用户输入」，出卷 / 改题 / 批改 / 学情在用；</li>
+ * <li>{@link #completeConversation(AiConversation)}：多轮对话，侧栏 AI 助手用。</li>
+ * </ul>
  *
  * @author p4-backend
  */
@@ -69,6 +77,18 @@ public class AiGateway {
 
 	private static final String LEGACY_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1";
 
+	/**
+	 * 三种「配了但用不了」的中文原因。
+	 *
+	 * <p>抽成常量是因为有两个出口要说同一句话：真正调用时抛的 400（{@link #dispatch}），
+	 * 和侧栏开聊前查的 {@link #readiness()}。两处各写一遍迟早会出现「界面说能用、一发就报错」。
+	 */
+	private static final String MSG_NOT_ENABLED = "AI 功能未启用，请先在系统设置里配置模型";
+
+	private static final String MSG_NO_API_KEY = "AI 的 API Key 未配置，请先在系统设置里填写";
+
+	private static final String MSG_NO_MODEL = "没有可用的 AI 模型，请先在系统设置里添加模型";
+
 	private final WebClient webClient;
 
 	private final ObjectMapper objectMapper;
@@ -78,8 +98,7 @@ public class AiGateway {
 	private final RateLimiter rateLimiter;
 
 	/**
-	 * 非流式补全。
-	 *
+	 * 单轮补全：系统提示 + 用户输入。
 	 * @param request 系统提示 + 用户输入 + 可选模型/温度
 	 * @return 正文与用量
 	 * @throws ErrorCodeException AI 未启用、key/模型没配、被限流或调用最终失败（消息都是中文，可直接弹给老师）
@@ -89,51 +108,30 @@ public class AiGateway {
 				&& !StringUtils.hasText(request.getUserPrompt()))) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 请求内容为空");
 		}
-		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
-		if (setting == null || !Boolean.TRUE.equals(setting.getEnabled())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 功能未启用，请先在系统设置里配置模型");
+		List<AiChatTurn> turns = new ArrayList<>(2);
+		if (StringUtils.hasText(request.getSystemPrompt())) {
+			turns.add(AiChatTurn.system(request.getSystemPrompt()));
 		}
-		String apiKey = resolveApiKey(setting);
-		if (!StringUtils.hasText(apiKey)) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 的 API Key 未配置，请先在系统设置里填写");
-		}
-		String model = StringUtils.hasText(request.getModel()) ? request.getModel().trim() : resolveDefaultModel(setting);
-		if (!StringUtils.hasText(model)) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "没有可用的 AI 模型，请先在系统设置里添加模型");
-		}
-		String url = chatCompletionsUrl(setting);
-		assertNotTooFrequent();
+		turns.add(AiChatTurn.user(request.getUserPrompt() == null ? "" : request.getUserPrompt()));
+		return dispatch(turns, request.getModel(), request.getTemperature());
+	}
 
-		Map<String, Object> payload = buildPayload(request, model);
-		Exception last = null;
-		long start = System.currentTimeMillis();
-		for (int attempt = 0; attempt <= MAX_RETRY; attempt++) {
-			try {
-				return doCall(url, apiKey, payload, model, start);
-			}
-			catch (WebClientResponseException e) {
-				// 4xx（除 429）是配置问题，重试只会再错一次并把老师的等待时间翻倍
-				if (e.getStatusCode().value() >= 400 && e.getStatusCode().value() < 500
-						&& e.getStatusCode().value() != 429) {
-					throw new ErrorCodeException(ErrorCode.ValidationError,
-							"AI 调用失败：" + describe(e) + "（请检查系统设置里的模型与 API Key）");
-				}
-				last = e;
-			}
-			catch (ErrorCodeException e) {
-				throw e;
-			}
-			catch (Exception e) {
-				last = e;
-			}
-			if (attempt < MAX_RETRY) {
-				long wait = RETRY_BACKOFF_MILLIS << attempt;
-				log.warn("AI 调用失败，{} ms 后重试（第 {} 次）：{}", wait, attempt + 1, describe(last));
-				sleepQuietly(wait);
-			}
+	/**
+	 * 多轮对话补全：消息顺序原样下发给模型（第一条通常是 system）。
+	 * @param conversation 消息列表 + 可选模型/温度
+	 * @return 正文与用量
+	 * @throws ErrorCodeException 与 {@link #complete(AiRequest)} 同一套原因（配置 / 限流 / 调用失败）
+	 */
+	public AiCompletion completeConversation(AiConversation conversation) {
+		if (conversation == null || CollectionUtils.isEmpty(conversation.getTurns())) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 对话内容为空");
 		}
-		throw new ErrorCodeException(ErrorCode.ValidationError,
-				"AI 调用失败：" + describe(last) + "（已重试 " + MAX_RETRY + " 次）");
+		List<AiChatTurn> turns = conversation.getTurns().stream().filter(Objects::nonNull).toList();
+		if (turns.stream().noneMatch(AiChatTurn::isUser)) {
+			// 只有 system/assistant 的请求一定是调用方拼错了，早点报错比让模型自问自答便宜
+			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 对话里没有问题");
+		}
+		return dispatch(turns, conversation.getModel(), conversation.getTemperature());
 	}
 
 	/**
@@ -163,7 +161,56 @@ public class AiGateway {
 		return resolveDefaultModel(systemService.getSystemAiSetting());
 	}
 
+	/**
+	 * 「现在能不能聊」的自检：口径与 {@link #complete} 完全一致，但<b>不抛异常、不调模型</b>。
+	 *
+	 * <p>侧栏打开时先问一次：不能聊就直接显示引导（并给出原因），而不是让用户打完字、点了发送才看到 400。
+	 */
+	public AiReadiness readiness() {
+		Resolution resolution = resolve();
+		if (resolution.reason() != null) {
+			return AiReadiness.notReady(resolution.reason());
+		}
+		if (!StringUtils.hasText(resolution.model())) {
+			return AiReadiness.notReady(MSG_NO_MODEL);
+		}
+		return AiReadiness.ready(resolution.model());
+	}
+
 	/* ====== 内部实现 ====== */
+
+	/** 两条入口的公共后半段：解析配置 → 组装 payload → 限流 → 带重试地调用 */
+	private AiCompletion dispatch(List<AiChatTurn> turns, String requestedModel, Double temperature) {
+		Resolution resolution = resolve();
+		if (resolution.reason() != null) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, resolution.reason());
+		}
+		// 请求显式指定了模型就尊重它（即便系统设置里没配默认模型）；否则用默认模型
+		String model = StringUtils.hasText(requestedModel) ? requestedModel.trim() : resolution.model();
+		if (!StringUtils.hasText(model)) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, MSG_NO_MODEL);
+		}
+		String url = chatCompletionsUrl(resolution.setting());
+		assertNotTooFrequent();
+		return callWithRetry(url, resolution.apiKey(), buildPayload(turns, model, temperature), model);
+	}
+
+	/** 解析「现在能不能调模型」：不能调时把中文原因带出来（{@link #readiness()} 与 {@link #dispatch} 共用） */
+	private Resolution resolve() {
+		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
+		if (setting == null || !Boolean.TRUE.equals(setting.getEnabled())) {
+			return new Resolution(setting, null, null, MSG_NOT_ENABLED);
+		}
+		String apiKey = resolveApiKey(setting);
+		if (!StringUtils.hasText(apiKey)) {
+			return new Resolution(setting, null, null, MSG_NO_API_KEY);
+		}
+		return new Resolution(setting, apiKey, resolveDefaultModel(setting), null);
+	}
+
+	/** 一次解析的结果：reason 非空表示不可用（此时其它字段可能为空） */
+	private record Resolution(SystemInfo.AiSetting setting, String apiKey, String model, String reason) {
+	}
 
 	private void assertNotTooFrequent() {
 		String userId = SecurityContextUtils.getUserId();
@@ -172,20 +219,53 @@ public class AiGateway {
 		}
 	}
 
-	private Map<String, Object> buildPayload(AiRequest request, String model) {
+	private Map<String, Object> buildPayload(List<AiChatTurn> turns, String model, Double temperature) {
 		Map<String, Object> payload = new LinkedHashMap<>();
 		payload.put("model", model);
 		payload.put("stream", Boolean.FALSE);
-		List<Map<String, String>> messages = new ArrayList<>(2);
-		if (StringUtils.hasText(request.getSystemPrompt())) {
-			messages.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+		List<Map<String, String>> messages = new ArrayList<>(turns.size());
+		for (AiChatTurn turn : turns) {
+			// Map.of 不接受 null 值：content 为空时补空串，别让组装 payload 变成 NPE
+			messages.add(Map.of("role", turn.role(), "content", turn.content() == null ? "" : turn.content()));
 		}
-		messages.add(Map.of("role", "user", "content", request.getUserPrompt() == null ? "" : request.getUserPrompt()));
 		payload.put("messages", messages);
-		if (request.getTemperature() != null) {
-			payload.put("temperature", request.getTemperature());
+		if (temperature != null) {
+			payload.put("temperature", temperature);
 		}
 		return payload;
+	}
+
+	/** 带指数退避的调用：只对超时 / 网络 / 5xx / 429 重试，4xx 配置错误直接报中文 */
+	private AiCompletion callWithRetry(String url, String apiKey, Map<String, Object> payload, String model) {
+		Exception last = null;
+		long start = System.currentTimeMillis();
+		for (int attempt = 0; attempt <= MAX_RETRY; attempt++) {
+			try {
+				return doCall(url, apiKey, payload, model, start);
+			}
+			catch (WebClientResponseException e) {
+				// 4xx（除 429）是配置问题，重试只会再错一次并把老师的等待时间翻倍
+				if (e.getStatusCode().value() >= 400 && e.getStatusCode().value() < 500
+						&& e.getStatusCode().value() != 429) {
+					throw new ErrorCodeException(ErrorCode.ValidationError,
+							"AI 调用失败：" + describe(e) + "（请检查系统设置里的模型与 API Key）");
+				}
+				last = e;
+			}
+			catch (ErrorCodeException e) {
+				throw e;
+			}
+			catch (Exception e) {
+				last = e;
+			}
+			if (attempt < MAX_RETRY) {
+				long wait = RETRY_BACKOFF_MILLIS << attempt;
+				log.warn("AI 调用失败，{} ms 后重试（第 {} 次）：{}", wait, attempt + 1, describe(last));
+				sleepQuietly(wait);
+			}
+		}
+		throw new ErrorCodeException(ErrorCode.ValidationError,
+				"AI 调用失败：" + describe(last) + "（已重试 " + MAX_RETRY + " 次）");
 	}
 
 	private AiCompletion doCall(String url, String apiKey, Map<String, Object> payload, String model, long start) {

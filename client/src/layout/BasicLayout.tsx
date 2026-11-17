@@ -9,6 +9,7 @@ import {
   MenuUnfoldOutlined,
   MoonOutlined,
   ProjectOutlined,
+  RobotOutlined,
   SettingOutlined,
   SunOutlined,
   TeamOutlined,
@@ -26,6 +27,8 @@ import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
 import NoticeBell from '../pages/notice/NoticeBell';
 import { PERMISSION_CODES } from '../auth/permission-codes';
+import { AiAssistantProvider, AiAssistantSidebar } from '../components/AiAssistant';
+import { AI_GUIDE_LABEL, AI_GUIDE_PATH } from '../pages/ai-guide/constants';
 
 const { Header, Sider, Content } = Layout;
 
@@ -109,6 +112,13 @@ export default function BasicLayout() {
 
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
+    // AI 助手（导览页 /ai）：默认给 admin 与 teacher（ai:use）；能改系统设置的人也能进，
+    // 因为「怎么配模型」是这个页面的另一半内容，而配置入口就在系统设置里。
+    // 条件与 router.tsx 里 /ai 的守卫一一对应，避免「菜单能点、进去 403」。
+    if (allow(PERMISSION_CODES.aiUse) || allow(PERMISSION_CODES.systemSettingUpdate)) {
+      menu.push({ key: AI_GUIDE_PATH, icon: <RobotOutlined />, label: AI_GUIDE_LABEL });
+    }
+
     // 三个视角分开：
     // - 老师/管理员：教学（考试/问卷 + 班级学情）；不做题，所以没有「我的任务」
     // - 学员：只有「我的任务」（考试安排 / 练习记录 / 我的成绩）
@@ -173,6 +183,8 @@ export default function BasicLayout() {
   }
 
   const siderWidth = 208;
+  // 侧栏的入口权限：ai:use（admin / teacher 默认有，学员没有——学员侧的 AI 只有答题解析）
+  const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
 
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
@@ -244,6 +256,16 @@ export default function BasicLayout() {
             style={{ background: 'transparent', borderInlineEnd: 0 }}
           />
         </Sider>
+      )}
+
+      {/*
+        AI 助手侧栏：挂在布局里而不是每页各写一份，所以换页时对话历史不丢、上下文自动跟着路由变。
+        provider 放在这一层，是因为它是「全站唯一一份状态」的宿主（见 components/AiAssistant/AiAssistantContext.tsx）。
+      */}
+      {canUseAi && (
+        <AiAssistantProvider>
+          <AiAssistantSidebar isMobile={isMobile} />
+        </AiAssistantProvider>
       )}
 
       <Layout style={{ background: 'transparent' }}>

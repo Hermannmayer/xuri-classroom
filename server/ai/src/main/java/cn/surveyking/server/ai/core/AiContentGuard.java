@@ -13,7 +13,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * AI 产出校验（目前只管出卷）。
+ * AI 产出校验：出卷结果的结构校验 + 侧栏对话回复的口径校验。
+ *
+ * <p>两条线的共同点是「宁可拒绝，也不要一份看起来能用、实际不能用（或不该给用户看）的东西」；
+ * 不同点是出卷连结构一起校验（见下），对话只判断正文能不能直接展示（见 {@link #checkChatReply}）。
  *
  * <p><b>校验不过直接拒绝，不修补。</b>理由：修补等于「后端替模型编题」——把一道没有正确答案的
  * 单选题补一个正确答案出来，老师看到的就不再是模型的输出，而是程序的猜测，出了问题还查不出来。
@@ -52,6 +55,9 @@ public final class AiContentGuard {
 
 	/** 每种题型的题数允许的凑整误差 */
 	private static final int TYPE_COUNT_TOLERANCE = 1;
+
+	/** 一条对话回复最多给用户看这么多字：再长基本是模型跑题或复读，截断比整段丢弃更有用 */
+	private static final int MAX_CHAT_REPLY_CHARS = 6000;
 
 	private AiContentGuard() {
 	}
@@ -111,6 +117,69 @@ public final class AiContentGuard {
 		for (int index = 0; index < questions.size(); index++) {
 			checkQuestion(questions.get(index), index + 1, ids);
 		}
+	}
+
+	/* ====== 对话回复（侧栏 AI 助手） ====== */
+
+	/**
+	 * 对话回复校验：只判断「这段正文能不能直接给用户看」，<b>不改写内容</b>。
+	 *
+	 * <p>为什么不复用 {@link #check(AiPaperSpec, List)}：那条线校验的是题目结构能不能判分，
+	 * 这里要挡的是另外三类东西——
+	 * <ol>
+	 * <li><b>空回复</b>：模型返回空白时前端会显示一个空气泡，用户以为卡住了；</li>
+	 * <li><b>提示词泄露</b>：把系统提示里 {@link AiPageContext} 的分隔符念出来，说明它把内部说明当成正文了；</li>
+	 * <li><b>万字长文</b>：多半是跑题或复读，截断并标注比让侧栏滚十分钟更有用。</li>
+	 * </ol>
+	 *
+	 * <p>截断在这里是允许的（截断不改变事实、不替模型编内容），出卷那条线仍然一律拒绝——
+	 * 一份被截断的卷子会直接导致判分错误。
+	 *
+	 * @param text 模型返回的正文
+	 * @return 可直接渲染的正文（超长时已截断并标注）
+	 * @throws ErrorCodeException 空回复或疑似提示词泄露（消息以「AI 对话回复未通过校验：」开头，可直接展示）
+	 */
+	public static String checkChatReply(String text) {
+		if (!StringUtils.hasText(text)) {
+			throw chatReject("AI 没有返回内容，请换个问法再试一次");
+		}
+		String value = unwrapChatFence(text.trim());
+		if (!StringUtils.hasText(value)) {
+			throw chatReject("AI 只返回了一个空代码块，请重试");
+		}
+		if (value.contains(AiPageContext.BEGIN) || value.contains(AiPageContext.END)) {
+			// 分隔符只可能来自系统提示，模型把它念出来等于把内部说明泄露给用户
+			throw chatReject("AI 回复里带出了系统提示词片段，已拦截");
+		}
+		if (value.length() > MAX_CHAT_REPLY_CHARS) {
+			value = value.substring(0, MAX_CHAT_REPLY_CHARS).trim() + "\n…（回复过长，已截断）";
+		}
+		return value;
+	}
+
+	/**
+	 * 整段被一对 ``` 包住时把围栏拆掉：这是排版，不是内容改写。
+	 *
+	 * <p>三种情况原样返回，不猜：只有一行（可能是行内代码）、围栏没闭合、闭合围栏后面还有正文。
+	 */
+	private static String unwrapChatFence(String text) {
+		if (!text.startsWith("```")) {
+			return text;
+		}
+		int firstLineEnd = text.indexOf('\n');
+		if (firstLineEnd < 0) {
+			return text;
+		}
+		String body = text.substring(firstLineEnd + 1);
+		int fence = body.lastIndexOf("```");
+		if (fence < 0 || StringUtils.hasText(body.substring(fence + 3))) {
+			return text;
+		}
+		return body.substring(0, fence).trim();
+	}
+
+	private static ErrorCodeException chatReject(String reason) {
+		return new ErrorCodeException(ErrorCode.ValidationError, "AI 对话回复未通过校验：" + reason);
 	}
 
 	/** 逐题检查：结构 + 能不能判分 */
