@@ -88,6 +88,10 @@
       "requires": [
         "index:t_audit_log.idx_audit_create_at"
       ]
+    },
+    {
+      "version": "2.3.0",
+      "requires": []
     }
   ]
 }
