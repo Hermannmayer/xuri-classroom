@@ -869,7 +869,7 @@ export default function RepoBook() {
         confirmLoading={noteSaving}
         okText="保存"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         {editing?.name && (
           <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>{editing.name}</div>

@@ -866,7 +866,7 @@ export default function RepoList() {
         okText="开始随机练习"
         cancelText="取消"
         width={520}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
           选择题型并填写题数，题数为 0 的题型不会抽取。
@@ -895,7 +895,7 @@ export default function RepoList() {
         confirmLoading={creating}
         okText="创建"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={createForm} layout="vertical" preserve={false}>
           <Form.Item
@@ -951,7 +951,7 @@ export default function RepoList() {
         confirmLoading={renameSaving}
         okText="确定"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={renameForm} layout="vertical" preserve={false}>
           <Form.Item

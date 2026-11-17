@@ -279,7 +279,7 @@ export default function SystemAudit() {
               title: '对象',
               key: 'target',
               render: (_: unknown, row: AuditLog) => (
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <span style={{ fontSize: 13 }}>{row.targetName || row.targetId || '—'}</span>
                   {row.detail && (
                     <span
@@ -338,7 +338,7 @@ export default function SystemAudit() {
           清理后不可恢复；建议先保留最近 90/180 天用于追溯。
         </div>
         <Radio.Group value={cleanMode} onChange={(e) => setCleanMode(e.target.value)}>
-          <Space direction="vertical">
+          <Space orientation="vertical">
             <Radio value="30">只保留最近 30 天，清理更早日志</Radio>
             <Radio value="90">只保留最近 90 天，清理更早日志</Radio>
             <Radio value="180">只保留最近 180 天，清理更早日志</Radio>

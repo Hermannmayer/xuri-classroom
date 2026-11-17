@@ -86,7 +86,7 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
         </Col>
         <Col xs={12} md={6}>
           <Card className="bp-corners" size="small">
-            <Statistic title="练习记录" value="去练习" valueStyle={{ fontSize: 18 }} />
+            <Statistic title="练习记录" value="去练习" styles={{ content: { fontSize: 18 } }} />
             <a style={{ fontSize: 12 }} onClick={() => navigate('/tasks?tab=practice')}>
               打开练习记录 →
             </a>
@@ -209,7 +209,7 @@ export function TeacherHome() {
         </Col>
         <Col xs={12} md={6}>
           <Card className="bp-corners" size="small">
-            <Statistic title="班级学情" value="查看" valueStyle={{ fontSize: 18 }} />
+            <Statistic title="班级学情" value="查看" styles={{ content: { fontSize: 18 } }} />
             <a style={{ fontSize: 12 }} onClick={() => navigate('/teaching?tab=insight')}>
               按班级看作答 →
             </a>

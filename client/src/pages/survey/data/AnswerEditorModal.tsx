@@ -56,7 +56,7 @@ export default function AnswerEditorModal({
           mode="answer"
         />
       ) : (
-        <Alert type="warning" showIcon message="问卷结构还没加载到，无法录入" />
+        <Alert type="warning" showIcon title="问卷结构还没加载到，无法录入" />
       )}
     </Modal>
   );

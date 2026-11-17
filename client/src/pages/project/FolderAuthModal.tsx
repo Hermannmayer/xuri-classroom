@@ -25,7 +25,7 @@ export default function FolderAuthModal({
       onCancel={onClose}
       footer={null}
       width="min(760px, 94vw)"
-      destroyOnClose
+      destroyOnHidden
     >
       {folderId ? <PartnerPanel projectId={folderId} canManage={canManage} /> : null}
     </Modal>

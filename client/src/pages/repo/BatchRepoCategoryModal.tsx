@@ -140,7 +140,7 @@ export default function BatchRepoCategoryModal({
       okText="移动"
       cancelText="取消"
       okButtonProps={{ disabled: ids.length === 0 }}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
         选择一个已有分类，或直接输入新路径（如「安全生产/基础」）；根节点「未分类」会清空分类。
@@ -164,7 +164,7 @@ export default function BatchRepoCategoryModal({
             treeNodeFilterProp="title"
             treeDefaultExpandAll
             allowClear
-            dropdownStyle={{ maxHeight: 360, overflow: 'auto' }}
+            styles={{ popup: { root: { maxHeight: 360, overflow: 'auto' } } }}
           />
           <Input
             style={{ marginTop: 10 }}

@@ -729,7 +729,7 @@ export default function RepoQuestions() {
           <Alert
             type="error"
             showIcon
-            message="题目列表加载失败"
+            title="题目列表加载失败"
             description={
               <div style={{ lineHeight: 1.9 }}>
                 {loadError}
@@ -943,7 +943,7 @@ export default function RepoQuestions() {
         confirmLoading={batchSaving}
         okText="应用"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form layout="vertical" size="small">
           <Form.Item label="标签">
@@ -1000,7 +1000,7 @@ export default function RepoQuestions() {
         confirmLoading={saving}
         okText="保存"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
         <Form form={editForm} layout="vertical" size="small" preserve={false}>

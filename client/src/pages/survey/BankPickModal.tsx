@@ -246,7 +246,7 @@ export default function BankPickModal({ open, excludeIds, onClose, onPick }: Pro
   };
 
   const browsePane = (
-    <Space direction="vertical" style={{ width: '100%' }} size={10}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={10}>
       <Space wrap>
         <Select
           allowClear
@@ -388,7 +388,7 @@ export default function BankPickModal({ open, excludeIds, onClose, onPick }: Pro
   );
 
   const rulePane = (
-    <Space direction="vertical" style={{ width: '100%' }} size={10}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={10}>
       <Space wrap>
         <Radio.Group value={ruleMode} onChange={(e) => setRuleMode(e.target.value)}>
           <Radio.Button value="random">随机</Radio.Button>
@@ -489,9 +489,9 @@ export default function BankPickModal({ open, excludeIds, onClose, onPick }: Pro
       }}
       okText={'添加到试卷（' + selectedList.length + ' 题 / ' + selectedScore + ' 分）'}
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={10}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={10}>
         <Space wrap>
           <Select
             style={{ width: 210 }}
@@ -525,7 +525,7 @@ export default function BankPickModal({ open, excludeIds, onClose, onPick }: Pro
         <Alert
           type="info"
           showIcon
-          message={'已选 ' + selectedList.length + ' 题 / ' + selectedScore + ' 分'}
+          title={'已选 ' + selectedList.length + ' 题 / ' + selectedScore + ' 分'}
         />
       </Space>
     </Modal>

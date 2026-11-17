@@ -267,7 +267,7 @@ export default function RepoPracticeHome() {
         okText="开始练习"
         cancelText="取消"
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Select
             placeholder="选择题型"
             value={typeValue}

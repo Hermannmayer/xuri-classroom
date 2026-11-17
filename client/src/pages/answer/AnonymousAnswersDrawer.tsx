@@ -77,8 +77,8 @@ export default function AnonymousAnswersDrawer({
       title={'我的答卷' + (projectName ? '：' + projectName : '')}
       open={open}
       onClose={onClose}
-      width="min(520px, 94vw)"
-      destroyOnClose
+      size="min(520px, 94vw)"
+      destroyOnHidden
     >
       {loggedIn && (
         <div

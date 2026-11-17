@@ -708,7 +708,7 @@ export default function BatchSettingModal({
       okText="应用"
       cancelText="取消"
       okButtonProps={{ disabled: !hasAny }}
-      destroyOnClose
+      destroyOnHidden
       styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>

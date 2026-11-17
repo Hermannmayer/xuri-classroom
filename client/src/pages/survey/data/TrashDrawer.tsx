@@ -105,7 +105,7 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
     <Drawer
       title={`回收站 · 共 ${rows.length} 份`}
       placement="right"
-      width="min(560px, 100vw)"
+      size="min(560px, 100vw)"
       open={open}
       onClose={onClose}
     >

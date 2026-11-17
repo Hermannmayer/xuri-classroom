@@ -342,7 +342,7 @@ export default function SystemGroup() {
         confirmLoading={saving}
         okText="保存"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" size="small" requiredMark={false}>
           <Form.Item name="name" label="用户组名称" rules={[{ required: true, message: '请输入名称' }]}>

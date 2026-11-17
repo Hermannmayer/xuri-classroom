@@ -82,7 +82,7 @@ export default function ImportMembersModal({
       onCancel={onClose}
       footer={null}
       width="min(560px, 94vw)"
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 12 }}>
         先下载模板，按列填好后上传；一行一个学员。手机号即登录账号，已被占用的手机号会导入失败。
@@ -132,9 +132,9 @@ export default function ImportMembersModal({
         </div>
       )}
 
-      {result && <Alert type="success" showIcon message={result} style={{ marginBottom: 8 }} />}
+      {result && <Alert type="success" showIcon title={result} style={{ marginBottom: 8 }} />}
       {error && (
-        <Alert type="error" showIcon message="导入失败" description={error} style={{ marginBottom: 8 }} />
+        <Alert type="error" showIcon title="导入失败" description={error} style={{ marginBottom: 8 }} />
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>

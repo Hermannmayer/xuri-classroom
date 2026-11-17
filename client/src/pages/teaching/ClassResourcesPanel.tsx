@@ -283,7 +283,7 @@ export default function ClassResourcesPanel({
     else void loadRepos();
   }, [assignOpen, kind, assignForm, loadProjects, loadRepos]);
 
-  // 编辑弹窗：等表单挂载后再回填，避免 destroyOnClose 下 setFieldsValue 失效
+  // 编辑弹窗：等表单挂载后再回填，避免 destroyOnHidden 下 setFieldsValue 失效
   useEffect(() => {
     if (!editing) return;
     editForm.setFieldsValue({
@@ -613,7 +613,7 @@ export default function ClassResourcesPanel({
       </div>
 
       {loadError && (
-        <Alert type="warning" showIcon style={{ marginBottom: 10 }} message={loadError} />
+        <Alert type="warning" showIcon style={{ marginBottom: 10 }} title={loadError} />
       )}
 
       {manageable && selectedResourceIds.length > 0 && (
@@ -669,18 +669,18 @@ export default function ClassResourcesPanel({
         onCancel={() => setLinkOpen(false)}
         footer={<Button onClick={() => setLinkOpen(false)}>关闭</Button>}
         width="min(560px, 94vw)"
-        destroyOnClose
+        destroyOnHidden
       >
         <Alert
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message="这个链接提交的匿名答卷会归到本班；普通公开链接没有班级归属，只在项目总面板的「普通链接匿名」里计数"
+          title="这个链接提交的匿名答卷会归到本班；普通公开链接没有班级归属，只在项目总面板的「普通链接匿名」里计数"
         />
         {linkLoading ? (
           <div style={{ padding: 24, textAlign: 'center' }}>生成中…</div>
         ) : classLink ? (
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Space orientation="vertical" style={{ width: '100%' }} size={12}>
             <Input.TextArea value={classLink} readOnly autoSize={{ minRows: 2, maxRows: 4 }} />
             <Space wrap>
               <Button
@@ -755,7 +755,7 @@ export default function ClassResourcesPanel({
         okText="应用到选中项"
         cancelText="取消"
         width="min(560px, 94vw)"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 10 }}>
           窗口留空 = 继承项目全局 / 不限；这些设置会覆盖选中项的现有班级配置。
@@ -804,7 +804,7 @@ export default function ClassResourcesPanel({
         okText="分配"
         cancelText="取消"
         width="min(560px, 94vw)"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={assignForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
           <Form.Item
@@ -872,7 +872,7 @@ export default function ClassResourcesPanel({
         okText="保存"
         cancelText="取消"
         width="min(560px, 94vw)"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 10 }}>
           {kind === 'repo'

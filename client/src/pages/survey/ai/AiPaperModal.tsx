@@ -281,7 +281,7 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
 
   const formBody = (
     <>
-      {error && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={error} />}
+      {error && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={error} />}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 4 }}>学科（必填）</div>
@@ -332,7 +332,7 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
               value={ratios[item.type]}
               onChange={(value) => setRatios((prev) => ({ ...prev, [item.type]: Number(value ?? 0) }))}
               style={{ width: 64 }}
-              addonAfter="%"
+              suffix="%"
             />
           </span>
         ))}
@@ -474,8 +474,8 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
       title="AI 生成试卷"
       width={920}
       onCancel={onClose}
-      maskClosable={false}
-      destroyOnClose
+      mask={{ closable: false }}
+      destroyOnHidden
       footer={footer()}
     >
       {phase === 'form' ? formBody : phase === 'job' ? jobBody : previewBody}

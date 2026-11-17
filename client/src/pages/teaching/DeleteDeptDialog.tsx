@@ -198,7 +198,7 @@ export default function DeleteDeptDialog({
       confirmLoading={submitting}
       cancelText="取消"
       width="min(560px, 94vw)"
-      destroyOnClose
+      destroyOnHidden
     >
       {checkLoading ? (
         <div style={{ padding: '30px 0', textAlign: 'center' }}>
@@ -208,14 +208,14 @@ export default function DeleteDeptDialog({
           </div>
         </div>
       ) : checkError ? (
-        <Alert type="error" showIcon message="无法删除：预检失败" description={checkError} />
+        <Alert type="error" showIcon title="无法删除：预检失败" description={checkError} />
       ) : check ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {blockedByChildren && (
             <Alert
               type="error"
               showIcon
-              message={'「' + (check.name || deptName || '该组') + '」下面还有 ' + childCount + ' 个子分组'}
+              title={'「' + (check.name || deptName || '该组') + '」下面还有 ' + childCount + ' 个子分组'}
               description={
                 childNames.slice(0, 8).join('、') +
                 (childNames.length > 8 ? ' 等' : '') +
@@ -243,7 +243,7 @@ export default function DeleteDeptDialog({
             <Alert
               type="warning"
               showIcon
-              message="这是最后一个用户组，删除后大家会变成未分组"
+              title="这是最后一个用户组，删除后大家会变成未分组"
               description="仍可继续删除；建议先新建一个用户组，再把成员迁移过去。"
             />
           )}
@@ -261,7 +261,7 @@ export default function DeleteDeptDialog({
                   if (next !== 'MOVE') setMoveToDeptId(undefined);
                 }}
               >
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   <Radio value="UNASSIGN">移出分组（变成未分组，账号仍可登录）</Radio>
                   <Radio value="MOVE" disabled={Boolean(deptError)}>
                     迁移到其他组（主组改成目标组）
@@ -275,7 +275,7 @@ export default function DeleteDeptDialog({
                     <Alert
                       type="warning"
                       showIcon
-                      message="读取用户组失败，暂时不能迁移"
+                      title="读取用户组失败，暂时不能迁移"
                       description={deptError}
                     />
                   ) : (

@@ -374,8 +374,8 @@ export default function ClassAnswersDrawer({
       title={`答卷：${projectName || '考试'} / ${deptName || '班级'}`}
       open={open}
       onClose={onClose}
-      width="min(720px, 94vw)"
-      destroyOnClose
+      size="min(720px, 94vw)"
+      destroyOnHidden
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
         <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>共 {total} 份</span>
@@ -415,8 +415,8 @@ export default function ClassAnswersDrawer({
         cancelText={running ? '取消导出' : '关闭'}
         confirmLoading={exporting}
         okButtonProps={{ disabled: running }}
-        maskClosable={false}
-        destroyOnClose
+        mask={{ closable: false }}
+        destroyOnHidden
         width={520}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -452,7 +452,7 @@ export default function ClassAnswersDrawer({
           </div>
           <div>
             <div style={{ marginBottom: 6 }}>PDF 内容</div>
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Checkbox
                 checked={options.includeAnalysis}
                 disabled={running}
@@ -471,7 +471,7 @@ export default function ClassAnswersDrawer({
           </div>
           <div>
             <div style={{ marginBottom: 6 }}>导出格式</div>
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Checkbox
                 checked={options.excel}
                 disabled={running}
@@ -489,7 +489,7 @@ export default function ClassAnswersDrawer({
             </Space>
           </div>
 
-          {jobError && <Alert type="error" showIcon message={jobError} />}
+          {jobError && <Alert type="error" showIcon title={jobError} />}
 
           {job && (
             <div>

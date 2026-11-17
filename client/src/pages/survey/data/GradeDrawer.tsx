@@ -658,10 +658,10 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     <Drawer
       title={title}
       placement="right"
-      width="min(720px, 100vw)"
+      size="min(720px, 100vw)"
       open={open}
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden
       footer={
         detail ? (
           <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
@@ -688,7 +688,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
         {!detail ? (
           <Empty description="没有可批改的答卷" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
             {/* 汇总：三块分数都来自后端同一个评估器，和成绩单口径一致 */}
             <Card size="small" style={{ background: 'var(--bp-panel-strong)' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
@@ -753,7 +753,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                         : undefined
                     }
                   >
-                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                       <div style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                         <span className="bp-tag">{item.number ?? index + 1}</span>
                         <Tag>{TYPE_LABEL[item.type ?? ''] ?? item.type ?? '题目'}</Tag>
@@ -812,7 +812,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                             max={typeof item.maxScore === 'number' ? item.maxScore : undefined}
                             step={0.5}
                             style={{ width: 130 }}
-                            addonAfter="分"
+                            suffix="分"
                             placeholder={`0 ~ ${item.maxScore ?? '满分'}`}
                             value={scores[item.questionId] ?? undefined}
                             onChange={(value) =>

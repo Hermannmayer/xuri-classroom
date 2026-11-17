@@ -495,7 +495,7 @@ export default function SystemSetting() {
           type="info"
           showIcon
           style={{ marginBottom: 14 }}
-          message={
+          title={
             canProtect
               ? '你没有修改系统设置的权限，但可以修改「内容与隐私」里的水印 / 防复制'
               : '你没有修改系统设置的权限'
@@ -595,7 +595,7 @@ export default function SystemSetting() {
                         type="warning"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="全局已开启，但还没有班级开放注册"
+                        title="全局已开启，但还没有班级开放注册"
                         description="学员登录页不会显示「注册」入口。请让班主任/管理员在「班级管理 → 选中教学班 → 班级设置 → 开放注册」里打开至少一个班。"
                       />
                     )}
@@ -620,7 +620,7 @@ export default function SystemSetting() {
                       type="info"
                       showIcon
                       style={{ marginBottom: 16 }}
-                      message="学员注册时自己选班级"
+                      title="学员注册时自己选班级"
                       description="在「班级管理 → 班级设置 → 开放注册」里打开某个班，注册页才会出现它；注册学员会先进入该班并保持「待审核」，通过后才能登录。这里不再配置全局默认班。"
                     />
                     {registerEnabled && roles.length === 0 && (
@@ -628,7 +628,7 @@ export default function SystemSetting() {
                         type="warning"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="已开启注册但未选择默认角色"
+                        title="已开启注册但未选择默认角色"
                         description="注册用户登录后将看不到任何菜单，请在下面选择至少一个默认角色。"
                       />
                     )}
@@ -653,7 +653,7 @@ export default function SystemSetting() {
                         type="info"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="你没有修改水印 / 防复制策略的权限"
+                        title="你没有修改水印 / 防复制策略的权限"
                         description="需要 content:protect 权限（管理员默认拥有）。"
                       />
                     )}
@@ -736,7 +736,7 @@ export default function SystemSetting() {
                       rules={[{ required: true, message: '请选择并发数' }]}
                       extra="同时渲染的任务数，越大越快、越占资源"
                     >
-                      <InputNumber min={1} max={2} style={{ width: 200 }} addonAfter="个任务" />
+                      <InputNumber min={1} max={2} style={{ width: 200 }} suffix="个任务" />
                     </Form.Item>
                     <Form.Item
                       name="pauseAnswerPdfDuringExam"
@@ -774,7 +774,7 @@ export default function SystemSetting() {
                       rules={[{ required: true, message: '请填写保留天数' }]}
                       extra="只清理匿名答卷，不影响登录用户/班级成绩"
                     >
-                      <InputNumber min={1} max={3650} addonAfter="天" style={{ width: 200 }} />
+                      <InputNumber min={1} max={3650} suffix="天" style={{ width: 200 }} />
                     </Form.Item>
 
                     <Form.Item
@@ -791,7 +791,7 @@ export default function SystemSetting() {
                       rules={[{ required: true, message: '请填写保留天数' }]}
                       extra="给一个后悔窗口：这段时间内还能在回收站里恢复"
                     >
-                      <InputNumber min={1} max={3650} addonAfter="天" style={{ width: 200 }} />
+                      <InputNumber min={1} max={3650} suffix="天" style={{ width: 200 }} />
                     </Form.Item>
 
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16 }}>
@@ -852,7 +852,7 @@ export default function SystemSetting() {
                       <Input placeholder="https://.../update.json" allowClear />
                     </Form.Item>
                     <Form.Item name="updateCheckIntervalHours" label="检查间隔" extra="1–168 小时；默认 24 小时">
-                      <InputNumber min={1} max={168} addonAfter="小时" style={{ width: 200 }} />
+                      <InputNumber min={1} max={168} suffix="小时" style={{ width: 200 }} />
                     </Form.Item>
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
                       <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>立即检查</Button>
@@ -867,7 +867,7 @@ export default function SystemSetting() {
                         type={updateInfo.error ? 'error' : updateInfo.hasUpdate ? 'info' : 'success'}
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message={
+                        title={
                           updateInfo.error
                             ? '检查失败'
                             : !updateInfo.enabled

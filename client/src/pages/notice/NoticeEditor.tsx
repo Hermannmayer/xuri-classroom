@@ -264,7 +264,7 @@ export default function NoticeEditor({
       title={notice ? '编辑公告' : '写公告'}
       open={open}
       onClose={onClose}
-      width="min(760px, 96vw)"
+      size="min(760px, 96vw)"
       forceRender
       footer={
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -334,7 +334,7 @@ export default function NoticeEditor({
               treeDefaultExpandAll
               allowClear
               style={{ width: '100%' }}
-              dropdownStyle={{ maxHeight: 360, overflow: 'auto' }}
+              styles={{ popup: { root: { maxHeight: 360, overflow: 'auto' } } }}
             />
           </Form.Item>
         )}
@@ -344,7 +344,7 @@ export default function NoticeEditor({
             type="warning"
             showIcon
             style={{ marginBottom: 16 }}
-            message="读不到班级列表"
+            title="读不到班级列表"
             description={`${classError}；请确认 /api/teaching/classes/tree 可用，或联系管理员给账号补上 class:list。`}
           />
         )}

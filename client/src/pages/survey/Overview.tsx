@@ -605,7 +605,7 @@ export default function SurveyOverview() {
           type="info"
           showIcon
           style={{ marginBottom: 14 }}
-          message={scoringEnabled ? '当前是问卷模式：已启用计分，可显示成绩单和正确率' : '当前是问卷模式：不判分，不显示成绩单、排名和答案解析'}
+          title={scoringEnabled ? '当前是问卷模式：已启用计分，可显示成绩单和正确率' : '当前是问卷模式：不判分，不显示成绩单、排名和答案解析'}
           description="用「回收限制」控制收集范围与截止时间；用「答题显示」控制填写体验。需要完整考试控制请新建考试项目。"
         />
       )}
@@ -764,7 +764,7 @@ export default function SurveyOverview() {
               {scoreGroups.length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>试卷里还没有题目</div>
               ) : (
-                <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                <Space orientation="vertical" style={{ width: '100%' }} size={8}>
                   <div
                     style={{
                       display: 'grid',

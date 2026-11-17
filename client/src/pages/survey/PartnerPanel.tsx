@@ -345,7 +345,7 @@ export default function PartnerPanel({
         confirmLoading={saving}
         okText="添加"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Segmented<CollabMode>
           value={collabMode}
@@ -367,7 +367,7 @@ export default function PartnerPanel({
             treeNodeFilterProp="title"
             treeDefaultExpandAll
             allowClear
-            dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
+            styles={{ popup: { root: { maxHeight: 420, overflow: 'auto' } } }}
           />
         ) : (
           <Select
@@ -408,7 +408,7 @@ export default function PartnerPanel({
         confirmLoading={saving}
         okText="授权"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
           授权后，该班级的学员登录后能在「我的考试」里看到这份卷子；未注册的人仍可通过公开链接作答。
@@ -423,7 +423,7 @@ export default function PartnerPanel({
           treeNodeFilterProp="title"
           treeDefaultExpandAll
           allowClear
-          dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
+          styles={{ popup: { root: { maxHeight: 420, overflow: 'auto' } } }}
         />
       </Modal>
     </div>

@@ -392,7 +392,7 @@ export default function ImportWizard({
               type={warnings.some((item) => item.level === 'warn' || item.level === 'error') ? 'warning' : 'info'}
               showIcon
               style={{ marginBottom: 10 }}
-              message={warnings.length + ' 条解析提示（不影响已识别的题目）'}
+              title={warnings.length + ' 条解析提示（不影响已识别的题目）'}
               description={
                 <div style={{ maxHeight: 96, overflow: 'auto', fontSize: 12 }}>
                   {warnings.map((item, index) => (
@@ -475,19 +475,19 @@ export default function ImportWizard({
 
       {step === 2 && (
         <div>
-          {target === 'repo' && <Alert type="info" showIcon message={'导入到题库：' + (repoName || '当前题库')} />}
+          {target === 'repo' && <Alert type="info" showIcon title={'导入到题库：' + (repoName || '当前题库')} />}
           {target === 'paper' && paperName && (
             <Alert
               type="info"
               showIcon
-              message={'将创建试卷：' + paperName}
+              title={'将创建试卷：' + paperName}
               description="先解析后建卷：创建失败不会留下空试卷。"
             />
           )}
           {target === 'paper' && !paperName && (
             <div style={{ marginTop: 8 }}>
               <Radio.Group value={destType} onChange={(e) => setDestType(e.target.value)}>
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   <Radio value="new-group">新建题组</Radio>
                   <Radio value="existing-group" disabled={!groups.length}>
                     导入到现有题组
@@ -543,8 +543,8 @@ export default function ImportWizard({
       title={target === 'repo' ? '导入题目到题库' : '导入试卷'}
       width={920}
       onCancel={onClose}
-      maskClosable={false}
-      destroyOnClose
+      mask={{ closable: false }}
+      destroyOnHidden
       footer={footer()}
     >
       {body}

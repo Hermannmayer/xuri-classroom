@@ -172,8 +172,8 @@ export default function ProjectBriefDrawer({
       title="试卷速览"
       open={open}
       onClose={onClose}
-      width="min(720px, 94vw)"
-      destroyOnClose
+      size="min(720px, 94vw)"
+      destroyOnHidden
       footer={
         project ? (
           <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
@@ -211,11 +211,11 @@ export default function ProjectBriefDrawer({
           <Spin />
         </div>
       ) : error ? (
-        <Alert type="error" showIcon message={error} />
+        <Alert type="error" showIcon title={error} />
       ) : !project ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有可预览的试卷" />
       ) : (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           {/* ① 标题行：卷名 + 分类 + 模式 + 发布状态 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span className="bp-title" style={{ fontSize: 17 }}>

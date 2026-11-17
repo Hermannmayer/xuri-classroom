@@ -1286,7 +1286,7 @@ export default function SurveyEditor() {
                     {quickSwitch('需要登录', setting.answerSetting?.loginRequired, (value) =>
                       patchAnswerSetting({ loginRequired: value }),
                     )}
-                    <Space direction="vertical" style={{ width: '100%', marginTop: 10 }}>
+                    <Space orientation="vertical" style={{ width: '100%', marginTop: 10 }}>
                       {scoringEnabled && (
                         <Button block onClick={openScoreModal}>
                           批量设置分值
@@ -1338,7 +1338,7 @@ export default function SurveyEditor() {
                         type="info"
                         showIcon
                         style={{ marginBottom: 10, alignItems: 'flex-start' }}
-                        message={
+                        title={
                           <span style={{ fontSize: 12 }}>这道题的题干被 AI 改过，改之前的样子已留快照</span>
                         }
                         action={
@@ -1482,7 +1482,7 @@ export default function SurveyEditor() {
         onOk={applyTypeScores}
         okText="应用设置"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
           勾选题型后输入分值，应用后这些题型的全部题目会统一改分；未勾选的题型保持不变。
@@ -1536,7 +1536,7 @@ export default function SurveyEditor() {
         onOk={applyRequired}
         okText="应用设置"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12 }}>
           勾选题型后统一设置必填状态；未勾选的题型保持不变。
@@ -1612,7 +1612,7 @@ export default function SurveyEditor() {
         title="主题 / 逻辑"
         open={themeOpen}
         onClose={() => setThemeOpen(false)}
-        width={400}
+        size={400}
         extra={
           <Button
             type="primary"
@@ -1783,7 +1783,7 @@ export default function SurveyEditor() {
         footer={null}
         width="96%"
         styles={{ body: { padding: 0, height: '85vh', overflow: 'hidden' } }}
-        destroyOnClose
+        destroyOnHidden
       >
         {previewOpen && (
           <iframe

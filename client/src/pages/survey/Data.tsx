@@ -715,7 +715,7 @@ export default function SurveyData() {
         okText="导出"
         cancelText="取消"
         confirmLoading={exporting}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.7, marginBottom: 10 }}>
           管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
@@ -739,12 +739,12 @@ export default function SurveyData() {
       <Drawer
         title="答卷详情"
         placement="right"
-        width="min(520px, 100vw)"
+        size="min(520px, 100vw)"
         open={Boolean(detail)}
         onClose={() => setDetail(undefined)}
       >
         {detail && (
-          <Space direction="vertical" size={14} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={14} style={{ width: '100%' }}>
             <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
               提交时间 {detail.createAt || EMPTY}
               {detail.createByName ? ` · ${detail.createByName}` : ''}

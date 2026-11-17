@@ -265,7 +265,7 @@ export default function RepoCategoryTree({
         confirmLoading={creating}
         okText="创建"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 8 }}>
           上级：{selectedMeta?.path || '根目录'}

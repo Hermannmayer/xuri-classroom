@@ -97,7 +97,7 @@ export default function RepoExportModal({
       cancelText="取消"
       confirmLoading={busy}
       okButtonProps={{ disabled: pwdRequired !== true }}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.8, marginBottom: 12 }}>
         未设置导出密码时会直接开始下载。要设置或清除导出密码，请到「系统设置 → 内容与隐私」。

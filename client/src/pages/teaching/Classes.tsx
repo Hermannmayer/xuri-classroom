@@ -1283,7 +1283,7 @@ export default function TeachingClasses() {
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message={tree.length === 0 ? '还没有班级，学员暂时无法注册' : '全局注册已开启，但你的班级还没有开放注册'}
+          title={tree.length === 0 ? '还没有班级，学员暂时无法注册' : '全局注册已开启，但你的班级还没有开放注册'}
           description={
             tree.length === 0
               ? '先新建教学班，并在班级设置里打开「开放注册」，登录页才会出现注册入口。'
@@ -1439,7 +1439,7 @@ export default function TeachingClasses() {
                   style={{ marginTop: 12 }}
                   type="info"
                   showIcon
-                  message="这是容器班，只做层级"
+                  title="这是容器班，只做层级"
                   description="容器班不直接收学员、不开放注册、不分配考试/题库；请从左侧选择下级的教学班。"
                 />
               )}
@@ -1449,7 +1449,7 @@ export default function TeachingClasses() {
                   style={{ marginTop: 12 }}
                   type="info"
                   showIcon
-                  message="你对该班级只有查看权限"
+                  title="你对该班级只有查看权限"
                   description="成员名单和学情仍可查看；添加学员、批量导入、编辑和删除需要「可管理」级别的授权。"
                 />
               )}
@@ -1586,13 +1586,13 @@ export default function TeachingClasses() {
           </Space>
         }
         width={isMobile ? '100%' : 860}
-        destroyOnClose
+        destroyOnHidden
       >
         <Alert
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message="把已有学员加入本班作为兼报班"
+          title="把已有学员加入本班作为兼报班"
           description="不改变学员的主班；兼报班能看到本班分配的考试/题库，成绩仍记主班。每人最多 3 个班（1 主班 + 2 兼报）。"
         />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -1656,13 +1656,13 @@ export default function TeachingClasses() {
         okText="保存"
         cancelText="取消"
         width={isMobile ? '94%' : 560}
-        destroyOnClose
+        destroyOnHidden
       >
         <Alert
           type="info"
           showIcon
           style={{ marginBottom: 14 }}
-          message="1 个主班 + 最多 2 个兼报班"
+          title="1 个主班 + 最多 2 个兼报班"
           description="主班决定学籍、资料维护和成绩归属；兼报班能看到该班分配的考试/题库。只能选择你有管理权限的教学班。"
         />
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 6 }}>主班（必选）</div>
@@ -1713,7 +1713,7 @@ export default function TeachingClasses() {
         okText="添加"
         cancelText="取消"
         width={isMobile ? '94%' : 520}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={memberForm} layout="vertical" size="small" preserve={false} requiredMark={false}>
           <Form.Item name="name" label="姓名" rules={[{ required: true, whitespace: true, message: '请填写学员姓名' }]}>
@@ -1756,7 +1756,7 @@ export default function TeachingClasses() {
         okText="保存"
         cancelText="取消"
         width={isMobile ? '94%' : 520}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           key={editingMember?.id || 'new'}
@@ -1825,7 +1825,7 @@ export default function TeachingClasses() {
         okButtonProps={{ danger: batchAction === 'delete' }}
         cancelText="取消"
         width={isMobile ? '94%' : 480}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ marginTop: 0 }}>
           已选 <b>{selectedMemberKeys.length}</b> 人。
@@ -1877,7 +1877,7 @@ export default function TeachingClasses() {
         okButtonProps={{ danger: true }}
         cancelText="取消"
         width={isMobile ? '94%' : 460}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ marginTop: 0 }}>
           即将删除学员「{deleteMemberTarget?.name || deleteMemberTarget?.phone || '—'}」的账号，删除后无法登录，且不可恢复。
@@ -1897,7 +1897,7 @@ export default function TeachingClasses() {
         onCancel={closeGrantModal}
         footer={null}
         width={isMobile ? '94%' : 680}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
           只读：可以查看本班（含下级班）的成员与学情；可管理：还能添加、编辑学员。两种级别都不能修改班级设置。
@@ -1994,13 +1994,13 @@ export default function TeachingClasses() {
         onCancel={() => setPendingOpen(false)}
         footer={null}
         width={isMobile ? '100%' : 820}
-        destroyOnClose
+        destroyOnHidden
       >
         <Alert
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message="学员自己注册后会出现在这里"
+          title="学员自己注册后会出现在这里"
           description="确认班级无误后点「通过」，学员就能用手机号 + 注册时设置的密码登录。需要换班时先改下拉里的班级再通过。"
         />
         {classOptions.length === 0 && (
@@ -2008,7 +2008,7 @@ export default function TeachingClasses() {
             type="warning"
             showIcon
             style={{ marginBottom: 12 }}
-            message="还没有可分配的班级"
+            title="还没有可分配的班级"
             description="请先在左侧新建班级，并在「班级设置 → 开放注册」里打开，学员注册页才会出现这个班。"
           />
         )}

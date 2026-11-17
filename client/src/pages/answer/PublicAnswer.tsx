@@ -1204,7 +1204,7 @@ export default function PublicAnswer() {
   if (fatal) {
     return (
       <div style={{ maxWidth: 480, margin: '80px auto', padding: 16 }}>
-        <Alert type="warning" showIcon message="无法打开这份问卷" description={fatal} />
+        <Alert type="warning" showIcon title="无法打开这份问卷" description={fatal} />
       </div>
     );
   }
@@ -1236,7 +1236,7 @@ export default function PublicAnswer() {
         <Alert
           type="info"
           showIcon
-          message="需要登录后作答"
+          title="需要登录后作答"
           description="这份问卷要求登录，请先登录再回到这个链接。"
           action={
             <Button size="small" type="primary" href={`/user/login?redirect=${encodeURIComponent(location.pathname)}`}>
@@ -1624,7 +1624,7 @@ export default function PublicAnswer() {
           <Alert
             type="error"
             showIcon
-            message="切屏次数已达上限，已自动交卷"
+            title="切屏次数已达上限，已自动交卷"
             description="本次作答已按考试规则自动提交，不能再修改答案。如需重考，请联系发布方。"
           />
         </div>
@@ -1820,7 +1820,7 @@ export default function PublicAnswer() {
         placement="right"
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        width={320}
+        size={320}
       >
         {Sheet}
         <div style={{ marginTop: 14, fontSize: 11, color: 'var(--bp-text-soft)' }}>

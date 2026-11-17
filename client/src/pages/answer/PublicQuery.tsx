@@ -236,7 +236,7 @@ export default function PublicQuery() {
           <Spin />
         </div>
       ) : fatal ? (
-        <Alert type="warning" showIcon message="无法打开查询" description={fatal} />
+        <Alert type="warning" showIcon title="无法打开查询" description={fatal} />
       ) : result ? (
         <Card className="bp-corners bp-card" styles={{ body: { padding: 20 } }}>
           <div

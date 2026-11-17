@@ -72,7 +72,7 @@ export default function TaskCenter() {
         activeKey={active}
         onChange={(key) => setParams({ tab: key }, { replace: true })}
         items={items}
-        destroyInactiveTabPane={false}
+        destroyOnHidden={false}
       />
     </div>
   );

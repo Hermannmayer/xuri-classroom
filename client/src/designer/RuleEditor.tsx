@@ -115,7 +115,7 @@ export default function RuleEditor({ value, questions, onChange }: RuleEditorPro
             background: 'rgba(0,0,0,0.12)',
           }}
         >
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <Select
                 size="small"

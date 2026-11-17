@@ -1159,7 +1159,7 @@ function ManagerProjectList({
         confirmLoading={creating}
         okText={createMode === 'exam' && createSource === 'compose' ? '下一步' : '创建'}
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
         width={createMode === 'exam' && createSource === 'import' ? 'min(980px, 96vw)' : 'min(560px, 94vw)'}
         footer={createMode === 'exam' && createSource === 'import' ? null : undefined}
         styles={{ body: { maxHeight: '72vh', overflowY: 'auto' } }}
@@ -1181,7 +1181,7 @@ function ManagerProjectList({
               type="info"
               showIcon
               style={{ marginBottom: 14 }}
-              message="问卷：适合收集、调研、报名"
+              title="问卷：适合收集、调研、报名"
               description="默认不判分；有回收上限、截止时间、匿名/登录和选项统计。需要成绩、排名、考试控制请选考试。"
             />
           ) : (
@@ -1189,7 +1189,7 @@ function ManagerProjectList({
               type="info"
               showIcon
               style={{ marginBottom: 14 }}
-              message="考试：适合测验、考核、练习"
+              title="考试：适合测验、考核、练习"
               description="默认计分；支持限时、切屏、排名、成绩单、补考和正确率分析。"
             />
           )}
@@ -1268,7 +1268,7 @@ function ManagerProjectList({
         confirmLoading={renameSaving}
         okText="确定"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={renameForm} layout="vertical" preserve={false}>
           <Form.Item name="name" label="名称" rules={[{ required: true, message: '请填写名称' }]}>

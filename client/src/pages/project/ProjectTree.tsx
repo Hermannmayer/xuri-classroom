@@ -253,7 +253,7 @@ export default function ProjectTree({
         confirmLoading={creating}
         okText="创建"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 8 }}>
           上级：{selectedId ? '当前选中的文件夹' : '根目录'}

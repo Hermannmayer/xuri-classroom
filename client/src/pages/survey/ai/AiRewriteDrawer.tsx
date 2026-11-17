@@ -114,8 +114,8 @@ export default function AiRewriteDrawer({
       title="AI 优化题干"
       open={open}
       onClose={onClose}
-      width={420}
-      destroyOnClose
+      size={420}
+      destroyOnHidden
       extra={
         <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={() => void load(style)}>
           换一批
@@ -161,7 +161,7 @@ export default function AiRewriteDrawer({
         {STYLE_OPTIONS.find((item) => item.value === style)?.hint}
       </div>
 
-      {error && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={error} />}
+      {error && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={error} />}
 
       {loading ? (
         <div style={{ padding: 28, textAlign: 'center' }}>

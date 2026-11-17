@@ -191,7 +191,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
       <Alert
         type="info"
         showIcon
-        message="你没有管理 MCP / API 令牌的权限"
+        title="你没有管理 MCP / API 令牌的权限"
         description="签发与撤销令牌需要 system:setting:update（管理员默认拥有）；当前账号只能查看系统设置，不能创建或撤销令牌。"
       />
     );
@@ -366,7 +366,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
         onCancel={() => setCreated(undefined)}
         // 不允许点遮罩 / ESC / 右上角叉关掉：必须点「我已保存」，少一次手滑丢令牌
         closable={false}
-        maskClosable={false}
+        mask={{ closable: false }}
         keyboard={false}
         width={560}
       >
@@ -374,7 +374,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message="关掉这个窗口就再也看不到明文了"
+          title="关掉这个窗口就再也看不到明文了"
           description="请立刻复制并保存到安全的地方。服务端只存 SHA-256 哈希，忘了只能撤销后重新签发；令牌等同于签发用户的权限，泄露请马上回来撤销。"
         />
         {plain ? (
@@ -400,7 +400,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
           <Alert
             type="error"
             showIcon
-            message="服务端没有返回明文"
+            title="服务端没有返回明文"
             description="响应里缺少 token 字段，令牌已经入库但拿不到明文。建议先撤销它，再检查后端 /api/system/api-token 的响应。"
           />
         )}

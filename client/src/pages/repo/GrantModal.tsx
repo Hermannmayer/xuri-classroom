@@ -292,13 +292,13 @@ export default function GrantModal({
         </Button>,
       ]}
       width={760}
-      destroyOnClose
+      destroyOnHidden
     >
       <Alert
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="题库只授权给教师用户组/个人；学员请到「班级管理 → 班级资源 → 题库」分配，不再在题库里直接授权学员/班级。"
+        title="题库只授权给教师用户组/个人；学员请到「班级管理 → 班级资源 → 题库」分配，不再在题库里直接授权学员/班级。"
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -410,7 +410,7 @@ export default function GrantModal({
           type="info"
           showIcon
           style={{ marginBottom: 8 }}
-          message={`只读：当前授权级别为「${levelText(myLevel)}」，只有「可授权」级别可以新增/调整授权。`}
+          title={`只读：当前授权级别为「${levelText(myLevel)}」，只有「可授权」级别可以新增/调整授权。`}
         />
       ) : (
         <>
@@ -438,7 +438,7 @@ export default function GrantModal({
             <Alert
               type="warning"
               showIcon
-              message="读不到用户组"
+              title="读不到用户组"
               description={`${deptError}；请确认 /api/system/dept/list 是否可用，或联系管理员给账号补上 org:list。`}
             />
           )}
@@ -453,7 +453,7 @@ export default function GrantModal({
               treeNodeFilterProp="title"
               treeDefaultExpandAll
               allowClear
-              dropdownStyle={{ maxHeight: 420, overflow: 'auto' }}
+              styles={{ popup: { root: { maxHeight: 420, overflow: 'auto' } } }}
             />
             <Button type="primary" loading={saving} onClick={() => void grant()}>
               授权该用户组
@@ -466,7 +466,7 @@ export default function GrantModal({
             <Alert
               type="warning"
               showIcon
-              message="读不到用户候选项"
+              title="读不到用户候选项"
               description={`${userListError}；可以改用「按用户组」授权，或请管理员确认 /api/system/user/options 是否正常。`}
             />
           ) : (

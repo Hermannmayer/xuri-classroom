@@ -118,7 +118,7 @@ export default function Register() {
         <Alert
           type="success"
           showIcon
-          message="注册申请已提交"
+          title="注册申请已提交"
           description="请把这个页面关掉也可以；审核通过后，用下面的手机号和刚才设置的密码登录。"
           style={{ marginBottom: 16 }}
         />
@@ -135,7 +135,7 @@ export default function Register() {
         <Alert
           type="info"
           showIcon
-          message="审核前登录会提示账号未启用"
+          title="审核前登录会提示账号未启用"
           description="如果长时间没有通过，请联系注册班级的班主任或系统管理员。"
           style={{ marginBottom: 16 }}
         />
@@ -151,7 +151,7 @@ export default function Register() {
       <Alert
         type="warning"
         showIcon
-        message="当前系统未开放注册"
+        title="当前系统未开放注册"
         description="管理员关闭了全局注册；请联系班主任或管理员直接开通账号。"
         action={
           <Button size="small" onClick={() => navigate('/user/login')}>
@@ -167,7 +167,7 @@ export default function Register() {
       <Alert
         type="warning"
         showIcon
-        message="当前没有班级开放注册"
+        title="当前没有班级开放注册"
         description="全局注册已开启，但还没有教学班开放注册；请联系班主任或管理员在「班级设置 → 开放注册」里打开一个班。"
         action={
           <Button size="small" onClick={() => navigate('/user/login')}>

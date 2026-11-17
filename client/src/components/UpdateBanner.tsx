@@ -75,9 +75,8 @@ export default function UpdateBanner({ authorities }: { authorities: string[] })
     <Alert
       type="info"
       showIcon
-      closable
       style={{ marginBottom: 12 }}
-      message={'发现新版本 v' + info.latestVersion + '（当前 v' + (info.currentVersion || '—') + '）'}
+      title={'发现新版本 v' + info.latestVersion + '（当前 v' + (info.currentVersion || '—') + '）'}
       description={
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ flex: 1, minWidth: 220, whiteSpace: 'pre-wrap' }}>
@@ -93,13 +92,15 @@ export default function UpdateBanner({ authorities }: { authorities: string[] })
           </Button>
         </div>
       }
-      onClose={() => {
-        try {
-          localStorage.setItem(dismissedKey, '1');
-        } catch {
-          // localStorage 不可用时只关闭本次
-        }
-        setInfo(undefined);
+      closable={{
+        onClose: () => {
+          try {
+            localStorage.setItem(dismissedKey, '1');
+          } catch {
+            // localStorage 不可用时只关闭本次
+          }
+          setInfo(undefined);
+        },
       }}
     />
   );

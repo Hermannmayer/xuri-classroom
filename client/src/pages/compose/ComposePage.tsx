@@ -443,10 +443,10 @@ export default function ComposePanel({
   return (
     <Drawer
       open={open}
-      width="96%"
+      size="96%"
       title="从题库组卷"
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden
       styles={{ body: { paddingTop: 12 } }}
     >
       <div style={{ padding: 4, maxWidth: 1380, margin: '0 auto' }}>
@@ -457,7 +457,7 @@ export default function ComposePanel({
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 680px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Card size="small" title="① 选题范围">
-            <Space direction="vertical" style={{ width: '100%' }} size={14}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={14}>
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>试卷名称</div>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：保育员三级模拟卷" />
@@ -526,7 +526,7 @@ export default function ComposePanel({
                 <Alert
                   type="info"
                   showIcon
-                  message={'可用题目 ' + stats.total + ' 题'}
+                  title={'可用题目 ' + stats.total + ' 题'}
                   description={
                     <Space wrap>
                       {Object.entries(stats.byType).map(([key, value]) => (
@@ -542,7 +542,7 @@ export default function ComposePanel({
           </Card>
 
           <Card size="small" title="② 组卷规则">
-            <Space direction="vertical" style={{ width: '100%' }} size={14}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={14}>
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>抽题方式</div>
                 <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
@@ -664,7 +664,7 @@ export default function ComposePanel({
             ) : (
               <>
                 {plan.warnings?.length > 0 && (
-                  <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={plan.warnings.join('；')} />
+                  <Alert type="warning" showIcon style={{ marginBottom: 8 }} title={plan.warnings.join('；')} />
                 )}
                 <Tabs
                   size="small"

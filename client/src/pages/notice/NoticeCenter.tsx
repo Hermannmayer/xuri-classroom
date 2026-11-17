@@ -514,7 +514,7 @@ export default function NoticeCenter() {
                 <Spin />
               </div>
             ) : listError ? (
-              <Alert type="error" showIcon message={listError} />
+              <Alert type="error" showIcon title={listError} />
             ) : rows.length === 0 ? (
               <div style={{ padding: '36px 8px' }}>
                 <Empty
@@ -685,7 +685,7 @@ export default function NoticeCenter() {
                 <Spin />
               </div>
             ) : detailError ? (
-              <Alert type="error" showIcon message={detailError} />
+              <Alert type="error" showIcon title={detailError} />
             ) : detail ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>

@@ -178,7 +178,7 @@ export default function ClassSettingsModal({
       okText={mode === 'edit' ? '保存' : '创建'}
       cancelText="取消"
       width="min(560px, 94vw)"
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.9, marginBottom: 12 }}>
         {mode === 'edit'
@@ -216,7 +216,7 @@ export default function ClassSettingsModal({
             treeDefaultExpandAll
             placeholder="选择上级班级（可留空）"
             treeData={parentTreeData}
-            dropdownStyle={{ maxHeight: 360, overflow: 'auto' }}
+            styles={{ popup: { root: { maxHeight: 360, overflow: 'auto' } } }}
           />
         </Form.Item>
 
@@ -244,7 +244,7 @@ export default function ClassSettingsModal({
             type="warning"
             showIcon
             style={{ marginBottom: 14 }}
-            message="全局注册已关闭"
+            title="全局注册已关闭"
             description="班级的「开放注册」不会生效，登录页也不会显示注册入口。请联系管理员在「系统设置 → 登录与注册」里打开。"
           />
         )}

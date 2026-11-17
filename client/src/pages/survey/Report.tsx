@@ -352,7 +352,7 @@ export default function SurveyReport() {
                 <Alert
                   type="error"
                   showIcon
-                  message="学情总结生成失败"
+                  title="学情总结生成失败"
                   description={`${aiError}。可以点右上角「重新生成」再试一次。`}
                 />
               ) : aiText ? (

@@ -500,7 +500,7 @@ export default function SurveyPrintPage() {
         title="卷头设置"
         open={headerOpen}
         onClose={() => setHeaderOpen(false)}
-        width={420}
+        size={420}
         extra={
           <Button type="primary" loading={headerSaving} onClick={() => void saveHeader()}>
             保存
