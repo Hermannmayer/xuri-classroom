@@ -165,11 +165,12 @@ class DashboardStatsServiceImplTest {
 			QueryWrapper<Answer> wrapper = invocation.getArgument(0);
 			String sql = wrapper.getSqlSegment().toUpperCase(Locale.ROOT);
 			Collection<Object> values = wrapper.getParamNameValuePairs().values();
+			// 已批改的 wrapper 也带 pending 参数（它是「不等于 pending」），所以先判 exam_score 条件
+			if (sql.contains("EXAM_SCORE IS NOT NULL")) {
+				return 3L;
+			}
 			if (values.contains("pending")) {
 				return 7L;
-			}
-			if (values.contains("graded")) {
-				return 3L;
 			}
 			if (sql.contains("CREATE_AT >=")) {
 				return 30L;

@@ -71,7 +71,7 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 
 | 接口 | 用途 | 主要口径 |
 |---|---|---|
-| `GET /api/dashboard/overview?days=14` | 管理员总览 | 用户三类互斥（管理员先从 staff 里扣除）；答卷排除练习伪项目；分数只算 `temp_save=1` 且有分；`graded` 含「历史自动判分」（`grade_status` 为空但有分数），否则 2.2.1 前的答卷会全被算成未批改 |
+| `GET /api/dashboard/overview?days=14` | 管理员总览 | 用户三类互斥（管理员先从 staff 里扣除）；答卷排除练习伪项目；分数只算 `temp_save=1` 且有分；`graded` = 有分数且不在 `pending`（覆盖 `none`/空/`graded` 三种历史值），否则批改进度会恒为 0% |
 | `GET /api/dashboard/trend?days=14` | 近 N 天趋势 | 自然日补空：缺日 0，`avgScores` 无样本给 null（折线断开，不画成 0 分） |
 | `GET /api/dashboard/teacher` | 老师视角 | 班级走可见性（accessible），项目=自建 ∪ 协作者 ∪ 可见班级上分配过的资源 |
 | `GET /api/dashboard/student` | 学员视角 | 答卷/均分排除练习；`todoExams`=班级资源已发布且在窗口内、本人未交 |
