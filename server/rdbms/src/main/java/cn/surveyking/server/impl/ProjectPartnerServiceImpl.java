@@ -14,8 +14,10 @@ import cn.surveyking.server.domain.dto.ProjectPartnerRequest;
 import cn.surveyking.server.domain.dto.ProjectPartnerView;
 import cn.surveyking.server.domain.dto.WhiteListRequest;
 import cn.surveyking.server.domain.mapper.ProjectPartnerViewMapper;
+import cn.surveyking.server.domain.model.Project;
 import cn.surveyking.server.domain.model.ProjectPartner;
 import cn.surveyking.server.domain.model.User;
+import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.mapper.ProjectPartnerMapper;
 import cn.surveyking.server.service.BaseService;
 import cn.surveyking.server.service.ProjectPartnerService;
@@ -73,6 +75,12 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 
 	/** 班级级答卷权限：考试分配给自己带的班时，数据页/报表也要能进（否则入口点进去 403） */
 	private final AnswerAccessGuard answerAccessGuard;
+
+	/** 文件夹授权要向下继承：需要 id/parent_id/mode 展开子项目 */
+	private final ProjectMapper projectMapper;
+
+	/** 文件夹最多嵌套多少层（防脏数据成环） */
+	private static final int MAX_FOLDER_DEPTH = 32;
 
 	/** 授权级别：1 只读 */
 	private static final int ACCESS_LEVEL_VIEW = 1;
@@ -331,10 +339,32 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		if (isBlank(projectId)) {
 			return 0;
 		}
-		String userId = SecurityContextUtils.getUserId();
 		if (SecurityContextUtils.isAdmin()) {
 			return ACCESS_LEVEL_GRANT;
 		}
+		// 沿祖先链向上找：文件夹授权对里面所有层级生效（以前只支持父/祖父两级，
+		// 文件夹套文件夹时第三层就失效，老师能看到入口但打不开）。
+		int level = directAccessLevel(projectId);
+		String cursor = projectId;
+		int depth = 0;
+		while (level < ACCESS_LEVEL_GRANT && depth++ < MAX_FOLDER_DEPTH) {
+			Project project = projectMapper.selectById(cursor);
+			if (project == null) {
+				break;
+			}
+			String parentId = project.getParentId();
+			if (isBlank(parentId) || "0".equals(parentId)) {
+				break;
+			}
+			level = Math.max(level, directAccessLevel(parentId));
+			cursor = parentId;
+		}
+		return level;
+	}
+
+	/** 项目自身的授权级别（不含文件夹继承） */
+	private int directAccessLevel(String projectId) {
+		String userId = SecurityContextUtils.getUserId();
 		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		List<ProjectPartner> partners = list(Wrappers.<ProjectPartner>lambdaQuery()
 				.eq(ProjectPartner::getProjectId, projectId).and(w -> {
@@ -457,7 +487,43 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 									ProjectPartnerTypeEnum.COLLABORATOR.getType())))
 					.stream().map(ProjectPartner::getProjectId).filter(Objects::nonNull).forEach(result::add);
 		}
-		return new ArrayList<>(result);
+		return new ArrayList<>(expandFolderGrants(result));
+	}
+
+	/**
+	 * 文件夹授权向下继承：被授权的文件夹 → 里面所有层级的项目都算「可见」。
+	 *
+	 * <p>列表/树靠 SQL 里的父级判断只能覆盖两层，数据页、报表、答卷列表这些走
+	 * {@link #getProjectPerms()} 的地方更是完全看不到文件夹里的考试——表现就是「文件夹授权了，
+	 * 点进去 403」。这里一次性把子孙项目展开，口径统一成「授权文件夹 = 授权里面的全部内容」。
+	 */
+	private Set<String> expandFolderGrants(Set<String> granted) {
+		if (granted.isEmpty()) {
+			return granted;
+		}
+		List<Project> projects = projectMapper.selectList(Wrappers.<Project>lambdaQuery()
+				.select(Project::getId, Project::getParentId, Project::getMode));
+		if (projects.isEmpty()) {
+			return granted;
+		}
+		java.util.Map<String, List<String>> children = new java.util.HashMap<>();
+		for (Project project : projects) {
+			if (project.getParentId() != null && !"0".equals(project.getParentId())) {
+				children.computeIfAbsent(project.getParentId(), k -> new java.util.ArrayList<>()).add(project.getId());
+			}
+		}
+		Set<String> result = new java.util.LinkedHashSet<>(granted);
+		java.util.Deque<String> queue = new java.util.ArrayDeque<>(granted);
+		int guard = 0;
+		while (!queue.isEmpty() && guard++ < 100000) {
+			String parent = queue.poll();
+			for (String child : children.getOrDefault(parent, java.util.Collections.emptyList())) {
+				if (result.add(child)) {
+					queue.add(child);
+				}
+			}
+		}
+		return result;
 	}
 
 	@Override

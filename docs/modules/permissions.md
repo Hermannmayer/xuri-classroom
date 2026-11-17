@@ -144,7 +144,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-18
-verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
+verified_against: 26879945ea89821635af3ca47ee818944183be99
 ---
 
 # 权限、角色与用户组
@@ -343,7 +343,7 @@ verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
 | 删考试 | `project:delete` + `assertCanEditProject` | owner/admin 或 access_level>=2；level1 只读 |
 | 编辑/发布考试 | `project:update`/`project:publish` + `assertCanEditProject` | owner/admin 或 level>=2；level1 后端 403 |
 | 项目成员/级别 | `project:partner` + `assertCanGrant` | owner/admin/access_level=3；level1/2 只读；`partner/update` 只能改 type=2 |
-| 文件夹授权 | `project:partner` + `assertCanGrant` | `FolderAuthModal` 内嵌 PartnerPanel；folder type 1/2/3；父/祖父两层使子项目在 list/tree/categories 可见，level>=2 也过子项目编辑闸门；更深不递归、成员管理不继承 |
+| 文件夹授权 | `project:partner` + `assertCanGrant` | `FolderAuthModal` 内嵌 PartnerPanel；folder type 1/2/3；**2026-11-18 起递归继承到里面所有层级**（可见性、编辑闸门、数据页/报表/答卷/批改都认），成员管理仍不继承 |
 | 编辑题库/导入 | `repo:update`/`template:update`/`template:import` + `assertManageRepo` | admin/创建者或 access_level>=2；level1 只读 |
 | 题库成员/级别 | `repo:grant` + `assertManagePermission` | admin/创建者或 access_level=3；level1/2 不能改成员 |
 | 改系统设置 | `system:setting:update` | 全局 |

@@ -17,8 +17,8 @@
 | `module-import` | 2026-11-17 | `988d65b0e72960d30932d32b8d3aa7c06df393c7` | 29 |
 | `module-mcp` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 31 |
 | `module-notice` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 18 |
-| `module-permissions` | 2026-11-18 | `8e240e6419dd02fa223eb90b23c1f535328d33c5` | 107 |
-| `module-project` | 2026-11-18 | `8e240e6419dd02fa223eb90b23c1f535328d33c5` | 26 |
+| `module-permissions` | 2026-11-18 | `26879945ea89821635af3ca47ee818944183be99` | 107 |
+| `module-project` | 2026-11-18 | `26879945ea89821635af3ca47ee818944183be99` | 26 |
 | `module-repo` | 2026-11-17 | `988d65b0e72960d30932d32b8d3aa7c06df393c7` | 33 |
 | `module-survey` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 79 |
 | `module-teaching` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 41 |

@@ -104,7 +104,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-18
-verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
+verified_against: 26879945ea89821635af3ca47ee818944183be99
 ---
 
 # 考试与问卷（项目）
@@ -250,6 +250,15 @@ verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
 2. 数据库：改 `server/rdbms/src/main/resources/scripts/init-mysql.sql`，同时在 `scripts/nas/migrate/` 新增幂等迁移；已有数据的库不要重跑 init 脚本。
 3. 前端：`client/src/schema/project.ts` 的类型、`client/src/api/index.ts` 的请求、页面表单。
 4. 更新本页 frontmatter 的 `source_globs` 与 `apis`。
+
+## 文件夹授权向下继承（2026-11-18）
+
+授权一个**文件夹**（`t_project_partner` 指向 mode=folder 的项目）等于授权它里面的**全部内容**：
+
+- `ProjectPartnerService#getProjectPerms` 把被授权文件夹的子孙项目递归展开（任意层级，防环深度 32），数据页/报表/答卷/批改都吃这套；
+- `ProjectPartnerService#accessLevel` 沿祖先链逐级向上找授权，嵌套文件夹里的考试也能正确得到 2（可编辑）而不是之前的 0；
+- 项目列表与树直接用展开后的可见集合过滤，不再用「父/祖父两级」的 SQL（原来套两层文件夹就看不见）；
+- 取消文件夹授权会连带回收子项目的可见性（集合重新计算），不需要逐个项目清。
 
 ## 班级级数据权限（2026-11）
 

@@ -92,6 +92,8 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		// 说明：项目列表的可见性判定全部落在下面的 EXISTS 子查询里，
 		// 依赖 t_user_dept（附加组）与 t_dept 的祖先链，改这段务必跑一次
 		// scripts/nas/Deploy-Nas.ps1 让冒烟测试覆盖到「试卷能列出来」。
+		List<String> grantedProjectIds = SecurityContextUtils.isAdmin() ? java.util.Collections.emptyList()
+				: projectPartnerService.getProjectPerms();
 		Page<Project> page = pageByQuery(query, Wrappers.<Project>lambdaQuery()
 				.like(isNotBlank(query.getName()), Project::getName, query.getName())
 				.eq(isNotBlank(query.getParentId()), Project::getParentId, query.getParentId())
@@ -117,14 +119,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 								+ " AND cr.resource_type = 'project' AND cr.is_deleted = 0"
 								+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",
 								SecurityContextUtils.getUserId())
-						// 父文件夹被授权：直接子项目继承可见/可读权限（文件夹授权）
-						.or()
-						.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
-								+ " ON pt.project_id = child.parent_id OR pt.project_id = (SELECT p2.parent_id FROM t_project p2 WHERE p2.id = child.parent_id) WHERE child.id = t_project.id"
-								+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
-								+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
-								+ " AND pt.type IN (1, 2, 3)",
-								SecurityContextUtils.getUserId()))
+						// 父文件夹被授权：子项目继承（文件夹授权，任意层级，由 getProjectPerms 展开）
+						.or(!grantedProjectIds.isEmpty())
+						.in(!grantedProjectIds.isEmpty(), Project::getId, grantedProjectIds))
 				// 分类过滤（放在可见性条件之后）：未分类是「NULL 或空串」，用 and(...) 包住避免 OR 串味
 				.and(uncategorized, c -> c.isNull(Project::getCategory).or().eq(Project::getCategory, ""))
 				.eq(category != null && !uncategorized, Project::getCategory, category)
@@ -158,24 +155,14 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Project> wrapper = Wrappers
 				.<Project>lambdaQuery().select(Project::getId, Project::getName, Project::getParentId, Project::getMode,
 						Project::getCreateAt);
-		// 可见性：管理员全量；其余人只看自己创建的、或被授权（t_project_partner type 1/2，含按用户组授权）
-		if (!SecurityContextUtils.isAdmin()) {
-			// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
-			wrapper.and(w -> w.eq(Project::getCreateBy, userId).or()
-					.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
-							+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
-							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
-							+ " AND t.type IN (1, 2)",
-							userId)
-					// 父文件夹授权：子项目继承（文件夹授权）
-					.or()
-					.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
-							+ " ON pt.project_id = child.parent_id OR pt.project_id = (SELECT p2.parent_id FROM t_project p2 WHERE p2.id = child.parent_id) WHERE child.id = t_project.id"
-							+ " AND (pt.user_id = {0} OR (pt.group_id IS NOT NULL AND pt.group_id IN ("
-							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
-							+ " AND pt.type IN (1, 2, 3)",
-							userId));
-		}
+		// 可见性：管理员全量；其余人只看自己创建的、或被授权（含文件夹授权的所有层级，见 getProjectPerms）
+			if (!SecurityContextUtils.isAdmin()) {
+				// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
+				List<String> grantedProjectIds = projectPartnerService.getProjectPerms();
+				wrapper.and(w -> w.eq(Project::getCreateBy, userId)
+						.or(!grantedProjectIds.isEmpty())
+						.in(!grantedProjectIds.isEmpty(), Project::getId, grantedProjectIds));
+			}
 		List<Project> projects = list(wrapper);
 		if (projects.isEmpty()) {
 			return new ArrayList<>();
@@ -471,19 +458,8 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权）。 */
 	private void assertCanEditProject(String projectId) {
+		// accessLevel 已经沿祖先链继承文件夹授权（任意层级），不再手写两级回溯
 		int level = projectPartnerService.accessLevel(projectId);
-		// 文件夹授权继承：直接父文件夹的级别也生效（与列表/树的可见性口径一致）
-		if (level < 2 && isNotBlank(projectId)) {
-			Project current = getById(projectId);
-			if (current != null && isNotBlank(current.getParentId()) && !"0".equals(current.getParentId())) {
-				String parentId = current.getParentId();
-				level = Math.max(level, projectPartnerService.accessLevel(parentId));
-				Project parent = getById(parentId);
-				if (parent != null && isNotBlank(parent.getParentId()) && !"0".equals(parent.getParentId())) {
-					level = Math.max(level, projectPartnerService.accessLevel(parent.getParentId()));
-				}
-			}
-		}
 		if (level < 2) {
 			throw new org.springframework.security.access.AccessDeniedException("没有编辑该项目的权限");
 		}

@@ -816,7 +816,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-18
-    verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
+    verified_against: 26879945ea89821635af3ca47ee818944183be99
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -922,7 +922,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-18
-    verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
+    verified_against: 26879945ea89821635af3ca47ee818944183be99
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
