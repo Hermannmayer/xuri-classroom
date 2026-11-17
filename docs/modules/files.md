@@ -62,7 +62,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: 6a251e737e06fb66049cc4eef9a921784c1679a4
 ---
 
 # 文件、附件与导入模板
