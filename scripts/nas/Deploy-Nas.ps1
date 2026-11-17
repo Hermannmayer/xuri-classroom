@@ -376,7 +376,9 @@ docker compose ps --format "  {{.Name}}  {{.Status}}"
 if ($nginxChanged) {
     Say '4b/6 重启 web 使 nginx 配置生效'
     $reloadNginx = @'
-cd "@COMPOSE@" || exit 1
+# 必须用绝对路径：远端脚本的 cwd 不是仓库根，早期写成 cd "@COMPOSE@" 会直接
+# 报 "No such file or directory"，nginx 没重启却继续往下走（哑失败）。
+cd "@REPO@/@COMPOSE@" || exit 1
 docker compose restart web
 for i in 1 2 3 4 5 6; do
   code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:201/ 2>/dev/null || true)
@@ -384,7 +386,7 @@ for i in 1 2 3 4 5 6; do
   sleep 2
 done
 echo "NGINX_UNHEALTHY"
-'@.Replace('@COMPOSE@', $ComposeDir)
+'@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
     $n = Invoke-NasScript -Body $reloadNginx -AllowFail
     if ($n.Output -match 'NGINX_UNHEALTHY') { Die 'nginx 重启后 12 秒内首页不是 200：检查 docker logs xuri-live-web，必要时 docker compose stop web 并回滚配置。' }
     else { $n.Output | Where-Object { $_ } | ForEach-Object { "  $_" } }
