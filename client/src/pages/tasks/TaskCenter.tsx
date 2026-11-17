@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { JSX } from 'react';
 import { Empty, Tabs } from 'antd';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';

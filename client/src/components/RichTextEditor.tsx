@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { JSX } from 'react';
 import { App, Spin } from 'antd';
 import {
   AlignCenterOutlined,
@@ -25,7 +26,7 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
-import TextStyle from '@tiptap/extension-text-style';
+import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import { Extension, mergeAttributes, Node } from '@tiptap/core';
 import DOMPurify from 'dompurify';
@@ -168,8 +169,13 @@ export default function RichTextEditor({
   const colorRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const editor = useEditor({
+    // tiptap 3 起 useEditor 默认不再「每次事务都重渲染」；工具栏高亮态是渲染时读
+    // editor.isActive() 得到的，关掉后移动光标/选中文字不会刷新，这里显式恢复 v2 的行为。
+    shouldRerenderOnTransaction: true,
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
+      // tiptap 3 的 StarterKit 已内置 link / underline，这里关掉内置的，
+      // 继续用下面自己 configure 过的版本（否则会报 Duplicate extension names）。
+      StarterKit.configure({ heading: { levels: [2, 3, 4] }, link: false, underline: false }),
       Underline,
       Link.configure({
         openOnClick: false,
@@ -204,7 +210,8 @@ export default function RichTextEditor({
     if (!editor) return;
     const current = editor.getHTML();
     if (value !== current && !editor.isFocused) {
-      editor.commands.setContent(value ?? '', false);
+      // tiptap 3 的 setContent 第二个参数改成了 options 对象，旧的布尔写法已移除
+      editor.commands.setContent(value ?? '', { emitUpdate: false });
     }
   }, [editor, value]);
 

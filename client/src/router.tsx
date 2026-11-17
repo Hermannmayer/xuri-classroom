@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import type { JSX } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import BasicLayout from './layout/BasicLayout';
 import RequirePerm from './components/RequirePerm';
