@@ -175,6 +175,15 @@ if (-not $ReloadOnly) {
     }
 }
 
+# ------ 0.7 web-watch 日志基线（必须在 git reset 之前抓）
+# 前端就绪的判定是「基线之后新增一条 built in」。基线如果在本脚本 reset 之后才记，
+# web-watch 早就重建完了，新增条数永远是 0 —— 实测会白等 240 秒然后报「前端产物没就绪」，
+# 而实际上产物已经好了（2026-11-17 首次 Java 25 部署就踩了这条）。
+$webWatchBaseline = 0
+$baselineProbe = Invoke-NasScript -Body 'docker logs xuri-live-web-watch 2>&1 | wc -l' -AllowFail
+if ($baselineProbe.Output -match '^\s*(\d+)') { $webWatchBaseline = [int]$Matches[1] }
+Write-Host "  · web-watch 日志基线 $webWatchBaseline 行（reset 前记录）"
+
 # ------ 0.6 后端单元测试
 # 目的：拆上帝类/改统计之前先有一层能红的网。9 个用例约 10 秒，每次发布都跑；
 # 紧急发布可用 -SkipTests 跳过（会打 Warn，便于事后追溯）。
@@ -409,10 +418,9 @@ if ($clientChanged) {
     # （2026-11-17 实测：改完文案部署，脚本报 READY，首页 hash 还是上一次的）。
     # 现在先记下 web-watch 当前日志行数，要求这次部署之后新增一条 built in 才算就绪。
     Say '等待前端产物就绪'
-    $beforeLines = 0
-    $probe = Invoke-NasScript -Body 'docker logs xuri-live-web-watch 2>&1 | wc -l' -AllowFail
-    if ($probe.Output -match '^\s*(\d+)') { $beforeLines = [int]$Matches[1] }
-    Write-Host "  (deploy 前 web-watch 日志 $beforeLines 行，等这次构建完成)"
+    # 复用 0.7 里在 git reset 之前抓的基线（reset 之后再抓会一直等不到新的 built in）
+    $beforeLines = $webWatchBaseline
+    Write-Host "  (reset 前 web-watch 日志 $beforeLines 行，等这次构建完成)"
     $wait = @'
 BEFORE=@BEFORE@
 for i in $(seq 1 120); do
