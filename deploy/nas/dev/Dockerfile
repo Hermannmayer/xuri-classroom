@@ -6,12 +6,12 @@
 # 这样系统盘升级、重装飞牛都不会破坏开发环境，也绝不会污染生产考试系统。
 #
 # 版本对齐（与仓库根目录 Dockerfile 保持一致，别随手升级）：
-#   JDK    8    ← 生产 Dockerfile 用 eclipse-temurin:25-jre-alpine（SQL 与字节码都是 8）
+#   JDK    25   ← 生产 Dockerfile 用 eclipse-temurin:25-jre-alpine（产物字节码 major 69）
 #   Node   20   ← 生产 Dockerfile 前端阶段用 node:20-alpine
-#   Gradle 7.6  ← 生产 Dockerfile 后端阶段用 gradle:9.9.1-jdk25
+#   Gradle 9.9.1 ← 生产 Dockerfile 后端阶段用 gradle:9.9.1-jdk25
 #
-# 注意：仓库自带的 gradle wrapper 是 7.1（server/gradle/wrapper/gradle-wrapper.properties），
-# 与这里的 7.6 有一个小版本差。用 `./gradlew` 会去下载 7.1，用 `gradle` 则直接用镜像里的 7.6。
+# 注意：仓库自带的 gradle wrapper 也是 9.9.1（server/gradle/wrapper/gradle-wrapper.properties），
+# 与镜像里的版本一致；用 `./gradlew` 或 `gradle` 都可以。
 # 想和 CI / 生产完全一致就用 `gradle`；两种都能构建，README「与仓库 Dockerfile 的差异」有说明。
 #
 # 构建（一般由 bootstrap.sh 或 docker compose 触发，不需要手动跑）：
@@ -34,7 +34,7 @@ FROM node:20-bookworm-slim AS node20
 # 阶段 2：真正的 devbox
 # jammy = Ubuntu 22.04，apt 生态最省事；VS Code 的 Remote server 也优先照顾 glibc 环境。
 # -----------------------------------------------------------------------------
-FROM eclipse-temurin:8-jdk-jammy
+FROM eclipse-temurin:25-jdk-jammy
 
 # TZ 先设好，后面 tzdata 装完直接按它落地，避免容器里时间差 8 小时导致日志/考试截止时间错乱
 ENV TZ=Asia/Shanghai \
@@ -83,24 +83,24 @@ RUN set -eux; \
     npm --version
 
 # -----------------------------------------------------------------------------
-# Gradle 7.6
+# Gradle 9.9.1
 #
-# 校验和来自官方分发地址 gradle-7.6-bin.zip.sha256（2026-11 核对）：
-#   https://services.gradle.org/distributions/gradle-7.6-bin.zip.sha256
+# 校验和来自官方分发地址 gradle-9.9.1-bin.zip.sha256（2026-11 核对）：
+#   https://services.gradle.org/distributions/gradle-9.9.1-bin.zip.sha256
 # 校验是防「网络中间人塞了个坏包 / 半截包」导致后面构建出现莫名其妙的
 # "Could not resolve" 报错 —— 一次 sha256 只要 1 秒。
 #
 # ┌─ 国内下载太慢怎么办 ────────────────────────────────────────────────┐
 # │ 换成腾讯云 / 阿里云的 Gradle 发行包镜像（字节与官方一致，校验和不变）： │
 # │   docker compose build --build-arg GRADLE_URL=\                        │
-# │     https://mirrors.cloud.tencent.com/gradle/gradle-7.6-bin.zip devbox │
+# │     https://mirrors.cloud.tencent.com/gradle/gradle-9.9.1-bin.zip devbox │
 # │ 如果镜像站自己重新打包过（校验和对不上），显式清空校验跳过：            │
 # │   --build-arg GRADLE_SHA256=                                          │
 # │ 但请优先找一个字节一致的镜像，别养成关闭校验的习惯。                    │
 # └──────────────────────────────────────────────────────────────────────┘
 # -----------------------------------------------------------------------------
-ARG GRADLE_VERSION=7.6
-ARG GRADLE_SHA256=7ba68c54029790ab444b39d7e293d3236b2632631fb5f2e012bb28b4ff669e4b
+ARG GRADLE_VERSION=9.9.1
+ARG GRADLE_SHA256=d8a18a7a841dd5df825d35a685fad6f2d7f12ac0c280e57b67c27b4a520ba228
 ARG GRADLE_URL=https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip
 
 RUN set -eux; \

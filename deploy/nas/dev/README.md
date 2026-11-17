@@ -1,6 +1,6 @@
 # 旭日云课堂 · 飞牛 NAS 开发环境
 
-在飞牛 fnOS（主机 `<nas-host>`）上用 **容器** 跑一套完整的开发环境：JDK 8 + Node 20 + Gradle 7.6 全部装在镜像里，**宿主机上一件东西都不用装**。
+在飞牛 fnOS（主机 `<nas-host>`）上用 **容器** 跑一套完整的开发环境：JDK 25 + Node 20 + Gradle 9.9.1 全部装在镜像里，**宿主机上一件东西都不用装**。
 
 这样做的目的只有一个：**飞牛系统升级/重装不会破坏任何开发工具链**，同时**生产考试系统不受任何影响**。
 
@@ -27,7 +27,7 @@ docker compose -f deploy/nas/dev/docker-compose.yml exec devbox bash
 
 | 文件 | 作用 |
 | --- | --- |
-| `Dockerfile` | devbox 镜像：`eclipse-temurin:8-jdk-jammy` + Node 20（从 `node:20-bookworm-slim` 多阶段 COPY）+ Gradle 7.6，非 root 用户 `dev`（uid/gid **1000**，对齐 NAS 登录用户），`CMD sleep infinity` 供 VS Code attach |
+| `Dockerfile` | devbox 镜像：`eclipse-temurin:25-jdk-jammy` + Node 20（从 `node:20-bookworm-slim` 多阶段 COPY）+ Gradle 9.9.1，非 root 用户 `dev`（uid/gid **1000**，对齐 NAS 登录用户），`CMD sleep infinity` 供 VS Code attach |
 | `docker-compose.yml` | Compose 项目 `xuri-dev`：`devbox`（开发容器）+ `db`（MySQL 8.0）；全部 `restart: unless-stopped`、日志滚动 10m×3 |
 | `bootstrap.sh` | NAS 上一键引导（**幂等**）：建目录 → 检查 docker/compose → 检查端口 → 构建 → 预置卷属主 → `up -d` → 打印 VS Code 步骤 |
 | `gradle-init.gradle` | 可选：Gradle 依赖走阿里云镜像（默认不生效，见「国内网络加速」） |
@@ -125,7 +125,7 @@ docker compose -f <data-root>/src/deploy/nas/dev/docker-compose.yml exec devbox 
 
 ```bash
 cd /workspace/server
-gradle :api:bootJar -x test          # 用镜像里的 Gradle 7.6，与生产 Dockerfile 一致
+gradle :api:bootJar -x test          # 用镜像里的 Gradle 9.9.1，与生产 Dockerfile 一致
 java -jar api/build/libs/xuri-classroom-v1.13.0.jar
 ```
 
@@ -167,20 +167,20 @@ npm run dev                          # Vite 监听容器内 80
 
 | 项 | 生产 `Dockerfile` | 本目录 `Dockerfile` | 为什么 |
 | --- | --- | --- | --- |
-| JDK | `eclipse-temurin:8-jre-alpine`（只要 JRE） | `eclipse-temurin:8-jdk-jammy`（JDK + glibc） | 开发要编译（javac），还要跑 VS Code server；glibc 比 musl 少踩坑 |
+| JDK | `eclipse-temurin:25-jre-alpine`（只要 JRE） | `eclipse-temurin:25-jdk-jammy`（JDK + glibc） | 开发要编译（javac），还要跑 VS Code server；glibc 比 musl 少踩坑 |
 | Node | `node:20-alpine` | `node:20-bookworm-slim`（多阶段 COPY 二进制） | 同为 20.x；运行环境是 glibc，不把 musl 的 node 混进来 |
-| Gradle | `gradle:7.6-jdk8` | 手装 **7.6** 发行包 | 与生产同一个版本 |
+| Gradle | `gradle:9.9.1-jdk25` | 手装 **9.9.1** 发行包 | 与生产同一个版本 |
 | 入口 | 由 nginx / `java -jar` 驱动 | `CMD ["sleep","infinity"]` | 容器只负责「活着」，等 VS Code attach |
 
-### Gradle 7.1 vs 7.6 —— 这个差异要知道
+### Gradle 版本已经对齐（都是 9.9.1）
 
 - 仓库里的 wrapper 是 **7.1**：`server/gradle/wrapper/gradle-wrapper.properties` 里 `gradle-7.1-bin.zip`
-- 生产 `Dockerfile` 用的是 **7.6**（`gradle:7.6-jdk8`），本镜像也对齐 7.6
+- 生产 `Dockerfile` 用的是 **9.9.1**（`gradle:9.9.1-jdk25`），本镜像也对齐 9.9.1
 - 所以：
-  - `gradle :api:bootJar -x test` → 用镜像里的 **7.6**，不用下载，**和 CI / 生产一致**（推荐）
+  - `gradle :api:bootJar -x test` → 用镜像里的 **9.9.1**，不用下载，**和 CI / 生产一致**（推荐）
   - `./gradlew :api:bootJar -x test` → 用 wrapper，会在 `~/.gradle/wrapper`（即 `xuri-dev-gradle-cache` 卷）里下载 **7.1**，第一次慢，之后复用
 
-两个版本都能构建这个项目。要「和上线产物一模一样」就用 `gradle`；要「和本地 Windows 上的 wrapper 行为一致」就用 `./gradlew`。**别急着把 wrapper 升到 7.6**，那属于另一个改动，先单独验证。
+现在 wrapper 与镜像里都是 9.9.1，不再有版本差。要「和上线产物一模一样」就用 `gradle`；要「和本地 Windows 上的 wrapper 行为一致」就用 `./gradlew`。**别急着把 wrapper 升到 7.6**，那属于另一个改动，先单独验证。
 
 ---
 
@@ -208,7 +208,7 @@ Gradle 发行包本身也能换镜像（镜像字节一致，校验和不变）�
 
 ```bash
 docker compose -f deploy/nas/dev/docker-compose.yml build \
-  --build-arg GRADLE_URL=https://mirrors.cloud.tencent.com/gradle/gradle-7.6-bin.zip devbox
+  --build-arg GRADLE_URL=https://mirrors.cloud.tencent.com/gradle/gradle-9.9.1-bin.zip devbox
 ```
 
 ### npm 依赖慢
@@ -392,7 +392,7 @@ docker compose -f <data-root>/src/deploy/nas/dev/docker-compose.yml \
 | 资源上限（devbox 3g / db 512m） | ⚠️ 只是静态配置，没在 8GB 机器上实测过 OOM 阈值；`db` 512m 靠 `buffer-pool 256M` + `performance-schema=OFF` 站住，见「常见故障 · 内存」 |
 | `sysctls: ip_unprivileged_port_start=80` | ⚠️ 未在有 Docker 的机器上验证（Docker 20.10+ 默认已是 0）；`bootstrap.sh` 起来后会自检并打印真实值 |
 | `bootstrap.sh` | ✅ `bash -n` 语法检查通过（bash 5.3.9），⚠️ 未在飞牛实机跑过（`ss`/`docker compose run` 的参数行为靠文档核对） |
-| `Dockerfile` | ⚠️ 未 build 过。基础镜像 tag（`eclipse-temurin:8-jdk-jammy`、`node:20-bookworm-slim`）已确认存在，Gradle 7.6 的 sha256 取自官方 `gradle-7.6-bin.zip.sha256` |
+| `Dockerfile` | ⚠️ 未 build 过。基础镜像 tag（`eclipse-temurin:25-jdk-jammy`、`node:20-bookworm-slim`）已确认存在，Gradle 9.9.1 的 sha256 取自官方 `gradle-9.9.1-bin.zip.sha256` |
 | `gradle-init.gradle` | ⚠️ 未执行（无 gradle 环境），只做了结构核对 |
 | VS Code Attach 流程 | ⚠️ 未实测（需要 NAS 上的 SSH + 扩展） |
 

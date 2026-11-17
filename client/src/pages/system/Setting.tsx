@@ -26,6 +26,7 @@ import { WATERMARK_EVENT } from '../../components/Watermark';
 import type { WatermarkMode } from '../../components/Watermark';
 import type { RegisterOptions } from '../../api';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
+import ApiTokenPanel from './ApiTokenPanel';
 
 /** 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏） */
 interface AiSetting {
@@ -111,7 +112,8 @@ interface UpdateCheckInfo {
 }
 
 /**
- * 系统设置：四个区块（基本 / 登录与注册 / 内容与隐私 / AI），每个区块只渲染一次。
+ * 系统设置：基本 / 登录与注册 / 内容与隐私 / 答卷导出 / 匿名答卷 / 检查更新 / AI /
+ * MCP 令牌，每个区块只渲染一次。
  *
  * 历史问题：早先「内容与隐私保护」是一张放在 Tabs 之外的 Card，切到任何 Tab 它都挂在下面，
  * 看起来就像每个 Tab 都重复了一遍；现在它有自己的 Tab，页面里只有一份。
@@ -125,6 +127,11 @@ interface UpdateCheckInfo {
  *   划重点：只有 content:protect 的角色能改这一页，但改不了「基本 / 登录与注册 / AI」；
  *   反之只有 system:setting:update 的角色看这一页是只读（新接口不认那个权限），
  *   但「导出密码」那一行仍然走 /api/system/update，只受 system:setting:update 控制。
+ *
+ * 「MCP / API 令牌」是第三个自管状态的面板（见 ApiTokenPanel.tsx）：不走保存按钮，
+ * 列表 / 签发 / 撤销都是即时生效的独立接口（GET/POST /api/system/api-token、
+ * POST /api/system/api-token/revoke），权限同样是 system:setting:update。
+ * 没有该权限时不渲染列表、也不发请求，只显示一句说明。
  *
  * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
  * setting.copyright、setting.recordNum、setting.favicon。
@@ -945,6 +952,12 @@ export default function SystemSetting() {
                     )}
                   </>
                 ),
+              },
+              {
+                key: 'token',
+                label: 'MCP / API 令牌',
+                // 这个 Tab 没有 Form 字段，不设 forceRender：第一次点开时才挂载、才发请求
+                children: <ApiTokenPanel canManage={canUpdate} />,
               },
             ]}
           />
