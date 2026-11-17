@@ -34,7 +34,7 @@ dependencies {
     // 2.2.3 起已经升到 Java 25，理论上可以升 PDFBox 3.x，但那是破坏性 API 变更（Loader.loadPDF /
     // PDPageContentStream 等），而 PDF 导出是刚上线的核心功能——本轮刻意不动，单独立项再升。
     // 字体见 src/main/resources/fonts/answer-pdf.ttf（霞鹜文楷子集，OFL-1.1）。
-    implementation 'org.apache.pdfbox:pdfbox:2.0.30'
+    implementation 'org.apache.pdfbox:pdfbox:3.0.8'
     // 题库/试卷富文本：服务端白名单消毒（前端 DOMPurify 只是第一道）
     // 富文本 XSS 的服务端第一道防线，跟着上游升到最新
     implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20261110.1'
