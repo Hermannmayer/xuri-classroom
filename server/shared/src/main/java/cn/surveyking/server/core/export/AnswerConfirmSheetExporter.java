@@ -64,8 +64,17 @@ public final class AnswerConfirmSheetExporter {
 	/** 页脚：说清这张纸的来历，避免被当成正式成绩证明流传出去 */
 	private static final String FOOTER = "本确认单由系统按交卷数据生成，共一页；签字后由班级统一归档。";
 
-	/** 默认及格线（分）：调用方没配时的口径，和成绩单/报表里的默认值保持一致 */
+	/**
+	 * 及格线的兜底值（分）：只在「调用方没配、也拿不到卷面满分」时使用。
+	 *
+	 * <p>
+	 * 它不能再当成默认口径：满分 120 的卷子按 60 分及格，等于放水一半（实际及格线应是 72）。
+	 * 真实默认值见 {@link #resolvePassScore(Double, Double)}。
+	 */
 	public static final double DEFAULT_PASS_SCORE = 60d;
+
+	/** 默认及格线占卷面满分的比例：60% 及格是学校里的通用口径，也和后端报表的 PASS_RATE 一致 */
+	private static final double PASS_RATE = 0.6d;
 
 	/* ------ 版面（pt；A4 纵向 = 595.28 x 841.89） ------ */
 
@@ -159,8 +168,21 @@ public final class AnswerConfirmSheetExporter {
 	 */
 	public static final class ConfirmOptions {
 
-		/** 及格线（分）：默认 {@link #DEFAULT_PASS_SCORE} */
-		private Double passScore = Double.valueOf(DEFAULT_PASS_SCORE);
+		/**
+		 * 及格线（分）：{@code null} 表示「按卷面满分×60% 自动算」，取不到满分才回退
+		 * {@link #DEFAULT_PASS_SCORE}。
+		 *
+		 * <p>
+		 * 默认值从 60 改成 null 是这次修的核心：60 分放在满分 150 的卷子上是 40% 及格，
+		 * 放在满分 50 的卷子上又全员不及格，只有跟着满分走才是对的。
+		 */
+		private Double passScore;
+
+		/**
+		 * 卷面满分（分）：可选。调用方手里已经有整卷总分（例如导出任务算过一遍）时传进来，
+		 * 单页确认单就能直接按它算默认及格线；不传则由渲染器自己从卷面 schema 汇总。
+		 */
+		private Double maxScore;
 
 		/** 第几次作答（t_answer.attempt_no，从 0 开始）；null 表示不显示 */
 		private Integer attemptNo;
@@ -171,6 +193,13 @@ public final class AnswerConfirmSheetExporter {
 		public ConfirmOptions passScore(Double passScore) {
 			if (passScore != null) {
 				this.passScore = passScore;
+			}
+			return this;
+		}
+
+		public ConfirmOptions maxScore(Double maxScore) {
+			if (maxScore != null) {
+				this.maxScore = maxScore;
 			}
 			return this;
 		}
@@ -187,6 +216,10 @@ public final class AnswerConfirmSheetExporter {
 
 		public Double getPassScore() {
 			return passScore;
+		}
+
+		public Double getMaxScore() {
+			return maxScore;
 		}
 
 		public Integer getAttemptNo() {
@@ -361,8 +394,8 @@ public final class AnswerConfirmSheetExporter {
 
 		// 右：是否及格。文字而不是色块：黑白打印机上色块全变灰，字不会。
 		// 及格线跟在标签里而不是单独一行：数字位数多时（12.5 分 / 1000 分）单独一行会和小计撞在一起
-		String pass = passText(answer, opts);
-		Color passColor = passColor(answer, opts);
+		String pass = passText(answer, opts, summary.maxScore);
+		Color passColor = passColor(answer, opts, summary.maxScore);
 		String passLabel = "是否及格 · " + passLineText(summary, opts);
 		canvas.textAt(passLabel, PAGE_WIDTH - MARGIN_X - 18f - canvas.width(passLabel, CARD_LABEL_SIZE),
 				cardTop - 22f, CARD_LABEL_SIZE, false, COLOR_SOFT);
@@ -471,20 +504,20 @@ public final class AnswerConfirmSheetExporter {
 		return examInfo.getQuestionScore().get(questionId);
 	}
 
-	private static String passText(AnswerView answer, ConfirmOptions opts) {
+	private static String passText(AnswerView answer, ConfirmOptions opts, Double maxScore) {
 		Double total = answer.getExamScore();
 		if (total == null) {
 			return "—";
 		}
-		return isPassed(total, opts) ? "及格" : "不及格";
+		return isPassed(total, opts, maxScore) ? "及格" : "不及格";
 	}
 
-	private static Color passColor(AnswerView answer, ConfirmOptions opts) {
+	private static Color passColor(AnswerView answer, ConfirmOptions opts, Double maxScore) {
 		Double total = answer.getExamScore();
 		if (total == null) {
 			return COLOR_SOFT;
 		}
-		return isPassed(total, opts) ? COLOR_PASS : COLOR_FAIL;
+		return isPassed(total, opts, maxScore) ? COLOR_PASS : COLOR_FAIL;
 	}
 
 	/**
@@ -492,25 +525,86 @@ public final class AnswerConfirmSheetExporter {
 	 *
 	 * <p>
 	 * 公开：导出任务要按同一条及格线填名册的「是否及格」列，两边各写一份迟早会分叉。
+	 * 及格线用 {@code options} 上的 passScore / maxScore 推算；渲染确认单时用带
+	 * {@code maxScore} 的重载把卷面满分一起传进来，两处口径才会真的一致。
 	 */
 	public static boolean isPassed(Double total, ConfirmOptions options) {
+		return isPassed(total, options, null);
+	}
+
+	/**
+	 * 及格判定（已知卷面满分时用这个重载）。
+	 * @param total 总分，null 表示还没出分 → 一律 false，由调用方显示「未评分」
+	 * @param options 选项（显式 passScore 优先，其次它自带的 maxScore）
+	 * @param maxScore 卷面满分，可为空：options 里也没给时用它算默认及格线
+	 * @return 是否达到及格线
+	 */
+	public static boolean isPassed(Double total, ConfirmOptions options, Double maxScore) {
 		if (total == null) {
 			return false;
 		}
-		return total.doubleValue() >= passScore(options == null ? new ConfirmOptions() : options);
+		return total.doubleValue() >= passScore(options, maxScore);
 	}
 
+	/**
+	 * 及格线的唯一算法：显式配置 &gt; 卷面满分×60%（保留 1 位小数）&gt; {@link #DEFAULT_PASS_SCORE}。
+	 *
+	 * <p>
+	 * 为什么按比例而不是继续写死 60：满分 120 的卷子 60 分才及格等于放水一半，
+	 * 满分 50 的卷子又全员不及格。取不到满分（老数据没有 examScore、题目没配分）时才回退 60，
+	 * 因为「不知道满分」的情况下 60 仍然是最不坏的口径。
+	 * @param configured 调用方显式指定的及格线，null 表示没指定
+	 * @param maxScore 卷面满分，null / 非正数表示取不到
+	 * @return 及格线（分）
+	 */
+	static double resolvePassScore(Double configured, Double maxScore) {
+		if (configured != null) {
+			return configured.doubleValue();
+		}
+		if (maxScore != null && maxScore.doubleValue() > 0d) {
+			// 保留 1 位小数：满分 120.5 的 60% 是 72.3，格子上写 72.30000000000001 会显得系统不靠谱
+			return Math.round(maxScore.doubleValue() * PASS_RATE * 10d) / 10d;
+		}
+		return DEFAULT_PASS_SCORE;
+	}
+
+	/** 及格线：options 自带的 maxScore 优先，其次调用方传进来的卷面满分 */
+	private static double passScore(ConfirmOptions opts, Double maxScore) {
+		ConfirmOptions options = opts == null ? new ConfirmOptions() : opts;
+		Double known = options.getMaxScore() != null && options.getMaxScore().doubleValue() > 0d ? options.getMaxScore()
+				: maxScore;
+		return resolvePassScore(options.getPassScore(), known);
+	}
+
+	/** 及格线（没有卷面满分可用的场景，例如名册副标题） */
 	private static double passScore(ConfirmOptions opts) {
-		Double configured = opts.getPassScore();
-		return configured == null ? DEFAULT_PASS_SCORE : configured.doubleValue();
+		return passScore(opts, null);
 	}
 
+	/**
+	 * 得分卡片上的「是否及格 · 及格线 X 分」。
+	 *
+	 * <p>
+	 * 默认及格线是算出来的（满分×60%）时把算式写出来：学员看到「及格线 72 分」，
+	 * 会拿满分 120 去核 60 分对不对，写清「满分 120 的 60%」省掉一轮解释。
+	 */
 	private static String passLineText(ScoreSummary summary, ConfirmOptions opts) {
+		ConfirmOptions options = opts == null ? new ConfirmOptions() : opts;
+		Double max = options.getMaxScore() != null && options.getMaxScore().doubleValue() > 0d ? options.getMaxScore()
+				: summary.maxScore;
+		double line = resolvePassScore(options.getPassScore(), max);
 		StringBuilder text = new StringBuilder();
-		text.append("及格线 ").append(AnswerPdfExporter.formatScore(Double.valueOf(passScore(opts)))).append(" 分");
-		if (summary.maxScore != null && summary.maxScore.doubleValue() < passScore(opts)) {
-			// 满分 50 的卷子按 60 分及格线判，全员不及格：把原因写在单子上，别让学员以为系统算错
-			text.append("（高于卷面满分）");
+		text.append("及格线 ").append(AnswerPdfExporter.formatScore(Double.valueOf(line))).append(" 分");
+		if (max != null && max.doubleValue() > 0d) {
+			if (options.getPassScore() != null) {
+				if (max.doubleValue() < line) {
+					// 满分 50 的卷子按 60 分及格线判，全员不及格：把原因写在单子上，别让学员以为系统算错
+					text.append("（高于卷面满分）");
+				}
+			}
+			else {
+				text.append("（满分 ").append(AnswerPdfExporter.formatScore(max)).append(" 的 60%）");
+			}
 		}
 		return text.toString();
 	}
@@ -764,7 +858,8 @@ public final class AnswerConfirmSheetExporter {
 		ScoreSummary summary = summarize(project, answer);
 		return new Entry().name(answererName(answer)).className(trim(className)).totalScore(answer.getExamScore())
 				.objectiveScore(summary.objectiveScore).subjectiveScore(summary.subjectiveScore)
-				.passed(isPassed(answer.getExamScore(), options)).maxScore(summary.maxScore);
+				// 名册每行的「是否及格」与单人确认单同一条及格线：卷面满分在这里是现成的
+				.passed(isPassed(answer.getExamScore(), options, summary.maxScore)).maxScore(summary.maxScore);
 	}
 
 	/* ------ 名册内部实现 ------ */
@@ -872,8 +967,47 @@ public final class AnswerConfirmSheetExporter {
 			parts.add("班级：" + trim(className));
 		}
 		parts.add("导出时间：" + new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()));
-		parts.add("及格线：" + AnswerPdfExporter.formatScore(Double.valueOf(passScore(opts))) + " 分");
+		parts.add(rosterPassLine(rows, opts));
 		return String.join("    ", parts);
+	}
+
+	/**
+	 * 名册副标题的及格线文案（如「及格线：72 分（满分 120 的 60%）」）。
+	 *
+	 * <p>
+	 * 必须和每行的「是否及格」用同一条线：每行的满分由 {@link #entryOf} 从卷面汇总得到，
+	 * 这里取「所有行都一样」的那个满分；各行满分不同（整卷导出混了几个班、卷子还不一样）时
+	 * 不拿任何一行的满分去当整表的满分——写「及格线 72 分」配一张 50 分满分的表，
+	 * 老师第一反应就是系统算错了。
+	 */
+	private static String rosterPassLine(List<Entry> rows, ConfirmOptions opts) {
+		ConfirmOptions options = opts == null ? new ConfirmOptions() : opts;
+		Double max = options.getMaxScore() != null && options.getMaxScore().doubleValue() > 0d ? options.getMaxScore()
+				: commonMaxScore(rows);
+		double line = resolvePassScore(options.getPassScore(), max);
+		String text = "及格线：" + AnswerPdfExporter.formatScore(Double.valueOf(line)) + " 分";
+		if (max != null && max.doubleValue() > 0d && options.getPassScore() == null) {
+			text = text + "（满分 " + AnswerPdfExporter.formatScore(max) + " 的 60%）";
+		}
+		return text;
+	}
+
+	/** 整表统一的卷面满分：所有行报的是同一个正数才返回它，否则返回 null（不猜） */
+	private static Double commonMaxScore(List<Entry> rows) {
+		Double common = null;
+		for (Entry entry : rows) {
+			Double max = entry == null ? null : entry.getMaxScore();
+			if (max == null || max.doubleValue() <= 0d) {
+				continue;
+			}
+			if (common == null) {
+				common = max;
+			}
+			else if (Math.abs(common.doubleValue() - max.doubleValue()) > 1e-6d) {
+				return null;
+			}
+		}
+		return common;
 	}
 
 	/** 画表头 + 本页的数据行 + 网格线，返回表格底边 */

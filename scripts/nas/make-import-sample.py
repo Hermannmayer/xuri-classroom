@@ -3,7 +3,7 @@
 """生成一份覆盖新题型的导入测试 xlsx（含一张内嵌图片）。
 
 只用于验收，放到 scripts/nas 下方便复用；不会被打包进服务端。
-用法：python scripts/nas/make-import-sample.py --out %TEMP%\import-sample.xlsx
+用法：python scripts/nas/make-import-sample.py --out %TEMP%/import-sample.xlsx
 """
 import argparse
 import os

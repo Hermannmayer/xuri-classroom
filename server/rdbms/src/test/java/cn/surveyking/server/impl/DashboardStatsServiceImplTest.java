@@ -43,9 +43,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,7 +66,9 @@ import static org.mockito.Mockito.when;
  * <li>passRate 的分母是「有分数的答卷数」，不是全部答卷；没有样本时为 null；</li>
  * <li>待批改/已批改按 grade_status 分别计数，且都只在正式答卷（temp_save=1）里数；</li>
  * <li>「进行中的考试」只能靠 setting JSON 里的 examSetting 时间窗判断（t_project 没有时间列），
- * 脏 JSON 要按「不限时间」兜底而不是让整块变 0。</li>
+ * 脏 JSON 要按「不限时间」兜底而不是让整块变 0；</li>
+ * <li>老师趋势与老师首页同一批可见项目（文件夹不算），没有可见项目时给整段 0 的完整窗口；
+ * 学员首页的 recent 固定 20 条（走势图只画趋势）。</li>
  * </ol>
  */
 class DashboardStatsServiceImplTest {
@@ -296,6 +300,89 @@ class DashboardStatsServiceImplTest {
 	}
 
 	@Test
+	@DisplayName("老师趋势：只统计可见项目（文件夹不算），补空规则与全站一致")
+	void teacherTrendScopesToVisibleProjects() {
+		login("t1");
+		when(classService.listClassTree(null)).thenReturn(List.of(classNode("c1", true)));
+		when(userDeptScopeService.resolveDeptScope("t1")).thenReturn(Set.of());
+		// 可见项目：自己建的 p1、协作者 p2、班级分配的 p3，外加一个文件夹 f1（文件夹不是可作答项目）
+		when(projectMapper.selectObjs(any())).thenReturn(List.of("p1", "f1"));
+		when(projectPartnerMapper.selectObjs(any())).thenReturn(List.of("p2"));
+		when(classResourceMapper.selectObjs(any())).thenReturn(List.of("p3"));
+		when(projectMapper.selectMaps(any())).thenReturn(List.of(projectRow("p1", "exam"),
+			projectRow("f1", "folder"), projectRow("p2", "exam"), projectRow("p3", "survey")));
+		Map<String, Object> todayRow = new HashMap<>();
+		todayRow.put("stat_day", java.sql.Date.valueOf(LocalDate.now()));
+		todayRow.put("cnt", 2L);
+		todayRow.put("graded_cnt", 1L);
+		todayRow.put("avg_score", 88D);
+		todayRow.put("active_cnt", 2L);
+		when(answerMapper.selectMaps(any())).thenReturn(List.of(todayRow));
+
+		DashboardTrendView view = service().teacherTrend(3);
+
+		assertEquals(3, view.getDays().size());
+		assertEquals(Arrays.asList(0L, 0L, 2L), view.getAnswers());
+		assertEquals(Arrays.asList(0L, 0L, 1L), view.getGraded());
+		assertNull(view.getAvgScores().get(0));
+		assertEquals(88D, view.getAvgScores().get(2), 0.0001D);
+		// 统计范围必须是「可见项目」：全站口径会把别人的卷子也画进来
+		QueryWrapper<Answer> wrapper = capturedAnswerWrapper();
+		String sql = wrapper.getCustomSqlSegment().toUpperCase(Locale.ROOT);
+		assertTrue(sql.contains("PROJECT_ID IN"), sql);
+		assertTrue(sql.contains("TEMP_SAVE = "), sql);
+		Collection<Object> values = wrapper.getParamNameValuePairs().values();
+		assertTrue(values.contains("p1") && values.contains("p2") && values.contains("p3"), values.toString());
+		assertFalse(values.contains("f1"), values.toString());
+	}
+
+	@Test
+	@DisplayName("老师趋势：没有任何可见项目时返回全 0 的完整窗口，且不查答卷表")
+	void teacherTrendWithoutProjectsReturnsZeros() {
+		login("t1");
+		when(classService.listClassTree(null)).thenReturn(List.of());
+		when(userDeptScopeService.resolveDeptScope("t1")).thenReturn(Set.of());
+		when(projectMapper.selectObjs(any())).thenReturn(List.of());
+		when(projectPartnerMapper.selectObjs(any())).thenReturn(List.of());
+
+		DashboardTrendView view = service().teacherTrend(14);
+
+		// 空范围也要给完整日期轴：前端按等长数组画图，空数组会连日期轴一起空掉
+		assertEquals(14, view.getDays().size());
+		assertEquals(14, view.getAnswers().size());
+		assertEquals(14, view.getAvgScores().size());
+		assertTrue(view.getAnswers().stream().allMatch(count -> count == 0L));
+		assertTrue(view.getAvgScores().stream().allMatch(Objects::isNull));
+		// 没有可见项目就不该去扫 t_answer（那会退化成一整张表的扫描）
+		verifyNoInteractions(answerMapper);
+	}
+
+	@Test
+	@DisplayName("学员首页：最近答卷取 20 条（成绩走势的数据点），项目名一次批量取回")
+	void studentRecentLimitIsTwenty() {
+		login("s1");
+		when(answerMapper.selectCount(any())).thenReturn(0L);
+		when(answerItemMapper.selectMaps(any())).thenReturn(List.of());
+		when(userDeptMapper.selectObjs(any())).thenReturn(List.of());
+		Map<String, Object> recentRow = new HashMap<>();
+		recentRow.put("project_id", "p1");
+		recentRow.put("exam_score", 88D);
+		recentRow.put("create_at", new java.sql.Timestamp(1_700_000_000_000L));
+		// 第一次 selectMaps 是分数聚合，之后是 recent 列表
+		when(answerMapper.selectMaps(any())).thenReturn(List.of(scoreRow(0L, null, null, null, 0L)),
+			List.of(recentRow));
+		when(projectMapper.selectMaps(any())).thenReturn(List.of(Map.of("id", "p1", "name", "期中考试")));
+
+		StudentDashboardView view = service().student();
+
+		assertEquals(1, view.getRecent().size());
+		assertEquals("期中考试", view.getRecent().get(0).getProjectName());
+		assertEquals(88D, view.getRecent().get(0).getExamScore(), 0.0001D);
+		// 走势图只画趋势，条数钉在 20：再多首页就成了第二份成绩列表
+		assertTrue(capturedAnswerSql().contains("LIMIT 20"), capturedAnswerSql());
+	}
+
+	@Test
 	@DisplayName("学员首页：匿名/无登录上下文时全 0 返回，不碰任何 Mapper")
 	void anonymousStudentGetsZeros() {
 		StudentDashboardView view = service().student();
@@ -362,9 +449,16 @@ class DashboardStatsServiceImplTest {
 	/** 抓答卷查询交给 Mapper 的 Wrapper，转成大写 SQL 片段做结构断言 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private String capturedAnswerSql() {
+		return capturedAnswerWrapper().getCustomSqlSegment().toUpperCase(Locale.ROOT);
+	}
+
+	/** 最后一次交给 answerMapper.selectMaps 的 Wrapper（参数值要先取一次 SQL 片段才会被写进去） */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private QueryWrapper<Answer> capturedAnswerWrapper() {
 		ArgumentCaptor<Wrapper<Answer>> captor = ArgumentCaptor.forClass((Class) Wrapper.class);
 		verify(answerMapper, atLeastOnce()).selectMaps(captor.capture());
-		return captor.getValue().getCustomSqlSegment().toUpperCase(Locale.ROOT);
+		// 参数值是 AbstractWrapper 上的方法：测成分支要靠它们区分「传了哪些项目 id」
+		return (QueryWrapper<Answer>) captor.getValue();
 	}
 
 	private void login(String userId) {
@@ -390,6 +484,17 @@ class DashboardStatsServiceImplTest {
 		row.put("max_score", max);
 		row.put("min_score", min);
 		row.put("passed", passed);
+		return row;
+	}
+
+	/** 一行项目（id / name / mode / status / create_at），老师视角的取数只用到这几个字段 */
+	private Map<String, Object> projectRow(String id, String mode) {
+		Map<String, Object> row = new HashMap<>();
+		row.put("id", id);
+		row.put("name", id);
+		row.put("mode", mode);
+		row.put("status", 1);
+		row.put("create_at", new java.util.Date(1_700_000_000_000L));
 		return row;
 	}
 

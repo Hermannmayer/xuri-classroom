@@ -53,7 +53,7 @@ tests:
   - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
   - client:npm run check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
 ---
 
 # MCP / API 接入
@@ -98,7 +98,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 | `sk_project_update` | 更新 schema / 设置 | `project:update` |
 | `sk_project_publish` | 发布 / 停收 | `project:publish` |
 | `sk_report_get` | `view=summary\|questions\|exam` | `project:report` |
-| `sk_export_create` / `sk_export_get` | 异步导出（复用 jobId 模型） | `answer:export` |
+| `sk_export_create` / `sk_export_get` | 异步导出（复用 jobId 模型）；范围与 HTTP `/answer/export/pdf-job` 一致：`classId`（按班）/ `ids`（勾选）/ 都不传（整卷） | `answer:export` |
 
 ## 关键流程
 

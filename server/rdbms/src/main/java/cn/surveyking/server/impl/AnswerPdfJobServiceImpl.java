@@ -203,10 +203,15 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 * 「整卷导出」。ids 为空数组同样按「不限」处理，所以空选不会导出一份空 ZIP 之外的意外内容。
 	 *
 	 * <p>
+	 * 数据页 / 班级抽屉上筛过的条件（批改状态、答题人姓名、分数段、是否含匿名）也要一起固化进
+	 * {@link ExportSpec}：PDF / 答题卷 / 长图 / 确认单的取数条件必须和屏幕上的列表逐条相同。
+	 * 少带一条，老师「筛了 60 分以下」却拿到整场答卷，这就是最容易被当成「系统算错」的隐患。
+	 *
+	 * <p>
 	 * 格式由 {@code outputs} 决定（见 {@link #resolveOutputs(DownloadQuery)}）：不传就按 {@code type}
 	 * 走老逻辑（只出成绩单），传了就按列出的顺序全部生成。includeImages 一律按 true 处理，
 	 * DTO 里那个字段已经废弃。
-	 * @param query 导出请求（projectId 必填；classId / ids / 时间范围 / 轮次 / outputs 可选）
+	 * @param query 导出请求（projectId 必填；classId / ids / 时间范围 / 轮次 / 筛选条件 / outputs 可选）
 	 * @return 任务 id
 	 */
 	@Override
@@ -218,12 +223,30 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		if (projectMapper.selectById(query.getProjectId()) == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "项目不存在");
 		}
-		ExportSpec spec = new ExportSpec().projectId(query.getProjectId()).classId(query.getClassId())
-				.ids(query.getIds()).attemptNo(query.getAttemptNo()).startTime(query.getStartTime())
-				.endTime(query.getEndTime()).includeAnalysis(Boolean.TRUE.equals(query.getIncludeAnalysis()))
+		return createJob(specOf(query, outputs));
+	}
+
+	/**
+	 * 把导出请求固化成任务快照。
+	 *
+	 * <p>包内可见是为了让单测能直接盯住「DTO → 快照」这一步：漏拷一个筛选字段，任务状态照样是
+	 * done、文件也照样生成，只是里面多了一堆不该出现的答卷 —— 这种错没有任何报错可查。
+	 *
+	 * <p>屏幕上筛过的条件原样带进来：批改状态 / 姓名 / 分数段 / 仅实名。空值一律表示「不限」，
+	 * 语义与 {@link DownloadQuery} 一致（不传就不会多出条件）。
+	 * @param query 导出请求
+	 * @param outputs 已经归一过的格式列表
+	 * @return 任务快照
+	 */
+	static ExportSpec specOf(DownloadQuery query, List<DownloadQuery.DownloadType> outputs) {
+		return new ExportSpec().projectId(query.getProjectId()).classId(query.getClassId()).ids(query.getIds())
+				.attemptNo(query.getAttemptNo()).startTime(query.getStartTime()).endTime(query.getEndTime())
+				.gradeStatus(query.getGradeStatus()).createByName(query.getCreateByName())
+				.minScore(query.getMinScore()).maxScore(query.getMaxScore())
+				.includeAnonymous(query.getIncludeAnonymous())
+				.includeAnalysis(Boolean.TRUE.equals(query.getIncludeAnalysis()))
 				// 签名/上传图片是学员作答的一部分，永远带上；DTO 的 includeImages 已废弃，传 false 不生效
 				.includeImages(true).outputs(outputs);
-		return createJob(spec);
 	}
 
 	/** 导出任务能产出的四种格式（都是「每人一份」的答卷产物，全班一份的成绩册不在此列） */
@@ -725,6 +748,20 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	/* ======================= 取数 ======================= */
 
+	/**
+	 * 导出取数条件：与数据页列表（{@code AnswerServiceImpl#listAnswer}）逐条同口径。
+	 *
+	 * <p>为什么这些条件必须长在「取数」而不是「建任务」里：Excel 明细是同步导出、PDF 是异步任务，
+	 * 两条路各自翻译一遍筛选条件，迟早有一处漏掉。老师筛完看到 12 份、导出却拿到整场 50 份，
+	 * 只会认为系统算错。所以这里照抄列表的空值语义：
+	 * <ul>
+	 * <li>字符串条件用 {@link StringUtils#hasText} 判空（null 与 "" 都算「不限」）；</li>
+	 * <li>分数段给的是闭区间 {@code >= / <=}（60 分及格的人不能被漏掉）；</li>
+	 * <li>姓名要同时命中「答卷上的姓名快照」与「账号名」两条路，且整组用 and 包起来，
+	 * 否则 OR 会把项目 / 班级条件一起短路（见 {@link #answererNameLike(String)} 的注释）；</li>
+	 * <li>布尔条件只在显式 false 时生效（{@code includeAnonymous=false} 才是「仅实名」）。</li>
+	 * </ul>
+	 */
 	private LambdaQueryWrapper<Answer> baseWrapper(ExportSpec spec) {
 		return Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, spec.getProjectId())
 				// 答题时所在班级：学员换班后历史答卷仍留在原班。
@@ -736,8 +773,40 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				.and(wrapper -> wrapper.eq(Answer::getTempSave, 1).or().isNull(Answer::getTempSave))
 				.in(spec.getIds() != null && !spec.getIds().isEmpty(), Answer::getId, spec.getIds())
 				.eq(spec.getAttemptNo() != null, Answer::getAttemptNo, spec.getAttemptNo())
+				// 批改状态（pending / graded）：空串与 null 都表示不过滤
+				.eq(StringUtils.hasText(spec.getGradeStatus()), Answer::getGradeStatus, spec.getGradeStatus())
+				// 分数段含边界；exam_score 为 NULL（未判分 / 非考试卷）时比较恒为 UNKNOWN，
+				// 不会被 >= / <= 误命中，所以不需要额外的 is not null
+				.ge(spec.getMinScore() != null, Answer::getExamScore, spec.getMinScore())
+				.le(spec.getMaxScore() != null, Answer::getExamScore, spec.getMaxScore())
+				// 答题人姓名：快照列（新数据）与账号名（老数据没有快照）两头都要查；
+				// 整组用 and(...) 包起来，否则 OR 会把前面的项目 / 班级条件一并短路
+				.and(StringUtils.hasText(spec.getCreateByName()), filter -> {
+					String like = answererNameLike(spec.getCreateByName());
+					filter.apply("answerer_name like {0}", like).or()
+							.apply("create_by in (select id from t_user where name like {0})", like);
+				})
+				// 仅实名：数据页把「含匿名」取消勾选时，列表与 Excel 明细都只剩实名答卷，
+				// PDF 任务不能多出匿名卷（null / true 一律按「不限」处理，保持老调用方行为）
+				.eq(Boolean.FALSE.equals(spec.getIncludeAnonymous()), Answer::getIsAnonymous, false)
 				.gt(spec.getStartTime() != null, Answer::getCreateAt, spec.getStartTime())
 				.lt(spec.getEndTime() != null, Answer::getCreateAt, spec.getEndTime());
+	}
+
+	/**
+	 * 姓名模糊查询的 LIKE 模式串：转义 {@code \ % _}，让「张_」只按字面量匹配
+	 * （MySQL LIKE 的默认转义符就是 {@code \}）。
+	 *
+	 * <p>语义必须与 {@code AnswerServiceImpl#answererNameLike} 逐字一致：同一个搜索词在列表里筛出 3 条、
+	 * 导出的 PDF 却有 4 条，就是「屏幕与文件不一致」。这里是照抄而不是抽公共方法，因为两边都是各自
+	 * 模块的私有细节；口径一致性由 {@code AnswerPdfJobFilterScopeTest} 盯着。
+	 *
+	 * <p>这个值只作为绑定参数进 SQL（{@code apply(..., {0})}），不会被拼进 SQL 文本，注入不了；
+	 * 转义只是为了让搜索框里的 % 和 _ 当普通字符，而不是「匹配所有人的通配符」。
+	 */
+	static String answererNameLike(String keyword) {
+		String text = keyword.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		return "%" + text + "%";
 	}
 
 	private int countAnswers(ExportSpec spec) {
@@ -1119,6 +1188,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	/**
 	 * 导出范围。字段和 {@code DownloadQuery} 对齐，但独立成一个类型，避免把 DTO 传进任务线程后
 	 * 被调用方继续改（线程里读的是快照）。
+	 *
+	 * <p>除了「选哪些答卷」（classId / ids / 时间范围 / 轮次），还带上屏幕上的筛选条件
+	 * （批改状态 / 姓名 / 分数段 / 仅实名）：导出文件与页面不一致时，老师会把整场导出当成
+	 * 筛选结果发出去，事后再也分不清哪份文件对应哪次筛选。
 	 */
 	public static final class ExportSpec {
 
@@ -1135,6 +1208,27 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		private Date startTime;
 
 		private Date endTime;
+
+		/**
+		 * 批改状态（none / pending / graded）；null 或空串表示不限。
+		 * <p>数据页与班级抽屉都按它筛，导出的 PDF 必须同一批答卷。
+		 */
+		private String gradeStatus;
+
+		/** 答题人姓名（模糊匹配：答卷上的姓名快照 + 账号名反查）；null 或空串表示不限 */
+		private String createByName;
+
+		/** 分数段下限（闭区间）；null 表示不限 */
+		private Double minScore;
+
+		/** 分数段上限（闭区间）；null 表示不限 */
+		private Double maxScore;
+
+		/**
+		 * 是否包含匿名答卷：null / true = 包含（不传的老调用方行为不变），
+		 * 显式 false 才只导实名答卷 —— 与数据页「含匿名」复选框同一个口径。
+		 */
+		private Boolean includeAnonymous;
 
 		private boolean includeAnalysis;
 
@@ -1176,6 +1270,31 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			return this;
 		}
 
+		public ExportSpec gradeStatus(String gradeStatus) {
+			this.gradeStatus = gradeStatus;
+			return this;
+		}
+
+		public ExportSpec createByName(String createByName) {
+			this.createByName = createByName;
+			return this;
+		}
+
+		public ExportSpec minScore(Double minScore) {
+			this.minScore = minScore;
+			return this;
+		}
+
+		public ExportSpec maxScore(Double maxScore) {
+			this.maxScore = maxScore;
+			return this;
+		}
+
+		public ExportSpec includeAnonymous(Boolean includeAnonymous) {
+			this.includeAnonymous = includeAnonymous;
+			return this;
+		}
+
 		public ExportSpec includeAnalysis(boolean includeAnalysis) {
 			this.includeAnalysis = includeAnalysis;
 			return this;
@@ -1213,6 +1332,26 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		public Date getEndTime() {
 			return endTime;
+		}
+
+		public String getGradeStatus() {
+			return gradeStatus;
+		}
+
+		public String getCreateByName() {
+			return createByName;
+		}
+
+		public Double getMinScore() {
+			return minScore;
+		}
+
+		public Double getMaxScore() {
+			return maxScore;
+		}
+
+		public Boolean getIncludeAnonymous() {
+			return includeAnonymous;
 		}
 
 		public boolean isIncludeAnalysis() {

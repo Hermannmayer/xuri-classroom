@@ -46,6 +46,7 @@ apis:
   - GET /api/dashboard/overview
   - GET /api/dashboard/trend
   - GET /api/dashboard/teacher
+  - GET /api/dashboard/teacher/trend
   - GET /api/dashboard/student
   - GET /api/project/list
   - GET /api/repo/list
@@ -58,7 +59,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
 ---
 
 # 首页与统计
@@ -74,6 +75,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 | `GET /api/dashboard/overview?days=14` | 管理员总览 | 用户三类互斥（管理员先从 staff 里扣除）；答卷排除练习伪项目；分数只算 `temp_save=1` 且有分；`graded` = 有分数且不在 `pending`（覆盖 `none`/空/`graded` 三种历史值），否则批改进度会恒为 0% |
 | `GET /api/dashboard/trend?days=14` | 近 N 天趋势 | 自然日补空：缺日 0，`avgScores` 无样本给 null（折线断开，不画成 0 分） |
 | `GET /api/dashboard/teacher` | 老师视角 | 班级走可见性（accessible），项目=自建 ∪ 协作者 ∪ 可见班级上分配过的资源 |
+| `GET /api/dashboard/teacher/trend?days=14` | 老师视角趋势 | 结构与 `/trend` 相同，但**只统计上面那批可见项目**：老师首页画的是自己的数据，不是全站 |
 | `GET /api/dashboard/student` | 学员视角 | 答卷/均分排除练习；`todoExams`=班级资源已发布且在窗口内、本人未交 |
 
 页面侧全部用手写 SVG 图表（`client/src/components/charts/`：StatTile / Donut / BarSeries / AreaTrend / ProgressRing），**没有引入图表库**；颜色只取 `--bp-*` CSS 变量（写在 style 里，SVG 呈现属性不解析 var）。每个请求独立降级：某块失败只让那块显示「—」+ 原因，整页不白屏。
@@ -95,9 +97,9 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 | 路由 | `client/src/router.tsx` | `/home` 无守卫（登录即可进）；`/tasks` 要 `project:answer` |
 | 页面外壳 | `client/src/pages/Home.tsx` | 从 `BasicLayout` 的 `outlet context` 取 `user.authorityList`，交给 `Dashboards` |
 | 三种视角 | `client/src/pages/home/Dashboards.tsx` | `StudentHome` / `TeacherHome` / `AdminHome` + 默认导出的分发函数 `Dashboard` |
-| 统计接口 | `server/rdbms/.../impl/DashboardStatsServiceImpl.java` | `/api/dashboard/{overview,trend,teacher,student}` 的口径；每块单独 catch，某块算不出来退化成 0 / null 并记 warn，不让首页 500 |
+| 统计接口 | `server/rdbms/.../impl/DashboardStatsServiceImpl.java` | `/api/dashboard/{overview,trend,teacher,teacher/trend,student}` 的口径；每块单独 catch，某块算不出来退化成 0 / null 并记 warn，不让首页 500 |
 | 前端图表 | `client/src/components/charts/**` | 手写 SVG：`StatTile` / `Donut` / `BarSeries` / `AreaTrend` / `ProgressRing`，**没有引入图表库** |
-| 前端请求 | `client/src/api/dashboard.ts` | 四个统计接口的类型与 fetch；页面里不再直接拼 URL |
+| 前端请求 | `client/src/api/dashboard.ts` | 五个统计接口的类型与 fetch；页面里不再直接拼 URL |
 | 菜单 | `client/src/layout/BasicLayout.tsx` | 「教学」`/teaching` 一个入口（`project:list` 或 `class:list`），页面内分「考试/问卷」「班级」两个 Tab；原来的独立「班级管理」菜单已并入 |
 | 我的成绩接口 | `server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java` | `GET /api/my-report/list`，`project:report or admin` |
 | 我的成绩实现 | `server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java` | 只查 `create_by = 当前用户` 且 `temp_save=1` 的答卷，按项目聚合成 `MyReportView` |
@@ -127,12 +129,15 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ### 2. 学员首页数据
 
 1. `GET /api/dashboard/student`（`DashboardStatsServiceImpl#student`）一次返回：`answers`（正式答卷数，排除练习伪项目）、
-   `avgScore` / `bestScore`、`practiceCount` / `practiceQuestions`、`classes`（所在班级数）、`todoExams`、`recent`（最近 8 次正式答卷与分数）。
+   `avgScore` / `bestScore`、`practiceCount` / `practiceQuestions`、`classes`（所在班级数）、`todoExams`、
+   `recent`（最近 **20** 次正式答卷与分数；首页只画趋势，再多就该去「我的任务 / 我的成绩」翻了）。
 2. 四张卡：待考/进行中 = `todoExams`（班级资源已发布 + 窗口内 + 本人未交）；我已交卷 = `answers`；平均分 = `avgScore`；
    练习做题数 = `practiceQuestions`（去重题数，来自 `t_answer_item` 投影，历史练习没投影的会偏小）。
 3. 「考试安排」表仍走 `listProjects({ current: 1, pageSize: 50, flat: true })`：班级分配的考试可能在文件夹里，
    必须拉全层级再过滤 `mode === 'folder'`；卡片上那句「已发布 N 场」就是这张表的 `status === 1` 条数（只覆盖前 50 条）。
-4. 成绩走势取 `recent` 的分数（最多 8 次），没有分数的日子断开；「开始答题」链接仅在 `project:answer` 命中时渲染（学员专属，管理员不会命中）。
+4. 成绩走势取 `recent` 的分数（最多 20 次，`client/src/api/dashboard.ts` 的 `STUDENT_RECENT_LIMIT` 与后端条数对齐），
+   没有分数的记录断开；超过 12 个点时 x 轴日期自动抽稀（`AreaTrend` 里 `labelStep` + 至少隔一个画一个，
+   并从最后一个点往回数，保证「最新的一次」一定有日期）；「开始答题」链接仅在 `project:answer` 命中时渲染（学员专属，管理员不会命中）。
 
 ### 3. 教师首页数据
 
@@ -145,8 +150,13 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - **答卷**：`answers` / `pendingGrading` / `avgScore` 只统计这些项目下的正式答卷（`temp_save=1`，排除练习）；
   `graded7d` 是**人工批改**口径（`grade_status='graded'` 且 `graded_at` 在近 7 天），机器判分不算。
 - **页面**：四张卡「我的班级 / 在册学员（+平均分）/ 待批改（+累计答卷）/ 近 7 天批改」；
-  下方趋势图走 `/api/dashboard/trend`（**全站口径**，不按老师裁剪，图例里已标注）；
+  下方趋势图走 `/api/dashboard/teacher/trend`（与 `/teacher` **同一批可见项目**，卡片副标题写「我的可见范围」）；
   最近考试表来自 `recent`（项目名/状态/答卷/平均分/待批改/最近交卷），点考试名去 `/survey/{id}`。
+
+老师趋势（`DashboardStatsServiceImpl#teacherTrend`）与全站趋势共用同一段骨架（`buildTrend`：一条 SQL 出四个序列、日期轴逐日补齐），
+差别只在统计范围：全站是 `formalAnswers()`，老师是 `formalAnswers().in(project_id, 可见项目)`。
+可见项目与 `/teacher` 共用 `visibleProjectIds` + `visibleProjectRows`（文件夹不算项目），所以卡片上的项目数和趋势里的卷子永远是一批。
+没有任何可见项目时**不查库**，直接返回「整段 0 值」的完整窗口——前端按等长数组画图，空数组会把日期轴也一起弄空。
 
 ### 4. 管理员首页数据
 
@@ -168,6 +178,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 `GET /api/dashboard/trend?days=14` 另给五个等长数组（`days` / `answers` / `graded` / `avgScores` / `activeUsers`），
 按自然日分组、含今天；缺日补 0，`avgScores` 当天没有带分数的答卷为 null（折线断开，不画成 0 分）。
 趋势的 `graded` 按**交卷日**归类（「这批卷子里已批完的数量」），不是按批改时间——与老师视角的 `graded7d` 口径不同，别对账。
+`/teacher/trend` 返回同一套结构（五个等长数组），只是范围换成老师可见项目；两者的补空规则完全一致。
 
 常用入口是纯前端跳转（权限配置、用户管理、用户组、系统设置、操作日志、教学管理），不额外校验权限，点进去由路由守卫兜底：
 
@@ -219,7 +230,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 | 视角 | 判定 | 数据来源 | 数据范围 |
 |---|---|---|---|
 | 系统概览 | `portal:admin`（或 `ROLE_admin`） | `/api/dashboard/overview` + `/trend`（`project:detail or admin`） | 全站；统计接口本身不做数据权限裁剪 |
-| 我的教学 | `portal:teacher` **且** `project:report` | `/api/dashboard/teacher`（`project:detail or admin`） | 可见班级（班级树 accessible）+ 自建/协作者/可见班级上分配过资源的项目 |
+| 我的教学 | `portal:teacher` **且** `project:report` | `/api/dashboard/teacher` + `/api/dashboard/teacher/trend`（都是 `project:detail or admin`） | 可见班级（班级树 accessible）+ 自建/协作者/可见班级上分配过资源的项目；趋势与卡片同一批项目 |
 | 我的学习 | 默认分支（无需门户权限） | `/api/dashboard/student` + `/api/project/list` | `student` 只查本人答卷/练习；`project/list` 只给「考试安排」表用 |
 | 遗留仪表盘 | `project:detail` | `t_dashboard` | 无项目过滤时返回全部 `type` 匹配行 |
 
@@ -232,6 +243,9 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - `avgScore` / `passRate` 无样本时后端给 null，前端显示「—」而不是 0：0 分是真实分数，0 均值会被误读成「全班 0 分」。
 - `TeacherHome` 的「平均分」是 SQL 的 `AVG(exam_score)`（按答卷加权，`exam_score` 为空的答卷不进分母），
   不再是各场平均分的算术平均。
+- `/api/dashboard/teacher/trend` 对管理员也按「他自己可见的项目」算（自己建 + 协作者 + 可见班级资源），
+  不是全站口径：管理员要看全站趋势用 `/api/dashboard/trend`。老师首页不会出现这种混用（管理员走 `AdminHome`），
+  但直接调接口时会看到「管理员只统计自己的项目」，这是有意的，别当 bug 修。
 - **`t_repo` 没有 `is_deleted`，统计不能套通用条件**：`Repo` 实体的删除是物理删，给 `selectCount` 拼 `is_deleted=0`
   会 1054 Unknown column，被 `safe()` 吞成 0——首页题库数变 0 却不报错。所以 `questions.repos` 是 `repoMapper.selectCount(null)`，
   只有 `t_template` 走 `@TableLogic` 自动补条件。
@@ -241,9 +255,9 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - `/api/teaching/projects` 的 SQL 直接读 `t_answer` / `t_project`，绕过 `@EnableDataPerm`；协作者范围就靠那条 `EXISTS` 子查询，改它等于改数据边界。
 - `t_dashboard` 在 `init-mysql.sql` 里没有 `is_deleted` 列，而 `Dashboard` 继承 `BaseModel`（`@TableLogic` 会自动拼 `is_deleted = 0`）。老库不改表，`/api/dashboard/list` 稳定 500；补列脚本是 `scripts/dev/add-dashboard-is-deleted.sql`。
 - `Dashboard` 的 `key` 字段必须把列名写成 MySQL 的反引号转义形式（见 `Dashboard.java` 里 `@TableField` 上的注释），`type` 也不能映射成别的字段名，否则 SELECT 直接语法/未知列错误——这两个坑都修过一次。
-- 前端只调用四个统计接口（`overview/trend/teacher/student`），**从未调用遗留的 `/api/dashboard/list`**；
+- 前端只调用五个统计接口（`overview/trend/teacher/teacher/trend/student`），**从未调用遗留的 `/api/dashboard/list`**；
   统计接口有 `DashboardStatsServiceImplTest`（趋势补空、窗口夹取、及格率与待批改、无分数时 null、老师最近 8 条、
-  学员匿名全 0、响应结构契约），遗留 `/list` 仍只有手工验证。
+  老师趋势只算可见项目 / 无项目时整段 0、学员 recent 20 条、学员匿名全 0、响应结构契约），遗留 `/list` 仍只有手工验证。
 - 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。教学、班级合并后两处都只有一个「教学」入口，`/teaching/classes` 已重定向到 `/teaching?tab=classes`。
 - 首页/快捷入口的 `?tab=exam|classes` 只是前端状态：直接访问 `/teaching` 默认取第一个可用 Tab；没有 `class:list` 的账号访问 `?tab=classes` 会被 `TeachingHome` 归一回去，不要把该 URL 当权限校验（旧值 `insight`/`class`/`survey` 也会归一）。
 
@@ -262,7 +276,7 @@ npm run docs:check
 
 1. 打开 `/home`，确认视角正确：管理员四张统计卡 + 用户构成/答卷量/平均分/及格率/批改进度五块面板、老师「我的教学」、学员「我的学习」。
 2. 浏览器网络面板确认首页请求（不含 `/api/system` 与 `/api/currentUser`）：管理员 `overview` + `trend` 两个；
-   老师 `teacher` + `trend` 两个；学员 `student` + `project/list` 两个。
+   老师 `teacher` + `teacher/trend` 两个（不再是全站的 `trend`）；学员 `student` + `project/list` 两个。
 3. 用学员账号直接访问 `/api/dashboard/overview` 应 403（没有 `project:detail`）；用老师账号访问 `/api/system/user/list` 应 403。
 4. 老师首页「我的班级 / 在册学员 / 待批改」应跳 `/teaching?tab=classes`；管理员「进行中考试」与「教学管理」快捷都跳 `/teaching?tab=exam`。
 5. 遗留接口：

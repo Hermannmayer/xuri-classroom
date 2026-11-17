@@ -99,6 +99,8 @@ function describeFilters(filters: AnswerFilterParams): string[] {
   if (filters.gradeStatus) active.push('批改状态');
   if (filters.createByName) active.push('姓名');
   if (filters.minScore !== undefined || filters.maxScore !== undefined) active.push('分数段');
+  // 「含匿名」取消勾选时只剩实名答卷：PDF / 长图现在也遵守它，提示里必须如实写出来
+  if (!filters.includeAnonymous) active.push('仅实名');
   return active;
 }
 
@@ -311,12 +313,23 @@ export default function ExportModal({
 
       if (outputs.length > 0) {
         const tokenRes = await issueToken('/api/answer/export/token');
-        // 仅勾选时只给 ids；否则给班级 + 交卷时间。includeImages 已废弃（后端永远带签名/上传图片）
+        // 仅勾选时只给 ids（不再叠加任何筛选）；否则把「当前筛选结果」原样带过去：
+        // 班级 + 交卷时间 + 批改状态 + 姓名 + 分数段 + 仅实名 —— PDF / 长图必须和 Excel、和屏幕上的列表同一批。
+        // includeImages 已废弃（后端永远带签名/上传图片）
         const body: AnswerPdfJobRequest = {
           projectId,
           ...(byIds
             ? { ids }
-            : { classId: filters.classId, startTime: filters.startTime, endTime: filters.endTime }),
+            : {
+                classId: filters.classId,
+                startTime: filters.startTime,
+                endTime: filters.endTime,
+                gradeStatus: filters.gradeStatus,
+                createByName: filters.createByName,
+                minScore: filters.minScore,
+                maxScore: filters.maxScore,
+                includeAnonymous: filters.includeAnonymous,
+              }),
           includeAnalysis: options.includeAnalysis,
           // 不传 outputs 时后端按 type 走老逻辑（只出成绩单）；要哪种格式就显式列出来
           outputs,
@@ -441,10 +454,14 @@ export default function ExportModal({
             <div style={{ marginTop: 6, fontSize: 12, color: 'var(--bp-text-soft)' }}>
               签名题 / 上传题的图片始终包含，不用再选；勾了「附解析」，上面每种格式都会带上解析。
             </div>
-            {!running && options.scope === 'filtered' && filterHints.length > 0 && (
-              // 契约里 pdf-job 只收班级 + 交卷时间；批改状态/分数/姓名只有 Excel 明细认
+            {!running && (
+              // 「导出的是哪一批」必须写清楚：PDF / 长图与 Excel 同一套筛选；选「仅勾选」就只剩 ids
               <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-                PDF / 长图按「班级 + 交卷时间」取数；批改状态 / 分数段 / 姓名只作用于 Excel 明细
+                {options.scope === 'selected'
+                  ? '仅勾选：只按勾选的答卷 id 导出，不再叠加批改状态 / 姓名 / 分数段 / 交卷时间等筛选。'
+                  : filterHints.length > 0
+                    ? `PDF / 长图与 Excel 同口径：${filterHints.join(' / ')}都会带进导出文件。`
+                    : 'PDF / 长图与 Excel 同口径：没有筛选条件，导出的就是这份试卷的全部答卷。'}
               </div>
             )}
           </div>

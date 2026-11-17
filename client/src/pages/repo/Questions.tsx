@@ -40,8 +40,22 @@ import AiRepoAuditDrawer from './ai/AiRepoAuditDrawer';
 import ImportWizard from '../import/ImportWizard';
 import { ImportHelp } from '../import/ImportHelp';
 import RichTextEditor from '../../components/RichTextEditor';
+import RichTextContent from '../../components/RichTextContent';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
+
+/**
+ * 题干里是否真的带 HTML 标签（Word / Excel 导入的带图题干，形如 `<img src="...">`）。
+ *
+ * 为什么不能只判断 `includes('<')`：数学写法「若 x<3，则…」里的裸小于号会被 DOMPurify
+ * 当成半截标签吃掉，题干直接缺字。所以只认「< + 字母」起头的真正标签，
+ * 纯文本仍然走原来的纯文本渲染（不做无谓的 sanitize 与 DOM 嵌套）。
+ */
+const HTML_TAG = /<[a-zA-Z][^>]*>/;
+
+function hasHtmlMarkup(text?: string): boolean {
+  return !!text && HTML_TAG.test(text);
+}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
@@ -819,7 +833,11 @@ export default function RepoQuestions() {
                       {score != null && <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>{score} 分</span>}
                     </div>
                     <div style={{ fontSize: 14, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-                      {row.template?.title || row.name || '(无题干)'}
+                      {hasHtmlMarkup(row.template?.title) ? (
+                        <RichTextContent className="rich-text-content" html={row.template?.title} />
+                      ) : (
+                        row.template?.title || row.name || '(无题干)'
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--bp-text-soft)' }}>
                       <span>{row.chapter || row.template?.chapter || '未分章节'}</span>
@@ -913,9 +931,14 @@ export default function RepoQuestions() {
           {
             title: '题干',
             dataIndex: 'name',
-            render: (_: unknown, row) => (
-              <span style={{ whiteSpace: 'pre-wrap' }}>{row.template?.title || row.name || '(无题干)'}</span>
-            ),
+            render: (_: unknown, row) =>
+              hasHtmlMarkup(row.template?.title) ? (
+                // 带图题干：交给 RichTextContent 消毒渲染，否则页面上是一串 <img src="...">
+                // className 跟通知中心一致：公式/题引用的配色靠这个类，图片宽度也由它兜底
+                <RichTextContent className="rich-text-content" html={row.template?.title} />
+              ) : (
+                <span style={{ whiteSpace: 'pre-wrap' }}>{row.template?.title || row.name || '(无题干)'}</span>
+              ),
           },
           {
             title: '分值',

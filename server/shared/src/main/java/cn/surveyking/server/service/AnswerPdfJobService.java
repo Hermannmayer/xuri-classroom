@@ -27,6 +27,11 @@ public interface AnswerPdfJobService {
 	 * <p>
 	 * 范围三选一：只给 classId（按班）、只给 ids（勾选导出）、都不给（整卷）；可再叠加
 	 * startTime / endTime / attemptNo。权限：classId 有值时校验班级可见，为空时校验项目级权限。
+	 *
+	 * <p>
+	 * 屏幕上的筛选（gradeStatus / createByName / minScore / maxScore / includeAnonymous）也必须一起传：
+	 * 老师「筛完再导出」时期望拿到的是筛出来的那一批，PDF 与 Excel 明细的取数条件完全一致，
+	 * 否则导出文件与页面不一致，会被当成系统算错。
 	 * @param query 导出范围与产出格式。outputs 可选（成绩单 / 答题卷还原 / 长图 / 确认单），
 	 * 为空时按 type 走老逻辑（只出成绩单）。includeImages 已废弃：签名与上传图片总是包含。
 	 * @return 任务 id

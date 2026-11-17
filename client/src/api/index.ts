@@ -194,6 +194,20 @@ export interface AnswerPdfJobRequest {
   /** 交卷时间范围，格式 yyyy-MM-dd HH:mm:ss */
   startTime?: string;
   endTime?: string;
+  /**
+   * 以下五项是「屏幕上的筛选条件」，建任务时要一起传：PDF / 答题卷 / 长图 / 确认单与 Excel 明细
+   * 必须导同一批答卷。少传一个，老师「筛了 60 分以下」却拿到整场答卷，只会认为系统算错。
+   */
+  /** 批改状态：pending 待批改 / graded 已批改；不传 = 不限（后端空串同样按不限处理） */
+  gradeStatus?: string;
+  /** 答题人姓名（模糊匹配：答卷上的姓名快照 + 账号名反查）；不传 = 不限 */
+  createByName?: string;
+  /** 分数段下限（含）；不传 = 不限 */
+  minScore?: number;
+  /** 分数段上限（含）；不传 = 不限 */
+  maxScore?: number;
+  /** 是否包含匿名答卷：false 才只导实名（与数据页「含匿名」复选框同口径）；不传 = 包含 */
+  includeAnonymous?: boolean;
   /** 是否附答案解析（默认关：考试没结束时放解析等于泄题） */
   includeAnalysis?: boolean;
   /**

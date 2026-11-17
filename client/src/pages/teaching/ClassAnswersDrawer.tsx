@@ -275,8 +275,9 @@ function rosterClipboardText(list: RosterStudent[]): string {
  * 导出本班答卷（Excel 明细）：先用 POST /api/answer/export/token 换一次性 token，
  * 再走带 cookie 的 download 下载 xlsx（后端错误会以 JSON 返回并转成中文提示）。
  *
- * <p>startTime / endTime / attemptNo 都是可选：不传就是「整班、全部轮次」。
- * 轮次与时间对按班导出是后端 downloadByClass 里已经支持的过滤条件，不是前端假筛。
+ * <p>startTime / endTime / attemptNo / gradeStatus / createByName 都是可选：不传就是「整班、全部轮次、不限状态」。
+ * 这些都是后端 downloadByClass 里已经支持的过滤条件，不是前端假筛 —— 抽屉列表上筛了什么，
+ * Excel 与 PDF / 长图就必须导什么，否则老师会把整班明细当筛选结果发出去。
  */
 export async function downloadClassAnswers(params: {
   projectId: string;
@@ -286,6 +287,10 @@ export async function downloadClassAnswers(params: {
   startTime?: string;
   endTime?: string;
   attemptNo?: number;
+  /** 批改状态（pending / graded）；不传 = 不限 */
+  gradeStatus?: string;
+  /** 姓名或账号（后端按「姓名快照 + 账号名」模糊匹配）；不传 = 不限 */
+  createByName?: string;
 }) {
   const tokenRes = await post<{ exportToken?: string; expiresIn?: number }>('/api/answer/export/token', {});
   const fileName = `${params.projectName || '考试'}-${params.deptName || '班级'}-答卷.xlsx`;
@@ -299,6 +304,8 @@ export async function downloadClassAnswers(params: {
       startTime: params.startTime,
       endTime: params.endTime,
       attemptNo: params.attemptNo,
+      gradeStatus: params.gradeStatus,
+      createByName: params.createByName,
     },
     fileName,
   );
@@ -771,7 +778,9 @@ export default function ClassAnswersDrawer({
   const openExportModal = () => {
     setJobError(null);
     setJob(null);
-    setOptions(DEFAULT_OPTIONS);
+    // 列表上的交卷时间筛选直接带进导出设置：屏幕上只有这段时间的答卷、导出却是全班，
+    // 老师会以为导出漏了或多了。时间框里看得见也能当场改，不存在「偷偷改口径」
+    setOptions({ ...DEFAULT_OPTIONS, range });
     setExportOpen(true);
   };
 
@@ -798,6 +807,15 @@ export default function ClassAnswersDrawer({
     setExporting(true);
     const startTime = options.range?.[0]?.format('YYYY-MM-DD HH:mm:ss');
     const endTime = options.range?.[1]?.format('YYYY-MM-DD HH:mm:ss');
+    /**
+     * 列表上筛出来的就是屏幕上那一批：状态 / 姓名对 Excel 与 PDF 两个出口都生效。
+     * - statusFilter=pending → gradeStatus=pending；
+     *   statusFilter=submitted 不需要额外条件（导出本来就只含已交卷的答卷）
+     * - keyword 是姓名/账号搜索框，后端按「姓名快照 + 账号名」两头模糊匹配
+     * - 本页没有分数段筛选，所以 minScore / maxScore 不传
+     */
+    const gradeStatus = statusFilter === 'pending' ? 'pending' : undefined;
+    const createByName = keyword.trim() || undefined;
     let excelFailed: string | null = null;
     try {
       if (options.excel) {
@@ -810,6 +828,8 @@ export default function ClassAnswersDrawer({
             startTime,
             endTime,
             attemptNo: options.attemptNo,
+            gradeStatus,
+            createByName,
           });
           message.success('Excel 明细已开始下载');
         } catch (e) {
@@ -820,16 +840,19 @@ export default function ClassAnswersDrawer({
       if (outputs.length > 0) {
         const tokenRes = await post<{ exportToken?: string }>('/api/answer/export/token', {});
         /**
-         * 冻结契约：{ projectId, classId?, ids?, startTime?, endTime?, attemptNo?, includeAnalysis?,
-         * outputs? }。includeImages 已废弃：后端永远带签名/上传图片，前端不再传，也不再给开关。
+         * 契约：{ projectId, classId?, ids?, startTime?, endTime?, attemptNo?, gradeStatus?, createByName?,
+         * includeAnalysis?, outputs? }。includeImages 已废弃：后端永远带签名/上传图片，前端不再传，也不再给开关。
          * outputs 传了就走多格式；不传时后端按 type 走老逻辑（只出成绩单）。
          */
+        // 状态 / 姓名与 Excel 出口用的是同两个值：两个出口导的必须是同一批答卷
         const body: AnswerPdfJobRequest = {
           projectId,
           classId: deptId,
           attemptNo: options.attemptNo,
           startTime,
           endTime,
+          gradeStatus,
+          createByName,
           includeAnalysis: options.includeAnalysis,
           outputs,
         };
@@ -1298,6 +1321,10 @@ export default function ClassAnswersDrawer({
               }
               disabled={running}
             />
+            {/* 「导出的是哪一批」写在这里：列表上的状态/姓名也一起进任务，两个出口同一批答卷 */}
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              列表上筛过的状态 / 姓名也会一起带进导出：PDF / 长图与 Excel 明细导的是同一批答卷。
+            </div>
           </div>
 
           <div>

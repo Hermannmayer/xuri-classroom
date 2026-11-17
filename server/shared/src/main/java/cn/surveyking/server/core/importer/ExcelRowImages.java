@@ -23,7 +23,9 @@ import java.util.TreeMap;
  *
  * <p>
  * fastexcel 不读图片，所以导入时用 POI 把同一份 .xlsx 再打开一次，按 {@link ClientAnchor} 的
- * <b>左上角所在行</b>归属（图片跨行、或锚点落在合并单元格里，也以左上角行为准，可能与肉眼位置差一行）。
+ * <b>左上角所在行</b>归属。只认「纵向落在一行之内」的图片：跨行、或压到下一行里的图片
+ * 会被跳过并给一条 {@code IMAGE_ANCHOR_SPANS_ROWS} 警告 —— 这种图片挂到哪一行都是猜，
+ * 猜错就是「图贴到别的题上」，比少一张图难发现得多（学员对着别人的图答题）。
  *
  * <p>
  * 只取 png/jpg/jpeg/gif/bmp；单张超过 {@value #MAX_IMAGE_BYTES} 字节跳过、整份超过 {@value #MAX_IMAGES} 张截断，
@@ -105,6 +107,12 @@ public final class ExcelRowImages {
 						break;
 					}
 					int rowNum = anchor.getRow1() + 1;
+					if (spansRows(anchor)) {
+						// 跨行图片按左上角行归属会挂到错误题目上：宁可跳过并告诉老师怎么改，也不静默挂错
+						warnings.add(new Warning("IMAGE_ANCHOR_SPANS_ROWS", "工作表「" + sheet.getSheetName() + "」第 "
+								+ rowNum + " 行的图片跨了多行，已跳过；请把图片贴到单个单元格内再导入"));
+						continue;
+					}
 					rowImages.computeIfAbsent(sheet.getSheetName(), key -> new TreeMap<>())
 							.computeIfAbsent(rowNum, key -> new ArrayList<>()).add(imageBytes);
 				}
@@ -114,6 +122,29 @@ public final class ExcelRowImages {
 			warnings.add(new Warning("IMAGE_READ_FAILED", "读取 Excel 内嵌图片失败，已按无图片导入：" + describe(e)));
 		}
 		return new ExcelRowImages(rowImages, warnings);
+	}
+
+	/**
+	 * 图片锚点是否跨行（纵向范围超过一行）。
+	 *
+	 * <p>
+	 * Excel 的 twoCellAnchor 用「左上角单元格 + 行列偏移」「右下角单元格 + 行列偏移」描述图片位置，
+	 * 一张正好填满一个单元格的图片，右下角<b>压在下一行的行线上</b>，所以
+	 * {@code row2 == row1 + 1 && rowOff2 == 0} 是单行的标准写法（Excel 与 POI 都这么写），
+	 * 不能简单比 {@code row1 != row2} —— 那样会把所有正常图片判成跨行、全部丢掉。
+	 * 真正会挂错题的是纵向伸进下一行的图片：跨两行以上，或第二行还有偏移。
+	 * @param anchor 图片锚点
+	 * @return true 表示纵向超出一行，按左上角行归属不可靠
+	 */
+	private static boolean spansRows(ClientAnchor anchor) {
+		int fromRow = anchor.getRow1();
+		int toRow = anchor.getRow2();
+		if (toRow <= fromRow) {
+			// 纵向落在一行之内（图片比格子矮时 rowOff2 > 0，但仍属于同一行）
+			return false;
+		}
+		// 恰好一行：右下角压在下一行的行线上，偏移为 0
+		return !(toRow == fromRow + 1 && anchor.getDy2() == 0);
 	}
 
 	/**

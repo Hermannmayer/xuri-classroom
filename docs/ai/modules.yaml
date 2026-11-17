@@ -203,7 +203,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -379,6 +379,7 @@ modules:
       - GET /api/dashboard/overview
       - GET /api/dashboard/trend
       - GET /api/dashboard/teacher
+      - GET /api/dashboard/teacher/trend
       - GET /api/dashboard/student
       - GET /api/project/list
       - GET /api/repo/list
@@ -391,7 +392,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -563,7 +564,7 @@ modules:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
     last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
   - id: module-mcp
     title: MCP / API 接入
     doc: docs/modules/mcp.md
@@ -618,7 +619,7 @@ modules:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
       - client:npm run check
     last_verified: 2026-11-17
-    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+    verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
   - id: module-notice
     title: 通知公告
     doc: docs/modules/notice.md
@@ -1016,7 +1017,7 @@ modules:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md

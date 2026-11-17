@@ -24,11 +24,12 @@ import java.util.List;
  * <p>两条互不相干的线，别混：
  * <ul>
  * <li>{@code /list}：项目里内嵌的仪表盘组件（老的 surveyking 能力，只有列表查询）；</li>
- * <li>{@code /overview}、{@code /trend}、{@code /teacher}、{@code /student}：首页看板（task-34），
- * 走 {@link DashboardStatsService}。前两个是系统级口径（管理员视角），后两个按当前登录人的可见范围。</li>
+ * <li>{@code /overview}、{@code /trend}、{@code /teacher}、{@code /teacher/trend}、{@code /student}：
+ * 首页看板（task-34 / task-43），走 {@link DashboardStatsService}。{@code /overview} 与 {@code /trend}
+ * 是系统级口径（管理员视角），其余三个按当前登录人的可见范围（老师=可见项目，学员=只看自己）。</li>
  * </ul>
  *
- * <p>四条首页接口的权限统一是 {@code project:detail} 或 admin：能进项目就被视为能看到看板；
+ * <p>五条首页接口的权限统一是 {@code project:detail} 或 admin：能进项目就被视为能看到看板；
  * 数据本身的裁剪（老师的班级/项目可见范围、学员只看自己）在服务层做，注解只做粗筛。
  */
 @RestController
@@ -73,6 +74,18 @@ public class DashboardApi {
 	@PreAuthorize("hasAuthority('project:detail') or hasRole('admin')")
 	public TeacherDashboardView teacher() {
 		return dashboardStatsService.teacher();
+	}
+
+	/**
+	 * 老师视角的趋势：结构同 {@link #trend(int)}，但只统计 {@link #teacher()} 那批可见项目。
+	 *
+	 * <p>老师首页的柱状图必须用这个而不是 {@code /trend}：后者是全站口径，老师看到的是别人的答卷，
+	 * 属于误导（卡片写「我的教学」，图里却是全校数据）。权限与会话口径都跟 {@code /teacher} 对齐。
+	 */
+	@GetMapping("/teacher/trend")
+	@PreAuthorize("hasAuthority('project:detail') or hasRole('admin')")
+	public DashboardTrendView teacherTrend(@RequestParam(required = false, defaultValue = "14") int days) {
+		return dashboardStatsService.teacherTrend(days);
 	}
 
 	/** 学员视角：只看当前登录学员自己的答卷/练习/待考 */

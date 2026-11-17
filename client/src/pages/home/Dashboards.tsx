@@ -9,6 +9,7 @@ import {
   fetchOverview,
   fetchStudentBoard,
   fetchTeacherBoard,
+  fetchTeacherTrend,
   fetchTrend,
   fmtDateTime,
   normalizeTrend,
@@ -466,7 +467,8 @@ export function TeacherHome() {
   const navigate = useNavigate();
   const [tick, setTick] = useState(0);
   const board = useSection(() => fetchTeacherBoard(), [tick]);
-  const trendState = useSection(() => fetchTrend(DAYS), [tick]);
+  // 老师看的是「我的可见范围」，不是全站：/trend 会把别人的答卷画到这张图上
+  const trendState = useSection(() => fetchTeacherTrend(DAYS), [tick]);
 
   const data = board.data;
   const recent = data?.recent ?? [];
@@ -534,7 +536,7 @@ export function TeacherHome() {
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
         <Col span={24}>
-          <Panel title={`近 ${DAYS} 天答卷量`} extra={<span style={NOTE}>柱：答卷 / 浅柱：已批改 · 趋势接口按全站统计</span>}>
+          <Panel title={`近 ${DAYS} 天答卷量`} extra={<span style={NOTE}>柱：答卷 / 浅柱：已批改 · 我的可见范围</span>}>
             <BarSeries
               data={trend.answers}
               compare={trend.graded}
@@ -643,7 +645,8 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
   }, [tick]);
 
   const data = board.data;
-  const score = scoreTrend(data?.recent, 8);
+  // 点数由 api 层的 STUDENT_RECENT_LIMIT（= 后端 recent 的 20 条）决定，这里不再写死
+  const score = scoreTrend(data?.recent);
   const openExams = projects.filter((project) => project.status === 1).length;
   const busy = board.loading || projectsLoading;
 

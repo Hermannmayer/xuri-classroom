@@ -127,8 +127,14 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 	/** 老师首页「最近项目」条数 */
 	private static final int RECENT_PROJECT_LIMIT = 8;
 
-	/** 学员首页「最近答卷」条数 */
-	private static final int RECENT_ANSWER_LIMIT = 8;
+	/**
+	 * 学员首页「最近答卷」条数。
+	 *
+	 * <p>原来是 8 条，走势图只有 8 个点，看不出起伏。放到 20 条：一个学期考 20 次已经算多，
+	 * 图上足够看出趋势；再大就没意义了 —— 首页只画趋势，逐次的明细在「我的任务 / 我的成绩」里翻，
+	 * 首页再拉长只是把响应体和项目名查询一起放大，还是没人会在首页逐条读。
+	 */
+	private static final int RECENT_ANSWER_LIMIT = 20;
 
 	/**
 	 * 管理员判定（SQL 片段，作用于外层的 t_user 行）。
@@ -447,28 +453,69 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 
 	@Override
 	public DashboardTrendView trend(int days) {
+		return buildTrend(normalizeDays(days), formalAnswers(), "trend");
+	}
+
+	/**
+	 * 当前老师可见范围内的趋势（老师首页用）：只统计 {@link #teacher()} 那批项目下的正式答卷。
+	 *
+	 * <p>可见项目与老师首页共用 {@link #visibleProjectIds} + {@link #visibleProjectRows}：两处各写一遍
+	 * 「哪些项目算我的」，迟早会出现「卡片说 9 个项目、趋势却画了别人的卷子」这种对不上的偏差，
+	 * 而这类错位用户第一眼就能看出来（而且等于把看不到的项目规模透出去了）。
+	 *
+	 * <p>没有任何可见项目时返回「整段 0 值」的完整窗口（不查库）：前端按等长数组画图，
+	 * 空数组会把日期轴也一起弄空，页面上是一块空白，而不是「最近 14 天都是 0」。
+	 */
+	@Override
+	public DashboardTrendView teacherTrend(int days) {
 		int window = normalizeDays(days);
+		List<String> ids = visibleProjectIdsOfCurrentUser();
+		if (ids.isEmpty()) {
+			return buildTrend(window, null, "teacherTrend");
+		}
+		return buildTrend(window, formalAnswers().in("project_id", ids), "teacherTrend");
+	}
+
+	/** 当前登录人可见的、可作答的项目 id（老师首页与老师趋势的统一入口，避免两处各算一遍） */
+	private List<String> visibleProjectIdsOfCurrentUser() {
+		String userId = SecurityContextUtils.getUserId();
+		List<String> classIds = visibleClassIds();
+		Set<String> projectIds = safe("teacher.projectIds", () -> visibleProjectIds(userId, classIds),
+				Collections.emptySet());
+		return projectIdList(visibleProjectRows(projectIds));
+	}
+
+	/**
+	 * 趋势骨架：一条 SQL 出四个序列，日期轴在 Java 里逐日补齐。
+	 *
+	 * @param window 已夹取过的窗口天数
+	 * @param scope 统计范围（正式答卷 + 可选的项目过滤）；<b>null 表示一个可见项目都没有</b>，
+	 * 此时不查库，直接按天补 0
+	 * @param block 失败兜底日志里的块名，用来区分是全站口径还是老师口径挂了
+	 */
+	private DashboardTrendView buildTrend(int window, QueryWrapper<Answer> scope, String block) {
 		DashboardTrendView view = new DashboardTrendView();
 		LocalDate today = LocalDate.now();
 		LocalDate from = today.minusDays(window - 1L);
 		Date since = Date.from(from.atStartOfDay(ZoneId.systemDefault()).toInstant());
-		// 一条 SQL 出四个序列：按自然日分组，缺的日期下面在 Java 里补 0 / null。
-		// 不逐日循环查 14 次，也不把答卷拉进内存按日期桶排。
+		// 不逐日循环查 14 次，也不把答卷拉进内存按日期桶排：按自然日分组，缺的日期在下面补 0 / null。
 		Map<String, Map<String, Object>> byDay = new HashMap<>();
-		List<Map<String, Object>> rows = safe("trend", () -> answerMapper.selectMaps(formalAnswers()
+		if (scope != null) {
+			List<Map<String, Object>> rows = safe(block, () -> answerMapper.selectMaps(scope
 				.select("DATE(create_at) AS stat_day", "COUNT(*) AS cnt",
 						// 与 overview 的 graded 同一口径：有分数且不是待批改（含 none / 空 / graded）
-				"SUM(CASE WHEN exam_score IS NOT NULL AND (grade_status IS NULL OR grade_status <> '" + GRADE_PENDING
-						+ "') THEN 1 ELSE 0 END) AS graded_cnt",
+						"SUM(CASE WHEN exam_score IS NOT NULL AND (grade_status IS NULL OR grade_status <> '"
+								+ GRADE_PENDING + "') THEN 1 ELSE 0 END) AS graded_cnt",
 						"AVG(exam_score) AS avg_score", "COUNT(DISTINCT create_by) AS active_cnt")
 				.ge("create_at", since).groupBy("DATE(create_at)")), Collections.emptyList());
-		for (Map<String, Object> row : rows) {
-			if (row == null) {
-				continue;
-			}
-			String key = dayKey(row.get("stat_day"));
-			if (key != null) {
-				byDay.put(key, row);
+			for (Map<String, Object> row : rows) {
+				if (row == null) {
+					continue;
+				}
+				String key = dayKey(row.get("stat_day"));
+				if (key != null) {
+					byDay.put(key, row);
+				}
 			}
 		}
 		for (LocalDate cursor = from; !cursor.isAfter(today); cursor = cursor.plusDays(1)) {
@@ -511,18 +558,9 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		view.setClasses(classIds.size());
 		view.setStudents(classIds.isEmpty() ? 0L : safe("teacher.students", () -> countStudentsInClasses(classIds), 0L));
 		Set<String> projectIds = safe("teacher.projectIds", () -> visibleProjectIds(userId, classIds), Collections.emptySet());
-		if (projectIds.isEmpty()) {
-			return view;
-		}
-		List<Map<String, Object>> projectRows = safe("teacher.projects", () -> projectMapper
-				.selectMaps(new QueryWrapper<Project>().select("id", "name", "mode", "status", "create_at").in("id", projectIds)),
-				Collections.emptyList());
 		// 文件夹不是可作答的项目：不参与 projects / published，也不出现在 recent 里
-		List<Map<String, Object>> realProjects = projectRows.stream()
-				.filter(row -> !ProjectModeEnum.folder.name().equalsIgnoreCase(asString(row.get("mode"))))
-				.collect(Collectors.toList());
-		List<String> ids = realProjects.stream().map(row -> asString(row.get("id"))).filter(StringUtils::hasText)
-				.collect(Collectors.toList());
+		List<Map<String, Object>> realProjects = visibleProjectRows(projectIds);
+		List<String> ids = projectIdList(realProjects);
 		view.setProjects(ids.size());
 		view.setPublished(realProjects.stream()
 				.filter(row -> Integer.valueOf(1).equals(asInteger(row.get("status")))).count());
@@ -611,6 +649,32 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 					.stream().filter(Objects::nonNull).map(String::valueOf).forEach(ids::add);
 		}
 		return ids;
+	}
+
+	/**
+	 * 老师可见的、可作答的项目行（id / name / mode / status / create_at）。
+	 *
+	 * <p>文件夹只是分组容器：既不算「项目数」，也不可能有答卷，所以在这里一次性滤掉。
+	 * 老师首页的项目卡、最近项目表和老师趋势都从这里取，避免三处各写一遍过滤、各自漏一种情况。
+	 */
+	private List<Map<String, Object>> visibleProjectRows(Set<String> projectIds) {
+		if (projectIds == null || projectIds.isEmpty()) {
+			return new ArrayList<>();
+		}
+		return safe("teacher.projects", () -> projectMapper
+				.selectMaps(new QueryWrapper<Project>().select("id", "name", "mode", "status", "create_at")
+					.in("id", projectIds)),
+				Collections.<Map<String, Object>>emptyList())
+				.stream()
+				.filter(row -> row != null
+					&& !ProjectModeEnum.folder.name().equalsIgnoreCase(asString(row.get("mode"))))
+				.collect(Collectors.toList());
+	}
+
+	/** 项目行 → id 列表（保序、跳过空 id；老师统计与老师趋势都按这批 id 过滤） */
+	private static List<String> projectIdList(List<Map<String, Object>> rows) {
+		return rows.stream().map(row -> asString(row.get("id"))).filter(StringUtils::hasText)
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -775,7 +839,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return candidates.stream().filter(id -> !submitted.contains(id)).count();
 	}
 
-	/** 最近 8 次正式答卷（含分数），项目名一次批量取回，不逐个查 */
+	/** 最近 20 次正式答卷（含分数），项目名一次批量取回，不逐个查 */
 	private List<StudentDashboardView.Recent> recentAnswers(String userId) {
 		List<Map<String, Object>> rows = answerMapper.selectMaps(formalAnswers().eq("create_by", userId)
 				.select("project_id", "exam_score", "create_at").orderByDesc("create_at")

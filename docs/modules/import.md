@@ -49,7 +49,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
 ---
 
 # 试卷导入（解析 / 预览 / 落地）
@@ -164,7 +164,10 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 
 - fastexcel 不读图片：`ExcelRowImages`（POI `XSSFWorkbook`）把同一个文件的字节再开一次，遍历 `getDrawingPatriarch()` 里的 `XSSFPicture`；**试卷导入（ExcelQuestionParser）和题库导入（RepoServiceImpl）共用这一层**。
 - 归属规则：按 `XSSFClientAnchor` **左上角所在行**（`row1 + 1`）挂到该行题目，token `[[IMG:n]]` 追加到题干末尾（与 Word 一致），字节进 `ImportPreview.attachments`。
-- 图片跨行、或锚点落在合并单元格里时，一律以左上角行为准，可能与肉眼位置差一行——导入后可在编辑器里手工挪。
+- 只认「纵向落在一行之内」的图片：`row2 == row1 + 1 && rowOff2 == 0`（正好填满一个单元格，Excel/POI 的标准写法）或 `row2 <= row1`（比格子矮）。
+  **跨行、或压进下一行的图片直接跳过**并给一条 `IMAGE_ANCHOR_SPANS_ROWS` 警告（带工作表名与行号，提示「请把图片贴到单个单元格内」）——
+  这种图片按左上角硬挂就是猜，挂错了会变成「图贴到别的题上」，比少一张图更难发现。
+  注意别把规则写成 `row1 != row2`：单格图片的 `row2` 本来就是 `row1 + 1`，那样会把所有正常图片全丢掉。
 - 超过 2MB 单张、或整份超过 50 张 → 跳过并给 warning；emf/wmf 这类前端渲染不了的矢量图静默跳过。
 - 只支持 .xlsx；.xls 提示「请在 Excel 里另存为 .xlsx 后重试」（按文件内容判断，改名成 .xls 的 xlsx 仍可导）。
 - 两条链路挂图方式不同：试卷导入产出 `[[IMG:n]]` token（落库时由 `ImportServiceImpl.applyAttachments` 换地址）；题库导入没有 token 这层，`QuestionImageUploader.attachRowImages` 直接把 `<img>` + `richTitle=true` 写进题干。

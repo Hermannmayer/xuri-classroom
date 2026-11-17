@@ -92,7 +92,10 @@ export function AreaTrend({
   const xOf = (index: number) => PAD.left + (count <= 1 ? innerW / 2 : (index / (count - 1)) * innerW);
   const yOf = (value: number) => PAD.top + innerH * (1 - (value - lo) / (hi - lo));
   const parts = segments(values, xOf, yOf);
-  const tickStep = labelStep(count, innerW, 44);
+  // x 轴标签抽稀：宽度不够时按 labelStep 每 44px 一个；点一多（>12）至少隔一个画一个，
+  // 否则 20 个 MM-dd 挤在一起反而读不出来。从最后一个点往回数，保证「最新的一次」总有日期。
+  const tickStep = Math.max(labelStep(count, innerW, 44), count > 12 ? 2 : 1);
+  const showXLabel = (index: number) => (count - 1 - index) % tickStep === 0;
   const ticks = tickValues(lo, hi, step);
   const tipName = (index: number) => tooltipLabels?.[index] ?? labels[index] ?? `第 ${index + 1} 点`;
   const tipW = 140;
@@ -185,7 +188,7 @@ export function AreaTrend({
           : null}
 
         {Array.from({ length: count }, (_, index) =>
-          index % tickStep === 0 ? (
+          showXLabel(index) ? (
             <text
               key={`x-${index}`}
               x={xOf(index)}

@@ -93,7 +93,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
 ---
 
 # 题库与题目
@@ -162,7 +162,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
    - 打开弹窗先读 `GET /api/system` 的 `setting.exportPasswordEnabled`：为 `false` 时**直接自动开始下载**，不再让用户对着空密码框猜；为 `true` 才显示密码输入。
    - 下载流程：`POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效）→ `GET /api/repo/export?id=...&exportToken=...`。密码只走 POST body，URL 里只出现 token。
-   - `ExportGuardService` 校验密码/令牌（系统未配置密码时直接放行），`RepoServiceImpl.exportRepoQuestions` 用 fastexcel 生成「单选/多选/判断/填空/简答」多个 sheet，最后写一条 `EXPORT_REPO` 审计。
+   - `ExportGuardService` 校验密码/令牌（系统未配置密码时直接放行），`RepoQuestionExcelExporter` 按题型生成 **13 个 sheet**（与导入模板同一套表头），`RepoServiceImpl.exportRepoQuestionsBytes` 负责取数与打包，最后写一条 `EXPORT_REPO` 审计。
 5. **授权题库（仅教师）**：`GrantModal.tsx` 调 `GET /api/repo/partner/list` 展示已有授权；新增走 `POST /api/repo/partner/create`，传 `deptId` 表示按教师用户组、传 `userIds` 表示按教职工；取消走 `/partner/delete`。组授权只存一条 `dept_id` 记录，组员靠「主组 + 附加组 + 祖先链」自动继承；接口要求 `repo:grant` 或管理员，服务层再要求调用者是题库创建者或管理员。**服务端拒绝 `dept_type=class` 和 `user_type=student`**（提示「题库只能授权给教师用户组/教职工；学员请到班级管理 → 班级资源里分配题库」）；历史遗留的学员/班级授权行在列表接口被过滤，学员读题库只认 `t_class_resource`。
 6. **抽题**：`POST /api/repo/pick` 的请求体是 `ProjectSetting.RandomSurveyCondition` 列表（`repoId`、`types`、`questionsNum`、`examScore`、可选 `tags`）。`pickQuestionFromRepo` 对每个条件先 `assertReadableRepo`（认班级分配），按题型/标签过滤，`Collections.shuffle` 后截断到 `questionsNum`，给每道题写入 `examScore`，跨条件按题目 id 去重，最后按题型排序返回 `SurveySchema` 列表。
 
@@ -232,7 +232,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
    （`parseRadioOrJudge` 兼单选/判断、`parseCheckbox`、`parseFillBlank`、`parseTextarea`、`parseSelect`、`parseScore`、
    `parseNps`、`parseCascader`、`parseMatrix`、`parseUpload`），最后都走 `addQuestion` 合并「高级配置(JSON)」。
    表头按**名字**定位（`HeaderLabel`），插列、删空列、换列序都不影响导入。
-3. 导出列在 `RepoServiceImpl.exportRepoQuestions` 里逐题型拼装（**仍只有 5 个 sheet**，见「坑与已知限制」），
+3. 导出列在 `RepoQuestionExcelExporter` 里逐题型拼装（13 个 sheet 与导入模板对齐；新题型加导出时同步改 `headersOf`），
    改完先用「导出 → 原样导入」做一次闭环验证。
 4. Excel 内嵌图片的抽取与上传在 `core/importer/ExcelRowImages` + `QuestionImageUploader`（shared），
    题库与试卷两条链路共用；改锚点行归属规则会同时影响两边。
@@ -267,12 +267,11 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - **班级分配只对 student 生效**：`canStudentReadRepo` 对 staff/管理员/匿名返回 false，不会放宽教职工口径。
 - **`ClassResourceService#assertStudentCanAccessRepo` 目前没有调用方**：实际读闸门是 `canStudentReadRepo`（RepoServiceImpl / TemplateServiceImpl / RepoPartnerServiceImpl 各自调用）；新增入口时不要误以为它已兜底。
 - **`updateRepo` 是整表单保存**：清空全局开放时间（前端传 null）会通过显式 `set` 落 NULL；只传 `id+name` 的脚本/调用会连 `openStartAt/openEndAt` 一起清空，改题库时务必带上完整字段。
-- 导出不含「多空填空」（`MultipleBlank`）：`exportRepoQuestions` 只处理单选、多选、判断、填空（单空）、简答；多空填空会丢。
-  **2026-11 新增的 8 种题型（下拉/评分/NPS/级联/矩阵单选/矩阵多选/矩阵填空/上传）也不会出现在导出文件里**——
-  它们只能导入、没有反向导出，「导出 → 原样导入」的闭环只对那 5 种题型成立。空题库导出会因 fastexcel 不允许 0 个 sheet 而 500，前端已提前拦截并提示。
-- **题库题目列表不认识富题干**：`Questions.tsx` 的「题干」列把 `row.template?.title` 当纯文本渲染，
-  Excel 内嵌图片导入后题干里带 `<img>`，列表会把标签原样显示出来；题目编辑/预览走渲染层没这个问题。
-  要在列表里看图，得把那一处换成 `RichTextContent`（或按 `attribute.richTitle` 分流）。
+- **导出已与导入对齐（2026-11 修）**：13 个 sheet 覆盖单选/多选/判断/填空（含多空）/简答/下拉/评分/NPS/级联/矩阵单选/矩阵多选/矩阵填空/上传；
+  `高级配置(JSON)` 列只写表头不写值（schema 上没有对应列可表达 required/placeholder 等），往返后这些属性回落到默认值。
+  fastexcel 写出的 zip 其数据描述符长度恒为 0，会让导入侧的流式安全校验报 `invalid entry size`——导出器末尾按中央目录重写过一遍（`normalizeZip`），历史文件的坏 zip 不会被自动修。
+- **列表里的富题干**：`Questions.tsx` 只在题干里出现真正的 HTML 标签时才走 `RichTextContent`（DOMPurify 消毒），
+  纯文本仍然直出——否则「若 x<3」这类数学写法会被当成半截标签吃掉。图片宽度由 `.rich-text-content img` 兜住，不会撑破列。
 - 导入是按「序号 + 题型」匹配的 upsert：同一题库里序号相同、题型相同的行会覆盖原题，不是追加。导入前先导出一份当模板最稳。
 - `/api/project/selectRepo`（编辑器选题库）只返回「自己创建 + 共享」，没有管理员放行、也不含组授权/班级分配；但组卷弹窗 `ComposeModal` 用的是 `/api/repo/list`（含组授权与班级分配），不要按 `selectRepo` 的口径判断老师在组卷弹窗里能选到的题库。
 - `shared`（共享题库）在题库列表页没有开关，只能通过接口或直接改库设置；共享后所有能进题库列表的人都能读。

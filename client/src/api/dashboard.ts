@@ -1,5 +1,5 @@
 /**
- * 首页统计接口：/api/dashboard/{overview,trend,teacher,student}。
+ * 首页统计接口：/api/dashboard/{overview,trend,teacher,teacher/trend,student}。
  *
  * 后端是并行开发的（契约已冻结，见任务卡 task-34），所以这一层刻意做两件事：
  * 1. **每个请求独立兜底**：任何失败都收敛成 `{ data: null, error: '原因' }`，
@@ -163,6 +163,16 @@ export const fetchTrend = (days = 14) =>
 
 export const fetchTeacherBoard = () => section(get<TeacherDashboard>('/api/dashboard/teacher'));
 
+/**
+ * 老师首页趋势：只统计当前老师可见的项目（后端 DashboardStatsService#teacherTrend）。
+ *
+ * 与 fetchTrend 的唯一区别是统计范围：那个是全站口径（管理员视角），老师首页直接用会把
+ * 别人的答卷画到自己的图上——卡片写着「我的教学」，图里却是全校数据，属于误导。
+ * 失败照旧收敛成 { data: null, error }，页面按块降级。
+ */
+export const fetchTeacherTrend = (days = 14) =>
+  section(get<DashboardTrend>('/api/dashboard/teacher/trend', { days: normalizeDays(days) }));
+
 export const fetchStudentBoard = () => section(get<StudentDashboard>('/api/dashboard/student'));
 
 function alignSeries(
@@ -236,10 +246,18 @@ export interface ScoreTrend {
 }
 
 /**
+ * 学员首页成绩走势最多画几个点：与后端 StudentDashboardView.recent 的 20 条对齐。
+ *
+ * 首页只画趋势（一个点 = 一次作答），20 个点足够看出起伏；逐次明细在「我的任务 / 我的成绩」里翻，
+ * 首页不做第二份成绩列表，所以这里不再往上加。
+ */
+export const STUDENT_RECENT_LIMIT = 20;
+
+/**
  * 学员首页的「我的成绩走势」：把 /api/dashboard/student 的 recent 按时间正序摊平。
  * 没有分数的记录保留成 null（折线断开），不会被当成 0 分。
  */
-export function scoreTrend(rows: StudentRecentRow[] | null | undefined, limit = 8): ScoreTrend {
+export function scoreTrend(rows: StudentRecentRow[] | null | undefined, limit = STUDENT_RECENT_LIMIT): ScoreTrend {
   const list = (rows ?? [])
     .map((row, index) => ({ row, index, at: toMillis(row.createAt) }))
     .sort((a, b) => {

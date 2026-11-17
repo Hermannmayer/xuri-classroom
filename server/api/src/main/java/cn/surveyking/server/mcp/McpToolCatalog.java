@@ -132,22 +132,22 @@ public final class McpToolCatalog {
 							}
 							"""),
 			new McpToolDefinition("sk_export_create", "发起导出",
-					"发起「按班级导出答卷 PDF」异步任务，立刻返回 jobId，进度用 sk_export_get 轮询。写操作，必须带 idempotencyKey。需要 answer:export 权限",
+					"发起「导出答卷 PDF」异步任务（按班级 / 勾选若干份 / 整卷都行），立刻返回 jobId，进度用 sk_export_get 轮询。写操作，必须带 idempotencyKey。需要 answer:export 权限",
 					"answer:export", true, """
 							{
 							  "type": "object",
 							  "properties": {
 							    "projectId": {"type": "string", "description": "项目 id"},
-							    "classId": {"type": "string", "description": "班级 id（按班级导出，必填）"},
+							    "classId": {"type": "string", "description": "班级 id，可空：不传=整卷（或按 ids 勾选导出），此时要求项目所有者/协作者"},
 							    "attemptNo": {"type": "integer", "description": "只导第几次作答（从 0 开始），可空=全部轮次"},
 							    "includeAnalysis": {"type": "boolean", "description": "是否附答案解析，默认 false（考试没结束放解析等于泄题）"},
 							    "includeImages": {"type": "boolean", "description": "是否附签名/上传题图片，默认 false"},
-							    "ids": {"type": "array", "items": {"type": "string"}, "description": "只导指定答卷 id，可空"},
+							    "ids": {"type": "array", "items": {"type": "string"}, "description": "只导指定答卷 id（勾选导出），可空；与 classId 同时为空即整卷"},
 							    "startTime": {"type": "string", "description": "提交时间下限，格式 yyyy-MM-dd HH:mm:ss，可空"},
 							    "endTime": {"type": "string", "description": "提交时间上限，格式 yyyy-MM-dd HH:mm:ss，可空"},
 							""" + IDEMPOTENCY_PROPERTY + """
 							  },
-							  "required": ["projectId", "classId", "idempotencyKey"]
+							  "required": ["projectId", "idempotencyKey"]
 							}
 							"""),
 			new McpToolDefinition("sk_export_get", "导出进度",

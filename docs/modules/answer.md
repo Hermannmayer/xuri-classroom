@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
 ---
 
 # 答卷、判分与报表
@@ -285,6 +285,13 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - **范围**（2026-11 起）：`classId` 可空，支持 `ids`（勾选导出）与 `startTime/endTime`（时间段）任意组合；
   `classId` 有值仍走 `classService.assertVisible`，为空改走 `AnswerAccessGuard#assertProjectAccess`（管理员 / 项目所有者 / 协作者），
   **不能**退化成「班级可见即可导整卷」——否则学员凭一次指派就能打包整场答卷。`ids` 不传 = 不限（整卷）。
+- **筛选口径与页面逐条一致**（2026-11）：`gradeStatus / createByName / minScore / maxScore / includeAnonymous`
+  和 `classId / ids / startTime / endTime / attemptNo` 一样固化进任务快照（`AnswerPdfJobServiceImpl#specOf`），
+  取数走同一个 `baseWrapper`，条件与 `AnswerServiceImpl#listAnswer` 相同：批改状态按 `grade_status`、姓名按
+  `answerer_name like` + `t_user.name` 反查（两条用括号 OR 包住）、分数段是 `exam_score` 闭区间、仅实名按
+  `is_anonymous=0`；空值一律 = 不限。两个前端入口都会带上当前筛选（数据页 `ExportModal` 用 `filters`，班级抽屉用列表的
+  状态 / 姓名，并把列表的时间范围预填进导出设置）。**选「仅勾选」时只按 `ids` 取，不再叠加任何筛选**。回归见
+  `AnswerPdfJobFilterScopeTest`（断言生成的 SQL 片段与绑定参数）。
 - 异步而不是同步：50 份 × 100 题在 4 核机器上要 25~50 秒，同步会撞反代 60 秒超时。
 - **并发**跟系统设置 `answerPdfConcurrency`（1~2，默认 1，`mergeSysInfo` 里夹紧）；队列 2，满了返回中文提示。每份之间 `sleep 30ms` 主动让 CPU 给答题页。
 - **考试期间暂停**：`pauseAnswerPdfDuringExam`（默认开）时检测到有活跃考试就拒绝建任务并给出明确提示；Excel 明细不受影响。
@@ -292,7 +299,9 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - 后端容器是 alpine，只有 `ttf-dejavu`，**没有任何中文字体** —— 所以字体必须随 jar 走。
 - 结果行用文字（回答正确/部分正确/回答错误/待老师批改）而不是 ✓/✕：字体子集不含 Dingbats，缺字会让 PDFBox 抛异常。
 - **答题卷的选项方框是矢量画的**：字体子集同样不含 □/■（U+25A1/U+25A0），直接 showText 会被 sanitize 换成「·」，所以选中/未选靠描边与填充区分。
-- **成绩确认单的及格线是绝对值 60**（可传 `passScore` 覆盖）：满分低于 60 的卷子会全部判「不及格」，这种极少见的卷子需要在调用处传比例。
+- **成绩确认单的及格线默认是「卷面满分 × 60%」**（保留 1 位小数）：满分 120 → 72 分，满分 50 → 30 分；
+  取不到满分（题目都没配分值）才回退绝对值 60，显式传 `passScore` 仍然优先。单张上写作「及格线 72 分（满分 120 的 60%）」，
+  名册副标题同一口径。卷面满分来源：`ConfirmOptions.maxScore`，其次由 `AnswerView.examInfo` + 卷面 schema 汇总。
 - 单人版确认单（`renderConfirmSheet`，一页 A4、带逐题得分与签字栏）保留为兜底 API，正常导出走不到；将来若要做「每人一页签字」，直接复用即可。
 - 产物落 `{file-storage.local.root-path}/export/{jobId}.zip`，**24 小时**后由 `@Scheduled` 每小时清一次（含进程重启后 JOBS 丢失的孤儿文件）。
 
@@ -400,7 +409,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 - **班级答卷抽屉没有导出密码输入**：`downloadClassAnswers` 调 `/api/answer/export/token` 时传空 body；系统配置导出密码后会失败，需补密码输入或改走无密码场景。
 - **通用导出仍走旧 token 端点**：数据页 `Data.tsx` 仍调 `/api/repo/export/token`，班级抽屉才用新 `/api/answer/export/token`；两者共用 `ExportGuardService`，行为一致但调用路径尚未统一。
 - **分页查询的时间参数必须带 `@DateTimeFormat`**：`AnswerQuery.startTime/endTime` 是 `java.util.Date`，前端传 `yyyy-MM-dd HH:mm:ss`；少了注解 Spring 会按默认格式解析失败，**整个列表接口 400**（2026-11 补过这一处，新增时间参数照抄）。
-- **导出口径必须跟筛选条一致**：`DownloadQuery` 现在也有 `gradeStatus / createByName / minScore / maxScore`，`downloadSurvey` 与 `downloadByClass` 都要把它们透传进 `AnswerQuery`；漏一个就会出现「页面筛了 60 分以下、Excel 导出一整场」。
+- **导出口径必须跟筛选条一致**：`DownloadQuery` 现在也有 `gradeStatus / createByName / minScore / maxScore / includeAnonymous`，`downloadSurvey` 与 `downloadByClass` 都要把它们透传进 `AnswerQuery`；漏一个就会出现「页面筛了 60 分以下、Excel 导出一整场」。PDF / 答题卷 / 长图 / 确认单走的是另一条异步链路（`AnswerPdfJobServiceImpl#baseWrapper`），必须**同样**加上这组条件——2026-11 之前它只认 `classId/ids/时间`，是「导出文件与屏幕不一致」的已知隐患，现已补齐并由 `AnswerPdfJobFilterScopeTest` 盯住。
 - **`AnswerQuery.classId` ≠ 按班报表**：普通 `GET /api/answer/list?classId=` 仍在原项目数据范围内过滤；只有 `listAnswerByClass` 才按班级放开到「本班全部」。
 - **`tempSave=0` 的草稿不在列表里**：`listAnswer` 有 `isNotNull(Answer::getAnswer)`，未提交/仅暂存的记录不会出现在数据页；不要用答卷列表判断"有没有人打开过"。
 - **`answer:attach` 没有接到接口**：答题页附件走公开 `POST /api/public/upload`，管理侧导入走 `answer:upload`；权限目录里的 `answer:attach` 目前只是注释约定，改附件权限时要一起确认。

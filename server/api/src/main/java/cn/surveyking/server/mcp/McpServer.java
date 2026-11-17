@@ -365,7 +365,9 @@ public class McpServer {
 	private DownloadQuery downloadQuery(JsonNode args) {
 		DownloadQuery query = new DownloadQuery();
 		query.setProjectId(requiredText(args, "projectId"));
-		query.setClassId(requiredText(args, "classId"));
+		// classId 可空：不传就是整卷 / 按 ids 勾选导出（与 HTTP 导出接口同一套范围语义），
+		// 权限由 McpTools#exportCreate 按「有班级查班级、没班级查项目」分派
+		query.setClassId(text(args, "classId"));
 		query.setAttemptNo(integer(args, "attemptNo"));
 		query.setIncludeAnalysis(bool(args, "includeAnalysis"));
 		query.setIncludeImages(bool(args, "includeImages"));

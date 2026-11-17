@@ -13,7 +13,6 @@ import cn.surveyking.server.core.importer.TextQuestionParser;
 import cn.surveyking.server.core.importer.WordQuestionParser;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
 import cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper;
-import cn.surveyking.server.core.uitls.RepoTemplateI18n;
 import cn.surveyking.server.core.uitls.SchemaHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.core.uitls.ContextHelper;
@@ -50,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -943,502 +943,39 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@Override
 	@SneakyThrows
 	public void exportRepoQuestions(RepoRequest request) {
-		assertReadableRepo(request.getId());
-		// 获取题库信息
+		// 先拼内容再设响应头：拼装失败时才能走全局异常处理返回 JSON，而不是先声明成 attachment 再吐一个坏文件
+		byte[] content = exportRepoQuestionsBytes(request);
 		Repo repo = getById(request.getId());
 		String fileName = (repo != null && repo.getName() != null ? repo.getName() : "题库") + ".xlsx";
-
-		// 设置响应头
-		ContextHelper.getCurrentHttpResponse()
-				.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-		ContextHelper.getCurrentHttpResponse().setHeader("Content-Disposition",
+		HttpServletResponse response = ContextHelper.getCurrentHttpResponse();
+		response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+		response.setHeader("Content-Disposition",
 				"attachment; filename=" + java.net.URLEncoder.encode(fileName, "UTF-8"));
+		response.getOutputStream().write(content);
+	}
 
-		// 查询题库中的各种题型
-		List<Template> questions = templateService
-				.list(Wrappers.<Template>lambdaQuery().eq(Template::getRepoId, request.getId())
-						.in(Template::getQuestionType,
-								Arrays.asList(SurveySchema.QuestionType.Radio, SurveySchema.QuestionType.Checkbox,
-										SurveySchema.QuestionType.Judge, SurveySchema.QuestionType.FillBlank,
-										SurveySchema.QuestionType.Textarea))
-						.orderByAsc(Template::getQuestionType, Template::getCreateAt));
-
-		// 准备导出数据 - 按题型分组
-		Map<SurveySchema.QuestionType, List<Template>> questionsByType = questions.stream()
-				.collect(Collectors.groupingBy(Template::getQuestionType));
-
-		// 先处理单选题
-		List<List<Object>> radioRows = new ArrayList<>();
-		List<Template> radioQuestions = questionsByType.getOrDefault(SurveySchema.QuestionType.Radio,
-				new ArrayList<>());
-		int radioIndex = 1;
-
-		for (Template template : radioQuestions) {
-			SurveySchema schema = template.getTemplate();
-			List<Object> row = new ArrayList<>();
-
-			// 序号
-			row.add(radioIndex++);
-
-			// 题干
-			row.add(schema.getTitle());
-
-			// 选项A-H (单选题处理)
-			List<SurveySchema> options = schema.getChildren();
-			String[] optionTexts = new String[8];
-			String correctAnswer = "";
-			Double examScore = schema.getAttribute() != null ? schema.getAttribute().getExamScore() : null;
-
-			if (options != null) {
-				for (int i = 0; i < Math.min(options.size(), 8); i++) {
-					SurveySchema option = options.get(i);
-					optionTexts[i] = option.getTitle();
-
-					// 检查是否为正确答案（单选题只有一个正确答案）
-					if (option.getAttribute() != null && option.getAttribute().getExamCorrectAnswer() != null) {
-						correctAnswer = String.valueOf((char) ('A' + i));
-					}
-				}
-			}
-
-			// 添加选项A-H
-			for (int i = 0; i < 8; i++) {
-				row.add(optionTexts[i] != null ? optionTexts[i] : "");
-			}
-
-			// 解析
-			String analysis = schema.getAttribute() != null ? schema.getAttribute().getExamAnalysis() : "";
-			row.add(analysis != null ? analysis : "");
-
-			// 分数
-			row.add(examScore != null ? examScore : "");
-
-			// 答案
-			row.add(correctAnswer);
-
-			// 标签
-			String tags = "";
-			if (template.getTag() != null && template.getTag().length > 0) {
-				tags = String.join(",", template.getTag());
-			}
-			row.add(tags);
-
-			radioRows.add(row);
+	/**
+	 * 导出题库的全部题目为 xlsx 字节（只拼内容，不碰 HTTP 响应）。
+	 *
+	 * <p>
+	 * 单独拆出来是为了能单测「导出 → 再导入」的闭环：导出与导入共用
+	 * {@link cn.surveyking.server.core.uitls.RepoTemplateI18n} 的 sheet 名与表头，13 种题型各一个 sheet，
+	 * 空题型不建 sheet（细节见 {@link RepoQuestionExcelExporter}）。
+	 * @param request 题库请求（只用 id）
+	 * @return xlsx 字节
+	 */
+	byte[] exportRepoQuestionsBytes(RepoRequest request) {
+		assertReadableRepo(request.getId());
+		// 只查能导出的题型：题库里还可能挂着设计器的其它节点（分页/说明等），导出来也导不回去
+		List<Template> questions = templateService.list(Wrappers.<Template>lambdaQuery()
+				.eq(Template::getRepoId, request.getId())
+				.in(Template::getQuestionType, RepoQuestionExcelExporter.EXPORTABLE_TYPES)
+				.orderByAsc(Template::getQuestionType, Template::getCreateAt));
+		if (CollectionUtils.isEmpty(questions)) {
+			// 以前会写出一个没有任何 sheet 的 xlsx：Excel 打不开，导入侧也只会报「没有可导入的题目」
+			throw new ValidationException("题库里没有可导出的题目");
 		}
-
-		// 处理多选题
-		List<List<Object>> checkboxRows = new ArrayList<>();
-		List<Template> checkboxQuestions = questionsByType.getOrDefault(SurveySchema.QuestionType.Checkbox,
-				new ArrayList<>());
-		int checkboxIndex = 1;
-
-		for (Template template : checkboxQuestions) {
-			SurveySchema schema = template.getTemplate();
-			List<Object> row = new ArrayList<>();
-
-			// 序号
-			row.add(checkboxIndex++);
-
-			// 题干
-			row.add(schema.getTitle());
-
-			// 选项A-H (多选题处理)
-			List<SurveySchema> options = schema.getChildren();
-			String[] optionTexts = new String[8];
-			List<String> correctAnswers = new ArrayList<>();
-			Double examScore = schema.getAttribute() != null ? schema.getAttribute().getExamScore() : null;
-
-			if (options != null) {
-				for (int i = 0; i < Math.min(options.size(), 8); i++) {
-					SurveySchema option = options.get(i);
-					optionTexts[i] = option.getTitle();
-
-					// 检查是否为正确答案（多选题可能有多个正确答案）
-					if (option.getAttribute() != null && option.getAttribute().getExamCorrectAnswer() != null) {
-						correctAnswers.add(String.valueOf((char) ('A' + i)));
-					}
-				}
-			}
-
-			// 添加选项A-H
-			for (int i = 0; i < 8; i++) {
-				row.add(optionTexts[i] != null ? optionTexts[i] : "");
-			}
-
-			// 解析
-			String analysis = schema.getAttribute() != null ? schema.getAttribute().getExamAnalysis() : "";
-			row.add(analysis != null ? analysis : "");
-
-			// 分数
-			row.add(examScore != null ? examScore : "");
-
-			// 答案（多选题用逗号分隔多个答案）
-			row.add(String.join(",", correctAnswers));
-
-			// 标签
-			String tags = "";
-			if (template.getTag() != null && template.getTag().length > 0) {
-				tags = String.join(",", template.getTag());
-			}
-			row.add(tags);
-
-			checkboxRows.add(row);
-		}
-
-		// 处理判断题
-		List<List<Object>> judgeRows = new ArrayList<>();
-		List<Template> judgeQuestions = questionsByType.getOrDefault(SurveySchema.QuestionType.Judge,
-				new ArrayList<>());
-		int judgeIndex = 1;
-
-		for (Template template : judgeQuestions) {
-			SurveySchema schema = template.getTemplate();
-			List<Object> row = new ArrayList<>();
-
-			// 序号
-			row.add(judgeIndex++);
-
-			// 题干
-			row.add(schema.getTitle());
-
-			// 选项A、选项B（判断题一般是正确/错误）
-			List<SurveySchema> options = schema.getChildren();
-			String optionA = "";
-			String optionB = "";
-			String correctAnswer = "";
-			Double examScore = schema.getAttribute() != null ? schema.getAttribute().getExamScore() : null;
-
-			if (options != null && options.size() >= 2) {
-				optionA = options.get(0).getTitle();
-				optionB = options.get(1).getTitle();
-
-				// 检查正确答案
-				if (options.get(0).getAttribute() != null
-						&& options.get(0).getAttribute().getExamCorrectAnswer() != null) {
-					correctAnswer = "A";
-				}
-				else if (options.get(1).getAttribute() != null
-						&& options.get(1).getAttribute().getExamCorrectAnswer() != null) {
-					correctAnswer = "B";
-				}
-			}
-
-			row.add(optionA);
-			row.add(optionB);
-
-			// 解析
-			String analysis = schema.getAttribute() != null ? schema.getAttribute().getExamAnalysis() : "";
-			row.add(analysis != null ? analysis : "");
-
-			// 分数
-			row.add(examScore != null ? examScore : "");
-
-			// 答案
-			row.add(correctAnswer);
-
-			// 标签
-			String tags = "";
-			if (template.getTag() != null && template.getTag().length > 0) {
-				tags = String.join(" ", template.getTag());
-			}
-			row.add(tags);
-
-			judgeRows.add(row);
-		}
-
-		// 处理填空题
-		List<List<Object>> fillBlankRows = new ArrayList<>();
-		List<Template> fillBlankQuestions = questionsByType.getOrDefault(SurveySchema.QuestionType.FillBlank,
-				new ArrayList<>());
-		int fillBlankIndex = 1;
-
-		for (Template template : fillBlankQuestions) {
-			SurveySchema schema = template.getTemplate();
-			List<Object> row = new ArrayList<>();
-
-			// 序号
-			row.add(fillBlankIndex++);
-
-			// 题干
-			row.add(schema.getTitle());
-
-			// 空1-空8
-			List<SurveySchema> blanks = schema.getChildren();
-			String[] blankAnswers = new String[8];
-			Double examScore = schema.getAttribute() != null ? schema.getAttribute().getExamScore() : null;
-
-			if (blanks != null) {
-				for (int i = 0; i < Math.min(blanks.size(), 8); i++) {
-					SurveySchema blank = blanks.get(i);
-					if (blank.getAttribute() != null && blank.getAttribute().getExamCorrectAnswer() != null) {
-						blankAnswers[i] = blank.getAttribute().getExamCorrectAnswer();
-					}
-				}
-			}
-
-			// 添加空1-空8
-			for (int i = 0; i < 8; i++) {
-				row.add(blankAnswers[i] != null ? blankAnswers[i] : "");
-			}
-
-			// 解析
-			String analysis = schema.getAttribute() != null ? schema.getAttribute().getExamAnalysis() : "";
-			row.add(analysis != null ? analysis : "");
-
-			// 单空分数
-			row.add(examScore != null ? examScore : "");
-
-			// 标签
-			String tags = "";
-			if (template.getTag() != null && template.getTag().length > 0) {
-				tags = String.join(" ", template.getTag());
-			}
-			row.add(tags);
-
-			fillBlankRows.add(row);
-		}
-
-		// 处理简答题（Textarea）
-		List<List<Object>> textareaRows = new ArrayList<>();
-		List<Template> textareaQuestions = questionsByType.getOrDefault(SurveySchema.QuestionType.Textarea,
-				new ArrayList<>());
-		int textareaIndex = 1;
-
-		for (Template template : textareaQuestions) {
-			SurveySchema schema = template.getTemplate();
-			List<Object> row = new ArrayList<>();
-
-			// 序号
-			row.add(textareaIndex++);
-
-			// 题干
-			row.add(schema.getTitle());
-
-			// 答案（对于简答题，可能存储在第一个子元素中）
-			String answer = "";
-			if (schema.getChildren() != null && !schema.getChildren().isEmpty()) {
-				SurveySchema firstChild = schema.getChildren().get(0);
-				if (firstChild.getAttribute() != null && firstChild.getAttribute().getExamCorrectAnswer() != null) {
-					answer = firstChild.getAttribute().getExamCorrectAnswer();
-				}
-			}
-			row.add(answer);
-
-			// 解析
-			String analysis = schema.getAttribute() != null ? schema.getAttribute().getExamAnalysis() : "";
-			row.add(analysis != null ? analysis : "");
-
-			// 分数
-			Double examScore = schema.getAttribute() != null ? schema.getAttribute().getExamScore() : null;
-			row.add(examScore != null ? examScore : "");
-
-			// 标签
-			String tags = "";
-			if (template.getTag() != null && template.getTag().length > 0) {
-				tags = String.join(" ", template.getTag());
-			}
-			row.add(tags);
-
-			textareaRows.add(row);
-		}
-
-		// 准备不同题型的列标题
-		List<String> radioCheckboxHeaders = new ArrayList<>();
-		radioCheckboxHeaders.add(RepoTemplateI18n.HeaderLabel.SERIAL_NO.displayLabel());
-		radioCheckboxHeaders.add(RepoTemplateI18n.HeaderLabel.TITLE.displayLabel());
-		for (String suffix : Arrays.asList("A", "B", "C", "D", "E", "F", "G", "H")) {
-			radioCheckboxHeaders.add(RepoTemplateI18n.optionLabel(suffix));
-		}
-		radioCheckboxHeaders.add(RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel());
-		radioCheckboxHeaders.add(RepoTemplateI18n.HeaderLabel.SCORE.displayLabel());
-		radioCheckboxHeaders.add(RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel());
-		radioCheckboxHeaders.add(RepoTemplateI18n.HeaderLabel.TAGS.displayLabel());
-
-		List<String> judgeHeaders = new ArrayList<>();
-		judgeHeaders.add(RepoTemplateI18n.HeaderLabel.SERIAL_NO.displayLabel());
-		judgeHeaders.add(RepoTemplateI18n.HeaderLabel.TITLE.displayLabel());
-		judgeHeaders.add(RepoTemplateI18n.optionLabel("A"));
-		judgeHeaders.add(RepoTemplateI18n.optionLabel("B"));
-		judgeHeaders.add(RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel());
-		judgeHeaders.add(RepoTemplateI18n.HeaderLabel.SCORE.displayLabel());
-		judgeHeaders.add(RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel());
-		judgeHeaders.add(RepoTemplateI18n.HeaderLabel.TAGS.displayLabel());
-
-		List<String> fillBlankHeaders = new ArrayList<>();
-		fillBlankHeaders.add(RepoTemplateI18n.HeaderLabel.SERIAL_NO.displayLabel());
-		fillBlankHeaders.add(RepoTemplateI18n.HeaderLabel.TITLE.displayLabel());
-		for (String index : Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8")) {
-			fillBlankHeaders.add(RepoTemplateI18n.blankLabel(index));
-		}
-		fillBlankHeaders.add(RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel());
-		fillBlankHeaders.add(RepoTemplateI18n.HeaderLabel.SINGLE_BLANK_SCORE.displayLabel());
-		fillBlankHeaders.add(RepoTemplateI18n.HeaderLabel.TAGS.displayLabel());
-
-		List<String> textareaHeaders = Arrays.asList(RepoTemplateI18n.HeaderLabel.SERIAL_NO.displayLabel(),
-				RepoTemplateI18n.HeaderLabel.TITLE.displayLabel(), RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel(),
-				RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel(), RepoTemplateI18n.HeaderLabel.SCORE.displayLabel(),
-				RepoTemplateI18n.HeaderLabel.TAGS.displayLabel());
-
-		// 创建Excel工作簿，包含多个sheet
-		try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
-			org.dhatim.fastexcel.Workbook workbook = new org.dhatim.fastexcel.Workbook(baos,
-					RepoTemplateI18n.workbookName(), "1.0");
-
-			// 创建单选题sheet
-			if (!radioRows.isEmpty()) {
-				org.dhatim.fastexcel.Worksheet radioSheet = workbook
-						.newWorksheet(RepoTemplateI18n.SheetType.SINGLE_CHOICE.displayName());
-				radioSheet.fitToWidth((short) 10);
-				radioSheet.setFitToPage(true);
-
-				// 添加表头
-				for (int i = 0; i < radioCheckboxHeaders.size(); i++) {
-					radioSheet.value(0, i, radioCheckboxHeaders.get(i));
-				}
-
-				// 添加数据行
-				for (int r = 0; r < radioRows.size(); r++) {
-					List<Object> rowData = radioRows.get(r);
-					for (int c = 0; c < rowData.size(); c++) {
-						Object value = rowData.get(c);
-						if (value instanceof Integer) {
-							radioSheet.value(r + 1, c, (Number) value);
-						}
-						else if (value instanceof String) {
-							radioSheet.value(r + 1, c, (String) value);
-						}
-						else if (value != null) {
-							radioSheet.value(r + 1, c, value.toString());
-						}
-					}
-				}
-			}
-
-			// 创建多选题sheet
-			if (!checkboxRows.isEmpty()) {
-				org.dhatim.fastexcel.Worksheet checkboxSheet = workbook
-						.newWorksheet(RepoTemplateI18n.SheetType.MULTIPLE_CHOICE.displayName());
-				checkboxSheet.fitToWidth((short) 10);
-				checkboxSheet.setFitToPage(true);
-
-				// 添加表头
-				for (int i = 0; i < radioCheckboxHeaders.size(); i++) {
-					checkboxSheet.value(0, i, radioCheckboxHeaders.get(i));
-				}
-
-				// 添加数据行
-				for (int r = 0; r < checkboxRows.size(); r++) {
-					List<Object> rowData = checkboxRows.get(r);
-					for (int c = 0; c < rowData.size(); c++) {
-						Object value = rowData.get(c);
-						if (value instanceof Integer) {
-							checkboxSheet.value(r + 1, c, (Number) value);
-						}
-						else if (value instanceof String) {
-							checkboxSheet.value(r + 1, c, (String) value);
-						}
-						else if (value != null) {
-							checkboxSheet.value(r + 1, c, value.toString());
-						}
-					}
-				}
-			}
-
-			// 创建判断题sheet
-			if (!judgeRows.isEmpty()) {
-				org.dhatim.fastexcel.Worksheet judgeSheet = workbook
-						.newWorksheet(RepoTemplateI18n.SheetType.TRUE_FALSE.displayName());
-				judgeSheet.fitToWidth((short) 10);
-				judgeSheet.setFitToPage(true);
-
-				// 添加表头
-				for (int i = 0; i < judgeHeaders.size(); i++) {
-					judgeSheet.value(0, i, judgeHeaders.get(i));
-				}
-
-				// 添加数据行
-				for (int r = 0; r < judgeRows.size(); r++) {
-					List<Object> rowData = judgeRows.get(r);
-					for (int c = 0; c < rowData.size(); c++) {
-						Object value = rowData.get(c);
-						if (value instanceof Integer) {
-							judgeSheet.value(r + 1, c, (Number) value);
-						}
-						else if (value instanceof String) {
-							judgeSheet.value(r + 1, c, (String) value);
-						}
-						else if (value != null) {
-							judgeSheet.value(r + 1, c, value.toString());
-						}
-					}
-				}
-			}
-
-			// 创建填空题sheet
-			if (!fillBlankRows.isEmpty()) {
-				org.dhatim.fastexcel.Worksheet fillBlankSheet = workbook
-						.newWorksheet(RepoTemplateI18n.SheetType.FILL_BLANK.displayName());
-				fillBlankSheet.fitToWidth((short) 10);
-				fillBlankSheet.setFitToPage(true);
-
-				// 添加表头
-				for (int i = 0; i < fillBlankHeaders.size(); i++) {
-					fillBlankSheet.value(0, i, fillBlankHeaders.get(i));
-				}
-
-				// 添加数据行
-				for (int r = 0; r < fillBlankRows.size(); r++) {
-					List<Object> rowData = fillBlankRows.get(r);
-					for (int c = 0; c < rowData.size(); c++) {
-						Object value = rowData.get(c);
-						if (value instanceof Integer) {
-							fillBlankSheet.value(r + 1, c, (Number) value);
-						}
-						else if (value instanceof String) {
-							fillBlankSheet.value(r + 1, c, (String) value);
-						}
-						else if (value != null) {
-							fillBlankSheet.value(r + 1, c, value.toString());
-						}
-					}
-				}
-			}
-
-			// 创建简答题sheet
-			if (!textareaRows.isEmpty()) {
-				org.dhatim.fastexcel.Worksheet textareaSheet = workbook
-						.newWorksheet(RepoTemplateI18n.SheetType.TEXTAREA.displayName());
-				textareaSheet.fitToWidth((short) 10);
-				textareaSheet.setFitToPage(true);
-
-				// 添加表头
-				for (int i = 0; i < textareaHeaders.size(); i++) {
-					textareaSheet.value(0, i, textareaHeaders.get(i));
-				}
-
-				// 添加数据行
-				for (int r = 0; r < textareaRows.size(); r++) {
-					List<Object> rowData = textareaRows.get(r);
-					for (int c = 0; c < rowData.size(); c++) {
-						Object value = rowData.get(c);
-						if (value instanceof Integer) {
-							textareaSheet.value(r + 1, c, (Number) value);
-						}
-						else if (value instanceof String) {
-							textareaSheet.value(r + 1, c, (String) value);
-						}
-						else if (value != null) {
-							textareaSheet.value(r + 1, c, value.toString());
-						}
-					}
-				}
-			}
-
-			workbook.finish();
-
-			// 写入响应流
-			ContextHelper.getCurrentHttpResponse().getOutputStream().write(baos.toByteArray());
-		}
+		return RepoQuestionExcelExporter.export(questions);
 	}
 
 	private List<String> getTaggedTemplateIds(List<String> tags) {

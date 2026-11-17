@@ -12,6 +12,7 @@ import cn.surveyking.server.domain.dto.ProjectStatusRequest;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.ReportData;
 import cn.surveyking.server.domain.dto.SurveySchema;
+import cn.surveyking.server.impl.AnswerAccessGuard;
 import cn.surveyking.server.service.AnswerPdfJobService;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.ClassService;
@@ -39,7 +40,7 @@ import java.util.Map;
  * <li>{@code @PreAuthorize} 只在「经过 Spring 代理的跨 Bean 调用」上生效；
  * MCP 层把令牌用户塞进 SecurityContext 之后，由 {@code McpServer} 调这里的方法，
  * 权限判定就能 100% 复用现有注解口径，不用另写一套 if 判断；</li>
- * <li>单测可以直接 mock 这 5 个 service 验证「调了谁、参数对不对」。</li>
+ * <li>单测可以直接 mock 这 6 个依赖（5 个 service + 项目级权限闸门）验证「调了谁、参数对不对」。</li>
  * </ul>
  *
  * <p>参数里的 {@code xxxId} 都要求显式传，不做「猜一个默认值」：MCP 的调用方是模型，
@@ -66,6 +67,15 @@ public class McpTools {
 	private final AnswerPdfJobService answerPdfJobService;
 
 	private final ClassService classService;
+
+	/**
+	 * 项目级闸门（项目所有者 / 协作者 / 管理员）。
+	 *
+	 * <p>
+	 * 不选班级的导出没有 classId 可查，只能落到「能不能看这个项目的全部答卷」上；
+	 * 与 {@code AnswerExportApi#createPdfJob} 用同一个 Bean，口径不会分叉。
+	 */
+	private final AnswerAccessGuard answerAccessGuard;
 
 	// ---------- sk_capabilities
 
@@ -283,13 +293,22 @@ public class McpTools {
 		if (query == null || !StringUtils.hasText(query.getProjectId())) {
 			throw new ValidationException("缺少 projectId");
 		}
-		if (!StringUtils.hasText(query.getClassId())) {
-			throw new ValidationException("按班级导出 PDF 需要 classId（当前导出模型就是按班打包）");
-		}
-		// 班级可见性：老师只能导自己看得见的班（与 AnswerExportApi 同一口径）。
+		// 导出范围与 HTTP 接口（AnswerExportApi#createPdfJob）保持一致：
+		// classId（按班）/ ids（勾选若干份）/ 时间范围三者都不传就是整场考试。
+		// 以前这里强制要 classId，MCP 就既导不了整卷也导不了勾选的那几份 —— 同一个后端两套口径，
+		// 模型照着网页端的说法调用只会一直报错。
+		//
 		// 导出密码在这里**不校验**：MCP 的凭据是「按用户签发的令牌 + answer:export 权限」，
 		// 再叠一层人手输入的密码会让自动化彻底不可用；密码是给浏览器端批量导出的二次确认。
-		classService.assertVisible(query.getClassId());
+		if (StringUtils.hasText(query.getClassId())) {
+			// 班级可见性：老师只能导自己看得见的班（与 AnswerExportApi 同一口径）
+			classService.assertVisible(query.getClassId());
+		}
+		else {
+			// 不选班级 = 整卷，或按 ids / 时间范围收窄：没有班级可查，必须过项目级闸门，
+			// 否则任何持 answer:export 的令牌都能把整场答卷打包带走
+			answerAccessGuard.assertProjectAccess(query.getProjectId());
+		}
 		if (query.getType() == null) {
 			query.setType(DownloadQuery.DownloadType.answerPdf);
 		}

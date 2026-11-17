@@ -703,6 +703,9 @@ body {
 .rich-text-editor .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
 .rich-text-content .rt-formula { color: var(--bp-blue); }
 .rich-text-content .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
+/* 只读富文本（题库列表、批改抽屉、通知详情）里的图片：Word 导入的原图动辄上千像素，
+   不夹住宽度会把表格列/卡片撑破，手机上还会横向滚动。 */
+.rich-text-content img { max-width: 100%; height: auto; }
 /* ------ 无障碍基线
  * 1) .sk-sr-only：只给读屏的文字（必填提示等），视觉上不占位、不撑开布局
  * 2) 键盘焦点：深蓝/米白自定义底色上浏览器默认焦点环几乎看不见（WCAG 2.4.7），

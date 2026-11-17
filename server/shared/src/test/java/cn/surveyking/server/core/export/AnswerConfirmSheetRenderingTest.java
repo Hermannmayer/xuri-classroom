@@ -7,6 +7,7 @@ import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.dto.SurveySchema.QuestionType;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -16,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -66,19 +68,97 @@ class AnswerConfirmSheetRenderingTest {
 		assertEquals(1, pageCount(pdf), "缺分数时也要是一页");
 	}
 
+	/* ====== 及格线：默认按卷面满分 60%，不是写死 60 ====== */
+
+	@Test
+	@DisplayName("默认及格线 = 满分×60%：满分 120 → 72 分，单子上写明算式")
+	void defaultPassLineFollowsMaxScore() throws Exception {
+		byte[] pdf = AnswerConfirmSheetExporter.renderConfirmSheet(project("满分 120 的卷子", 80d, 40d), answer("graded"),
+				"保育员1班", null);
+
+		String text = text(pdf, 1);
+		assertTrue(text.contains("及格线 72 分（满分 120 的 60%）"), "默认及格线没跟着满分走：" + text);
+	}
+
+	@Test
+	@DisplayName("取不到卷面满分（题目都没配分值）时回退 60 分，不写算式")
+	void passLineFallsBackToSixty() throws Exception {
+		byte[] pdf = AnswerConfirmSheetExporter.renderConfirmSheet(project("没有分值的卷子", null, null), answer("graded"),
+				null, null);
+
+		String text = text(pdf, 1);
+		assertTrue(text.contains("及格线 60 分"), "满分未知时应回退 60 分：" + text);
+		assertFalse(text.contains("的 60%）"), "满分未知时不该编一个算式出来：" + text);
+	}
+
+	@Test
+	@DisplayName("显式 passScore 优先：传 90 就是 90，不再套 60%")
+	void explicitPassScoreWins() throws Exception {
+		byte[] pdf = AnswerConfirmSheetExporter.renderConfirmSheet(project("满分 120 的卷子", 80d, 40d), answer("graded"),
+				"保育员1班", new AnswerConfirmSheetExporter.ConfirmOptions().passScore(Double.valueOf(90d)));
+
+		String text = text(pdf, 1);
+		assertTrue(text.contains("及格线 90 分"), "显式及格线被覆盖了：" + text);
+		assertFalse(text.contains("的 60%）"), "显式及格线不该再套比例说明：" + text);
+	}
+
+	@Test
+	@DisplayName("及格线算法：120→72、未知→60、显式 90→90、满分 50→30、非整数满分保留 1 位小数")
+	void resolvePassScore() {
+		assertEquals(72d, AnswerConfirmSheetExporter.resolvePassScore(null, Double.valueOf(120d)), 1e-9d);
+		assertEquals(60d, AnswerConfirmSheetExporter.resolvePassScore(null, null), 1e-9d);
+		// 满分 0 / 负数当作「取不到」，不能算出 0 分及格这种荒唐结果
+		assertEquals(60d, AnswerConfirmSheetExporter.resolvePassScore(null, Double.valueOf(0d)), 1e-9d);
+		assertEquals(60d, AnswerConfirmSheetExporter.resolvePassScore(null, Double.valueOf(-10d)), 1e-9d);
+		assertEquals(90d, AnswerConfirmSheetExporter.resolvePassScore(Double.valueOf(90d), Double.valueOf(120d)), 1e-9d);
+		assertEquals(30d, AnswerConfirmSheetExporter.resolvePassScore(null, Double.valueOf(50d)), 1e-9d);
+		assertEquals(72.3d, AnswerConfirmSheetExporter.resolvePassScore(null, Double.valueOf(120.5d)), 1e-9d);
+	}
+
+	@Test
+	@DisplayName("isPassed 跟着满分走：满分 120 时 72 分及格、71.9 不及格；没有满分仍是 60")
+	void isPassedFollowsMaxScore() {
+		assertTrue(AnswerConfirmSheetExporter.isPassed(Double.valueOf(72d), null, Double.valueOf(120d)));
+		assertFalse(AnswerConfirmSheetExporter.isPassed(Double.valueOf(71.9d), null, Double.valueOf(120d)));
+		assertTrue(AnswerConfirmSheetExporter.isPassed(Double.valueOf(60d), null));
+		// 选项里自带 maxScore 时同样生效（导出任务只拿得到 options 的场景）
+		assertFalse(AnswerConfirmSheetExporter.isPassed(Double.valueOf(70d),
+				new AnswerConfirmSheetExporter.ConfirmOptions().maxScore(Double.valueOf(120d))));
+		// 总分缺失一律 false（渲染层据此显示「未评分」，不显示「不及格」）
+		assertFalse(AnswerConfirmSheetExporter.isPassed(null, null, Double.valueOf(120d)));
+	}
+
 	private static int pageCount(byte[] pdf) throws Exception {
 		try (PDDocument document = Loader.loadPDF(pdf)) {
 			return document.getNumberOfPages();
 		}
 	}
 
+	private static String text(byte[] pdf, int page) throws Exception {
+		try (PDDocument document = Loader.loadPDF(pdf)) {
+			PDFTextStripper stripper = new PDFTextStripper();
+			stripper.setStartPage(page);
+			stripper.setEndPage(page);
+			return stripper.getText(document);
+		}
+	}
+
 	/** 一张卷：两道计分题（客观 20 分 + 人工 30 分） */
 	private static ProjectView project(String title) {
+		return project(title, Double.valueOf(20), Double.valueOf(30));
+	}
+
+	/**
+	 * 一张卷：两道题的分值由调用方给（null 表示这题没配分值，用来造「取不到卷面满分」的场景）。
+	 */
+	private static ProjectView project(String title, Double firstScore, Double secondScore) {
 		SurveySchema radio = SurveySchema.builder().id("q1").title("保育员上岗前应做的第一件事是？")
-				.type(QuestionType.Radio).attribute(attribute(Double.valueOf(20), SurveySchema.ExamScoreMode.onlyOne))
+				.type(QuestionType.Radio)
+				.attribute(attribute(firstScore, SurveySchema.ExamScoreMode.onlyOne))
 				.children(options()).build();
 		SurveySchema textarea = SurveySchema.builder().id("q2").title("请简述幼儿午睡期间的安全巡查要点。")
-				.type(QuestionType.Textarea).attribute(attribute(Double.valueOf(30), SurveySchema.ExamScoreMode.manual))
+				.type(QuestionType.Textarea)
+				.attribute(attribute(secondScore, SurveySchema.ExamScoreMode.manual))
 				.build();
 		List<SurveySchema> children = new ArrayList<>();
 		children.add(radio);
