@@ -29,8 +29,8 @@ import java.util.regex.Pattern;
  * Word（.docx）试卷解析：按「中文数字大题标题」切题组，组内复用文本解析器识别题目。
  *
  * <p>
- * 每段的文字被拍平成行；表格按单元格逐行展开。图片与公式本版本只计数并给出提示，
- * 不写入题干（富题干在后续版本补）。
+ * 每段的文字被拍平成行；表格按单元格逐行展开。图片抽成 {@code [[IMG:n]]} token 插进题干（落库前由
+ * ImportServiceImpl.applyAttachments 换成图片地址）；公式本版本只计数并给出提示。
  */
 public class WordQuestionParser {
 

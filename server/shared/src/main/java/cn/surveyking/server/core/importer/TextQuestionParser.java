@@ -22,7 +22,9 @@ import java.util.regex.Pattern;
  * 约定（与导入模板说明一致）：
  * <ul>
  * <li>首个非空行是试卷标题（若它本身带题型标记/题号，则不当作标题）；</li>
- * <li>题目之间用空行分隔；题型用【单选题】【多选题】【判断题】【填空题】【多项填空】【简答题】【欢迎语】标记；</li>
+ * <li>题目之间用空行分隔；题型用【单选题】【多选题】【判断题】【填空题】【多项填空】【简答题】【下拉题】【评分题】
+ * 【NPS】【上传题】【矩阵单选题】【矩阵多选题】【矩阵填空题】【欢迎语】标记；</li>
+ * <li>矩阵题在标记之后用若干行「行：xxx」「列：xxx」定义行/列，答案按行写、行之间用 {@code |}；</li>
  * <li>分值写法：（10分）；正确答案：（正确答案）标在选项后，或写「答案：A」；</li>
  * <li>解析写「解析：」「答案解析：」；标签写「标签：」；难度写「难度：」（本版本只提示不保存）。</li>
  * </ul>
@@ -42,6 +44,12 @@ public class TextQuestionParser {
 	private static final Pattern CORRECT_FLAG = Pattern.compile("[（(]\\s*正确答案\\s*[）)]");
 
 	private static final Pattern BLANK_TOKEN = Pattern.compile("_{2,}|＿{2,}");
+
+	/** 矩阵题的行：行：xxx */
+	private static final Pattern MATRIX_ROW = Pattern.compile("^行\\s*[:：]\\s*(.*)$");
+
+	/** 矩阵题的列：列：xxx */
+	private static final Pattern MATRIX_COLUMN = Pattern.compile("^列\\s*[:：]\\s*(.*)$");
 
 	private final String rawText;
 
@@ -171,9 +179,10 @@ public class TextQuestionParser {
 				serial);
 		List<SurveySchema> children = new ArrayList<>();
 		List<SurveySchema.DataSource> dataSources = new ArrayList<>();
+		List<SurveySchema.Row> rows = null;
 
 		if (type == SurveySchema.QuestionType.Radio || type == SurveySchema.QuestionType.Checkbox
-				|| type == SurveySchema.QuestionType.Judge) {
+				|| type == SurveySchema.QuestionType.Judge || type == SurveySchema.QuestionType.Select) {
 			parseChoice(type, extras, answer, children, dataSources, serial);
 			if (children.isEmpty()) {
 				warn("warn", "OPTION_MISSING", "第 " + serial + " 题没有识别到选项，已跳过");
@@ -187,6 +196,23 @@ public class TextQuestionParser {
 			children.add(SurveySchema.builder().id(newId()).attribute(SurveySchema.Attribute.builder()
 					.examCorrectAnswer(answer == null ? "" : answer).build()).build());
 		}
+		else if (type == SurveySchema.QuestionType.Score) {
+			// 评分题没有选项也没有答案：星数由 attribute.scope 决定（见 buildAttribute）
+		}
+		else if (type == SurveySchema.QuestionType.Nps || type == SurveySchema.QuestionType.Upload) {
+			// 设计器给 NPS / 上传题各留一个空 children：后端有取 getChildren().get(0) 的地方
+			children.add(emptyChild());
+			if (type == SurveySchema.QuestionType.Upload && StringUtils.hasText(answer)) {
+				// 上传题没有机器答案：答案列当「参考答案/示例说明」保留
+				setUploadReference(children, answer);
+			}
+		}
+		else if (isMatrix(type)) {
+			rows = parseMatrix(type, extras, answer, children, dataSources, serial);
+			if (rows == null) {
+				return null;
+			}
+		}
 		else {
 			parseBlank(type, stem, answer, children, serial);
 		}
@@ -194,8 +220,12 @@ public class TextQuestionParser {
 		SurveySchema.Attribute attribute = buildAttribute(type, metaScore == null ? scoreText.score : metaScore,
 				analysis);
 		SurveySchema question = SurveySchema.builder().id(newId()).title(stem).type(type).attribute(attribute)
-				.children(children).dataSource(dataSources.isEmpty() ? null : dataSources).tags(parseTags(tags))
-				.chapter(chapter).difficulty(difficulty).build();
+				.children(children).dataSource(dataSources.isEmpty() ? null : dataSources).row(rows)
+				.tags(parseTags(tags)).chapter(chapter).difficulty(difficulty).build();
+		if (isMatrix(type) && StringUtils.hasText(answer)) {
+			// 矩阵题不参与自动判分（前端 EXAM_TYPES 也不含矩阵）：答案原样保留，行之间 |，行内多选 ,
+			question.getAttribute().setExamCorrectAnswer(answer.trim());
+		}
 
 		return new Parsed(false, stem, question);
 	}
@@ -295,12 +325,108 @@ public class TextQuestionParser {
 		}
 	}
 
+	/**
+	 * 矩阵题：标记之后用若干行「行：xxx」「列：xxx」定义行与列。
+	 *
+	 * <p>
+	 * 生成的结构与设计器一致：行放 {@code row}，列放 {@code dataSource} + {@code children}（Option 节点）。
+	 * 答案按行写、行之间用 {@code |}，行内多选用 {@code ,}。
+	 */
+	private List<SurveySchema.Row> parseMatrix(SurveySchema.QuestionType type, List<String> extras, String answer,
+			List<SurveySchema> children, List<SurveySchema.DataSource> dataSources, int serial) {
+		List<String> rowTitles = new ArrayList<>();
+		List<String> columnTitles = new ArrayList<>();
+		for (String line : extras) {
+			String text = line.trim();
+			Matcher rowMatcher = MATRIX_ROW.matcher(text);
+			if (rowMatcher.matches()) {
+				if (StringUtils.hasText(rowMatcher.group(1))) {
+					rowTitles.add(rowMatcher.group(1).trim());
+				}
+				continue;
+			}
+			Matcher columnMatcher = MATRIX_COLUMN.matcher(text);
+			if (columnMatcher.matches() && StringUtils.hasText(columnMatcher.group(1))) {
+				columnTitles.add(columnMatcher.group(1).trim());
+			}
+		}
+		if (rowTitles.isEmpty() || columnTitles.isEmpty()) {
+			warn("warn", "MATRIX_TITLES_MISSING",
+					"第 " + serial + " 题是矩阵题，但没有识别到「行：」「列：」，已跳过");
+			return null;
+		}
+
+		List<SurveySchema.Row> rows = new ArrayList<>();
+		for (String title : rowTitles) {
+			SurveySchema.Row row = new SurveySchema.Row();
+			row.setId(newId());
+			row.setTitle(title);
+			rows.add(row);
+		}
+		for (String title : columnTitles) {
+			String columnId = newId();
+			children.add(SurveySchema.builder().id(columnId).title(title)
+					.type(SurveySchema.QuestionType.Option)
+					.attribute(SurveySchema.Attribute.builder().build()).build());
+			dataSources.add(new SurveySchema.DataSource(title, columnId, null));
+		}
+
+		if ((type == SurveySchema.QuestionType.MatrixRadio || type == SurveySchema.QuestionType.MatrixCheckbox)
+				&& StringUtils.hasText(answer)) {
+			int answerRows = matrixAnswerRows(answer);
+			if (answerRows != rows.size()) {
+				warn("warn", "MATRIX_ANSWER_MISMATCH", "第 " + serial + " 题答案有 " + answerRows + " 行，但「行：」写了 "
+						+ rows.size() + " 行");
+			}
+		}
+		return rows;
+	}
+
+	private int matrixAnswerRows(String answer) {
+		return (int) Arrays.stream(answer.split("[|｜]")).map(String::trim).filter(StringUtils::hasText).count();
+	}
+
+	private boolean isMatrix(SurveySchema.QuestionType type) {
+		return type == SurveySchema.QuestionType.MatrixRadio || type == SurveySchema.QuestionType.MatrixCheckbox
+				|| type == SurveySchema.QuestionType.MatrixFillBlank;
+	}
+
+	/** 上传题的答案列当参考答案说明，挂到唯一那个空位节点上（渲染层不显示，判分也不看）。 */
+	private void setUploadReference(List<SurveySchema> children, String answer) {
+		if (children.isEmpty()) {
+			return;
+		}
+		SurveySchema blank = children.get(0);
+		SurveySchema.Attribute attribute = blank.getAttribute() == null ? new SurveySchema.Attribute()
+				: blank.getAttribute();
+		attribute.setExamCorrectAnswer(answer.trim());
+		blank.setAttribute(attribute);
+	}
+
+	private SurveySchema emptyChild() {
+		return SurveySchema.builder().id(newId()).type(SurveySchema.QuestionType.Option)
+				.attribute(SurveySchema.Attribute.builder().build()).build();
+	}
+
 	// ------------------------------------------------------------------ 工具方法
 
 	private SurveySchema.QuestionType resolveType(String marker, String stem, List<String> extras, String answer,
 			int serial) {
 		if (StringUtils.hasText(marker)) {
 			String value = marker.replace("题", "").trim();
+			String lower = value.toLowerCase(Locale.ROOT);
+			// 矩阵题必须先判：矩阵单选里也含「单选」
+			if (value.contains("矩阵")) {
+				if (value.contains("单选") || value.contains("单项")) {
+					return SurveySchema.QuestionType.MatrixRadio;
+				}
+				if (value.contains("多选") || value.contains("多项")) {
+					return SurveySchema.QuestionType.MatrixCheckbox;
+				}
+				if (value.contains("填空")) {
+					return SurveySchema.QuestionType.MatrixFillBlank;
+				}
+			}
 			if (value.contains("单选") || value.contains("单项选择")) {
 				return SurveySchema.QuestionType.Radio;
 			}
@@ -318,6 +444,18 @@ public class TextQuestionParser {
 			}
 			if (value.contains("简答") || value.contains("问答") || value.contains("解答") || value.contains("主观")) {
 				return SurveySchema.QuestionType.Textarea;
+			}
+			if (value.contains("下拉")) {
+				return SurveySchema.QuestionType.Select;
+			}
+			if (value.contains("评分") || value.contains("打分") || value.contains("星级")) {
+				return SurveySchema.QuestionType.Score;
+			}
+			if (lower.contains("nps") || value.contains("净推荐")) {
+				return SurveySchema.QuestionType.Nps;
+			}
+			if (value.contains("上传")) {
+				return SurveySchema.QuestionType.Upload;
 			}
 			warn("warn", "TYPE_UNKNOWN", "第 " + serial + " 题的题型标记【" + marker + "】无法识别，已按内容推断");
 		}
@@ -365,6 +503,7 @@ public class TextQuestionParser {
 		switch (type) {
 			case Radio:
 			case Judge:
+			case Select:
 				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.onlyOne);
 				break;
 			case Checkbox:
@@ -377,6 +516,27 @@ public class TextQuestionParser {
 				break;
 			case Textarea:
 				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.manual);
+				break;
+			case Score:
+				// 前端 Score 组件的星数取 scope 上限
+				attribute.setScope("[0," + (int) Math.round(score) + "]");
+				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
+				break;
+			case Nps:
+				attribute.setNpsStartNum(0);
+				attribute.setNpsTotalNum(11);
+				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
+				break;
+			case MatrixRadio:
+			case MatrixCheckbox:
+			case MatrixFillBlank:
+				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
+				break;
+			case Upload:
+				// 与设计器默认值一致；前端 Upload 组件读的是 maxFileCount / maxFileSize
+				attribute.setMaxFileCount(1);
+				attribute.setMaxFileSize(5D);
+				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
 				break;
 			default:
 				break;

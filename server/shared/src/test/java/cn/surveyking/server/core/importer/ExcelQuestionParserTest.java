@@ -1,5 +1,6 @@
 package cn.surveyking.server.core.importer;
 
+import cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.dto.TemplateRequest;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,6 +53,18 @@ class ExcelQuestionParserTest {
 		SurveySchema fill = byType(preview, SurveySchema.QuestionType.MultipleBlank);
 		assertEquals(4, fill.getChildren().size());
 		assertEquals(2.5D, fill.getAttribute().getExamScore(), 0.001);
+	}
+
+	@Test
+	void fillsSourceSheetAndRowForImages() throws Exception {
+		List<TemplateRequest> templates = new RepoTemplateExcelParseHelper(fixture("repo-template.xlsx")).parse();
+
+		// 题库导入靠这两个字段把 Excel 内嵌图片挂回对应行
+		assertEquals(5, templates.size());
+		assertEquals("单选题", templates.get(0).getSourceSheet());
+		assertEquals(Integer.valueOf(2), templates.get(0).getSourceRow());
+		assertEquals("简答题", templates.get(4).getSourceSheet());
+		assertTrue(templates.stream().allMatch(item -> Integer.valueOf(2).equals(item.getSourceRow())));
 	}
 
 	@Test

@@ -1,6 +1,7 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.export.AnswerConfirmSheetExporter;
 import cn.surveyking.server.impl.AnswerPdfJobServiceImpl.ExportJob;
 import cn.surveyking.server.domain.dto.AnswerView;
 import cn.surveyking.server.domain.dto.DownloadQuery;
@@ -211,7 +212,55 @@ class AnswerPdfJobOutputsTest {
 		assertEquals(List.of("成绩单/张三.pdf", "成绩单/张三(2).pdf", "成绩单/李_四_五.pdf"), entries);
 	}
 
+
+	@Test
+	@DisplayName("确认单不逐份出文件：逐份循环里跳过它（整班一张表由任务末尾统一生成）")
+	void confirmSheetSkippedPerAnswer() throws Exception {
+		ExportJob job = job(DownloadType.answerPdf, DownloadType.confirmSheetPdf);
+
+		List<String> entries = render(job, answer("张三"), fakeOk());
+
+		// 只有成绩单那一个文件；没有「确认单/张三.pdf」
+		assertEquals(List.of("成绩单/张三.pdf"), entries);
+		assertEquals(1, job.getDone());
+		assertEquals(1, job.getFilesWritten());
+	}
+
+	@Test
+	@DisplayName("名册：整班一个文件，文件写成功后 done 补齐到份数（只勾确认单也不会变成 done=0）")
+	void rosterWritesSingleFileAndFillsDone() throws Exception {
+		ExportJob job = job(DownloadType.confirmSheetPdf);
+		job.setTotal(30);
+		List<AnswerConfirmSheetExporter.Entry> rows = new ArrayList<>();
+		for (int i = 1; i <= 30; i++) {
+			rows.add(new AnswerConfirmSheetExporter.Entry().name("张三" + i).className("保育员1班")
+					.totalScore(Double.valueOf(60d + i)).objectiveScore(40d).subjectiveScore(20d + i)
+					.passed(true).maxScore(Double.valueOf(100d)));
+		}
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		try (ZipOutputStream zip = new ZipOutputStream(out)) {
+			service.writeRoster(zip, new HashSet<>(), projectView(), "保育员1班", rows, job);
+			zip.finish();
+		}
+		List<String> entries = entryNames(out.toByteArray());
+
+		assertEquals(1, entries.size(), entries.toString());
+		assertTrue(entries.get(0).startsWith("确认单/成绩确认单-保育员1班-"), entries.get(0));
+		assertTrue(entries.get(0).endsWith(".pdf"), entries.get(0));
+		assertEquals(1, job.getFilesWritten());
+		assertEquals(0, job.getFailed());
+		assertEquals(30, job.getDone(), "名册写成功后应把 30 份都算成已导出");
+	}
+
 	/* ====== 辅助 ====== */
+
+	private static ProjectView projectView() {
+		ProjectView project = new ProjectView();
+		project.setId("p1");
+		project.setName("保育员中级理论考试");
+		return project;
+	}
 
 	private AnswerPdfJobServiceImpl.OutputRenderer fakeOk() {
 		return (output, project, view, source, className, spec) -> FAKE_BYTES;

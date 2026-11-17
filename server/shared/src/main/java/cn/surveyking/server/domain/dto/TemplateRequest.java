@@ -1,6 +1,7 @@
 package cn.surveyking.server.domain.dto;
 
 import cn.surveyking.server.core.constant.ProjectModeEnum;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -83,5 +84,14 @@ public class TemplateRequest {
 	private String repoId;
 
 	private List<String> ids;
+
+	/**
+	 * Excel 导入时的来源定位（sheet 名 + 1 基行号），供调用方按行取内嵌图片；不下发前端。
+	 */
+	@JsonIgnore
+	private String sourceSheet;
+
+	@JsonIgnore
+	private Integer sourceRow;
 
 }

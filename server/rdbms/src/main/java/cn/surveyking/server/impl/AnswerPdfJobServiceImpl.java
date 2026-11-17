@@ -444,6 +444,12 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			Files.createDirectories(dir);
 			temp = Files.createTempFile(dir, job.getId() + "-", ".part");
 			Set<String> usedNames = new HashSet<>();
+			// 成绩确认单是「整班一张表」：逐份循环里只攒数据，等全部答卷过完再画一次
+			boolean withRoster = hasOutput(job.getSpec(), DownloadQuery.DownloadType.confirmSheetPdf);
+			List<AnswerConfirmSheetExporter.Entry> rosterRows = new ArrayList<>();
+			AnswerConfirmSheetExporter.ConfirmOptions confirmOptions = new AnswerConfirmSheetExporter.ConfirmOptions();
+			// 整卷导出时每份答卷可能在不同班，页面上要显示班级名；一个班只查一次
+			Map<String, String> classLabels = new LinkedHashMap<>();
 			try (OutputStream fileOut = Files.newOutputStream(temp, StandardOpenOption.WRITE,
 					StandardOpenOption.TRUNCATE_EXISTING);
 					ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(fileOut))) {
@@ -457,13 +463,24 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 					List<AnswerView> views = toViews(answers);
 					for (int i = 0; i < views.size(); i++) {
 						assertNotCanceled(job);
-						renderOne(zip, projectView, className, answers.get(i), views.get(i), usedNames, job);
+						Answer answer = answers.get(i);
+						AnswerView view = views.get(i);
+						renderOne(zip, projectView, className, answer, view, usedNames, job);
+						if (withRoster) {
+							// 名册行在这里就算好：视图已经在手，不用再查一次库
+							rosterRows.add(AnswerConfirmSheetExporter.entryOf(projectView, view,
+									classLabelOf(answer, className, classLabels), confirmOptions));
+						}
 						sleepBetweenAnswers();
 					}
 					if (answers.size() < PAGE_SIZE) {
 						break;
 					}
 					page = page + 1;
+				}
+				assertNotCanceled(job);
+				if (withRoster) {
+					writeRoster(zip, usedNames, projectView, className, rosterRows, job);
 				}
 			}
 			assertNotCanceled(job);
@@ -538,6 +555,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		String displayName = displayName(answer);
 		boolean anyOk = false;
 		for (DownloadQuery.DownloadType output : job.getSpec().getOutputs()) {
+			if (output == DownloadQuery.DownloadType.confirmSheetPdf) {
+				// 确认单是一张名册，不逐份出文件：由整个任务末尾的 writeRoster 统一生成
+				continue;
+			}
 			try {
 				byte[] bytes = renderer.render(output, project, view, answer, className, job.getSpec());
 				// 统一放子目录：导出弹窗会按格式列出「成绩单/、答题卷/…」，单格式也保持一致，
@@ -562,6 +583,67 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
+	/**
+	 * 名册：整班/整卷一张表，只写一个文件（确认单不再一人一页）。
+	 *
+	 * <p>
+	 * 失败记 1 个文件（"成绩确认单"），不影响其它格式交付；
+	 * 但如果这次任务只要了确认单，filesWritten 会停在 0，落到「全部失败」，整任务按 failed 处理。
+	 */
+	void writeRoster(ZipOutputStream zip, Set<String> usedNames, ProjectView project, String className,
+			List<AnswerConfirmSheetExporter.Entry> rows, ExportJob job) throws IOException {
+		try {
+			byte[] pdf = AnswerConfirmSheetExporter.renderRoster(project, rows, className,
+					new AnswerConfirmSheetExporter.ConfirmOptions());
+			DownloadQuery.DownloadType rosterType = DownloadQuery.DownloadType.confirmSheetPdf;
+			String entryName = uniqueEntryName(usedNames, outputDir(rosterType), rosterType,
+					rosterBaseName(project, className));
+			zip.putNextEntry(new ZipEntry(entryName));
+			zip.write(pdf);
+			zip.closeEntry();
+			job.incWritten();
+			// 名册里每一份答卷都算「导出成功」：只勾确认单的任务没有逐份文件，
+			// 不在这里补 done，前端会看到 done=0 当成失败
+			job.incDone(job.getTotal() - job.getDone());
+		}
+		catch (Exception e) {
+			job.incFailed("成绩确认单");
+			log.warn("成绩确认单名册生成失败，已跳过: jobId={}, rows={}, {}", job.getId(),
+					Integer.valueOf(rows.size()), e.getMessage());
+		}
+	}
+
+	/** 名册文件名主体：成绩确认单-<班级名或项目名>-<yyyyMMddHHmm>（去重与扩展名交给 uniqueEntryName） */
+	private String rosterBaseName(ProjectView project, String className) {
+		String scope = StringUtils.hasText(className) ? className
+				: (project != null && StringUtils.hasText(project.getName()) ? project.getName() : "答卷");
+		return "成绩确认单-" + scope + "-" + new SimpleDateFormat("yyyyMMddHHmm").format(new Date());
+	}
+
+	/**
+	 * 名册「班级」列：按班导出时全班同名（直接用任务上的班级名）；
+	 * 整卷/勾选导出时每份答卷各自的班不同，去查一次班级名并缓存（一个班只查一次）。
+	 */
+	private String classLabelOf(Answer answer, String jobClassName, Map<String, String> cache) {
+		if (StringUtils.hasText(jobClassName)) {
+			return jobClassName;
+		}
+		String classId = answer.getClassId();
+		if (!StringUtils.hasText(classId)) {
+			return null;
+		}
+		if (cache.containsKey(classId)) {
+			return cache.get(classId);
+		}
+		String name = className(classId);
+		cache.put(classId, name);
+		return name;
+	}
+
+	private static boolean hasOutput(ExportSpec spec, DownloadQuery.DownloadType type) {
+		return spec != null && spec.getOutputs() != null && spec.getOutputs().contains(type);
+	}
+
 	/** 渲染单个格式的字节：四种格式对应四个导出器，这里只负责把选项装好 */
 	private byte[] renderOutput(DownloadQuery.DownloadType output, ProjectView project, AnswerView view, Answer answer,
 			String className, ExportSpec spec) {
@@ -578,6 +660,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				// 长图内部一律按答题卷版式渲染（它会 copy 一份选项再强制 style），所以这里不用改 style
 				return AnswerImageExporter.renderAnswerImage(project, view, options);
 			case confirmSheetPdf:
+				// 逐份分支留作兜底：名册路径（writeRoster）不经过这里，正常不会调到
 				return AnswerConfirmSheetExporter.renderConfirmSheet(project, view, className,
 						new AnswerConfirmSheetExporter.ConfirmOptions().attemptNo(answer.getAttemptNo()));
 			case answerPdf:
@@ -1195,6 +1278,13 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			done = done + 1;
 		}
 
+		/** 批量补 done：名册一次覆盖全班答卷，写成功后把还没计入的份数补齐 */
+		void incDone(int count) {
+			if (count > 0) {
+				done = done + count;
+			}
+		}
+
 		/** 一个文件失败记一次；明细最多留 20 条，避免几万条把人名列表撑爆 */
 		void incFailed(String name) {
 			failed = failed + 1;
@@ -1248,7 +1338,8 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			return total;
 		}
 
-		private void setTotal(int total) {
+		/** 包内可见：单测要造一个「已知份数」的任务来验证名册补 done */
+		void setTotal(int total) {
 			this.total = total;
 		}
 

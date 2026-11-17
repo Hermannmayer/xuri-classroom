@@ -17,6 +17,14 @@ export interface ImportStats {
   byType: Record<string, number>;
 }
 
+/**
+ * 解析时抽出来的图片。
+ *
+ * 后端还没把形状定死（张数 / 明细数组 / 占位 token → 文件），前端只用它数张数，
+ * 所以这里放开类型、由 countImportAttachments 统一折算；旧后端不下发该字段。
+ */
+export type ImportAttachments = number | unknown[] | Record<string, unknown>;
+
 /** 与后端 cn.surveyking.server.core.importer.ImportPreview 对齐 */
 export interface ImportPreview {
   title?: string;
@@ -25,6 +33,8 @@ export interface ImportPreview {
   flat: SurveySchema[];
   stats: ImportStats;
   warnings: ImportWarning[];
+  /** 可选的图片信息：有值时预览里会提示「本次导入包含 N 张图片」 */
+  attachments?: ImportAttachments;
 }
 
 export const parseImport = (payload: {

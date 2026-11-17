@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 247 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 251 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -56,7 +56,11 @@
 | POST | `${api.prefix}/compose/plan` | `ComposeApi#plan` | `hasAuthority('project:create') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/create` | `ComposeApi#create` | `hasAuthority('project:create') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/pick` | `ComposeApi#pick` | `hasAnyAuthority('project:create','project:update') or hasRole('admin')` | — |
-| GET | `${api.prefix}/dashboard/list` | `DashboardApi#listDashboard` | — | — |
+| GET | `${api.prefix}/dashboard/list` | `DashboardApi#listDashboard` | `hasAuthority('project:detail')` | — |
+| GET | `${api.prefix}/dashboard/overview` | `DashboardApi#overview` | `hasAuthority('project:detail') or hasRole('admin')` | — |
+| GET | `${api.prefix}/dashboard/trend` | `DashboardApi#trend` | `hasAuthority('project:detail') or hasRole('admin')` | — |
+| GET | `${api.prefix}/dashboard/teacher` | `DashboardApi#teacher` | `hasAuthority('project:detail') or hasRole('admin')` | — |
+| GET | `${api.prefix}/dashboard/student` | `DashboardApi#student` | `hasAuthority('project:detail') or hasRole('admin')` | — |
 | GET | `${api.prefix}/exercise/list` | `ExerciseApi#historyExercise` | `hasAuthority('exercise:list')` | — |
 | POST | `${api.prefix}/exercise/delete` | `ExerciseApi#deleteExercise` | `hasAuthority('exercise:list')` | — |
 | GET | `${api.prefix}/file` | `FileApi#getFile` | `hasAuthority('file:detail')` | — |

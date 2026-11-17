@@ -24,7 +24,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 单人「成绩确认单」：一页 A4，打印出来给学员核对成绩并签字。
@@ -474,7 +476,7 @@ public final class AnswerConfirmSheetExporter {
 		if (total == null) {
 			return "—";
 		}
-		return total.doubleValue() >= passScore(opts) ? "及格" : "不及格";
+		return isPassed(total, opts) ? "及格" : "不及格";
 	}
 
 	private static Color passColor(AnswerView answer, ConfirmOptions opts) {
@@ -482,7 +484,20 @@ public final class AnswerConfirmSheetExporter {
 		if (total == null) {
 			return COLOR_SOFT;
 		}
-		return total.doubleValue() >= passScore(opts) ? COLOR_PASS : COLOR_FAIL;
+		return isPassed(total, opts) ? COLOR_PASS : COLOR_FAIL;
+	}
+
+	/**
+	 * 及格判定：总分缺失算未知（返回 false，但调用方要显示「未评分」而不是「不及格」）。
+	 *
+	 * <p>
+	 * 公开：导出任务要按同一条及格线填名册的「是否及格」列，两边各写一份迟早会分叉。
+	 */
+	public static boolean isPassed(Double total, ConfirmOptions options) {
+		if (total == null) {
+			return false;
+		}
+		return total.doubleValue() >= passScore(options == null ? new ConfirmOptions() : options);
 	}
 
 	private static double passScore(ConfirmOptions opts) {
@@ -550,7 +565,456 @@ public final class AnswerConfirmSheetExporter {
 		canvas.textAt(FOOTER, (PAGE_WIDTH - width) / 2f, FOOTER_BASELINE, FOOTER_SIZE, false, COLOR_SOFT);
 	}
 
+	/* ====== 名册版：整班一张表（每人一行，签名手写） ====== */
+
+	/**
+	 * 名册里的一行：姓名、班级、总分、客观/主观小计、是否及格（满分可选）。
+	 *
+	 * <p>
+	 * 为什么由调用方（导出任务）填好，而不是把 AnswerView 传进来自己算：
+	 * 名册要的是「每份答卷一行」的最终口径，这些数字导出任务本来就要算一遍；
+	 * 让渲染器再遍历一次 schema，同一批答卷要算两遍，两张纸上的分数还容易对不上。
+	 */
+	public static final class Entry {
+
+		private String name;
+
+		private String className;
+
+		private Double totalScore;
+
+		private double objectiveScore;
+
+		private double subjectiveScore;
+
+		private boolean passed;
+
+		/** 卷面满分，可选：给了就在总分格显示「42.5 / 50」 */
+		private Double maxScore;
+
+		public Entry name(String name) {
+			this.name = name;
+			return this;
+		}
+
+		public Entry className(String className) {
+			this.className = className;
+			return this;
+		}
+
+		public Entry totalScore(Double totalScore) {
+			this.totalScore = totalScore;
+			return this;
+		}
+
+		public Entry objectiveScore(double objectiveScore) {
+			this.objectiveScore = objectiveScore;
+			return this;
+		}
+
+		public Entry subjectiveScore(double subjectiveScore) {
+			this.subjectiveScore = subjectiveScore;
+			return this;
+		}
+
+		public Entry passed(boolean passed) {
+			this.passed = passed;
+			return this;
+		}
+
+		public Entry maxScore(Double maxScore) {
+			this.maxScore = maxScore;
+			return this;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public String getClassName() {
+			return className;
+		}
+
+		public Double getTotalScore() {
+			return totalScore;
+		}
+
+		public double getObjectiveScore() {
+			return objectiveScore;
+		}
+
+		public double getSubjectiveScore() {
+			return subjectiveScore;
+		}
+
+		public boolean isPassed() {
+			return passed;
+		}
+
+		public Double getMaxScore() {
+			return maxScore;
+		}
+
+	}
+
+	/** 名册每行高度：22pt = 一行 9.5pt 的字 + 上下各 6pt，手写签名不会挤到隔壁行 */
+	private static final float ROSTER_ROW_HEIGHT = 22f;
+
+	/** 每页最多 24 行：再密下去签名就没地方落笔（横向 A4 更矮，实际容量按可用高度算） */
+	private static final int ROSTER_MAX_ROWS_PER_PAGE = 24;
+
+	private static final float ROSTER_HEADER_HEIGHT = 24f;
+
+	private static final float ROSTER_MARGIN_X = 46f;
+
+	private static final float ROSTER_MARGIN_TOP = 40f;
+
+	private static final float ROSTER_MARGIN_BOTTOM = 42f;
+
+	private static final float ROSTER_TITLE_SIZE = 18f;
+
+	private static final float ROSTER_SUBTITLE_SIZE = 9f;
+
+	private static final float ROSTER_CELL_SIZE = 9.5f;
+
+	/** 最后一行下面那句声明要占的高度（含行距） */
+	private static final float ROSTER_DECLARATION_SPACE = 30f;
+
+	private static final String ROSTER_DECLARATION = "以上成绩经考生本人核对无误，签名即确认。";
+
+	/**
+	 * 渲染「成绩确认单」名册：整班一张表，每人一行，最后一列签名留空给考生手写。
+	 *
+	 * <p>
+	 * 版式跟着班级数走：<b>单班纵向 A4，跨班横向 A4</b>。跨班要多一列「班级」，
+	 * 纵向排 8 列会把签名格子压到 130pt 以下 —— 一页纸上挤满签不了字的名字等于没做。
+	 *
+	 * <p>
+	 * 分页：每页最多 {@value #ROSTER_MAX_ROWS_PER_PAGE} 行（横向按可用高度更少），
+	 * 翻页时<b>重画表头</b>：老师拿着第二页对照表头找列，比记住列顺序靠谱。
+	 * @param project 试卷（取考试名称；可为空）
+	 * @param rows 名册行（空列表直接报错：生成一张只有表头的空表没有意义）
+	 * @param className 班级名（单班时进副标题；跨班时用「N 个班」代替）
+	 * @param options 选项（及格线用于副标题）
+	 * @return PDF 字节内容
+	 */
+	public static byte[] renderRoster(ProjectView project, List<Entry> rows, String className, ConfirmOptions options) {
+		if (!AnswerPdfExporter.isFontAvailable()) {
+			throw new InternalServerError(AnswerPdfExporter.FONT_MISSING_MESSAGE);
+		}
+		if (rows == null || rows.isEmpty()) {
+			throw new InternalServerError("没有可生成确认单的答卷");
+		}
+		ConfirmOptions opts = options == null ? new ConfirmOptions() : options;
+		boolean crossClass = classCount(rows) > 1;
+		PDRectangle pageSize = crossClass
+				? new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth())
+				: new PDRectangle(PDRectangle.A4.getWidth(), PDRectangle.A4.getHeight());
+		List<Column> columns = rosterColumns(crossClass, pageSize.getWidth() - 2f * ROSTER_MARGIN_X);
+		String title = examTitle(project);
+		try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream(64 * 1024)) {
+			PDType0Font font = PDType0Font.load(doc, new ByteArrayInputStream(AnswerPdfExporter.fontBytes()), true);
+			doc.getDocumentInformation().setTitle(TITLE + " - " + title);
+			doc.getDocumentInformation().setCreator("SurveyKing");
+			doc.getDocumentInformation().setProducer("SurveyKing / Apache PDFBox");
+			int index = 0;
+			int pageNo = 0;
+			while (index < rows.size()) {
+				pageNo = pageNo + 1;
+				PDPage page = new PDPage(pageSize);
+				doc.addPage(page);
+				try (PDPageContentStream stream = new PDPageContentStream(doc, page)) {
+					Canvas canvas = new Canvas(stream, font);
+					float tableTop = pageNo == 1
+							? drawRosterHead(canvas, pageSize,
+									rosterSubtitle(title, className, crossClass, rows, opts))
+							: drawRosterContinuedHead(canvas, pageSize);
+					int remaining = rows.size() - index;
+					int count = Math.min(rosterCapacity(tableTop), remaining);
+					// 最后一页给声明句留位置：宁可少排一行翻到下一页，也不能让声明压在页脚上
+					if (count == remaining && count > 1
+							&& tableTop - ROSTER_HEADER_HEIGHT - count * ROSTER_ROW_HEIGHT
+									- ROSTER_DECLARATION_SPACE < ROSTER_MARGIN_BOTTOM) {
+						count = count - 1;
+					}
+					float tableBottom = drawRosterTable(canvas, columns, tableTop, index, count, rows, crossClass);
+					index = index + count;
+					if (index >= rows.size()) {
+						drawRosterDeclaration(canvas, tableBottom - 16f);
+					}
+					drawRosterFooter(canvas, pageSize, pageNo);
+				}
+			}
+			doc.save(out);
+			return out.toByteArray();
+		}
+		catch (InternalServerError e) {
+			throw e;
+		}
+		catch (IOException e) {
+			throw new InternalServerError("生成成绩确认单失败：" + e.getMessage(), e);
+		}
+	}
+
+	/**
+	 * 从一份答卷算出名册里的一行：口径与单人确认单完全一致（同一条及格线、同一个总分），
+	 * 否则同一个学员在「单人单」和「班级名册」上的分数会对不上。
+	 */
+	public static Entry entryOf(ProjectView project, AnswerView answer, String className, ConfirmOptions options) {
+		ScoreSummary summary = summarize(project, answer);
+		return new Entry().name(answererName(answer)).className(trim(className)).totalScore(answer.getExamScore())
+				.objectiveScore(summary.objectiveScore).subjectiveScore(summary.subjectiveScore)
+				.passed(isPassed(answer.getExamScore(), options)).maxScore(summary.maxScore);
+	}
+
+	/* ------ 名册内部实现 ------ */
+
+	/** 表格一列：标题、宽度、对齐（0 左 / 1 中 / 2 右） */
+	private static final class Column {
+
+		private final String title;
+
+		private final float width;
+
+		private final int align;
+
+		private Column(String title, float width, int align) {
+			this.title = title;
+			this.width = width;
+			this.align = align;
+		}
+
+	}
+
+	/**
+	 * 列宽：签名列吃掉剩下的全部宽度。
+	 *
+	 * <p>
+	 * 固定列宽是刻意不按内容自适应的：几十行数据里只要有一个长名字就会把整列撑开，
+	 * 表格每次导出的列位置都不一样，老师没法拿上一张纸对照。
+	 */
+	private static List<Column> rosterColumns(boolean withClass, float contentWidth) {
+		List<Column> columns = new ArrayList<>();
+		columns.add(new Column("序号", 32f, 1));
+		columns.add(new Column("姓名", withClass ? 92f : 82f, 0));
+		if (withClass) {
+			columns.add(new Column("班级", 112f, 0));
+		}
+		columns.add(new Column("总分", withClass ? 74f : 64f, 2));
+		columns.add(new Column("客观", withClass ? 68f : 58f, 2));
+		columns.add(new Column("主观", withClass ? 68f : 58f, 2));
+		columns.add(new Column("是否及格", withClass ? 70f : 62f, 1));
+		float used = 0f;
+		for (Column column : columns) {
+			used = used + column.width;
+		}
+		columns.add(new Column("考生签名", Math.max(96f, contentWidth - used), 0));
+		return columns;
+	}
+
+	/** 每页能排多少行：先按可用高度算，再夹到 24 行以内 */
+	private static int rosterCapacity(float tableTop) {
+		float usable = tableTop - ROSTER_HEADER_HEIGHT - ROSTER_MARGIN_BOTTOM;
+		int fit = (int) Math.floor(usable / ROSTER_ROW_HEIGHT);
+		return Math.max(1, Math.min(ROSTER_MAX_ROWS_PER_PAGE, fit));
+	}
+
+	/** 一共涉及几个班：>1 才需要「班级」列和横向版式 */
+	private static int classCount(List<Entry> rows) {
+		Set<String> names = new HashSet<>();
+		for (Entry entry : rows) {
+			if (entry != null && hasText(entry.getClassName())) {
+				names.add(entry.getClassName());
+			}
+		}
+		return names.size();
+	}
+
+	/** 首页抬头：标题 + 一行小字（考试名称 / 班级 / 导出时间 / 及格线）+ 粗线 */
+	private static float drawRosterHead(Canvas canvas, PDRectangle pageSize, String subtitle) throws IOException {
+		float contentWidth = pageSize.getWidth() - 2f * ROSTER_MARGIN_X;
+		float y = pageSize.getHeight() - ROSTER_MARGIN_TOP;
+		float titleWidth = canvas.width(TITLE, ROSTER_TITLE_SIZE);
+		canvas.textAt(TITLE, ROSTER_MARGIN_X + (contentWidth - titleWidth) / 2f, y, ROSTER_TITLE_SIZE, true,
+				COLOR_TEXT);
+		y = y - 18f;
+		for (String line : canvas.wrap(subtitle, ROSTER_SUBTITLE_SIZE, contentWidth)) {
+			float lineWidth = canvas.width(line, ROSTER_SUBTITLE_SIZE);
+			canvas.textAt(line, ROSTER_MARGIN_X + (contentWidth - lineWidth) / 2f, y, ROSTER_SUBTITLE_SIZE, false,
+					COLOR_SOFT);
+			y = y - 12f;
+		}
+		canvas.hline(ROSTER_MARGIN_X, pageSize.getWidth() - ROSTER_MARGIN_X, y, 1f, COLOR_TEXT);
+		return y - 10f;
+	}
+
+	/** 续页抬头：只写「成绩确认单（续）」，别再重复一遍副标题（翻页时那行信息没用） */
+	private static float drawRosterContinuedHead(Canvas canvas, PDRectangle pageSize) throws IOException {
+		float contentWidth = pageSize.getWidth() - 2f * ROSTER_MARGIN_X;
+		float y = pageSize.getHeight() - ROSTER_MARGIN_TOP;
+		String title = TITLE + "（续）";
+		float titleWidth = canvas.width(title, ROSTER_TITLE_SIZE - 3f);
+		canvas.textAt(title, ROSTER_MARGIN_X + (contentWidth - titleWidth) / 2f, y, ROSTER_TITLE_SIZE - 3f, true,
+				COLOR_TEXT);
+		y = y - 12f;
+		canvas.hline(ROSTER_MARGIN_X, pageSize.getWidth() - ROSTER_MARGIN_X, y, 1f, COLOR_TEXT);
+		return y - 10f;
+	}
+
+	private static String rosterSubtitle(String title, String className, boolean crossClass, List<Entry> rows,
+			ConfirmOptions opts) {
+		List<String> parts = new ArrayList<>();
+		parts.add("考试名称：" + title);
+		if (crossClass) {
+			parts.add("班级：" + classCount(rows) + " 个班");
+		}
+		else if (hasText(className)) {
+			parts.add("班级：" + trim(className));
+		}
+		parts.add("导出时间：" + new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()));
+		parts.add("及格线：" + AnswerPdfExporter.formatScore(Double.valueOf(passScore(opts))) + " 分");
+		return String.join("    ", parts);
+	}
+
+	/** 画表头 + 本页的数据行 + 网格线，返回表格底边 */
+	private static float drawRosterTable(Canvas canvas, List<Column> columns, float tableTop, int startIndex, int count,
+			List<Entry> rows, boolean withClass) throws IOException {
+		float width = 0f;
+		for (Column column : columns) {
+			width = width + column.width;
+		}
+		float right = ROSTER_MARGIN_X + width;
+		float headerBottom = tableTop - ROSTER_HEADER_HEIGHT;
+		float tableBottom = headerBottom - count * ROSTER_ROW_HEIGHT;
+
+		// 表头：浅底 + 粗体；翻页时也重画一遍，第二页照样能对上列
+		canvas.fillRect(ROSTER_MARGIN_X, headerBottom, width, ROSTER_HEADER_HEIGHT, COLOR_CARD);
+		float x = ROSTER_MARGIN_X;
+		for (Column column : columns) {
+			String fitted = canvas.ellipsis(column.title, ROSTER_CELL_SIZE, column.width - 8f);
+			canvas.textAt(fitted, columnTextX(canvas, column, x, fitted), tableTop - 16f, ROSTER_CELL_SIZE, true,
+					COLOR_TEXT);
+			x = x + column.width;
+		}
+
+		for (int i = 0; i < count; i++) {
+			float rowTop = headerBottom - i * ROSTER_ROW_HEIGHT;
+			float baseline = rowTop - 15f;
+			Entry entry = rows.get(startIndex + i);
+			x = ROSTER_MARGIN_X;
+			for (int c = 0; c < columns.size(); c++) {
+				Column column = columns.get(c);
+				String text = rosterCellText(entry, startIndex + i, c, withClass);
+				if (hasText(text)) {
+					String fitted = canvas.ellipsis(text, ROSTER_CELL_SIZE, column.width - 8f);
+					canvas.textAt(fitted, columnTextX(canvas, column, x, fitted), baseline, ROSTER_CELL_SIZE, false,
+							rosterCellColor(entry, c, withClass));
+				}
+				x = x + column.width;
+			}
+		}
+
+		// 竖线：签名列就靠这两条竖线留出手写空间，格子里什么都不画
+		x = ROSTER_MARGIN_X;
+		canvas.vline(x, tableTop, tableBottom, 0.7f, COLOR_LINE);
+		for (Column column : columns) {
+			x = x + column.width;
+			canvas.vline(x, tableTop, tableBottom, 0.7f, COLOR_LINE);
+		}
+		// 横线：表格顶 / 表头底（粗）/ 每行底（细）
+		canvas.hline(ROSTER_MARGIN_X, right, tableTop, 1f, COLOR_TEXT);
+		canvas.hline(ROSTER_MARGIN_X, right, headerBottom, 0.8f, COLOR_LINE);
+		for (int i = 1; i <= count; i++) {
+			canvas.hline(ROSTER_MARGIN_X, right, headerBottom - i * ROSTER_ROW_HEIGHT, 0.5f, COLOR_HAIRLINE);
+		}
+		return tableBottom;
+	}
+
+	/** 单元格的内容：序号 / 姓名 / [班级] / 总分 / 客观 / 主观 / 是否及格 / 签名（空） */
+	private static String rosterCellText(Entry entry, int index, int column, boolean withClass) {
+		if (column == 0) {
+			return String.valueOf(index + 1);
+		}
+		if (column == 1) {
+			return entry.getName();
+		}
+		if (withClass && column == 2) {
+			return entry.getClassName();
+		}
+		int offset = column - (withClass ? 3 : 2);
+		switch (offset) {
+			case 0:
+				return totalCell(entry);
+			case 1:
+				return AnswerPdfExporter.formatScore(Double.valueOf(entry.getObjectiveScore()));
+			case 2:
+				return AnswerPdfExporter.formatScore(Double.valueOf(entry.getSubjectiveScore()));
+			case 3:
+				// 总分缺失时写「未评分」而不是「不及格」：没批完和考砸了是两件事
+				if (entry.getTotalScore() == null) {
+					return "未评分";
+				}
+				return entry.isPassed() ? "及格" : "不及格";
+			default:
+				return null;
+		}
+	}
+
+	private static Color rosterCellColor(Entry entry, int column, boolean withClass) {
+		int passColumn = withClass ? 6 : 5;
+		if (column == passColumn) {
+			if (entry.getTotalScore() == null) {
+				return COLOR_SOFT;
+			}
+			return entry.isPassed() ? COLOR_PASS : COLOR_FAIL;
+		}
+		return column == 0 ? COLOR_SOFT : COLOR_TEXT;
+	}
+
+	private static String totalCell(Entry entry) {
+		Double total = entry.getTotalScore();
+		if (total == null) {
+			return "未评分";
+		}
+		String text = AnswerPdfExporter.formatScore(total);
+		if (entry.getMaxScore() != null && entry.getMaxScore().doubleValue() > 0d) {
+			return text + " / " + AnswerPdfExporter.formatScore(entry.getMaxScore());
+		}
+		return text;
+	}
+
+	private static float columnTextX(Canvas canvas, Column column, float left, String text) {
+		float textWidth = canvas.width(text, ROSTER_CELL_SIZE);
+		if (column.align == 1) {
+			return Math.max(left + 2f, left + (column.width - textWidth) / 2f);
+		}
+		if (column.align == 2) {
+			return Math.max(left + 2f, left + column.width - 6f - textWidth);
+		}
+		return left + 6f;
+	}
+
+	private static void drawRosterDeclaration(Canvas canvas, float y) throws IOException {
+		canvas.textAt(ROSTER_DECLARATION, ROSTER_MARGIN_X + ROSTER_CELL_SIZE * 2f, y, DECLARATION_SIZE - 2f, false,
+				COLOR_TEXT);
+	}
+
+	private static void drawRosterFooter(Canvas canvas, PDRectangle pageSize, int pageNo) throws IOException {
+		String text = "第 " + pageNo + " 页";
+		float width = canvas.width(text, 8f);
+		canvas.textAt(text, (pageSize.getWidth() - width) / 2f, 24f, 8f, false, COLOR_SOFT);
+	}
+
 	/* ====== 文本/版面工具 ====== */
+
+	/** 考试名称（名册用：没有具体答卷，口径与单人确认单一致） */
+	private static String examTitle(ProjectView project) {
+		if (project == null) {
+			return "考试";
+		}
+		String title = AnswerPdfExporter.displayTitle(project, null);
+		return hasText(title) ? trim(title) : "考试";
+	}
 
 	/** 考试名称：卷头标题 > 问卷标题 > 项目名称，和成绩单抬头同一套口径 */
 	private static String examTitle(ProjectView project, AnswerView answer) {
@@ -714,6 +1178,45 @@ public final class AnswerConfirmSheetExporter {
 			stream.moveTo(x1, y);
 			stream.lineTo(x2, y);
 			stream.stroke();
+		}
+
+		/** 竖线：名册的列分隔线，也是签名列「留空手写」的唯一边界 */
+		private void vline(float x, float yTop, float yBottom, float lineWidth, Color color) throws IOException {
+			stream.setStrokingColor(color);
+			stream.setLineWidth(lineWidth);
+			stream.moveTo(x, yTop);
+			stream.lineTo(x, yBottom);
+			stream.stroke();
+		}
+
+		/**
+		 * 单元格超宽时按字截断并补「…」：表格格子不能换行，一个长名字把列撑开，
+		 * 整张表的列位置就每次都不同了（老师没法拿上一张纸对照）。
+		 */
+		private String ellipsis(String text, float size, float maxWidth) {
+			if (text == null) {
+				return "";
+			}
+			String safe = AnswerPdfExporter.sanitize(text);
+			if (width(safe, size) <= maxWidth) {
+				return safe;
+			}
+			StringBuilder builder = new StringBuilder();
+			float current = 0f;
+			for (int i = 0; i < safe.length();) {
+				int codePoint = safe.codePointAt(i);
+				int charCount = Character.charCount(codePoint);
+				String piece = safe.substring(i, i + charCount);
+				i = i + charCount;
+				float pieceWidth = width(piece, size);
+				// 给末尾的省略号留出位置
+				if (current + pieceWidth > maxWidth - size * 0.8f) {
+					break;
+				}
+				builder.append(piece);
+				current = current + pieceWidth;
+			}
+			return builder.append('…').toString();
 		}
 
 		private void fillRect(float x, float y, float width, float height, Color color) throws IOException {

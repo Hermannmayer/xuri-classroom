@@ -5,8 +5,10 @@ import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.constant.TagCategoryEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.importer.ExcelRowImages;
 import cn.surveyking.server.core.importer.ImportKind;
 import cn.surveyking.server.core.importer.ImportPreview;
+import cn.surveyking.server.core.importer.QuestionImageUploader;
 import cn.surveyking.server.core.importer.TextQuestionParser;
 import cn.surveyking.server.core.importer.WordQuestionParser;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
@@ -38,6 +40,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
@@ -59,6 +62,7 @@ import static com.baomidou.mybatisplus.core.toolkit.StringUtils.isNotBlank;
  * @author javahuang
  * @date 2022/4/27
  */
+@Slf4j
 @Transactional(rollbackFor = Exception.class)
 @Service
 @RequiredArgsConstructor
@@ -623,7 +627,38 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	@SneakyThrows
 	private List<TemplateRequest> parseExcelToTemplate(MultipartFile file) {
-		return new RepoTemplateExcelParseHelper(file).parse();
+		RepoTemplateExcelParseHelper helper = new RepoTemplateExcelParseHelper(file);
+		List<TemplateRequest> templates = helper.parse();
+		attachExcelRowImages(file, templates);
+		for (RepoTemplateExcelParseHelper.ParseWarning warning : helper.getWarnings()) {
+			log.warn("题库导入提示：{}", warning.getMessage());
+		}
+		return templates;
+	}
+
+	/**
+	 * 题库导入也吃 Excel 内嵌图片：按「行号」把图片上传成题目图片（公开预览地址），追加到题干末尾。
+	 *
+	 * <p>
+	 * 题库没有 token 替换那一层（ImportServiceImpl.applyAttachments 是试卷导入专用的），所以这里直接挂
+	 * {@code <img>} + {@code richTitle=true}；单张上传失败只跳过该图，不影响整批导入。
+	 */
+	private void attachExcelRowImages(MultipartFile file, List<TemplateRequest> templates) {
+		ExcelRowImages rowImages;
+		try {
+			rowImages = ExcelRowImages.read(file.getBytes());
+		}
+		catch (Exception e) {
+			log.warn("题库导入：读取 Excel 内嵌图片失败，已按无图片导入：{}", e.getMessage());
+			return;
+		}
+		for (ExcelRowImages.Warning warning : rowImages.getWarnings()) {
+			log.warn("题库导入提示：{}", warning.getMessage());
+		}
+		int attached = QuestionImageUploader.attachRowImages(fileService, templates, rowImages);
+		if (attached > 0) {
+			log.info("题库导入：已把 {} 张 Excel 内嵌图片挂到题干末尾", attached);
+		}
 	}
 
 	@Override

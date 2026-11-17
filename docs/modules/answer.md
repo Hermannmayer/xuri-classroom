@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
+verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 ---
 
 # 答卷、判分与报表
@@ -255,9 +255,10 @@ verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
 | `answerPdf` | `成绩单/<姓名>.pdf` | 现有「问卷星成绩单」版式：分数卡 + 逐题得分 + 可选解析 |
 | `answerSheetPdf` | `答题卷/<姓名>.pdf` | **答题页还原**：题号/题干/选项方框（选中实心）、填空与简答原文、签名与上传图片，不标对错、不显示每题得分 |
 | `answerImage` | `长图/<姓名>.png` | 上面那份答题卷的**整页纵向长图**（150 DPI，省纸、可直接发微信；页脚会关掉，免得落在图片中间） |
-| `confirmSheetPdf` | `确认单/<姓名>.pdf` | **成绩确认单**：一页 A4，姓名/班级/考试/交卷时间/总分/客观与主观小计/是否及格 + 考生签名与日期空位 |
+| `confirmSheetPdf` | `确认单/成绩确认单-<班级>-<时间>.pdf` | **成绩确认单（整班一张表）**：每人一行（序号/姓名/班级/总分/客观/主观/是否及格），签名列留空手写；单班 A4 纵向、跨班自动横向，超页重复表头 |
 
 - 一次任务可以同时要多种格式（`outputs: [...]`），只建一个任务、只轮询一份进度；ZIP 内**总是按格式分子目录**。
+- **确认单是「每班一份」而不是「每人一份」**：名册在逐份渲染之外单独生成（`AnswerConfirmSheetExporter#renderRoster`），15 人一页放得下，30 人自动翻页并重复表头；`filesWritten` 只 +1，`done` 仍按答卷份数计。
 - **签名题 / 上传题图片总是包含**（`includeImages` 已废弃，传什么都按 true 处理）；「附解析」仍可关，考试期间别开。
 - 数据页（`/survey/:id/data`）同一个入口：勾选若干份就只导这几份，不勾选就按当前筛选（班级 / 时间 / 状态 / 分数段）导。
 
@@ -273,6 +274,7 @@ verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
 - 结果行用文字（回答正确/部分正确/回答错误/待老师批改）而不是 ✓/✕：字体子集不含 Dingbats，缺字会让 PDFBox 抛异常。
 - **答题卷的选项方框是矢量画的**：字体子集同样不含 □/■（U+25A1/U+25A0），直接 showText 会被 sanitize 换成「·」，所以选中/未选靠描边与填充区分。
 - **成绩确认单的及格线是绝对值 60**（可传 `passScore` 覆盖）：满分低于 60 的卷子会全部判「不及格」，这种极少见的卷子需要在调用处传比例。
+- 单人名册版（`renderConfirmSheet`）保留为兜底 API，正常导出走不到；将来若要做「每人一页签字」，直接复用即可。
 - 产物落 `{file-storage.local.root-path}/export/{jobId}.zip`，**24 小时**后由 `@Scheduled` 每小时清一次（含进程重启后 JOBS 丢失的孤儿文件）。
 
 ### 文件生命周期（2.2.1）

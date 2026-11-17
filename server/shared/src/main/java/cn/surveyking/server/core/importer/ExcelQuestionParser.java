@@ -2,16 +2,20 @@ package cn.surveyking.server.core.importer;
 
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.uitls.ExcelImportSecurity;
 import cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.dto.TemplateRequest;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,8 +23,13 @@ import java.util.Set;
  * Excel 解析：复用题库的「按题型分 sheet」模板，输出可直接进试卷的题目树。
  *
  * <p>
- * 与题库导入共用一套表头（序号/章节/题干/选项/解析/分数/答案/标签）；章节列可选，
- * 填了就把同一章节的题收进一个题组（QuestionSet），没填则平铺。
+ * 与题库导入共用一套表头（序号/章节/题干/选项/解析/分数/答案/标签/行标题/列标题/选项树/高级配置）；
+ * 章节列可选，填了就把同一章节的题收进一个题组（QuestionSet），没填则平铺。
+ *
+ * <p>
+ * 图片：fastexcel 不读图片，这里用 {@link ExcelRowImages}（POI）把同一个文件的字节再开一次，按
+ * 「锚点左上角所在行」把图片挂到该行题目的题干末尾（token 形如 {@code [[IMG:n]]}，与 Word 导入一致；
+ * 落库前由 ImportServiceImpl.applyAttachments 换成图片地址）。只支持 .xlsx。
  */
 public class ExcelQuestionParser {
 
@@ -31,12 +40,98 @@ public class ExcelQuestionParser {
 	}
 
 	public ImportPreview parse() {
+		validateFile();
+		// 先用同一套 ZIP 资源限制过一遍，再交给 POI 打开图片（POI 会把整本 xlsx 读进内存）
+		ExcelImportSecurity.validateFile(file);
+		List<ImportPreview.Warning> warnings = new ArrayList<>();
+		ExcelRowImages rowImages = readRowImages(warnings);
+		RepoTemplateExcelParseHelper helper = new RepoTemplateExcelParseHelper(file);
+		List<TemplateRequest> templates = helper.parse();
+		Map<String, byte[]> attachments = new LinkedHashMap<>();
+		attachRowImageTokens(templates, rowImages, attachments);
+		ImportPreview preview = fromTemplates(templates);
+		for (RepoTemplateExcelParseHelper.ParseWarning parseWarning : helper.getWarnings()) {
+			warnings.add(ImportPreview.Warning.builder().level(parseWarning.getLevel())
+					.code(parseWarning.getCode()).message(parseWarning.getMessage()).build());
+		}
+		preview.setAttachments(attachments);
+		if (!attachments.isEmpty()) {
+			warnings.add(ImportPreview.Warning.builder().level("info").code("IMAGE_IMPORTED")
+					.message("已提取 " + attachments.size() + " 张 Excel 内嵌图片，按所在行挂到题干末尾").build());
+		}
+		preview.getWarnings().addAll(warnings);
+		return preview;
+	}
+
+	/**
+	 * 读内嵌图片；读失败只给 warn 并按无图片继续（图片不该拖垮文字题目的导入）。
+	 */
+	private ExcelRowImages readRowImages(List<ImportPreview.Warning> warnings) {
+		ExcelRowImages rowImages;
+		try {
+			rowImages = ExcelRowImages.read(file.getBytes());
+		}
+		catch (IOException e) {
+			warnings.add(warning("IMAGE_READ_FAILED", "读取 Excel 内嵌图片失败，已按无图片导入：" + describe(e)));
+			return ExcelRowImages.empty();
+		}
+		for (ExcelRowImages.Warning imageWarning : rowImages.getWarnings()) {
+			warnings.add(warning(imageWarning.getCode(), imageWarning.getMessage()));
+		}
+		return rowImages;
+	}
+
+	private void validateFile() {
 		if (file == null || file.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "请上传 Excel 文件");
 		}
-		return fromTemplates(new RepoTemplateExcelParseHelper(file).parse());
+		String name = file.getOriginalFilename();
+		// .xls 是 OLE2 老格式，fastexcel/POI 的 XSSF 都读不了；有人把 .xlsx 改名成 .xls 时按内容再确认一次
+		if (name != null && name.toLowerCase(Locale.ROOT).endsWith(".xls") && !isZipArchive()) {
+			throw new ErrorCodeException(ErrorCode.FileParseError,
+					"暂不支持 .xls 旧格式，请在 Excel 里另存为 .xlsx 后重试");
+		}
 	}
 
+	private boolean isZipArchive() {
+		try (InputStream in = file.getInputStream()) {
+			byte[] head = in.readNBytes(2);
+			return head.length == 2 && head[0] == 'P' && head[1] == 'K';
+		}
+		catch (IOException e) {
+			return false;
+		}
+	}
+
+	/**
+	 * 把该行抽到的内嵌图片换成 {@code [[IMG:n]]} token 追加到题干末尾（n 全局递增，与 Word 导入一致），
+	 * 字节放进 attachments，落库前由 ImportServiceImpl.applyAttachments 换成图片地址。
+	 */
+	private int attachRowImageTokens(List<TemplateRequest> templates, ExcelRowImages rowImages,
+			Map<String, byte[]> attachments) {
+		if (rowImages.isEmpty()) {
+			return 0;
+		}
+		int attached = 0;
+		for (TemplateRequest template : templates) {
+			SurveySchema schema = template.getTemplate();
+			if (schema == null) {
+				continue;
+			}
+			for (byte[] data : rowImages.imagesOf(template.getSourceSheet(), template.getSourceRow())) {
+				if (QuestionImageUploader.guessImageExtension(data) == null) {
+					// 文件头不像位图（比如伪装成 png 的其它格式），不往题干里塞坏 token
+					continue;
+				}
+				String token = "[[IMG:" + (++attached) + "]]";
+				attachments.put(token, data);
+				String title = schema.getTitle() == null ? "" : schema.getTitle().trim();
+				schema.setTitle(title.isEmpty() ? token : title + " " + token);
+				template.setName(schema.getTitle());
+			}
+		}
+		return attached;
+	}
 	/**
 	 * 题库模板条目 → 试卷题目树；包级可见，便于单测直接构造条目（章节分组等）。
 	 */
@@ -108,7 +203,11 @@ public class ExcelQuestionParser {
 	private static void normalize(SurveySchema question) {
 		SurveySchema.QuestionType type = question.getType();
 		if (type != SurveySchema.QuestionType.Radio && type != SurveySchema.QuestionType.Checkbox
-				&& type != SurveySchema.QuestionType.Judge) {
+				&& type != SurveySchema.QuestionType.Judge && type != SurveySchema.QuestionType.Select) {
+			return;
+		}
+		// Excel 的单选题/多选题/判断题走 row2schema，本来就没有 dataSource；下拉题有，但表头缺列时要兜底
+		if (question.getDataSource() != null && !question.getDataSource().isEmpty()) {
 			return;
 		}
 		List<SurveySchema.DataSource> sources = new ArrayList<>();
@@ -124,6 +223,21 @@ public class ExcelQuestionParser {
 			}
 		}
 		question.setDataSource(sources.isEmpty() ? null : sources);
+	}
+
+	private static ImportPreview.Warning warning(String code, String message) {
+		return ImportPreview.Warning.builder().level("warn").code(code).message(message).build();
+	}
+
+	private static String describe(Throwable e) {
+		if (e == null) {
+			return "未知错误";
+		}
+		String message = e.getMessage();
+		if (!StringUtils.hasText(message)) {
+			return e.getClass().getSimpleName();
+		}
+		return message.length() > 200 ? message.substring(0, 200) + "…" : message;
 	}
 
 }

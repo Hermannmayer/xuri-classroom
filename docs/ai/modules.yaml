@@ -203,7 +203,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-17
-    verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
+    verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -344,12 +344,16 @@ modules:
     source_globs:
       - client/src/pages/Home.tsx
       - client/src/pages/home/**
+      - client/src/components/charts/**
+      - client/src/api/dashboard.ts
       - client/src/layout/BasicLayout.tsx
       - client/src/router.tsx
       - server/api/src/main/java/cn/surveyking/server/api/DashboardApi.java
       - server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java
       - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/DashboardServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/DashboardStatsServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/service/DashboardStatsService.java
       - server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
       - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dashboard.java
@@ -360,6 +364,8 @@ modules:
     entrypoints:
       - client/src/pages/Home.tsx
       - client/src/pages/home/Dashboards.tsx
+      - client/src/components/charts/index.ts
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/DashboardStatsServiceImpl.java
       - server/api/src/main/java/cn/surveyking/server/api/DashboardApi.java
       - server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java
       - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
@@ -367,6 +373,10 @@ modules:
       - GET /api/my-report/list
       - GET /api/teaching/projects
       - GET /api/dashboard/list
+      - GET /api/dashboard/overview
+      - GET /api/dashboard/trend
+      - GET /api/dashboard/teacher
+      - GET /api/dashboard/student
       - GET /api/project/list
       - GET /api/repo/list
       - GET /api/system/user/list
@@ -378,7 +388,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+    verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -511,18 +521,26 @@ modules:
       - ImportApi
       - ImportPreview
       - TextQuestionParser
+      - ExcelQuestionParser
+      - RepoTemplateExcelParseHelper
       - 导入去向
       - 题组
+      - 矩阵题导入
+      - Excel 内嵌图片
     source_globs:
       - client/src/pages/import/**
       - client/src/api/import.ts
       - server/api/src/main/java/cn/surveyking/server/api/ImportApi.java
       - server/shared/src/main/java/cn/surveyking/server/core/importer/**
+      - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java
+      - server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java
       - server/shared/src/main/java/cn/surveyking/server/service/ImportService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/PaperImportRecordRequest.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoTemplateRequest.java
       - server/shared/src/test/java/cn/surveyking/server/core/importer/**
+      - server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx
+      - server/api/src/main/resources/template/旭日云课堂试卷导入模板.docx
     entrypoints:
       - client/src/pages/import/ImportWizard.tsx
       - client/src/pages/project/List.tsx
@@ -533,14 +551,15 @@ modules:
       - POST /api/import/parse
       - POST /api/import/record
       - POST /api/repo/import
+      - GET /api/file/downloadTemplate
     tables:
       - t_project
       - t_template
     tests:
       - client:npx tsc --noEmit
-      - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
-    last_verified: 2026-11-14
-    verified_against: 0f0fe03f2420c4517d9d774d93ea7224b19d5e1f
+      - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
+    last_verified: 2026-11-17
+    verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
   - id: module-mcp
     title: MCP / API 接入
     doc: docs/modules/mcp.md
@@ -1182,4 +1201,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: 8a4e7acace4f86580efb3deedce51c81f29e9ba8
+    verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89

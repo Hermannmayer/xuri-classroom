@@ -14,12 +14,16 @@ keywords:
 source_globs:
   - client/src/pages/Home.tsx
   - client/src/pages/home/**
+  - client/src/components/charts/**
+  - client/src/api/dashboard.ts
   - client/src/layout/BasicLayout.tsx
   - client/src/router.tsx
   - server/api/src/main/java/cn/surveyking/server/api/DashboardApi.java
   - server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java
   - server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/DashboardServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/DashboardStatsServiceImpl.java
+  - server/shared/src/main/java/cn/surveyking/server/service/DashboardStatsService.java
   - server/rdbms/src/main/java/cn/surveyking/server/service/MyReportService.java
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dashboard.java
@@ -30,6 +34,8 @@ source_globs:
 entrypoints:
   - client/src/pages/Home.tsx
   - client/src/pages/home/Dashboards.tsx
+  - client/src/components/charts/index.ts
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/DashboardStatsServiceImpl.java
   - server/api/src/main/java/cn/surveyking/server/api/DashboardApi.java
   - server/api/src/main/java/cn/surveyking/server/api/MyReportApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/TeachingMapper.java
@@ -37,6 +43,10 @@ apis:
   - GET /api/my-report/list
   - GET /api/teaching/projects
   - GET /api/dashboard/list
+  - GET /api/dashboard/overview
+  - GET /api/dashboard/trend
+  - GET /api/dashboard/teacher
+  - GET /api/dashboard/student
   - GET /api/project/list
   - GET /api/repo/list
   - GET /api/system/user/list
@@ -48,14 +58,27 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 ---
 
 # 首页与统计
 
 ## 30 秒摘要
 
-登录后的 `/home` 按**视角权限**渲染三种首页：`portal:admin` → 系统概览，`portal:teacher` + `project:report` → 我的教学，其余 → 我的学习。页面本身不做聚合计算，所有数字都来自现成列表接口：学员用 `GET /api/project/list` + `GET /api/my-report/list`，老师用 `GET /api/teaching/projects`，管理员用四个列表接口的 `total` 相加。`/api/dashboard/list` 与 `t_dashboard` 是上游遗留的「可配置仪表盘」组件，当前前端**完全没有调用**。首页不替代报表页，也不做跨项目全量统计。
+登录后的 `/home` 按**视角权限**渲染三种首页：`portal:admin` → 系统概览，`portal:teacher` + `project:report` → 我的教学，其余 → 我的学习。
+
+2026-11 起首页不再用「列表接口 total 相加」凑数字，改由专门的统计接口供数（同一个 `/api/dashboard` 前缀，都是 GET，权限 `project:detail or admin`）：
+
+| 接口 | 用途 | 主要口径 |
+|---|---|---|
+| `GET /api/dashboard/overview?days=14` | 管理员总览 | 用户三类互斥（管理员先从 staff 里扣除）；答卷排除练习伪项目；分数只算 `temp_save=1` 且有分 |
+| `GET /api/dashboard/trend?days=14` | 近 N 天趋势 | 自然日补空：缺日 0，`avgScores` 无样本给 null（折线断开，不画成 0 分） |
+| `GET /api/dashboard/teacher` | 老师视角 | 班级走可见性（accessible），项目=自建 ∪ 协作者 ∪ 可见班级上分配过的资源 |
+| `GET /api/dashboard/student` | 学员视角 | 答卷/均分排除练习；`todoExams`=班级资源已发布且在窗口内、本人未交 |
+
+页面侧全部用手写 SVG 图表（`client/src/components/charts/`：StatTile / Donut / BarSeries / AreaTrend / ProgressRing），**没有引入图表库**；颜色只取 `--bp-*` CSS 变量（写在 style 里，SVG 呈现属性不解析 var）。每个请求独立降级：某块失败只让那块显示「—」+ 原因，整页不白屏。
+
+`/api/dashboard/list` 与 `t_dashboard` 是上游遗留的「可配置仪表盘」组件，当前前端**完全没有调用**。首页不替代报表页：全站指标用绝对 60 分算及格率，逐卷的及格率仍走报表。
 
 ## 什么时候看这篇
 

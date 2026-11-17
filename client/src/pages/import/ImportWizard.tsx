@@ -16,10 +16,11 @@ import {
   Upload,
   message,
 } from 'antd';
-import { InboxOutlined, WarningOutlined } from '@ant-design/icons';
+import { InboxOutlined } from '@ant-design/icons';
 import type { SurveySchema } from '../../schema/types';
 import { parseImport, type ImportFormat, type ImportPreview } from '../../api/import';
 import { download } from '../../api';
+import { ImportHelp, ImportPreviewNotices, ImportTypeTags, importTypeLabel } from './ImportHelp';
 
 export type ImportDestination =
   | { type: 'new-paper' }
@@ -68,16 +69,6 @@ const FORMAT_HINT: Record<ImportFormat, string> = {
   excel: '按题型分表（即将开放）',
   text: '粘贴题目文本',
   json: '系统导出的试卷 JSON',
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  Radio: '单选',
-  Checkbox: '多选',
-  Judge: '判断',
-  FillBlank: '填空',
-  MultipleBlank: '多填空',
-  Textarea: '简答',
-  QuestionSet: '题组',
 };
 
 const SAMPLE = [
@@ -367,6 +358,7 @@ export default function ImportWizard({
                       </Button>
                       {file && <span style={{ fontSize: 12 }}>已选择：{file.name}</span>}
                     </Space>
+                    <ImportHelp formats={[item]} />
                   </div>
                 )}
               </div>
@@ -377,33 +369,13 @@ export default function ImportWizard({
 
       {step === 1 && preview && (
         <div>
-          <Space wrap style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 10 }}>
             <Tag color="blue">共 {stats?.total ?? 0} 题</Tag>
             <Tag color="cyan">总分 {stats?.score ?? 0}</Tag>
-            {Object.entries(stats?.byType ?? {}).map(([type, count]) => (
-              <Tag key={type}>
-                {TYPE_LABEL[type] ?? type} {count}
-              </Tag>
-            ))}
-          </Space>
+            <ImportTypeTags byType={stats?.byType} />
+          </div>
 
-          {warnings.length > 0 && (
-            <Alert
-              type={warnings.some((item) => item.level === 'warn' || item.level === 'error') ? 'warning' : 'info'}
-              showIcon
-              style={{ marginBottom: 10 }}
-              title={warnings.length + ' 条解析提示（不影响已识别的题目）'}
-              description={
-                <div style={{ maxHeight: 96, overflow: 'auto', fontSize: 12 }}>
-                  {warnings.map((item, index) => (
-                    <div key={index}>
-                      <WarningOutlined /> {item.message}
-                    </div>
-                  ))}
-                </div>
-              }
-            />
-          )}
+          <ImportPreviewNotices warnings={warnings} attachments={preview.attachments} />
 
           <div
             style={{
@@ -577,7 +549,7 @@ function QuestionRow({
     >
       <Checkbox checked={checked} disabled={disabled} onChange={(e) => onToggle(e.target.checked)} />
       <span style={{ width: 22, color: 'var(--bp-text-soft)', fontSize: 12 }}>{index}</span>
-      <Tag style={{ marginInlineEnd: 0 }}>{TYPE_LABEL[question.type] ?? question.type}</Tag>
+      <Tag style={{ marginInlineEnd: 0 }}>{importTypeLabel(question.type)}</Tag>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{

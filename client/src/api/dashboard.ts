@@ -1,0 +1,261 @@
+/**
+ * 首页统计接口：/api/dashboard/{overview,trend,teacher,student}。
+ *
+ * 后端是并行开发的（契约已冻结，见任务卡 task-34），所以这一层刻意做两件事：
+ * 1. **每个请求独立兜底**：任何失败都收敛成 `{ data: null, error: '原因' }`，
+ *    不往外抛，页面才能「失败的那块显示 —，其余照常渲染」。
+ * 2. **把后端字段揉成页面能直接用的形状**：字段缺失/null/字符串数字都归一，
+ *    趋势序列按 days 对齐（短了在前面补 null，长了取最后几项），日期缺失时自己补。
+ */
+import dayjs from 'dayjs';
+import { get } from './request';
+import { num } from '../components/charts/util';
+
+/** 一个统计块的取数结果：成功给数据，失败给可展示的原因 */
+export interface DashboardSection<T> {
+  data: T | null;
+  error: string | null;
+}
+
+export interface DashboardUsers {
+  student?: number;
+  teacher?: number;
+  admin?: number;
+  total?: number;
+  /** 近 7 天交过卷的去重人数 */
+  active7d?: number;
+}
+
+export interface DashboardClasses {
+  total?: number;
+  open?: number;
+  students?: number;
+  avgSize?: number;
+}
+
+export interface DashboardProjects {
+  total?: number;
+  exam?: number;
+  survey?: number;
+  folder?: number;
+  published?: number;
+  /** 已发布且当前在开放时间内的考试 */
+  running?: number;
+}
+
+export interface DashboardAnswers {
+  total?: number;
+  today?: number;
+  last7d?: number;
+  last30d?: number;
+  graded?: number;
+  pending?: number;
+}
+
+export interface DashboardQuestions {
+  repos?: number;
+  templates?: number;
+}
+
+export interface DashboardScores {
+  avg?: number;
+  /** 及格率；后端未明确 0~1 还是 0~100，展示层两种都认（见 fmtPercent） */
+  passRate?: number;
+  max?: number;
+  min?: number;
+  scoredCount?: number;
+}
+
+export interface DashboardAi {
+  calls7d?: number;
+  tokens7d?: number;
+}
+
+export interface DashboardOverview {
+  users?: DashboardUsers | null;
+  classes?: DashboardClasses | null;
+  projects?: DashboardProjects | null;
+  answers?: DashboardAnswers | null;
+  questions?: DashboardQuestions | null;
+  scores?: DashboardScores | null;
+  ai?: DashboardAi | null;
+}
+
+export interface DashboardTrend {
+  days?: string[] | null;
+  answers?: Array<number | null> | null;
+  graded?: Array<number | null> | null;
+  avgScores?: Array<number | null> | null;
+  activeUsers?: Array<number | null> | null;
+}
+
+export interface TeacherRecentRow {
+  projectId?: string;
+  projectName?: string;
+  status?: number;
+  answerCount?: number;
+  avgScore?: number | null;
+  pendingGrading?: number;
+  /** 后端 Date 序列化成 'yyyy-MM-dd HH:mm:ss'；历史上也有毫秒时间戳 */
+  lastAnswerAt?: string | number | null;
+}
+
+export interface TeacherDashboard {
+  classes?: number;
+  students?: number;
+  published?: number;
+  projects?: number;
+  answers?: number;
+  pendingGrading?: number;
+  graded7d?: number;
+  avgScore?: number | null;
+  recent?: TeacherRecentRow[] | null;
+}
+
+export interface StudentRecentRow {
+  projectId?: string;
+  projectName?: string;
+  examScore?: number | null;
+  createAt?: string | number | null;
+}
+
+export interface StudentDashboard {
+  answers?: number;
+  avgScore?: number | null;
+  bestScore?: number | null;
+  practiceCount?: number;
+  practiceQuestions?: number;
+  classes?: number;
+  todoExams?: number;
+  recent?: StudentRecentRow[] | null;
+}
+
+/** 对齐后的趋势序列（长度 = 天数，缺的日期是 null 而不是 0） */
+export interface TrendSeries {
+  days: string[];
+  answers: Array<number | null>;
+  graded: Array<number | null>;
+  avgScores: Array<number | null>;
+  activeUsers: Array<number | null>;
+}
+
+async function section<T>(request: Promise<T>): Promise<DashboardSection<T>> {
+  try {
+    const data = await request;
+    return { data: data ?? null, error: null };
+  } catch (error) {
+    const message = (error as Error)?.message;
+    return { data: null, error: message && message.trim() ? message : '统计接口暂不可用' };
+  }
+}
+
+/** 天数参数归一：1~90，默认 14（与后端契约一致） */
+export function normalizeDays(days: number | undefined): number {
+  const value = Number.isFinite(days) ? Math.round(days as number) : 14;
+  return Math.min(90, Math.max(1, value));
+}
+
+export const fetchOverview = (days = 14) =>
+  section(get<DashboardOverview>('/api/dashboard/overview', { days: normalizeDays(days) }));
+
+export const fetchTrend = (days = 14) =>
+  section(get<DashboardTrend>('/api/dashboard/trend', { days: normalizeDays(days) }));
+
+export const fetchTeacherBoard = () => section(get<TeacherDashboard>('/api/dashboard/teacher'));
+
+export const fetchStudentBoard = () => section(get<StudentDashboard>('/api/dashboard/student'));
+
+function alignSeries(
+  series: ReadonlyArray<number | null | undefined> | null | undefined,
+  length: number,
+): Array<number | null> {
+  const source = (series ?? []).map((value) => num(value));
+  if (source.length === length) return source;
+  // 少了：认为缺的是最早的几天，在前面补 null；多了：保留最后几天
+  if (source.length > length) return source.slice(source.length - length);
+  return [...Array<number | null>(length - source.length).fill(null), ...source];
+}
+
+/**
+ * 趋势序列对齐：days 是横轴基准。
+ *
+ * 后端按理返回等长数组，但并行开发期间字段短一截、少 days 都可能发生；
+ * 这里统一补齐/截断，避免图表里出现「标签 14 个、柱子 9 根」的错位。
+ */
+export function normalizeTrend(trend: DashboardTrend | null, days = 14, today = dayjs()): TrendSeries {
+  const count = normalizeDays(days);
+  const rawDays = (trend?.days ?? []).filter((day): day is string => typeof day === 'string' && day !== '');
+  const labels =
+    rawDays.length > 0
+      ? rawDays.length > count
+        ? rawDays.slice(rawDays.length - count)
+        : rawDays
+      : Array.from({ length: count }, (_, index) =>
+          today.subtract(count - 1 - index, 'day').format('MM-DD'),
+        );
+
+  return {
+    days: labels,
+    answers: alignSeries(trend?.answers, labels.length),
+    graded: alignSeries(trend?.graded, labels.length),
+    avgScores: alignSeries(trend?.avgScores, labels.length),
+    activeUsers: alignSeries(trend?.activeUsers, labels.length),
+  };
+}
+
+/** createAt 可能是 'yyyy-MM-dd HH:mm:ss'、ISO 串或毫秒时间戳，统一成毫秒 */
+function toMillis(value: string | number | null | undefined): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (!value) return null;
+  const text = String(value).trim();
+  if (text === '') return null;
+  const parsed = Date.parse(text.includes('T') ? text : text.replace(' ', 'T'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * 时间字段格式化。
+ *
+ * 后端 Date 按 application.yml 的 spring.jackson.date-format 序列化成 'yyyy-MM-dd HH:mm:ss'，
+ * 但历史上有的接口给的是毫秒时间戳，这里两种都认，避免表格里直接打印一串数字。
+ */
+export function fmtDateTime(value: string | number | null | undefined, fallback = '—'): string {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value === 'number') {
+    const millis = toMillis(value);
+    return millis === null ? fallback : dayjs(millis).format('YYYY-MM-DD HH:mm');
+  }
+  return String(value);
+}
+
+export interface ScoreTrend {
+  labels: string[];
+  values: Array<number | null>;
+  /** tooltip 首行：优先用考试名 */
+  tooltips: string[];
+}
+
+/**
+ * 学员首页的「我的成绩走势」：把 /api/dashboard/student 的 recent 按时间正序摊平。
+ * 没有分数的记录保留成 null（折线断开），不会被当成 0 分。
+ */
+export function scoreTrend(rows: StudentRecentRow[] | null | undefined, limit = 8): ScoreTrend {
+  const list = (rows ?? [])
+    .map((row, index) => ({ row, index, at: toMillis(row.createAt) }))
+    .sort((a, b) => {
+      if (a.at === null && b.at === null) return a.index - b.index;
+      if (a.at === null) return -1;
+      if (b.at === null) return 1;
+      return a.at - b.at;
+    })
+    .slice(-limit);
+
+  return {
+    labels: list.map((item) => {
+      const at = item.at;
+      return at === null ? `第${item.index + 1}次` : dayjs(at).format('MM-DD');
+    }),
+    values: list.map((item) => num(item.row.examScore)),
+    tooltips: list.map((item) => item.row.projectName || `第${item.index + 1}次作答`),
+  };
+}

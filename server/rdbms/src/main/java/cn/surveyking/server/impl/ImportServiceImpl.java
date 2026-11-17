@@ -2,12 +2,14 @@ package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.ErrorCode;
+import cn.surveyking.server.core.uitls.InMemoryMultipartFile;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.importer.ImportKind;
 import cn.surveyking.server.core.importer.ImportParseRequest;
 import cn.surveyking.server.core.importer.ExcelQuestionParser;
 import cn.surveyking.server.core.importer.ImportPreview;
 import cn.surveyking.server.core.importer.JsonQuestionParser;
+import cn.surveyking.server.core.importer.QuestionImageUploader;
 import cn.surveyking.server.core.importer.TextQuestionParser;
 import cn.surveyking.server.core.importer.WordQuestionParser;
 import cn.surveyking.server.domain.dto.FileView;
@@ -22,11 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -84,13 +81,14 @@ public class ImportServiceImpl implements ImportService {
 		}
 		Map<String, String> urls = new HashMap<>();
 		for (Map.Entry<String, byte[]> entry : attachments.entrySet()) {
-			String ext = guessImageExtension(entry.getValue());
+			String ext = QuestionImageUploader.guessImageExtension(entry.getValue());
 			if (ext == null) {
 				continue;
 			}
 			try {
 				UploadFileRequest upload = new UploadFileRequest();
-				upload.setFile(new ByteArrayMultipartFile("file", "word-image." + ext, mimeOf(ext), entry.getValue()));
+				upload.setFile(new InMemoryMultipartFile("file", "import-image." + ext,
+						QuestionImageUploader.mimeOf(ext), entry.getValue()));
 				upload.setFileType(AppConsts.FileType.QUESTION_IMAGE);
 				upload.setPublicRead(true);
 				FileView view = fileService.upload(upload);
@@ -135,38 +133,6 @@ public class ImportServiceImpl implements ImportService {
 				replaceImageTokens(child, urls);
 			}
 		}
-	}
-
-	private String guessImageExtension(byte[] data) {
-		if (data == null || data.length < 8) {
-			return null;
-		}
-		if ((data[0] & 0xFF) == 0x89 && data[1] == 'P') {
-			return "png";
-		}
-		if ((data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8) {
-			return "jpg";
-		}
-		if (data[0] == 'G' && data[1] == 'I' && data[2] == 'F') {
-			return "gif";
-		}
-		if (data[0] == 'B' && data[1] == 'M') {
-			return "bmp";
-		}
-		return null;
-	}
-
-	private String mimeOf(String ext) {
-		if ("png".equals(ext)) {
-			return "image/png";
-		}
-		if ("gif".equals(ext)) {
-			return "image/gif";
-		}
-		if ("bmp".equals(ext)) {
-			return "image/bmp";
-		}
-		return "image/jpeg";
 	}
 
 	private void requireFile(ImportParseRequest request) {
@@ -233,70 +199,6 @@ public class ImportServiceImpl implements ImportService {
 		int total = request.getTotal() == null ? 0 : request.getTotal();
 		exportGuardService.record("IMPORT_PROJECT", request.getProjectId(), null,
 				"导入试卷：" + source + "，共 " + total + " 题");
-	}
-
-	/**
-	 * Word 里抽出来的图片包成 MultipartFile，直接走现有文件服务（公开预览地址）。
-	 */
-	private static final class ByteArrayMultipartFile implements MultipartFile {
-
-		private final String name;
-
-		private final String originalFilename;
-
-		private final String contentType;
-
-		private final byte[] content;
-
-		private ByteArrayMultipartFile(String name, String originalFilename, String contentType, byte[] content) {
-			this.name = name;
-			this.originalFilename = originalFilename;
-			this.contentType = contentType;
-			this.content = content;
-		}
-
-		@Override
-		public String getName() {
-			return name;
-		}
-
-		@Override
-		public String getOriginalFilename() {
-			return originalFilename;
-		}
-
-		@Override
-		public String getContentType() {
-			return contentType;
-		}
-
-		@Override
-		public boolean isEmpty() {
-			return content == null || content.length == 0;
-		}
-
-		@Override
-		public long getSize() {
-			return content.length;
-		}
-
-		@Override
-		public byte[] getBytes() {
-			return content;
-		}
-
-		@Override
-		public InputStream getInputStream() {
-			return new ByteArrayInputStream(content);
-		}
-
-		@Override
-		public void transferTo(File dest) throws IOException {
-			try (FileOutputStream out = new FileOutputStream(dest)) {
-				out.write(content);
-			}
-		}
-
 	}
 
 }

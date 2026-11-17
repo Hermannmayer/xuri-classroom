@@ -134,7 +134,7 @@ const PDF_FORMATS: { key: PdfOutput; label: string; dir: string }[] = [
   { key: 'answerPdf', label: '成绩单 PDF（每人一份，含分数摘要）', dir: '成绩单' },
   { key: 'answerSheetPdf', label: '答题卷 PDF（和学员答题时一样）', dir: '答题卷' },
   { key: 'answerImage', label: '答卷长图（PNG，每人一张，省纸）', dir: '长图' },
-  { key: 'confirmSheetPdf', label: '成绩确认单（一页，可打印签字）', dir: '确认单' },
+  { key: 'confirmSheetPdf', label: '成绩确认单（整班一张表，每人一行，签名列留空手写）', dir: '确认单' },
 ];
 
 /** 导出设置：弹窗里的选择 */
@@ -1323,7 +1323,7 @@ export default function ClassAnswersDrawer({
             </Space>
             {/* 格式一多，光看名字分不清用途：把「拿它干什么」直接写在弹窗里 */}
             <div style={{ marginTop: 6, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-              长图适合微信发送、省纸；确认单用来打印签字（一页，带签字栏）。
+              长图适合微信发送、省纸；确认单是整班一张表，每人一行，签名列留空手写。
             </div>
             {outputs.length > 0 && (
               <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>

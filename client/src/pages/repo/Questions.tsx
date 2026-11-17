@@ -38,6 +38,7 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import AiRepoAuditDrawer from './ai/AiRepoAuditDrawer';
 import ImportWizard from '../import/ImportWizard';
+import { ImportHelp } from '../import/ImportHelp';
 import RichTextEditor from '../../components/RichTextEditor';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
@@ -693,6 +694,9 @@ export default function RepoQuestions() {
           )}
         </Space>
       </div>
+
+      {/* Excel 走的是直接上传、没有预览步骤，所以把「支持哪些题型」放在导入按钮下面 */}
+      {canImport && <ImportHelp formats={['excel']} />}
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
 

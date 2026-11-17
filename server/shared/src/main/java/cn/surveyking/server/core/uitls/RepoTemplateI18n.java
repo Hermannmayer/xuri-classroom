@@ -21,6 +21,15 @@ public final class RepoTemplateI18n {
 
 	private static final Map<String, Set<String>> ALIAS_CACHE = new ConcurrentHashMap<>();
 
+	/** 选项列后缀：选项 A ~ 选项 H */
+	private static final List<String> OPTION_SUFFIXES = Arrays.asList("A", "B", "C", "D", "E", "F", "G", "H");
+
+	/** 填空列序号：空 1 ~ 空 8 */
+	private static final List<String> BLANK_INDEXES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8");
+
+	/** 矩阵行/列标题列数上限：行标题1 ~ 行标题10、列标题1 ~ 列标题10 */
+	private static final int MAX_MATRIX_TITLE_INDEX = 10;
+
 	private RepoTemplateI18n() {
 	}
 
@@ -36,7 +45,9 @@ public final class RepoTemplateI18n {
 		if (value == null) {
 			return null;
 		}
-		return value.replaceAll("[\\s\\u00A0\\u3000]+", "").toLowerCase(Locale.ROOT);
+		// 全角括号按半角处理：「选项树（JSON）」与「选项树(JSON)」视为同一列
+		return value.replace('（', '(').replace('）', ')').replaceAll("[\\s\\u00A0\\u3000]+", "")
+				.toLowerCase(Locale.ROOT);
 	}
 
 	private static Set<String> getAliases(String key, String defaultMessage) {
@@ -66,6 +77,22 @@ public final class RepoTemplateI18n {
 		return input != null && aliases.contains(normalize(input));
 	}
 
+	/**
+	 * 表头写作「选项树(JSON)」「选项树（JSON）」「高级配置(JSON)」都算命中：表头里带不带 (JSON) 后缀不影响识别。
+	 */
+	private static boolean matchesJsonSuffix(String input, Set<String> aliases) {
+		String normalized = normalize(input);
+		if (normalized == null) {
+			return false;
+		}
+		for (String alias : aliases) {
+			if (normalized.equals(alias + "(json)") || normalized.equals(alias + "json")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static String message(String key, String defaultMessage) {
 		return MESSAGE_SOURCE.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
 	}
@@ -76,6 +103,14 @@ public final class RepoTemplateI18n {
 
 	public static boolean isOptionColumn(String cellText) {
 		return matches(cellText, OptionHeader.ALL_LABELS);
+	}
+
+	/**
+	 * 选项列表头对应的字母（A ~ H），不是选项列返回 null。定位用列名而非列号，老师插列不会错位。
+	 */
+	public static String optionSuffix(String cellText) {
+		String normalized = normalize(cellText);
+		return normalized == null ? null : OptionHeader.LABEL_TO_SUFFIX.get(normalized);
 	}
 
 	public static boolean isBlankColumn(String cellText) {
@@ -90,23 +125,64 @@ public final class RepoTemplateI18n {
 		return message("repo.template.header.blank", "空{0}", index);
 	}
 
+	public static String rowTitleLabel(String index) {
+		return message("repo.template.header.rowTitle", "行标题{0}", index);
+	}
+
+	public static String columnTitleLabel(String index) {
+		return message("repo.template.header.columnTitle", "列标题{0}", index);
+	}
+
+	public static String optionTreeLabel() {
+		return message("repo.template.header.optionTree", "选项树");
+	}
+
+	public static String advancedJsonLabel() {
+		return message("repo.template.header.advancedJson", "高级配置");
+	}
+
+	/**
+	 * 矩阵行标题列（行标题1 ~ 行标题10）的序号，不是这类表头返回 null。
+	 */
+	public static Integer rowTitleIndex(String cellText) {
+		return lookup(MatrixTitleHeader.ROW_LABELS, cellText);
+	}
+
+	/**
+	 * 矩阵列标题列（列标题1 ~ 列标题10）的序号，不是这类表头返回 null。
+	 */
+	public static Integer columnTitleIndex(String cellText) {
+		return lookup(MatrixTitleHeader.COLUMN_LABELS, cellText);
+	}
+
+	private static Integer lookup(Map<String, Integer> labels, String cellText) {
+		String normalized = normalize(cellText);
+		return normalized == null ? null : labels.get(normalized);
+	}
+
 	public static String workbookName() {
 		return message("repo.template.workbook.name", "题库");
 	}
 
 	private static class OptionHeader {
 
-		private static final List<String> OPTION_SUFFIXES = Arrays.asList("A", "B", "C", "D", "E", "F", "G", "H");
+		private static final Map<String, String> LABEL_TO_SUFFIX = buildLabelToSuffix();
 
-		private static final Set<String> ALL_LABELS = OPTION_SUFFIXES.stream()
-				.flatMap(suffix -> getAliases("repo.template.header.option", "选项{0}", new Object[] { suffix }).stream())
-				.collect(Collectors.toCollection(LinkedHashSet::new));
+		private static final Set<String> ALL_LABELS = LABEL_TO_SUFFIX.keySet();
+
+		private static Map<String, String> buildLabelToSuffix() {
+			Map<String, String> labels = new LinkedHashMap<>();
+			for (String suffix : OPTION_SUFFIXES) {
+				for (String alias : getAliases("repo.template.header.option", "选项{0}", new Object[] { suffix })) {
+					labels.put(alias, suffix);
+				}
+			}
+			return labels;
+		}
 
 	}
 
 	private static class BlankHeader {
-
-		private static final List<String> BLANK_INDEXES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8");
 
 		private static final Set<String> ALL_LABELS = BLANK_INDEXES.stream()
 				.flatMap(index -> getAliases("repo.template.header.blank", "空{0}", new Object[] { index }).stream())
@@ -114,11 +190,52 @@ public final class RepoTemplateI18n {
 
 	}
 
+	/**
+	 * 矩阵行/列标题：行标题1..10、列标题1..10（另外兼容短写「行1」「列1」）。
+	 */
+	private static class MatrixTitleHeader {
+
+		private static final Map<String, Integer> ROW_LABELS = build("repo.template.header.rowTitle", "行标题{0}",
+				"行{0}");
+
+		private static final Map<String, Integer> COLUMN_LABELS = build("repo.template.header.columnTitle",
+				"列标题{0}", "列{0}");
+
+		private static Map<String, Integer> build(String key, String defaultLabel, String shortLabel) {
+			Map<String, Integer> labels = new LinkedHashMap<>();
+			for (int i = 1; i <= MAX_MATRIX_TITLE_INDEX; i++) {
+				String index = String.valueOf(i);
+				for (String alias : getAliases(key, defaultLabel, new Object[] { index })) {
+					labels.put(alias, i);
+				}
+				labels.put(normalize(shortLabel.replace("{0}", index)), i);
+			}
+			return labels;
+		}
+
+	}
+
 	public enum SheetType {
 
 		SINGLE_CHOICE("repo.template.sheet.singleChoice", "单选题"), MULTIPLE_CHOICE("repo.template.sheet.multipleChoice",
-				"多选题"), TRUE_FALSE("repo.template.sheet.trueFalse", "判断题"), FILL_BLANK("repo.template.sheet.fillBlank",
-						"填空题"), TEXTAREA("repo.template.sheet.textarea", "简答题");
+				"多选题"), TRUE_FALSE("repo.template.sheet.trueFalse", "判断题"), FILL_BLANK(
+						"repo.template.sheet.fillBlank", "填空题"), TEXTAREA("repo.template.sheet.textarea", "简答题"),
+		/** 下拉单选 */
+		SELECT("repo.template.sheet.select", "下拉题"),
+		/** 评分（星级） */
+		SCORE("repo.template.sheet.score", "评分题"),
+		/** NPS 净推荐值 */
+		NPS("repo.template.sheet.nps", "NPS题"),
+		/** 级联选择 */
+		CASCADER("repo.template.sheet.cascader", "级联题"),
+		/** 矩阵单选 */
+		MATRIX_RADIO("repo.template.sheet.matrixRadio", "矩阵单选题"),
+		/** 矩阵多选 */
+		MATRIX_CHECKBOX("repo.template.sheet.matrixCheckbox", "矩阵多选题"),
+		/** 上传题（前端 registerAll 里已注册的题型；矩阵评分题 MatrixScore 没有渲染器，不做） */
+		UPLOAD("repo.template.sheet.upload", "上传题"),
+		/** 矩阵填空 */
+		MATRIX_FILL_BLANK("repo.template.sheet.matrixFillBlank", "矩阵填空题");
 
 		private final String key;
 
@@ -151,16 +268,22 @@ public final class RepoTemplateI18n {
 		SERIAL_NO("repo.template.header.serialNo", "序号", (map, index) -> map.put("serialNo", index)), CHAPTER(
 				"repo.template.header.chapter", "章节", (map, index) -> map.put("chapter", index)), DIFFICULTY(
 						"repo.template.header.difficulty", "难度", (map, index) -> map.put("difficulty", index)), TITLE(
-				"repo.template.header.title", "题干",
-				(map, index) -> map.put("title", index)), ANALYSIS("repo.template.header.analysis", "解析",
-						(map, index) -> map.put("examAnalysis", index)), SCORE("repo.template.header.score", "分数",
-								(map, index) -> map.put("examScore", index)), SINGLE_BLANK_SCORE(
-										"repo.template.header.singleBlankScore", "单空分数",
-										(map, index) -> map.put("examScore", index)), ANSWER(
-												"repo.template.header.answer", "答案",
-												(map, index) -> map.put("examCorrectAnswer", index)), TAGS(
-														"repo.template.header.tags", "标签",
-														(map, index) -> map.put("tags", index));
+								"repo.template.header.title", "题干",
+								(map, index) -> map.put("title", index)), ANALYSIS("repo.template.header.analysis", "解析",
+										(map, index) -> map.put("examAnalysis", index)), SCORE(
+												"repo.template.header.score", "分数",
+												(map, index) -> map.put("examScore", index)), SINGLE_BLANK_SCORE(
+														"repo.template.header.singleBlankScore", "单空分数",
+														(map, index) -> map.put("examScore", index)), ANSWER(
+																"repo.template.header.answer", "答案",
+																(map, index) -> map.put("examCorrectAnswer", index)), TAGS(
+																		"repo.template.header.tags", "标签",
+																		(map, index) -> map.put("tags", index)),
+		/** 级联题的选项树（JSON 数组），整列内容就是 dataSource */
+		OPTION_TREE("repo.template.header.optionTree", "选项树", (map, index) -> map.put("optionTree", index), true),
+		/** 通用兜底列：一个 JSON 对象，深度合并到该行生成的题目上 */
+		ADVANCED_JSON("repo.template.header.advancedJson", "高级配置", (map, index) -> map.put("advancedJson", index),
+				true);
 
 		private final String key;
 
@@ -170,15 +293,27 @@ public final class RepoTemplateI18n {
 
 		private final BiConsumer<Map<String, Integer>, Integer> mapper;
 
+		/** 表头允许带 (JSON) 后缀：选项树(JSON) / 高级配置(JSON) */
+		private final boolean jsonTolerant;
+
 		HeaderLabel(String key, String defaultLabel, BiConsumer<Map<String, Integer>, Integer> mapper) {
+			this(key, defaultLabel, mapper, false);
+		}
+
+		HeaderLabel(String key, String defaultLabel, BiConsumer<Map<String, Integer>, Integer> mapper,
+				boolean jsonTolerant) {
 			this.key = key;
 			this.defaultLabel = defaultLabel;
 			this.aliases = getAliases(key, defaultLabel);
 			this.mapper = mapper;
+			this.jsonTolerant = jsonTolerant;
 		}
 
 		public boolean matches(String name) {
-			return RepoTemplateI18n.matches(name, aliases);
+			if (RepoTemplateI18n.matches(name, aliases)) {
+				return true;
+			}
+			return jsonTolerant && matchesJsonSuffix(name, aliases);
 		}
 
 		public void apply(Map<String, Integer> target, int columnIndex) {
