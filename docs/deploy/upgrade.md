@@ -18,6 +18,36 @@ description: "三端一键升级、数据库结构自动迁移、失败回滚与
 
 升级脚本会自己找到已安装的实例；找不到就打印"这是全新安装，请用 setup/install/compose"并**零改动退出**。
 
+## v2.3.0 升级须知（数据层变化较大）
+
+这一版跨了 6 个数据库迁移（V2.2.1 ~ V2.2.6），同时把运行时换到 Java 25 / Spring Boot 4.1。
+**升级前请先按下面清单备份**；升级脚本自身也会备份并校验，但备份多一份不亏。
+
+| 备份对象 | 命令 / 位置 | 说明 |
+|---|---|---|
+| 数据库 | `mysqldump --single-transaction --routines --triggers <库名> \| gzip > db_$(date +%F).sql.gz` | 升级脚本会在停应用后自动 dump；手工再存一份更稳 |
+| 附件目录 | 打包 `files/`（或部署时挂载的文件目录） | 答卷签名、上传图片、题目图片都在这里 |
+| 配置 | `application.yml` / `.env` | 含 `JWT_SECRET`、数据库密码、导出密码 |
+| 旧程序 | 升级包会把旧 jar 存成 `app.jar.bak.<版本>`（Docker 打 `:previous` 镜像） | 回滚用 |
+
+本次自动执行的迁移（只增量、幂等，失败可重跑）：
+
+- `V2.2.1` 答卷批改字段（`answerer_name` / `grade_status` / `graded_by` / `graded_at` / 批改索引 / `t_answer_grade`）
+- `V2.2.2` 通知公告（`t_notice` / `t_notice_read`）
+- `V2.2.3` 审计明细（`before_json` / `after_json` / `source` / `request_id` / 目标索引）
+- `V2.2.4` AI 用量（`t_ai_usage`）
+- `V2.2.5` API 令牌与写操作幂等（`t_api_token` / `t_api_idempotency`）
+- `V2.2.6` 审计清理索引（`idx_audit_create_at`）
+
+升级后建议的验收顺序：`/api/system/version` 返回 `2.3.0` → 管理员登录 → 打开首页（统计不为 0）→ 建一场考试并交一份卷 → 导出一次（Excel 与 PDF ZIP）→ 打开「系统设置 → AI」确认模型可选。
+
+行为变化（会影响老师与外部脚本，升级后同步通知）：
+
+- 导出 ZIP 按 `成绩单/`、`答题卷/`、`长图/`、`确认单/` 分子目录；签名/上传图片总是包含；成绩确认单改为整班一张表。
+- 题库/试卷导入模板升级为 13 题型（旧 5 类模板仍可导入）；题库导出的 xlsx 现在能被重新导入。
+- 权限点数量变化，自定义角色需在「权限」页手动补 `ai:use` 等新权限。
+
+
 ## 升级做了什么（顺序固定）
 
 ```
