@@ -11,6 +11,7 @@ import org.dhatim.fastexcel.reader.ReadableWorkbook;
 import org.dhatim.fastexcel.reader.Row;
 import org.dhatim.fastexcel.reader.Sheet;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,11 +24,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -58,7 +61,7 @@ class RepoExportRoundTripTest {
 		byte[] exported = RepoQuestionExcelExporter.export(toTemplates(parseFixture(sourceWorkbook())));
 
 		// 一、一种题型一个 sheet，顺序与导入模板一致；空题型不建 sheet（这里 13 种都有题）
-		assertEquals(Arrays.stream(RepoTemplateI18n.SheetType.values()).map(RepoTemplateI18n.SheetType::displayName)
+		assertEquals(Arrays.stream(RepoTemplateI18n.SheetType.values()).map(RepoTemplateI18n.SheetType::exportName)
 				.collect(Collectors.toList()), sheetNames(exported));
 
 		// 二、每个表头都必须是导入认的列名：写错一个表头，那一列就会被静默忽略（等于又丢一次数据）
@@ -78,8 +81,8 @@ class RepoExportRoundTripTest {
 				RepoTemplateI18n.optionLabel("B"), RepoTemplateI18n.optionLabel("C"), RepoTemplateI18n.optionLabel("D"),
 				RepoTemplateI18n.optionLabel("E"), RepoTemplateI18n.optionLabel("F"), RepoTemplateI18n.optionLabel("G"),
 				RepoTemplateI18n.optionLabel("H"), RepoTemplateI18n.advancedJsonLabel() + "(JSON)"),
-				headerOf(exported, RepoTemplateI18n.SheetType.SINGLE_CHOICE.displayName()));
-		assertEquals(29, headerOf(exported, RepoTemplateI18n.SheetType.MATRIX_RADIO.displayName()).size(),
+				headerOf(exported, RepoTemplateI18n.SheetType.SINGLE_CHOICE.exportName()));
+		assertEquals(29, headerOf(exported, RepoTemplateI18n.SheetType.MATRIX_RADIO.exportName()).size(),
 				"矩阵题：8 个公共列 + 行标题10 + 列标题10 + 高级配置");
 
 		// 四、把导出的字节原样再导入一遍
@@ -177,6 +180,35 @@ class RepoExportRoundTripTest {
 		assertEquals(SurveySchema.ExamScoreMode.none, upload.getAttribute().getExamAnswerMode());
 		assertEquals("身份证正面照", upload.getAttribute().getExamCorrectAnswer());
 		assertEquals(1, upload.getChildren().size());
+	}
+
+	@Test
+	void exportedSheetNamesSurviveEnglishLocale() throws Exception {
+		// 线上服务端语言是英文：sheet 名若跟着语言走，「判断题」会变成 "True / False"，
+		// Excel 不允许 /，fastexcel 静默改成 "True - False"，再导入就整类找不到。
+		Locale previous = LocaleContextHolder.getLocale();
+		LocaleContextHolder.setLocale(Locale.US);
+		try {
+			Path file = TEMPLATE_DIR.resolve("旭日云课堂题库导入模板.xlsx");
+			assumeTrue(Files.exists(file), "跳过：没有发布模板 " + file);
+			List<TemplateRequest> templates = parse(Files.readAllBytes(file));
+			byte[] exported = RepoQuestionExcelExporter.export(toTemplates(templates));
+
+			for (String name : sheetNames(exported)) {
+				for (char illegal : new char[] { '\\', '/', '?', '*', '[', ']', ':' }) {
+					assertFalse(name.indexOf(illegal) >= 0, "sheet 名含 Excel 非法字符 " + illegal + "：" + name);
+				}
+				assertNotNull(RepoTemplateI18n.SheetType.fromName(name), "sheet 名无法被导入识别：" + name);
+			}
+			List<TemplateRequest> reparsed = parse(exported);
+			assertEquals(templates.size(), reparsed.size(), "英文环境下导出 → 再导入不能丢题：" + titles(reparsed));
+			assertEquals(templates.size(),
+					reparsed.stream().map(TemplateRequest::getQuestionType).distinct().count(),
+					"英文环境下题型也要保持一致");
+		}
+		finally {
+			LocaleContextHolder.setLocale(previous);
+		}
 	}
 
 	@Test

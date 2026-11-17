@@ -253,8 +253,24 @@ public final class RepoTemplateI18n {
 			return message(key, defaultLabel);
 		}
 
+		/**
+		 * 导出 xlsx 时的 sheet 名：固定用内置中文名，不走当前语言。
+		 *
+		 * <p>两个原因：一是 Excel 的 sheet 名不允许 {@code / \ ? * [ ] :}，英文名 "True / False" 会被
+		 * fastexcel <b>静默</b>改写成 "True - False"，导入按名字匹配就找不到这张表（判断题整类丢失）；
+		 * 二是导出/导入/模板三处用同一个名字，老师看到的和文档写的一致。
+		 */
+		public String exportName() {
+			return defaultLabel;
+		}
+
 		public boolean matches(String name) {
-			return RepoTemplateI18n.matches(name, aliases);
+			if (RepoTemplateI18n.matches(name, aliases)) {
+				return true;
+			}
+			// 兼容历史导出：Excel 把非法字符替换成 -，再把它换回 / 比一次（"True - False" → "True / False"）
+			String normalized = normalize(name);
+			return normalized != null && RepoTemplateI18n.matches(normalized.replace('-', '/'), aliases);
 		}
 
 		public static SheetType fromName(String name) {

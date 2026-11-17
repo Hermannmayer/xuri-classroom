@@ -565,7 +565,8 @@ final class RepoQuestionExcelExporter {
 	 */
 	private static void writeSheet(Workbook workbook, RepoTemplateI18n.SheetType sheetType, List<String> headers,
 			List<List<Object>> rows) {
-		Worksheet sheet = workbook.newWorksheet(sheetType.displayName());
+		// 用 exportName() 而不是 displayName()：sheet 名不随服务端语言变，且不含 Excel 非法字符（见 SheetType#exportName）
+		Worksheet sheet = workbook.newWorksheet(sheetType.exportName());
 		sheet.fitToWidth((short) 10);
 		sheet.setFitToPage(true);
 		for (int column = 0; column < headers.size(); column++) {

@@ -163,6 +163,7 @@ verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
    - 打开弹窗先读 `GET /api/system` 的 `setting.exportPasswordEnabled`：为 `false` 时**直接自动开始下载**，不再让用户对着空密码框猜；为 `true` 才显示密码输入。
    - 下载流程：`POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效）→ `GET /api/repo/export?id=...&exportToken=...`。密码只走 POST body，URL 里只出现 token。
    - `ExportGuardService` 校验密码/令牌（系统未配置密码时直接放行），`RepoQuestionExcelExporter` 按题型生成 **13 个 sheet**（与导入模板同一套表头），`RepoServiceImpl.exportRepoQuestionsBytes` 负责取数与打包，最后写一条 `EXPORT_REPO` 审计。
+- **sheet 名固定用中文**（`SheetType#exportName()`），不跟服务端语言走：英文名 `True / False` 含 Excel 非法字符 `/`，fastexcel 会静默写成 `True - False`，导入按名字匹配不到就整类丢题；导入侧同时兼容历史文件里的 `-` 写法。
 5. **授权题库（仅教师）**：`GrantModal.tsx` 调 `GET /api/repo/partner/list` 展示已有授权；新增走 `POST /api/repo/partner/create`，传 `deptId` 表示按教师用户组、传 `userIds` 表示按教职工；取消走 `/partner/delete`。组授权只存一条 `dept_id` 记录，组员靠「主组 + 附加组 + 祖先链」自动继承；接口要求 `repo:grant` 或管理员，服务层再要求调用者是题库创建者或管理员。**服务端拒绝 `dept_type=class` 和 `user_type=student`**（提示「题库只能授权给教师用户组/教职工；学员请到班级管理 → 班级资源里分配题库」）；历史遗留的学员/班级授权行在列表接口被过滤，学员读题库只认 `t_class_resource`。
 6. **抽题**：`POST /api/repo/pick` 的请求体是 `ProjectSetting.RandomSurveyCondition` 列表（`repoId`、`types`、`questionsNum`、`examScore`、可选 `tags`）。`pickQuestionFromRepo` 对每个条件先 `assertReadableRepo`（认班级分配），按题型/标签过滤，`Collections.shuffle` 后截断到 `questionsNum`，给每道题写入 `examScore`，跨条件按题目 id 去重，最后按题型排序返回 `SurveySchema` 列表。
 
