@@ -6,7 +6,7 @@ import { get, post } from './request';
  * 契约以后端 `ApiTokenApi.java` 为准；前端只从这里调，字段名变动只改这一个文件
  * （与 api/ai.ts、api/import.ts 一个套路），别把裸串散落在页面里。
  *
- * - GET  /api/system/api-token          data 直接是 ApiTokenView 数组（**不含明文**）
+ * - GET  /api/system/api-token          data 直接是 ApiTokenView 数组（**不含明文**，只有哈希指纹）
  * - POST /api/system/api-token          签发：响应比列表多一个 `token` 明文，只此一次
  * - POST /api/system/api-token/revoke   撤销：请求 { id }，data 为 null；撤销后立刻 401
  *
@@ -17,7 +17,7 @@ import { get, post } from './request';
  * 「缺省」只表示「没有值」，不代表 false。
  */
 
-/** 一条令牌的列表视图：明文只在签发那一刻返回，这里最多只有首尾各 4 位 */
+/** 一条令牌的列表视图：明文只在签发那一刻返回，这里最多只有哈希首尾各 4 位 */
 export interface ApiTokenView {
   id: string;
   /** 给用户辨认用，如「Claude Desktop」「我的脚本」 */
@@ -26,11 +26,14 @@ export interface ApiTokenView {
   userId?: string;
   /** 签发用户显示名；解析不到时后端不返回，页面回落成 userId */
   userName?: string;
-  /** 明文前 4 位 */
+  /**
+   * **哈希**前 4 位。服务端只存 SHA-256（t_api_token.token_hash），明文片段根本还原不出来，
+   * 所以列表能给的辨识信息只有哈希指纹，主标识还是 name。
+   */
   tokenPrefix?: string;
-  /** 明文后 4 位 */
+  /** **哈希**后 4 位 */
   tokenSuffix?: string;
-  /** 后端拼好的掩码（如 `ab12****cd34`）：页面优先用这个 */
+  /** 后端拼好的指纹 `前4****后4`（如 `ab12****cd34`）：页面优先用这个 */
   maskedToken?: string;
   /** 逗号分隔的工具白名单；不返回 / 空串 = 按签发用户的权限 */
   scopes?: string | null;
@@ -60,7 +63,7 @@ export interface CreateApiTokenResult extends ApiTokenView {
   token?: string;
 }
 
-/** 令牌列表（明文只在签发时给，这里只有掩码） */
+/** 令牌列表（明文只在签发时给，这里只有哈希指纹） */
 export const listApiTokens = async (): Promise<ApiTokenView[]> =>
   (await get<ApiTokenView[]>('/api/system/api-token')) ?? [];
 

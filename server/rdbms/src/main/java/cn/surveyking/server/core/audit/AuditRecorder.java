@@ -59,7 +59,11 @@ public class AuditRecorder {
 	/** 同一次请求的关联 id 也可以由调用方通过请求头带进来 */
 	private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
-	/** MCP 入口前缀（已去掉 /api）：P5 的 MCP Server 挂在 /api/mcp/** 下 */
+	/**
+	 * MCP 入口前缀（判定前已去掉 /api）：P5 的 MCP Server 端点就是 {@code POST /mcp}，
+	 * 同时兼容历史约定的 {@code /api/mcp/**}——两种写法归一化后都以 /mcp 开头，
+	 * 所以「操作日志」里能筛出 {@code source=mcp}，不会混进 web。
+	 */
 	private static final String MCP_PREFIX = "/mcp";
 
 	private final AuditLogMapper auditLogMapper;

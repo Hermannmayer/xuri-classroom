@@ -39,8 +39,8 @@ const EXPIRE_OPTIONS = [
   { label: '90 天', value: '90' },
   { label: '180 天', value: '180' },
   { label: '1 年', value: '365' },
-  { label: '自定义…', value: 'custom' },
   { label: '永不过期', value: 'never' },
+  { label: '自定义…', value: 'custom' },
 ];
 
 const DEFAULT_EXPIRE = '90';
@@ -49,8 +49,10 @@ const DEFAULT_EXPIRE = '90';
 const fmt = (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm');
 
 /**
- * 令牌掩码：后端已经拼好 maskedToken 就直接用；只给前后 4 位时前端补「****」。
- * 明文永远不会出现在列表里，最多就是这 8 个字符。
+ * 令牌指纹：优先用后端拼好的 maskedToken，只给前后各 4 位时前端补「****」。
+ *
+ * 这 8 个字符取的是**哈希**的首尾，不是明文片段（表里只有 SHA-256，见 V2.2.5 迁移），
+ * 所以它只用来在同一批令牌里区分谁是谁，辨认令牌还得靠名称。
  */
 function maskOf(row: ApiTokenView): string {
   if (row.maskedToken) return row.maskedToken;
@@ -202,7 +204,8 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 14, lineHeight: 1.8 }}>
         MCP / API 令牌让 Claude Desktop、脚本等外部客户端以<strong>签发用户的身份</strong>调用本站 MCP 服务
         （<code>POST /mcp</code>，请求头 <code>Authorization: Bearer &lt;令牌&gt;</code>）；令牌的权限就是签发用户的权限。
-        明文只在签发那一刻显示一次，列表里只有前后各 4 位，忘了只能撤销后重新签发。
+        明文只在签发那一刻显示一次；服务端只存 SHA-256，列表里的「令牌指纹」是<strong>哈希</strong>的首尾各 4 位
+        （不是令牌片段），所以建令牌时把名称写清楚，之后靠名称辨认。忘了明文只能撤销后重新签发。
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -253,7 +256,8 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
               ),
             },
             {
-              title: '令牌',
+              // 显示的是哈希指纹：写清「指纹」避免用户拿它去和手里的 sk_ 明文比对
+              title: <span title="服务端只存 SHA-256，这里显示哈希的首尾各 4 位，不是令牌片段">令牌指纹</span>,
               key: 'mask',
               width: 160,
               render: (_: unknown, row: ApiTokenView) => (
@@ -323,6 +327,8 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
         confirmLoading={creating}
         onOk={() => void submitCreate()}
         onCancel={() => setCreateOpen(false)}
+        // 提前把表单挂上去：否则第一次打开前调 resetFields，useForm 实例还没连上 Form 会告警
+        forceRender
       >
         <Form form={form} layout="vertical" size="small" requiredMark={false} style={{ marginTop: 8 }}>
           <Form.Item

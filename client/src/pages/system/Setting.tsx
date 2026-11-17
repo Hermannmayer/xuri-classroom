@@ -118,7 +118,7 @@ interface UpdateCheckInfo {
  * 历史问题：早先「内容与隐私保护」是一张放在 Tabs 之外的 Card，切到任何 Tab 它都挂在下面，
  * 看起来就像每个 Tab 都重复了一遍；现在它有自己的 Tab，页面里只有一份。
  *
- * 保存方式分两种：
+ * 保存方式分三种：
  * - 基本 / 登录与注册 / AI 走 Form + 各自底部的「保存」按钮（save），接口是 POST /api/system/update，
  *   权限 system:setting:update；
  * - 内容与隐私是「改完即存」，走独立接口 POST /api/system/protection（只写 copyProtected /
@@ -127,11 +127,9 @@ interface UpdateCheckInfo {
  *   划重点：只有 content:protect 的角色能改这一页，但改不了「基本 / 登录与注册 / AI」；
  *   反之只有 system:setting:update 的角色看这一页是只读（新接口不认那个权限），
  *   但「导出密码」那一行仍然走 /api/system/update，只受 system:setting:update 控制。
- *
- * 「MCP / API 令牌」是第三个自管状态的面板（见 ApiTokenPanel.tsx）：不走保存按钮，
- * 列表 / 签发 / 撤销都是即时生效的独立接口（GET/POST /api/system/api-token、
- * POST /api/system/api-token/revoke），权限同样是 system:setting:update。
- * 没有该权限时不渲染列表、也不发请求，只显示一句说明。
+ * - 「MCP / API 令牌」也不走保存按钮（面板本身见 ApiTokenPanel.tsx）：列表 / 签发 / 撤销都是
+ *   即时生效的独立接口（GET/POST /api/system/api-token、POST /api/system/api-token/revoke），
+ *   权限同样是 system:setting:update；没有该权限时不渲染列表、也不发请求，只显示一句说明。
  *
  * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
  * setting.copyright、setting.recordNum、setting.favicon。

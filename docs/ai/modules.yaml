@@ -523,6 +523,59 @@ modules:
       - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
     last_verified: 2026-11-14
     verified_against: 0f0fe03f2420c4517d9d774d93ea7224b19d5e1f
+  - id: module-mcp
+    title: MCP / API 接入
+    doc: docs/modules/mcp.md
+    keywords:
+      - MCP
+      - Model Context Protocol
+      - JSON-RPC
+      - 工具
+      - tools_list
+      - 令牌
+      - Bearer
+      - api token
+      - 幂等
+      - idempotencyKey
+      - sk_capabilities
+      - t_api_token
+    source_globs:
+      - server/api/src/main/java/cn/surveyking/server/mcp/**
+      - server/api/src/main/java/cn/surveyking/server/api/ApiTokenApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ApiToken.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/ApiIdempotency.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/ApiTokenMapper.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/ApiIdempotencyMapper.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ApiTokenService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ApiIdempotencyService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ApiTokenServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/ApiIdempotencyServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ApiTokenView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/ApiTokenRequest.java
+      - client/src/api/apiToken.ts
+      - client/src/pages/system/ApiTokenPanel.tsx
+    entrypoints:
+      - server/api/src/main/java/cn/surveyking/server/mcp/McpApi.java
+      - server/api/src/main/java/cn/surveyking/server/mcp/McpServer.java
+      - server/api/src/main/java/cn/surveyking/server/mcp/McpTools.java
+      - server/api/src/main/java/cn/surveyking/server/api/ApiTokenApi.java
+    apis:
+      - POST /mcp
+      - POST /api/system/api-token
+      - GET /api/system/api-token
+      - POST /api/system/api-token/revoke
+    tables:
+      - t_api_token
+      - t_api_idempotency
+    tests:
+      - server/api/src/test/java/cn/surveyking/server/mcp/McpServerTest.java
+      - server/api/src/test/java/cn/surveyking/server/mcp/McpEndToEndTest.java
+      - server/api/src/test/java/cn/surveyking/server/mcp/McpApiTest.java
+      - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiTokenServiceImplTest.java
+      - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
+      - client:npm run check
+    last_verified: 2026-11-17
+    verified_against: c7f0099f
   - id: module-notice
     title: 通知公告
     doc: docs/modules/notice.md
