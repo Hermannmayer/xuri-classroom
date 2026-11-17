@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +41,20 @@ public class AuditApi {
 			@RequestParam(required = false) String keyword,
 			@RequestParam(required = false) String result) {
 		return auditLogService.list(current, pageSize, action, startTime, endTime, operator, keyword, result);
+	}
+
+	/**
+	 * 当前生效的保留策略：给日志页显示「自动保留 N 天」用。
+	 * @return retentionDays（0 表示关闭自动清理）、autoEnabled、minKeepDays
+	 */
+	@GetMapping("/retention")
+	@PreAuthorize("hasAuthority('system:log:list')")
+	public Map<String, Object> retention() {
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("retentionDays", auditLogService.getRetentionDays());
+		result.put("autoEnabled", auditLogService.isAutoCleanupEnabled());
+		result.put("minKeepDays", AuditLogService.MIN_KEEP_DAYS);
+		return result;
 	}
 
 	@PostMapping("/clean")

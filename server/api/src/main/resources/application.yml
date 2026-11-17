@@ -46,6 +46,11 @@ file-storage:
   max-total-public-storage-mb: 5120
   max-image-pixels: 16000000
 sk:
+  audit:
+    # 审计日志自动保留天数：每天 04:12 删掉更早的记录；0 或负数 = 关闭自动清理。
+    # 手动清理（系统设置 → 操作日志 → 清理日志）不受这个开关影响，任何时候都能手动删，
+    # 但无论手动还是自动，保留天数都不允许低于 7 天（见 AuditLogService.MIN_KEEP_DAYS）。
+    retention-days: ${SK_AUDIT_RETENTION_DAYS:180}
   web:
     spa:
       enabled: ${SK_WEB_SPA_ENABLED:false}

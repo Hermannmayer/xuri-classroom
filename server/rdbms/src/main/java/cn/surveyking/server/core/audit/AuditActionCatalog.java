@@ -180,6 +180,7 @@ public final class AuditActionCatalog {
 		map.put("DICTITEM", "字典项");
 		map.put("PERMISSION", "权限");
 		map.put("AUDIT", "操作日志");
+		map.put("AUDIT_CLEAN", "清理操作日志");
 		map.put("LOG", "日志");
 		map.put("AUTH", "登录");
 		map.put("LOGIN", "登录");

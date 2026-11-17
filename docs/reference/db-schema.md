@@ -58,6 +58,7 @@
 - `server/rdbms/src/main/resources/db/migration/V2.2.3__audit_detail.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.2.4__ai_usage.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.2.5__api_token.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.2.6__audit_cleanup.sql`
 
 ## 历史运维脚本（只读，不再维护）
 

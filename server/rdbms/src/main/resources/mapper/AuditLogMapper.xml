@@ -34,4 +34,18 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 清理：按 create_at 分批硬删（走 idx_audit_create_at）。
+         用 LIMIT 而不是一次删完：几十万行的一条 DELETE 会长时间持锁、撑大 undo。
+         注意这里是物理删除——审计的"清理"语义就是真的清掉，不是逻辑删除。 -->
+    <delete id="deleteBefore">
+        DELETE FROM t_audit_log
+        WHERE create_at &lt; #{cutoff}
+        LIMIT #{limit}
+    </delete>
+
+    <delete id="deleteBatch">
+        DELETE FROM t_audit_log
+        LIMIT #{limit}
+    </delete>
+
 </mapper>

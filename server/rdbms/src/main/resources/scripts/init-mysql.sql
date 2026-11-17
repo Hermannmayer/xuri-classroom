@@ -882,7 +882,8 @@ CREATE TABLE IF NOT EXISTS `t_audit_log` (
   PRIMARY KEY (`id`),
   KEY `idx_audit_action_time` (`action`, `create_at`),
   KEY `idx_audit_create_by` (`create_by`),
-  KEY `idx_audit_target` (`target_id`, `create_at`)
+  KEY `idx_audit_target` (`target_id`, `create_at`),
+  KEY `idx_audit_create_at` (`create_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='操作审计日志';
 
 -- ----------------------------

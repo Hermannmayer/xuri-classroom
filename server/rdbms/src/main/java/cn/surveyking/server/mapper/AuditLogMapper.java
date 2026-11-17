@@ -4,6 +4,7 @@ import cn.surveyking.server.domain.model.AuditLog;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -23,5 +24,25 @@ public interface AuditLogMapper extends BaseMapper<AuditLog> {
 	 * @param limit 最多返回多少条
 	 */
 	List<AuditLog> selectByTarget(@Param("targetId") String targetId, @Param("limit") int limit);
+
+	/**
+	 * 分批硬删「截止时间之前」的审计日志。
+	 *
+	 * <p>
+	 * 为什么不用 {@code auditLogMapper.delete(wrapper)} 一把梭：审计表可能几十万行，一条 DELETE 会
+	 * 长时间持锁并产生巨大的 undo/redo。这里按 LIMIT 分批，由 Service 循环调用，每批之间可以让出，
+	 * 对线上几乎无感。走 {@code idx_audit_create_at}。
+	 * @param cutoff 早于这个时间（不含）的记录会被删掉
+	 * @param limit 单批上限
+	 * @return 本批实际删除行数
+	 */
+	int deleteBefore(@Param("cutoff") Date cutoff, @Param("limit") int limit);
+
+	/**
+	 * 分批硬删全表（"清空日志"用）。同样按 LIMIT 分批。
+	 * @param limit 单批上限
+	 * @return 本批实际删除行数
+	 */
+	int deleteBatch(@Param("limit") int limit);
 
 }

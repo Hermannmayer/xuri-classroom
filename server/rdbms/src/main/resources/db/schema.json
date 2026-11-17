@@ -82,6 +82,12 @@
         "table:t_api_token",
         "table:t_api_idempotency"
       ]
+    },
+    {
+      "version": "2.2.6",
+      "requires": [
+        "index:t_audit_log.idx_audit_create_at"
+      ]
     }
   ]
 }

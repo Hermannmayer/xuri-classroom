@@ -17,6 +17,15 @@ interface AuditLog {
   createAt?: string;
 }
 
+/** GET /api/system/audit/retention 的返回 */
+interface AuditRetention {
+  /** 自动保留天数；0 表示关闭自动清理 */
+  retentionDays: number;
+  autoEnabled: boolean;
+  /** 手动/自动清理都不允许低于这个天数 */
+  minKeepDays: number;
+}
+
 interface ActionOption {
   code: string;
   name: string;
@@ -52,6 +61,7 @@ export default function SystemAudit() {
   const [keyword, setKeyword] = useState('');
   const [resultStatus, setResultStatus] = useState<string>();
   const [loading, setLoading] = useState(false);
+  const [retention, setRetention] = useState<AuditRetention>();
   const [cleanOpen, setCleanOpen] = useState(false);
   const [cleanMode, setCleanMode] = useState<'30' | '90' | '180' | 'all'>('90');
   const [cleaning, setCleaning] = useState(false);
@@ -86,6 +96,10 @@ export default function SystemAudit() {
     get<ActionOption[]>('/api/system/audit/actions')
       .then((list) => setActions(Array.isArray(list) ? list : []))
       .catch(() => setActions([]));
+    // 保留策略：只用于展示（自动清理是后端定时任务，页面不需要能改它）
+    get<AuditRetention>('/api/system/audit/retention')
+      .then((data) => setRetention(data))
+      .catch(() => setRetention(undefined));
   }, []);
 
   const actionOptions = useMemo(() => {
@@ -139,6 +153,14 @@ export default function SystemAudit() {
           </div>
           <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
             记录谁在什么时候、对哪个对象做了什么；可按时间、动作、操作人、结果筛选。
+            {retention ? (
+              <span style={{ marginLeft: 8, color: 'var(--bp-text-soft)' }}>
+                {retention.autoEnabled
+                  ? `自动保留 ${retention.retentionDays} 天（每天 04:12 清理更早的记录）`
+                  : '自动清理已关闭（仍可手动清理）'}
+                ，最少保留 {retention.minKeepDays} 天。
+              </span>
+            ) : null}
           </div>
         </div>
         <div style={{ flex: 1 }} />

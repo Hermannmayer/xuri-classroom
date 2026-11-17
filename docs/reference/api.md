@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 235 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 236 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -36,6 +36,7 @@
 | POST | `${api.prefix}/system/api-token` | `ApiTokenApi#create` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | POST | `${api.prefix}/system/api-token/revoke` | `ApiTokenApi#revoke` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/audit/list` | `AuditApi#list` | `hasAuthority('system:log:list')` | — |
+| GET | `${api.prefix}/system/audit/retention` | `AuditApi#retention` | `hasAuthority('system:log:list')` | — |
 | POST | `${api.prefix}/system/audit/clean` | `AuditApi#clean` | `hasRole('admin')` | — |
 | GET | `${api.prefix}/system/audit/actions` | `AuditApi#actions` | `hasAuthority('system:log:list')` | — |
 | GET | `${api.prefix}/audit/answer-timeline` | `AuditTimelineApi#answerTimeline` | `hasAuthority('answer:detail')` | — |

@@ -32,6 +32,8 @@ entrypoints:
   - server/api/src/main/java/cn/surveyking/server/api/AuditTimelineApi.java
 apis:
   - GET /api/audit/answer-timeline
+  - GET /api/system/audit/retention
+  - POST /api/system/audit/clean
 tables:
   - t_audit_log
 tests:
@@ -104,7 +106,13 @@ verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
 - 多题批改时行上的 `questionId` 为空，逐题明细在快照的 `items` 里。
 - 表名是 **`t_audit_log`**，不是 `t_audit`（计划文档笔误）。
 - `source` 目前只有 `web`；`mcp` 要等 P5 的 `/api/mcp/**` 落地后才会出现。
-- 审计表**没有清理策略**，长期需要归档（与 `t_audit_log` 现状一致）。
+- **清理有两条路径，且都受下限约束**：手动清理（本页「清理日志」，30/90/180 天或清空）与自动清理
+  （`sk.audit.retention-days`，默认 180 天，每天 04:12 跑，0 或负数关闭）。无论哪条路径，
+  **保留天数都不得低于 7 天**（`AuditLogService.MIN_KEEP_DAYS`）——审计的价值是可追溯，
+  误删最近几天等于抹掉事故现场。
+- 清理是**物理删除**（不是 `is_deleted` 逻辑删），按 2000 行/批循环删，走 `idx_audit_create_at`，
+  避免几十万行一条 DELETE 长时间锁表。单次最多跑 2000 批（≈400 万行），到上限会打 WARN 提示再执行一次。
+- 清理动作本身也会被记一条审计（`SYSTEM_AUDIT_CLEAN`，中文名「清理操作日志」）。
 
 ## 验证
 

@@ -11,6 +11,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -31,6 +34,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AuditLogService {
+
+	private static final Logger log = LoggerFactory.getLogger(AuditLogService.class);
 
 	private final AuditLogMapper auditLogMapper;
 
@@ -103,20 +108,71 @@ public class AuditLogService {
 		return options;
 	}
 
-	/** 清理日志：all=true 清空；否则删除 beforeDays 天之前 / before 时间之前的记录 */
+	/** 保留天数下限：低于这个值一律拒绝，避免一次误操作把最近几天的证据也删掉 */
+	public static final int MIN_KEEP_DAYS = 7;
+
+	/** 单批删除行数：审计表可能几十万行，一条 DELETE 会长时间持锁并撑大 undo */
+	private static final int CLEAN_BATCH = 2000;
+
+	/** 单次清理最多跑多少批（≈400 万行），防止配置写错时无限循环 */
+	private static final int CLEAN_MAX_BATCHES = 2000;
+
+	/** 自动保留天数（sk.audit.retention-days；0 或负数 = 关闭自动清理） */
+	@Value("${sk.audit.retention-days:180}")
+	private int retentionDays;
+
+	/** 自动清理是否开启 */
+	public boolean isAutoCleanupEnabled() {
+		return retentionDays > 0;
+	}
+
+	/** 实际生效的保留天数（开启时不低于 MIN_KEEP_DAYS） */
+	public int getRetentionDays() {
+		return retentionDays > 0 ? Math.max(retentionDays, MIN_KEEP_DAYS) : retentionDays;
+	}
+
+	/**
+	 * 清理日志：all=true 清空；否则删除 beforeDays 天之前 / before 时间之前的记录。
+	 *
+	 * <p>
+	 * 两条安全线：①保留天数不得低于 {@link #MIN_KEEP_DAYS}（含"截止时间"形态，晚于下限直接拒绝），
+	 * 审计的价值在于可追溯，误删最近几天等于把事故现场抹掉；②按 {@link #CLEAN_BATCH} 分批删，
+	 * 避免大表上一条 DELETE 长时间持锁。
+	 */
 	public int clean(Integer beforeDays, String before, boolean all) {
-		LambdaQueryWrapper<AuditLog> query = Wrappers.<AuditLog>lambdaQuery();
-		if (!all) {
-			Date cutoff = parseTime(before);
-			if (cutoff == null && beforeDays != null && beforeDays > 0) {
-				cutoff = Date.from(LocalDateTime.now().minusDays(beforeDays).atZone(ZoneId.systemDefault()).toInstant());
-			}
-			if (cutoff == null) {
+		if (all) {
+			return deleteInBatches(null);
+		}
+		Date cutoff = parseTime(before);
+		if (cutoff == null) {
+			if (beforeDays == null || beforeDays <= 0) {
 				throw new IllegalArgumentException("请指定保留天数或清理截止时间");
 			}
-			query.lt(AuditLog::getCreateAt, cutoff);
+			if (beforeDays < MIN_KEEP_DAYS) {
+				throw new IllegalArgumentException("为了保留可追溯性，至少要保留 " + MIN_KEEP_DAYS + " 天");
+			}
+			cutoff = Date.from(LocalDateTime.now().minusDays(beforeDays).atZone(ZoneId.systemDefault()).toInstant());
 		}
-		return auditLogMapper.delete(query);
+		else if (cutoff.after(Date.from(LocalDateTime.now().minusDays(MIN_KEEP_DAYS)
+				.atZone(ZoneId.systemDefault()).toInstant()))) {
+			throw new IllegalArgumentException("清理截止时间至少要在 " + MIN_KEEP_DAYS + " 天前");
+		}
+		return deleteInBatches(cutoff);
+	}
+
+	/** cutoff 为 null 表示清空全表 */
+	private int deleteInBatches(Date cutoff) {
+		int total = 0;
+		for (int batch = 0; batch < CLEAN_MAX_BATCHES; batch++) {
+			int deleted = cutoff == null ? auditLogMapper.deleteBatch(CLEAN_BATCH)
+					: auditLogMapper.deleteBefore(cutoff, CLEAN_BATCH);
+			total += deleted;
+			if (deleted < CLEAN_BATCH) {
+				return total;
+			}
+		}
+		log.warn("[audit] 单次清理达到批次数上限 {}，已删 {} 条；剩余请再执行一次", CLEAN_MAX_BATCHES, total);
+		return total;
 	}
 
 	private Date parseTime(String value) {
