@@ -56,6 +56,9 @@ public class PublicProjectLoader {
 
 	private final ProjectService projectService;
 
+	/** 预览模式判定「能不能看这个项目」用（含用户组授权链） */
+	private final cn.surveyking.server.service.ProjectPartnerService projectPartnerService;
+
 	private final ProjectViewMapper projectViewMapper;
 
 	/** 题库练习要直接读写答卷（getOne / save），只能用实现类 */
@@ -181,8 +184,10 @@ public class PublicProjectLoader {
 		else if (query.getAnswerId() == null) {
 			// 表单需要验证
 			loginFormSchema = loginFormValidator.convertAndValidateLoginFormIfNeeded(project, null);
-			// 校验问卷
-			projectAnswerValidator.validateProject(project);
+			// 校验问卷；预览模式只验「能不能看」，跳过发布状态/时间窗口/班级分配
+			if (!isPreviewAllowed(query, project.getId())) {
+				projectAnswerValidator.validateProject(project);
+			}
 		}
 		else {
 			// 直接根据答案加载出 schema
@@ -213,6 +218,29 @@ public class PublicProjectLoader {
 		}
 		projectView.setIsAuthenticated(SecurityContextUtils.isAuthenticated());
 		return projectView;
+	}
+
+	/**
+	 * 预览模式放行判定：是否跳过「能不能答」的校验。
+	 *
+	 * <p>设计器里的「预览答题页」直接打开 {@code /s/{id}?preview=1}，如果照常走
+	 * {@link ProjectAnswerValidator#validateProject}，未发布（status=0）、未到考试时间、
+	 * 班级没分配都会被挡住——老师在编辑阶段根本打不开自己的卷子。
+	 *
+	 * <p>这里只放宽「能不能答」，不放宽「能不能看」：必须是管理员 / 项目所有者 / 协作者
+	 * （含用户组授权）。提交路径不经过这里，预览里交不了卷。
+	 */
+	private boolean isPreviewAllowed(ProjectQuery query, String projectId) {
+		if (query == null || !Boolean.TRUE.equals(query.getPreview())) {
+			return false;
+		}
+		if (!SecurityContextUtils.isAuthenticated()) {
+			return false;
+		}
+		if (SecurityContextUtils.isAdmin()) {
+			return true;
+		}
+		return projectPartnerService.getProjectPerms().contains(projectId);
 	}
 
 	/** 首屏只返回必要的大纲元数据，不返回任何题干、选项或题目属性。 */
@@ -323,8 +351,10 @@ public class PublicProjectLoader {
 		PublicProjectView projectView = projectViewMapper.toPublicProjectView(project);
 		// 随机问题
 		randomSurveyProcessor.processRandomSurvey(project, projectView);
-		// 校验问卷
-		projectAnswerValidator.validateProject(project);
+		// 校验问卷；预览模式（设计器「预览答题页」）只验「能不能看」，跳过发布状态等「能不能答」的限制
+		if (!isPreviewAllowed(query, projectId)) {
+			projectAnswerValidator.validateProject(project);
+		}
 		projectView.setAnswer(getLatestAnswer(projectView, (String) SchemaHelper.getLoginFormAnswer(query.getAnswer(),
 				SchemaHelper.LoginFormFieldEnum.whitelistName)));
 		return projectView;

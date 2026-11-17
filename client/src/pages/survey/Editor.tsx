@@ -1549,7 +1549,10 @@ export default function SurveyEditor() {
         {previewOpen && (
           <iframe
             title="答题页预览"
-            src={'/s/' + id}
+            // preview=1：让后端放行未发布/未到时间/未分配班级的卷子——
+            // 预览只要求「能看」（管理员/所有者/协作者），不要求「能答」。
+            // 不带这个参数时，刚建好还没发布的试卷点预览会被「问卷已暂停回收」挡住。
+            src={'/s/' + id + '?preview=1'}
             style={{ width: '100%', height: '85vh', border: 0, display: 'block' }}
           />
         )}

@@ -20,6 +20,16 @@ public class ProjectQuery extends PageQuery {
 
 	private String id;
 
+	/**
+	 * 预览模式：设计器里点「预览答题页」时带上。
+	 *
+	 * <p>预览只要求「当前用户能看这个项目」（管理员 / 所有者 / 协作者），
+	 * **不受发布状态、考试时间窗口、班级分配、答卷条数上限**这些「能不能答」的限制——
+	 * 否则老师刚建好还没发布的卷子根本点不开预览。
+	 * <p>只影响读：提交路径 {@code validateAnswerGate} 照旧校验，预览里交不了卷。
+	 */
+	private Boolean preview;
+
 	private String repoId;
 
 	private String password;

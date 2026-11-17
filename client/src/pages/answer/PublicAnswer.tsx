@@ -214,6 +214,12 @@ export default function PublicAnswer() {
   const { id = '', answerId: routeAnswerId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  /**
+   * 预览模式：设计器「预览答题页」用 /s/{id}?preview=1 打开。
+   * 后端对预览只验「能不能看」（管理员/所有者/协作者），不验发布状态与考试窗口；
+   * 这里负责把「不能交卷」说清楚，避免老师填完才发现存不下来。
+   */
+  const previewMode = searchParams.get('preview') === '1';
   /** 班级专属链接 token：只由后端解析成 class_id，前端不传 classId */
   const classToken = searchParams.get('classToken') || undefined;
   /** 「再考一次」= ?fresh=1：清掉本地凭证、从空答案开始，提交时让后端新建一条答卷，不覆盖历史成绩 */
@@ -988,6 +994,10 @@ export default function PublicAnswer() {
 
   /** 提交：必填没填直接拦下并跳过去；填全了才出二次确认 */
   const confirmSubmit = () => {
+    if (previewMode) {
+      message.info('预览模式不能交卷；要实际作答请用正式链接打开。');
+      return;
+    }
     // 切屏超限已自动交卷：锁定后不再接受手动提交
     if (examLocked) {
       message.error('本次作答已按规则自动交卷，不能再修改或重新提交');
@@ -1407,6 +1417,23 @@ export default function PublicAnswer() {
       {/* 发布设置「显示题目序号」（answerSetting.questionNumber）关闭：答题页隐藏题号徽标。
           徽标由共用组件 QuestionFrame 渲染（.bp-tag），这里用页面级样式隐藏，不影响设计器/预览。 */}
       {!showQuestionNumber && <style>{'.sk-answer .bp-tag{display:none!important}'}</style>}
+      {previewMode && (
+        <div
+          style={{
+            maxWidth: 1080,
+            margin: '10px auto 0',
+            padding: '8px 14px',
+            border: '1px dashed var(--bp-orange)',
+            background: 'var(--bp-orange-weak)',
+            color: 'var(--bp-orange)',
+            fontSize: 12,
+            lineHeight: 1.7,
+          }}
+        >
+          预览模式：这是发布方视角的效果预览，作答不会保存，也不能交卷。
+        </div>
+      )}
+
       {/* 顶部：返回（仅登录用户）+ 标题 + 字号 + 答题卡入口 */}
       <div className="sk-answer-top">
         {canGoBack && (
