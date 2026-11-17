@@ -54,6 +54,15 @@ public interface ProjectPartnerService {
 			key = "T(cn.surveyking.server.core.uitls.SecurityContextUtils).getUserId()")
 	List<String> getProjectPerms();
 
+	/**
+	 * 当前用户能否访问某个项目的数据（数据页、报表、答卷列表这些 @EnableDataPerm 接口用）。
+	 *
+	 * <p>包含两条口径：项目协作者/所有者（走缓存的 {@link #getProjectPerms()}），以及
+	 * 「这场考试分配给了自己带的班」（t_class_resource，实时算，不进缓存——班级分配变更后要立刻生效）。
+	 * 后者只看<b>是否至少有一个班</b>，具体能看到哪些班的答卷由 {@code AnswerServiceImpl#listAnswer} 再收窄。
+	 */
+	boolean hasProjectAccess(String projectId);
+
 	void downloadPartner(ProjectPartnerQuery request);
 
 	void importPartner(WhiteListRequest request);

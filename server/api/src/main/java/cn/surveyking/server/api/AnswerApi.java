@@ -198,7 +198,7 @@ public class AnswerApi {
 		if (!StringUtils.hasText(projectId)) {
 			throw new AccessDeniedException("未找到对应的问卷");
 		}
-		if (!projectPartnerService.getProjectPerms().contains(projectId)) {
+		if (!projectPartnerService.hasProjectAccess(projectId)) {
 			throw new AccessDeniedException("没有权限访问本问卷");
 		}
 	}

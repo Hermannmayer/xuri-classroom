@@ -58,8 +58,8 @@ public class DataPermAspect {
 		if (!StringUtils.hasText(value)) {
 			throw new org.springframework.security.access.AccessDeniedException("未找到对应的问卷");
 		}
-		List<String> projectPerms = projectPartnerService.getProjectPerms();
-		if (!projectPerms.contains(value)) {
+		// 口径见 ProjectPartnerService#hasProjectAccess：项目协作者 + 班级级（考试分配给自己的班）
+		if (!projectPartnerService.hasProjectAccess(value)) {
 			throw new org.springframework.security.access.AccessDeniedException("没有权限访问本问卷");
 		}
 	}

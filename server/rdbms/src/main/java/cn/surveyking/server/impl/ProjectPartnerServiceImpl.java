@@ -33,6 +33,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -69,6 +70,9 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 	private final CacheManager cacheManager;
 
 	private final ProjectPartnerViewMapper projectPartnerViewMapper;
+
+	/** 班级级答卷权限：考试分配给自己带的班时，数据页/报表也要能进（否则入口点进去 403） */
+	private final AnswerAccessGuard answerAccessGuard;
 
 	/** 授权级别：1 只读 */
 	private static final int ACCESS_LEVEL_VIEW = 1;
@@ -422,6 +426,21 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		else {
 			action.run();
 		}
+	}
+
+	@Override
+	public boolean hasProjectAccess(String projectId) {
+		if (!StringUtils.hasText(projectId)) {
+			return false;
+		}
+		if (SecurityContextUtils.isAdmin()) {
+			return true;
+		}
+		if (getProjectPerms().contains(projectId)) {
+			return true;
+		}
+		// 班级级：实时查（不走缓存），班级授权变更后立刻生效
+		return !answerAccessGuard.readableClassIds(projectId).isEmpty();
 	}
 
 	@Override
