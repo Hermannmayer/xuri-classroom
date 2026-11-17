@@ -110,6 +110,6 @@ cat <<EOF
   看状态：cd ${COMPOSE_DIR} && docker compose ps
   看日志：cd ${COMPOSE_DIR} && docker compose logs --tail=80 app
 
-⚠️ 还没导数据：现在是空库。迁移步骤见 docs/ops/NAS-开发与发布方案.md
+⚠️ 还没导数据：现在是空库。迁移步骤见仓库根 AGENTS.md 的部署章节
 ================================================================================
 EOF

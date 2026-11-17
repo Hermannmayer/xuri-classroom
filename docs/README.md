@@ -16,7 +16,7 @@ description: "先读这一页：任务路由、模块索引、文档维护规则
 2. **读模块页**：模块页有代码地图、关键流程、修改指南、权限与数据范围、验证命令。
 3. **改代码并更新文档**：改完运行 `npm run docs:impact`；按提示更新模块页/生成参考，再跑 `npm run docs:check`。
 
-> 不要先读整个仓库；也不要只读旧审计文档。`docs/ops/**` 是内部运维/历史快照，`docs/archive/**` 是已过期基线。
+> 不要先读整个仓库；也不要只读旧审计文档。`docs/archive/**` 是已过期基线。
 
 ## 任务 → 文档 → 代码
 
@@ -56,7 +56,7 @@ npm run docs:dev                     # 本地预览
 | 流程 | `docs/flows/*.md` | 跨模块的端到端链路 |
 | 参考 | `docs/reference/*.md` | **生成**，不要手改（`routes/api/permissions/db-schema`） |
 | 决策 | `docs/decisions/ADR-*.md` | 只记“为什么”，不重复实现细节 |
-| 历史 | `docs/archive/**`、`docs/ops/**` | 不作为当前事实；新会话不要先读 |
+| 历史 | `docs/archive/**` | 不作为当前事实；新会话不要先读 |
 
 ## 修改代码后的文档规则
 
@@ -87,7 +87,7 @@ npm run docs:dev                     # 本地预览
 
 ## 维护边界
 
-- 公开站点不包含 `docs/ops/**`、`docs/archive/**`、`docs/ai/**`；这些目录只在仓库内使用。
+- 公开站点不包含 `docs/archive/**` 与 `docs/ai/**`；这两个目录只在仓库内使用。
 - 不要把内网 IP、SSH、密码、Token 写进 `start/`、`architecture/`、`modules/`。
 - 不要让生成文件手改；改来源代码，再跑 `docs:gen`。
 

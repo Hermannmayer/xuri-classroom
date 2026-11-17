@@ -130,4 +130,4 @@ npm run docs:check
 
 - [权限模型](./permissions.md)
 - [登录与鉴权](../flows/login-auth.md)
-- [模块索引](../README.md)
+- [模块索引](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/README.md)

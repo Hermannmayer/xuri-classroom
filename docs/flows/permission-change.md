@@ -189,5 +189,5 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 
 - [权限、角色与用户组](../modules/permissions.md)
 - [文件、附件与导入模板](../modules/files.md)
-- [权限与角色审计 2026-11-08](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/ops/权限审计-2026-11-08.md)
+- [权限与角色](/modules/permissions)：当前权限点数量与判定口径以模块页为准
 - [权限设计基线（历史推导，部分已过期）](../modules/permissions.md)

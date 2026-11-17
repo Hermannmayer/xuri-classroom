@@ -125,4 +125,4 @@ python scripts/release/check_schema.py
 
 - [答卷与判分](./answer.md)
 - [权限模型](./permissions.md)
-- [模块索引](../README.md)
+- [模块索引](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/README.md)

@@ -2,15 +2,22 @@
 
 面向职业技能培训场景的一体化考评系统：**出卷 → 组卷 → 答题 → 判分 → 数据分析 → 练习巩固**，覆盖考试、问卷、题库、错题本全链路。
 
+> 📖 **完整文档**：<https://hermannmayer.github.io/xuri-classroom/>
+> 部署安装、版本升级、常见问题、开发指南、模块地图、架构与决策记录都在这里。
+> 只想尽快跑起来？看 **[QUICKSTART.md](QUICKSTART.md)**（一屏看完）。
+>
+> 🧩 **AI 与智能体**：左栏 AI 助手 + MCP 接入（Codex / Cursor / VS Code）见
+> [AI 助手导览](https://hermannmayer.github.io/xuri-classroom/modules/ai)。
+
 ## 🚀 部署安装
 
-**安装文档：[部署总览](docs/deploy/index.md)**，Windows / Linux / Docker 三种方式任选。
+**安装文档：[部署总览](https://hermannmayer.github.io/xuri-classroom/deploy/)**，Windows / Linux / Docker 三种方式任选。
 
 | 场景 | 安装方式 | 一句话 |
 |---|---|---|
-| 一台 Windows 电脑 | [Windows 便携包](docs/deploy/windows.md) | 解压 → 双击 `setup.cmd`，首次向导自动下载 JRE 25 + MySQL 8 并初始化 |
-| Linux 服务器 | [Linux 安装包](docs/deploy/linux.md) | `tar -xzf …` → `sudo bash install.sh --port 8080`，装成 systemd 服务 |
-| 已有 Docker | [Docker](docs/deploy/docker.md) | 一行脚本，或 `docker compose -f docker-compose.release.yml up -d` |
+| 一台 Windows 电脑 | [Windows 便携包](https://hermannmayer.github.io/xuri-classroom/deploy/windows) | 解压 → 双击 `setup.cmd`，首次向导自动下载 JRE 25 + MySQL 8 并初始化 |
+| Linux 服务器 | [Linux 安装包](https://hermannmayer.github.io/xuri-classroom/deploy/linux) | `tar -xzf …` → `sudo bash install.sh --port 8080`，装成 systemd 服务 |
+| 已有 Docker | [Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker) | 一行脚本，或 `docker compose -f docker-compose.release.yml up -d` |
 
 ### Docker 一行部署
 
@@ -20,9 +27,9 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 
 - 默认地址 `http://<本机IP>:8080`；默认管理员 `admin / 123456`，**首次登录立即修改**（程序不强制，属运维要求）。
 - 数据库使用 **MySQL 8**。
-- 装不上、起不来、打不开：[部署常见问题](docs/deploy/faq.md)；版本与升级：[版本与升级](docs/deploy/versioning.md)。
+- 装不上、起不来、打不开：[部署常见问题](https://hermannmayer.github.io/xuri-classroom/deploy/faq)；版本与升级：[版本与升级](https://hermannmayer.github.io/xuri-classroom/deploy/versioning)。
 
-> 开发文档：[docs/index.md](docs/index.md)；模块索引与参考手册见 [docs/README.md](docs/README.md)。本地预览：`npm run docs:dev`。
+> 开发文档：[docs/index.md](https://hermannmayer.github.io/xuri-classroom/)；模块索引与参考手册见 [docs/README.md](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/README.md)。本地预览：`npm run docs:dev`。
 
 界面采用蓝图/工程制图风格（0 圆角、无渐变、`--bp-*` 变量），深浅两套主题，并提供 90%～175% 六档字号缩放，照顾年长学员与投影场景。
 
@@ -129,7 +136,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 
 ## 部署安装（简版）
 
-> 系统要求、初始化、备份、升级、回滚与排查都在文档站：**[部署总览](docs/deploy/index.md)**。
+> 系统要求、初始化、备份、升级、回滚与排查都在文档站：**[部署总览](https://hermannmayer.github.io/xuri-classroom/deploy/)**。
 
 ### Windows 便携包
 
@@ -137,7 +144,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 2. 解压到可写目录，例如 `D:\xuri-classroom`（不要放 `C:\Program Files`）。
 3. 双击 `setup.cmd`：首次向导从国内镜像下载 JRE 25（约 59MB）与 MySQL 8（约 212MB，失败回退官方源），校验后自动初始化数据库并启动。
 4. 浏览器打开 `http://<本机IP>:8080`。数据在 `data/`、日志在 `logs/`、停止用 `stop.cmd`。
-5. 向导失败先跑 `doctor.cmd`，详见 [Windows 部署](docs/deploy/windows.md)。
+5. 向导失败先跑 `doctor.cmd`，详见 [Windows 部署](https://hermannmayer.github.io/xuri-classroom/deploy/windows)。
 
 ### Linux 服务器
 
@@ -149,7 +156,7 @@ sudo bash install.sh --port 8080 --db-password '改成强密码'   # 没有 Java
 
 - 装成 systemd 服务 `xuri-classroom`；配置 `/opt/xuri-classroom/app.env`；卸载 `sudo ./uninstall.sh`。
 - 连接已有 MySQL：`--db-host / --db-port / --db-name / --db-user / --db-password`。
-- 详见 [Linux 部署](docs/deploy/linux.md)。
+- 详见 [Linux 部署](https://hermannmayer.github.io/xuri-classroom/deploy/linux)。
 
 ### Docker
 
@@ -163,7 +170,7 @@ docker compose -f docker-compose.release.yml up -d
 ```
 
 - 镜像 `ghcr.io/hermannmayer/xuri-classroom:<版本>` + `mysql:8.0`；端口 `APP_PORT`（默认 8080）；数据卷 `xuri-classroom-db-data`、`xuri-classroom-app-files`；`.env` 里 `DB_PASSWORD`、`JWT_SECRET` 必填。
-- 离线：`docker pull` → `docker save` → 拷到目标机 `docker load`（或直接用部署包里的 `Dockerfile.runtime` 本地构建）。详见 [Docker 部署](docs/deploy/docker.md)。
+- 离线：`docker pull` → `docker save` → 拷到目标机 `docker load`（或直接用部署包里的 `Dockerfile.runtime` 本地构建）。详见 [Docker 部署](https://hermannmayer.github.io/xuri-classroom/deploy/docker)。
 
 ---
 
@@ -182,7 +189,7 @@ docker compose -f docker-compose.release.yml up -d
   | `SHA256SUMS` / `RELEASE_NOTES.md` | 校验和与版本说明 |
 
 - **发版在云端完成**：本地准备版本号、CHANGELOG 与 tag，安装包由 GitHub Actions 构建并挂到 Releases。
-- 用户升级、回滚与版本查看：[版本与升级](docs/deploy/versioning.md)。
+- 用户升级、回滚与版本查看：[版本与升级](https://hermannmayer.github.io/xuri-classroom/deploy/versioning)。
 
 ---
 
@@ -229,7 +236,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 - 不指定 `VERSION` 时默认取 GitHub Releases 最新版本，避免以后复制到过期版本号。
 - 脚本会保留 `.env` 与数据卷，先备份数据库、附件和 `.env`，再升级；**不会执行 `docker compose down -v`**。
 - 安装目录不是 `/opt/xuri-classroom` 时加：`sudo XURI_HOME=/你的目录 bash`；需要固定版本再加 `VERSION=<版本号>`。
-- 脚本源码：[scripts/deploy/docker-one-line-upgrade.sh](scripts/deploy/docker-one-line-upgrade.sh)；完整说明：[升级与迁移](docs/deploy/upgrade.md)。
+- 脚本源码：[scripts/deploy/docker-one-line-upgrade.sh](scripts/deploy/docker-one-line-upgrade.sh)；完整说明：[升级与迁移](https://hermannmayer.github.io/xuri-classroom/deploy/upgrade)。
 
 > 三端升级完成后都建议打开 `/api/system/version`，确认 `version` 和 `schemaStatus` 正常；数据库迁移只做增量变更，程序回滚通常不需要回滚数据库。
 
@@ -260,7 +267,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 - **备份**：`mysqldump --single-transaction` 导出库 + 打包附件目录（Windows 也可直接停服务后整目录复制）。**升级前必须备份，并且定期演练一次恢复**。
 - **初始化脚本只对空库执行**：`init-mysql.sql` 开头有 25 处 `DROP TABLE IF EXISTS`，对已有数据的库执行等于清库；升级只能跑迁移脚本。
 - 恢复顺序：停服务 → 空库导入 `db.sql.gz` → 解开附件 → 启动 → 抽查列表与答卷。
-- 各端详细命令见 [Windows](docs/deploy/windows.md#备份)、[Linux](docs/deploy/linux.md#备份)、[Docker](docs/deploy/docker.md#备份)。
+- 各端详细命令见 [Windows](https://hermannmayer.github.io/xuri-classroom/deploy/windows#备份)、[Linux](https://hermannmayer.github.io/xuri-classroom/deploy/linux#备份)、[Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker#备份)。
 
 ## 数据与隐私
 
@@ -283,7 +290,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 | 忘了 admin 密码 | 用 MySQL 客户端改 `t_account.auth_secret`（BCrypt），或恢复备份 |
 | 局域网打不开 | 防火墙没放行端口（Windows 入站规则 / Linux `ufw` 或 `firewall-cmd`） |
 
-更多按现象排查：[部署常见问题](docs/deploy/faq.md)。
+更多按现象排查：[部署常见问题](https://hermannmayer.github.io/xuri-classroom/deploy/faq)。
 
 ---
 

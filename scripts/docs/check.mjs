@@ -52,7 +52,7 @@ for (const file of fs.readdirSync(apiDir).filter((name) => name.endsWith('Api.ja
 
 const docsToCheck = walk(docsDir)
   .filter((file) => file.endsWith('.md'))
-  .filter((file) => !rel(file).startsWith('docs/archive/') && !rel(file).startsWith('docs/ops/') && !rel(file).startsWith('docs/ai/'))
+  .filter((file) => !rel(file).startsWith('docs/archive/') && !rel(file).startsWith('docs/ai/'))
 for (const file of docsToCheck) {
   const text = fs.readFileSync(file, 'utf8')
   for (const match of text.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {

@@ -27,7 +27,9 @@ features:
 
 ## 从这里开始
 
+- 只想先把系统跑起来（一屏看完）：[快速开始](https://github.com/Hermannmayer/xuri-classroom/blob/main/QUICKSTART.md)。
 - 要把系统装起来用：读 [部署总览](deploy/index.md)（Windows / Linux / Docker）。
+- 源码、版本发布与问题反馈：[GitHub 仓库](https://github.com/Hermannmayer/xuri-classroom)。
 - 第一次接触项目：读 [架构总览](architecture/overview.md)，再读 [本地开发环境](start/dev-setup.md)。
 - 要改一个功能：用仓库根目录的 `docs/README.md` 任务路由表，或 `npm run docs:where -- "关键词"`。
 - 要改权限：先读 [权限与角色](modules/permissions.md)，再读 [新增/修改权限点](flows/permission-change.md)。
