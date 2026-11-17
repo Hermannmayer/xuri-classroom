@@ -4,11 +4,16 @@
 
 <!-- version list -->
 
+## v2.3.1 (2026-11-17)
+
+### 修复
+
+- **auth**: 班级级老师可读本班答卷；补齐老师题库维护权限 (`039ce52`)
 ## v2.3.0 (2026-11-17)
 
 > ⚠️ **升级提示**：本版本包含 V2.2.1 ~ V2.2.6 六个数据库迁移，且运行时升级到 Java 25 / Spring Boot 4.1。
 > **升级前请备份数据库、附件目录与配置**（升级脚本会自动备份并校验，建议另存一份）。
-> 简要说明与备份/升级步骤见 [RELEASE_NOTES.md](RELEASE_NOTES.md) 与 [docs/deploy/upgrade.md](docs/deploy/upgrade.md)。
+> 简要说明见 [docs/releases/v2.3.0.md](docs/releases/v2.3.0.md)，备份/升级步骤见 [docs/deploy/upgrade.md](docs/deploy/upgrade.md)。
 
 ### 新功能
 

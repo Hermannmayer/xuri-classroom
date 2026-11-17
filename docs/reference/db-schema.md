@@ -59,6 +59,7 @@
 - `server/rdbms/src/main/resources/db/migration/V2.2.4__ai_usage.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.2.5__api_token.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.2.6__audit_cleanup.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.3.1__teacher_repo_permissions.sql`
 
 ## 历史运维脚本（只读，不再维护）
 

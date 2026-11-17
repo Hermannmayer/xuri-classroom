@@ -203,7 +203,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -816,7 +816,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md

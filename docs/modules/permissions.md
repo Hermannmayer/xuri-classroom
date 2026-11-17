@@ -144,7 +144,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+verified_against: 039ce52f136e995b51f9eaced09a73a8d3b6c652
 ---
 
 # 权限、角色与用户组
@@ -315,8 +315,15 @@ verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 | 角色 | code | 权限点数 | 学员专属 | `system:*` | 定位 |
 |---|---|---:|---|---|---|
 | 超级管理员 | `admin` | 79 | 不注入 | 有 | 管理权限全集（= 目录 85 条减去 6 条学员专属；库里种子 76 条，运行时自动补全） |
-| 老师 | `teacher` | 42 | 无 | 无 | 建/编/发/删自己创建的考试，题库只读 + 导入，答卷补录/批改，班级管理 |
+| 老师 | `teacher` | 49 | 无 | 无 | 建/编/发/删自己创建的考试；题库可建/改/删/导出（2026-11 补齐），答卷补录/批改，班级管理 |
 | 学员 | `student` / `xueyuan` | 15 | 6 条全有 | 无 | 答题、练习、错题本、我的成绩 |
+
+**2026-11 两处修正**：
+
+- **老师补了题库维护权限**（`repo:create/update/delete/export`、`template:create/update/delete`）：此前老师只能看题库、导入题目（`template:import`），
+  新建/改题/删题/导出按钮全被前端按权限点隐藏；已部署库由迁移 `V2.3.1` 幂等补上，自定义角色不自动扩权。
+- **答卷的读权限多了「班级级」**：考试分配给「我带的班」（`t_class_resource`）后，老师能看这个班的答卷、未交名单与批改，
+  但**只能看这些班**——列表、导出、批改都按 `class_id` 收窄；项目协作者/管理员才是项目级全量。
 
 学员专属权限（`PermissionEnum.studentOnly=true`，前端 `STUDENT_ONLY_PERMISSIONS` 必须逐条对应）：
 
@@ -332,7 +339,7 @@ verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 | 动作 | 权限 | 数据范围 |
 |---|---|---|
 | 看题库列表/题目 | `repo:list` + `repo:detail` 或 `repo:questions:read` | 成员/协作者/所属组授权/本班题库分配；管理员全量。列表、`/api/template/list`、`/api/repo/detail` 均认班级分配；详情仍受 `assertReadableRepo` 与题库全局期/本班窗口约束 |
-| 看考试与答卷 | `project:list`、`answer:list` | 所有者、协作者（`t_project_partner`，含组）、班级资源分配或本人答卷 |
+| 看考试与答卷 | `project:list`、`answer:list` | 所有者、协作者（`t_project_partner`，含组）、**班级资源分配（只看本班）**或本人答卷 |
 | 删考试 | `project:delete` + `assertCanEditProject` | owner/admin 或 access_level>=2；level1 只读 |
 | 编辑/发布考试 | `project:update`/`project:publish` + `assertCanEditProject` | owner/admin 或 level>=2；level1 后端 403 |
 | 项目成员/级别 | `project:partner` + `assertCanGrant` | owner/admin/access_level=3；level1/2 只读；`partner/update` 只能改 type=2 |
@@ -435,7 +442,7 @@ curl -s -b cookie.txt https://<host>/api/system/audit/actions
 docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT code, LENGTH(authority)-LENGTH(REPLACE(authority,',',''))+1 AS n
   FROM t_role WHERE is_deleted=0 ORDER BY n DESC;"
-# 期望（空库种子）：admin 76 / teacher 42 / student(xueyuan) 15；运行时 admin 再注入到 79 条
+# 期望（空库种子）：admin 76 / teacher 49 / student(xueyuan) 15；运行时 admin 再注入到 79 条
 
 # 老师删答卷应 403，body.message 是可读中文（不是 Authentication failed）
 curl -s -b teacher.txt -X POST https://<host>/api/answer/delete -d '{"ids":["x"]}'
