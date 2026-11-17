@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card, Form, Input, message, Select, Spin } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { getCurrentUser, post } from '../../api';
+import type { UserInfo } from '../../api/types';
 
 /** 与后端 UserServiceImpl.STRONG_PASSWORD_PATTERN 一致：8-16 位，含大写、小写和数字，不允许特殊字符 */
 const PASSWORD_PATTERN = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[a-zA-Z0-9]{8,16}$/;
@@ -23,19 +24,33 @@ export default function AccountSettings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
 
+  const [profile, setProfile] = useState<UserInfo>();
+
   useEffect(() => {
     let alive = true;
     getCurrentUser()
       .then((u) => {
-        if (!alive) return;
-        profileForm.setFieldsValue({ name: u?.name, phone: u?.phone, email: u?.email, gender: u?.gender });
+        if (alive) setProfile(u);
       })
       .catch((e: Error) => message.error(e.message))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, [profileForm]);
+  }, []);
+
+  // 页面上有 `if (loading) return <Spin/>`，Form 要等 loading 结束才挂载。
+  // 回填必须等挂载之后再调，否则 antd 会报「Instance created by useForm is not connected to any
+  // Form element」，而且值有可能在挂载时被重新初始化掉。
+  useEffect(() => {
+    if (loading || !profile) return;
+    profileForm.setFieldsValue({
+      name: profile.name,
+      phone: profile.phone,
+      email: profile.email,
+      gender: profile.gender,
+    });
+  }, [loading, profile, profileForm]);
 
   const saveProfile = async () => {
     let v: Record<string, unknown>;

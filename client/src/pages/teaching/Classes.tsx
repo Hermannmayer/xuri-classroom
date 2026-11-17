@@ -685,10 +685,18 @@ export default function TeachingClasses() {
     password?: string;
   }>();
 
+  // 弹窗里的 Form 要等 open=true 才会挂载；在挂载之前 resetFields 既会触发 antd 的
+  // 「Instance created by useForm is not connected to any Form element」告警，也清不掉上一轮的残留值。
+  // 所以先开弹窗，挂载后再重置。
   const openMemberModal = () => {
-    memberForm.resetFields();
     setMemberOpen(true);
   };
+
+  useEffect(() => {
+    if (memberOpen) {
+      memberForm.resetFields();
+    }
+  }, [memberOpen, memberForm]);
 
   const submitMember = async () => {
     if (!selected || memberSaving) return;
