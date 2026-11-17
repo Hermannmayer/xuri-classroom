@@ -24,7 +24,7 @@ import { post } from '../api';
 import { t } from '../i18n';
 import { useThemeMode } from '../theme/ThemeProvider';
 import MobileTabBar from './MobileTabBar';
-import UpdateBanner from '../components/UpdateBanner';
+import NoticeBell from '../pages/notice/NoticeBell';
 import { PERMISSION_CODES } from '../auth/permission-codes';
 
 const { Header, Sider, Content } = Layout;
@@ -298,6 +298,8 @@ export default function BasicLayout() {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
+            {/* 公告铃铛：未读数走 60 秒轮询 + window focus 立即刷新（实施计划 4.6） */}
+            <NoticeBell authorities={authorities} />
             <ZoomControl value={zoom} onChange={changeZoom} hideLabel={isMobile} />
             <Button
               type="text"
@@ -346,7 +348,11 @@ export default function BasicLayout() {
               : { margin: 16, paddingBottom: 8 }
           }
         >
-          <UpdateBanner authorities={authorities} />
+          {/**
+           * 这里原来挂着 UpdateBanner（「发现新版本」横幅），按实施计划 4.1 / 4.7 撤掉：
+           * 更新检查发现新版本后由后端写成一条 type=system_update 的公告，
+           * 管理员在公告中心里查看与归档，不再单独渲染一条独立提示。
+           */}
           <Outlet context={{ user, system }} />
         </Content>
       </Layout>

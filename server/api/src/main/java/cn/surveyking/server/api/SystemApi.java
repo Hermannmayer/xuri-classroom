@@ -12,6 +12,7 @@ import cn.surveyking.server.schema.SchemaUpgradeService;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.service.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
  * @author javahuang
  * @date 2021/10/12
  */
+@Slf4j
 @RestController
 @RequestMapping("${api.prefix}/system")
 @RequiredArgsConstructor
@@ -61,6 +63,9 @@ public class SystemApi {
 
 	/** 数据库结构自动升级（启动时执行，这里只读取结果用于展示） */
 	private final SchemaUpgradeService schemaUpgradeService;
+
+	/** 公告：发现新版本时往管理员公告里写一条系统消息 */
+	private final NoticeService noticeService;
 
 	@Value("${version}")
 	private String currentVersion;
@@ -167,7 +172,24 @@ public class SystemApi {
 		}
 		cachedUpdate = view;
 		updateCheckedAt = now;
+		// 「检查更新」与公告中心联动：发现新版本时写一条管理员公告（同版本只写一次，见 NoticeService）
+		recordUpdateNotice(view);
 		return view;
+	}
+
+	/**
+	 * 把更新检查结果同步成管理员公告。
+	 *
+	 * <p>这里必须吞掉异常：检查更新本身是只读的运维动作，公告写失败（库慢、表还没建）不该让
+	 * 设置页的「检查更新」跟着报错。
+	 */
+	private void recordUpdateNotice(UpdateCheckView view) {
+		try {
+			noticeService.recordSystemUpdate(view);
+		}
+		catch (RuntimeException e) {
+			log.warn("写入系统更新公告失败 version={}", view == null ? null : view.getLatestVersion(), e);
+		}
 	}
 
 	/** 自建清单：{"version":"2.1.0","notes":"...","url":"..."} */

@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 215 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 225 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -28,6 +28,7 @@
 | GET | `${api.prefix}/system/audit/list` | `AuditApi#list` | `hasAuthority('system:log:list')` | — |
 | POST | `${api.prefix}/system/audit/clean` | `AuditApi#clean` | `hasRole('admin')` | — |
 | GET | `${api.prefix}/system/audit/actions` | `AuditApi#actions` | `hasAuthority('system:log:list')` | — |
+| GET | `${api.prefix}/audit/answer-timeline` | `AuditTimelineApi#answerTimeline` | `hasAuthority('answer:detail')` | — |
 | POST | `/captcha/get` | `CaptchaApi#get` | — | — |
 | POST | `/captcha/check` | `CaptchaApi#check` | — | — |
 | POST | `/captcha/verify` | `CaptchaApi#verify` | — | — |
@@ -46,6 +47,15 @@
 | POST | `${api.prefix}/import/parse` | `ImportApi#parse` | `hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin')` | — |
 | POST | `${api.prefix}/import/record` | `ImportApi#record` | `hasAnyAuthority('project:update') or hasRole('admin')` | 是 |
 | GET | `${api.prefix}/my-report/list` | `MyReportApi#listMine` | `hasAuthority('project:report') or hasRole('admin')` | — |
+| GET | `${api.prefix}/notice/list` | `NoticeApi#list` | `hasAuthority('notice:list') or hasRole('admin')` | — |
+| GET | `${api.prefix}/notice/unread-count` | `NoticeApi#unreadCount` | `hasAuthority('notice:list') or hasRole('admin')` | — |
+| GET | `${api.prefix}/notice` | `NoticeApi#detail` | `hasAuthority('notice:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/notice/read` | `NoticeApi#read` | `hasAuthority('notice:list') or hasRole('admin')` | — |
+| POST | `${api.prefix}/notice/create` | `NoticeApi#create` | `hasAnyAuthority('notice:manage:system','notice:manage:class') or hasRole('admin')` | — |
+| POST | `${api.prefix}/notice/update` | `NoticeApi#update` | `hasAnyAuthority('notice:manage:system','notice:manage:class') or hasRole('admin')` | — |
+| POST | `${api.prefix}/notice/publish` | `NoticeApi#publish` | `hasAnyAuthority('notice:manage:system','notice:manage:class') or hasRole('admin')` | — |
+| POST | `${api.prefix}/notice/archive` | `NoticeApi#archive` | `hasAnyAuthority('notice:manage:system','notice:manage:class') or hasRole('admin')` | — |
+| POST | `${api.prefix}/notice/delete` | `NoticeApi#delete` | `hasAnyAuthority('notice:manage:system','notice:manage:class') or hasRole('admin')` | — |
 | POST | `${api.prefix}/public/oauth/login/{provider}/start` | `OAuthApi#startLogin` | — | — |
 | POST | `${api.prefix}/oauth/bind/{provider}/start` | `OAuthApi#startBind` | `isAuthenticated()` | — |
 | POST | `${api.prefix}/public/oauth/survey/wechat/start` | `OAuthApi#startSurveyWechat` | `isAuthenticated()` | — |

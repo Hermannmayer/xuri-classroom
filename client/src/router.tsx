@@ -15,6 +15,7 @@ import { PERMISSION_CODES } from './auth/permission-codes';
 const Login = lazy(() => import('./pages/user/Login'));
 const Register = lazy(() => import('./pages/user/Register'));
 const Home = lazy(() => import('./pages/Home'));
+const NoticeCenter = lazy(() => import('./pages/notice/NoticeCenter'));
 const ProjectEntry = lazy(() => import('./pages/project/Entry'));
 const TaskCenter = lazy(() => import('./pages/tasks/TaskCenter'));
 const TeachingHome = lazy(() => import('./pages/teaching/TeachingHome'));
@@ -73,6 +74,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <Home /> },
+      // 公告中心：全角色可见（学员预设也带 notice:list），顶栏铃铛与「检查更新」都指向这里
+      { path: 'notice', element: guard(PERMISSION_CODES.noticeList, <NoticeCenter />) },
       // 教学管理与班级学情合并：/teaching 内用 Tabs 分「考试/问卷」「学情」；
       // 页面本身的入口是 project:list，学情 tab 再按 project:report 单独控制。
       { path: 'teaching', element: guard(PERMISSION_CODES.portalTeacher, guard(PERMISSION_CODES.projectList, <TeachingHome />)) },

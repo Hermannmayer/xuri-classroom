@@ -19,6 +19,11 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
+  # 验证码：HTTP 层是自己写的（见 modules/auth.md 的坑一节），算法仍用 anji 核心包
+  - server/api/src/main/java/cn/surveyking/server/api/CaptchaApi.java
+  - server/shared/src/main/java/cn/surveyking/server/core/config/CaptchaConfig.java
+  - server/shared/src/main/java/cn/surveyking/server/core/config/CaptchaProperties.java
+  - client/src/components/LoginCaptcha.tsx
 entrypoints:
   - client/src/pages/user/Login.tsx
   - client/src/pages/user/Register.tsx
@@ -104,6 +109,11 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 | 管理他人账号 | `system:user:*` | 在用户管理，不在本模块 |
 
 ## 坑与已知限制
+
+- **验证码的 HTTP 层是本仓库自己写的**：`spring-boot-starter-captcha` 的控制器是 `javax.servlet` 写的，
+  且它的 `spring.factories` 在 Spring Boot 3+ 不再被读取；迁到 Jakarta 后只保留零 servlet 依赖的
+  `com.anji-plus:captcha` 核心包，由 `CaptchaApi` + `CaptchaConfig` 接管（22 个 `aj.captcha.*` 配置键
+  与前端 `LoginCaptcha.tsx` 的 AES 契约逐字对齐）。改验证码时**不要**把 starter 依赖加回来。
 
 - **登录失败的"地址"维度依赖 `IPUtils`**：`LoginAttemptLimiter` 的 key 是 `用户名|客户端地址`，地址必须走 `IPUtils.getClientIpAddress`（XFF 最左公网地址优先）。用 `getRemoteAddr()` 会在 nginx 后面拿到 docker 网关（172.19.0.1），把「同一账号 + 同一地址」的失败计数退化成「全站按账号锁定」——任何人都能用错密码把 admin 锁 10 分钟。
 - 密码必须 RSA 加密；发明文一定报账号或密码错误。

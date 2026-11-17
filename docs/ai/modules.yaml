@@ -139,6 +139,47 @@ modules:
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-15
     verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
+  - id: module-audit
+    title: 操作审计
+    doc: docs/modules/audit.md
+    keywords:
+      - 审计
+      - 操作日志
+      - 变更前后
+      - before/after
+      - 时间线
+      - t_audit_log
+      - request_id
+      - source web mcp
+      - 批改历史
+    source_globs:
+      - server/rdbms/src/main/java/cn/surveyking/server/core/audit/**
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AuditLog.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/AuditLogMapper.java
+      - server/rdbms/src/main/resources/mapper/AuditLogMapper.xml
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AuditLogService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AnswerTimelineService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerTimelineServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/ExportGuardService.java
+      - server/api/src/main/java/cn/surveyking/server/api/AuditTimelineApi.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/AuditLogView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/AuditAnswerTimelineView.java
+      - server/shared/src/main/java/cn/surveyking/server/core/security/RequestIdFilter.java
+    entrypoints:
+      - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditAspect.java
+      - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditRecorder.java
+      - server/rdbms/src/main/java/cn/surveyking/server/core/audit/AuditDiffSupport.java
+      - server/api/src/main/java/cn/surveyking/server/api/AuditTimelineApi.java
+    apis:
+      - GET /api/audit/answer-timeline
+    tables:
+      - t_audit_log
+    tests:
+      - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditRecorderTest.java
+      - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditDiffSupportTest.java
+      - server/rdbms/src/test/java/cn/surveyking/server/impl/AnswerTimelineServiceImplTest.java
+    last_verified: 2026-11-17
+    verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -159,6 +200,10 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
+      - server/api/src/main/java/cn/surveyking/server/api/CaptchaApi.java
+      - server/shared/src/main/java/cn/surveyking/server/core/config/CaptchaConfig.java
+      - server/shared/src/main/java/cn/surveyking/server/core/config/CaptchaProperties.java
+      - client/src/components/LoginCaptcha.tsx
     entrypoints:
       - client/src/pages/user/Login.tsx
       - client/src/pages/user/Register.tsx
@@ -429,6 +474,57 @@ modules:
       - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.TextQuestionParserTest"
     last_verified: 2026-11-14
     verified_against: 0f0fe03f2420c4517d9d774d93ea7224b19d5e1f
+  - id: module-notice
+    title: 通知公告
+    doc: docs/modules/notice.md
+    keywords:
+      - 公告
+      - 通知
+      - 未读数
+      - 已读
+      - 系统更新
+      - newsletter
+      - t_notice
+      - 公告中心
+      - 班级公告
+    source_globs:
+      - client/src/pages/notice/**
+      - client/src/layout/BasicLayout.tsx
+      - server/api/src/main/java/cn/surveyking/server/api/NoticeApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/NoticeServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/NoticeService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/Notice.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/NoticeRead.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/NoticeMapper.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/NoticeReadMapper.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/NoticeView.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/NoticeRequest.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/NoticeQuery.java
+      - server/shared/src/main/java/cn/surveyking/server/domain/dto/NoticeReadRequest.java
+    entrypoints:
+      - client/src/pages/notice/NoticeCenter.tsx
+      - client/src/pages/notice/NoticeEditor.tsx
+      - client/src/pages/notice/NoticeBell.tsx
+      - server/api/src/main/java/cn/surveyking/server/api/NoticeApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/NoticeServiceImpl.java
+    apis:
+      - GET /api/notice/list
+      - GET /api/notice/unread-count
+      - GET /api/notice/detail
+      - POST /api/notice/read
+      - POST /api/notice/create
+      - POST /api/notice/update
+      - POST /api/notice/publish
+      - POST /api/notice/archive
+      - POST /api/notice/delete
+    tables:
+      - t_notice
+      - t_notice_read
+    tests:
+      - server/rdbms/src/test/java/cn/surveyking/server/impl/NoticeServiceImplTest.java
+      - client:npm run check
+    last_verified: 2026-11-17
+    verified_against: 120dbd4056587d04d31f5e05ce9c5018c96722f6
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md

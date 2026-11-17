@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 import { get, getSystem, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { COPY_PROTECT_EVENT } from '../../components/CopyGuard';
@@ -133,6 +134,8 @@ interface UpdateCheckInfo {
  */
 export default function SystemSetting() {
   const [form] = Form.useForm();
+  // 检查更新不再自己渲染「新版本说明」：发现新版本后跳公告中心看系统公告（实施计划 4.7）
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<TabKey>();
   const [uploading, setUploading] = useState(false);
@@ -172,6 +175,8 @@ export default function SystemSetting() {
    * 反过来，只有 content:protect 的角色本页其它页签仍是只读（canUpdate 为 false）。
    */
   const canProtect = can(authorities, PERMISSION_CODES.contentProtect);
+  /** 有没有公告中心入口：检查更新发现新版本时引导过去看系统公告（没有就不给按钮） */
+  const canSeeNotice = can(authorities, PERMISSION_CODES.noticeList);
   // Logo 上传走 /api/file/create，后端认 file:upload 或 file:import（FileApi.java 的 /create），与改系统设置分开
   const canUploadLogo = can(authorities, PERMISSION_CODES.fileUpload) || can(authorities, PERMISSION_CODES.fileImport);
 
@@ -368,7 +373,8 @@ export default function SystemSetting() {
       } else if (res.error) {
         message.error(res.error);
       } else if (res.hasUpdate) {
-        message.success('发现新版本 v' + res.latestVersion);
+        // 4.6：发现新版本不再只提示版本号，直接引导到公告中心的系统公告
+        message.info('发现新版本 v' + res.latestVersion + '，请到公告中心查看');
       } else {
         message.success('当前已是最新版本');
       }
@@ -808,13 +814,14 @@ export default function SystemSetting() {
                 children: (
                   <>
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
-                      当前版本：{currentVersion || '—'}。检查更新只读取远端版本信息，不会自动下载或升级。
+                      当前版本：{currentVersion || '—'}。检查更新只读取远端版本信息，不会自动下载或升级；
+                      发现的新版本会写成一条系统更新公告，在公告中心查看与归档。
                     </div>
                     <Form.Item
                       name="updateCheckEnabled"
                       label="自动检查"
                       valuePropName="checked"
-                      extra="管理员登录后按间隔检查一次，只显示提示横幅，不执行升级"
+                      extra="管理员登录后按间隔检查一次，只写一条系统更新公告，不执行升级"
                     >
                       <Switch checkedChildren="开启" unCheckedChildren="关闭" />
                     </Form.Item>
@@ -865,8 +872,30 @@ export default function SystemSetting() {
                                 : '当前已是最新版本'
                         }
                         description={
-                          updateInfo.error ||
-                          (!updateInfo.hasUpdate ? undefined : updateInfo.notes || '有新版本可用，请查看发布说明。')
+                          updateInfo.error ? (
+                            updateInfo.error
+                          ) : !updateInfo.hasUpdate ? undefined : (
+                            // 实施计划 4.7：新版本信息落成 type=system_update 的公告，
+                            // 这里只负责「指路」，不再自己渲染一套更新说明
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <span style={{ whiteSpace: 'pre-wrap' }}>
+                                {updateInfo.notes || '有新版本可用。'}
+                                {' '}
+                                这条版本信息会作为系统更新公告出现在公告中心，可在那里查看并归档。
+                              </span>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                {canSeeNotice ? (
+                                  <Button size="small" type="primary" onClick={() => navigate('/notice')}>
+                                    去公告中心查看
+                                  </Button>
+                                ) : (
+                                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                                    当前账号没有 notice:list 权限，看不到公告中心。
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
                         }
                       />
                     )}

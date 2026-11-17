@@ -10,6 +10,7 @@
 | `/user/register` | `Register` | 公开/仅登录 |
 | `/` | `BasicLayout` | 公开/仅登录 |
 | `/home` | `Home` | 公开/仅登录 |
+| `/notice` | `NoticeCenter` | `notice:list` |
 | `/teaching` | `TeachingHome` | `portal:teacher`<br>`project:list` |
 | `/teaching/classes` | `TeachingClasses` | `class:list` |
 | `/tasks` | `TaskCenter` | `project:answer` |
