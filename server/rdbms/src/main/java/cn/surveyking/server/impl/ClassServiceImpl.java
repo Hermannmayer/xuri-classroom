@@ -307,13 +307,16 @@ public class ClassServiceImpl implements ClassService {
 			return result;
 		}
 
-		// 只取 create_by 一列：答案正文可能有几百 KB，名单界面用不到
-		Set<String> submittedUserIds = answerMapper
-				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getCreateBy)
-						.eq(Answer::getProjectId, projectId)
-						// 正式答卷才叫交卷：temp_save=0 是暂存草稿，不能算已交
-						.eq(Answer::getTempSave, 1))
-				.stream().map(Answer::getCreateBy).filter(StringUtils::hasText).collect(Collectors.toSet());
+		// 只取 create_by 一列：答案正文可能有几百 KB，名单界面用不到。
+		// 用 selectObjs 而不是 selectList：投影查询走实体映射时，MyBatis-Plus 会在「只选一列」的情况下
+		// 把行映射成 null（线上实测 NPE），而这里要的本来就是列值，不是实体。
+		List<Object> submittedValues = answerMapper.selectObjs(Wrappers.<Answer>lambdaQuery()
+				.select(Answer::getCreateBy).isNotNull(Answer::getCreateBy)
+				.eq(Answer::getProjectId, projectId)
+				// 正式答卷才叫交卷：temp_save=0 是暂存草稿，不能算已交
+				.eq(Answer::getTempSave, 1));
+		Set<String> submittedUserIds = submittedValues == null ? Collections.emptySet()
+				: submittedValues.stream().filter(Objects::nonNull).map(String::valueOf).collect(Collectors.toSet());
 
 		List<UnsubmittedStudentView.Student> unsubmitted = new ArrayList<>();
 		int submitted = 0;

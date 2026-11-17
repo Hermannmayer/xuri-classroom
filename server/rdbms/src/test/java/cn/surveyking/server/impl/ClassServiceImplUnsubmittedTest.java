@@ -118,7 +118,8 @@ class ClassServiceImplUnsubmittedTest {
 		when(deptMapper.selectById("class-1")).thenReturn(teachingClass("class-1"));
 		when(userMapper.selectList(any())).thenReturn(List.of(student("u1", "张三", "13800000001"),
 				student("u2", "李四", "13800000002"), student("u3", "王五", null)));
-		when(answerMapper.selectList(any())).thenReturn(List.of(answer("u1"), answer(null)));
+		// 投影查询现在走 selectObjs（只取列值）：包含一个 create_by 为空的匿名答卷
+		when(answerMapper.selectObjs(any())).thenReturn(java.util.Arrays.<Object>asList("u1", null));
 
 		UnsubmittedStudentView view = service().listUnsubmittedStudents("p1", "class-1");
 
@@ -141,7 +142,7 @@ class ClassServiceImplUnsubmittedTest {
 				student("u2", "李四", null)));
 		Answer moved = answer("u1");
 		moved.setClassId("class-2");
-		when(answerMapper.selectList(any())).thenReturn(List.of(moved));
+		when(answerMapper.selectObjs(any())).thenReturn(List.of("u1"));
 
 		UnsubmittedStudentView view = service().listUnsubmittedStudents("p1", "class-1");
 
@@ -172,7 +173,7 @@ class ClassServiceImplUnsubmittedTest {
 		assertTrue(sql.contains("ORDER BY NAME ASC"), sql);
 		assertFalse(sql.contains("{0}"), sql);
 		// 班里没人就不必再查答卷
-		verify(answerMapper, never()).selectList(any());
+		verify(answerMapper, never()).selectObjs(any());
 	}
 
 	@Test
@@ -214,7 +215,7 @@ class ClassServiceImplUnsubmittedTest {
 			students.add(student("u" + i, String.format("学员%03d", i), null));
 		}
 		when(userMapper.selectList(any())).thenReturn(students);
-		when(answerMapper.selectList(any())).thenReturn(List.of(answer("u0")));
+		when(answerMapper.selectObjs(any())).thenReturn(List.of("u0"));
 
 		UnsubmittedStudentView view = service().listUnsubmittedStudents("p1", "class-1");
 
@@ -251,7 +252,7 @@ class ClassServiceImplUnsubmittedTest {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private String capturedAnswerSql() {
 		ArgumentCaptor<Wrapper<Answer>> captor = ArgumentCaptor.forClass((Class) Wrapper.class);
-		verify(answerMapper, atLeastOnce()).selectList(captor.capture());
+		verify(answerMapper, atLeastOnce()).selectObjs(captor.capture());
 		return captor.getValue().getCustomSqlSegment().toUpperCase(Locale.ROOT);
 	}
 
