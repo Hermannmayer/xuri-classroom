@@ -114,13 +114,16 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 
 | 层 | 选型 |
 |---|---|
-| 前端 | Vite 5 + React 18 + TypeScript + Ant Design 5；开发时由 Vite 提供，发布包内嵌进 jar |
-| 后端 | Spring Boot 2.7.7 + MyBatis-Plus 3.5 + Undertow，端口默认 **7007**（发布包由 `SERVER_PORT` 覆盖为 **8080**） |
+| 前端 | Vite 8 + React 19 + TypeScript + Ant Design 6；开发时由 Vite 提供，发布包内嵌进 jar |
+| 后端 | Java 25 + Spring Boot 4.1 + MyBatis-Plus 3.5 + Tomcat，端口默认 **7007**（发布包由 `SERVER_PORT` 覆盖为 **8080**） |
 | 数据库 | **MySQL 8** |
 | 认证 | JWT + HttpOnly Cookie，权限串 + 数据权限切面 |
 | 部署 | 单 jar 内嵌 SPA（前端不需要 nginx）；Windows 便携包 / Linux systemd / Docker compose 三种安装包 |
 
 开发时前端通过 Vite 代理把 `/api`、`/captcha`、`/files` 转发到后端 7007；发布包把前端打进 jar，只暴露一个端口。
+
+> 构建要求：**JDK 25**（`server/build.gradle` 用 toolchain 25，机器上没有 JDK 25 会直接报
+> `No matching toolchains found for requested specification: {languageVersion=25}`）、Node ≥ 20.19（Vite 8 的要求）、Python ≥ 3.8（发版与结构校验脚本用）。
 
 ---
 

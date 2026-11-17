@@ -13,8 +13,12 @@
 FROM eclipse-temurin:25-jre-jammy
 
 # 时区 + 健康检查用的 curl（基础镜像里没有）
+# fontconfig/libfreetype6/fonts-dejavu-core：anji-captcha 的滑块图用 Java AWT 现画，
+# 没有字体时初始化 sun.awt.X11FontManager 会炸：
+#   NoClassDefFoundError: Could not initialize class sun.awt.X11FontManager
+# 验证码默认关闭，所以缺了也能启动——直到管理员在系统设置里打开它才 500。
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata curl \
+    && apt-get install -y --no-install-recommends tzdata curl fontconfig libfreetype6 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone
@@ -38,4 +42,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
   CMD curl -fsS http://127.0.0.1:8080/api/system >/dev/null || exit 1
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar", "--server.port=8080"]
+# headless：容器里没有 X11，不显式声明时 AWT 会尝试连显示服务并失败
+ENTRYPOINT ["java", "-Djava.awt.headless=true", "-jar", "/app/app.jar", "--server.port=8080"]
