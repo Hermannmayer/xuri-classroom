@@ -65,6 +65,14 @@ subprojects {
         mavenCentral()
     }
 
+    // 让 processResources 感知 VERSION 变化。
+    // application.yml 里写的是 version: @projectVersion@，由 Spring Boot 插件用 project.version
+    // （= 根 VERSION 文件内容）展开；但 Gradle 增量构建默认只认 resources 目录，
+    // 只改 VERSION 时会判定 UP-TO-DATE 不重新展开，版本号就停在旧值。
+    tasks.withType(ProcessResources).configureEach {
+        inputs.property('appVersion', appVersion)
+    }
+
     compileJava {
         options.compilerArgs += [
                 '-Amapstruct.suppressGeneratorTimestamp=true',
