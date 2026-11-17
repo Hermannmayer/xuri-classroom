@@ -82,8 +82,7 @@ function Invoke-NasScript {
     return @{ Output = ($out -join "`n"); Code = $code }
 }
 
-function Resolve-SmokePython {
-    # 结构契约检查只需要标准库，不能因为「没装 cryptography」就跳过它。
+# 结构契约检查只需要标准库，不能因为「没装 cryptography」就跳过它。
 function Resolve-AnyPython {
     foreach ($n in 'python', 'python3') {
         $cmd = Get-Command $n -ErrorAction SilentlyContinue
@@ -97,7 +96,8 @@ function Resolve-AnyPython {
     return $null
 }
 
-# 冒烟测试要 RSA 加密密码，得挑一个装了 cryptography 的解释器。
+function Resolve-SmokePython {
+    # 冒烟测试要 RSA 加密密码，得挑一个装了 cryptography 的解释器。
     # 优先 PATH 上的 python/python3/py -3，最后兜底到 DSH 自带的 python。
     $cands = @()
     foreach ($n in 'python', 'python3') {
