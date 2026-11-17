@@ -24,6 +24,10 @@ SRC="${XURI_SRC:-${REPO_ROOT}}"
 DATA_DIR="${XURI_DATA_DIR:-/vol2/1000/xuri/live}"
 BUILD_DIR="${XURI_BUILD_DIR:-${DATA_DIR}/build}"
 RUNTIME_IMAGE="${XURI_RUNTIME_IMAGE:-xuri-runtime:25}"
+# 运行时底座镜像（与 deploy/nas/live/Dockerfile.runtime 的 FROM 保持一致）
+BASE_IMAGE="eclipse-temurin:25-jre-alpine"
+# 这台机器连不上 Docker Hub，基础镜像统一走国内镜像再打回本名
+DOCKER_MIRROR="${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}"
 APP_PORT="${APP_PORT:-201}"
 APP_EXTRA_PORT="${APP_EXTRA_PORT:-1201}"
 
@@ -65,6 +69,11 @@ say "2/5 构建后端运行时镜像 ${RUNTIME_IMAGE}"
 if docker image inspect "${RUNTIME_IMAGE}" >/dev/null 2>&1; then
   echo "  · 镜像已存在，跳过"
 else
+  if ! docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1; then
+    echo "  · 本地没有 ${BASE_IMAGE}，从 ${DOCKER_MIRROR} 拉取"
+    docker pull "${DOCKER_MIRROR}${BASE_IMAGE}" >/dev/null || die "拉取 ${BASE_IMAGE} 失败（镜像源：${DOCKER_MIRROR}）"
+    docker tag "${DOCKER_MIRROR}${BASE_IMAGE}" "${BASE_IMAGE}"
+  fi
   docker build -f "${COMPOSE_DIR}/Dockerfile.runtime" -t "${RUNTIME_IMAGE}" "${COMPOSE_DIR}"
 fi
 

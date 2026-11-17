@@ -6,9 +6,9 @@
 # 这样系统盘升级、重装飞牛都不会破坏开发环境，也绝不会污染生产考试系统。
 #
 # 版本对齐（与仓库根目录 Dockerfile 保持一致，别随手升级）：
-#   JDK    8    ← 生产 Dockerfile 用 eclipse-temurin:8-jre-alpine（SQL 与字节码都是 8）
+#   JDK    8    ← 生产 Dockerfile 用 eclipse-temurin:25-jre-alpine（SQL 与字节码都是 8）
 #   Node   20   ← 生产 Dockerfile 前端阶段用 node:20-alpine
-#   Gradle 7.6  ← 生产 Dockerfile 后端阶段用 gradle:7.6-jdk8
+#   Gradle 7.6  ← 生产 Dockerfile 后端阶段用 gradle:9.9.1-jdk25
 #
 # 注意：仓库自带的 gradle wrapper 是 7.1（server/gradle/wrapper/gradle-wrapper.properties），
 # 与这里的 7.6 有一个小版本差。用 `./gradlew` 会去下载 7.1，用 `gradle` 则直接用镜像里的 7.6。

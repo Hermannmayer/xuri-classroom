@@ -23,7 +23,7 @@ permissions:
   packages: write
 
 env:
-  JAVA_VERSION: '8'
+  JAVA_VERSION: '25'
   NODE_VERSION: '20'
   PYTHON_VERSION: '3.12'
   PYTHONUTF8: '1'

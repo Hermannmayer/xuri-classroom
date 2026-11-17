@@ -10,7 +10,7 @@
 #
 # 只想用官方镜像时无需构建：直接 docker compose pull。
 # ============================================================
-FROM eclipse-temurin:8-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 
 # 时区 + 健康检查用的 curl（基础镜像里没有）
 RUN apt-get update \

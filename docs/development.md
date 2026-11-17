@@ -55,12 +55,15 @@ docs/             文档
 
 | 组件 | 位置 | 说明 |
 |---|---|---|
-| JDK 8 | `%LOCALAPPDATA%\jdk8\jdk8u504-b01` | Temurin 免安装版 |
+| JDK 25（LTS） | `%LOCALAPPDATA%\jdk25\jdk-25.0.5+8` | Temurin 免安装版；2.2.3 起从 JDK 8 升到 25（Spring Boot 4 / Jakarta） |
 | MySQL 8.0.24 | `%LOCALAPPDATA%\mysql\mysql-8.0.24-winx64` | 便携版，3306，root；口令见本地私密记录，**不要写进仓库** |
 | 后端 | `server/api/build/libs/xuri-classroom-<version>.jar` | `gradlew :api:bootJar -x test`，默认端口 7007（内部）；版本取自根目录 `VERSION` |
 | 前端 | `client/` → `npm run dev` | **对外 80**，`/api` 代理到后端 7007 |
 
 启动顺序：`scripts/dev/start-mysql.ps1` → `scripts/dev/start-backend.ps1` → `npm run dev`（均在仓库根目录执行）。
+
+> 构建/测试必须用 JDK 25：`server/build.gradle` 用 Gradle toolchain 固定到 25，拿低版本 JDK 跑会在解析工具链时直接失败。
+> 每条 pwsh 都是新进程，所以要显式设置：`$env:JAVA_HOME = Join-Path $env:LOCALAPPDATA 'jdk25\jdk-25.0.5+8'`。
 
 端口约定：**开发态前端占 80，后端随便一个端口（默认 7007）**。后端不对外暴露；
 接口走同源代理，JWT 的 HttpOnly cookie 才能正常工作。

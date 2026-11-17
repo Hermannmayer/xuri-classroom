@@ -20,7 +20,11 @@ SRC="${XURI_SRC:-/vol2/1000/xuri/src}"
 BUILD_DIR="${XURI_BUILD_DIR:-/vol2/1000/xuri/live/build}"
 COMPOSE_DIR="${XURI_COMPOSE_DIR:-${SRC}/deploy/nas/live}"
 GRADLE_CACHE_VOLUME="${XURI_GRADLE_CACHE_VOLUME:-xuri-live-gradle-cache}"
-GRADLE_IMAGE="${XURI_GRADLE_IMAGE:-gradle:7.6-jdk8}"
+# 构建镜像必须和产物目标 JDK 一致：server/build.gradle 用 toolchain 25，
+# 跑在一个低版本 JDK 的 gradle 镜像里会因为找不到 25 工具链直接失败。
+GRADLE_IMAGE="${XURI_GRADLE_IMAGE:-gradle:9.9.1-jdk25}"
+# 这台机器连不上 Docker Hub，镜像统一走国内镜像再打回本名
+DOCKER_MIRROR="${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}"
 APP_SERVICE="app"
 HEALTH_URL_IN_CONTAINER="http://127.0.0.1:7007/api/system"
 
@@ -49,7 +53,18 @@ mkdir -p "${BUILD_DIR}"
 say "源码：${SRC}"
 say "产物：${BUILD_DIR}/app.jar"
 
-say "开始编译（gradle 7.6 / JDK8，与生产 Dockerfile 对齐）"
+ensure_image() {
+  local image="$1"
+  if docker image inspect "$image" >/dev/null 2>&1; then
+    return 0
+  fi
+  say "本地没有 ${image}，从 ${DOCKER_MIRROR} 拉取"
+  docker pull "${DOCKER_MIRROR}${image}" >/dev/null || die "拉取 ${image} 失败（镜像源：${DOCKER_MIRROR}）"
+  docker tag "${DOCKER_MIRROR}${image}" "${image}"
+}
+
+ensure_image "${GRADLE_IMAGE}"
+say "开始编译（gradle 9.9.1 / JDK25，与生产运行时镜像对齐）"
 docker run --rm -u 0:0 \
   --entrypoint sh \
   -v "${SRC}:/repo" \

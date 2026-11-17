@@ -1,4 +1,4 @@
-FROM openjdk:8-jdk-alpine
+FROM eclipse-temurin:25-jre
 ARG JAR_FILE=build/libs/*.jar
 COPY ${JAR_FILE} app.jar
 COPY surveyking.mv.db surveyking.mv.db 

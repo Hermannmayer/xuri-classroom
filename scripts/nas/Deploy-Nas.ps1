@@ -178,13 +178,34 @@ if (-not $ReloadOnly) {
 # ------ 0.6 后端单元测试
 # 目的：拆上帝类/改统计之前先有一层能红的网。9 个用例约 10 秒，每次发布都跑；
 # 紧急发布可用 -SkipTests 跳过（会打 Warn，便于事后追溯）。
+# 本项目 2.2.3 起要求 JDK 25（server/build.gradle 用 toolchain 25）：
+# 拿 JDK 8/17 跑本地测试会因为找不到 25 工具链直接失败，所以这里按版本挑，而不是按目录名猜。
+function Test-JavaAtLeast25 {
+    param([string]$JavaHome)
+    if (-not $JavaHome) { return $false }
+    $exe = Join-Path $JavaHome 'bin\java.exe'
+    if (-not (Test-Path $exe)) { return $false }
+    $first = (& $exe -version 2>&1 | Select-Object -First 1)
+    if (-not $first) { return $false }
+    if ($first -match '"1\.(\d+)') { return ([int]$Matches[1] -ge 25) }
+    if ($first -match '"(\d+)') { return ([int]$Matches[1] -ge 25) }
+    return $false
+}
+
 function Resolve-JavaHome {
-    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) { return $env:JAVA_HOME }
-    $local = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'jdk8') -Directory -ErrorAction SilentlyContinue |
-        Where-Object { Test-Path (Join-Path $_.FullName 'bin\java.exe') } | Select-Object -First 1
-    if ($local) { return $local.FullName }
+    $candidates = @()
+    if ($env:JAVA_HOME) { $candidates += $env:JAVA_HOME }
+    foreach ($name in @('jdk25', 'jdk21', 'jdk17')) {
+        $base = Join-Path $env:LOCALAPPDATA $name
+        if (Test-Path $base) {
+            $candidates += (Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+        }
+    }
     $cmd = Get-Command java -ErrorAction SilentlyContinue
-    if ($cmd) { return (Split-Path -Parent (Split-Path -Parent $cmd.Source)) }
+    if ($cmd) { $candidates += (Split-Path -Parent (Split-Path -Parent $cmd.Source)) }
+    foreach ($candidate in $candidates) {
+        if (Test-JavaAtLeast25 $candidate) { return $candidate }
+    }
     return $null
 }
 

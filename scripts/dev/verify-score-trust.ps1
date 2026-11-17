@@ -28,7 +28,7 @@ $serverDir = Join-Path $repoRoot 'server'
 $gradlew = Join-Path $serverDir 'gradlew.bat'
 
 if (-not (Test-Path $gradlew)) { throw "找不到 $gradlew（脚本要放在 scripts/dev/ 下运行）" }
-if (-not $env:JAVA_HOME) { $env:JAVA_HOME = Join-Path $env:LOCALAPPDATA 'jdk8\jdk8u504-b01' }
+if (-not $env:JAVA_HOME) { $env:JAVA_HOME = Join-Path $env:LOCALAPPDATA 'jdk25\jdk-25.0.5+8' }
 if (-not (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) { throw "JAVA_HOME 无效：$env:JAVA_HOME" }
 
 $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ('sk-score-trust-' + [guid]::NewGuid().ToString('N'))
@@ -272,8 +272,8 @@ gradle.projectsEvaluated {
         source = p.fileTree(new File(harnessRoot, 'src')) { include '**/*.java' }
         classpath = p.sourceSets.main.runtimeClasspath
         destinationDirectory.set(classesDir)
-        sourceCompatibility = '1.8'
-        targetCompatibility = '1.8'
+        sourceCompatibility = '25'
+        targetCompatibility = '25'
         options.encoding = 'UTF-8'
     }
 

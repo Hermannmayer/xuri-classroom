@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Collections;
 import java.util.Date;
 
 /**
@@ -67,7 +68,11 @@ public class JwtTokenUtil {
 
 	public boolean validate(String token) {
 		try {
-			Jwts.parserBuilder().setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token);
+			// 必须显式传反序列化器：去掉 jjwt-jackson 之后，jjwt 的 ServiceLoader 再也找不到默认实现，
+			// 只校验签名这条路径会抛 UnavailableImplementationException（表现为所有带 token 的请求 500）。
+			Jwts.parserBuilder()
+					.deserializeJsonWith(new JwtJsonCodec.Jackson3Deserializer(objectMapper, Collections.emptyMap()))
+					.setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token);
 			return true;
 		}
 		catch (SignatureException ex) {

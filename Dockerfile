@@ -15,13 +15,13 @@ COPY client/ ./
 RUN npm run build
 
 # ---------- 2. 后端可执行 jar（前端不再打进 classpath） ----------
-FROM gradle:7.6-jdk8 AS api
+FROM gradle:9.9.1-jdk25 AS api
 WORKDIR /src
 COPY server/ ./
 RUN gradle :api:bootJar -x test --no-daemon
 
 # ---------- 3. 后端运行时：内部端口 7007 ----------
-FROM eclipse-temurin:8-jre-alpine AS app
+FROM eclipse-temurin:25-jre-alpine AS app
 # libgcc/fontconfig/freetype/ttf-dejavu：验证码（anji-captcha）用 AWT 画滑块图，
 # Alpine 的 JRE 缺 libgcc_s.so.1 时 /captcha/get 会 500（X11FontManager 初始化失败）
 RUN apk add --no-cache tzdata curl libgcc fontconfig freetype ttf-dejavu \
