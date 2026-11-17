@@ -70,9 +70,9 @@ public class JwtTokenUtil {
 		try {
 			// 必须显式传反序列化器：去掉 jjwt-jackson 之后，jjwt 的 ServiceLoader 再也找不到默认实现，
 			// 只校验签名这条路径会抛 UnavailableImplementationException（表现为所有带 token 的请求 500）。
-			Jwts.parserBuilder()
+			Jwts.parser()
 					.deserializeJsonWith(new JwtJsonCodec.Jackson3Deserializer(objectMapper, Collections.emptyMap()))
-					.setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token);
+					.verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token);
 			return true;
 		}
 		catch (SignatureException ex) {
@@ -94,17 +94,17 @@ public class JwtTokenUtil {
 	}
 
 	public UserTokenView getUser(String token) {
-		return Jwts.parserBuilder()
+		return Jwts.parser()
 				.deserializeJsonWith(new JwtJsonCodec.Jackson3Deserializer(objectMapper, Maps.of("user", UserTokenView.class).build()))
-				.setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token).getBody()
+				.verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token).getBody()
 				.get("user", UserTokenView.class);
 	}
 
 	public SurveyWechatIdentity getSurveyWechatIdentity(String token) {
-		return Jwts.parserBuilder()
+		return Jwts.parser()
 				.deserializeJsonWith(
 						new JwtJsonCodec.Jackson3Deserializer(objectMapper, Maps.of("surveyWechat", SurveyWechatIdentity.class).build()))
-				.setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token).getBody()
+				.verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token).getBody()
 				.get("surveyWechat", SurveyWechatIdentity.class);
 	}
 
