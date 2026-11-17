@@ -119,11 +119,18 @@ public final class AiPaperSpec {
 				StringUtils.hasText(requirements) ? requirements.trim() : null);
 	}
 
+	/**
+	 * 题型配比归一化：校验题型合法、去重合并，并把总和缩放到 1。
+	 *
+	 * <p>为什么要缩放到 1：调用方可能传「0.4 / 0.2 / 0.2 / 0.2」，也可能传「40 / 20 / 20 / 20」（百分比）；
+	 * 不归一化时 20 题的卷子会被算成 800 题。这里统一成小数比例，下游 {@link #expectedTypeCount()} 只认这一种口径。
+	 */
 	private static LinkedHashMap<String, Double> normalizeRatio(Map<String, Double> input) {
-		LinkedHashMap<String, Double> result = new LinkedHashMap<>();
+		LinkedHashMap<String, Double> merged = new LinkedHashMap<>();
 		if (input == null || input.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "题型配比不能为空");
 		}
+		double total = 0D;
 		for (Map.Entry<String, Double> entry : input.entrySet()) {
 			SurveySchema.QuestionType type = parseType(entry.getKey());
 			if (type == null || !SUPPORTED_TYPES.contains(type)) {
@@ -131,10 +138,15 @@ public final class AiPaperSpec {
 						"题型配比里有不支持的题型：" + entry.getKey() + "（支持 " + supportedTypeNames() + "）");
 			}
 			Double ratio = entry.getValue();
-			if (ratio == null || ratio <= 0) {
+			if (ratio == null || ratio.doubleValue() <= 0D) {
 				throw new ErrorCodeException(ErrorCode.ValidationError, "题型配比必须是正数：" + entry.getKey());
 			}
-			result.merge(type.name(), ratio, Double::sum);
+			merged.merge(type.name(), ratio, Double::sum);
+			total += ratio.doubleValue();
+		}
+		LinkedHashMap<String, Double> result = new LinkedHashMap<>();
+		for (Map.Entry<String, Double> entry : merged.entrySet()) {
+			result.put(entry.getKey(), Double.valueOf(entry.getValue().doubleValue() / total));
 		}
 		return result;
 	}

@@ -85,8 +85,6 @@ public class AiAssistServiceImpl implements AiAssistService {
 	private static final int MAX_REPORT_DAYS = 14;
 
 	/** 各个场景的提示词模板 id（文件名，不含 .md） */
-	private static final String PROMPT_PAPER = "paper-generate";
-
 	private static final String PROMPT_REWRITE = "question-rewrite";
 
 	private static final String PROMPT_GRADE = "grade-suggest";
