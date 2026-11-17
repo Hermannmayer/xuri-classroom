@@ -12,6 +12,30 @@
 | `xuri-live-web` | nginx，托管前端产物 + 反代 `/api` | **201**（+1201 调试） |
 | `xuri-live-web-watch` | 常驻 `vite build --watch`，产物写进共享卷 | — |
 
+## 本机（Windows 开发机）需要什么
+
+| 需要 | 说明 |
+|---|---|
+| PowerShell 7 | 跑 `Deploy-Nas.ps1`（5.1 也能跑，但脚本里用了 7 的语法特性，建议 7） |
+| SSH 免密 | `ssh Home@<NAS>` 能直接进（脚本所有远端操作都靠它） |
+| **JDK 25** | **只在两种情况下需要**：① 想跑本地单测；② 想打发布包。**不是**部署到 NAS 的必需项 |
+| Docker | **本机不需要**。所有 docker 命令都通过 ssh 在 NAS 上执行；Windows 上装 Docker Desktop 对这套部署没帮助 |
+| Python 3 + cryptography | 跑冒烟测试用；缺了脚本会拒绝（`pip install cryptography`） |
+
+没有 JDK 25 时脚本会停下来并给出两条路，**不会静默跳过**：
+
+```powershell
+# A. 只发代码到 NAS（编译在 NAS 的 gradle:9.9.1-jdk25 容器里做）——跳过本地单测
+.\scripts\nas\Deploy-Nas.ps1 -SkipTests
+
+# B. 想在本地跑单测/打包——让脚本自己下 JDK 25（Temurin，约 190MB，装到 %LOCALAPPDATA%\jdk25）
+.\scripts\nas\Deploy-Nas.ps1 -InstallJdk
+
+# 或者手动装：https://adoptium.net/temurin/releases/?version=25，解压后设 JAVA_HOME
+```
+
+> `-SkipTests` 的代价：本地不做编译校验，语法/测试错误要等 NAS 上编译时才暴露。
+
 ## 日常操作
 
 ```bash

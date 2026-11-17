@@ -34,6 +34,7 @@ param(
     [switch]$ReloadOnly,
     [switch]$DiscardNasChanges,   # NAS 上有未提交改动时，强制丢弃（默认中止）
     [switch]$SkipTests,           # 跳过后端单元测试（紧急发布用；会打 Warn）
+    [switch]$InstallJdk,          # 本机没有 JDK 25 时，自动下载 Temurin 25 到 %LOCALAPPDATA%\jdk25
     [string]$NasHost = '192.168.0.2',
     [string]$NasUser = 'Home',
     [string]$RemoteRepo = '/vol2/1000/xuri/src/work',
@@ -229,9 +230,100 @@ function Resolve-JavaHome {
     }
     return $null
 }
+function Install-Jdk25 {
+    # 从国内镜像下 Temurin 25 JDK（约 190MB），解压到 %LOCALAPPDATA%\jdk25。
+    # 只下 JDK 不下 JRE：单测与打包都要 javac。
+    $mirrors = @(
+        'https://mirrors.tuna.tsinghua.edu.cn/Adoptium/25/jdk/x64/windows/',
+        'https://mirrors.nju.edu.cn/adoptium/25/jdk/x64/windows/'
+    )
+    $targetRoot = Join-Path $env:LOCALAPPDATA 'jdk25'
+    New-Item -ItemType Directory -Force -Path $targetRoot | Out-Null
+    foreach ($mirror in $mirrors) {
+        try {
+            Write-Host "  查找 $mirror"
+            $html = (Invoke-WebRequest -Uri $mirror -UseBasicParsing -TimeoutSec 30).Content
+            $zip = [regex]::Matches([string]$html, 'OpenJDK25U-jdk_x64_windows_hotspot_[0-9._]+\.zip') |
+                ForEach-Object { $_.Value } | Sort-Object -Unique | Select-Object -Last 1
+            if (-not $zip) { Write-Host '  × 目录里没找到 25 的 zip'; continue }
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) $zip
+            Write-Host "  下载 $zip（约 190MB，可能要几分钟）..."
+            Invoke-WebRequest -Uri ($mirror + $zip) -OutFile $tmp -UseBasicParsing -TimeoutSec 1800
+            Write-Host "  解压到 $targetRoot ..."
+            Expand-Archive -Path $tmp -DestinationPath $targetRoot -Force
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+            foreach ($dir in (Get-ChildItem $targetRoot -Directory -ErrorAction SilentlyContinue)) {
+                if (Test-JavaAtLeast25 $dir.FullName) {
+                    Ok "已安装 JDK 25：$($dir.FullName)"
+                    return $dir.FullName
+                }
+            }
+        }
+        catch { Write-Host "  × 这个镜像没成功：$($_.Exception.Message)" }
+    }
+    return $null
+}
+
+function Show-DockerGuidance {
+    param([string]$Output)
+    if ($Output -match 'PULL_FAILED') { Write-Host "  → 基础镜像拉不下来（这台机器的 Docker Hub 基本不通），走镜像站：" }
+    elseif ($Output -match 'BUILD_FAILED') { Write-Host "  → 镜像构建失败（Dockerfile.runtime 要 apk add 装字体，需要连外网）" }
+    else { Write-Host "  → docker 相关命令失败，先确认 NAS 上的守护进程可用" }
+    Write-Host @'
+
+  运行时镜像没准备好。按报错类型处理：
+
+  · PULL_FAILED —— 基础镜像拉不下来（这台机器 Docker Hub 基本不通），在 NAS 上走镜像站：
+        docker pull docker.m.daocloud.io/library/eclipse-temurin:25-jre-alpine
+        docker tag  docker.m.daocloud.io/library/eclipse-temurin:25-jre-alpine eclipse-temurin:25-jre-alpine
+
+  · BUILD_FAILED —— 构建失败（Dockerfile.runtime 里 apk add 要连外网）：
+        curl -I https://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/APKINDEX.tar.gz
+      不通就换镜像源，或先在能上网的机器上构建好，docker save / docker load 搬过去。
+
+  · docker 命令失败 —— 守护进程不可用：
+        ssh Home@<NAS> 'docker info'      （飞牛上服务名是 docker）
+
+  也可以自己把镜像准备好再重跑：tag 必须叫 xuri-runtime:25，且 docker run --rm --entrypoint java
+  xuri-runtime:25 -version 要打印 25.x。（4a 每步都会验这一条，名字对但 java 版本不对会重建。）
+
+  注意：本机（Windows）不需要装 Docker，所有 docker 命令都通过 ssh 在 NAS 上执行。
+'@
+}
+
+function Show-JdkGuidance {
+    Write-Host @'
+
+  本地没有 JDK 25。两条路径的要求不一样，先确认你要做哪件事：
+
+  A. 只是把代码发到 NAS（线上跑在 Docker 里）——本机不需要 JDK
+     编译发生在 NAS 上的 gradle:9.9.1-jdk25 容器里，本机只负责 git push 和 ssh。
+     这时加 -SkipTests 跳过本地单测即可：
+         .\scripts\nas\Deploy-Nas.ps1 -SkipTests
+     代价：本地不做编译校验，语法/测试错误要等 NAS 上编译时才暴露。
+
+  B. 想在本地跑单测，或打发布包——必须装 JDK 25
+     1) 让这个脚本下载（Temurin 25 JDK，约 190MB，解压到 %LOCALAPPDATA%\jdk25）：
+         .\scripts\nas\Deploy-Nas.ps1 -InstallJdk
+     2) 或自己装： https://adoptium.net/temurin/releases/?version=25
+        解压后把目录设到环境变量 JAVA_HOME，例如：
+         $env:JAVA_HOME = "$env:LOCALAPPDATA\jdk25\jdk-25.0.x+y"
+         [Environment]::SetEnvironmentVariable('JAVA_HOME', $env:JAVA_HOME, 'User')   # 永久生效
+     装好后跑 `java -version` 应显示 25.x。
+
+  另外：本机不需要装 Docker。所有 docker 命令都通过 ssh 在 NAS 上执行；
+        Windows 上装 Docker Desktop 对这套部署没有帮助。
+'@
+}
+
 
 if (-not $ReloadOnly -and -not $SkipTests) {
     $javaHome = Resolve-JavaHome
+    if (-not $javaHome -and $InstallJdk) {
+        Say '0.6/6 本机没有 JDK 25，按 -InstallJdk 自动安装 Temurin 25'
+        $javaHome = Install-Jdk25
+        if ($javaHome) { Ok "JDK 25 就绪：$javaHome" }
+    }
     if ($javaHome) {
         Say '0.6/6 后端单元测试'
         $previousJavaHome = $env:JAVA_HOME
@@ -249,9 +341,10 @@ if (-not $ReloadOnly -and -not $SkipTests) {
         Ok '单元测试通过'
     }
     else {
-        # 单元测试是发布前唯一的本地编译门禁：跳过后语法/类型错误只会在 NAS 上 git reset 之后才暴露，
-        # 那时已经在动线上文件了。要跳过必须显式写 -SkipTests。
-        Die '找不到 JDK 25（java 版本 < 25 或未安装）。它是发布前唯一的本地编译门禁；装好并设 JAVA_HOME，或显式加 -SkipTests 表示这次不跑单测。'
+        # 拒绝执行，但必须给得出路：单纯说「没有 JDK」只会让人卡住。
+        # 见 Show-JdkGuidance 里的 A/B 两条路径（Docker 部署其实不需要本机 JDK）。
+        Show-JdkGuidance
+        Die '本地没有 JDK 25。按上面的 A/B 选一条（装 JDK 25，或显式 -SkipTests 跳过本地单测）。'
     }
 }
 
@@ -403,7 +496,14 @@ rm -f "$BUILD_LOG"
 echo "RUNTIME_IMAGE_BUILT $RUNTIME_IMAGE (java $EXPECTED_JAVA)"
 '@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
 Say '4a/6 校验后端运行时镜像（java 大版本必须等于 Dockerfile.runtime 的 FROM）'
-(Invoke-NasScript -Body $imageScript).Output | ForEach-Object { "     $_" }
+$imgResult = Invoke-NasScript -Body $imageScript -AllowFail
+$imgResult.Output | ForEach-Object { "     $_" }
+if ($imgResult.Code -ne 0) {
+    # 镜像没准备好就继续，后面会用错误的 JRE 把后端打起来（甚至 crash-loop），
+    # 所以这里必须停，并且给出可执行的修复路径，而不是只丢一句退出码。
+    Show-DockerGuidance "$($imgResult.Output)"
+    Die '运行时镜像不可用（见上面的引导）。已中止，线上未受影响。'
+}
 
 if ($composeChanged -or $forceReload) {
     Say '4/6 应用 compose 变更'
