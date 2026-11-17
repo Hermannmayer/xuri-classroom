@@ -45,6 +45,22 @@ class SchemaUpgradeServiceTest {
 		assertEquals("2.0.0", newService().detectVersion(spec, withoutColumn));
 	}
 
+	/**
+	 * 只改数据的版本（requires 为空）不能拿来做结构探测：它永远「匹配」，会把排在它前面的
+	 * 数据迁移（如 V2.3.1 给角色补权限）当成已执行而静默跳过。探测应优先返回有结构要求的版本，
+	 * 只有在没有任何结构匹配时才退回空的兜底版本。
+	 */
+	@Test
+	void dataOnlyVersionsDoNotMaskStructuralVersion() {
+		SchemaSpec spec = new SchemaSpec();
+		spec.setVersions(Arrays.asList(version("2.1.0", "column:t_template.chapter"), version("2.3.0"),
+				version("2.3.1")));
+		Set<String> withColumn = new HashSet<>(Arrays.asList("table:t_user", "column:t_template.chapter"));
+		assertEquals("2.1.0", newService().detectVersion(spec, withColumn));
+		// 什么都不匹配时才退回最高空版本，保持老行为
+		assertEquals("2.3.1", newService().detectVersion(spec, new HashSet<>(Collections.singletonList("table:t_user"))));
+	}
+
 	@Test
 	void baselineMissingIsRejected() {
 		SchemaSpec spec = new SchemaSpec();

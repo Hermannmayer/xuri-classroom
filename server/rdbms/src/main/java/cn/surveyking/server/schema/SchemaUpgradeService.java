@@ -186,8 +186,18 @@ public class SchemaUpgradeService {
 		snapshot = normalizeAll(snapshot);
 		List<SchemaSpec.VersionSpec> versions = new ArrayList<>(spec.getVersions());
 		versions.sort(Comparator.comparing(SchemaSpec.VersionSpec::getVersion, SchemaUpgradeService::compare));
+		// 「只改数据」的版本（requires 为空）无法从库结构上证明，不能拿它当探测结果：
+		// 否则它永远匹配，排在它前面的数据迁移（例如 V2.3.1 给角色补权限）会被当成「已经执行过」而静默跳过。
+		// 这里把空的当成候选兜底，优先用有结构要求的版本定位；找不到任何结构匹配时才退回兜底版本。
+		String fallback = null;
 		for (int i = versions.size() - 1; i >= 0; i--) {
 			SchemaSpec.VersionSpec candidate = versions.get(i);
+			if (candidate.getRequires().isEmpty()) {
+				if (fallback == null) {
+					fallback = candidate.getVersion();
+				}
+				continue;
+			}
 			boolean matched = true;
 			for (String require : candidate.getRequires()) {
 				if (!snapshot.contains(require.toLowerCase(Locale.ROOT))) {
@@ -198,6 +208,9 @@ public class SchemaUpgradeService {
 			if (matched) {
 				return candidate.getVersion();
 			}
+		}
+		if (fallback != null) {
+			return fallback;
 		}
 		throw new SchemaUpgradeException("无法识别数据库结构版本：db/schema.json 里没有任何版本能匹配当前库。"
 				+ "可能是库被手工改过，或程序与数据库不是同一套发布。请先备份数据库，再联系维护人员。");
