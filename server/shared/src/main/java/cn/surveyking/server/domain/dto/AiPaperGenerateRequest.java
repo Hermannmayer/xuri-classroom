@@ -7,7 +7,7 @@ import java.util.LinkedHashMap;
 /**
  * AI 出卷请求（{@code POST /api/ai/paper/generate}）。
  *
- * <p>字段与 docs/ops/2026-11-17-AI与产品化-实施计划.md 6.3 的契约一一对应，前端不需要再做转换。
+ * <p>字段与前端 client/src/api/ai.ts 的类型一一对应，前端不需要再做转换。
  *
  * <p>{@link #projectId} 可空：空表示「只生成、不落库」，用于编辑器里的纯预览；
  * 传了就只用来校验项目可见性与给模型一点上下文，出卷本身不会写库（写库只走 {@code /api/ai/paper/apply}）。

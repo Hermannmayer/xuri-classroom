@@ -10,7 +10,7 @@ import cn.surveyking.server.domain.dto.UpdateCheckView;
 /**
  * 通知公告（管理员全站公告 + 老师班级公告）。
  *
- * <p>边界（照 docs/ops/2026-11-17-AI与产品化-实施计划.md 第 4 节）：
+ * <p>边界（详见 docs/modules/notice.md）：
  * <ul>
  * <li>一张表 {@code t_notice} 装两类公告，靠 {@code audience}（给谁看）与
  * {@code scope_type/scope_id}（什么范围）两个维度区分；</li>

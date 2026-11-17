@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>为什么不把提示词写成 Java 常量：提示词的调整频率远高于代码，写成 {@code prompts/*.md}
  * 之后「改一句话」不必重新想一遍转义，也方便日后做「A/B 两版提示词」。
  *
- * <p>约定（与 docs/ops/2026-11-17-AI与产品化-实施计划.md 6.2 一致）：
+ * <p>约定：
  * <ul>
  * <li>模板放 {@code server/ai/src/main/resources/prompts/&lt;id&gt;.md}；</li>
  * <li>首行写 {@code version: x.y}，改提示词就要改版本号——出问题时至少能回答「当时用的是哪一版」；</li>

@@ -221,6 +221,8 @@ modules:
       - server/api/src/main/java/cn/surveyking/server/api/AuditTimelineApi.java
     apis:
       - GET /api/audit/answer-timeline
+      - GET /api/system/audit/retention
+      - POST /api/system/audit/clean
     tables:
       - t_audit_log
     tests:

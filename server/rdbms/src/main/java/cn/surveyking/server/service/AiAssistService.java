@@ -22,7 +22,7 @@ import cn.surveyking.server.domain.dto.AiReportSummaryView;
  * {@code AiJobService} / {@code AiContentGuard}），这样内核能被无库单测直接覆盖。</li>
  * </ul>
  *
- * <p>四条硬约束（照 docs/ops/2026-11-17-AI与产品化-实施计划.md 6.3）：
+ * <p>四条硬约束（详见 docs/modules/ai.md）：
  * <ol>
  * <li><b>先预览再落库</b>：出卷只返回结果，写进项目 schema 要老师再调一次 {@link #applyPaper}；</li>
  * <li><b>批改建议不落分</b>：{@link #suggestGrade} 只给建议，落分仍走 {@code POST /api/answer/grade}；</li>
