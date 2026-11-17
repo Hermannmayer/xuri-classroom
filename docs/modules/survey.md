@@ -65,7 +65,7 @@ tests:
   - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 ---
 
 # 考试编辑器与题型
@@ -128,6 +128,7 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 
 - 数据页 `/survey/:id/data`：顶部过滤条六维条件（班级 / 交卷时间 / 交卷状态 / 批改状态 / 分数段 / 姓名，外加「含匿名 / 仅实名」开关），条件定义与导出共用 `data/filters.ts`；班级只存 URL（`?classId=`），报表页、教学页跳过来能直达。「未交」不是过滤答卷，而是把列表换成未交名单（`data/UnsubmittedPanel.tsx`，数据源是「班级在册学员 − 已交」，没选班级时只提示、不发请求）。
 - 导出弹窗 `data/ExportModal.tsx`：五种格式——Excel 明细 + 成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单（后四种走同一个异步任务、打成一个 ZIP），范围可选「当前筛选」或「仅勾选」，关掉弹窗会取消正在跑的任务。
+  选「当前筛选」时六维条件会原样带进异步任务（批改状态/姓名/分数段/含匿名也算），所以 ZIP 里与屏幕上是同一批答卷；选「仅勾选」时只按 ids，不叠加筛选。
 - 报表页 `Report.tsx`：班级 + 交卷时间筛选写进 URL，带班级时走 `/api/report/class/{id}`；逐题区块除分布图外还显示「答题 N 人 / 判分 M 人 / 正确率」。
 - 判分、导出、统计的口径都在 [answer](./answer.md)，AI 批改与错题重练在 [ai](./ai.md)；这一页只记入口，不重复那边的规则。
 

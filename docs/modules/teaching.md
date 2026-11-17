@@ -122,7 +122,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 ---
 
 # 班级与教学工作台
@@ -301,8 +301,9 @@ verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 2. 查看：`ClassAnswersDrawer` 调 `GET /api/teaching/classes/answers?projectId=&deptId=&current=&pageSize=`，返回 `PaginationResponse<AnswerView>`（2026-11 起 `AnswerView` 带 `attemptNo`，抽屉据此显示「第 N 次」）；列表字段是学员（`createByName`，由后端批量回填）、交卷时间、分数、状态（已交卷/暂存）。
 3. 接口契约：`@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")`；方法内再 `classService.assertVisible(deptId)`——管理员/`class:grant` 全量，其他要求本班或祖先班是自己创建/负责/被授权（只读授权也算可见）。**不要求是项目协作者**。
 4. 数据：`AnswerServiceImpl#listAnswerByClass` 按 `project_id + class_id` 精确查，`answer IS NOT NULL`；不套 `canManageProject`、不加 `create_by=当前用户`，所以班级可见即可看本班全部。历史答卷 `class_id` 为空时**不会**出现在这个抽屉（即使学情概览按主组回退显示了它）。
-5. 导出：`POST /api/answer/export/token`（`answer:export`，body 可带 `exportPassword`）换一次性 token，再 `GET /api/answer/download?projectId=&classId=&type=answer&exportToken=`；`AnswerApi#download` 在带 `classId` 时先 `classService.assertVisible` 再走 `downloadByClass`，不套项目协作者过滤。**只支持 `type=answer`**，附件按班导出未支持。
+5. 导出：Excel 走 `POST /api/answer/export/token`（`answer:export`，body 可带 `exportPassword`）换一次性 token，再 `GET /api/answer/download?projectId=&classId=&type=answer&exportToken=`；`AnswerApi#download` 在带 `classId` 时先 `classService.assertVisible` 再走 `downloadByClass`，不套项目协作者过滤。**只支持 `type=answer`**，附件按班导出未支持。
 6. 导出实现走真源 JSON（`downloadSurvey`），不做 `t_answer_item` 投影优化；导出密码/一次性 token 与通用导出共用 `ExportGuardService`。
+7. PDF / 答题卷 / 长图 / 确认单走 `POST /api/answer/export/pdf-job`（`outputs`），**列表上的状态、姓名、时间范围会一起带进任务**；弹窗里的时间范围默认预填列表筛选，改了只影响本次导出。
 
 ## 修改指南
 

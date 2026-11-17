@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: e9070b1a1477d5fc634f096235baf2cf002570f4
+verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 ---
 
 # 答卷、判分与报表

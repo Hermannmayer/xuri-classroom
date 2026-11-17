@@ -19,7 +19,6 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserPermissionGuard.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/UserDeptMembershipService.java
-  # 验证码：HTTP 层是自己写的（见 modules/auth.md 的坑一节），算法仍用 anji 核心包
   - server/api/src/main/java/cn/surveyking/server/api/CaptchaApi.java
   - server/shared/src/main/java/cn/surveyking/server/core/config/CaptchaConfig.java
   - server/shared/src/main/java/cn/surveyking/server/core/config/CaptchaProperties.java
@@ -44,7 +43,7 @@ tests:
   - client:npm run check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
 ---
 
 # 登录与账号
