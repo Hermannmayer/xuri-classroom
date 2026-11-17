@@ -74,7 +74,10 @@ function Invoke-NasScript {
         scp -o BatchMode=yes -q $tmp "${NasUser}@${NasHost}:$remote" 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { Die "scp 上传脚本失败（目标 $remote）" }
         $cmd = "bash $remote; ec=`$?; rm -f $remote; exit `$ec"
-        $out = @(ssh -o BatchMode=yes -o ConnectTimeout=10 "$NasUser@$NasHost" $cmd 2>&1)
+        # -n：远端脚本是用 scp 传上去按路径执行的，不需要 stdin。不给 -n 时 ssh 会把本地 stdin
+        # 转发过去，而后台作业的 stdin 是一个不会关闭的管道 —— 远端命令早就跑完了，ssh 还在等通道
+        # 关闭，本地就一直挂着（实测：部署挂了 10 分钟，远端 ps 里什么都看不到）。
+        $out = @(ssh -n -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$NasUser@$NasHost" $cmd 2>&1)
         $code = $LASTEXITCODE
     }
     finally {
@@ -341,6 +344,9 @@ if ($before -eq $after) {
 $serverChanged  = @($changed | Where-Object { $_ -match '^server/' }).Count -gt 0
 $composeChanged = @($changed | Where-Object { $_ -match "^$([regex]::Escape($ComposeDir))/" }).Count -gt 0
 $clientChanged  = @($changed | Where-Object { $_ -match '^client/' }).Count -gt 0
+# web-watch 只在「源码/入口/配置」变化或依赖重装时才重建。只改 client/package.json 的 version
+# 这类改动不会触发重建，若据此去等 built in 必然超时，然后被上一条 Die 判成失败（误报）。
+$clientSourceChanged = @($changed | Where-Object { $_ -match '^client/(src/|public/|index\.html|vite\.config|tsconfig)' }).Count -gt 0
 $nginxChanged   = @($changed | Where-Object { $_ -match '^deploy/nginx\.conf$' }).Count -gt 0
 $forceReload    = $ReloadOnly.IsPresent
 
@@ -452,7 +458,9 @@ docker compose restart web-watch
 echo "DEPS_REINSTALLING（约 1-3 分钟）"
 '@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
 Say '4c/6 检查前端依赖是否与锁文件一致'
-(Invoke-NasScript -Body $depsScript).Output | ForEach-Object { "     $_" }
+$depsOutput = (Invoke-NasScript -Body $depsScript).Output
+$depsOutput | ForEach-Object { "     $_" }
+$depsReinstalling = "$depsOutput" -match 'DEPS_REINSTALLING'
 
 if ($serverChanged -or $forceReload) {
     Say '5/6 重载后端（编译 + 重启）'
@@ -466,7 +474,9 @@ XURI_SRC="@REPO@" bash scripts/nas/live-reload.sh
 }
 
 # ---------------------------------------------------------------- 6. 前端 + 冒烟
-if ($clientChanged) {
+if (-not ($clientSourceChanged -or $depsReinstalling)) {
+    Write-Host "`n──── 6/6 前端源码无变化且依赖未变，不需要重建产物 ────"
+} else {
     # 判定「前端就绪」不能只看「首页 200 + JS 可取」：那是部署前就已经成立的状态。
     # web-watch 还没重建完时也会立刻满足，脚本报成功、用户看到的却是旧界面
     # （2026-11-17 实测：改完文案部署，脚本报 READY，首页 hash 还是上一次的）。
