@@ -304,7 +304,7 @@ export function AdminHome() {
             tone="orange"
             loading={overview.loading}
             error={overview.error}
-            hint={`已发布 ${fmtInt(projects?.published)} 份 · 共 ${fmtInt(projects?.total)} 个项目`}
+            hint={`已发布 ${fmtInt(projects?.published)} 份 · 共 ${fmtInt(projects?.total)} 个项目（未设时间窗的按长期开放计）`}
             onClick={() => navigate('/teaching?tab=exam')}
             title="去教学管理"
           />

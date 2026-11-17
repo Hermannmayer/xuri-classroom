@@ -387,8 +387,11 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 				() -> answerMapper.selectCount(formalAnswers().ge("create_at", daysAgo(RECENT_DAYS)))));
 		answers.setLast30d(safeCount("answers.last30d",
 				() -> answerMapper.selectCount(formalAnswers().ge("create_at", daysAgo(MONTH_DAYS)))));
-		answers.setGraded(safeCount("answers.graded",
-				() -> answerMapper.selectCount(formalAnswers().eq("grade_status", GRADE_GRADED))));
+		// 已批改：显式 graded，或者「系统自动判分」的老数据（grade_status 为空但已有分数）。
+		// 只认 grade_status='graded' 会把 2.2.1 之前的历史答卷全算成「未批改」，首页批改进度永远 0%。
+		answers.setGraded(safeCount("answers.graded", () -> answerMapper.selectCount(formalAnswers()
+				.and(w -> w.eq("grade_status", GRADE_GRADED)
+						.or(x -> x.isNull("grade_status").isNotNull("exam_score"))))));
 		answers.setPending(safeCount("answers.pending",
 				() -> answerMapper.selectCount(formalAnswers().eq("grade_status", GRADE_PENDING))));
 	}
@@ -453,7 +456,9 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		Map<String, Map<String, Object>> byDay = new HashMap<>();
 		List<Map<String, Object>> rows = safe("trend", () -> answerMapper.selectMaps(formalAnswers()
 				.select("DATE(create_at) AS stat_day", "COUNT(*) AS cnt",
-						"SUM(CASE WHEN grade_status = '" + GRADE_GRADED + "' THEN 1 ELSE 0 END) AS graded_cnt",
+						// 与 overview 的 graded 同一口径：显式 graded + 自动判分（有分数但没标记）
+				"SUM(CASE WHEN grade_status = '" + GRADE_GRADED
+						+ "' OR (grade_status IS NULL AND exam_score IS NOT NULL) THEN 1 ELSE 0 END) AS graded_cnt",
 						"AVG(exam_score) AS avg_score", "COUNT(DISTINCT create_by) AS active_cnt")
 				.ge("create_at", since).groupBy("DATE(create_at)")), Collections.emptyList());
 		for (Map<String, Object> row : rows) {
