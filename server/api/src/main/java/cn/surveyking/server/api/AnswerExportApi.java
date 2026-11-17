@@ -4,6 +4,7 @@ import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.uitls.HTTPUtils;
 import cn.surveyking.server.domain.dto.DownloadQuery;
+import cn.surveyking.server.impl.AnswerAccessGuard;
 import cn.surveyking.server.service.AnswerPdfJobService;
 import cn.surveyking.server.service.ClassService;
 import cn.surveyking.server.service.ExportGuardService;
@@ -41,7 +42,11 @@ import java.util.Map;
  * 权限：
  * <ul>
  * <li>三个接口都要求 {@code answer:export}；</li>
- * <li>创建任务和取文件都要 {@code ClassService#assertVisible(String)}：老师只能导出自己看得见的班；</li>
+ * <li>选了班级（导出范围收窄到某个班）→ {@code ClassService#assertVisible(String)}：
+ * 老师只能导出自己看得见的班；</li>
+ * <li>不选班级（整卷 / 勾选若干份 / 只按时间范围）→ 没有班级可查，改走项目级闸门
+ * {@code AnswerAccessGuard#assertProjectAccess(String)}：项目所有者、协作者（含组授权）与管理员；
+ * 学员即使拿到 {@code answer:export} 也导不走整场答卷；</li>
  * <li>导出密码沿用 {@code ExportGuardService}：优先一次性 token（{@code /api/answer/export/token}），
  * 兼容旧的 {@code exportPassword} 参数；没配置密码时直接放行；</li>
  * <li>任务只能被发起人（或管理员）查看/下载/取消。</li>
@@ -59,6 +64,15 @@ public class AnswerExportApi {
 	private final ClassService classService;
 
 	/**
+	 * 项目级闸门（项目所有者 / 协作者 / 管理员）。
+	 *
+	 * <p>不选班级的整卷导出没有 classId 可以查，只能落到「能不能看这个项目的全部答卷」上；
+	 * 口径与 {@code AnswerServiceImpl#listAnswer} 的 {@code canManageProject} 完全一致，
+	 * 否则会出现「列表看不到、导出却能导」的越权缺口。
+	 */
+	private final AnswerAccessGuard answerAccessGuard;
+
+	/**
 	 * PDF 任务（内存任务表 + 线程池 + ZIP 产物）。
 	 *
 	 * <p>
@@ -70,12 +84,17 @@ public class AnswerExportApi {
 	private final AnswerPdfJobService answerPdfJobService;
 
 	/**
-	 * 创建「按班导出答卷 PDF」任务。
+	 * 创建「导出答卷 PDF」任务（按班 / 整卷 / 勾选若干份都走这里）。
 	 *
 	 * <p>
 	 * 返回 {@code {jobId}} 后前端每 2 秒轮询 {@code GET /pdf-job/{id}} 拿进度，完成后再走
 	 * {@code GET /pdf-job/{id}/file} 下载 ZIP。任务创建是瞬间返回的，不会因为几十份答卷把 HTTP 请求拖住。
-	 * @param query 导出范围：projectId、classId 必填；attemptNo / startTime / endTime 可选；
+	 *
+	 * <p>
+	 * 导出范围由三个可选条件组合而成：{@code classId}（按班）、{@code ids}（勾选若干份）、
+	 * {@code startTime/endTime}（时间段）。三者都可以不传，那就是整场考试；
+	 * {@code ids} 传空数组与不传等价（都表示「不限」，不是「一份都不要」）。
+	 * @param query 导出范围：projectId 必填；classId / ids / startTime / endTime / attemptNo 可选；
 	 * includeAnalysis（默认关，考试没结束放解析等于泄题）、includeImages 可选
 	 * @param exportToken 一次性导出令牌（优先）
 	 * @param exportPassword 导出密码（兼容旧调用）
@@ -88,11 +107,19 @@ public class AnswerExportApi {
 			@RequestParam(value = "exportPassword", required = false) String exportPassword) {
 		// 先过导出密码：没有密码的人连渲染任务都不该建（渲染同样吃 CPU）
 		assertExportAllowed(exportToken, exportPassword);
-		if (query == null || !StringUtils.hasText(query.getClassId())) {
-			throw new ValidationException("按班级导出 PDF 需要班级 id");
+		// projectId 是范围的地基：没有它既查不了项目、也没法做项目级权限判定
+		if (query == null || !StringUtils.hasText(query.getProjectId())) {
+			throw new ValidationException("导出答卷 PDF 需要项目 id");
 		}
-		// 班级可见性：学员即使有 answer:export，也只能导自己可见的班
-		classService.assertVisible(query.getClassId());
+		if (StringUtils.hasText(query.getClassId())) {
+			// 班级可见性：学员即使有 answer:export，也只能导自己可见的班
+			classService.assertVisible(query.getClassId());
+		}
+		else {
+			// 不选班级 = 整卷（可能再叠加 ids / 时间范围）：没有班级可校验，必须过项目级权限，
+			// 否则任何持 answer:export 的学员都能把整场答卷打包带走
+			answerAccessGuard.assertProjectAccess(query.getProjectId());
+		}
 		String jobId = answerPdfJobService.createJob(query);
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("jobId", jobId);

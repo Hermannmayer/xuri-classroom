@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
 ---
 
 # 答卷、判分与报表
@@ -188,7 +188,8 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 5. **判分口径**：`AnswerScoreEvaluator` 按每题的 `attribute.examAnswerMode` 选 evaluator：`onlyOne`（唯一正确项且只选一个）、`selectAll`（全对才得分）、`selectCorrect`（选择类选错整题 0 分，填空类按正确项累加）、`select`（按选中项分值累加）。`manual` / `none` 没有 evaluator，按 0 分或人工处理；自动判分只覆盖 `examType()` 的 7 种题型。结果写 `exam_score` 与 `exam_info.questionScore`。
 6. **成绩单**：`/s/:id/exam-result/:answerId` 调 `POST /api/public/loadExamResult`。只有 `submittedSetting.answerAnalysis=true` 且考试已结束（`examFinished`）才返回答案/schema/examInfo；`transcriptVisible` 控制总分，`rankVisible` 控制排名。随机卷快照若已剥掉正确答案，会回退项目 schema 渲染解析。匿名答卷没有 `create_by`，成绩单页靠提交成功后写入的 `rd_result_<projectId>` cookie 通过 `AnswerLookup` 归属校验。
 7. **数据页**：`/survey/:id/data`（`answer:list`）用 `pageSize=-1` 拉全量，前端筛选/排序/分页。列由项目 schema 的 `flattenSchema(...).filter(isDataQuestion)` 生成；单元格文本由 `data/format.ts` 统一格式化。补录走 `POST /api/answer/create`，编辑走 `POST /api/answer/update`，删除走 `/delete`（进回收站）。管理端默认 `includeAnonymous=true`，页面有「含匿名/仅实名」开关；匿名行显示「匿名」标签。
-8. **导出**：先 `POST /api/repo/export/token { exportPassword }`（数据页）或 `POST /api/answer/export/token`（班级答卷抽屉）换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`（按班再加 `classId`）。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。`DownloadQuery.includeAnonymous` 不传时默认包含匿名（数据页按开关传），导出「提交人」列对匿名答卷写「匿名」。
+8. **导出**：先 `POST /api/repo/export/token { exportPassword }`（数据页）或 `POST /api/answer/export/token`（班级答卷抽屉 / 数据页 PDF）换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`（按班再加 `classId`，勾选导出加 `ids`）。
+   **PDF ZIP** 走 `POST /api/answer/export/pdf-job`：`classId` 可空（空 = 整卷或按 `ids`/时间范围），不选班级时改为校验项目级权限。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。`DownloadQuery.includeAnonymous` 不传时默认包含匿名（数据页按开关传），导出「提交人」列对匿名答卷写「匿名」。
 9. **报表**：`GET /api/report/{shortId}`（`project:report` + `@EnableDataPerm`）。`ReportServiceImpl.getData` 按 `project_id` 取答卷，递归统计选项/数值，再算每日答卷数；`includeAnonymous=true` 时匿名答卷计入（管理端 UI 默认 true，API 默认 false 兼容旧调用）。前端用项目 schema 或最新答卷快照渲染每题区块。
 10. **回收站**：`POST /api/answer/delete` 只把 `is_deleted` 置 1；`GET /api/answer/trash` 查已删；`/restore` 恢复（`answer:restore` 或 admin），`/destroy` 物理删除（`answer:delete`）。`listAnswer` 默认过滤逻辑删除，回收站列表用 Mapper 的 `selectLogicDeleted`。
 
@@ -203,6 +204,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ### 按班查看与导出（P4）
 
 1. 查询字段：`AnswerQuery.classId` / `DownloadQuery.classId`（`t_answer.class_id`，答题时所在班级）。普通 `GET /api/answer/list` 传 `classId` 时只在原有项目数据范围内再过滤班级；不改变 `listAnswer` 的行级范围。
+   `AnswerQuery` 另支持 `createByName`（姓名模糊，命中 `answerer_name` 快照或用户表姓名）、`minScore`/`maxScore`（`exam_score` 闭区间）、`gradeStatus`、`startTime`/`endTime`——数据页的过滤条就是这套参数，`pageSize=-1` 时一次拉全量在前端翻页。
 2. 按班报表：`AnswerService#listAnswerByClass` 必须同时有 `projectId + classId`；它**不套** `canManageProject`、也不加 `create_by=当前用户`，返回该班全部已提交答卷，并批量回填 `AnswerView.createByName`。可见性由调用方 `ClassService#assertVisible` 负责。
 3. 接口：`GET /api/teaching/classes/answers?projectId=&deptId=&current=&pageSize=`（`project:report` 或 admin + `assertVisible`），返回 `PaginationResponse<AnswerView>`；`deptId` 是班级 id。
 4. 按班导出：`AnswerService#downloadByClass` 只导出该班 `class_id` 命中的答卷，走真源 JSON（不做 `t_answer_item` 投影优化）；只支持 `type=answer`，附件按班导出会报「按班级导出暂只支持答卷」。
@@ -247,8 +249,12 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ### 答卷 PDF 导出（2.2.1）
 
 班级答卷抽屉里除了 Excel 明细，还能导出 PDF：每人一份「答卷归档」（题目 + 作答 + 得分 + 可选解析 + 签名/上传图），整体打成一个 ZIP。
+数据页（`/survey/:id/data`）也有同一个入口：勾选若干份就只导这几份，不勾选就按当前筛选（班级 / 时间 / 状态 / 分数段）导。
 
-- 接口：`POST /api/answer/export/pdf-job` 建任务 → `GET /{id}` 2 秒轮询进度（没有 SSE/WebSocket，只能轮询）→ `GET /{id}/file` 下载 → `DELETE /{id}` 取消；权限 `answer:export` + 一次性导出 token + `classService.assertVisible`。
+- 接口：`POST /api/answer/export/pdf-job` 建任务 → `GET /{id}` 2 秒轮询进度（没有 SSE/WebSocket，只能轮询）→ `GET /{id}/file` 下载 → `DELETE /{id}` 取消；权限 `answer:export` + 一次性导出 token。
+- **范围**（2026-11 起）：`classId` 可空，支持 `ids`（勾选导出）与 `startTime/endTime`（时间段）任意组合；
+  `classId` 有值仍走 `classService.assertVisible`，为空改走 `AnswerAccessGuard#assertProjectAccess`（管理员 / 项目所有者 / 协作者），
+  **不能**退化成「班级可见即可导整卷」——否则学员凭一次指派就能打包整场答卷。`ids` 不传 = 不限（整卷）。
 - 异步而不是同步：50 份 × 100 题在 4 核机器上要 25~50 秒，同步会撞反代 60 秒超时。
 - **并发**跟系统设置 `answerPdfConcurrency`（1~2，默认 1，`mergeSysInfo` 里夹紧）；队列 2，满了返回中文提示。每份之间 `sleep 30ms` 主动让 CPU 给答题页。
 - **考试期间暂停**：`pauseAnswerPdfDuringExam`（默认开）时检测到有活跃考试就拒绝建任务并给出明确提示；Excel 明细不受影响。
@@ -360,6 +366,8 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 - **按班导出只支持答卷**：`downloadByClass` 对 `type != answer` 报「按班级导出暂只支持答卷」；附件按班导出未实现。且它走真源 JSON，不做 `t_answer_item` 投影优化。
 - **班级答卷抽屉没有导出密码输入**：`downloadClassAnswers` 调 `/api/answer/export/token` 时传空 body；系统配置导出密码后会失败，需补密码输入或改走无密码场景。
 - **通用导出仍走旧 token 端点**：数据页 `Data.tsx` 仍调 `/api/repo/export/token`，班级抽屉才用新 `/api/answer/export/token`；两者共用 `ExportGuardService`，行为一致但调用路径尚未统一。
+- **分页查询的时间参数必须带 `@DateTimeFormat`**：`AnswerQuery.startTime/endTime` 是 `java.util.Date`，前端传 `yyyy-MM-dd HH:mm:ss`；少了注解 Spring 会按默认格式解析失败，**整个列表接口 400**（2026-11 补过这一处，新增时间参数照抄）。
+- **导出口径必须跟筛选条一致**：`DownloadQuery` 现在也有 `gradeStatus / createByName / minScore / maxScore`，`downloadSurvey` 与 `downloadByClass` 都要把它们透传进 `AnswerQuery`；漏一个就会出现「页面筛了 60 分以下、Excel 导出一整场」。
 - **`AnswerQuery.classId` ≠ 按班报表**：普通 `GET /api/answer/list?classId=` 仍在原项目数据范围内过滤；只有 `listAnswerByClass` 才按班级放开到「本班全部」。
 - **`tempSave=0` 的草稿不在列表里**：`listAnswer` 有 `isNotNull(Answer::getAnswer)`，未提交/仅暂存的记录不会出现在数据页；不要用答卷列表判断"有没有人打开过"。
 - **`answer:attach` 没有接到接口**：答题页附件走公开 `POST /api/public/upload`，管理侧导入走 `answer:upload`；权限目录里的 `answer:attach` 目前只是注释约定，改附件权限时要一起确认。

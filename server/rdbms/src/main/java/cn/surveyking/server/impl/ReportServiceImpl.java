@@ -31,15 +31,23 @@ public class ReportServiceImpl implements ReportService {
 
 	@Override
 	public ReportData getData(String shortId, boolean includeAnonymous) {
-		return getData(shortId, includeAnonymous, null);
+		return getData(shortId, includeAnonymous, null, null, null);
 	}
 
 	@Override
 	public ReportData getData(String shortId, boolean includeAnonymous, String classId) {
+		return getData(shortId, includeAnonymous, classId, null, null);
+	}
+
+	@Override
+	public ReportData getData(String shortId, boolean includeAnonymous, String classId, Date startTime, Date endTime) {
 		List<Answer> answerList = answerMapper.selectList(
 				Wrappers.<Answer>lambdaQuery().select(Answer::getAnswer, Answer::getCreateAt, Answer::getProjectId)
 						.eq(Answer::getProjectId, shortId).eq(!includeAnonymous, Answer::getIsAnonymous, false)
 						.eq(org.springframework.util.StringUtils.hasText(classId), Answer::getClassId, classId)
+						// 时间范围（含边界）：统计与 dailyCountStat 都基于这份列表，过滤一次两处同时生效
+						.ge(startTime != null, Answer::getCreateAt, startTime)
+						.le(endTime != null, Answer::getCreateAt, endTime)
 						.orderByAsc(Answer::getCreateAt));
 		ReportData result = new ReportData();
 		result.setTotal(answerList.size());

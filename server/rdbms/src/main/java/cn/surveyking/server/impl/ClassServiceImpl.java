@@ -17,9 +17,11 @@ import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
 import cn.surveyking.server.domain.dto.StudentClassAssignRequest;
 import cn.surveyking.server.domain.dto.SystemInfo;
+import cn.surveyking.server.domain.dto.UnsubmittedStudentView;
 import cn.surveyking.server.domain.dto.UserOptionView;
 import cn.surveyking.server.domain.dto.UserRequest;
 import cn.surveyking.server.domain.model.Account;
+import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.domain.model.ClassPartner;
 import cn.surveyking.server.domain.model.Dept;
 import cn.surveyking.server.domain.model.DeptRole;
@@ -28,6 +30,7 @@ import cn.surveyking.server.domain.model.User;
 import cn.surveyking.server.domain.model.UserDept;
 import cn.surveyking.server.domain.model.UserRole;
 import cn.surveyking.server.mapper.AccountMapper;
+import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ClassPartnerMapper;
 import cn.surveyking.server.mapper.DeptMapper;
 import cn.surveyking.server.mapper.DeptRoleMapper;
@@ -94,6 +97,9 @@ public class ClassServiceImpl implements ClassService {
 	/** 只有查看权限时的统一提示（assertClassManage 抛出） */
 	private static final String MANAGE_DENIED_MESSAGE = "你对该班级只有查看权限，不能修改";
 
+	/** 未交卷名单的硬上限：班级一般几十人，不分页；上限只防「误把整届学员挂进一个班」撑爆响应 */
+	private static final int UNSUBMITTED_LIMIT = 500;
+
 	private final DeptMapper deptMapper;
 
 	private final DeptRoleMapper deptRoleMapper;
@@ -121,6 +127,12 @@ public class ClassServiceImpl implements ClassService {
 	private final UserDeptMembershipService userDeptMembershipService;
 
 	private final ClassStudentImportService classStudentImportService;
+
+	/** 未交卷名单要按 create_by 反查答卷（只读，不写答卷表） */
+	private final AnswerMapper answerMapper;
+
+	/** 项目可读闸门：管理员 / 项目所有者 / 协作者；与「答卷列表」「报表」同一套口径 */
+	private final AnswerAccessGuard answerAccessGuard;
 
 	@Override
 	public List<ClassNodeView> listClassTree(String keyword) {
@@ -234,13 +246,7 @@ public class ClassServiceImpl implements ClassService {
 	public List<ClassMemberView> listClassMembers(String deptId) {
 		Dept dept = assertClassVisible(deptId);
 		assertTeachingClass(deptId);
-		List<User> users = userMapper.selectList(Wrappers.<User>lambdaQuery()
-				// 班级成员只列学员；老师/管理员在「用户管理」里，不混进班级名单
-				.eq(User::getUserType, "student")
-				.and(w -> w.eq(User::getDeptId, deptId).or()
-						.apply("EXISTS (SELECT 1 FROM t_user_dept ud WHERE ud.user_id = t_user.id AND ud.dept_id = {0} AND ud.is_deleted = 0)",
-								deptId))
-				.orderByDesc(User::getCreateAt));
+		List<User> users = userMapper.selectList(classStudentQuery(deptId).orderByDesc(User::getCreateAt));
 		if (users.isEmpty()) {
 			return Collections.emptyList();
 		}
@@ -269,6 +275,79 @@ public class ClassServiceImpl implements ClassService {
 		return views;
 	}
 
+	/**
+	 * 未交卷名单（班级管理 → 答卷管理 / 查看数据）。
+	 *
+	 * <p>交卷口径只看 {@code t_answer.create_by}：名单是按「人」算的，一名学员可能换过班、走过兼报班的
+	 * 专属链接、补考过多次，按 {@code t_answer.class_id} 过滤都会算错 —— 换班前的卷留在原班，从新班看
+	 * 就被误判成没交；兼报班只有一份卷，按 class_id 也只会算到其中一个班。所以成员一侧取主组 + 兼报组，
+	 * 答卷一侧只认人。
+	 *
+	 * <p>权限：班级可见（与成员名单同一道闸）+ 项目可读；只读接口，不做写校验。
+	 */
+	@Override
+	public UnsubmittedStudentView listUnsubmittedStudents(String projectId, String deptId) {
+		if (!StringUtils.hasText(projectId)) {
+			throw new ValidationException("缺少项目 id");
+		}
+		if (!StringUtils.hasText(deptId)) {
+			throw new ValidationException("缺少班级 id");
+		}
+		assertClassVisible(deptId);
+		// 容器班不直接收学员，名单恒为空：按成员列表的口径直接拒绝，免得老师以为「全班都交了」
+		assertTeachingClass(deptId);
+		answerAccessGuard.assertProjectAccess(projectId);
+
+		List<User> students = userMapper.selectList(classStudentQuery(deptId).orderByAsc(User::getName));
+		UnsubmittedStudentView result = new UnsubmittedStudentView();
+		result.setTotal(students.size());
+		result.setSubmitted(0);
+		result.setList(Collections.emptyList());
+		if (students.isEmpty()) {
+			return result;
+		}
+
+		// 只取 create_by 一列：答案正文可能有几百 KB，名单界面用不到
+		Set<String> submittedUserIds = answerMapper
+				.selectList(Wrappers.<Answer>lambdaQuery().select(Answer::getCreateBy)
+						.eq(Answer::getProjectId, projectId)
+						// 正式答卷才叫交卷：temp_save=0 是暂存草稿，不能算已交
+						.eq(Answer::getTempSave, 1))
+				.stream().map(Answer::getCreateBy).filter(StringUtils::hasText).collect(Collectors.toSet());
+
+		List<UnsubmittedStudentView.Student> unsubmitted = new ArrayList<>();
+		int submitted = 0;
+		for (User student : students) {
+			if (submittedUserIds.contains(student.getId())) {
+				submitted += 1;
+				continue;
+			}
+			UnsubmittedStudentView.Student row = new UnsubmittedStudentView.Student();
+			row.setId(student.getId());
+			row.setName(student.getName());
+			row.setPhone(student.getPhone());
+			unsubmitted.add(row);
+		}
+		result.setSubmitted(submitted);
+		// 班级一般几十人：不分页；超过上限时给排在前面的 N 个，total / submitted 仍是全体口径
+		result.setList(unsubmitted.size() > UNSUBMITTED_LIMIT
+				? new ArrayList<>(unsubmitted.subList(0, UNSUBMITTED_LIMIT)) : unsubmitted);
+		return result;
+	}
+
+	/**
+	 * 班级成员口径：主组（t_user.dept_id）或兼报组（t_user_dept）里的学员。
+	 *
+	 * <p>成员名单与未交卷名单共用这一条：两边各写一份 JOIN 条件，早晚会漂移成两种口径。
+	 */
+	private LambdaQueryWrapper<User> classStudentQuery(String deptId) {
+		return Wrappers.<User>lambdaQuery()
+				// 班级成员只列学员；老师/管理员在「用户管理」里，不混进班级名单
+				.eq(User::getUserType, "student")
+				.and(w -> w.eq(User::getDeptId, deptId).or()
+						.apply("EXISTS (SELECT 1 FROM t_user_dept ud WHERE ud.user_id = t_user.id AND ud.dept_id = {0} AND ud.is_deleted = 0)",
+								deptId));
+	}
 
 	@Override
 	public List<ClassMemberView> listPendingStudents() {

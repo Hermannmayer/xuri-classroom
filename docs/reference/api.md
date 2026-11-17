@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 245 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 246 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -202,6 +202,7 @@
 | GET | `${api.prefix}/teaching/projects` | `TeachingApi#myProjects` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes` | `TeachingApi#classes` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/answers` | `TeachingApi#classAnswers` | `hasAuthority('project:report') or hasRole('admin')` | — |
+| GET | `${api.prefix}/teaching/classes/unsubmitted` | `TeachingApi#unsubmittedStudents` | `hasAuthority('class:detail') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes/tree` | `TeachingApi#classTree` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/create` | `TeachingApi#createClass` | `hasAuthority('class:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/teaching/classes/update` | `TeachingApi#updateClass` | `hasAuthority('class:list') or hasRole('admin')` | — |

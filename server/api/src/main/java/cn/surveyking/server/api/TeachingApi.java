@@ -28,6 +28,7 @@ import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
 import cn.surveyking.server.domain.dto.StudentClassAssignRequest;
 import cn.surveyking.server.domain.dto.TeachingClassView;
 import cn.surveyking.server.domain.dto.TeachingProjectView;
+import cn.surveyking.server.domain.dto.UnsubmittedStudentView;
 import cn.surveyking.server.domain.dto.UserOptionView;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.ClassResourceService;
@@ -106,6 +107,19 @@ public class TeachingApi {
 		query.setPageSize(pageSize);
 		// 班级可见即可看本班全部：走 listAnswerByClass（不再套「非协作者只看自己」的行级过滤）
 		return answerService.listAnswerByClass(query);
+	}
+
+	/**
+	 * 未交卷名单：这个班在某场考试里还有谁没交（班级管理 → 答卷管理 / 查看数据）。
+	 *
+	 * <p>注解只做粗筛（有没有班级视角的权限），服务层再校验「班级可见 + 项目可读」。
+	 * 交卷口径按 create_by 而不是 t_answer.class_id，理由见
+	 * {@link ClassService#listUnsubmittedStudents(String, String)} 的注释。
+	 */
+	@GetMapping("/classes/unsubmitted")
+	@PreAuthorize("hasAuthority('class:detail') or hasRole('admin')")
+	public UnsubmittedStudentView unsubmittedStudents(@RequestParam String projectId, @RequestParam String deptId) {
+		return classService.listUnsubmittedStudents(projectId, deptId);
 	}
 
 	/* ------ 班级管理 */

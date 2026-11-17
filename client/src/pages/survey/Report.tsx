@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, Empty, Input, Spin, Table, Tag, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Empty, Input, Select, Spin, Table, Tag, message } from 'antd';
 import { ReadOutlined, ReloadOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import { useParams, useSearchParams } from 'react-router-dom';
+import dayjs, { type Dayjs } from 'dayjs';
 import BackButton from '../../components/BackButton';
 import { get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -13,6 +14,94 @@ import { flattenSchema } from '../../schema/flatten';
 import { isDataQuestion } from './data/format';
 import QuestionBlock, { Bar } from './report/QuestionBlock';
 import AiPracticeRecommendDrawer from './ai/AiPracticeRecommendDrawer';
+
+const { RangePicker } = DatePicker;
+
+/**
+ * 报表与答卷列表共用的时间口径（后端契约固定）：yyyy-MM-dd HH:mm:ss。
+ *
+ * <p>控件显示也按这个格式走：如果控件只到分钟、请求却发到秒，老师看到的「10:00 ~ 11:00」
+ * 和实际查出来的区间会差一分钟，报表总数与答卷列表对不上时很难自证。
+ */
+const TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
+
+/** 与后端 ClassNodeView 对齐：班级下拉只用到这几项 */
+interface ClassNode {
+  id: string;
+  name?: string;
+  /** false = 后端为了让树有层级补出来的祖先（不是真班级），选它必然 403 */
+  accessible?: boolean;
+  /** group 是分组而不是班级，拿它统计答卷永远是 0 */
+  classKind?: 'group' | 'teaching';
+  children?: ClassNode[];
+}
+
+interface ClassOption {
+  value: string;
+  /** 下拉里显示的文案：多级班级带上级路径，避免两个「1 班」分不清 */
+  label: string;
+  /** 写进 URL 的班级名：只存本班名字，页头才不用顶着一串路径 */
+  name: string;
+}
+
+/**
+ * 班级下拉候选：只列「可访问的叶子班」。
+ *
+ * <p>要滤掉三类节点：
+ * - accessible=false：后端为撑出树路径补的祖先节点，不是真班级；
+ * - classKind=group：分组，不是能收答卷的班级；
+ * - 还有可选下级的节点：它是「年级」这种父级，真正能统计的是下面的班。
+ * 父节点不可选但子节点可选时把子节点提上来，不要整棵剪掉——否则有分组的树会一个班都选不到。
+ */
+function flattenClassLeaves(nodes: ClassNode[], path: string[] = []): ClassOption[] {
+  const options: ClassOption[] = [];
+  for (const node of nodes) {
+    const name = node.name || node.id;
+    const children = flattenClassLeaves(node.children ?? [], [...path, name]);
+    if (children.length > 0) {
+      options.push(...children);
+      continue;
+    }
+    if (node.accessible === false || node.classKind === 'group') continue;
+    options.push({ value: node.id, label: path.length > 0 ? `${path.join(' / ')} / ${name}` : name, name });
+  }
+  return options;
+}
+
+/**
+ * URL 里的时间串 → Dayjs。
+ *
+ * <p>契约格式是 yyyy-MM-dd HH:mm:ss，但手改的链接 / 老书签可能带 'T' 或省掉秒，
+ * 这里按数字段手工构造：不依赖 dayjs 的 customParseFormat 插件（少注册一个插件，
+ * 也避开 Safari 对「空格分隔」的 Date 解析差异）。解不出来一律当「没传」，
+ * 否则 RangePicker 会显示 Invalid Date。
+ */
+function parseTime(raw?: string | null): Dayjs | undefined {
+  const text = raw?.trim();
+  if (!text) return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(text);
+  if (!match) {
+    const fallback = dayjs(text);
+    return fallback.isValid() ? fallback : undefined;
+  }
+  const [, year, month, day, hour, minute, second] = match;
+  const parsed = dayjs(
+    new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour ?? 0),
+      Number(minute ?? 0),
+      Number(second ?? 0),
+    ),
+  );
+  return parsed.isValid() ? parsed : undefined;
+}
+
+/** 页头口径里的时间：秒位是 0 就省掉，免得标题被一长串 :00 撑开 */
+function formatTimeText(value: string): string {
+  return value.endsWith(':00') ? value.slice(0, 16) : value;
+}
 
 interface ReportStat {
   min?: number;
@@ -77,10 +166,66 @@ export default function SurveyReport() {
   const [searchParams, setSearchParams] = useSearchParams();
   const classId = searchParams.get('classId') || undefined;
   const className = searchParams.get('className') || undefined;
+
+  /**
+   * 时间范围从 URL 解析（URL 是唯一真源）：刷新页面、把链接发给同事都保持同一口径。
+   *
+   * <p>解析结果同时喂给 RangePicker 的值和请求参数，避免「控件显示 A、请求里发 B」；
+   * 非法值按「没传」处理，不让一个手改坏了的链接把整个页面变成 Invalid Date。
+   */
+  const timeRange = useMemo<[Dayjs | null, Dayjs | null] | null>(() => {
+    const start = parseTime(searchParams.get('startTime'));
+    const end = parseTime(searchParams.get('endTime'));
+    return start || end ? [start ?? null, end ?? null] : null;
+  }, [searchParams]);
+  const startTime = timeRange?.[0]?.format(TIME_FORMAT);
+  const endTime = timeRange?.[1]?.format(TIME_FORMAT);
+  const hasTimeFilter = Boolean(startTime || endTime);
+  const hasFilter = Boolean(classId || hasTimeFilter);
+
   const [report, setReport] = useState<ReportData>();
   const [answers, setAnswers] = useState<Answer[]>([]);
+  /**
+   * 问卷结构（题目清单）来自项目本身，不能只靠答卷快照。
+   *
+   * <p>线上答卷的 `survey` 字段普遍是 NULL（只有部分导入/历史数据带快照），
+   * 之前页面取 `answers[0].survey`，结果「题目区块 0 题、按题统计全空」——
+   * 报表最核心的那半页其实是残的。这里改成优先读项目结构，快照只做兜底。
+   */
+  const [projectSurvey, setProjectSurvey] = useState<SurveySchema>();
+  useEffect(() => {
+    let alive = true;
+    // 只取结构：api 层的 ProjectView 类型没跟后端对齐（缺 survey），这里按需要的形状收窄
+    void get<{ survey?: SurveySchema }>('/api/project', { id })
+      .then((project) => {
+        if (alive) setProjectSurvey(project?.survey);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [id]);
   const [loading, setLoading] = useState(true);
+  /**
+   * 当前这份数据是按哪套筛选条件拉的。筛选一变就整块显示加载中，
+   * 不让上一套条件的数字先闪一下（换到 A 班却先看到 B 班的数，比空白更糟）。
+   */
+  const [loadedKey, setLoadedKey] = useState('');
+  const reqSeq = useRef(0);
+  /**
+   * 答卷列表读取失败的原因。
+   *
+   * <p>必须和「这个口径下确实没有答卷」分开：请求挂了却显示「当前筛选下没有答卷」，
+   * 老师会以为筛选条件错了（或者班真的没交），而实际是接口出了问题。
+   */
+  const [listError, setListError] = useState<string>();
   const [search, setSearch] = useState('');
+
+  /** 班级下拉候选：只有拿到 class:list（或管理员）才去拉树，没权限时连下拉都不渲染 */
+  const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
+  const [classLoading, setClassLoading] = useState(false);
+  const [classError, setClassError] = useState<string>();
+
   /** AI 学情总结（计划 §6.3 ④）：只吃统计数字，不发送学员原始答卷 */
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -94,40 +239,64 @@ export default function SurveyReport() {
   /** 错题重练抽屉：除了点按钮，从 AI 侧栏带 ?ai=recommend 进来也要自动展开 */
   const [recommendOpen, setRecommendOpen] = useState(false);
 
+  const filterKey = `${id}|${classId ?? ''}|${startTime ?? ''}|${endTime ?? ''}`;
+  /** 数据与当前筛选是否对得上；对不上就显示加载骨架，而不是旧数字 */
+  const ready = loadedKey === filterKey;
+
+  /**
+   * 拉数：报表与答卷列表必须同一口径，否则「总览/按题统计」和「答卷份数」会互相打架。
+   *
+   * <p>两个请求各自降级（报表挂了还能看答卷、反之亦然）。报表失败只弹一条提示（它没有专属卡片），
+   * 答卷列表失败则常驻显示在内容区——不能把「接口挂了」说成「这个口径没有答卷」。
+   * seq 闸门是关键：连改两次筛选时先发的请求可能后回，过期回包直接丢掉。
+   */
   const load = useCallback(async () => {
+    const seq = ++reqSeq.current;
+    const key = `${id}|${classId ?? ''}|${startTime ?? ''}|${endTime ?? ''}`;
     setLoading(true);
+    /** 报表这一次的失败原因：它没有专属卡片，只能弹提示 */
+    let reportFailure: string | undefined;
+    /** 答卷列表这一次的失败原因；成功时为 undefined（两者互不影响） */
+    let listFailure: string | undefined;
+    const scope = { classId, startTime, endTime, includeAnonymous: true };
     try {
-      const [r, list] = await Promise.all([
-        classId
-          ? get<ReportData>(`/api/report/class/${id}`, { classId, includeAnonymous: true }).catch(() => undefined)
-          : get<ReportData>(`/api/report/${id}`, { includeAnonymous: true }).catch(() => undefined),
-        classId
-          ? getWithPagination<Answer>('/api/teaching/classes/answers', {
-              projectId: id,
-              deptId: classId,
-              current: 1,
-              pageSize: 5000,
-            }).catch(() => ({ current: 1, pageSize: 0, total: 0, data: [] as Answer[] }))
-          : getWithPagination<Answer>('/api/answer/list', {
-              projectId: id,
-              current: 1,
-              pageSize: -1,
-              includeAnonymous: true,
-            }).catch(() => ({
-              current: 1,
-              pageSize: 0,
-              total: 0,
-              data: [] as Answer[],
-            })),
+      const [nextReport, page] = await Promise.all([
+        (classId ? get<ReportData>(`/api/report/class/${id}`, scope) : get<ReportData>(`/api/report/${id}`, scope)).catch(
+          (e: Error) => {
+            reportFailure = e.message || '读取报表失败';
+            return undefined;
+          },
+        ),
+        getWithPagination<Answer>('/api/answer/list', {
+          projectId: id,
+          classId,
+          startTime,
+          endTime,
+          includeAnonymous: true,
+          current: 1,
+          pageSize: -1,
+        }).catch((e: Error) => {
+          listFailure = e.message || '读取答卷列表失败';
+          return { current: 1, pageSize: 0, total: 0, data: [] as Answer[] };
+        }),
       ]);
-      setReport(r);
-      setAnswers(list.data);
+      if (seq !== reqSeq.current) return;
+      setReport(nextReport);
+      setAnswers(page.data);
+      // 只认这一次的失败：先前那次的错误不能挂在新结果上，也不能被「成功」顺手清掉
+      setListError(listFailure);
+      setLoadedKey(key);
+      // 列表失败已经在内容区里写明，这里只补报表那一条，避免同一件事弹两次
+      if (reportFailure) message.error(reportFailure);
     } catch (e) {
+      if (seq !== reqSeq.current) return;
+      // 兜底也要结束骨架：卡在加载中，还不如把「没有答卷」和错误原因一起给出来
+      setLoadedKey(key);
       message.error((e as Error).message);
     } finally {
-      setLoading(false);
+      if (seq === reqSeq.current) setLoading(false);
     }
-  }, [id, classId]);
+  }, [id, classId, startTime, endTime]);
 
   useEffect(() => {
     void load();
@@ -140,6 +309,98 @@ export default function SurveyReport() {
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
   // 追加进卷子走 /api/ai/paper/apply，后端还要 project:update；没有就只让预览，别给点了 403 的按钮
   const canUpdateProject = can(authorities, PERMISSION_CODES.projectUpdate);
+  // 班级树要 class:list（管理员走 ROLE_admin 兜底），与后端 @PreAuthorize 保持一致
+  const canListClasses = can(authorities, PERMISSION_CODES.classList);
+
+  /**
+   * 班级候选：树只在需要时拉一次。
+   *
+   * <p>宁可等权限回来再拉：没权限的账号直接请求只会拿到 403，把红字挂在筛选条上更吓人。
+   * 读失败时保留空下拉 + 一行说明，不挡住报表本体（报表并不依赖班级树）。
+   */
+  useEffect(() => {
+    if (!canListClasses) return;
+    let alive = true;
+    setClassLoading(true);
+    setClassError(undefined);
+    get<ClassNode[]>('/api/teaching/classes/tree')
+      .then((list) => {
+        if (alive) setClassOptions(flattenClassLeaves(Array.isArray(list) ? list : []));
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setClassOptions([]);
+        setClassError((e as Error).message || '读取班级列表失败');
+      })
+      .finally(() => {
+        if (alive) setClassLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [canListClasses]);
+
+  /**
+   * 下拉选项：链接里带的班级若不在树里（班级被删 / 只读授权 / 树没拉回来），补一条占位项。
+   *
+   * <p>不补的话 antd 会把 classId 原样显示在输入框里，老师看到一串 id 根本认不出是哪个班。
+   */
+  const classSelectOptions = useMemo<ClassOption[]>(() => {
+    if (!classId || classOptions.some((option) => option.value === classId)) return classOptions;
+    const label = className || classId;
+    return [{ value: classId, label, name: label }, ...classOptions];
+  }, [classOptions, classId, className]);
+
+  /**
+   * 只改筛选相关的四个键，其余参数（例如 AI 侧栏带进来的 ?ai=recommend）原样保留。
+   *
+   * <p>用 push 而不是 replace：连改两次条件后按「后退」能回到上一个口径，符合筛选器的直觉。
+   */
+  const applyQuery = useCallback(
+    (changes: Record<string, string | undefined>) => {
+      const next = new URLSearchParams(searchParams);
+      for (const [key, value] of Object.entries(changes)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  /**
+   * 选班级：classId 与 className 一起写、一起删。
+   *
+   * <p>className 只是给页头和 AI 抽屉做展示的冗余字段；只写 id 会让页头显示一串 id、
+   * 只写名字又会在换班后留下旧名字，所以两者必须同进同退。
+   */
+  const pickClass = useCallback(
+    (nextClassId?: string) => {
+      const option = classSelectOptions.find((item) => item.value === nextClassId);
+      applyQuery({
+        classId: nextClassId,
+        className: nextClassId ? (option?.name ?? className ?? nextClassId) : undefined,
+      });
+    },
+    [applyQuery, classSelectOptions, className],
+  );
+
+  /** 选时间：两端可能只填一侧（allowEmpty），因此各自独立写入 / 清除 */
+  const pickRange = useCallback(
+    (dates: [Dayjs | null, Dayjs | null] | null) => {
+      const [start, end] = dates ?? [];
+      applyQuery({
+        startTime: start ? start.format(TIME_FORMAT) : undefined,
+        endTime: end ? end.format(TIME_FORMAT) : undefined,
+      });
+    },
+    [applyQuery],
+  );
+
+  /** 清除筛选：只清这四个键，不动地址栏上的其它参数 */
+  const resetFilters = useCallback(() => {
+    applyQuery({ classId: undefined, className: undefined, startTime: undefined, endTime: undefined });
+  }, [applyQuery]);
 
   // ?ai=recommend 进来就自动展开（AI 侧栏的「错题重练」快捷入口就是这个地址）
   // 要等权限拉回来再判：没有 ai:use 的人不该看到这个抽屉（后端 @PreAuthorize 也是它）
@@ -151,7 +412,7 @@ export default function SurveyReport() {
    * 关闭抽屉：顺手把 ?ai= 抹掉。
    *
    * <p>用 replace 而不是 push —— 老师关掉之后按 F5 不该再弹一次；
-   * 只删 ai 这一个键，classId / className 这些筛选条件要留着。
+   * 只删 ai 这一个键，classId / className / startTime / endTime 这些筛选条件要留着。
    */
   const closeRecommend = useCallback(() => {
     setRecommendOpen(false);
@@ -176,6 +437,7 @@ export default function SurveyReport() {
    *
    * <p>请求体只带 projectId / classId，统计口径由后端自己取（计划 §6.3 ④，后端 `AiReportSummaryView`）：
    * 「只吃统计数字，不把学员原始答卷发给模型」——隐私与成本双赢。
+   * 也正因为后端不收时间参数，时间筛选不参与总结，卡片底部会写清楚这一点。
    * 失败在卡片里给原因 + 重试入口，不弹 toast（重试按钮就在卡片右上角）。
    * 按项目约定这类调用应收敛到 `client/src/api/ai.ts`，那边归 AI 出卷/改题在改，先就地调。
    */
@@ -202,8 +464,8 @@ export default function SurveyReport() {
     }
   }, [id, classId]);
 
-  /** 问卷结构取最新一份答卷的快照（没有答卷时报表就是空的） */
-  const survey = answers[0]?.survey as SurveySchema | undefined;
+  /** 问卷结构：优先项目当前结构，其次最新答卷的题目快照（老版本只写快照） */
+  const survey = projectSurvey ?? (answers[0]?.survey as SurveySchema | undefined);
   const questions = useMemo(
     () => (survey ? flattenSchema(survey).filter(isDataQuestion) : []),
     [survey],
@@ -288,23 +550,27 @@ export default function SurveyReport() {
     );
   }, [report, questions]);
 
-  if (loading) {
-    return (
-      <div style={{ padding: 60, textAlign: 'center' }}>
-        <Spin />
-      </div>
-    );
-  }
+  /** 页头口径：把「按谁统计」说全，老师截图给同事时不用另附一句说明 */
+  const totalAnswers = report?.total ?? answers.length;
+  const timeText =
+    startTime && endTime
+      ? `${formatTimeText(startTime)} ~ ${formatTimeText(endTime)}`
+      : startTime
+        ? `${formatTimeText(startTime)} 起`
+        : endTime
+          ? `截至 ${formatTimeText(endTime)}`
+          : '全部时间';
+  const scopeText = [classId ? `班级：${className || classId}` : '全部班级', `时间：${timeText}`].join(' · ');
 
   return (
     <div>
       {/* 工具条多了「AI 学情总结」一个按钮：窄屏时允许换行，不要横向溢出 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <BackButton label="返回" fallback={'/survey/' + id} style={{ paddingLeft: 0 }} />
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>REPORT / 分析</div>
           <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
-            {classId ? `班级数据 · ${className || classId} · ` : ''}共 {report?.total ?? answers.length} 份答卷 · {blocks.length} 题
+            {scopeText} · 共 {totalAnswers} 份答卷 · {blocks.length} 题
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -321,7 +587,7 @@ export default function SurveyReport() {
             icon={<RobotOutlined />}
             loading={aiLoading}
             disabled={answers.length === 0}
-            title={answers.length === 0 ? '还没有答卷，生成学情总结没有意义' : undefined}
+            title={answers.length === 0 ? '当前筛选下没有答卷，生成学情总结没有意义' : undefined}
             onClick={() => void generateSummary()}
           >
             AI 学情总结
@@ -332,7 +598,7 @@ export default function SurveyReport() {
           <Button
             icon={<ReadOutlined />}
             disabled={answers.length === 0}
-            title={answers.length === 0 ? '还没有答卷，算不出哪些考点最弱' : undefined}
+            title={answers.length === 0 ? '当前筛选下没有答卷，算不出哪些考点最弱' : undefined}
             onClick={() => setRecommendOpen(true)}
           >
             错题重练
@@ -343,173 +609,257 @@ export default function SurveyReport() {
         </Button>
       </div>
 
-      {answers.length === 0 ? (
-        <Card className="bp-corners bp-card">
-          <Empty description="还没有答卷，发布后收集到数据再看" />
-        </Card>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Card
-            className="bp-corners bp-card"
-            title={<span className="bp-title" style={{ fontSize: 12 }}>OVERVIEW / 答卷概览</span>}
-          >
-            <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12 }}>
-              <div><div style={{ color: 'var(--bp-text-soft)' }}>已开始</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.started}</div></div>
-              <div><div style={{ color: 'var(--bp-text-soft)' }}>已提交</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-blue)' }}>{overview.submitted}</div></div>
-              <div><div style={{ color: 'var(--bp-text-soft)' }}>完成率</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.completion.toFixed(1)}%</div></div>
-              <div><div style={{ color: 'var(--bp-text-soft)' }}>匿名答卷</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-orange)' }}>{overview.anonymous}</div></div>
-              <div><div style={{ color: 'var(--bp-text-soft)' }}>平均填写时长</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.averageDuration == null ? '—' : `${Math.round(overview.averageDuration / 1000)} 秒`}</div></div>
-            </div>
-          </Card>
+      {/*
+        筛选条：班级 + 时间范围。两者都写进 URL（刷新/分享保持同一口径），
+        任一变都会重拉报表与答卷列表——两个请求必须同参数，否则总览与按题统计对不上。
+      */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginBottom: 14,
+          paddingBottom: 12,
+          borderBottom: '1px dashed var(--bp-line)',
+        }}
+      >
+        <span className="bp-title" style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
+          FILTER / 筛选
+        </span>
+        {/* 没有 class:list 连树都拉不到，索性不渲染下拉，别给一个点了必然 403 的控件 */}
+        {canListClasses ? (
+          <Select
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder="全部班级"
+            value={classId}
+            loading={classLoading}
+            style={{ width: 240 }}
+            options={classSelectOptions}
+            notFoundContent={classLoading ? '加载中…' : '没有可筛选的班级'}
+            onChange={(value?: string) => pickClass(value)}
+          />
+        ) : null}
+        <RangePicker
+          showTime
+          allowEmpty={[true, true]}
+          format={TIME_FORMAT}
+          placeholder={['开始时间', '结束时间']}
+          value={timeRange}
+          style={{ width: 360 }}
+          onChange={(dates) => pickRange(dates)}
+        />
+        {hasFilter ? (
+          <Button type="text" size="small" onClick={resetFilters}>
+            清除筛选
+          </Button>
+        ) : null}
+        <div style={{ flex: 1 }} />
+        {classError ? (
+          <span style={{ fontSize: 11, color: 'var(--bp-orange)' }}>班级列表读取失败：{classError}</span>
+        ) : hasFilter ? (
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>筛选条件已写进地址栏，可复制分享</span>
+        ) : null}
+      </div>
 
-          {/* AI 学情总结（计划 §6.3 ④）：点按钮才生成，加载中 / 失败都有明确状态 */}
-          {aiAsked && (
-            <Card
-              className="bp-corners bp-card"
-              title={<span className="bp-title" style={{ fontSize: 12 }}>AI / 学情总结</span>}
-              extra={
-                <Button
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  loading={aiLoading}
-                  onClick={() => void generateSummary()}
-                >
-                  重新生成
-                </Button>
-              }
-            >
-              {aiLoading ? (
-                <div style={{ padding: '18px 0', textAlign: 'center' }}>
-                  <Spin size="small" />
-                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-                    AI 正在根据本页统计数据生成学情总结（约 3~8 秒）…
-                  </div>
-                </div>
-              ) : aiError ? (
+      {!ready ? (
+        <div style={{ padding: 60, textAlign: 'center' }}>
+          <Spin />
+        </div>
+      ) : (
+        <Spin spinning={loading} style={{ display: 'block' }}>
+          {answers.length === 0 ? (
+            listError ? (
+              <Card className="bp-corners bp-card">
+                {/* 请求失败 ≠ 这个口径没有答卷：分开表述，否则老师会去改筛选条件而不是重试 */}
                 <Alert
                   type="error"
                   showIcon
-                  title="学情总结生成失败"
-                  description={`${aiError}。可以点右上角「重新生成」再试一次。`}
+                  title="读取答卷列表失败"
+                  description={`${listError}。点右上角「刷新」或「清除筛选」再试一次。`}
                 />
-              ) : aiText ? (
-                <div style={{ fontSize: 13, lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{aiText}</div>
-              ) : (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="这次没有拿到内容，点右上角「重新生成」再试一次"
-                />
-              )}
-              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--bp-text-soft)' }}>
-                AI 生成，仅供参考 · 只读取本页统计数字，不发送学员答卷
-              </div>
-            </Card>
-          )}
-
-          {/* 每日答卷趋势 */}
-          {daily.entries.length > 0 && (
-            <Card
-              className="bp-corners bp-card"
-              title={<span className="bp-title" style={{ fontSize: 12 }}>DAILY / 每日答卷</span>}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {daily.entries.map(([day, count]) => (
-                  <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                    <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
-                    <Bar value={count} max={daily.max} />
-                    <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
+              </Card>
+            ) : (
+              <Card className="bp-corners bp-card">
+                {/* 有筛选时不能只说「还没有答卷」：老师会以为自己选错了，其实是这个口径确实没数据 */}
+                <Empty description={hasFilter ? '当前筛选下没有答卷' : '还没有答卷，发布后收集到数据再看'} />
+                {hasFilter ? (
+                  <div style={{ textAlign: 'center' }}>
+                    <Button size="small" onClick={resetFilters}>
+                      清除筛选
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {scoreAnalysis && (
-            <Card
-              className="bp-corners bp-card"
-              title={<span className="bp-title" style={{ fontSize: 12 }}>SCORE / 分值分析</span>}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
-                  已判分 {scoreAnalysis.scored} 人 · 总分 {scoreAnalysis.totalScore} 分
+                ) : null}
+              </Card>
+            )
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Card
+                className="bp-corners bp-card"
+                title={<span className="bp-title" style={{ fontSize: 12 }}>OVERVIEW / 答卷概览</span>}
+              >
+                <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12 }}>
+                  <div><div style={{ color: 'var(--bp-text-soft)' }}>已开始</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.started}</div></div>
+                  <div><div style={{ color: 'var(--bp-text-soft)' }}>已提交</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-blue)' }}>{overview.submitted}</div></div>
+                  <div><div style={{ color: 'var(--bp-text-soft)' }}>完成率</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.completion.toFixed(1)}%</div></div>
+                  <div><div style={{ color: 'var(--bp-text-soft)' }}>匿名答卷</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-orange)' }}>{overview.anonymous}</div></div>
+                  <div><div style={{ color: 'var(--bp-text-soft)' }}>平均填写时长</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.averageDuration == null ? '—' : `${Math.round(overview.averageDuration / 1000)} 秒`}</div></div>
                 </div>
-                {scoreAnalysis.buckets.map((bucket) => (
-                  <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                    <span style={{ width: 80 }}>{bucket.label}</span>
-                    <Bar value={bucket.count} max={Math.max(1, ...scoreAnalysis.buckets.map((b) => b.count))} />
-                    <span style={{ width: 100, textAlign: 'right', color: 'var(--bp-text-soft)' }}>
-                      {bucket.count} 人 · {scoreAnalysis.scored ? ((bucket.count / scoreAnalysis.scored) * 100).toFixed(1) : '0.0'}%
-                    </span>
+              </Card>
+
+              {/* AI 学情总结（计划 §6.3 ④）：点按钮才生成，加载中 / 失败都有明确状态 */}
+              {aiAsked && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>AI / 学情总结</span>}
+                  extra={
+                    <Button
+                      size="small"
+                      icon={<ReloadOutlined />}
+                      loading={aiLoading}
+                      onClick={() => void generateSummary()}
+                    >
+                      重新生成
+                    </Button>
+                  }
+                >
+                  {aiLoading ? (
+                    <div style={{ padding: '18px 0', textAlign: 'center' }}>
+                      <Spin size="small" />
+                      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                        AI 正在根据本页统计数据生成学情总结（约 3~8 秒）…
+                      </div>
+                    </div>
+                  ) : aiError ? (
+                    <Alert
+                      type="error"
+                      showIcon
+                      title="学情总结生成失败"
+                      description={`${aiError}。可以点右上角「重新生成」再试一次。`}
+                    />
+                  ) : aiText ? (
+                    <div style={{ fontSize: 13, lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{aiText}</div>
+                  ) : (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="这次没有拿到内容，点右上角「重新生成」再试一次"
+                    />
+                  )}
+                  <div style={{ marginTop: 10, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                    AI 生成，仅供参考 · 只读取本页统计数字，不发送学员答卷
+                    {hasTimeFilter ? ' · 总结按整班统计，不受时间筛选影响' : ''}
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
+                </Card>
+              )}
 
-          {typeSummary.length > 0 && (
-            <Card
-              className="bp-corners bp-card"
-              title={<span className="bp-title" style={{ fontSize: 12 }}>TYPE / 题型正确率</span>}
-            >
-              <Table
-                rowKey="type"
-                size="small"
-                pagination={false}
-                dataSource={typeSummary}
-                columns={[
-                  { title: '题型', dataIndex: 'label', render: (label: string) => <Tag>{label}</Tag> },
-                  { title: '题数', dataIndex: 'questionCount', width: 70, align: 'right' },
-                  { title: '答题人数', dataIndex: 'answered', width: 100, align: 'right' },
-                  {
-                    title: '已判分',
-                    dataIndex: 'scored',
-                    width: 90,
-                    align: 'right',
-                    render: (value: number) => value,
-                  },
-                  {
-                    title: '正确率',
-                    key: 'rate',
-                    width: 100,
-                    align: 'right',
-                    render: (_: unknown, row: { scored: number; correct: number }) =>
-                      row.scored > 0 ? `${((row.correct / row.scored) * 100).toFixed(1)}%` : '—',
-                  },
-                ]}
-              />
-            </Card>
-          )}
-
-          {/* 每题一个区块：图表三态 + 选项明细表 */}
-          {blocks.map((q) => (
-            <QuestionBlock key={q.id} q={q} answers={answers} />
-          ))}
-
-          {blocks.length === 0 && (
-            <Card className="bp-corners bp-card">
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`没有题干包含「${search.trim()}」的题目`} />
-            </Card>
-          )}
-
-          {/* 数值统计 */}
-          {numeric.length > 0 && (
-            <Card
-              className="bp-corners bp-card"
-              title={<span className="bp-title" style={{ fontSize: 12 }}>NUMERIC / 数值统计</span>}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
-                {numeric.map(({ qId, stat, question }) => (
-                  <div key={qId} style={{ display: 'flex', gap: 16 }}>
-                    <span style={{ flex: 1 }}>{question?.title || question?.type}</span>
-                    <span style={{ color: 'var(--bp-text-soft)' }}>
-                      均 {stat.average ?? '—'} / 最小 {stat.min ?? '—'} / 最大 {stat.max ?? '—'} / 合计 {stat.sum ?? '—'}
-                    </span>
+              {/* 每日答卷趋势 */}
+              {daily.entries.length > 0 && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>DAILY / 每日答卷</span>}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {daily.entries.map(([day, count]) => (
+                      <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                        <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
+                        <Bar value={count} max={daily.max} />
+                        <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </Card>
+                </Card>
+              )}
+
+              {scoreAnalysis && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>SCORE / 分值分析</span>}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                      已判分 {scoreAnalysis.scored} 人 · 总分 {scoreAnalysis.totalScore} 分
+                    </div>
+                    {scoreAnalysis.buckets.map((bucket) => (
+                      <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                        <span style={{ width: 80 }}>{bucket.label}</span>
+                        <Bar value={bucket.count} max={Math.max(1, ...scoreAnalysis.buckets.map((b) => b.count))} />
+                        <span style={{ width: 100, textAlign: 'right', color: 'var(--bp-text-soft)' }}>
+                          {bucket.count} 人 · {scoreAnalysis.scored ? ((bucket.count / scoreAnalysis.scored) * 100).toFixed(1) : '0.0'}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {typeSummary.length > 0 && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>TYPE / 题型正确率</span>}
+                >
+                  <Table
+                    rowKey="type"
+                    size="small"
+                    pagination={false}
+                    dataSource={typeSummary}
+                    columns={[
+                      { title: '题型', dataIndex: 'label', render: (label: string) => <Tag>{label}</Tag> },
+                      { title: '题数', dataIndex: 'questionCount', width: 70, align: 'right' },
+                      { title: '答题人数', dataIndex: 'answered', width: 100, align: 'right' },
+                      {
+                        title: '已判分',
+                        dataIndex: 'scored',
+                        width: 90,
+                        align: 'right',
+                        render: (value: number) => value,
+                      },
+                      {
+                        title: '正确率',
+                        key: 'rate',
+                        width: 100,
+                        align: 'right',
+                        render: (_: unknown, row: { scored: number; correct: number }) =>
+                          row.scored > 0 ? `${((row.correct / row.scored) * 100).toFixed(1)}%` : '—',
+                      },
+                    ]}
+                  />
+                </Card>
+              )}
+
+              {/* 每题一个区块：图表三态 + 选项明细表 */}
+              {blocks.map((q) => (
+                <QuestionBlock key={q.id} q={q} answers={answers} />
+              ))}
+
+              {blocks.length === 0 && (
+                <Card className="bp-corners bp-card">
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`没有题干包含「${search.trim()}」的题目`} />
+                </Card>
+              )}
+
+              {/* 数值统计 */}
+              {numeric.length > 0 && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>NUMERIC / 数值统计</span>}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+                    {numeric.map(({ qId, stat, question }) => (
+                      <div key={qId} style={{ display: 'flex', gap: 16 }}>
+                        <span style={{ flex: 1 }}>{question?.title || question?.type}</span>
+                        <span style={{ color: 'var(--bp-text-soft)' }}>
+                          均 {stat.average ?? '—'} / 最小 {stat.min ?? '—'} / 最大 {stat.max ?? '—'} / 合计 {stat.sum ?? '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
           )}
-        </div>
+        </Spin>
       )}
 
       {/*

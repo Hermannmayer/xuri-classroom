@@ -3,12 +3,9 @@ import {
   App,
   Button,
   Card,
-  DatePicker,
   Drawer,
   Empty,
-  Input,
   message,
-  Modal,
   Segmented,
   Space,
   Spin,
@@ -24,15 +21,14 @@ import {
   ReloadOutlined,
   RestOutlined,
   RobotOutlined,
-  SearchOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import BackButton from '../../components/BackButton';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
-import { download, get, getWithPagination, post } from '../../api';
+import { get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import type { Answer, Project } from '../../schema/project';
 import { flattenSchema } from '../../schema/flatten';
@@ -43,6 +39,19 @@ import AnswerCards from './data/AnswerCards';
 import TrashDrawer from './data/TrashDrawer';
 import GradeDrawer, { type GradableAnswer } from './data/GradeDrawer';
 import AiGradeBatchModal from './data/AiGradeBatchModal';
+import FilterBar from './data/FilterBar';
+import ExportModal from './data/ExportModal';
+import UnsubmittedPanel from './data/UnsubmittedPanel';
+import {
+  INITIAL_FILTERS,
+  flattenClassLeaves,
+  hasActiveFilter,
+  toFilterParams,
+  type AnswerFilterParams,
+  type ClassNode,
+  type ClassOption,
+  type FilterState,
+} from './data/filters';
 import {
   EMPTY,
   compareText,
@@ -51,8 +60,6 @@ import {
   questionHeader,
 } from './data/format';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
-
-const { RangePicker } = DatePicker;
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
@@ -82,10 +89,13 @@ function useIsMobile() {
 type EditorState = { mode: 'create' } | { mode: 'edit'; row: Answer };
 
 /**
- * 列表一次拉全量，筛选/排序/分页都在前端做：
- * - 答卷人只能按姓名搜，后端 AnswerQuery.createBy 是 userId 精确匹配，搜不到名字；
- * - 表头排序要覆盖全部答卷，走服务端分页会把排序限制在当前页。
- * ponytail: 全量进内存，答卷上万条再换服务端分页 + 服务端排序。
+ * 数据列表。
+ *
+ * <p>取数口径：一次拉全量（pageSize=-1），因为表头排序要覆盖全部答卷、勾选要能跨页；
+ * 但**过滤条件尽量下推**——班级 / 交卷时间 / 批改状态 / 姓名 / 分数段都交给服务端
+ * （条件定义见 data/filters.ts，和导出共用同一份），前端只留几道兜底。
+ *
+ * <p>「未交」不是过滤答卷，而是换一份数据源（班级在册学员 - 已交），见 UnsubmittedPanel。
  */
 export default function SurveyData() {
   const { id = '' } = useParams();
@@ -93,7 +103,10 @@ export default function SurveyData() {
   const navigate = useNavigate();
   const { modal } = App.useApp();
   const mobile = useIsMobile();
-  /** 从教学页 / AI 侧栏带过来的班级：有就只批这个班，不传 = 整份试卷 */
+  /**
+   * 班级筛选：只有 URL 里的 ?classId= 是唯一真源。
+   * 报表页 / 教学页跳过来时带着它，刷新也还在（见 setClassFilter）。
+   */
   const classId = searchParams.get('classId') || undefined;
   /** 批量 AI 批改弹窗；?ai=grade 进来会自动打开（AI 侧栏「批改未批改」快捷入口） */
   const [batchOpen, setBatchOpen] = useState(false);
@@ -106,12 +119,20 @@ export default function SurveyData() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [selected, setSelected] = useState<string[]>([]);
-  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [author, setAuthor] = useState('');
-  /** 管理端默认包含匿名答卷；「仅实名」用于只看登录/白名单答卷的场景 */
-  const [includeAnonymous, setIncludeAnonymous] = useState(true);
-  /** 只看待批改：服务端按 grade_status 过滤，前端再兜一层（老库没有该字段时不会误显示） */
-  const [pendingOnly, setPendingOnly] = useState(false);
+
+  /** 过滤条件（classId 不在里面，走 URL） */
+  const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
+  /** 姓名输入框的实时值：防抖用，真正下推的是 nameQuery */
+  const [nameInput, setNameInput] = useState('');
+  const [nameQuery, setNameQuery] = useState('');
+  /** 时间范围是否已经交给后端过滤；降级成前端过滤时为 false */
+  const [timeOnServer, setTimeOnServer] = useState(true);
+  /** 已经确认「后端不认时间参数」的那个范围（换了范围要重新试一次） */
+  const brokenTimeRange = useRef('');
+  const degradedWarned = useRef(false);
+
+  /** 班级下拉候选：/api/teaching/classes/tree 拍平后的叶子班 */
+  const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
 
   const [detail, setDetail] = useState<Answer>();
   /** 正在批改的答卷 id；有值即打开批改抽屉 */
@@ -125,8 +146,6 @@ export default function SurveyData() {
   // 导出权限细分：没有 answer:export 就不渲染导出按钮
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
-  const [exportPwd, setExportPwd] = useState('');
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
@@ -171,31 +190,131 @@ export default function SurveyData() {
     }
   }, [searchParams, setSearchParams]);
 
+  /* ------ 过滤条件 ------ */
+
+  /**
+   * 选班级只改 URL，不另存一份 state：报表页带着 ?classId= 跳过来时不用做「同步」这件事，
+   * 也就不会出现「URL 上是 A、下拉里显示 B」。replace 保证筛班级不在历史里堆一层又一层。
+   */
+  const setClassFilter = useCallback(
+    (next?: string) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next) params.set('classId', next);
+          else params.delete('classId');
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const patchFilters = useCallback((patch: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  /** 清空筛选：把 URL 上的班级也一起清掉，否则「清空」之后列表还只显示一个班 */
+  const resetFilters = useCallback(() => {
+    setFilters(INITIAL_FILTERS);
+    setNameInput('');
+    setNameQuery('');
+    setClassFilter(undefined);
+  }, [setClassFilter]);
+
+  // 姓名防抖：列表是 pageSize=-1 的全量请求，每敲一个字就打一次太亏；300ms 没再输入才下推
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNameQuery(nameInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [nameInput]);
+
+  // 班级候选：没有 class:list 或接口不可用时只是少一个筛选维度，不要弹错误打断整页
+  useEffect(() => {
+    let alive = true;
+    void get<ClassNode[]>('/api/teaching/classes/tree')
+      .then((list) => {
+        if (alive) setClassOptions(flattenClassLeaves(Array.isArray(list) ? list : []));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** URL 里的班级不在候选里（换班 / 权限变了 / 树没拉到）：补一项出来，别让人看不到当前筛的是哪个班 */
+  const classSelectOptions = useMemo<ClassOption[]>(() => {
+    if (!classId || classOptions.some((item) => item.value === classId)) return classOptions;
+    return [{ value: classId, label: `班级 ${classId.slice(0, 8)}`, name: '' }, ...classOptions];
+  }, [classOptions, classId]);
+
+  /** 服务端过滤参数：列表、Excel、PDF 三处共用同一份口径（见 data/filters.ts） */
+  const filterParams = useMemo<AnswerFilterParams>(
+    () => toFilterParams(filters, classId, nameQuery),
+    [filters, classId, nameQuery],
+  );
+
+  /** 时间范围的指纹：用来记住「这个范围后端不认」，换范围时再试一次 */
+  const rangeKey = `${filterParams.startTime ?? ''}|${filterParams.endTime ?? ''}`;
+  const hasTimeFilter = Boolean(filterParams.startTime || filterParams.endTime);
+
+  /**
+   * 取一份答卷列表。
+   *
+   * <p>时间范围要不要交给服务端由调用方决定：后端 AnswerQuery.startTime 是 java.util.Date 且没标
+   * @DateTimeFormat，带「yyyy-MM-dd HH:mm:ss」会直接 400（Spring 默认转换器认不了这个格式）。
+   * 那种情况下退回不带时间的查询，时间范围在前端兜一层——「看得见数据」比「过滤全下推」要紧。
+   */
+  const fetchAnswers = useCallback(
+    (withTime: boolean) => {
+      const { startTime, endTime, ...rest } = filterParams;
+      return getWithPagination<Answer>('/api/answer/list', {
+        projectId: id,
+        current: 1,
+        pageSize: -1,
+        ...rest,
+        startTime: withTime ? startTime : undefined,
+        endTime: withTime ? endTime : undefined,
+      });
+    },
+    [id, filterParams],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [, res] = await Promise.all([
-        get<Project>('/api/project', { id })
-          .then((p) => setProject(p))
-          .catch(() => undefined),
-        // pageSize=-1 → 后端返回全量（见 PageQuery.getPageSize）；
-        // includeAnonymous 只对项目所有者/协作者生效，学员仍只能看自己的答卷
-        getWithPagination<Answer>('/api/answer/list', {
-          projectId: id,
-          current: 1,
-          pageSize: -1,
-          includeAnonymous,
-          // 待批改过滤交给服务端（AnswerServiceImpl.listAnswer 已支持 gradeStatus）
-          gradeStatus: pendingOnly ? 'pending' : undefined,
-        }),
-      ]);
-      setRows(res.data);
+      // 项目信息并行拉：它失败（例如只剩答卷、问卷被删）不该把列表也带挂
+      void get<Project>('/api/project', { id })
+        .then((value) => setProject(value))
+        .catch(() => undefined);
+      let list: Answer[] = [];
+      // 同一个时间范围只向服务端试一次：撞过 400 之后直接走前端过滤，不再每次都先发一个废请求
+      if (hasTimeFilter && brokenTimeRange.current !== rangeKey) {
+        try {
+          list = (await fetchAnswers(true)).data;
+          setTimeOnServer(true);
+        } catch (e) {
+          const code = (e as { code?: number }).code;
+          if (code === 401 || code === 403 || code === -1) throw e;
+          brokenTimeRange.current = rangeKey;
+          list = (await fetchAnswers(false)).data;
+          setTimeOnServer(false);
+          if (!degradedWarned.current) {
+            degradedWarned.current = true;
+            message.warning('按交卷时间过滤暂时只在前端生效（后端未接受该参数），筛选结果仍然准确');
+          }
+        }
+      } else {
+        list = (await fetchAnswers(false)).data;
+        setTimeOnServer(!hasTimeFilter);
+      }
+      setRows(list);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [id, includeAnonymous, pendingOnly]);
+  }, [fetchAnswers, hasTimeFilter, rangeKey, id]);
 
   useEffect(() => {
     void load();
@@ -205,7 +324,7 @@ export default function SurveyData() {
   useEffect(() => {
     setPage(1);
     setSelected([]);
-  }, [range, author, includeAnonymous, pendingOnly]);
+  }, [filterParams]);
 
   /** 列结构取当前问卷；问卷拉不到时退回最新一份答卷的快照 */
   const survey = project?.survey ?? rows[0]?.survey;
@@ -228,25 +347,26 @@ export default function SurveyData() {
     return map;
   }, [rows, questions]);
 
+  /**
+   * 前端只留三道兜底（服务端已经过滤过一遍）：
+   * - 「已交」：后端没有 tempSave 过滤参数，只能在这边剔掉暂存卷；
+   * - 批改状态：老库没有 grade_status 时行上取不到值，不至于把两种状态串在一起；
+   * - 交卷时间：只有降级（后端不认 startTime）时才需要在前端再筛一次。
+   */
   const filtered = useMemo(() => {
-    const [from, to] = range ?? [];
-    const keyword = author.trim().toLowerCase();
+    const [from, to] = filters.range ?? [];
     return rows.filter((row) => {
-      if (from || to) {
+      if (filters.submitStatus === 'submitted' && row.tempSave !== 1) return false;
+      if (filters.gradeStatus !== 'all' && gradeStatusOf(row) !== filters.gradeStatus) return false;
+      if (!timeOnServer && (from || to)) {
         const at = row.createAt ? dayjs(row.createAt) : undefined;
         if (!at?.isValid()) return false;
         if (from && at.isBefore(from.startOf('day'))) return false;
         if (to && at.isAfter(to.endOf('day'))) return false;
       }
-      if (keyword) {
-        const who = (row.isAnonymous ? '匿名' : row.createByName || row.createBy || '匿名').toLowerCase();
-        if (!who.includes(keyword)) return false;
-      }
-      // 服务端已经过滤过，这里兜一层：拿不到 gradeStatus（老库/旧接口）时不至于把已批改的卷也列出来
-      if (pendingOnly && gradeStatusOf(row) !== 'pending') return false;
       return true;
     });
-  }, [rows, range, author, pendingOnly]);
+  }, [rows, filters.submitStatus, filters.gradeStatus, filters.range, timeOnServer]);
 
   /** 顶部提示用：当前拉取范围内有多少份匿名答卷（不随日期/姓名筛选变化） */
   const anonymousCount = useMemo(() => rows.filter((row) => row.isAnonymous).length, [rows]);
@@ -257,13 +377,21 @@ export default function SurveyData() {
     () => (mobile ? filtered.slice((page - 1) * pageSize, page * pageSize) : []),
     [mobile, filtered, page, pageSize],
   );
+
+  /** 「未交」不是过滤答卷，而是把列表位置换成未交名单（数据源都不一样，见 UnsubmittedPanel） */
+  const unsubmittedMode = filters.submitStatus === 'unsubmitted';
+  // 判「有没有筛选」用输入框的即时值（不是防抖后的），点了「清空筛选」才不会刚清完又冒出来
+  const filtering = hasActiveFilter(filters, classId, nameInput);
+
   const emptyText = rows.length
-    ? pendingOnly
+    ? filters.gradeStatus === 'pending'
       ? '没有待批改的答卷'
       : '当前筛选没有匹配的答卷'
-    : canCreate
-      ? '还没有答卷，点「添加数据」补录一份'
-      : '还没有答卷';
+    : filtering
+      ? '当前筛选没有匹配的答卷'
+      : canCreate
+        ? '还没有答卷，点「添加数据」补录一份'
+        : '还没有答卷';
 
   const columns = useMemo<ColumnsType<Answer>>(() => {
     const fixedColumns: ColumnsType<Answer> = [
@@ -431,42 +559,19 @@ export default function SurveyData() {
 
   const removeSelected = () => removeRows(selected);
 
-  /** 答卷导出：先弹密码框（系统设置没配密码时留空即可），密码换一次性 token 后随下载 query 传递 */
-  const openExport = () => {
-    setExportPwd('');
-    setExportOpen(true);
-  };
+  /** 导出弹窗自己管密码/令牌/进度（见 data/ExportModal），这里只负责开 */
+  const openExport = () => setExportOpen(true);
 
-  const submitExport = async () => {
-    const [from, to] = range ?? [];
-    const params: Record<string, unknown> = {
-      projectId: id,
-      type: 'answer',
-      // 后端 DownloadQuery 默认 pageSize=20，只导当页；-1 才是全量
-      pageSize: -1,
-      startTime: from ? from.startOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
-      endTime: to ? to.endOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
-      ids: selected.length ? selected.join(',') : undefined,
-      // 导出范围跟当前列表口径一致；「仅实名」时只导实名答卷
-      includeAnonymous,
-    };
-    setExporting(true);
-    try {
-      // 密码只走 POST body 换一次性 token，避免密码出现在下载 URL（服务器日志/浏览器历史）
-      const tokenRes = await post<{ exportToken?: string }>('/api/repo/export/token', {
-        exportPassword: exportPwd.trim() || undefined,
-      });
-      if (tokenRes?.exportToken) params.exportToken = tokenRes.exportToken;
-      // 公共 download()：content-type 为 JSON 时按后端错误抛中文，不再把错误存成 .xlsx
-      await download('/api/answer/download', params, `${project?.name || '答卷'}.xlsx`);
-      setExportOpen(false);
-      setExportPwd('');
-      message.success('导出已开始');
-    } catch (e) {
-      message.error((e as Error).message);
-    } finally {
-      setExporting(false);
+  /** 切到分析页时带上当前班级：老师看的就是同一个班，过去不该再选一次 */
+  const goReport = () => {
+    const params = new URLSearchParams();
+    if (classId) {
+      params.set('classId', classId);
+      const current = classSelectOptions.find((item) => item.value === classId);
+      if (current?.name) params.set('className', current.name);
     }
+    const query = params.toString();
+    navigate(`/survey/${id}/report${query ? `?${query}` : ''}`);
   };
 
   const importFile = async (file: File) => {
@@ -534,6 +639,9 @@ export default function SurveyData() {
           >
             {project?.name || id} · 共 {rows.length} 份
             {anonymousCount > 0 ? `（含匿名 ${anonymousCount} 份）` : ''}
+            {!unsubmittedMode && filtering && filtered.length !== rows.length
+              ? ` · 筛选后 ${filtered.length} 份`
+              : ''}
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -545,11 +653,12 @@ export default function SurveyData() {
             { label: '分析', value: 'report' },
           ]}
           onChange={(value) => {
-            if (value === 'report') navigate(`/survey/${id}/report`);
+            if (value === 'report') goReport();
           }}
         />
-        {/* 批量 AI 批改（计划 §6.3 ⑥）：只批未批改的卷子、只补没给分的主观题，批完可撤销 */}
-        {canBatchGrade ? (
+        {/* 批量 AI 批改（计划 §6.3 ⑥）：只批未批改的卷子、只补没给分的主观题，批完可撤销。
+            未交名单视图下没有答卷可批，入口一起收起来 */}
+        {canBatchGrade && !unsubmittedMode ? (
           <Button
             icon={<RobotOutlined />}
             disabled={rows.length === 0}
@@ -565,6 +674,20 @@ export default function SurveyData() {
       </div>
 
       <Card className="bp-corners bp-card">
+        {/* 过滤条放在卡片顶部：它过滤的就是下面这张表，移动端从上到下是 条件 → 操作 → 列表 */}
+        <FilterBar
+          mobile={mobile}
+          classOptions={classSelectOptions}
+          classId={classId}
+          onClassChange={setClassFilter}
+          value={filters}
+          onPatch={patchFilters}
+          nameValue={nameInput}
+          onNameChange={setNameInput}
+          onReset={resetFilters}
+          resetVisible={filtering}
+        />
+
         <div
           className={mobile ? 'sk-data-toolbar-mobile' : undefined}
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}
@@ -574,19 +697,20 @@ export default function SurveyData() {
               添加数据
             </Button>
           )}
-          {!mobile && canUpdate && (
+          {/* 未交名单视图下没有「答卷」可编辑/删除/导出，只留录入类入口 */}
+          {!mobile && canUpdate && !unsubmittedMode && (
             <Button icon={<EditOutlined />} disabled={selected.length !== 1} onClick={editSelected}>
               编辑数据
             </Button>
           )}
-          {!mobile && deleteButton}
+          {!mobile && !unsubmittedMode && deleteButton}
           {canUpload && (
             <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileRef.current?.click()}>
               导入数据
             </Button>
           )}
-          {canExport && (
-            <Button icon={<DownloadOutlined />} disabled={rows.length === 0} onClick={openExport}>
+          {canExport && !unsubmittedMode && (
+            <Button icon={<DownloadOutlined />} disabled={filtered.length === 0} onClick={openExport}>
               导出数据
             </Button>
           )}
@@ -595,52 +719,19 @@ export default function SurveyData() {
               回收站
             </Button>
           )}
-          {mobile && deleteButton}
+          {mobile && !unsubmittedMode && deleteButton}
           {!mobile && <div style={{ flex: 1 }} />}
-          <Segmented
-            value={includeAnonymous ? 'all' : 'real'}
-            options={[
-              { label: '含匿名', value: 'all' },
-              { label: '仅实名', value: 'real' },
-            ]}
-            onChange={(value) => setIncludeAnonymous(value === 'all')}
-            style={{ width: mobile ? '100%' : undefined }}
-          />
-          {canGrade && (
-            <Segmented
-              value={pendingOnly ? 'pending' : 'all'}
-              options={[
-                { label: '全部答卷', value: 'all' },
-                { label: '待批改', value: 'pending' },
-              ]}
-              onChange={(value) => setPendingOnly(value === 'pending')}
-              style={{ width: mobile ? '100%' : undefined }}
-            />
-          )}
-          <RangePicker
-            value={range}
-            allowClear
-            placeholder={['开始日期', '结束日期']}
-            style={{ width: mobile ? '100%' : 236 }}
-            onChange={(dates) => setRange((dates ?? null) as [Dayjs | null, Dayjs | null] | null)}
-          />
-          <Input
-            allowClear
-            prefix={<SearchOutlined />}
-            placeholder="答卷人"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            style={{ width: mobile ? '100%' : 160 }}
-          />
         </div>
 
-        {selected.length > 0 && (
+        {!unsubmittedMode && selected.length > 0 && (
           <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginBottom: 8 }}>
             已选中 {selected.length} 条
           </div>
         )}
 
-        {mobile ? (
+        {unsubmittedMode ? (
+          <UnsubmittedPanel projectId={id} classId={classId} mobile={mobile} />
+        ) : mobile ? (
           <>
             <Spin spinning={loading}>
               {pageRows.length === 0 ? (
@@ -748,28 +839,16 @@ export default function SurveyData() {
         onChanged={() => void load()}
       />
 
-      {/* 导出密码：系统设置里没配密码时留空直接导出 */}
-      <Modal
-        title="导出答卷"
+      {/* 导出：格式多选 + 范围（当前筛选 / 仅勾选）+ 密码 + 进度，全部在弹窗里 */}
+      <ExportModal
         open={exportOpen}
-        onCancel={() => setExportOpen(false)}
-        onOk={() => void submitExport()}
-        okText="导出"
-        cancelText="取消"
-        confirmLoading={exporting}
-        destroyOnHidden
-      >
-        <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.7, marginBottom: 10 }}>
-          管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
-        </div>
-        <Input.Password
-          value={exportPwd}
-          onChange={(e) => setExportPwd(e.target.value)}
-          onPressEnter={() => void submitExport()}
-          placeholder="导出密码"
-          autoComplete="off"
-        />
-      </Modal>
+        projectId={id}
+        projectName={project?.name}
+        filters={filterParams}
+        filteredCount={filtered.length}
+        selectedIds={selected}
+        onClose={() => setExportOpen(false)}
+      />
 
       {/* 批量批改的结果不在这里，只负责发起与撤销；「去复核」用它打开下面这个单题批改抽屉 */}
       <AiGradeBatchModal

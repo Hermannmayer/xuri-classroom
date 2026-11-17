@@ -202,7 +202,7 @@ modules:
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
     last_verified: 2026-11-17
-    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+    verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -1142,6 +1142,7 @@ modules:
       - GET /api/teaching/projects
       - GET /api/teaching/classes
       - GET /api/teaching/classes/answers
+      - GET /api/teaching/classes/unsubmitted
       - GET /api/teaching/classes/tree
       - POST /api/teaching/classes/create
       - POST /api/teaching/classes/update
@@ -1180,4 +1181,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-17
-    verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+    verified_against: cbde3de028435591145eb7daca940c0f349ba7f1

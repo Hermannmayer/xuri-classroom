@@ -67,6 +67,21 @@ public class DownloadQuery extends PageQuery {
 	 */
 	private Boolean includeAnonymous;
 
+	/**
+	 * 导出范围与数据页筛选保持一致：批改状态 / 答题人姓名（模糊）/ 分数段。
+	 *
+	 * <p>为什么放在 DownloadQuery 而不是复用 AnswerQuery：下载接口的 query string 就是它的入参，
+	 * 这几个字段加在这里，Excel 导出才会遵守老师当前看到的筛选条件（否则「筛了 60 分以下」
+	 * 却导出一整场），口径会当场对不上。
+	 */
+	private String gradeStatus;
+
+	private String createByName;
+
+	private Double minScore;
+
+	private Double maxScore;
+
 	@NotNull
 	private DownloadType type;
 

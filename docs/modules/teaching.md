@@ -83,6 +83,7 @@ apis:
   - GET /api/teaching/projects
   - GET /api/teaching/classes
   - GET /api/teaching/classes/answers
+  - GET /api/teaching/classes/unsubmitted
   - GET /api/teaching/classes/tree
   - POST /api/teaching/classes/create
   - POST /api/teaching/classes/update
@@ -121,7 +122,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: cbde3de028435591145eb7daca940c0f349ba7f1
 ---
 
 # 班级与教学工作台
@@ -155,7 +156,8 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 | 学员导入 | `client/src/pages/teaching/ImportMembersModal.tsx` | 下载 `学员导入模板.xlsx`、上传 xlsx 批量建号；逐行报错 |
 | 统一删除弹窗 | `client/src/pages/teaching/DeleteDeptDialog.tsx` | 三个入口共用：先 `delete-check`，有成员时二选一 MOVE / UNASSIGN |
 | 用户组页 | `client/src/pages/system/Group.tsx` | 只维护 `dept_type=org` 的教职工组；入口在 系统管理 → 用户与权限 → 用户组（`/system/access?tab=group`） |
-| 班级答卷抽屉 | `client/src/pages/teaching/ClassAnswersDrawer.tsx` | 按 projectId + deptId 分页看学员/交卷时间/分数/状态；导出本班 xlsx（先换 exportToken） |
+| 班级答卷抽屉 | `client/src/pages/teaching/ClassAnswersDrawer.tsx` | 按 projectId + deptId 分页看学员/交卷时间/分数/状态；导出本班 xlsx 或 PDF（ZIP，先换 exportToken） |
+| 未交卷名单 | `GET /api/teaching/classes/unsubmitted` | 按「班级成员 − 有正式答卷的 create_by」算，不按 `answer.class_id`（换班/兼报会让按班比对漏人）；容器班直接拒绝 |
 | 考试/问卷 Tab | `client/src/pages/project/List.tsx`（`embedded`） | 复用 ProjectList 管理视图；嵌入时隐藏页头，保留分类树/搜索/新建/回收站/批量工具条 |
 | 考试分类树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染文件夹，选中后右侧列表按 `parentId` 过滤（见 [project](./project.md)） |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list 的账号重定向 `/teaching?tab=exam`；其余账号渲染原 ProjectList |

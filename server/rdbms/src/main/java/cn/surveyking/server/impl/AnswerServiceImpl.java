@@ -121,7 +121,15 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				// 第几次作答（补考区分）与批改状态；传空表示不过滤
 				.eq(query.getAttemptNo() != null, Answer::getAttemptNo, query.getAttemptNo())
 				.eq(StringUtils.hasText(query.getGradeStatus()), Answer::getGradeStatus, query.getGradeStatus())
+				// 姓名模糊与分数段：与 listAnswer 同一套条件，否则「班级抽屉里筛不到、也导不出」
+				.ge(query.getMinScore() != null, Answer::getExamScore, query.getMinScore())
+				.le(query.getMaxScore() != null, Answer::getExamScore, query.getMaxScore())
 				.orderByDesc(Answer::getCreateAt);
+		if (StringUtils.hasText(query.getCreateByName())) {
+			String like = answererNameLike(query.getCreateByName());
+			wrapper.and(filter -> filter.apply("answerer_name like {0}", like)
+					.or().apply("create_by in (select id from t_user where name like {0})", like));
+		}
 		super.page(page, wrapper);
 		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
 		fillCreateByName(list);
@@ -149,6 +157,17 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				view.setCreateByName(userNames.get(view.getCreateBy()));
 			}
 		});
+	}
+
+	/**
+	 * 姓名模糊查询的 LIKE 模式串：转义 {@code \ % _}，让「张_」只按字面量匹配
+	 * （MySQL LIKE 的默认转义符就是 {@code \}）。
+	 * <p>这个值只作为绑定参数进 SQL（{@code apply(..., {0})}），不会被拼进 SQL 文本，注入不了；
+	 * 转义只是为了让搜索框里的 % 和 _ 当普通字符，而不是「匹配所有人的通配符」。
+	 */
+	private static String answererNameLike(String keyword) {
+		String text = keyword.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		return "%" + text + "%";
 	}
 
 	@Override
@@ -205,6 +224,18 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				// 第几次作答（补考区分）与批改状态；传空表示不过滤
 				.eq(query.getAttemptNo() != null, Answer::getAttemptNo, query.getAttemptNo())
 				.eq(StringUtils.hasText(query.getGradeStatus()), Answer::getGradeStatus, query.getGradeStatus())
+				// 分数段（含边界）：exam_score 为 NULL（未判分 / 非考试卷）时比较恒为 UNKNOWN，
+				// 不会被 >= / <= 误命中，因此不需要额外的 is not null
+				.ge(query.getMinScore() != null, Answer::getExamScore, query.getMinScore())
+				.le(query.getMaxScore() != null, Answer::getExamScore, query.getMaxScore())
+				// 答题人姓名：快照列（新数据）与账号名（老数据没有快照）两头都要查，见 AnswerQuery#createByName。
+				// 整组用 and(...) 包起来，否则 OR 会把前面的项目/班级条件一起短路掉
+				.and(StringUtils.hasText(query.getCreateByName()), filter -> {
+					String like = answererNameLike(query.getCreateByName());
+					filter.apply("answerer_name like {0}", like)
+							.or()
+							.apply("create_by in (select id from t_user where name like {0})", like);
+				})
 				.eq(!canSeeAll, Answer::getCreateBy, currentUserId)
 				.orderByDesc(Answer::getCreateAt);
 		if (!withSnapshot) {
@@ -537,6 +568,12 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 匿名答卷：管理端默认导出全部（与数据页「含匿名」口径一致）；
 		// 显式传 false 时保持旧行为，只导出实名答卷。
 		answerQuery.setIncludeAnonymous(!Boolean.FALSE.equals(query.getIncludeAnonymous()));
+		// 数据页的筛选条与导出口径必须一致：筛了「待批改 / 60 分以下 / 张」却导出一整场，
+		// 老师会把导出文件当成「筛选结果」发出去。同样的条件在 downloadByClass 里也要带上。
+		answerQuery.setGradeStatus(query.getGradeStatus());
+		answerQuery.setCreateByName(query.getCreateByName());
+		answerQuery.setMinScore(query.getMinScore());
+		answerQuery.setMaxScore(query.getMaxScore());
 		if (query.getPageSize() != 0) {
 			answerQuery.setCurrent(query.getCurrent());
 			answerQuery.setPageSize(query.getPageSize());
@@ -581,6 +618,11 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		// 第几次作答：补考场景老师通常只要某一轮，Excel 明细也要能按轮次筛。
 		// （之前只给 PDF 任务传了，按班导出的 xlsx 会无视这个条件，导全轮次。）
 		answerQuery.setAttemptNo(query.getAttemptNo());
+		// 与数据页筛选条同口径：按班导出时也要遵守「待批改 / 姓名 / 分数段」
+		answerQuery.setGradeStatus(query.getGradeStatus());
+		answerQuery.setCreateByName(query.getCreateByName());
+		answerQuery.setMinScore(query.getMinScore());
+		answerQuery.setMaxScore(query.getMaxScore());
 		answerQuery.setPageSize(Integer.MAX_VALUE);
 		List<AnswerView> answerViews = listAnswerByClass(answerQuery).getList();
 		return answerExporter.downloadSurvey(project, answerViews);

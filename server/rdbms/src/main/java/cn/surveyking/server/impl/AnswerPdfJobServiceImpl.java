@@ -190,13 +190,16 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 * 之所以把这段放在这里而不是 Controller：任务一旦创建就在后台线程里按 spec 取数，
 	 * 校验与取数必须用同一份范围定义，否则「建任务时校验 projectId、跑任务时却用别的 classId」
 	 * 这类漏洞迟早会出现。
-	 * @param query 导出请求（projectId、classId 必填）
+	 * <p>
+	 * classId 是可选的：不传 = 整个项目（可再用 ids / 时间范围收窄），对应「勾选若干份导出」和
+	 * 「整卷导出」。ids 为空数组同样按「不限」处理，所以空选不会导出一份空 ZIP 之外的意外内容。
+	 * @param query 导出请求（projectId 必填；classId / ids / 时间范围 / 轮次可选）
 	 * @return 任务 id
 	 */
 	@Override
 	public String createJob(DownloadQuery query) {
-		if (query == null || !StringUtils.hasText(query.getProjectId()) || !StringUtils.hasText(query.getClassId())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "按班级导出 PDF 需要同时提供项目与班级");
+		if (query == null || !StringUtils.hasText(query.getProjectId())) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷 PDF 需要项目 id");
 		}
 		if (query.getType() != null && query.getType() != DownloadQuery.DownloadType.answerPdf) {
 			// 与 downloadByClass 同样的原则：宁可报错，也不要回一份「不是你要的格式」的文件
@@ -214,12 +217,12 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	/**
 	 * 创建导出任务。
-	 * @param spec 导出范围（项目 + 班级 + 轮次 + 时间范围 + 选项）
+	 * @param spec 导出范围（项目必填；班级 / 勾选 id / 轮次 / 时间范围 / 选项可选）
 	 * @return 任务 id
 	 */
 	public String createJob(ExportSpec spec) {
-		if (spec == null || !StringUtils.hasText(spec.getProjectId()) || !StringUtils.hasText(spec.getClassId())) {
-			throw new ErrorCodeException(ErrorCode.ValidationError, "按班级导出 PDF 需要同时提供项目与班级");
+		if (spec == null || !StringUtils.hasText(spec.getProjectId())) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷 PDF 需要项目 id");
 		}
 		if (!AnswerPdfExporter.isFontAvailable()) {
 			// 部署问题：提前报错，别让老师等 30 秒才看到一堆失败
@@ -356,7 +359,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			job.setTotal(total);
 			if (total <= 0) {
 				job.setStatus(STATUS_FAILED);
-				job.setError("这个班还没有可导出的答卷（暂存草稿不会生成成绩单）");
+				// 不选班级时范围是整个项目（或一段时间 / 一批勾选的 id），说「这个班」会让人以为选错了班
+				job.setError(StringUtils.hasText(job.getSpec().getClassId())
+						? "这个班还没有可导出的答卷（暂存草稿不会生成成绩单）"
+						: "这个范围里还没有可导出的答卷（暂存草稿不会生成成绩单）");
 				job.touchFinished();
 				return;
 			}
@@ -479,8 +485,11 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	private LambdaQueryWrapper<Answer> baseWrapper(ExportSpec spec) {
 		return Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, spec.getProjectId())
-				// 答题时所在班级：学员换班后历史答卷仍留在原班
-				.eq(Answer::getClassId, spec.getClassId()).isNotNull(Answer::getAnswer)
+				// 答题时所在班级：学员换班后历史答卷仍留在原班。
+				// classId 为空表示「不分班」：整卷导出 / 勾选 ids 导出 / 只按时间范围导出，
+				// 这里必须是有值才加条件，否则 eq(class_id, null) 永远查不到数据
+				.eq(StringUtils.hasText(spec.getClassId()), Answer::getClassId, spec.getClassId())
+				.isNotNull(Answer::getAnswer)
 				// 只导已交卷的：暂存草稿没有成绩，生成成绩单没有意义
 				.and(wrapper -> wrapper.eq(Answer::getTempSave, 1).or().isNull(Answer::getTempSave))
 				.in(spec.getIds() != null && !spec.getIds().isEmpty(), Answer::getId, spec.getIds())
@@ -815,8 +824,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		private String projectId;
 
+		/** 班级 id；为空表示不按班限定（整卷 / 勾选 ids / 时间范围导出） */
 		private String classId;
 
+		/** 指定导出的答卷 id；为空表示不限（即整个范围内的全部答卷） */
 		private List<String> ids;
 
 		private Integer attemptNo;

@@ -13,6 +13,7 @@ import cn.surveyking.server.domain.dto.ClassTeacherView;
 import cn.surveyking.server.domain.dto.DeptRequest;
 import cn.surveyking.server.domain.dto.PendingStudentApproveRequest;
 import cn.surveyking.server.domain.dto.StudentClassAssignRequest;
+import cn.surveyking.server.domain.dto.UnsubmittedStudentView;
 import cn.surveyking.server.domain.dto.UserOptionView;
 
 import java.util.List;
@@ -58,6 +59,21 @@ public interface ClassService {
 	void assertTeaching(String deptId);
 
 	List<ClassMemberView> listClassMembers(String deptId);
+
+	/**
+	 * 未交卷名单：这个班还有谁没交某场考试。
+	 *
+	 * <p>「交没交」按答卷的 {@code create_by}（答题人账号）比对，不按 {@code t_answer.class_id}：
+	 * class_id 记的是答题那一刻所在的班，学员换班、走别的班专属链接进来答题，答卷上的班级都不是当前班，
+	 * 按班级过滤会把「其实已经交了」的人误报成未交；兼报班学员只交一份卷，按 class_id 也只会算到其中一个班。
+	 *
+	 * <p>读权限两道：{@link #assertVisible(String)}（这个班在不在你的可见范围）+ 项目可读
+	 * （管理员 / 项目所有者 / 协作者）；两者都在实现里用服务层校验，注解只做粗筛。
+	 * @param projectId 项目 id
+	 * @param deptId 班级 id（dept_type=class 的教学班）
+	 * @return total / submitted / 未交名单
+	 */
+	UnsubmittedStudentView listUnsubmittedStudents(String projectId, String deptId);
 
 	List<ClassTeacherView> listClassTeachers(String deptId);
 
