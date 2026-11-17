@@ -51,4 +51,15 @@ public interface AnonymousIdentityService {
 	 */
 	int purgeOlderThan(int retentionDays);
 
+	/**
+	 * 物理清理**已经逻辑删除**的匿名答卷（连同签名图/上传附件一起删）。
+	 *
+	 * <p>与 {@link #purgeOlderThan} 的分工：那个只把过期答卷「移进回收站」（逻辑删，可恢复）；
+	 * 这个才是真正从磁盘上抹掉。由系统设置 {@code anonymousPurgeEnabled} 控制是否执行，
+	 * {@code anonymousPurgeDelayDays} 决定进回收站后留几天再抹。
+	 * @param delayDays 进回收站后保留天数（1~3650）
+	 * @return 物理删除的答卷条数
+	 */
+	int purgeDeletedOlderThan(int delayDays);
+
 }

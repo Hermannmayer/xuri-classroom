@@ -35,6 +35,22 @@ import '../../styles/answer.css';
 
 /** 后端 ErrorCode.AnswerChangeDisabled = 4020：发布方没开「允许修改答案」时拒绝修改已有答卷 */
 const ERROR_ANSWER_CHANGE_DISABLED = 4020;
+/**
+ * 把一道题的答案摊成纯文本（填空题是 { 空位id: 文本 }，兜底把对象里的字符串拼起来）。
+ * 只用于「从卷内姓名题里取姓名」，不参与判分。
+ */
+function answerPlainText(value: AnswerValue): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map((item) => answerPlainText(item as AnswerValue)).filter(Boolean).join(' ');
+  if (typeof value !== 'object') return String(value);
+  return Object.values(value as Record<string, unknown>)
+    .map((item) => (typeof item === 'string' ? item : ''))
+    .filter(Boolean)
+    .join(' ');
+}
+
 function formFieldIds(p?: PublicProjectView): string[] {
   return (p?.survey?.children ?? []).map((c) => c.id);
 }
@@ -54,6 +70,8 @@ async function mapWithConcurrency<T>(items: T[], limit: number, worker: (item: T
 const FONT_MIN = 0.9;
 const FONT_MAX = 2;
 const FONT_KEY = 'sk-font-scale';
+/** 答题人姓名：选填，但要跨刷新保留（草稿续答场景），提交时随答卷一起上送 */
+const ANSWERER_NAME_KEY = 'sk-answerer-name';
 
 /** 从整棵树里摘出单道题（一页一题时用） */
 export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema | undefined {
@@ -226,6 +244,14 @@ export default function PublicAnswer() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   const [fontScale, setFontScale] = useState<number>(() => Number(localStorage.getItem(FONT_KEY)) || 1);
+  /** 答题人姓名：登录用户后端会自动用 t_user.name 补齐，所以这里留空也不影响出成绩单 */
+  const [answererName, setAnswererName] = useState<string>(() => {
+    try {
+      return localStorage.getItem(ANSWERER_NAME_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
   const [page, setPage] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   /** 「我的答卷」抽屉（匿名/登录都可用；登录后可绑定匿名答卷） */
@@ -713,6 +739,16 @@ export default function PublicAnswer() {
     return () => el.removeEventListener('scroll', onScroll);
   }, [onePage, values, visibleQuestions.length]);
 
+  /** 答题人姓名改动：同步写 localStorage，刷新/断网续答时不丢 */
+  const changeAnswererName = (next: string) => {
+    setAnswererName(next);
+    try {
+      localStorage.setItem(ANSWERER_NAME_KEY, next);
+    } catch {
+      // 隐私模式/配额满：存不下就算了，不影响交卷
+    }
+  };
+
   const changeFont = (value: number) => {
     setFontScale(value);
     localStorage.setItem(FONT_KEY, String(value));
@@ -764,6 +800,19 @@ export default function PublicAnswer() {
   const doSubmit = async (mode: 'manual' | 'auto') => {
     if (!project || submittingRef.current) return;
     if (mode === 'auto' && submittedRef.current) return;
+    // 姓名必填只拦手动交卷：自动交卷（到点 / 切屏超限）必须放行，
+    // 否则会因为没填姓名把整份答卷卡在本地，比少个名字严重得多。
+    const nameRequiredNow = Boolean(project.setting?.answerSetting?.answererNameRequired);
+    if (mode === 'manual' && nameRequiredNow && loggedIn !== true) {
+      // 姓名的来源有三处：卷内姓名题 → 顶部输入框 → 登录账号。
+      // 登录账号那条后端会兜底，所以这里只拦前两条都没填的情况。
+      const fromQuestion = nameQuestion ? answerPlainText(values[nameQuestion.id]).trim() : '';
+      const fromInput = nameQuestion ? '' : answererName.trim();
+      if (!fromQuestion && !fromInput) {
+        message.warning(nameQuestion ? `请先填写「${nameQuestion.title}」再交卷` : '请先填写答题人姓名，再交卷');
+        return;
+      }
+    }
     submittingRef.current = true;
     if (mode === 'auto') submittedRef.current = true;
     setSubmitting(true);
@@ -782,6 +831,11 @@ export default function PublicAnswer() {
         projectId: id,
         classToken,
         id: answerId,
+        // 答题人姓名：卷内有姓名题就用那道题的答案（与成绩单/PDF 抬头同源）；
+        // 否则用顶部输入框；都为空时后端会用登录账号姓名补齐。
+        answererName: (nameQuestion
+          ? answerPlainText(values[nameQuestion.id]).trim()
+          : answererName.trim()) || undefined,
         answer: values,
         survey: submissionSurvey,
         // 新一轮（再考一次）且还没有本轮答卷：要求后端新建记录，不要更新上一份
@@ -1298,6 +1352,27 @@ export default function PublicAnswer() {
   const failedVisibleQuestions = missingVisibleQuestions.filter((question) => questionErrors[question.id]);
 
   const showSubmit = onePage ? currentIndex >= total - 1 : nearBottom;
+  /** 发布方是否要求填答题人姓名（默认选填；匿名投票/问卷不要强制） */
+  const nameRequired = Boolean(project?.setting?.answerSetting?.answererNameRequired);
+  /**
+   * 卷内自带的姓名题：填空 / 多行文本，标题含「姓名」「名字」。
+   * 有这类题时以它为准（问卷星那种「您的姓名：」就是这种），不再额外显示顶部输入框，
+   * 否则同一个名字要在两个地方填，答题人一定会疑惑。
+   */
+  const nameQuestion = useMemo(
+    () =>
+      flatQuestions.find(
+        (q) => (q.type === 'FillBlank' || q.type === 'Textarea') && /姓名|名字/.test(q.title ?? ''),
+      ),
+    [flatQuestions],
+  );
+  /**
+   * 什么时候显示顶部「答题人」输入框：
+   * - 卷里已经有姓名题 → 不显示（用题目的答案）
+   * - 登录用户 → 不显示（后端用 t_user.name 自动补齐）
+   * - 其余（匿名答题且卷里没有姓名题）→ 显示
+   */
+  const showAnswererName = !nameQuestion && loggedIn !== true;
 
   return (
     <div
@@ -1445,6 +1520,42 @@ export default function PublicAnswer() {
           </Button>
         )}
       </div>
+
+      {/* 答题人姓名：只在「卷里没有姓名题 + 匿名答题」时出现。
+          登录用户由后端用 t_user.name 补；卷里有姓名题就用那道题的答案。 */}
+      {showAnswererName && (
+      <div
+        className="sk-answer-name"
+        style={{
+          maxWidth: 1080,
+          margin: '10px auto 0',
+          padding: '0 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ fontSize: 12, color: 'var(--bp-text-soft)', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+          答题人
+          {nameRequired ? <span style={{ color: 'var(--bp-orange)', marginLeft: 2 }}>*</span> : null}
+        </span>
+        <Input
+          size="small"
+          value={answererName}
+          maxLength={64}
+          style={{ maxWidth: 260 }}
+          placeholder={nameRequired ? '请填写姓名（必填）' : '姓名（选填，会显示在成绩单上）'}
+          aria-label="答题人姓名"
+          onChange={(e) => changeAnswererName(e.target.value)}
+        />
+        {!nameRequired && (
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+            留空也可以；登录账号会自动用账号姓名
+          </span>
+        )}
+      </div>
+      )}
 
       {/* 进度条：一页一题看页码，滚动模式看已答比例 */}
       {showProgress && (

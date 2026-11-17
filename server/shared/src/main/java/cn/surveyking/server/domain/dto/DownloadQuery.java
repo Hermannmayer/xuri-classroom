@@ -47,6 +47,21 @@ public class DownloadQuery extends PageQuery {
 	private String classId;
 
 	/**
+	 * 按「第几次作答」导出（t_answer.attempt_no，从 0 开始）；为空导出全部轮次。
+	 * <p>补考场景下老师通常只要某一轮。
+	 */
+	private Integer attemptNo;
+
+	/**
+	 * PDF 导出选项：是否附上答案解析。默认 false —— 考试未结束时放解析等于泄题，
+	 * 老师显式勾选才放。
+	 */
+	private Boolean includeAnalysis;
+
+	/** PDF 导出选项：是否附上签名题/上传题的图片 */
+	private Boolean includeImages;
+
+	/**
 	 * 是否包含匿名答卷。不传时导出默认包含（修复匿名答卷「导出为空」）；
 	 * 显式传 false 才只导出实名答卷，数据页「仅实名」即此口径。
 	 */
@@ -65,7 +80,17 @@ public class DownloadQuery extends PageQuery {
 		/**
 		 * 问卷答案、问卷答案+附件、问卷附件
 		 */
-		answer, answerAttachment, attachment
+		answer, answerAttachment, attachment,
+
+		/**
+		 * 每人一份答卷 PDF（题目 + 作答 + 得分 + 可选解析 + 可选签名图），整体打成 ZIP。
+		 */
+		answerPdf,
+
+		/**
+		 * 全班一份「成绩册」PDF：每人一行，列出姓名 / 分数 / 用时 / 逐题得分。
+		 */
+		gradeBookPdf
 
 	}
 

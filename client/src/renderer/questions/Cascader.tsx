@@ -1,7 +1,7 @@
 import { Cascader } from 'antd';
 import type { QuestionComponentProps } from '../types';
 import { cascaderLabel, cascaderPath, firstSelectedId } from './answers';
-import { EmptyOptions, QuestionFrame, useAnswerState } from './shared';
+import { EmptyOptions, QuestionFrame, useAnswerState, useQuestionLabelId } from './shared';
 
 /** 级联：answer = { [末级value]: 末级label }，dataSource 为 {label,value,children} 树 */
 export default function CascaderQuestion(props: QuestionComponentProps) {
@@ -10,6 +10,7 @@ export default function CascaderQuestion(props: QuestionComponentProps) {
   const tree = schema.dataSource ?? [];
   const leaf = firstSelectedId(answer);
   const locked = mode === 'edit' || Boolean(disabled);
+  const labelId = useQuestionLabelId();
 
   return (
     <QuestionFrame schema={schema} number={number}>
@@ -17,6 +18,7 @@ export default function CascaderQuestion(props: QuestionComponentProps) {
         <EmptyOptions />
       ) : (
         <Cascader
+          aria-labelledby={labelId}
           style={{ width: '100%', maxWidth: 360 }}
           options={tree}
           value={leaf ? cascaderPath(tree, leaf) : []}

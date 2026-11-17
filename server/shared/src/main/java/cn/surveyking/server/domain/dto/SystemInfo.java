@@ -181,6 +181,38 @@ public class SystemInfo {
 		/** 最近一次清理删除的匿名答卷条数（只读：由清理任务写） */
 		private Integer anonymousLastCleanupCount;
 
+		/**
+		 * 是否对**已逻辑删除**的匿名答卷做物理清理（默认关闭）。
+		 *
+		 * <p>上面两个字段只做「逻辑删」——答卷进回收站，能恢复，附件也还在。
+		 * 长期不物理清会让匿名答卷及其签名图/附件一直占磁盘，所以这里给一个单独的开关：
+		 * 打开后，逻辑删除满 {@code anonymousPurgeDelayDays} 天的匿名答卷会被真正删掉（含附件）。
+		 * 默认关闭是为了「删错了还能捞回来」这个保底体验。
+		 */
+		private Boolean anonymousPurgeEnabled;
+
+		/**
+		 * 逻辑删除后保留多少天才物理清理（1~3650，默认 7）。
+		 * 给管理员留一个后悔窗口：这段时间内还能在回收站里恢复。
+		 */
+		private Integer anonymousPurgeDelayDays;
+
+		/**
+		 * 答卷 PDF 导出的并发数（1~2，默认 1）。
+		 *
+		 * <p>PDF 渲染是 CPU 密集型：这台机器只有 4 核，还要同时跑 MySQL、前端构建和学生答题。
+		 * 调到 2 能把 50 份的导出时间压到一半，但考试高峰会有感。队列满时后端直接拒绝并提示。
+		 */
+		private Integer answerPdfConcurrency;
+
+		/**
+		 * 考试进行中是否暂停答卷 PDF 导出（默认 true）。
+		 *
+		 * <p>导出会持续占用一个核几十秒，开考瞬间几十人同时交卷时容易把答题页拖慢。
+		 * 暂停时后端返回明确中文提示，老师换个时间再导；Excel 明细导出不受此限制。
+		 */
+		private Boolean pauseAnswerPdfDuringExam;
+
 	}
 
 	@Data

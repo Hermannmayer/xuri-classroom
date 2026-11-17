@@ -39,10 +39,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageOutputStream;
 import javax.servlet.http.HttpServletRequest;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -77,6 +83,9 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 					SurveySchema.QuestionType.RichText, SurveySchema.QuestionType.Barcode));
 
 	private static final int DEFAULT_MAX_FILE_COUNT = 20;
+
+	/** imageQuality 配置写错（<=0 或 >1）时的兜底 JPEG 质量 */
+	private static final float DEFAULT_IMAGE_QUALITY = 0.85f;
 
 	private final StorageService storageService;
 
@@ -129,6 +138,52 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			}
 			removeFileAndPhysical(file);
 		}
+	}
+
+	@Override
+	@CacheEvict(cacheNames = "fileCache", allEntries = true)
+	public void deleteByAnswers(Collection<String> answerIds) {
+		if (answerIds == null || answerIds.isEmpty()) {
+			return;
+		}
+		// 只认 ANSWER_ATTACHMENT：题面富文本图片挂在 project 上，不是答卷的附属物
+		List<File> files = list(Wrappers.<File>lambdaQuery().in(File::getAnswerId, answerIds)
+				.eq(File::getStorageType, StorageTypeEnum.ANSWER_ATTACHMENT.getType()));
+		for (File file : files) {
+			fileRefService.deleteByFile(file.getId());
+			removeFileAndPhysical(file);
+		}
+		log.info("清理答卷附件：答卷 {} 份，文件 {} 个", answerIds.size(), files.size());
+	}
+
+	@Override
+	@CacheEvict(cacheNames = "fileCache", allEntries = true)
+	public void purgeProjectFiles(String projectId) {
+		if (StringUtils.isBlank(projectId)) {
+			return;
+		}
+		// 与 deleteByOwner 的关键区别：这里不跳过 answer_id 非空的行——项目都彻底删了，
+		// 答卷附件（签名/上传件）留着只会变成永远没人认领的孤儿文件。
+		List<File> files = list(Wrappers.<File>lambdaQuery().eq(File::getProjectId, projectId));
+		for (File file : files) {
+			fileRefService.deleteByFile(file.getId());
+			removeFileAndPhysical(file);
+		}
+		log.info("清理项目全部文件：projectId={}，文件 {} 个", projectId, files.size());
+	}
+
+	@Override
+	@CacheEvict(cacheNames = "fileCache", allEntries = true)
+	public void purgeFile(String fileId) {
+		if (StringUtils.isBlank(fileId)) {
+			return;
+		}
+		File file = getById(fileId);
+		if (file == null) {
+			return;
+		}
+		fileRefService.deleteByFile(fileId);
+		removeFileAndPhysical(file);
 	}
 
 	@Override
@@ -451,26 +506,125 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			if (!Arrays.asList("jpeg", "png", "gif", "bmp", "wbmp").contains(format)) {
 				throw new ErrorCodeException(FileUploadError);
 			}
-			// 先用 reader 校验尺寸，避免解码图片炸弹
+			// 先用 reader 校验尺寸，避免解码图片炸弹；顺序必须在缩放之前，不能削弱
 			assertImageDimensions(uploadFile, format);
 			if ("gif".equals(format)) {
 				// GIF 可能带动画，保留原文件；尺寸/解码校验已经挡住伪造图片
 				return uploadFile;
 			}
-			BufferedImage image = ImageIO.read(uploadFile.getInputStream());
+			long originalBytes = uploadFile.getSize();
+			BufferedImage image = ImageIO.read(inputStream);
 			if (image == null) {
 				throw new ErrorCodeException(FileUploadError);
 			}
+			int originalWidth = image.getWidth();
+			int originalHeight = image.getHeight();
+			int maxImageWidth = storageProperties.getMaxImageWidth();
+			if (maxImageWidth > 0 && originalWidth > maxImageWidth) {
+				// 只缩超宽的图：签名画布 1280、手机竖拍 1080 宽都不动，4K 截图才真正变小
+				image = scaleToWidth(image, maxImageWidth);
+			}
+			// 格式策略：png 保持 png（截图/签名常带透明或大片纯色，转 JPEG 会出噪点），
+			// bmp/wbmp 是无压缩格式、原样落盘太大，统一转 png；jpeg 按配置质量重编码
+			String targetFormat = "jpeg".equals(format) ? "jpeg" : "png";
 			ByteArrayOutputStream output = new ByteArrayOutputStream();
-			if (!ImageIO.write(image, format, output)) {
+			if (!writeImage(image, targetFormat, output)) {
 				throw new ErrorCodeException(FileUploadError);
 			}
+			byte[] compressed = output.toByteArray();
+			log.debug("图片压缩：{} {}x{}/{} → {}x{}/{}", originalName, originalWidth, originalHeight, originalBytes,
+					image.getWidth(), image.getHeight(), compressed.length);
 			return new ByteArrayMultipartFile(uploadFile.getName(), originalName, uploadFile.getContentType(),
-					output.toByteArray());
+					compressed);
 		}
 		catch (IOException e) {
 			throw new ErrorCodeException(FileUploadError);
 		}
+	}
+
+	/**
+	 * 等比缩放到指定宽度，高度按比例四舍五入（至少 1 像素）。
+	 *
+	 * <p>用 {@link Graphics2D} 一次性绘制，而不是 {@code getScaledInstance}：后者每次都要先
+	 * 建一个异步的图片生产者，质量差、速度慢，缩完往往还要再复制一次。这里只走一次双线性插值，
+	 * 并且按原图是否有 alpha 通道选目标类型，手写签名/截图的透明背景不会丢。
+	 * @param source 原图
+	 * @param targetWidth 目标宽度，单位像素
+	 * @return 缩放后的新图（原图不改）
+	 */
+	private BufferedImage scaleToWidth(BufferedImage source, int targetWidth) {
+		int sourceWidth = source.getWidth();
+		int sourceHeight = source.getHeight();
+		int targetHeight = Math.max(1, (int) Math.round(sourceHeight * (double) targetWidth / sourceWidth));
+		int imageType = source.getColorModel().hasAlpha() ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
+		BufferedImage scaled = new BufferedImage(targetWidth, targetHeight, imageType);
+		Graphics2D graphics = scaled.createGraphics();
+		try {
+			graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+			graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			graphics.drawImage(source, 0, 0, targetWidth, targetHeight, null);
+		}
+		finally {
+			graphics.dispose();
+		}
+		return scaled;
+	}
+
+	/**
+	 * 按目标格式重新编码图片：jpeg 走 {@link ImageWriter} 的显式质量参数，png 交给
+	 * {@link ImageIO} 默认的无损压缩（透明通道保留）。
+	 * @return false 表示当前 JDK 没有该格式的 writer
+	 */
+	private boolean writeImage(BufferedImage image, String format, ByteArrayOutputStream output) {
+		if (!"jpeg".equals(format)) {
+			try {
+				return ImageIO.write(image, format, output);
+			}
+			catch (IOException e) {
+				throw new ErrorCodeException(FileUploadError);
+			}
+		}
+		// JPEG 不认 alpha 通道，直接写会抛 Bogus input colorspace，先铺一层白底
+		BufferedImage opaque = image.getColorModel().hasAlpha() ? flattenAlpha(image) : image;
+		ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+		ImageWriteParam param = writer.getDefaultWriteParam();
+		if (param.canWriteCompressed()) {
+			param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+			param.setCompressionQuality(imageQuality());
+		}
+		try (ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output)) {
+			writer.setOutput(imageOutput);
+			writer.write(null, new IIOImage(opaque, null, null), param);
+			return true;
+		}
+		catch (IOException e) {
+			throw new ErrorCodeException(FileUploadError);
+		}
+		finally {
+			writer.dispose();
+		}
+	}
+
+	/** 把带透明通道的图画到白底 RGB 画布上（JPEG 没有透明概念，透明区变白而不是变黑）。 */
+	private BufferedImage flattenAlpha(BufferedImage source) {
+		BufferedImage flattened = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+		Graphics2D graphics = flattened.createGraphics();
+		try {
+			graphics.setColor(java.awt.Color.WHITE);
+			graphics.fillRect(0, 0, source.getWidth(), source.getHeight());
+			graphics.drawImage(source, 0, 0, null);
+		}
+		finally {
+			graphics.dispose();
+		}
+		return flattened;
+	}
+
+	/** 读取配置里的 JPEG 质量，写错（<=0 或 >1）时回落到默认值，别让一张图因为配置问题传不上去。 */
+	private float imageQuality() {
+		float quality = storageProperties.getImageQuality();
+		return quality > 0f && quality <= 1f ? quality : DEFAULT_IMAGE_QUALITY;
 	}
 
 	private void assertImageDimensions(MultipartFile uploadFile) {
@@ -613,10 +767,26 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 	@SneakyThrows
 	public ResponseEntity<Resource> loadPublicFile(FileQuery query) {
 		File file = getFileByQuery(query);
-		if (!Objects.equals(file.getShared(), 1)) {
+		if (!Objects.equals(file.getShared(), 1) && !isAnswerAttachment(file)) {
 			throw new AccessDeniedException("无权限访问该文件");
 		}
 		return buildFileResponse(query, file);
+	}
+
+	/**
+	 * 答卷附件（手写签名、上传题图片）回看：这类文件是 {@code shared=0}，但答题人必须能看到原图——
+	 * 答题页刷新、成绩单解析、老师批改都要显示，原来一刀切 403 会让签名「提交完就看不见」。
+	 *
+	 * <p>放开范围刻意收得很窄：**只有 {@code ANSWER_ATTACHMENT} 类型且已绑定 projectId** 的才放行。
+	 * fileId 是服务端生成的 UUID，不可枚举；答卷 JSON 本身还有归属校验（成绩单走
+	 * {@code AnswerLookup}），所以泄露面仅限于「主动把文件 URL 发给别人」。
+	 *
+	 * <p>要更强的隔离时，把这里换成一次性签名 URL（给 fileId + 过期时间 + HMAC），
+	 * 届时 {@code /api/public/preview/{id}} 仍然只服务 shared=1 的文件。
+	 */
+	private boolean isAnswerAttachment(File file) {
+		return Objects.equals(file.getStorageType(), StorageTypeEnum.ANSWER_ATTACHMENT.getType())
+				&& StringUtils.isNotBlank(file.getProjectId());
 	}
 
 	@Override

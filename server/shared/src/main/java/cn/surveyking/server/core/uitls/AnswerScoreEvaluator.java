@@ -20,13 +20,29 @@ public class AnswerScoreEvaluator {
 	// 当前答案
 	private final LinkedHashMap answer;
 
+	// 人工批改分：questionId → 老师给的分数；为 null 表示全部按机器判分
+	private final Map<String, Double> manualOverrides;
+
 	List<Evaluator> evaluatorList = new ArrayList<>();
 
 	LinkedHashMap<String, Double> questionScore = new LinkedHashMap<>();
 
 	public AnswerScoreEvaluator(SurveySchema schema, LinkedHashMap answer) {
+		this(schema, answer, null);
+	}
+
+	/**
+	 * 带人工批改覆盖分的构造。
+	 *
+	 * <p>覆盖分只对 {@code attribute.examAnswerMode = manual} 的题生效，客观题仍然走原来的 evaluator，
+	 * 因此「批改」不可能改掉机器判出来的客观题分数。
+	 *
+	 * @param manualOverrides 人工批改结果（questionId → 分数），传 null 等价于原两参构造
+	 */
+	public AnswerScoreEvaluator(SurveySchema schema, LinkedHashMap answer, Map<String, Double> manualOverrides) {
 		this.schema = schema;
 		this.answer = answer;
+		this.manualOverrides = manualOverrides;
 		evaluatorList.add(new OnlyOneEvaluator());
 		evaluatorList.add(new SelectAllEvaluator());
 		evaluatorList.add(new SelectCorrectEvaluator());
@@ -50,8 +66,10 @@ public class AnswerScoreEvaluator {
 	}
 
 	private Double doEval(SurveySchema qSchema) {
-		double score = evaluatorList.stream().filter(x -> x.support(qSchema)).findFirst().orElse(new DefaultEvaluator())
-				.eval(qSchema);
+		// 人工评分题没有 evaluator：有批改记录就用老师的分数，没有就按 0 分（待批改，先不计分）
+		double score = isManual(qSchema) ? manualScore(qSchema)
+				: evaluatorList.stream().filter(x -> x.support(qSchema)).findFirst().orElse(new DefaultEvaluator())
+						.eval(qSchema);
 		if (SurveySchema.QuestionType.dataType().contains(qSchema.getType())) {
 			questionScore.put(qSchema.getId(), score);
 		}
@@ -61,6 +79,30 @@ public class AnswerScoreEvaluator {
 			}
 		}
 		return score;
+	}
+
+	/**
+	 * 是否人工评分题：只有 {@code attribute.examAnswerMode = manual} 的题允许老师给分。
+	 *
+	 * <p>批改、交卷状态机、成绩单三处都用这一个判断，避免「前端认为是主观题、后端当成客观题」。
+	 */
+	public static boolean isManual(SurveySchema qSchema) {
+		return qSchema != null && qSchema.getAttribute() != null
+				&& SurveySchema.ExamScoreMode.manual.equals(qSchema.getAttribute().getExamAnswerMode());
+	}
+
+	/**
+	 * 人工分：没有批改记录时按 0 分算（等价于「待批改，暂不给分」）。
+	 *
+	 * <p>分数上下限由批改接口校验（0 ~ 该题 examScore），这里只负责取值，不做二次裁剪，
+	 * 保证「老师给了几分就是几分」。
+	 */
+	private Double manualScore(SurveySchema qSchema) {
+		if (manualOverrides == null) {
+			return .0;
+		}
+		Double score = manualOverrides.get(qSchema.getId());
+		return score == null ? .0 : score;
 	}
 
 	interface Evaluator {

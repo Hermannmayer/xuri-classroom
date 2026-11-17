@@ -33,6 +33,8 @@ import '../../styles/exam-result.css';
 
 interface PublicExamResult {
   name?: string;
+  /** 答题人姓名：交卷时填/后端用登录账号补齐；匿名且没填时为空 */
+  answererName?: string;
   schema?: SurveySchema;
   examScore?: number;
   rank?: number;
@@ -84,6 +86,22 @@ const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
+/** 答案里存的是文件 id 的题型：签名存 {空位: 'fileId'}，上传存 {空位: ['fileId']} */
+const FILE_TYPES = new Set<QuestionType>(['Signature', 'Upload', 'Barcode']);
+
+/** 从签名/上传题的答案里取出 fileId 列表（兼容字符串与数组两种存法） */
+function fileIdsOf(value: AnswerValue): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of Object.values(value as Record<string, unknown>)) {
+    if (typeof item === 'string' && item) out.push(item);
+    else if (Array.isArray(item)) {
+      for (const sub of item) if (typeof sub === 'string' && sub) out.push(sub);
+    }
+  }
+  return out;
+}
+
 /** correct / wrong / unanswered = 判分结果；unknown = 这类题不参与判分 */
 type Status = 'correct' | 'wrong' | 'unanswered' | 'unknown' | 'manual';
 
@@ -115,6 +133,8 @@ export interface QuestionView {
   /** 非选择、非填空题的正确答案（一般没有） */
   correctText: string;
   analysis: string;
+  /** 签名/上传题的附件 id；其它题型为空数组 */
+  files: string[];
   answered: boolean;
   /** 这道题有标准答案、能判对错 */
   judgeable: boolean;
@@ -285,6 +305,7 @@ export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
   const options = buildOptions(q, value);
   const blanks = buildBlanks(q, value);
   const analysis = trimmed(q.schema.attribute?.examAnalysis);
+  const files = FILE_TYPES.has(q.type) ? fileIdsOf(value) : [];
   const picked = options.filter((option) => option.picked).map((option) => option.id);
   const correct = options.filter((option) => option.correct).map((option) => option.id);
 
@@ -311,8 +332,9 @@ export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
     }
   } else {
     answerLines = MATRIX.has(q.type) ? matrixLines(q, value) : [];
-    const mine = answerLines.length ? '' : answerText(value);
-    answered = answerLines.length > 0 || mine !== '';
+    // 签名/上传题的答案是 fileId，不是给人看的文本：有图就只出图，否则会把一串 UUID 印在成绩单上
+    const mine = answerLines.length || files.length ? '' : answerText(value);
+    answered = answerLines.length > 0 || files.length > 0 || mine !== '';
     correctText = prettyCorrect(trimmed(q.schema.attribute?.examCorrectAnswer));
     answerLines = answerLines.length ? answerLines : mine ? [mine] : [];
     // 主观题（manual 模式）后端没有 evaluator，恒 0 分：这里明确标成待人工评分，
@@ -320,7 +342,7 @@ export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
     status = !answered ? 'unanswered' : isManualGraded(q.schema.attribute) ? 'manual' : 'unknown';
   }
 
-  return { q, options, blanks, answerLines, correctText, analysis, answered, judgeable, status };
+  return { q, options, blanks, answerLines, correctText, analysis, files, answered, judgeable, status };
 }
 
 function toneOf(ok?: boolean): string {
@@ -434,6 +456,20 @@ export function QuestionCard({ view }: { view: QuestionView }) {
         </div>
       )}
 
+      {view.files.length > 0 && (
+        <div className="sk-file-list">
+          {view.files.map((fileId, index) => (
+            <img
+              key={`${fileId}-${index}`}
+              className="sk-file-image"
+              src={`/api/public/preview/${fileId}`}
+              alt={`${TYPE_LABEL[q.type] ?? '附件'} ${index + 1}`}
+              loading="lazy"
+            />
+          ))}
+        </div>
+      )}
+
       {options.length === 0 && blanks.length === 0 && (
         <div className="sk-answer-rows">
           {view.answerLines.length > 0 ? (
@@ -507,6 +543,9 @@ export default function ExamResult() {
     return flattenSchema(data.schema).map((q) => buildView(q, answers[q.id]));
   }, [data]);
 
+  /** 抬头显示的答题人姓名：后端已按「请求填的 → 账号姓名」补齐，这里只做 trim 兜底 */
+  const answererName = (data?.answererName ?? '').trim();
+
   const stats = useMemo(() => {
     let correct = 0;
     let wrong = 0;
@@ -571,6 +610,14 @@ export default function ExamResult() {
         <header className="sk-result-head bp-corners">
           <div className="sk-result-eyebrow">RESULT / 成绩单</div>
           <h1 className="sk-result-name">{data.name || '答卷'}</h1>
+
+          {/* 答题人：老师导出 PDF、学员自查都要能一眼对上人；没填就明说「未填写」，不要留空 */}
+          <div className="sk-result-answerer">
+            <span className="sk-result-answerer-label">答题人</span>
+            <span className={`sk-result-answerer-name${answererName ? '' : ' is-empty'}`}>
+              {answererName || '未填写'}
+            </span>
+          </div>
 
           <div className="sk-result-figures">
             <div className="sk-result-score">

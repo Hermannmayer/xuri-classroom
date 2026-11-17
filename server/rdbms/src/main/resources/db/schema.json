@@ -41,6 +41,17 @@
     {
       "version": "2.2.0",
       "requires": []
+    },
+    {
+      "version": "2.2.1",
+      "requires": [
+        "column:t_answer.answerer_name",
+        "column:t_answer.grade_status",
+        "column:t_answer.graded_by",
+        "column:t_answer.graded_at",
+        "index:t_answer.idx_answer_project_grade",
+        "table:t_answer_grade"
+      ]
     }
   ]
 }

@@ -48,6 +48,24 @@ public class Answer extends BaseModel {
 	private Boolean isAnonymous = false;
 
 	/**
+	 * 答题人姓名：交卷时从登录用户或答题页输入框取快照。
+	 * <p>与 create_by（账号）分开存，改账号名不影响历史答卷；匿名答卷也能带上姓名。
+	 */
+	private String answererName;
+
+	/**
+	 * 批改状态：none 无需批改（卷里没有 manual 题）/ pending 待批改 / graded 已批改。
+	 * <p>学生重新提交后回到 pending，并清空 t_answer_grade（旧的批改作废）。
+	 */
+	private String gradeStatus = "none";
+
+	/** 最近一次批改人（t_user.id） */
+	private String gradedBy;
+
+	/** 最近一次批改时间 */
+	private Date gradedAt;
+
+	/**
 	 * 暂存的答案
 	 */
 	@TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)

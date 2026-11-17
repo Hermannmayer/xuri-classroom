@@ -29,6 +29,16 @@ modules:
       - t_answer
       - t_answer.class_id
       - AnswerScoreEvaluator
+      - 人工批改
+      - manual
+      - grade_status
+      - t_answer_grade
+      - answer:grade
+      - 答题人姓名
+      - answerer_name
+      - 答卷 PDF 导出
+      - answerPdf
+      - 文件生命周期
     source_globs:
       - client/src/pages/answer/**
       - client/src/pages/survey/Data.tsx
@@ -36,7 +46,18 @@ modules:
       - client/src/pages/survey/data/**
       - client/src/pages/survey/report/**
       - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/AnswerGradeApi.java
+      - server/api/src/main/java/cn/surveyking/server/api/AnswerExportApi.java
       - server/api/src/main/java/cn/surveyking/server/api/ReportApi.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerGradeServiceImpl.java
+      - server/rdbms/src/main/java/cn/surveyking/server/service/AnswerGradeService.java
+      - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnswerGrade.java
+      - server/rdbms/src/main/java/cn/surveyking/server/mapper/AnswerGradeMapper.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerPdfJobServiceImpl.java
+      - server/shared/src/main/java/cn/surveyking/server/service/AnswerPdfJobService.java
+      - server/shared/src/main/java/cn/surveyking/server/core/export/AnswerPdfExporter.java
+      - server/rdbms/src/main/java/cn/surveyking/server/impl/FileOrphanCleanupService.java
+      - server/shared/src/main/resources/fonts/**
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
       - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSubmitIdempotency.java
@@ -86,6 +107,14 @@ modules:
       - POST /api/answer/restore
       - GET /api/answer/download
       - POST /api/answer/export/token
+      - GET /api/answer/grade/list
+      - GET /api/answer/grade/detail
+      - POST /api/answer/grade
+      - POST /api/answer/grade/reset
+      - POST /api/answer/export/pdf-job
+      - GET /api/answer/export/pdf-job/{id}
+      - GET /api/answer/export/pdf-job/{id}/file
+      - DELETE /api/answer/export/pdf-job/{id}
       - POST /api/answer/upload
       - GET /api/report/{shortId}
       - POST /api/public/saveAnswer
@@ -97,6 +126,7 @@ modules:
       - POST /api/public/exam/switch-screen
     tables:
       - t_answer
+      - t_answer_grade
       - t_project
       - t_class_resource
       - t_user

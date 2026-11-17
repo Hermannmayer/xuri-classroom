@@ -1,6 +1,6 @@
 import { Input } from 'antd';
 import type { QuestionComponentProps } from '../types';
-import { QuestionFrame, useAnswerState } from './shared';
+import { QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 import { blankAnswer, blankId, blankText, inputRule } from './answers';
 
 /** 多行文本：answer = { [空位id]: 文本 }，按 attribute.textLimit 限制长度 */
@@ -10,11 +10,15 @@ export default function Textarea(props: QuestionComponentProps) {
   const id = blankId(schema);
   const text = blankText(answer, id);
   const rule = inputRule(schema.attribute?.dataType, schema.attribute?.textLimit);
+  // 多行文本的无障碍名称同样指向题干
+  const { labelId, descId } = questionA11yIds(schema);
 
   return (
     <QuestionFrame schema={schema} number={number}>
       <Input.TextArea
         style={{ maxWidth: 720 }}
+        aria-labelledby={labelId}
+        aria-describedby={descId}
         rows={schema.attribute?.rows ?? 4}
         value={text}
         placeholder={schema.attribute?.placeholder || '请输入'}

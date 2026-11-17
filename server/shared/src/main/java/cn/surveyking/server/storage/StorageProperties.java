@@ -24,8 +24,14 @@ public class StorageProperties {
 
 	public final ThumbImage thumbImage = new ThumbImage();
 
-	/** 公开问卷单文件默认最大体积，单位 MB */
-	private long maxPublicFileSizeMb = 20;
+	/**
+	 * 公开问卷单文件默认最大体积，单位 MB。
+	 *
+	 * <p>从 20 收到 10：图片落盘前会先等比缩放并重新编码，2K/4K 截图压完通常不到 1MB，
+	 * 10MB 足够覆盖 PDF、Office、压缩包这类不该动的内容；再大的基本是整段录屏或素材包。
+	 * 注意它也同时是「单题 maxFileSize」的天花板，见 FileServiceImpl#toBytes。
+	 */
+	private long maxPublicFileSizeMb = 10;
 
 	/** 单个客户端每分钟最多上传文件数 */
 	private int maxPublicUploadsPerMinute = 10;
@@ -41,6 +47,23 @@ public class StorageProperties {
 
 	/** 允许生成缩略图的最大像素数 */
 	private long maxImagePixels = 16000000L;
+
+	/**
+	 * 图片落盘前的最大宽度，单位像素；只有超过这个宽度才等比缩放。
+	 *
+	 * <p>取 1920 而不是 1280：签名题的画布是 1280 宽，手写笔迹一旦被重采样就会发虚；
+	 * 1080P/1440P 的显示器截图和手机竖拍照片也都在 1920 以内，原样保留即可。
+	 * 真正会被缩小的只有 2K/4K 截图——而它们正是把磁盘占满的那批。
+	 */
+	private int maxImageWidth = 1920;
+
+	/**
+	 * JPEG 重新编码质量，取值 0~1，只对 jpg/jpeg 生效（png/bmp/wbmp 另有格式策略）。
+	 *
+	 * <p>0.85：实测比 0.9 小一成左右，肉眼几乎看不出差别；再往下（0.6 以下）题目截图上的
+	 * 小字会糊，影响老师批改。配置写错（<=0 或 >1）时 FileServiceImpl 会回落到默认值。
+	 */
+	private float imageQuality = 0.85f;
 
 	@Data
 	public class ThumbImage {

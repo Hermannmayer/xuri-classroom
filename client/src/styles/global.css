@@ -703,6 +703,30 @@ body {
 .rich-text-editor .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
 .rich-text-content .rt-formula { color: var(--bp-blue); }
 .rich-text-content .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
+/* ------ 无障碍基线
+ * 1) .sk-sr-only：只给读屏的文字（必填提示等），视觉上不占位、不撑开布局
+ * 2) 键盘焦点：深蓝/米白自定义底色上浏览器默认焦点环几乎看不见（WCAG 2.4.7），
+ *    这里只覆盖答题页与渲染器（设计器画布、预览、练习页）；后台表格、菜单等 antd
+ *    区域保留原有焦点样式，避免视觉回归。答题页在 styles/answer.css 里再按控件细化。
+ */
+.sk-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sk-renderer :focus-visible,
+.sk-answer :focus-visible {
+  outline: 2px solid var(--bp-orange);
+  outline-offset: 2px;
+}
+
 /* ------ 移动端通用兜底（页面级卡片布局之外的表格/弹窗/表单） */
 @media (max-width: 767.98px) {
   .bp-title { font-size: 16px !important; line-height: 1.45; }

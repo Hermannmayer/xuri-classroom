@@ -24,6 +24,8 @@ export const QUESTION_META: QuestionMeta[] = [
   { type: 'Address', label: '地址', group: 'input', title: '地址题' },
   { type: 'RichText', label: '富文本', group: 'input', title: '富文本题' },
   { type: 'Score', label: '评分', group: 'input', title: '评分题' },
+  { type: 'Signature', label: '签名', group: 'input', title: '签名题' },
+  { type: 'Upload', label: '上传', group: 'input', title: '上传题' },
   { type: 'QuestionSet', label: '题组', group: 'structure', title: '题组' },
   { type: 'Remark', label: '说明', group: 'structure', title: '说明文字' },
   { type: 'SplitLine', label: '分割线', group: 'structure', title: '' },
@@ -103,6 +105,11 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
     base.attribute = { required: false, placeholder: '请输入答案，可插入图片和公式' };
   } else if (type === 'Score') {
     base.attribute = { scope: '[0,5]' };
+  } else if (type === 'Signature' || type === 'Upload') {
+    // 文件类题：默认单文件 5MB（后端 Attribute.maxFileSize 是 MB 的 Double）。
+    // children 必须有 id：后端签名/上传答案格式是 {题目id: {空位id: fileId}}，空位 id 就是 children[0].id
+    base.attribute = { required: false, maxFileSize: 5, maxFileCount: 1 };
+    base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'QuestionSet') {
     base.children = [];
   } else if (type === 'Remark') {

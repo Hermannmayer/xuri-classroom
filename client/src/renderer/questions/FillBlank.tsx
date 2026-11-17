@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Input } from 'antd';
 import type { QuestionComponentProps } from '../types';
-import { QuestionFrame, useAnswerState } from './shared';
+import { QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 import { blankAnswer, blankId, blankText, inputRule } from './answers';
 
 /**
@@ -17,6 +17,8 @@ export default function FillBlank(props: QuestionComponentProps) {
   const text = blankText(answer, id);
   const rule = inputRule(schema.attribute?.dataType, schema.attribute?.textLimit);
   const readOnly = mode === 'edit' || Boolean(disabled);
+  // 输入框的无障碍名称指向题干：读屏聚焦时先念题目，不只剩一句「编辑框」
+  const { labelId, descId } = questionA11yIds(schema);
 
   const sanitize = (raw: string) => (rule.filter ? rule.filter(raw) : raw);
   const commit = (raw: string) => {
@@ -30,6 +32,9 @@ export default function FillBlank(props: QuestionComponentProps) {
     <QuestionFrame schema={schema} number={number}>
       <Input
         style={{ maxWidth: 380 }}
+        aria-labelledby={labelId}
+        aria-describedby={descId}
+        aria-invalid={error ? true : undefined}
         value={text}
         placeholder={schema.attribute?.placeholder || '请输入'}
         disabled={readOnly}
@@ -57,7 +62,14 @@ export default function FillBlank(props: QuestionComponentProps) {
         }}
         onBlur={() => !readOnly && setError(rule.validate?.(text))}
       />
-      {error && <div style={{ color: 'var(--bp-orange)', fontSize: 11, marginTop: 4 }}>{error}</div>}
+      {/* 校验提示容器常驻 + role="status"：错误出现/变化时读屏会播报（3.3.1 错误识别 + 4.1.3 状态消息） */}
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ color: 'var(--bp-orange)', fontSize: 11, marginTop: error ? 4 : 0 }}
+      >
+        {error}
+      </div>
     </QuestionFrame>
   );
 }

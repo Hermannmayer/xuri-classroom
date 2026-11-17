@@ -1,0 +1,95 @@
+/**
+ * 签名题样式。
+ *
+ * 画布是白底：墨迹是深色，深色主题/打印/截图里都必须看得清，
+ * 所以这里的底色和边框色写死中性值，不吃 --bp-* 主题变量。
+ */
+.sk-sign {
+  max-width: 720px;
+}
+
+.sk-sign-pad {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: #ffffff;
+  border: 1px dashed #c9c2b4;
+  overflow: hidden;
+}
+
+/* 只读（设计器 / 预览 / 禁用）：底色调灰，让人一眼看出这里不能写 */
+.sk-sign-pad.locked {
+  background: #fbfaf7;
+}
+
+.sk-sign-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* 关键：移动端手写时不要触发页面滚动/缩放，否则笔画被浏览器抢走 */
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.sk-sign-pad.locked .sk-sign-canvas {
+  cursor: default;
+}
+
+/* 空画布时的占位提示，不拦指针事件 */
+.sk-sign-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #9aa3ad;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sk-sign-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sk-sign-tools-label {
+  font-size: 12px;
+  color: var(--bp-text-soft);
+}
+
+.sk-sign-thumb-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sk-sign-thumb {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  background: #ffffff;
+  border: 1px solid #c9c2b4;
+}
+
+/* 原图取不到（签名文件非公开）时的兜底：不留破图图标 */
+.sk-sign-broken {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #fbfaf7;
+  border: 1px dashed #c9c2b4;
+}
+
+@media (max-width: 640px) {
+  .sk-sign-pad {
+    height: 168px;
+  }
+}

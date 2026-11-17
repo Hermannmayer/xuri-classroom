@@ -17,6 +17,7 @@ export default function Checkbox(props: QuestionComponentProps) {
         options={options}
         picked={picked}
         locked={locked}
+        optionRole="checkbox"
         onPick={(value) => {
           if (locked) return;
           const next = picked.includes(value) ? picked.filter((v) => v !== value) : [...picked, value];

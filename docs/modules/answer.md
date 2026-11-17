@@ -27,6 +27,16 @@ keywords:
   - t_answer
   - t_answer.class_id
   - AnswerScoreEvaluator
+  - 人工批改
+  - manual
+  - grade_status
+  - t_answer_grade
+  - answer:grade
+  - 答题人姓名
+  - answerer_name
+  - 答卷 PDF 导出
+  - answerPdf
+  - 文件生命周期
 source_globs:
   - client/src/pages/answer/**
   - client/src/pages/survey/Data.tsx
@@ -34,7 +44,18 @@ source_globs:
   - client/src/pages/survey/data/**
   - client/src/pages/survey/report/**
   - server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/AnswerGradeApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/AnswerExportApi.java
   - server/api/src/main/java/cn/surveyking/server/api/ReportApi.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerGradeServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/service/AnswerGradeService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/domain/model/AnswerGrade.java
+  - server/rdbms/src/main/java/cn/surveyking/server/mapper/AnswerGradeMapper.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerPdfJobServiceImpl.java
+  - server/shared/src/main/java/cn/surveyking/server/service/AnswerPdfJobService.java
+  - server/shared/src/main/java/cn/surveyking/server/core/export/AnswerPdfExporter.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/FileOrphanCleanupService.java
+  - server/shared/src/main/resources/fonts/**
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerSubmitIdempotency.java
@@ -84,6 +105,14 @@ apis:
   - POST /api/answer/restore
   - GET /api/answer/download
   - POST /api/answer/export/token
+  - GET /api/answer/grade/list
+  - GET /api/answer/grade/detail
+  - POST /api/answer/grade
+  - POST /api/answer/grade/reset
+  - POST /api/answer/export/pdf-job
+  - GET /api/answer/export/pdf-job/{id}
+  - GET /api/answer/export/pdf-job/{id}/file
+  - DELETE /api/answer/export/pdf-job/{id}
   - POST /api/answer/upload
   - GET /api/report/{shortId}
   - POST /api/public/saveAnswer
@@ -95,6 +124,7 @@ apis:
   - POST /api/public/exam/switch-screen
 tables:
   - t_answer
+  - t_answer_grade
   - t_project
   - t_class_resource
   - t_user
@@ -193,6 +223,63 @@ verified_against: 5918696b29b5123fe29561d827cf8f9866f7e234
 8. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体。匿名答卷在管理端可见，但详情不显示身份，导出只有「匿名」标识。
 9. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#
 10. 班级链接归属（2026-11）：`ProjectQuery.classToken` / `AnswerRequest.classToken` 从公开页透传，`AnswerServiceImpl` 调 `ClassResourceService#resolveShareToken` 反查，前端不能直接传 `classId`。token 存在 `t_class_resource.share_token`，按班级 × 考试生成；匿名答卷写 `class_id` 后进本班列表/统计，普通链接匿名仍为 NULL（总面板「未归属」）。登录学员用别班 token 会被拒绝。cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
+
+### 人工批改（2.2.1）
+
+主观题（`attribute.examAnswerMode = manual`）原来只有开关、没有实现：`AnswerScoreEvaluator` 没有 manual 的 evaluator，交卷恒 0 分。2.2.1 补齐了整条链路。
+
+**数据**：`t_answer.grade_status`（`none`/`pending`/`graded`）、`graded_by`、`graded_at`；新表 `t_answer_grade`（`answer_id + question_id` 唯一，存 `score` / `comment` / `grader`）。分数本身仍汇总进 `exam_info.questionScore`，所以成绩单、报表、导出读的地方一行都不用改。
+
+**口径（服务端强制）**：
+- **只有 manual 题允许人工给分**，其它题传分直接 400 —— 客观题有确定答案，让人改只会引入错误；
+- **三处必须一起写**：`t_answer.exam_score`、`exam_info.questionScore`、`t_answer_item.score`。漏掉投影那处，就会出现「成绩单 74 分、报表平均分还是 40 分」。
+- 状态机：交卷时卷内有 manual 题 → `pending`；所有 manual 题都有分 → `graded`；**学生重新提交 → 回 `pending` 并清空 `t_answer_grade`**（旧批改作废）。
+- 学生端：`grade_status != graded` 时 `loadExamResult` / `listPublicAttempts` 都**不下发 examScore**，避免学生把「客观题部分分」当成最终成绩。
+
+**接口**：`GET /api/answer/grade/list`（待批改，认 `gradeStatus` 过滤）、`GET /grade/detail`（默认剥掉 `examCorrectAnswer`）、`POST /api/answer/grade`、`POST /grade/reset`；权限 `answer:grade or admin`。前端入口在数据页行操作「批改」（`pending` 时显示）+ 顶部「待批改」筛选。
+
+**交卷侧钩子**在 `AnswerScoringService#beforeSaveAnswer` 末尾（`AnswerGradeService#onSubmitted`），不是 `AnswerServiceImpl` —— 那是 create/update 的唯一共同入口。
+
+### 答卷 PDF 导出（2.2.1）
+
+班级答卷抽屉里除了 Excel 明细，还能导出 PDF：每人一份「答卷归档」（题目 + 作答 + 得分 + 可选解析 + 签名/上传图），整体打成一个 ZIP。
+
+- 接口：`POST /api/answer/export/pdf-job` 建任务 → `GET /{id}` 2 秒轮询进度（没有 SSE/WebSocket，只能轮询）→ `GET /{id}/file` 下载 → `DELETE /{id}` 取消；权限 `answer:export` + 一次性导出 token + `classService.assertVisible`。
+- 异步而不是同步：50 份 × 100 题在 4 核机器上要 25~50 秒，同步会撞反代 60 秒超时。
+- **并发**跟系统设置 `answerPdfConcurrency`（1~2，默认 1，`mergeSysInfo` 里夹紧）；队列 2，满了返回中文提示。每份之间 `sleep 30ms` 主动让 CPU 给答题页。
+- **考试期间暂停**：`pauseAnswerPdfDuringExam`（默认开）时检测到有活跃考试就拒绝建任务并给出明确提示；Excel 明细不受影响。
+- **字体**：`classpath:/fonts/answer-pdf.ttf`（霞鹜文楷 v1.530 子集，OFL-1.1，25.9MB → 12.6MB，覆盖 U+4E00–9FFF）。启动时读成 `static byte[]` 缓存一次；每份 PDF 各自 `PDType0Font.load(..., true)` 子集嵌入（PDFBox 的字体对象不能跨文档复用）。**缺字体会抛明确中文错误**，不会静默出一个方块 PDF。
+- 后端容器是 alpine，只有 `ttf-dejavu`，**没有任何中文字体** —— 所以字体必须随 jar 走。
+- 结果行用文字（回答正确/部分正确/回答错误/待老师批改）而不是 ✓/✕：字体子集不含 Dingbats，缺字会让 PDFBox 抛异常。
+- 产物落 `{file-storage.local.root-path}/export/{jobId}.zip`，**24 小时**后由 `@Scheduled` 每小时清一次（含进程重启后 JOBS 丢失的孤儿文件）。
+
+### 文件生命周期（2.2.1）
+
+答卷附件（手写签名、上传题图片）和题面富文本图片是两套清理逻辑，不要混：
+
+| 触发 | 行为 |
+|---|---|
+| 答卷进回收站（逻辑删） | **不动文件**——还能恢复，恢复后签名图还在 |
+| 答卷**彻底删除** | `batchDestroyAnswer` → 事务提交后 `FileService#deleteByAnswers`（只删 `ANSWER_ATTACHMENT`） |
+| 项目进回收站 | `deleteByOwner` 会**刻意跳过** `answer_id` 非空的答卷附件 |
+| 项目**彻底删除** | `batchDestroyProject` → 事务提交后 `FileService#purgeProjectFiles`（含答卷附件） |
+| 题库删除 | `deleteByOwner("repo", ...)`，走 `t_file_ref` 引用计数 |
+| 匿名答卷逻辑删 | 不动文件 |
+| 匿名**物理清理**（开关 `anonymousPurgeEnabled`，默认关） | 物理删答卷 + 附件，延迟 `anonymousPurgeDelayDays`（默认 7 天） |
+| 孤儿兜底 | `FileOrphanCleanupService` 每天 03:47：`answer_id` 指向不存在答卷的、以及超 7 天从未绑定答卷的上传件 |
+| PDF 产物 | 24h TTL |
+
+**为什么文件删除要放到事务提交之后**：物理文件删掉是不能回滚的。先删行再删文件，删行失败时文件还在（浪费空间而已）；反过来就是「文件没了但答卷还在」，那是坏数据。
+
+### 答题人姓名（2.2.1）
+
+成绩单与 PDF 抬头需要显示答题人。字段是 `t_answer.answerer_name`（交卷时快照），**取值优先级**：
+
+1. 卷内自带的姓名题（`FillBlank`/`Textarea` 且标题含「姓名」「名字」）—— 有它就用那道题的答案，答题页不再显示顶部输入框；
+2. 答题页顶部的「答题人」输入框 —— **只在匿名答题且卷内没有姓名题时出现**；
+3. 登录账号的 `t_user.name` —— 后端在 `resolveAnswererName` 里兜底。
+
+`answerSetting.answererNameRequired`（默认 false）控制必填：只拦**手动交卷**，自动交卷（到点/切屏超限）必须放行，否则没填姓名会把整卷卡在本地。
 
 ## 修改指南
 

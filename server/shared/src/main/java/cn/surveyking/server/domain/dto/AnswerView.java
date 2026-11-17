@@ -56,6 +56,22 @@ public class AnswerView {
 	private String createBy;
 
 	/**
+	 * 答题人姓名（交卷时快照）。匿名答卷也可能有；优先于 createByName 用于展示。
+	 */
+	private String answererName;
+
+	/**
+	 * 批改状态：none / pending / graded。管理端据此显示「待批改 N 份」与批改入口。
+	 */
+	private String gradeStatus;
+
+	/** 最近一次批改人 */
+	private String gradedBy;
+
+	/** 最近一次批改时间 */
+	private Date gradedAt;
+
+	/**
 	 * 是否匿名答卷。管理端据此显示「匿名」标识，导出时提交人写「匿名」；
 	 * 不暴露 anonymousSubjectId，避免把同一匿名主体的多份答卷关联起来。
 	 */

@@ -87,6 +87,8 @@ public class PublicSurveyExtrasService {
 		ProjectSetting.ExamSetting examSetting = project.getSetting().getExamSetting();
 		PublicExamResult result = new PublicExamResult();
 		result.setName(project.getName());
+		// 答题人姓名（交卷时快照）：成绩单抬头用；匿名且没填时为空，前端显示「未填写」
+		result.setAnswererName(answerView.getAnswererName());
 		// 可以查看正确答案和解析;
 		// 考试结束之后才可以查看正确答案和解析
 		if (Boolean.TRUE.equals(submittedSetting.getAnswerAnalysis()) && examControlService.examFinished(examSetting)) {
@@ -94,8 +96,11 @@ public class PublicSurveyExtrasService {
 			result.setSchema(project.getSurvey());
 			result.setExamInfo(answerView.getExamInfo());
 		}
-		// 显示成绩单
-		if (Boolean.TRUE.equals(submittedSetting.getTranscriptVisible())) {
+		// 显示成绩单：只有批改完成（graded）才给分。
+		// pending 时主观题还没批，这里的 exam_score 只是客观题机器分，下发给学生会让人误以为是整卷得分；
+		// none（卷里没有 manual 题）与 graded 都正常下发。
+		if (Boolean.TRUE.equals(submittedSetting.getTranscriptVisible())
+				&& !AnswerGradeServiceImpl.GRADE_PENDING.equals(answerView.getGradeStatus())) {
 			result.setExamScore(answerView.getExamScore());
 		}
 		// 显示排名 TODO:显示排行榜
@@ -166,7 +171,9 @@ public class PublicSurveyExtrasService {
 		return answerService.list(wrapper.orderByDesc(Answer::getCreateAt)).stream().map(answer -> {
 			PublicAttemptView view = new PublicAttemptView();
 			view.setAnswerId(answer.getId());
-			view.setExamScore(answer.getExamScore());
+			// 待批改时不给分：主观题还没批，这里下发只是客观题机器分，学生会当成整卷成绩
+			view.setExamScore(AnswerGradeServiceImpl.GRADE_PENDING.equals(answer.getGradeStatus()) ? null
+					: answer.getExamScore());
 			view.setCreateAt(answer.getCreateAt() == null ? null : answer.getCreateAt().getTime());
 			return view;
 		}).collect(Collectors.toList());

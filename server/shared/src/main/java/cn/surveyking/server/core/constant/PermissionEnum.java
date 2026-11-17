@@ -53,6 +53,7 @@ public enum PermissionEnum {
 	ANSWER_UPDATE("answer:update", "修改答卷", Group.ANSWER, "改答卷内容与批注"),
 	ANSWER_DELETE("answer:delete", "删除答卷", Group.ANSWER, "把答卷移入回收站"),
 	ANSWER_EXPORT("answer:export", "导出答卷", Group.ANSWER, "导出 Excel，含作答人信息，可单独关闭"),
+	ANSWER_GRADE("answer:grade", "批改答卷", Group.ANSWER, "对人工评分（manual）题打分，客观题机器分不可覆盖"),
 	ANSWER_UPLOAD("answer:upload", "上传答卷附件", Group.ANSWER, "为答卷补充附件材料"),
 	ANSWER_RESTORE("answer:restore", "恢复答卷", Group.ANSWER, "从回收站恢复答卷，与删除答卷对称", false),
 

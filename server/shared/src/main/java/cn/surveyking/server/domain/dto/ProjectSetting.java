@@ -53,6 +53,14 @@ public class ProjectSetting {
 		private Boolean progressBar;
 
 		/**
+		 * 答题人姓名是否必填（默认 false = 选填）。
+		 *
+		 * <p>答题页顶部有「答题人」输入框：登录用户默认带出 t_user.name，未登录可自己填。
+		 * 置 true 后，不填姓名不允许交卷（匿名投票/问卷保持 false，不要强制）。
+		 */
+		private Boolean answererNameRequired;
+
+		/**
 		 * 是否需要登录才能作答。 需要登录答卷的几种场景：1、问卷设置直接设置 2、工作流起始节点指定发起人 3、问卷里面有成员和部门题
 		 */
 		private Boolean loginRequired;

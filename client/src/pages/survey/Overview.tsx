@@ -301,6 +301,7 @@ export default function SurveyOverview() {
         onePageOneQuestion: value.answerSetting?.onePageOneQuestion,
         answerSheetVisible: value.answerSetting?.answerSheetVisible,
         questionNumber: value.answerSetting?.questionNumber ?? true,
+        answererNameRequired: value.answerSetting?.answererNameRequired ?? false,
         copyEnabled: value.answerSetting?.copyEnabled ?? true,
         maxAnswers: value.answerSetting?.maxAnswers,
         ipLimitEnabled: Boolean(value.answerSetting?.ipLimit),
@@ -444,6 +445,8 @@ export default function SurveyOverview() {
       onePageOneQuestion: Boolean(v.onePageOneQuestion),
       answerSheetVisible: Boolean(v.answerSheetVisible),
       questionNumber: Boolean(v.questionNumber),
+      // 答题人姓名必填：默认 false（匿名投票/问卷强制填姓名会劝退答题人）
+      answererNameRequired: Boolean(v.answererNameRequired),
       copyEnabled: Boolean(v.copyEnabled),
       maxAnswers: (v.maxAnswers as number | undefined) ?? undefined,
       // schema 里的 AnswerFreqEnum 只覆盖了部分频率，后端实际存字符串（only/hour/day/week/month）
@@ -856,6 +859,11 @@ export default function SurveyOverview() {
                 {switchItem('onePageOneQuestion', '一页一题')}
                 {switchItem('answerSheetVisible', '显示答题卡')}
                 {switchItem('questionNumber', '显示题目序号')}
+                {switchItem(
+                  'answererNameRequired',
+                  '答题人姓名必填',
+                  '答题页顶部有「答题人」输入框；开启后不填姓名不能交卷，成绩单与 PDF 导出会显示该姓名',
+                )}
                 {switchItem('copyEnabled', '允许复制题目')}
                 {switchItem('scoringEnabled', '启用计分', '考试默认开启；问卷默认关闭，开启后显示分值、成绩单和正确率')}
               </Row>

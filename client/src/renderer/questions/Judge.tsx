@@ -18,6 +18,7 @@ export default function Judge(props: QuestionComponentProps) {
         picked={picked.slice(0, 1)}
         locked={locked}
         mark={(i) => (i === 0 ? '√' : '×')}
+        optionRole="radio"
         onPick={(value) => {
           if (locked) return;
           const hit = options.find((o) => o.value === value);

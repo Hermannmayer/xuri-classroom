@@ -7,6 +7,7 @@ import cn.surveyking.server.mapper.AnonymousSubjectMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.service.AnonymousIdentityService;
 import cn.surveyking.server.service.ClassResourceService;
+import cn.surveyking.server.service.FileService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +65,15 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 
 	/** claim 后同一用户在同一项目可能已有作答序号，重新分配避免撞唯一键 */
 	private final AnswerAttemptAllocator answerAttemptAllocator;
+
+	/** 物理清理匿名答卷时连附件（签名图/上传件）一起删 */
+	private final FileService fileService;
+
+	/** 物理清理每批处理条数 */
+	private static final int PURGE_BATCH = 200;
+
+	/** 物理清理单次最多处理多少批，防止极端情况卡住调度线程 */
+	private static final int MAX_PURGE_ROUNDS = 50;
 
 	@Override
 	public String ensureSubject(HttpServletRequest request, HttpServletResponse response) {
@@ -200,6 +210,51 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 		}
 		log.info("清理过期匿名答卷: retentionDays={}, deleted={}, subjects={}", days, deleted, removedSubjects);
 		return deleted;
+	}
+
+	@Override
+	public int purgeDeletedOlderThan(int delayDays) {
+		int days = Math.max(1, delayDays);
+		Date cutoff = new Date(System.currentTimeMillis() - Duration.ofDays(days).toMillis());
+		int total = 0;
+		// 分批物理删：一次锁太多行会拖慢库，且这些行可能带着几十 KB 的 answer JSON
+		for (int round = 0; round < MAX_PURGE_ROUNDS; round += 1) {
+			List<String> ids = answerMapper.selectPurgeableAnonymousIds(cutoff, PURGE_BATCH);
+			if (ids == null || ids.isEmpty()) {
+				break;
+			}
+			int deleted = answerMapper.physicalDeleteByIds(ids);
+			total += deleted;
+			// 附件清理放到事务提交之后：物理文件删掉不能回滚，
+			// 先删答卷行再删附件 → 删行失败时文件还在（浪费空间），反了就是坏数据。
+			// 万一下面删文件失败，t_file.answer_id 变成孤儿，由 FileOrphanCleanupService 兜底。
+			final List<String> purgedIds = ids;
+			runAfterCommit(() -> fileService.deleteByAnswers(purgedIds));
+			if (deleted < ids.size()) {
+				// 有行没删掉（例如被并发恢复），下一轮再处理，避免死循环
+				break;
+			}
+		}
+		if (total > 0) {
+			log.info("物理清理已删除的匿名答卷: delayDays={}, purged={}", days, total);
+		}
+		return total;
+	}
+
+	/** 事务提交后再执行（无事务时立即执行）。用于物理文件删除这类不可回滚的副作用。 */
+	private static void runAfterCommit(Runnable action) {
+		if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+			org.springframework.transaction.support.TransactionSynchronizationManager
+					.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+						@Override
+						public void afterCommit() {
+							action.run();
+						}
+					});
+		}
+		else {
+			action.run();
+		}
 	}
 
 	private AnonymousSubject findValidSubject(String token) {

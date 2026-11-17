@@ -17,7 +17,9 @@ import Radio from './questions/Radio';
 import RichText from './questions/RichText';
 import Score from './questions/Score';
 import Select from './questions/Select';
+import Signature from './questions/Signature';
 import Textarea from './questions/Textarea';
+import Upload from './questions/Upload';
 
 registerQuestion('Radio', Radio);
 registerQuestion('Checkbox', Checkbox);
@@ -34,3 +36,5 @@ registerQuestion('MatrixFillBlank', MatrixFillBlank);
 registerQuestion('Cascader', Cascader);
 registerQuestion('Address', Address);
 registerQuestion('RichText', RichText);
+registerQuestion('Signature', Signature);
+registerQuestion('Upload', Upload);

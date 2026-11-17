@@ -709,6 +709,13 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getAnonymousRetentionDays() != null) {
 				setting.setAnonymousRetentionDays(clampAnonymousRetentionDays(source.getAnonymousRetentionDays()));
 			}
+			// 物理清理（默认关）：只有显式 true 才开，避免升级后悄悄把能恢复的数据删掉
+			if (source.getAnonymousPurgeEnabled() != null) {
+				setting.setAnonymousPurgeEnabled(source.getAnonymousPurgeEnabled());
+			}
+			if (source.getAnonymousPurgeDelayDays() != null) {
+				setting.setAnonymousPurgeDelayDays(clampAnonymousRetentionDays(source.getAnonymousPurgeDelayDays()));
+			}
 			// 检查更新：空串表示清空并回退到环境配置
 			if (source.getUpdateCheckEnabled() != null) {
 				setting.setUpdateCheckEnabled(source.getUpdateCheckEnabled());
@@ -724,6 +731,14 @@ public class SystemServiceImpl implements SystemService {
 			}
 			if (source.getUpdateCheckIntervalHours() != null) {
 				setting.setUpdateCheckIntervalHours(Math.max(1, Math.min(168, source.getUpdateCheckIntervalHours())));
+			}
+			// 答卷 PDF 导出：并发数夹到 1~2（这台机器 4 核，再高会把答题页拖慢）；
+			// 暂停开关按 != null 判断，允许显式关掉。
+			if (source.getAnswerPdfConcurrency() != null) {
+				setting.setAnswerPdfConcurrency(Math.max(1, Math.min(2, source.getAnswerPdfConcurrency())));
+			}
+			if (source.getPauseAnswerPdfDuringExam() != null) {
+				setting.setPauseAnswerPdfDuringExam(source.getPauseAnswerPdfDuringExam());
 			}
 		}
 		if (request.getAiSetting() != null) {

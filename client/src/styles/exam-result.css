@@ -50,6 +50,54 @@
   word-break: break-word;
 }
 
+/* 签名 / 上传题的附件图：白底 + 细边框，打印与暗色主题下都看得清 */
+.sk-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sk-file-image {
+  max-width: 320px;
+  max-height: 180px;
+  border: 1px solid var(--bp-line);
+  background: #fff;
+  object-fit: contain;
+}
+
+/* 答题人：抬头第一眼要能对上人，所以给左侧色条 + 淡底，不用灰色小字 */
+.sk-result-answerer {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 7px 12px;
+  border-left: 3px solid var(--bp-orange);
+  background: var(--bp-orange-weak);
+  max-width: 100%;
+}
+
+.sk-result-answerer-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--bp-text-soft);
+  white-space: nowrap;
+}
+
+.sk-result-answerer-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--bp-text);
+  word-break: break-word;
+}
+
+.sk-result-answerer-name.is-empty {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--bp-text-soft);
+}
+
 .sk-result-figures {
   display: flex;
   align-items: flex-end;

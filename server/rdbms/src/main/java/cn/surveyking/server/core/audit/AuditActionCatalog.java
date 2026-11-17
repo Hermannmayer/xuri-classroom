@@ -154,6 +154,12 @@ public final class AuditActionCatalog {
 		map.put("ANSWER_DESTROY", "彻底删除答卷");
 		map.put("ANSWER_RESTORE", "恢复答卷");
 		map.put("ANSWER_UPLOAD", "上传答卷附件");
+		// 人工批改：URI 生成的动作码是 ANSWER_GRADE / ANSWER_GRADE_RESET；
+		// 不收录会落到 token 兜底，显示成「答卷GRADE」这种半中半英
+		map.put("ANSWER_GRADE", "批改答卷");
+		map.put("ANSWER_GRADE_RESET", "撤销批改");
+		map.put("ANSWER_GRADE_LIST", "查看待批改答卷");
+		map.put("ANSWER_GRADE_DETAIL", "查看批改详情");
 		map.put("EXPORT_ANSWER", "导出答卷");
 		map.put("EXERCISE_DELETE", "删除练习记录");
 		map.put("REPORT_STATISTICS", "生成统计报表");

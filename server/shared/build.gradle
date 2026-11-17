@@ -25,6 +25,9 @@ dependencies {
 
     implementation 'com.google.zxing:javase:3.5.0'
     implementation 'net.coobird:thumbnailator:0.4.14'
+    // 答卷 PDF 导出（答案 PDF / 成绩册 PDF）：2.0.x 是最后一个兼容 Java 8 的分支，不要升 3.x。
+    // 字体见 src/main/resources/fonts/answer-pdf.ttf（霞鹜文楷子集，OFL-1.1）。
+    implementation 'org.apache.pdfbox:pdfbox:2.0.30'
     // 题库/试卷富文本：服务端白名单消毒（前端 DOMPurify 只是第一道）
     implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20220608.1'
     implementation 'com.github.ben-manes.caffeine:caffeine:2.9.2'

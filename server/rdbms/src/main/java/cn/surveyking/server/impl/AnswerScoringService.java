@@ -9,6 +9,7 @@ import cn.surveyking.server.domain.dto.ExerciseProjectTemplate;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.model.Answer;
+import cn.surveyking.server.service.AnswerGradeService;
 import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.ProjectService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,12 @@ public class AnswerScoringService {
 	private final LinkSurveyUpdater linkSurveyUpdater;
 
 	/**
+	 * 交卷后重置人工批改状态（卷内含 manual 题 → pending，重新提交作废旧人工分）。
+	 * <p>只依赖 AnswerGradeService，而它的实现只依赖 Mapper，不会和 {@code AnswerServiceImpl} 形成循环。
+	 */
+	private final AnswerGradeService answerGradeService;
+
+	/**
 	 * 答案保存之前计算考试分值、每题得分情况
 	 * @param answer
 	 * @param previousAnswer 库里已存的答卷（可能带随机卷快照），可空
@@ -56,6 +63,8 @@ public class AnswerScoringService {
 		sanitizeRichTextAnswers(answerSurvey, answer.getAnswer());
 		sanitizeRichTextAnswers(answerSurvey, answer.getTempAnswer());
 		computeExamScore(answer, project, previousAnswer);
+		// 人工批改：卷内有 examAnswerMode=manual 的题就进入待批改；学员重新提交会把旧的人工分整卷作废
+		answerGradeService.onSubmitted(answer, trustedScoreSchema(project, previousAnswer));
 		linkSurveyUpdater.updateLinkSurveyAnswer(answer, project);
 		return answer;
 	}

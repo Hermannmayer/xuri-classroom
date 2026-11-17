@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 204 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 212 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -17,6 +17,14 @@
 | GET | `${api.prefix}/answer/download` | `AnswerApi#download` | `hasAuthority('answer:export')` | — |
 | POST | `${api.prefix}/answer/export/token` | `AnswerApi#exportToken` | `hasAuthority('answer:export')` | — |
 | POST | `${api.prefix}/answer/upload` | `AnswerApi#upload` | `hasAuthority('answer:upload')` | — |
+| POST | `${api.prefix}/answer/export/pdf-job` | `AnswerExportApi#createPdfJob` | `hasAuthority('answer:export')` | — |
+| GET | `${api.prefix}/answer/export/pdf-job/{id}` | `AnswerExportApi#getPdfJob` | `hasAuthority('answer:export')` | — |
+| GET | `${api.prefix}/answer/export/pdf-job/{id}/file` | `AnswerExportApi#downloadPdfJob` | `hasAuthority('answer:export')` | — |
+| DELETE | `${api.prefix}/answer/export/pdf-job/{id}` | `AnswerExportApi#cancelPdfJob` | `hasAuthority('answer:export')` | — |
+| GET | `${api.prefix}/answer/grade/list` | `AnswerGradeApi#listPending` | `hasAuthority('answer:grade') or hasRole('admin')` | 是 |
+| GET | `${api.prefix}/answer/grade/detail` | `AnswerGradeApi#detail` | `hasAuthority('answer:grade') or hasRole('admin')` | — |
+| POST | `${api.prefix}/answer/grade` | `AnswerGradeApi#submit` | `hasAuthority('answer:grade') or hasRole('admin')` | — |
+| POST | `${api.prefix}/answer/grade/reset` | `AnswerGradeApi#reset` | `hasAuthority('answer:grade') or hasRole('admin')` | — |
 | GET | `${api.prefix}/system/audit/list` | `AuditApi#list` | `hasAuthority('system:log:list')` | — |
 | POST | `${api.prefix}/system/audit/clean` | `AuditApi#clean` | `hasRole('admin')` | — |
 | GET | `${api.prefix}/system/audit/actions` | `AuditApi#actions` | `hasAuthority('system:log:list')` | — |

@@ -14,6 +14,7 @@
 | `t_answer` | id:varchar(64)<br>project_id:varchar(64)<br>temp_answer:text<br>survey:longtext<br>answer:text<br>attachment:varchar(1024)<br>meta_info:text<br>temp_save:int<br>exam_info:text<br>exam_exercise_type:varchar(4)<br>exam_score:float<br>is_deleted:tinyint(1) |
 | `t_anonymous_subject` | id:varchar(64)<br>token_hash:varchar(128)<br>create_at:timestamp<br>last_seen_at:timestamp<br>expires_at:timestamp |
 | `t_answer_item` | id:varchar(64)<br>answer_id:varchar(64)<br>project_id:varchar(64)<br>question_id:varchar(64)<br>question_type:varchar(32)<br>option_id:varchar(64)<br>value_json:text<br>value_key:varchar(64)<br>score:double<br>create_at:timestamp |
+| `t_answer_grade` | id:varchar(64)<br>answer_id:varchar(64)<br>project_id:varchar(64)<br>question_id:varchar(64)<br>score:double<br>comment:varchar(512)<br>grader:varchar(256)<br>create_at:timestamp<br>update_at:datetime |
 | `t_comm_dict` | id:varchar(64)<br>code:varchar(256)<br>name:varchar(256)<br>remark:varchar(256)<br>dict_type:int<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_comm_dict_item` | id:varchar(64)<br>dict_code:varchar(256)<br>item_name:varchar(256)<br>item_value:varchar(256)<br>item_order:int<br>item_level:int<br>parent_item_value:varchar(64)<br>create_at:datetime<br>create_by:varchar(256)<br>update_at:datetime<br>update_by:varchar(256) |
 | `t_dashboard` | id:varchar(64)<br>key:varchar(256)<br>type:int<br>project_id:varchar(64)<br>setting:varchar(1024)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
@@ -47,6 +48,7 @@
 - `server/rdbms/src/main/resources/db/migration/V2.1.0__template_chapter_difficulty.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.1.1__file_ref.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.1.2__class_share_token.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.2.1__answer_name_and_grading.sql`
 
 ## 历史运维脚本（只读，不再维护）
 

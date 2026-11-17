@@ -391,3 +391,43 @@
     padding: 0 6px !important;
   }
 }
+
+/* ------ 键盘焦点（WCAG 2.4.7 焦点可见）
+ * 答题页是自定义的深蓝 / 米白底色，浏览器默认焦点环几乎看不见；统一换成 2px 橙色环
+ * （暗色 #ff6b35、亮色 #e8590c，两种主题下与底色的对比度都在 3:1 以上）。
+ * 只在键盘操作时出现（:focus-visible），鼠标点击不会冒出焦点环抢视觉。
+ */
+.sk-answer .sk-option:focus-visible,
+.sk-answer .sk-matrix-cell:focus-visible,
+.sk-answer .sk-mark:focus-visible,
+.sk-answer .ant-input:focus-visible,
+.sk-answer .ant-btn:focus-visible,
+.sk-answer a:focus-visible {
+  outline: 2px solid var(--bp-orange);
+  outline-offset: 2px;
+}
+
+/* 选项卡片再加一道橙色描边：橙环 + 橙框，一眼看出焦点停在哪一项 */
+.sk-answer .sk-option:focus-visible {
+  border-color: var(--bp-orange);
+}
+
+/* 矩阵格子外面套着横向滚动容器，焦点环往里收一格，避免被 overflow 裁掉 */
+.sk-answer .sk-matrix-cell:focus-visible {
+  outline-offset: 1px;
+}
+
+/* 答题卡格子密排，焦点环画在格子内侧，不压到相邻格 */
+.sk-sheet button:focus-visible {
+  outline: 2px solid var(--bp-orange);
+  outline-offset: -2px;
+}
+
+/* antd Select 真正接收焦点的是内部 combobox 输入框，焦点环画在外框上才看得见 */
+.sk-answer .ant-select-focused .ant-select-selector {
+  outline: 2px solid var(--bp-orange);
+  outline-offset: 2px;
+}
+.sk-answer .ant-select .ant-select-selection-search-input:focus-visible {
+  outline: none;
+}

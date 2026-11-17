@@ -41,6 +41,9 @@ public class AnonymousCleanupService {
 
 	public static final int MAX_RETENTION_DAYS = 3650;
 
+	/** 进回收站后默认保留几天再物理清理 */
+	public static final int DEFAULT_PURGE_DELAY_DAYS = 7;
+
 	/** t_sys_info 只有一条记录 */
 	private static final String SYS_INFO_ID = "1";
 
@@ -70,6 +73,20 @@ public class AnonymousCleanupService {
 		catch (Exception e) {
 			// 定时任务里抛异常会被调度器吞掉，这里显式记一笔，便于排查
 			log.error("匿名答卷定时清理失败", e);
+		}
+		// 第二步（默认关闭）：把进回收站够久的匿名答卷真正抹掉，连附件一起。
+		// 第一步只是逻辑删，不打开这个开关的话答卷和签名图会一直占着磁盘。
+		if (setting != null && Boolean.TRUE.equals(setting.getAnonymousPurgeEnabled())) {
+			int purgeDays = normalizeRetentionDays(
+					setting.getAnonymousPurgeDelayDays() == null ? DEFAULT_PURGE_DELAY_DAYS
+							: setting.getAnonymousPurgeDelayDays());
+			try {
+				int purged = anonymousIdentityService.purgeDeletedOlderThan(purgeDays);
+				log.info("匿名答卷物理清理完成: delayDays={}, purged={}", purgeDays, purged);
+			}
+			catch (Exception e) {
+				log.error("匿名答卷物理清理失败", e);
+			}
 		}
 	}
 

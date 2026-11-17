@@ -59,6 +59,25 @@
         </foreach>
     </update>
 
+    <!-- 匿名答卷物理清理：只处理「已逻辑删除」的行，按进回收站的时间（update_at）排序取批 -->
+    <select id="selectPurgeableAnonymousIds" resultType="java.lang.String">
+        SELECT id FROM t_answer
+        WHERE is_anonymous = 1
+          AND is_deleted = 1
+          AND update_at IS NOT NULL
+          AND update_at &lt; #{cutoff}
+        ORDER BY update_at
+        LIMIT #{limit}
+    </select>
+
+    <delete id="physicalDeleteByIds">
+        DELETE FROM t_answer
+        WHERE id IN
+        <foreach item="item" collection="ids" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
     <!-- S1-3：分配下一次作答序号。刻意不加 is_deleted 过滤：唯一索引覆盖已删除的行，
          重新分配时要避开它们，否则会撞唯一键。 -->
     <select id="selectMaxAttemptNo" resultType="java.lang.Integer">

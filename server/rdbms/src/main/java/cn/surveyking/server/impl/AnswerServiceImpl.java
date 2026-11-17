@@ -14,6 +14,8 @@ import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnonymousIdentityService;
+import cn.surveyking.server.service.AnswerPdfJobService;
+import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.AnswerService;
 import cn.surveyking.server.service.ClassResourceService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -62,6 +64,12 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	private final AnswerExporter answerExporter;
 
+	/** 答卷 PDF 批量导出（异步任务）：只新建任务，渲染在后台线程池里跑 */
+	private final AnswerPdfJobService answerPdfJobService;
+
+	/** 物理删除答卷时清它的附件（手写签名 / 上传题图片） */
+	private final FileService fileService;
+
 	private final AnswerSubmitIdempotency answerSubmitIdempotency;
 
 	private final AnswerUploadParser answerUploadParser;
@@ -79,6 +87,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	/** 匿名答题身份：公开问卷未登录时写 sk-anon，答卷挂 anonymous_subject_id */
 	private final AnonymousIdentityService anonymousIdentityService;
+
+	/** 答题人姓名最长长度（与 t_answer.answerer_name varchar(64) 对齐） */
+	private static final int ANSWERER_NAME_MAX = 64;
 
 	@Override
 	public PaginationResponse<AnswerView> listAnswer(AnswerQuery query) {
@@ -107,6 +118,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.in(query.getIds() != null && query.getIds().size() > 0, Answer::getId, query.getIds())
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
+				// 第几次作答（补考区分）与批改状态；传空表示不过滤
+				.eq(query.getAttemptNo() != null, Answer::getAttemptNo, query.getAttemptNo())
+				.eq(StringUtils.hasText(query.getGradeStatus()), Answer::getGradeStatus, query.getGradeStatus())
 				.orderByDesc(Answer::getCreateAt);
 		super.page(page, wrapper);
 		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
@@ -188,6 +202,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				.lt(query.getEndTime() != null, Answer::getCreateAt, query.getEndTime())
 				.gt(query.getStartTime() != null, Answer::getCreateAt, query.getStartTime())
 				.eq(query.getId() != null, Answer::getId, query.getId())
+				// 第几次作答（补考区分）与批改状态；传空表示不过滤
+				.eq(query.getAttemptNo() != null, Answer::getAttemptNo, query.getAttemptNo())
+				.eq(StringUtils.hasText(query.getGradeStatus()), Answer::getGradeStatus, query.getGradeStatus())
 				.eq(!canSeeAll, Answer::getCreateBy, currentUserId)
 				.orderByDesc(Answer::getCreateAt);
 		if (!withSnapshot) {
@@ -198,9 +215,11 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		}
 		else if (!withAnswer) {
 			// S2-4 导出读投影：answer / survey / temp_answer 三个大字段都不读，答案由 t_answer_item 重建。
+			// gradeStatus / answererName 必须一起查：导出要按批改状态过滤，PDF 抬头要显示答题人姓名。
 			wrapper.select(Answer::getId, Answer::getProjectId, Answer::getRepoId, Answer::getMetaInfo,
 					Answer::getExamScore, Answer::getExamInfo, Answer::getTempSave, Answer::getExamExerciseType,
-					Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt);
+					Answer::getCreateBy, Answer::getCreateAt, Answer::getUpdateAt, Answer::getGradeStatus,
+					Answer::getAnswererName, Answer::getClassId);
 		}
 		super.page(page, wrapper);
 		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
@@ -323,6 +342,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answer.setAnonymousSubjectId(anonymous ? anonymousSubjectId : null);
 		answer.setIsAnonymous(anonymous);
 		answer.setAttemptNo(answerAttemptAllocator.next(answer.getProjectId(), actor));
+		// 答题人姓名：请求里填了就用它，否则用登录用户的姓名补齐；开了「姓名必填」时正式交卷必须非空。
+		answer.setAnswererName(resolveAnswererName(request, answer, null, actor));
 		// 班级归属：优先认班级专属链接 token；普通链接再按学员自己的班解析。
 		// 匿名用户没有 actor，token 是唯一可审计的班级来源；登录学员必须确实属于 token 班，防止跨班伪造。
 		String tokenClassId = classResourceService.resolveShareToken(answer.getProjectId(), request.getClassToken());
@@ -366,6 +387,52 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		Project project = projectMapper.selectById(projectId);
 		return project != null && project.getSetting() != null && project.getSetting().getAnswerSetting() != null
 				&& Boolean.TRUE.equals(project.getSetting().getAnswerSetting().getLoginRequired());
+	}
+
+	/**
+	 * 解析答卷上的「答题人姓名」。
+	 *
+	 * <p>取值优先级：请求里填的 → 库里已有/继承的（fallbackName）→ 登录用户的 t_user.name。
+	 * 只是个人展示信息，不做富文本清洗，但要 trim 并按列宽截断。
+	 *
+	 * <p>项目开了 {@code answerSetting.answererNameRequired} 时，**正式交卷**（tempSave=1）
+	 * 必须拿到非空姓名；暂存不拦，否则填一半保存就报错很烦。
+	 * @param request 本次提交
+	 * @param answer 待保存的答卷（用它的 tempSave 判断是否正式交卷）
+	 * @param fallbackName 库里已有的姓名（更新答卷时沿用，不会因为这次没传就清空）
+	 * @param actor 答题人账号 id（为空表示匿名答卷）
+	 * @return 最终写入 t_answer.answerer_name 的值，可能为 null
+	 */
+	private String resolveAnswererName(AnswerRequest request, Answer answer, String fallbackName, String actor) {
+		String name = request != null && StringUtils.hasText(request.getAnswererName())
+				? request.getAnswererName().trim() : null;
+		if (!StringUtils.hasText(name)) {
+			name = fallbackName;
+		}
+		if (!StringUtils.hasText(name) && StringUtils.hasText(actor)) {
+			User user = userMapper.selectById(actor);
+			if (user != null && StringUtils.hasText(user.getName())) {
+				name = user.getName().trim();
+			}
+		}
+		if (name != null && name.length() > ANSWERER_NAME_MAX) {
+			name = name.substring(0, ANSWERER_NAME_MAX);
+		}
+		boolean finalSubmit = answer != null && Integer.valueOf(1).equals(answer.getTempSave());
+		if (finalSubmit && !StringUtils.hasText(name) && isAnswererNameRequired(answer.getProjectId())) {
+			throw new ValidationException("请先填写答题人姓名，再交卷");
+		}
+		return name;
+	}
+
+	/** 项目是否要求答题人姓名必填；项目/设置缺失按「不必填」处理，避免匿名入口被误拦 */
+	private boolean isAnswererNameRequired(String projectId) {
+		if (!StringUtils.hasText(projectId)) {
+			return false;
+		}
+		Project project = projectMapper.selectById(projectId);
+		return project != null && project.getSetting() != null && project.getSetting().getAnswerSetting() != null
+				&& Boolean.TRUE.equals(project.getSetting().getAnswerSetting().getAnswererNameRequired());
 	}
 
 	/** 唯一键冲突后按 (project_id, create_by, attempt_no) 找回赢家 */
@@ -424,6 +491,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				}
 			}
 		}
+		// 答题人姓名：请求带了就用新的；没带就沿用库里已有的（草稿转正式提交时不会丢）；
+		// 都没有时用登录用户姓名补齐。
+		answer.setAnswererName(resolveAnswererName(request, answer, previous == null ? null : previous.getAnswererName(),
+				previous == null ? null : previous.getCreateBy()));
 		answer = answerScoringService.beforeSaveAnswer(answer, previous);
 		updateById(answer);
 		rebuildAnswerItems(answer);
@@ -461,6 +532,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answerQuery.setEndTime(query.getEndTime());
 		// 按班导出：只导出该班的答卷（class_id 为答题时所在班级）
 		answerQuery.setClassId(query.getClassId());
+		// 第几次作答（补考区分）；为空导出全部轮次
+		answerQuery.setAttemptNo(query.getAttemptNo());
 		// 匿名答卷：管理端默认导出全部（与数据页「含匿名」口径一致）；
 		// 显式传 false 时保持旧行为，只导出实名答卷。
 		answerQuery.setIncludeAnonymous(!Boolean.FALSE.equals(query.getIncludeAnonymous()));
@@ -505,9 +578,31 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answerQuery.setIds(query.getIds());
 		answerQuery.setStartTime(query.getStartTime());
 		answerQuery.setEndTime(query.getEndTime());
+		// 第几次作答：补考场景老师通常只要某一轮，Excel 明细也要能按轮次筛。
+		// （之前只给 PDF 任务传了，按班导出的 xlsx 会无视这个条件，导全轮次。）
+		answerQuery.setAttemptNo(query.getAttemptNo());
 		answerQuery.setPageSize(Integer.MAX_VALUE);
 		List<AnswerView> answerViews = listAnswerByClass(answerQuery).getList();
 		return answerExporter.downloadSurvey(project, answerViews);
+	}
+
+	/**
+	 * 按班级导出答卷 PDF（每人一份，整体打成 ZIP）：交给 {@link AnswerPdfJobService} 异步渲染。
+	 *
+	 * <p>
+	 * 为什么不搞「≤20 份同步返回、>20 走任务」：同步渲染 20 份也要十几秒，期间一直占着 HTTP 连接
+	 * 和服务线程；而前端本来就要轮询进度，统一走任务少一条代码路径、也少一处超时坑。
+	 *
+	 * <p>
+	 * 班级可见性（{@code ClassService#assertVisible}）与导出密码/一次性 token 由调用方
+	 * （{@code AnswerExportApi}）先校验；这里只负责把范围固化成任务快照。
+	 * @param query 导出范围（项目 + 班级 + 轮次 + 交卷时间范围 + 是否含解析/图片）
+	 * @return 任务 id
+	 */
+	public String downloadPdfByClass(DownloadQuery query) {
+		// 校验（项目是否存在/类型是否对）与范围固化都在 JobService 里做，这里只留 Service 层的入口，
+		// 避免「Service 校验一套、JobService 取数另一套」两边范围对不上。
+		return answerPdfJobService.createJob(query);
 	}
 
 	/**
@@ -525,6 +620,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		answerQuery.setEndTime(query.getEndTime());
 		// 按班导出附件：只导出该班答卷的附件
 		answerQuery.setClassId(query.getClassId());
+		// 第几次作答（补考区分）；为空导出全部轮次
+		answerQuery.setAttemptNo(query.getAttemptNo());
 		if (query.getCurrent() != 0 && query.getPageSize() != 0) {
 			answerQuery.setCurrent(query.getCurrent());
 			answerQuery.setPageSize(query.getPageSize());
@@ -581,7 +678,29 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	@Override
 	public void batchDestroyAnswer(AnswerRequest request) {
 		answerAccessGuard.assertAnswersAccess(request.getIds());
-		this.getBaseMapper().batchDestroy(request.getIds());
+		List<String> ids = request.getIds();
+		this.getBaseMapper().batchDestroy(ids);
+		// 文件清理放在**事务提交之后**：物理文件删掉是不能回滚的，
+		// 先删行再删文件 → 删行失败时文件还在（最多浪费空间）；
+		// 反过来则是「文件没了但答卷还在」，那是坏数据。
+		// 万一这里删文件失败，t_file.answer_id 变成孤儿，由 FileOrphanCleanupService 兜底。
+		runAfterCommit(() -> fileService.deleteByAnswers(ids));
+	}
+
+	/** 事务提交后再执行（无事务时立即执行）。用于「物理文件删除」这类不可回滚的副作用。 */
+	private static void runAfterCommit(Runnable action) {
+		if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+			org.springframework.transaction.support.TransactionSynchronizationManager
+					.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+						@Override
+						public void afterCommit() {
+							action.run();
+						}
+					});
+		}
+		else {
+			action.run();
+		}
 	}
 
 	@Override

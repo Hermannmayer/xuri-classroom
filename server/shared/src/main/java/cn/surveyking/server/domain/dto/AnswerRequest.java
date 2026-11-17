@@ -50,6 +50,15 @@ public class AnswerRequest {
 	/** 班级专属链接 token；服务端解析成 class_id，匿名答卷也按它归属 */
 	private String classToken;
 
+	/**
+	 * 答题人姓名（选填）。
+	 *
+	 * <p>登录用户不传时服务端用 t_user.name 补齐并快照到 t_answer.answerer_name；
+	 * 匿名答卷只能靠这个字段带上姓名。项目开了 answerSetting.answererNameRequired 时，
+	 * 正式交卷必须非空。
+	 */
+	private String answererName;
+
 	private AnswerExamInfo examInfo;
 
 	/**

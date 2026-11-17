@@ -59,12 +59,17 @@ CREATE TABLE `t_answer` (
   `class_id` varchar(64) DEFAULT NULL COMMENT '答题时所在班级',
   `anonymous_subject_id` varchar(64) DEFAULT NULL COMMENT '匿名答题主体（t_anonymous_subject.id）；登录用户为 NULL',
   `is_anonymous` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否匿名答卷：1 是 0 否',
+  `answerer_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '答题人姓名（交卷时快照，选填；成绩单与 PDF 抬头用）',
+  `grade_status` varchar(16) NOT NULL DEFAULT 'none' COMMENT '批改状态：none 无需批改 / pending 待批改 / graded 已批改',
+  `graded_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '最近一次批改人（t_user.id）',
+  `graded_at` datetime DEFAULT NULL COMMENT '最近一次批改时间',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `key_answer_pid` (`project_id`) USING BTREE,
   KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE,
   KEY `idx_answer_class` (`class_id`) USING BTREE,
   KEY `idx_answer_anon_subject` (`anonymous_subject_id`) USING BTREE,
   KEY `idx_answer_project_anon` (`project_id`,`is_anonymous`) USING BTREE,
+  KEY `idx_answer_project_grade` (`project_id`,`grade_status`) USING BTREE,
   UNIQUE KEY `uk_answer_pid_user_attempt` (`project_id`,`create_by`,`attempt_no`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
 
@@ -102,6 +107,25 @@ CREATE TABLE `t_answer_item` (
   KEY `idx_item_answer` (`answer_id`),
   KEY `idx_item_project_question` (`project_id`,`question_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答卷明细投影（统计专用）';
+
+-- ----------------------------
+-- Table structure for t_answer_grade
+-- ----------------------------
+DROP TABLE IF EXISTS `t_answer_grade`;
+CREATE TABLE `t_answer_grade` (
+  `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `answer_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 't_answer.id',
+  `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '冗余项目 id，便于按项目统计批改进度',
+  `question_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '题目 id（只允许 examAnswerMode=manual 的题）',
+  `score` double NOT NULL DEFAULT '0' COMMENT '人工给定分数',
+  `comment` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '批改评语',
+  `grader` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '批改人（t_user.id）',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次批改时间',
+  `update_at` datetime DEFAULT NULL COMMENT '最近一次改分时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_answer_grade_answer_question` (`answer_id`,`question_id`),
+  KEY `idx_answer_grade_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='主观题人工批改明细';
 
 -- ----------------------------
 -- Records of t_answer
@@ -514,12 +538,14 @@ CREATE TABLE `t_role` (
 -- Records of t_role
 -- ----------------------------
 BEGIN;
-INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
--- 老师：能建/编/发考试与题库、看答卷与报表、管班级；没有 system:*，也不能删考试/删答卷/清空回收站
+INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
+-- 老师：能建/编/发考试与题库、看答卷与报表、管班级；没有 system:*
+-- 答卷侧给了 answer:delete / answer:restore（回收站里能删能恢复），删除范围仍受
+-- AnswerAccessGuard 限制：只能动自己负责项目下的答卷，只有 admin 是全量。
 -- 学员：答题、练习、错题本、看题库；没有 project:create/update 等管理权限，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:upload,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
 ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 

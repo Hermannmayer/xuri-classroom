@@ -17,6 +17,7 @@ export default function Radio(props: QuestionComponentProps) {
         options={options}
         picked={picked.slice(0, 1)}
         locked={locked}
+        optionRole="radio"
         onPick={(value) => {
           if (locked) return;
           const hit = options.find((o) => o.value === value);

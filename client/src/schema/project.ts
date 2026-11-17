@@ -30,6 +30,8 @@ export interface AnswerSetting {
   password?: string;
   progressBar?: boolean;
   loginRequired?: boolean;
+  /** 答题人姓名是否必填（默认 false = 选填） */
+  answererNameRequired?: boolean;
   questionNumber?: boolean;
   autoSave?: boolean;
   initialValues?: Record<string, unknown>;

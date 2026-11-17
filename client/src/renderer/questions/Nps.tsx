@@ -1,8 +1,11 @@
 import type { QuestionComponentProps } from '../types';
 import { firstSelectedId, npsRange } from './answers';
-import { QuestionFrame, useAnswerState } from './shared';
+import { QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 
-/** NPS 净推荐值：answer = { [分值]: true }，分值范围取 attribute.npsStartNum/npsTotalNum（默认 0..10） */
+/**
+ * NPS 净推荐值：answer = { [分值]: true }，分值范围取 attribute.npsStartNum/npsTotalNum（默认 0..10）。
+ * 无障碍：整排是 radiogroup，每个分值是 radio + aria-checked，读屏会念「7 分，单选按钮，已选中」。
+ */
 export default function Nps(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
   const [answer, setAnswer] = useAnswerState(props);
@@ -10,19 +13,27 @@ export default function Nps(props: QuestionComponentProps) {
   const picked = firstSelectedId(answer);
   const locked = mode === 'edit' || Boolean(disabled);
   const last = scores[scores.length - 1];
+  const { labelId, descId } = questionA11yIds(schema);
 
   return (
     <QuestionFrame schema={schema} number={number}>
-      <div className="sk-nps">
+      <div
+        className="sk-nps"
+        role="radiogroup"
+        aria-labelledby={labelId}
+        aria-describedby={descId}
+      >
         {scores.map((score) => {
           const active = picked === String(score);
           return (
             <button
               type="button"
               key={score}
+              role="radio"
+              aria-checked={active}
+              aria-label={`${score} 分`}
               className={`sk-option sk-nps-btn${active ? ' selected' : ''}`}
               disabled={locked}
-              aria-pressed={active}
               onClick={() => {
                 if (!locked) setAnswer({ [String(score)]: true });
               }}

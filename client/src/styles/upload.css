@@ -1,0 +1,129 @@
+/**
+ * 上传题样式。
+ *
+ * 附件卡片用中性色（不跟主题彩色变量走）：缩略图要在白底上看，
+ * 深色主题 / 打印 / 截图里的观感才稳定，与签名题保持一致。
+ */
+.sk-upload {
+  max-width: 720px;
+}
+
+/* 已传文件列表：卡片自动换行，手机上也不会横向溢出 */
+.sk-upload-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.sk-upload-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 220px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #c9c2b4;
+}
+
+/* 图片缩略图：限宽限高，长图不把整页撑开 */
+.sk-upload-image {
+  display: block;
+  max-width: 100%;
+  max-height: 160px;
+  background: #ffffff;
+}
+
+.sk-upload-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 文件名一行截断，完整名字在 title 里 */
+.sk-upload-caption {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: #6b7280;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 非图片附件（PDF / Word / Excel …）：图标 + 文件名下载链接 */
+.sk-upload-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px;
+}
+
+.sk-upload-file-icon {
+  flex: none;
+  color: #6b7280;
+}
+
+.sk-upload-file-name {
+  min-width: 0;
+  font-size: 12px;
+  color: #1f6feb;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
+/* 删除按钮：只在可作答态出现；上传中禁用，避免和「写回答案」抢同一份列表 */
+.sk-upload-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 12px;
+  color: #6b7280;
+  background: #fbfaf7;
+  border: 1px solid #c9c2b4;
+  cursor: pointer;
+}
+
+.sk-upload-remove:hover:not(:disabled) {
+  color: #d4380d;
+  border-color: #d4380d;
+}
+
+.sk-upload-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* 自定义按钮吃不到全局焦点样式，键盘用户要看得见焦点 */
+.sk-upload-remove:focus-visible {
+  outline: 2px solid var(--bp-blue, #1f6feb);
+  outline-offset: 1px;
+}
+
+.sk-upload-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sk-upload-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--bp-text-soft, #6b7280);
+}
+
+/* 原生 input 只作为选文件的入口，真正点的是上面的 antd 按钮 */
+.sk-upload-input {
+  display: none;
+}

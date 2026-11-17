@@ -71,6 +71,10 @@ export const attributeSchema: AttributeField[] = [
   { key: 'scope', label: '范围强校验', control: 'text', group: '数据', hint: '超出范围禁止提交' },
   { key: 'softScope', label: '范围软校验', control: 'text', group: '数据', hint: '超出范围仅警告' },
   { key: 'dictCode', label: '字典编码', control: 'text', group: '数据' },
+  // 文件类（上传 / 签名）：后端 Attribute 里 fileAccept / maxFileSize / maxFileCount 都已支持
+  { key: 'fileAccept', label: '允许的文件类型', control: 'text', group: '数据', hint: '如 png,jpg；留空按系统白名单' },
+  { key: 'maxFileSize', label: '单文件大小上限(MB)', control: 'number', group: '数据' },
+  { key: 'maxFileCount', label: '文件数量上限', control: 'number', group: '数据' },
 
   // 校验
   { key: 'textLimit', label: '文字长度限制', control: 'text', group: '校验', hint: '形如 [1,2] [,5]' },

@@ -63,6 +63,18 @@ interface AnonymousCleanupSetting {
   /** 上次清理时间：后端 Date 序列化，字符串或 epoch 毫秒 */
   anonymousLastCleanupAt?: string | number;
   anonymousLastCleanupCount?: number;
+  /** 是否把进回收站够久的匿名答卷物理删掉（含附件），默认关闭 */
+  anonymousPurgeEnabled?: boolean;
+  /** 进回收站后保留几天再物理清理（1~3650，默认 7） */
+  anonymousPurgeDelayDays?: number;
+}
+
+/** 答卷 PDF 导出：SystemInfo.setting 的新增字段（api 层类型还没跟上，这里局部声明） */
+interface ExportPdfSetting {
+  /** 渲染并发数：1~2，缺省 1（4 核小机器，别开大） */
+  answerPdfConcurrency?: number;
+  /** 考试进行中暂停 PDF 导出，缺省开启 */
+  pauseAnswerPdfDuringExam?: boolean;
 }
 
 /** 后端 watermarkMode 是 string；老数据 / 脏值（含 null）一律回落到默认的「姓名+手机号」 */
@@ -70,12 +82,13 @@ function normalizeMode(value?: string | null): WatermarkMode {
   return value === 'name' || value === 'phone' ? value : 'name_phone';
 }
 
-type TabKey = 'basic' | 'access' | 'anonymous' | 'ai' | 'update';
+type TabKey = 'basic' | 'access' | 'anonymous' | 'export' | 'ai' | 'update';
 
 const TAB_FIELDS: Record<TabKey, string[]> = {
   basic: ['name', 'description', 'avatar', 'copyright', 'recordNum', 'favicon'],
   access: ['captchaEnabled', 'registerEnabled', 'roles'],
-  anonymous: ['anonymousCleanupEnabled', 'anonymousRetentionDays'],
+  anonymous: ['anonymousCleanupEnabled', 'anonymousRetentionDays', 'anonymousPurgeEnabled', 'anonymousPurgeDelayDays'],
+  export: ['answerPdfConcurrency', 'pauseAnswerPdfDuringExam'],
   ai: ['aiEnabled', 'baseUrl', 'apiKey', 'models', 'defaultModel', 'prompt'],
   update: [
     'updateCheckEnabled',
@@ -195,6 +208,13 @@ export default function SystemSetting() {
       // 缺省与后端一致：开启 + 90 天；只有显式 false 才关闭
       anonymousCleanupEnabled: anonymous.anonymousCleanupEnabled !== false,
       anonymousRetentionDays: anonymous.anonymousRetentionDays ?? 90,
+      // 物理清理默认关闭（能恢复比省空间重要），只有显式 true 才开
+      anonymousPurgeEnabled: anonymous.anonymousPurgeEnabled === true,
+      anonymousPurgeDelayDays: anonymous.anonymousPurgeDelayDays ?? 7,
+      // PDF 导出：缺省 1 并发 + 考试期间暂停（与后端默认一致，只有显式 false 才关）
+      answerPdfConcurrency: ((sys?.setting ?? {}) as unknown as ExportPdfSetting).answerPdfConcurrency ?? 1,
+      pauseAnswerPdfDuringExam:
+        ((sys?.setting ?? {}) as unknown as ExportPdfSetting).pauseAnswerPdfDuringExam !== false,
       updateCheckEnabled: sys?.setting?.updateCheckEnabled !== false,
       updateGithubRepo: sys?.setting?.updateGithubRepo,
       updateApiBase: sys?.setting?.updateApiBase,
@@ -395,6 +415,15 @@ export default function SystemSetting() {
           setting: {
             anonymousCleanupEnabled: Boolean(v.anonymousCleanupEnabled),
             anonymousRetentionDays: Number(v.anonymousRetentionDays),
+            anonymousPurgeEnabled: Boolean(v.anonymousPurgeEnabled),
+            anonymousPurgeDelayDays: Number(v.anonymousPurgeDelayDays ?? 7),
+          },
+        });
+      } else if (key === 'export') {
+        await post('/api/system/update', {
+          setting: {
+            answerPdfConcurrency: Number(v.answerPdfConcurrency ?? 1),
+            pauseAnswerPdfDuringExam: Boolean(v.pauseAnswerPdfDuringExam),
           },
         });
       } else if (key === 'update') {
@@ -685,6 +714,36 @@ export default function SystemSetting() {
                 ),
               },
               {
+                key: 'export',
+                label: '答卷导出',
+                forceRender: true,
+                children: (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
+                      批量导出班级答卷 PDF（每人一份成绩单，打包成 ZIP）时用这里的设置。Excel 明细导出不受影响。
+                    </div>
+                    <Form.Item
+                      name="answerPdfConcurrency"
+                      label="PDF 渲染并发数"
+                      rules={[{ required: true, message: '请选择并发数' }]}
+                      extra="这台机器只有 4 核：并发 1 最稳；调到 2 能把导出时间砍一半，但考试高峰答题页会有感"
+                    >
+                      <InputNumber min={1} max={2} style={{ width: 200 }} addonAfter="个任务" />
+                    </Form.Item>
+                    <Form.Item
+                      name="pauseAnswerPdfDuringExam"
+                      label="考试期间暂停 PDF 导出"
+                      valuePropName="checked"
+                      extra="开启后，有考试正在进行时不接受新的 PDF 导出任务（会给出明确提示），避免和交卷抢 CPU；Excel 明细导出不受影响"
+                    >
+                      <Switch checkedChildren="暂停" unCheckedChildren="允许" />
+                    </Form.Item>
+
+                    {canUpdate && <SaveBar loading={saving === 'export'} onSave={() => void save('export')} />}
+                  </>
+                ),
+              },
+              {
                 key: 'anonymous',
                 label: '匿名答卷',
                 forceRender: true,
@@ -706,6 +765,36 @@ export default function SystemSetting() {
                       label="保留天数"
                       rules={[{ required: true, message: '请填写保留天数' }]}
                       extra="只清理匿名答卷，不影响登录用户/班级成绩"
+                    >
+                      <InputNumber min={1} max={3650} addonAfter="天" style={{ width: 200 }} />
+                    </Form.Item>
+
+                    <div
+                      style={{
+                        borderTop: '1px dashed var(--bp-line-soft)',
+                        margin: '4px 0 16px',
+                        paddingTop: 14,
+                        fontSize: 12,
+                        color: 'var(--bp-text-soft)',
+                        lineHeight: 1.7,
+                      }}
+                    >
+                      上面两步只把过期匿名答卷「移进回收站」，还能恢复，附件也还在。长期不处理会一直占磁盘，
+                      需要真正抹掉时打开下面这个开关。
+                    </div>
+                    <Form.Item
+                      name="anonymousPurgeEnabled"
+                      label="物理清理已删除的匿名答卷"
+                      valuePropName="checked"
+                      extra="开启后，进回收站满保留天数的匿名答卷会被真正删除，签名图/上传附件一并清理；删了不能恢复"
+                    >
+                      <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                    </Form.Item>
+                    <Form.Item
+                      name="anonymousPurgeDelayDays"
+                      label="进回收站后保留"
+                      rules={[{ required: true, message: '请填写保留天数' }]}
+                      extra="给一个后悔窗口：这段时间内还能在回收站里恢复"
                     >
                       <InputNumber min={1} max={3650} addonAfter="天" style={{ width: 200 }} />
                     </Form.Item>

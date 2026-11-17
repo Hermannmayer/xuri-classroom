@@ -40,6 +40,7 @@ import { TABLE_COMPONENTS } from '../repo/table';
 import AnswerEditorModal from './data/AnswerEditorModal';
 import AnswerCards from './data/AnswerCards';
 import TrashDrawer from './data/TrashDrawer';
+import GradeDrawer, { type GradableAnswer } from './data/GradeDrawer';
 import {
   EMPTY,
   compareText,
@@ -52,6 +53,14 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 const { RangePicker } = DatePicker;
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
+
+/**
+ * 批改状态还没进公共 Answer 类型（公共类型在 schema/project.ts，本次不改），
+ * 这里集中一处取值，避免每个用到的地方都写一遍断言。
+ */
+function gradeStatusOf(row: Answer): string | undefined {
+  return (row as GradableAnswer).gradeStatus;
+}
 
 /** 手机端换卡片布局：390px 下横向滚动的表格点不准 */
 function useIsMobile() {
@@ -94,8 +103,12 @@ export default function SurveyData() {
   const [author, setAuthor] = useState('');
   /** 管理端默认包含匿名答卷；「仅实名」用于只看登录/白名单答卷的场景 */
   const [includeAnonymous, setIncludeAnonymous] = useState(true);
+  /** 只看待批改：服务端按 grade_status 过滤，前端再兜一层（老库没有该字段时不会误显示） */
+  const [pendingOnly, setPendingOnly] = useState(false);
 
   const [detail, setDetail] = useState<Answer>();
+  /** 正在批改的答卷 id；有值即打开批改抽屉 */
+  const [grading, setGrading] = useState<string>();
   const [editor, setEditor] = useState<EditorState>();
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -122,6 +135,8 @@ export default function SurveyData() {
   // 用的 answer:attach（答题页走公开接口 /api/public/upload），所以这里必须跟 answer:upload 对齐。
   const canUpload = can(authorities, PERMISSION_CODES.answerUpload);
   const canRestore = can(authorities, PERMISSION_CODES.answerRestore);
+  // 主观题人工批改：没有 answer:grade 就不渲染「批改」入口，避免「看得见、点了 403」
+  const canGrade = can(authorities, PERMISSION_CODES.answerGrade);
   /** 恢复和彻底删除都没有权限时，回收站入口本身也没东西可做，不渲染 */
   const canOpenTrash = canRestore || canDelete;
 
@@ -139,6 +154,8 @@ export default function SurveyData() {
           current: 1,
           pageSize: -1,
           includeAnonymous,
+          // 待批改过滤交给服务端（AnswerServiceImpl.listAnswer 已支持 gradeStatus）
+          gradeStatus: pendingOnly ? 'pending' : undefined,
         }),
       ]);
       setRows(res.data);
@@ -147,7 +164,7 @@ export default function SurveyData() {
     } finally {
       setLoading(false);
     }
-  }, [id, includeAnonymous]);
+  }, [id, includeAnonymous, pendingOnly]);
 
   useEffect(() => {
     void load();
@@ -157,7 +174,7 @@ export default function SurveyData() {
   useEffect(() => {
     setPage(1);
     setSelected([]);
-  }, [range, author, includeAnonymous]);
+  }, [range, author, includeAnonymous, pendingOnly]);
 
   /** 列结构取当前问卷；问卷拉不到时退回最新一份答卷的快照 */
   const survey = project?.survey ?? rows[0]?.survey;
@@ -194,9 +211,11 @@ export default function SurveyData() {
         const who = (row.isAnonymous ? '匿名' : row.createByName || row.createBy || '匿名').toLowerCase();
         if (!who.includes(keyword)) return false;
       }
+      // 服务端已经过滤过，这里兜一层：拿不到 gradeStatus（老库/旧接口）时不至于把已批改的卷也列出来
+      if (pendingOnly && gradeStatusOf(row) !== 'pending') return false;
       return true;
     });
-  }, [rows, range, author]);
+  }, [rows, range, author, pendingOnly]);
 
   /** 顶部提示用：当前拉取范围内有多少份匿名答卷（不随日期/姓名筛选变化） */
   const anonymousCount = useMemo(() => rows.filter((row) => row.isAnonymous).length, [rows]);
@@ -208,7 +227,9 @@ export default function SurveyData() {
     [mobile, filtered, page, pageSize],
   );
   const emptyText = rows.length
-    ? '当前筛选没有匹配的答卷'
+    ? pendingOnly
+      ? '没有待批改的答卷'
+      : '当前筛选没有匹配的答卷'
     : canCreate
       ? '还没有答卷，点「添加数据」补录一份'
       : '还没有答卷';
@@ -259,9 +280,13 @@ export default function SurveyData() {
       {
         title: '状态',
         dataIndex: 'tempSave',
-        width: 88,
-        render: (v?: number) =>
-          v === 1 ? <Tag color="success">已提交</Tag> : <Tag color="warning">暂存</Tag>,
+        width: 132,
+        render: (v: number | undefined, row: Answer) => (
+          <Space size={4}>
+            {v === 1 ? <Tag color="success">已提交</Tag> : <Tag color="warning">暂存</Tag>}
+            {gradeStatusOf(row) === 'pending' && <Tag color="processing">待批改</Tag>}
+          </Space>
+        ),
       },
       ...(scoringEnabled
         ? [
@@ -302,14 +327,22 @@ export default function SurveyData() {
       {
         title: '',
         key: 'ops',
-        width: 64,
+        width: canGrade ? 108 : 64,
         fixed: 'right',
-        render: (_: unknown, row: Answer) => <LinkAction onClick={() => setDetail(row)}>详情</LinkAction>,
+        render: (_: unknown, row: Answer) => (
+          <Space size={8}>
+            {/* 只有待批改的卷才有「批改」入口，且必须有 answer:grade */}
+            {canGrade && gradeStatusOf(row) === 'pending' && (
+              <LinkAction onClick={() => setGrading(row.id)}>批改</LinkAction>
+            )}
+            <LinkAction onClick={() => setDetail(row)}>详情</LinkAction>
+          </Space>
+        ),
       },
     ];
 
     return [...fixedColumns, ...questionColumns, ...opsColumn];
-  }, [questions, cells, page, pageSize, scoringEnabled]);
+  }, [questions, cells, page, pageSize, scoringEnabled, canGrade]);
 
   const submitAnswer = async (values: Record<string, AnswerValue>) => {
     if (!editor) return;
@@ -531,6 +564,17 @@ export default function SurveyData() {
             onChange={(value) => setIncludeAnonymous(value === 'all')}
             style={{ width: mobile ? '100%' : undefined }}
           />
+          {canGrade && (
+            <Segmented
+              value={pendingOnly ? 'pending' : 'all'}
+              options={[
+                { label: '全部答卷', value: 'all' },
+                { label: '待批改', value: 'pending' },
+              ]}
+              onChange={(value) => setPendingOnly(value === 'pending')}
+              style={{ width: mobile ? '100%' : undefined }}
+            />
+          )}
           <RangePicker
             value={range}
             allowClear
@@ -684,6 +728,13 @@ export default function SurveyData() {
           autoComplete="off"
         />
       </Modal>
+
+      <GradeDrawer
+        open={Boolean(grading)}
+        answerId={grading}
+        onClose={() => setGrading(undefined)}
+        onChanged={() => void load()}
+      />
 
       <Drawer
         title="答卷详情"

@@ -36,7 +36,10 @@ spring:
     deserialization:
       FAIL_ON_UNKNOWN_PROPERTIES: false # 反序列化时允许未知属性
 file-storage:
-  max-public-file-size-mb: 20
+  # 单文件上限 10MB。图片在入库前还会自动缩到 1920px 宽并重编码
+  # （见 FileServiceImpl#sanitizeImage），实际落盘通常只有几百 KB。
+  # 注意这里是 Java 默认值的覆盖点：改小要连带确认 spring.servlet.multipart.max-file-size 仍够用。
+  max-public-file-size-mb: 10
   max-public-uploads-per-minute: 10
   max-public-uploads-per-project-per-minute: 60
   max-project-storage-mb: 1024

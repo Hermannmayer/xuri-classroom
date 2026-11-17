@@ -526,6 +526,27 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		getBaseMapper().batchDestroy(ids);
 		// 删除项目参与者
 		projectPartnerService.deleteAllProjectPartners(ids);
+		// 文件清理放在**事务提交之后**：物理文件删掉不能回滚，
+		// 先删项目行再删文件 → 删行失败时文件还在（浪费空间而已）；
+		// 反过来则是「文件没了但项目还在」，那是坏数据。
+		// 清理失败会留下孤儿，由 FileOrphanCleanupService 兜底（它按 answer_id 找失效附件）。
+		Runnable purge = () -> {
+			for (String id : ids) {
+				fileService.purgeProjectFiles(id);
+			}
+		};
+		if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+			org.springframework.transaction.support.TransactionSynchronizationManager
+					.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+						@Override
+						public void afterCommit() {
+							purge.run();
+						}
+					});
+		}
+		else {
+			purge.run();
+		}
 	}
 
 	@Override
