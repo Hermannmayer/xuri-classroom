@@ -81,7 +81,11 @@ docker run --rm -u 0:0 \
     # 按文件名排序的 head -1 会拿到旧包，导致「代码已更新、线上还是旧接口」。
     JAR=$(ls -1t api/build/libs/*.jar | grep -v -- "-plain" | head -1)
     [ -n "$JAR" ] || { echo "没有产出 jar" >&2; exit 1; }
+    # 留一份上一版 jar 作回滚点：app.jar 是单文件 bind mount，只能原地覆盖，
+    # 没有备份的话新 jar 起不来就只能重新编译一轮（16~19s 编译 + 10s 重启），期间一直宕机。
+    if [ -f /out/app.jar ]; then cp -f /out/app.jar /out/app.jar.prev; fi
     cp -f "$JAR" /out/app.jar
+    [ -s /out/app.jar ] || { echo "复制出来的 app.jar 是空的" >&2; exit 1; }
     ls -l /out/app.jar
   ' || die "编译失败。把上面的报错贴出来；常见原因是依赖下载失败（国内网络可先跑 deploy/nas/dev 里的镜像配置）"
 
@@ -102,4 +106,22 @@ for i in $(seq 1 60); do
 done
 
 printf '\n❌ 后端 120 秒内没起来。看日志：\n   cd %s && docker compose logs --tail=80 %s\n\n' "${COMPOSE_DIR}" "${APP_SERVICE}" >&2
+docker compose logs --tail=40 "${APP_SERVICE}" >&2 || true
+
+# 自动回滚：有上一版 jar 就换回去并重启，别把站点留在宕机状态等人工处理。
+if [ -f "${BUILD_DIR}/app.jar.prev" ]; then
+  printf '↩ 正在回滚到上一版 jar……\n' >&2
+  cp -f "${BUILD_DIR}/app.jar.prev" "${BUILD_DIR}/app.jar"
+  docker compose restart "${APP_SERVICE}" >/dev/null 2>&1 || true
+  for i in $(seq 1 30); do
+    if docker compose exec -T "${APP_SERVICE}" sh -c "wget -q -O /dev/null '${HEALTH_URL_IN_CONTAINER}' 2>/dev/null || curl -fsS -o /dev/null '${HEALTH_URL_IN_CONTAINER}'" >/dev/null 2>&1; then
+      printf '✅ 已回滚到上一版并恢复（约 $((i*2)) 秒）。这次发布没有生效。\n\n' >&2
+      exit 1
+    fi
+    sleep 2
+  done
+  printf '⚠️ 回滚后 60 秒仍未就绪，需要人工介入：cd %s && docker compose logs --tail=80 %s\n\n' "${COMPOSE_DIR}" "${APP_SERVICE}" >&2
+else
+  printf '⚠️ 没有上一版 jar 可回滚（首次部署？），需要人工介入。\n\n' >&2
+fi
 exit 1

@@ -38,7 +38,12 @@ param(
     [string]$NasUser = 'Home',
     [string]$RemoteRepo = '/vol2/1000/xuri/src/work',
     [string]$ComposeDir = 'deploy/nas/live',
-    [string]$BaseUrl = 'http://192.168.0.2:201'
+    [string]$BaseUrl = 'http://192.168.0.2:201',
+    # 冒烟用来验登录与站点名的账号：别的部署不一定是 admin/123456、站点名也不一定是「旭日」，
+    # 写死会让冒烟误报失败（部署其实是成功的），所以做成参数。
+    [string]$SmokeUser = 'admin',
+    [string]$SmokePassword = '123456',
+    [string]$ExpectName = '旭日'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -120,9 +125,13 @@ function Test-Smoke {
     if ($SkipSmoke) { Warn '按 -SkipSmoke 跳过冒烟'; return }
     Say '冒烟测试'
     $py = Resolve-SmokePython
-    if (-not $py) { Warn '找不到装了 cryptography 的 python，跳过冒烟（可手动跑 scripts/nas/smoke-test.py）'; return }
+    if (-not $py) {
+        # 静默跳过 = 这次发布没有任何线上验证。与 0.2 的 check_schema 保持一致：不许跳。
+        Die '找不到装了 cryptography 的 python，冒烟无法执行。装 pip install cryptography；或显式加 -SkipSmoke 表示这次不验。'
+    }
     $env:PYTHONIOENCODING = 'utf-8'
-    & $py.Exe @($py.Args) (Join-Path $repoRoot 'scripts/nas/smoke-test.py') --base $BaseUrl
+    & $py.Exe @($py.Args) (Join-Path $repoRoot 'scripts/nas/smoke-test.py') --base $BaseUrl `
+        --user $SmokeUser --password $SmokePassword --expect-name $ExpectName
     if ($LASTEXITCODE -ne 0) { Die '冒烟测试没通过——线上可能已经被这次改动影响，先看输出再决定回滚。' }
 }
 
@@ -237,7 +246,9 @@ if (-not $ReloadOnly -and -not $SkipTests) {
         Ok '单元测试通过'
     }
     else {
-        Warn '找不到 JDK，跳过后端单元测试（可用 JAVA_HOME 指定）'
+        # 单元测试是发布前唯一的本地编译门禁：跳过后语法/类型错误只会在 NAS 上 git reset 之后才暴露，
+        # 那时已经在动线上文件了。要跳过必须显式写 -SkipTests。
+        Die '找不到 JDK 25（java 版本 < 25 或未安装）。它是发布前唯一的本地编译门禁；装好并设 JAVA_HOME，或显式加 -SkipTests 表示这次不跑单测。'
     }
 }
 
@@ -329,35 +340,66 @@ if ($before -eq $after) {
 
 $serverChanged  = @($changed | Where-Object { $_ -match '^server/' }).Count -gt 0
 $composeChanged = @($changed | Where-Object { $_ -match "^$([regex]::Escape($ComposeDir))/" }).Count -gt 0
-$depsChanged    = @($changed | Where-Object { $_ -match '^client/package(-lock)?\.json$' }).Count -gt 0
 $clientChanged  = @($changed | Where-Object { $_ -match '^client/' }).Count -gt 0
 $nginxChanged   = @($changed | Where-Object { $_ -match '^deploy/nginx\.conf$' }).Count -gt 0
 $forceReload    = $ReloadOnly.IsPresent
 
 # ---------------------------------------------------------------- 4. compose
-if ($composeChanged -or $forceReload) {
-# ------ 4a. 运行时镜像：Dockerfile.runtime 变了、或本地还没有这个 tag，就必须重建。
-# 否则 compose 会拿 image: xuri-runtime:25 去 registry 拉，而它只存在于本地，直接失败。
+# ------ 4. 后端运行时镜像（每次部署都校验，不看 git diff）
+#
+# 事故复盘（Java 8 → 25 那次升级）：4a 原先只看「镜像存不存在」。老部署的 .env 里写的是
+#     XURI_RUNTIME_IMAGE=xuri-runtime:8
+# 而旧的 xuri-runtime:8 镜像一直都还在，于是 docker image inspect 命中 → 打一句
+# RUNTIME_IMAGE_OK 就放行 → compose 拿 JRE 8 去跑 Java 25 编出来的 jar →
+#     java.lang.UnsupportedClassVersionError: ... class file version 61.0
+# 容器 crash-loop，站点直接宕机；这个错还只出现在 app 容器日志里，不在部署输出里。
+#
+# 现在以 Dockerfile.runtime 的 FROM 为准：
+#   · .env 里的 tag 与期望不一致 → 直接改写 .env（tag 必须体现 JDK 版本，否则下次还会踩）
+#   · 镜像里的 java 大版本与期望不一致 → 重建该 tag
 $imageScript = @'
 cd "@REPO@/@COMPOSE@" || exit 1
-RUNTIME_IMAGE=$(grep -E "^XURI_RUNTIME_IMAGE=" .env 2>/dev/null | cut -d= -f2)
-RUNTIME_IMAGE=${RUNTIME_IMAGE:-xuri-runtime:25}
-BASE_IMAGE=$(grep -E "^FROM " Dockerfile.runtime | head -1 | awk '{print $2}')
-DOCKER_MIRROR=${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}
+FROM_LINE=$(sed -nE 's/^FROM[[:space:]]+([^[:space:]]+).*$/\1/p' Dockerfile.runtime | head -1)
+[ -n "$FROM_LINE" ] || { echo "DOCKERFILE_NO_FROM"; exit 1; }
+EXPECTED_JAVA=$(echo "$FROM_LINE" | sed -nE 's/[^0-9]*([0-9]+).*$/\1/p')
+[ -n "$EXPECTED_JAVA" ] || { echo "DOCKERFILE_NO_JDK_TAG $FROM_LINE"; exit 1; }
+WANT_IMAGE="xuri-runtime:${EXPECTED_JAVA}"
+CUR_IMAGE=$(grep -E "^XURI_RUNTIME_IMAGE=" .env 2>/dev/null | cut -d= -f2)
+if [ -n "$CUR_IMAGE" ] && [ "$CUR_IMAGE" != "$WANT_IMAGE" ]; then
+  sed -i "s|^XURI_RUNTIME_IMAGE=.*|XURI_RUNTIME_IMAGE=$WANT_IMAGE|" .env
+  echo "ENV_RUNTIME_IMAGE_FIXED $CUR_IMAGE -> $WANT_IMAGE（.env 已改写）"
+fi
+RUNTIME_IMAGE="$WANT_IMAGE"
+java_major() {
+  docker run --rm --entrypoint java "$1" -version 2>&1 \
+    | sed -nE 's/.*version "1\.([0-9]+).*/\1/p; s/.*version "([0-9]+).*/\1/p' | head -1
+}
 if docker image inspect "$RUNTIME_IMAGE" >/dev/null 2>&1; then
-  echo "RUNTIME_IMAGE_OK $RUNTIME_IMAGE"
-  exit 0
+  GOT_JAVA=$(java_major "$RUNTIME_IMAGE" || true)
+  if [ "$GOT_JAVA" = "$EXPECTED_JAVA" ]; then
+    echo "RUNTIME_IMAGE_OK $RUNTIME_IMAGE (java $GOT_JAVA)"
+    exit 0
+  fi
+  echo "RUNTIME_IMAGE_STALE $RUNTIME_IMAGE java=${GOT_JAVA:-unknown} 期望 $EXPECTED_JAVA，重建"
 fi
-if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
-  docker pull "${DOCKER_MIRROR}${BASE_IMAGE}" >/dev/null || { echo "PULL_FAILED $BASE_IMAGE"; exit 1; }
-  docker tag "${DOCKER_MIRROR}${BASE_IMAGE}" "$BASE_IMAGE"
+DOCKER_MIRROR=${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}
+if ! docker image inspect "$FROM_LINE" >/dev/null 2>&1; then
+  docker pull "${DOCKER_MIRROR}${FROM_LINE}" >/dev/null || { echo "PULL_FAILED $FROM_LINE（镜像源 ${DOCKER_MIRROR}）"; exit 1; }
+  docker tag "${DOCKER_MIRROR}${FROM_LINE}" "$FROM_LINE"
 fi
-docker build -f Dockerfile.runtime -t "$RUNTIME_IMAGE" . >/dev/null || { echo "BUILD_FAILED"; exit 1; }
-echo "RUNTIME_IMAGE_BUILT $RUNTIME_IMAGE"
+BUILD_LOG=$(mktemp)
+if ! docker build -f Dockerfile.runtime -t "$RUNTIME_IMAGE" . >"$BUILD_LOG" 2>&1; then
+  tail -30 "$BUILD_LOG"; rm -f "$BUILD_LOG"
+  echo "BUILD_FAILED $RUNTIME_IMAGE（看上面的 apk add 是否要连外网）"
+  exit 1
+fi
+rm -f "$BUILD_LOG"
+echo "RUNTIME_IMAGE_BUILT $RUNTIME_IMAGE (java $EXPECTED_JAVA)"
 '@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
-Say '4a/6 确认后端运行时镜像'
+Say '4a/6 校验后端运行时镜像（java 大版本必须等于 Dockerfile.runtime 的 FROM）'
 (Invoke-NasScript -Body $imageScript).Output | ForEach-Object { "     $_" }
 
+if ($composeChanged -or $forceReload) {
     Say '4/6 应用 compose 变更'
     $composeScript = @'
 cd "@REPO@/@COMPOSE@" || exit 1
@@ -393,6 +435,25 @@ echo "NGINX_UNHEALTHY"
 }
 
 # ---------------------------------------------------------------- 5. 后端
+# ------ 4c. 前端依赖：按 web-watch 容器里**实际装的**锁文件哈希判断，不看 git diff
+#
+# 为什么不信 git diff：失败一次之后原样重跑，git diff 为空 → 这一步会被整个跳过，
+# 而 web-watch 里装的还是旧依赖（2.2.0 的 node_modules）。旧 vite 去编译 React 19 / Vite 8 的源码
+# 会直接解析失败，而 emptyOutDir:false 让旧 dist 留着，nginx 继续发旧页面 —— 看起来「部署成功」，
+# 实际前端永远停在老版本。改成比对容器里的 .lock-hash，重跑也能自愈。
+$depsScript = @'
+WANT=$(md5sum "@REPO@/client/package-lock.json" 2>/dev/null | cut -d' ' -f1)
+if [ -z "$WANT" ]; then echo "DEPS_NO_LOCK"; exit 0; fi
+GOT=$(docker exec xuri-live-web-watch cat /web/node_modules/.lock-hash 2>/dev/null || true)
+if [ "$WANT" = "$GOT" ]; then echo "DEPS_OK"; exit 0; fi
+echo "DEPS_STALE 期望 $(echo "$WANT" | cut -c1-8) 实际 $(echo "$GOT" | cut -c1-8) —— 重启 web-watch 重装依赖"
+cd "@REPO@/@COMPOSE@" || exit 1
+docker compose restart web-watch
+echo "DEPS_REINSTALLING（约 1-3 分钟）"
+'@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
+Say '4c/6 检查前端依赖是否与锁文件一致'
+(Invoke-NasScript -Body $depsScript).Output | ForEach-Object { "     $_" }
+
 if ($serverChanged -or $forceReload) {
     Say '5/6 重载后端（编译 + 重启）'
     $reload = @'
@@ -405,15 +466,6 @@ XURI_SRC="@REPO@" bash scripts/nas/live-reload.sh
 }
 
 # ---------------------------------------------------------------- 6. 前端 + 冒烟
-if ($depsChanged) {
-    Say '前端依赖有变化：重启 web-watch（它会按锁文件哈希重装）'
-    $restart = @'
-cd "@REPO@/@COMPOSE@" || exit 1
-docker compose restart web-watch
-'@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
-    (Invoke-NasScript -Body $restart).Output | Write-Host
-}
-
 if ($clientChanged) {
     # 判定「前端就绪」不能只看「首页 200 + JS 可取」：那是部署前就已经成立的状态。
     # web-watch 还没重建完时也会立刻满足，脚本报成功、用户看到的却是旧界面
@@ -444,7 +496,13 @@ done
 echo "FRONTEND_TIMEOUT"
 '@.Replace('@BEFORE@', [string]$beforeLines)
     $w = Invoke-NasScript -Body $wait -AllowFail
-    if ($w.Output -match 'FRONTEND_TIMEOUT') { Warn '180 秒内前端产物没就绪，检查：docker logs xuri-live-web-watch' }
+    if ($w.Output -match 'FRONTEND_TIMEOUT') {
+        # 不能只 Warn：这个判定存在的唯一目的就是防「脚本报成功、线上还是旧前端」。
+        # 一旦超时，冒烟照样会通过（旧产物本来就 200），必须在这里停下并把日志甩出来。
+        (Invoke-NasScript -Body 'docker logs --tail=40 xuri-live-web-watch 2>&1' -AllowFail).Output |
+            ForEach-Object { "     $_" }
+        Die '240 秒内前端产物没就绪（上面是 web-watch 日志）。别当成成功——线上很可能还是旧前端。'
+    }
     else { $w.Output | Where-Object { $_ -and $_ -ne 'FRONTEND_READY*' } | ForEach-Object { "  $_" } }
     $w.Output | Where-Object { $_ -match 'FRONTEND_READY' } | ForEach-Object { "  $_" }
 }

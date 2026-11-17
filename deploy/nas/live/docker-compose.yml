@@ -156,6 +156,17 @@ services:
       - sh
       - -c
       - |
+        # Vite 8 要求 Node ^20.19 || >=22.12。只 warn 不够：旧 Node 会先打印一句
+        # "Vite requires Node.js version ..."，然后死在 rolldown 原生绑定上，
+        # 报错和 Node 版本毫无关系，排查方向直接被带偏。这里前置断言，错就明确退出。
+        NODE_OK=$$(node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.stdout.write((a>22||(a===22&&b>=12)||(a===20&&b>=19))?"1":"0")' 2>/dev/null)
+        if [ "$$NODE_OK" != "1" ]; then
+          echo "[web-watch] ❌ Node 版本不满足 Vite 8 要求（当前 $$(node -v)，需要 ^20.19 或 >=22.12）"
+          echo "[web-watch] 修复：docker pull docker.m.daocloud.io/library/node:22-bookworm-slim && \\"
+          echo "[web-watch]       docker tag docker.m.daocloud.io/library/node:22-bookworm-slim node:22-bookworm-slim && \\"
+          echo "[web-watch]       把 docker-compose.yml 里的 web-watch image 改成 node:22-bookworm-slim 后重启本容器"
+          exit 1
+        fi
         LOCK_HASH=$$(md5sum package-lock.json 2>/dev/null | cut -d' ' -f1)
         if [ ! -d node_modules/vite ] || [ "$$(cat node_modules/.lock-hash 2>/dev/null)" != "$$LOCK_HASH" ]; then
           echo "[web-watch] 安装/更新依赖（首次约 1-3 分钟）"
