@@ -14,7 +14,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { getCurrentUser, getSystem, logout } from '../api';
+import { get, getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
 import { can, notifyAuthChanged } from '../auth/permissions';
 import ZoomControl from '../components/ZoomControl';
@@ -92,6 +92,24 @@ export default function BasicLayout() {
       .catch(() => navigate('/user/login', { replace: true }))
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  /**
+   * AI 总开关是全站配置：管理员在「系统设置 → AI」刚打开时，已经打开的页面不该还要强刷才看到悬浮按钮。
+   * 这里在窗口重新获得焦点时、以及每 2 分钟轻量重查一次，只同步 aiEnabled 一个字段。
+   */
+  useEffect(() => {
+    const syncAiFlag = () => {
+      void get<{ aiEnabled?: boolean }>('/api/system', { _: Date.now() })
+        .then((next) => setSystem((prev) => (prev ? { ...prev, aiEnabled: next?.aiEnabled } : prev)))
+        .catch(() => undefined);
+    };
+    const timer = window.setInterval(syncAiFlag, 120000);
+    window.addEventListener('focus', syncAiFlag);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', syncAiFlag);
+    };
+  }, []);
 
   /**
    * 菜单按权限过滤（权限串来自 /api/currentUser 的 authorityList）：

@@ -61,6 +61,9 @@ public class AiGateway {
 	/** 单次调用超时：出卷 30~90 秒是常态，给到 120 秒 */
 	public static final Duration TIMEOUT = Duration.ofSeconds(120);
 
+	/** 拉模型列表的超时：这个接口通常 1~3 秒，20 秒还没回基本是网关挂了 */
+	private static final Duration LIST_MODELS_TIMEOUT = Duration.ofSeconds(20);
+
 	/** 失败重试次数（不含首次） */
 	private static final int MAX_RETRY = 2;
 
@@ -330,8 +333,103 @@ public class AiGateway {
 		return models.isEmpty() ? null : models.get(0);
 	}
 
-	/** 与 {@code OpenAiCompatibleChatServiceImpl} 同一套 baseUrl 规则（含旧 SiliconFlow token 的兜底） */
-	private String chatCompletionsUrl(SystemInfo.AiSetting setting) {
+	/**
+	 * 拉取服务商支持的模型列表（OpenAI 兼容的 `GET {base}/models`）。
+	 *
+	 * <p>为什么由后端代理：admin 在设置页点一下就要看到可选模型，而 API Key 只存在服务端、
+	 * 也绝不下发到浏览器；同时把「网关不支持 /models」「Key 无权限」这类错误翻成中文，
+	 * 老师不用去翻 401 响应体。
+	 *
+	 * @return 去重排序后的模型 id；为空时抛中文错误（说明可能不是标准 OpenAI 兼容端点）
+	 */
+	public java.util.List<String> listModels() {
+		return listModels(null);
+	}
+
+	/**
+	 * 同上，但允许用「表单里还没保存的值」先试一次。
+	 *
+	 * <p>为什么需要 preview：管理员通常先填 Base URL / API Key，再点「获取模型」，
+	 * 这时候值还没落库。逼他先保存再看列表，等于每次换服务商都要多按一次保存、
+	 * 而且保存失败时连列表都拿不到。这里只把这两个字段临时覆盖进来，不写库。
+	 *
+	 * @param preview 可为 null；只读 baseUrl / apiKey 两个字段
+	 */
+	public java.util.List<String> listModels(SystemInfo.AiSetting preview) {
+		SystemInfo.AiSetting effective = effectiveSetting(preview);
+		String apiKey = resolveApiKey(effective);
+		if (!StringUtils.hasText(apiKey)) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, MSG_NO_API_KEY);
+		}
+		String url = apiBase(effective) + "/models";
+		String body;
+		try {
+			body = webClient.get().uri(url).header("Authorization", "Bearer " + apiKey).retrieve()
+					.bodyToMono(String.class).block(LIST_MODELS_TIMEOUT);
+		}
+		catch (WebClientResponseException e) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "获取模型列表失败：HTTP "
+					+ e.getStatusCode().value() + " " + truncate(e.getResponseBodyAsString(), 200));
+		}
+		catch (Exception e) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "获取模型列表失败：" + describe(e));
+		}
+		if (!StringUtils.hasText(body)) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "获取模型列表失败：服务商返回了空响应");
+		}
+		JsonNode root = objectMapper.readTree(body);
+		JsonNode list = root.isArray() ? root : root.path("data");
+		if (!list.isArray()) {
+			list = root.path("models");
+		}
+		java.util.LinkedHashSet<String> models = new java.util.LinkedHashSet<>();
+		if (list.isArray()) {
+			for (JsonNode node : list) {
+				// 标准是 {id: "gpt-4o"}；也兼容 ["gpt-4o"] 与 {name: "..."} 两种野路子
+				String id = node.isTextual() ? node.asText() : node.path("id").asText(null);
+				if (!StringUtils.hasText(id)) {
+					id = node.path("name").asText(null);
+				}
+				if (StringUtils.hasText(id)) {
+					models.add(id.trim());
+				}
+			}
+		}
+		if (models.isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.ValidationError,
+					"服务商没有返回任何模型，可能不是标准 OpenAI 兼容端点（需要支持 GET /models）");
+		}
+		java.util.List<String> result = new java.util.ArrayList<>(models);
+		java.util.Collections.sort(result);
+		return result;
+	}
+
+	/** 存库配置 + 表单预览值合成一份「这次请求用哪套配置」；preview 只认 baseUrl / apiKey */
+	private SystemInfo.AiSetting effectiveSetting(SystemInfo.AiSetting preview) {
+		SystemInfo.AiSetting stored = systemService.getSystemAiSetting();
+		SystemInfo.AiSetting effective = new SystemInfo.AiSetting();
+		if (stored != null) {
+			effective.setEnabled(stored.getEnabled());
+			effective.setBaseUrl(stored.getBaseUrl());
+			effective.setApiKey(stored.getApiKey());
+			effective.setToken(stored.getToken());
+			effective.setModels(stored.getModels());
+			effective.setDefaultModel(stored.getDefaultModel());
+		}
+		if (preview != null) {
+			if (StringUtils.hasText(preview.getBaseUrl())) {
+				effective.setBaseUrl(preview.getBaseUrl().trim());
+			}
+			// API Key 留空表示「沿用已保存的」：与设置页「留空即不修改」同一约定
+			if (StringUtils.hasText(preview.getApiKey())) {
+				effective.setApiKey(preview.getApiKey().trim());
+			}
+		}
+		return effective;
+	}
+
+	/** baseUrl 归一化：补默认值、校验协议、去掉尾部斜杠与误填的 /chat/completions */
+	private String apiBase(SystemInfo.AiSetting setting) {
 		String baseUrl = setting.getBaseUrl();
 		if (!StringUtils.hasText(baseUrl)) {
 			baseUrl = !StringUtils.hasText(setting.getApiKey()) && StringUtils.hasText(setting.getToken())
@@ -342,7 +440,15 @@ public class AiGateway {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "模型服务地址必须以 http:// 或 https:// 开头");
 		}
 		baseUrl = baseUrl.replaceAll("/+$", "");
-		return baseUrl.endsWith("/chat/completions") ? baseUrl : baseUrl + "/chat/completions";
+		if (baseUrl.endsWith("/chat/completions")) {
+			baseUrl = baseUrl.substring(0, baseUrl.length() - "/chat/completions".length());
+		}
+		return baseUrl;
+	}
+
+	/** 与 {@code OpenAiCompatibleChatServiceImpl} 同一套 baseUrl 规则（含旧 SiliconFlow token 的兜底） */
+	private String chatCompletionsUrl(SystemInfo.AiSetting setting) {
+		return apiBase(setting) + "/chat/completions";
 	}
 
 	/** 剥掉 ```json 围栏与前后废话，只留最外层 JSON */

@@ -14,6 +14,15 @@ export {
 
 export const getSystem = () => get<SystemInfo>('/api/system');
 
+/**
+ * 拉取服务商支持的模型列表（系统设置 → AI 的「从服务商获取」）。
+ *
+ * <p>可以带上表单里还没保存的 baseUrl / apiKey：管理员通常先填再点，逼他先保存多一步；
+ * apiKey 留空表示沿用服务端已保存的。响应只回模型 id，Key 不会出现在响应里。
+ */
+export const getAiModels = (preview?: { baseUrl?: string; apiKey?: string }) =>
+  post<{ baseUrl?: string; models: string[]; count: number }>('/api/system/aiModels', preview ?? {});
+
 export interface LoginRequest {
   username: string;
   password: string;

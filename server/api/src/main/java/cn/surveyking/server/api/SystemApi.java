@@ -1,5 +1,6 @@
 package cn.surveyking.server.api;
 
+import cn.surveyking.server.ai.core.AiGateway;
 import cn.surveyking.server.core.common.PaginationResponse;
 import cn.surveyking.server.domain.dto.UpdateCheckView;
 import tools.jackson.core.type.TypeReference;
@@ -66,6 +67,9 @@ public class SystemApi {
 
 	/** 公告：发现新版本时往管理员公告里写一条系统消息 */
 	private final NoticeService noticeService;
+
+	/** 设置页「自动获取模型列表」：Key 只在服务端使用，不下发浏览器 */
+	private final AiGateway aiGateway;
 
 	@Value("${version}")
 	private String currentVersion;
@@ -341,6 +345,29 @@ public class SystemApi {
 			response.setBaseUrl("https://api.siliconflow.cn/v1");
 		}
 		return response;
+	}
+
+	/**
+	 * 拉取服务商支持的模型列表，供系统设置 → AI 的「从服务商获取」按钮使用。
+	 *
+	 * <p>为什么用 POST 且允许带 body：管理员通常先改 Base URL / API Key，再点获取；
+	 * 这时值还没保存。带上 `{baseUrl, apiKey}` 可以「先试再存」，API Key 留空则沿用已保存的。
+	 * Key 全程只在服务端使用，响应里只有模型 id。
+	 *
+	 * @param preview 可空；只读 baseUrl / apiKey
+	 * @return {baseUrl, models: [...], count}
+	 */
+	@PostMapping("/aiModels")
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
+	public Map<String, Object> aiModels(@RequestBody(required = false) SystemInfo.AiSetting preview) {
+		List<String> models = aiGateway.listModels(preview);
+		Map<String, Object> result = new LinkedHashMap<>();
+		SystemInfo.AiSetting stored = systemService.getSystemAiSetting();
+		result.put("baseUrl", preview != null && StringUtils.hasText(preview.getBaseUrl()) ? preview.getBaseUrl().trim()
+				: (stored == null ? null : stored.getBaseUrl()));
+		result.put("models", models);
+		result.put("count", Integer.valueOf(models.size()));
+		return result;
 	}
 
 	/**

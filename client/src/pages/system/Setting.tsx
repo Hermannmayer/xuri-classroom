@@ -20,7 +20,7 @@ import {
 import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { get, getSystem, post } from '../../api';
+import { get, getAiModels, getSystem, post } from '../../api';
 import { getAiStatus, getAiUsageToday } from '../../api/ai';
 import type { AiStatus, AiUsageToday } from '../../api/ai';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -200,6 +200,8 @@ export default function SystemSetting() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<TabKey>();
+  /** 「从服务商获取模型列表」的加载态：请求期间按钮 loading，避免连点把服务商打出 429 */
+  const [fetchingModels, setFetchingModels] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [roleOptions, setRoleOptions] = useState<Role[]>([]);
   /** 已开放注册的教学班数量：全局开但为 0 时提示老师去开班级 */
@@ -505,6 +507,33 @@ export default function SystemSetting() {
       message.error((e as Error).message);
     } finally {
       setCheckingUpdate(false);
+    }
+  };
+
+  /**
+   * 从服务商拉模型列表（系统设置 → AI →「从服务商获取」）。
+   *
+   * <p>带的是表单里的当前值而不是已保存值：管理员通常「先填 Key → 点获取 → 选模型 → 保存」，
+   * 逼他先保存等于每次换服务商都要多按一次；API Key 留空时后端沿用已保存的那把。
+   * 拉到的模型是**追加**到现有列表，不会把手工加的清掉。
+   */
+  const fetchModels = async () => {
+    setFetchingModels(true);
+    try {
+      const baseUrl = String(form.getFieldValue('baseUrl') ?? '').trim();
+      const apiKey = String(form.getFieldValue('apiKey') ?? '').trim();
+      const result = await getAiModels({ baseUrl: baseUrl || undefined, apiKey: apiKey || undefined });
+      const current = (form.getFieldValue('models') as string[] | undefined) ?? [];
+      const merged = Array.from(new Set([...current, ...(result.models ?? [])]));
+      form.setFieldValue('models', merged);
+      if (!form.getFieldValue('defaultModel') && merged.length > 0) {
+        form.setFieldValue('defaultModel', merged[0]);
+      }
+      message.success(`已获取 ${result.count} 个模型（当前共 ${merged.length} 个），记得点下面的「保存」`);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setFetchingModels(false);
     }
   };
 
@@ -1021,7 +1050,24 @@ export default function SystemSetting() {
                     >
                       <Input.Password placeholder="留空表示不修改" autoComplete="new-password" />
                     </Form.Item>
-                    <Form.Item name="models" label="模型列表" extra="回车添加，可填多个">
+                    <Form.Item
+                      name="models"
+                      label={
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          模型列表
+                          <Button
+                            type="link"
+                            size="small"
+                            loading={fetchingModels}
+                            onClick={() => void fetchModels()}
+                            style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                          >
+                            从服务商获取
+                          </Button>
+                        </span>
+                      }
+                      extra="点「从服务商获取」按当前 Base URL / API Key 拉一次（没保存的值也能试，Key 留空就沿用已保存的）；也可以自己回车添加"
+                    >
                       <Select mode="tags" placeholder="例如 gpt-4o-mini" tokenSeparators={[',', ' ']} />
                     </Form.Item>
                     <Form.Item name="defaultModel" label="默认模型">
