@@ -21,7 +21,7 @@ dependencies {
 
     implementation 'org.dhatim:fastexcel:0.12.13'
     // Word 试卷导入：解析 .docx 的段落/表格/图片/公式
-    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+    implementation 'org.apache.poi:poi-ooxml:6.0.0'
     implementation 'org.dhatim:fastexcel-reader:0.12.3'
     implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
