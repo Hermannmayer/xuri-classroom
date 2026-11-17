@@ -29,6 +29,7 @@ import type { ProjectMode, ProjectView } from '../../api';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import ClassAnswersDrawer from './ClassAnswersDrawer';
+import ProjectBriefDrawer from './ProjectBriefDrawer';
 
 /** 与后端 RepoView 对齐（面板只用展示字段） */
 interface RepoView {
@@ -156,6 +157,8 @@ export default function ClassResourcesPanel({
   const [linkQr, setLinkQr] = useState<string>();
   const [answersRow, setAnswersRow] = useState<ClassResource>();
   const [repoAnswersRow, setRepoAnswersRow] = useState<ClassResource>();
+  /** 点名称打开的「试卷速览」抽屉；题库没有这个概念，只有考试/问卷用 */
+  const [briefRow, setBriefRow] = useState<ClassResource>();
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchSaving, setBatchSaving] = useState(false);
@@ -478,7 +481,16 @@ export default function ClassResourcesPanel({
       title: '名称',
       dataIndex: 'resourceName',
       ellipsis: true,
-      render: (value?: string) => value || '—',
+      render: (value: string | undefined, row: ClassResource) => {
+        const text = value || '—';
+        // 题库没有「一套卷」的概念，只有考试/问卷的名称能点开试卷速览
+        if (kind === 'repo' || !row.resourceId) return text;
+        return (
+          <LinkAction title="查看试卷速览" onClick={() => setBriefRow(row)}>
+            {text}
+          </LinkAction>
+        );
+      },
     },
     {
       title: '类型',
@@ -709,6 +721,12 @@ export default function ClassResourcesPanel({
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="链接生成失败，请重试" />
         )}
       </Modal>
+
+      <ProjectBriefDrawer
+        open={!!briefRow}
+        projectId={briefRow?.resourceId || ''}
+        onClose={() => setBriefRow(undefined)}
+      />
 
       <ClassAnswersDrawer
         open={!!answersRow}
