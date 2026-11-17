@@ -63,7 +63,7 @@ tests:
   - server/rdbms/src/test/java/cn/surveyking/server/impl/AiUsageServiceImplTest.java
   - server/rdbms/src/test/java/cn/surveyking/server/impl/AiAssistServiceImplTest.java
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # AI 助手
@@ -100,7 +100,7 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 内核 | `server/ai/.../core/AiGateway.java` | 非流式统一入口：120s 超时、2 次指数退避重试、每用户限流（可配，后台任务跳过） |
+| 内核 | `server/ai/.../core/AiGateway.java` | 非流式统一入口：120s 超时、2 次指数退避重试、每用户限流（可配，后台任务跳过）；`listModels()` 拉服务商 `GET {base}/models`（Key 只在服务端用） |
 | 内核 | `server/ai/.../core/PromptRegistry.java` | `prompts/*.md` 模板，首行 `version: x.y`，`render(id, vars)` |
 | 内核 | `server/ai/.../core/AiJobService.java` | 长任务 jobId + 内存表 + 线程池 + 24h TTL（与 PDF 导出同一套模型） |
 | 内核 | `server/ai/.../core/AiContentGuard.java` | 对话回复口径校验、采纳题目的逐题校验 |
@@ -188,6 +188,7 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 | 「AI 调用过于频繁」 | 每分钟调用数超了 `rateLimitPerMinute`；后台任务不受此限 |
 | 「今日 AI 用量已达单人上限」 | 次日零点（本地时区）自动恢复，或管理员调高限额 |
 | 「批改超时 / 任务已过期」 | 任务只在内存里，后端重启即失效；重新发起即可 |
+| 点「从服务商获取」报错 | `POST /api/system/aiModels` 用 `GET {base}/models` 探测：端点不是标准 OpenAI 兼容、Key 没权限、返回空列表都会给中文原因；可以先用表单里**未保存**的 Base URL / Key 试，不必先保存 |
 | 对话里说「批改」却没执行 | ① 当前页面没有打开具体试卷；② 没有 `answer:grade`；③ 消息不像指令（换更直接的说法） |
 | 错题重练找不出薄弱点 | `ReportData.statistics.average` **只对「答案是数字」的题存在**；选择题的逐题得分在 `t_answer.exam_info.question_score`。实现里两条口径都读（`exam_info` 优先、`statistics` 兜底），有 `grade_status=pending` 的答卷时主观题整卷不参与排名——否则「没批改」会被当成「错得最多」 |
 | 组卷采纳时被 `AiContentGuard` 拒 | 题库题常缺 `examAnswerMode`；组卷/推荐在返回前会补齐 `examAnswerMode` 与 `dataSource`，自己写新场景时也要补，否则 `/paper/apply` 整批被拒 |

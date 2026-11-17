@@ -32,6 +32,9 @@ entrypoints:
 apis:
   - POST /api/public/login
   - POST /api/public/logout
+  - POST /api/public/register
+  - GET /api/public/registerOptions
+  - GET /api/public/registerClasses
   - GET /api/currentUser
   - POST /api/system/user/update
 tables:
@@ -40,8 +43,8 @@ tables:
 tests:
   - client:npm run check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-09
-verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
+last_verified: 2026-11-17
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 登录与账号
@@ -49,6 +52,8 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 ## 30 秒摘要
 
 登录走 RSA + HttpOnly Cookie：前端先从 `GET /api/system` 取公钥，加密密码后 `POST /api/public/login`，后端返回 `sk-token` Cookie。之后所有请求自动带 Cookie；`GET /api/currentUser` 返回用户资料与 `authorityList`。账号设置只改本人资料/密码/界面偏好，不涉及角色管理。
+
+学员自助注册是另一条链路：登录页先问 `GET /api/public/registerOptions`，只有「全局总闸开 + 至少一个教学班开放注册」才显示「注册」；注册时必须选一个开放注册的教学班，**手机号就是登录账号**，提交后落 `status=0` 的待审核学员，班主任/管理员审核通过才能登录。
 
 ## 什么时候看这篇
 
@@ -61,8 +66,8 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 登录页 | `client/src/pages/user/Login.tsx` | 用户名/密码，RSA 加密 |
-| 注册页 | `client/src/pages/user/Register.tsx` | 公开注册开关与角色 |
+| 登录页 | `client/src/pages/user/Login.tsx` | 用户名（或手机号）/密码，RSA 加密；「注册」链接按 `/api/public/registerOptions` 的 `enabled` 显示 |
+| 注册页 | `client/src/pages/user/Register.tsx` | 选开放注册的教学班 + 手机号/姓名/密码；提交后显示待审核回执，不自动跳登录 |
 | 账号设置 | `client/src/pages/account/Settings.tsx` | 资料、密码、缩放、主题 |
 | 前端 API | `client/src/api/index.ts` | `login` / `logout` / `getCurrentUser` |
 | 请求层 | `client/src/api/request.ts` | 401 统一跳登录 |
@@ -78,6 +83,7 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
 4. 后端校验账号状态、组有效期、密码哈希；成功写 `Set-Cookie: sk-token=...; HttpOnly; SameSite=Lax`。
 5. 前端跳转 `/home`；`RequirePerm` / 页面调用 `loadAuthorities()` 取 `/api/currentUser`。
 6. 退出 `POST /api/public/logout` 清 Cookie。
+7. 注册（学员自助，可选）：`/user/register` 并发拉 `GET /api/system` 与 `GET /api/public/registerOptions`（返回 `globalEnabled` / `enabled` / `reason` / `classes`）；班级下拉只列 `dept_type=class`、`class_kind=teaching` 且 `allow_register=1` 的班。提交 `POST /api/public/register { deptId, username, phone, name, password }`，`username` 强制等于 11 位手机号，密码明文提交（依赖 HTTPS）。后端校验全局开关、班级是否教学班且已开放注册、手机号格式/唯一性、强密码后建 `status=0` 的学员（`userType=student`，角色取 `registerInfo.roles`，没配时兜底内置 student/xueyuan）；审核通过前登录一律失败。审核流程见[登录与会话流程](../flows/login-auth.md)第 9 步。
 
 ## 修改指南
 
@@ -114,7 +120,12 @@ verified_against: 6c14ecfdf35a6c2610f436152c616e25e525c5b6
   且它的 `spring.factories` 在 Spring Boot 3+ 不再被读取；迁到 Jakarta 后只保留零 servlet 依赖的
   `com.anji-plus:captcha` 核心包，由 `CaptchaApi` + `CaptchaConfig` 接管（22 个 `aj.captcha.*` 配置键
   与前端 `LoginCaptcha.tsx` 的 AES 契约逐字对齐）。改验证码时**不要**把 starter 依赖加回来。
-
+- **验证码异常不再原样透传**：aj-captcha 返回 9999 /「服务出了点问题」（典型是运行时缺 AWT 字体）时，
+  `UserAuthService#validateCaptcha` 与 `LoginCaptcha` 的 `friendlyMessage` 都统一成「验证码服务暂时不可用，请稍后重试」；
+  排查看后端 `验证码校验异常` 日志与运行时镜像的字体依赖（见 flows/login-auth.md 的坑）。
+- **注册不再回退组织树根**：`UserServiceImpl#register` 只认请求里的 `deptId`，且该节点必须是 `dept_type=class`、
+  `class_kind=teaching`、`allow_register=1`；没选班 / 班没开放注册直接 400。`registerInfo.deptId` 已经不再参与注册，
+  `registerInfo` 为空时按「全局注册开启」处理。
 - **登录失败的"地址"维度依赖 `IPUtils`**：`LoginAttemptLimiter` 的 key 是 `用户名|客户端地址`，地址必须走 `IPUtils.getClientIpAddress`（XFF 最左公网地址优先）。用 `getRemoteAddr()` 会在 nginx 后面拿到 docker 网关（172.19.0.1），把「同一账号 + 同一地址」的失败计数退化成「全站按账号锁定」——任何人都能用错密码把 admin 锁 10 分钟。
 - 密码必须 RSA 加密；发明文一定报账号或密码错误。
 - 后端重启后 RSA 公钥可能变化，登录页要重新取 `/api/system`。
@@ -129,7 +140,7 @@ cd client && npm run check
 python scripts/nas/smoke-test.py
 ~~~
 
-手工：错误密码、正确密码、退出、刷新、过期 Cookie、禁用账号各走一遍。
+手工：错误密码、正确密码、退出、刷新、过期 Cookie、禁用账号各走一遍；注册再走一遍「没有班级开放注册 → 登录页无入口」「开放一个班 → 注册成功但审核前登录失败」。
 
 ## 相关文档
 

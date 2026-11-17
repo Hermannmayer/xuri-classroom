@@ -118,6 +118,8 @@ apis:
   - GET /api/repo/categories
   - POST /api/repo/categories/create
   - POST /api/system/anonymous/cleanup
+  - POST /api/system/aiModels
+  - GET /api/teaching/classes/unsubmitted
   - GET /api/system
   - GET /api/system/audit/list（action / startTime / endTime / operator / keyword / result）
   - GET /api/system/audit/actions
@@ -142,18 +144,18 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 权限、角色与用户组
 
 ## 30 秒摘要
 
-权限点只有一个来源：代码里的 `PermissionEnum`（当前 77 条、11 个分组），数据库 `t_role.authority` 只记录「某个角色勾了哪些串」。
+权限点只有一个来源：代码里的 `PermissionEnum`（当前 85 条、13 个分组，其中 6 条 `studentOnly`），数据库 `t_role.authority` 只记录「某个角色勾了哪些串」。
 
-学员角色只保留 `repo:practice` + `repo:book`，不再有 `repo:detail` / `repo:questions:read`；练习页只能走 `/api/template/practiceList`（单页上限 20），不能打开题库题目列表。迁移 `40-student-practice-only.sql` 负责把旧学员角色收敛到这套权限。
+学员角色只保留 `repo:practice` + `repo:book`，不再有 `repo:detail` / `repo:questions:read`；练习页只能走 `/api/template/practiceList`（单页上限 20）。已部署库由迁移 `40-student-practice-only.sql` 收敛到这套权限；空库种子 `init-mysql.sql` 仍给 student 带 `repo:questions:read`，见「坑」。
 
-题库授权只面向**教师 / 用户组**（`dept_type=org`、`userType=staff`）；学员 / 班级不再出现在题库授权弹窗，服务端也会拒绝 `class`/`student` 目标。学员能看哪些题库只由「班级管理 → 班级资源 → 题库」的 `t_class_resource` 决定；`/api/system/user/options?userType=staff` 与 `/api/system/dept/list?deptType=org` 提供筛选。用户最终权限 = 直挂角色（`t_user_role`）∪ 主组/附加组及其祖先链绑定角色（`t_dept_role`）的并集；`code=admin` 的角色在运行时还会注入目录里全部**非学员专属**权限。当前三个内置角色：管理员 71、老师 33、学员 14（含 6 个学员专属）。组织树从本轮起分成两类节点：`dept_type=org` 是**用户组**（只放 staff、可绑角色），`dept_type=class` 是**班级**（只放 student、不绑角色）。前端用 `can()` + `RequirePerm` 决定菜单、路由与按钮，后端用 `@PreAuthorize` 兜底，数据可见范围另由 `@EnableDataPerm`、项目/题库协作者表的 access_level（1/2/3）与班级资源分配控制。所有写操作落 `t_audit_log`，列表会补中文动作名、目标名与操作人姓名。
+题库授权只面向**教师 / 用户组**（`dept_type=org`、`userType=staff`）；学员 / 班级不再出现在题库授权弹窗，服务端也会拒绝 `class`/`student` 目标。学员能看哪些题库只由「班级管理 → 班级资源 → 题库」的 `t_class_resource` 决定；`/api/system/user/options?userType=staff` 与 `/api/system/dept/list?deptType=org` 提供筛选。用户最终权限 = 直挂角色（`t_user_role`）∪ 主组/附加组及其祖先链绑定角色（`t_dept_role`）的并集；`code=admin` 的角色在运行时还会注入目录里全部**非学员专属**权限。当前三个内置角色：管理员 79（目录 85 条减去 6 条学员专属，运行时注入；库里种子 76 条）、老师 42、学员 15（含 6 个学员专属）。组织树从本轮起分成两类节点：`dept_type=org` 是**用户组**（只放 staff、可绑角色），`dept_type=class` 是**班级**（只放 student、不绑角色）。前端用 `can()` + `RequirePerm` 决定菜单、路由与按钮，后端用 `@PreAuthorize` 兜底，数据可见范围另由 `@EnableDataPerm`、项目/题库协作者表的 access_level（1/2/3）与班级资源分配控制。所有写操作落 `t_audit_log`，列表会补中文动作名、目标名与操作人姓名。
 
 ## 什么时候看这篇
 
@@ -171,15 +173,15 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 权限目录（唯一来源） | `server/shared/src/main/java/cn/surveyking/server/core/constant/PermissionEnum.java` | 77 条权限串 + 中文名 + 分组 + `suggested` / `studentOnly`；`grouped()` 供目录接口 |
+| 权限目录（唯一来源） | `server/shared/src/main/java/cn/surveyking/server/core/constant/PermissionEnum.java` | 85 条权限串 + 中文名 + 分组 + `suggested` / `studentOnly`（6 条）；`grouped()` 供目录接口 |
 | 权限装配 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserAuthService.java` | `buildUserInfo`、`resolveUserAuthorities`、`toAuthorityNames`（admin 注入）；组链解析在 `UserDeptMembershipService#resolveDeptChainIds` |
 | 角色写操作 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SystemServiceImpl.java` | `getRoles` / `createRole` / `updateRole` / `deleteRole` / `getPermissionCatalog`；`assertRoleMutationAllowed`、`assertBuiltinAdminAuthorityKept` |
 | 组织节点类型 | `server/rdbms/src/main/java/cn/surveyking/server/domain/model/Dept.java`、`DeptServiceImpl.java` | `TYPE_ORG`/`TYPE_CLASS`、`dept_type` 校验、用户组绑角色与缓存失效 |
 | 用户组成员约束 | `server/rdbms/src/main/java/cn/surveyking/server/impl/UserAdminService.java` | staff 只能进 org、student 只能进 class；建号/改号 |
 | 班级授权级别 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ClassServiceImpl.java` | `assertClassVisible`（看）/`assertClassManage`（改）、`t_class_partner.access_level`（1 只读 / 2 可管理）、`ClassNodeView.manageable` |
 | 项目/题库三级授权 | `ProjectPartnerServiceImpl`、`RepoPartnerServiceImpl`、`t_project_partner`、`t_repo_partner` | `access_level` 1 查看 / 2 编辑 / 3 授权；owner/admin 全权；项目写 `>=2`、成员管理 `>=3`；题库写 `>=2`、成员管理 `>=3`；教师组/用户组按组链继承 |
-| 后端接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemApi.java` | `/system/role/*`、`/system/permission/list`、用户/组/字典接口的 `@PreAuthorize`；`/system/dept/list?deptType=` |
-| 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers` |
+| 后端接口 | `server/api/src/main/java/cn/surveyking/server/api/SystemApi.java` | `/system/role/*`、`/system/permission/list`、用户/组/字典接口的 `@PreAuthorize`；`/system/dept/list?deptType=`；`POST /system/aiModels`（`system:setting:update` 或 admin，API Key 只在服务端用） |
+| 班级接口 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java` | 建班/改班、成员、导入、老师授权、班级资源、按班答卷 `/classes/answers`、未交名单 `/classes/unsubmitted`（`class:detail` + 班级可见 + 项目可读） |
 | 按班答卷/导出 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java`、`server/rdbms/.../impl/AnswerServiceImpl.java` | `classService.assertVisible` + `listAnswerByClass`/`downloadByClass`；`/answer/download?classId=` 与 `POST /answer/export/token`；默认 `is_anonymous=0` |
 | 匿名答卷/主体 | `server/api/.../SurveyApi.java`、`server/rdbms/.../impl/AnonymousIdentityServiceImpl.java`、`t_anonymous_subject` | `sk-anon` cookie（HttpOnly/Lax/90d/SHA-256）；`/public/anonymous/answers`、`/claim`；匿名答卷不写 `create_by` |
 | 匿名清理 | `server/rdbms/.../impl/AnonymousCleanupService.java`、`AnonymousIdentityService#purgeOlderThan` | `t_sys_info.setting` 的开关/天数；每日 03:30 `@Scheduled`；`POST /api/system/anonymous/cleanup` 手动触发 |
@@ -312,9 +314,9 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 
 | 角色 | code | 权限点数 | 学员专属 | `system:*` | 定位 |
 |---|---|---:|---|---|---|
-| 超级管理员 | `admin` | 71 | 不注入 | 有 | 管理权限全集（= 目录 77 条减去 6 条学员专属） |
-| 老师 | `teacher` | 33 | 无 | 无 | 建/编/发/删自己创建的考试，题库只读 + 导入，答卷补录/批改，班级管理 |
-| 学员 | `student` / `xueyuan` | 14 | 6 条全有 | 无 | 答题、练习、错题本、题目只读、我的成绩 |
+| 超级管理员 | `admin` | 79 | 不注入 | 有 | 管理权限全集（= 目录 85 条减去 6 条学员专属；库里种子 76 条，运行时自动补全） |
+| 老师 | `teacher` | 42 | 无 | 无 | 建/编/发/删自己创建的考试，题库只读 + 导入，答卷补录/批改，班级管理 |
+| 学员 | `student` / `xueyuan` | 15 | 6 条全有 | 无 | 答题、练习、错题本、我的成绩 |
 
 学员专属权限（`PermissionEnum.studentOnly=true`，前端 `STUDENT_ONLY_PERMISSIONS` 必须逐条对应）：
 
@@ -338,6 +340,8 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 | 编辑题库/导入 | `repo:update`/`template:update`/`template:import` + `assertManageRepo` | admin/创建者或 access_level>=2；level1 只读 |
 | 题库成员/级别 | `repo:grant` + `assertManagePermission` | admin/创建者或 access_level=3；level1/2 不能改成员 |
 | 改系统设置 | `system:setting:update` | 全局 |
+| 从服务商拉模型列表 | `system:setting:update` 或 admin | `POST /api/system/aiModels`；可带还没保存的 baseUrl/apiKey 先试再存，响应只有模型 id |
+| 使用 AI 助手 | `ai:use` | 全站；还要 `GET /api/system` 的 `aiEnabled` 不为 `false`，悬浮球/各页 AI 按钮才出现（学员默认没有） |
 | 改匿名清理设置/立即清理 | `system:setting:update` 或 admin | 匿名答卷保留开关/天数；手动清理 `POST /api/system/anonymous/cleanup` |
 | 改水印/防复制 | `content:protect` | 全局，只接受三个字段 |
 | 看操作日志 | `system:log:list` | 全局 |
@@ -345,6 +349,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 | 新建/修改班级 | `class:list` + `assertClassManage`（修改） | 老师建班后是自己创建；修改还要求本班/祖先班可管理 |
 | 班级成员写 | `class:member:create/update/delete` + `assertClassManage` | 只读授权（access_level=1）403 |
 | 按班查看答卷 | `project:report` + `classService.assertVisible(deptId)` | 班级可见即可看本班全部（默认 `is_anonymous=0`），不要求项目协作者 |
+| 看班级未交名单 | `class:detail` 或 admin + `assertClassVisible` + `assertTeachingClass` + 项目可读 | `GET /api/teaching/classes/unsubmitted`；按 `create_by` + `temp_save=1` 算已交，不按 `class_id` |
 | 按班导出答卷 | `answer:export` + `classService.assertVisible(deptId)` | 只导出该班 `class_id` 命中的非匿名答卷；只支持 `type=answer` |
 | 通用导出答卷（不带 classId） | `answer:export` + 项目数据权限 | 仍是项目所有者/协作者范围（`getProjectPerms`）；匿名默认排除 |
 | 匿名提交/找回 | 无（`/api/public/**`） | 只认 `sk-anon` cookie；匿名 `is_anonymous=1`、`create_by=null` |
@@ -356,8 +361,8 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ## 坑与已知限制
 
 - `PermissionEnum` 里的 `suggested` 语义已过期：现在只剩 `project:publish` 与 `content:protect` 还标着 `true`，但两者都已接上 `ProjectApi` 的 `/status` 与 `SystemProtectionApi` 的 `/protection`。别再把它当「未接线」判断。
-- 有 5 个目录条目后端没有注解：`project:answer`、`repo:practice`、`portal:student`、`portal:teacher`、`portal:admin`。它们只影响前端菜单、路由与首页视角，接口层另有权限（例如 `/api/teaching/*` 要 `project:report`）。
-- 管理员在库里和运行时不是同一份：运行时注入 71 条全集，库里缺的串由 `23-permission-cleanup.sql` 补齐；改目录后若只在代码里加，权限矩阵会显示「全勾选」而接口 403。
+- 有 4 个目录条目后端没有注解：`project:answer`、`portal:student`、`portal:teacher`、`portal:admin`。它们只影响前端菜单、路由与首页视角，接口层另有权限（例如 `/api/teaching/*` 要 `project:report`）。`repo:practice` 已经接到 `TemplateApi#practiceList` 与练习相关接口；`class:register` 没有注解，但在 `ClassServiceImpl#assertRegisterAllowedForClassKind` 里用 `SecurityContextUtils.hasAuthority` 判。
+- 管理员在库里和运行时不是同一份：运行时注入 79 条全集（85 条减 6 条学员专属），库里种子只有 76 条，另外缺的串由 `23-permission-cleanup.sql` 补齐；改目录后若只在代码里加，权限矩阵会显示「全勾选」而接口 403。
 - 前端保存角色权限时必须保留目录外的历史串（`t_role.authority` 里可能有 `answer`、`system:role` 这类早期前缀），否则会把库里的脏串删掉一半；页面用 `catalogCodes` 过滤只影响显示。
 - 「全部取消勾选」提交空数组 = 收回全部权限，后端会显式写空串；非管理员只能对自己权限覆盖得了的角色这么做。
 - 角色/组变更后**不需要重新登录**，但权限矩阵页保存成功的提示仍写着「相关用户需重新登录才生效」，这句话已经不准。
@@ -365,6 +370,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 - 前端 `loadAuthorities()` 是模块级缓存，登录成功/登出必须调 `notifyAuthChanged()`；否则同标签页「管理员登出 → 学员登录」会继续沿用上一人的权限。
 - 管理员判定有两套：后端 `SecurityContextUtils#isAdmin` 看 `ROLE_admin` 权限；前端权限矩阵页按 `role.code === 'admin'` 锁编辑，后端还额外按名称「超级管理员」兜底。
 - 学员角色的 code 可能是 `student` 也可能是 `xueyuan`（历史数据），迁移脚本与 `ClassStudentService` 都同时接受两者；新脚本别只写一个。
+- **空库种子和迁移 40 不一致**：`init-mysql.sql` 的 student 角色仍带 `repo:questions:read`（能打开题库题目列表），而 `40-student-practice-only.sql` 只对已部署库生效。按「题库只读收归老师」验收时，空库环境要手工改种子或补一条幂等迁移，别拿新库当已收敛环境。
 - 职务权限已下线：`system:position:*`、`system:user:updatePosition` 不在目录里，对应接口仍是 `hasRole('admin')`，改它们不会经过权限矩阵。
 - 数据范围已经按「主组 ∪ 附加组 ∪ 各自祖先链」解析（`UserDeptScopeService#resolveDeptScope` / `DEPT_SCOPE_SQL`），不要再退回只读 `t_user.dept_id`；但按组聚合的 SQL（如 `TeachingMapper#listClasses` 的 `GROUP BY u.dept_id`）仍只认主组，附加组成员会落到主组那一行。
 - 用户管理只显示 `user_type=staff`（前端固定传 `userType: 'staff'`），学员在「班级管理」里按班维护；`ClassServiceImpl` 的成员接口还会硬校验 `user_type=student`，两边不是同一批人。
@@ -377,7 +383,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 - **审计动作名是展示层**：`AuditActionCatalog` 未收录的动作会按 token 拼接或回退原码；新增接口后补一条精确名，别指望兜底永远读得通。
 - **题库班级分配可以读详情，但不绕过数据边界**：`/api/repo/detail` 允许 `repo:detail` 或 `repo:questions:read`，班级分配的学生可以打开本班可见题库；但仍受 `assertReadableRepo`、题库全局开放期与本班窗口约束。排查「能看到题库但打不开详情」时先看这条。
 - **题库列表不按窗口过滤**：班级开关关闭/未开始/已结束时题库仍可能出现在列表里，打开/练习才被 `canStudentReadRepo` 拒绝；与项目列表同一套「列表宽、打开严」的取舍。
-- **按班答卷绕过项目协作者过滤**：`/api/teaching/classes/answers`、`/api/answer/download?classId=` 只校验 `project:report`/`answer:export` + 班级可见；只读班级授权也能看/导出本班全部答卷，不要再以为必须先是项目协作者。
+- **按班答卷绕过项目协作者过滤**：`/api/teaching/classes/answers`、`/api/answer/download?classId=` 只校验 `project:report`/`answer:export` + 班级可见；只读班级授权也能看/导出本班全部答卷，不要再以为必须先是项目协作者。注意**未交名单是例外**：`/classes/unsubmitted` 还要过 `AnswerAccessGuard#assertProjectAccess`（项目所有者/协作者），能看答卷的老师不一定能看未交名单。
 - **历史 `class_id` 为空不进按班报表**：按班列表/导出只认精确 `t_answer.class_id`；学情概览会按 `COALESCE(class_id,dept_id,'')` 回退主组，出现「概览有数、抽屉为空」是正常现象。
 - **班级答卷导出 UI 没有密码输入**：`ClassAnswersDrawer` 调 `/api/answer/export/token` 时传空 body；系统配置导出密码后会失败，需要补密码输入或走无密码场景。
 - **`AnswerQuery.classId` 不改变普通列表的项目范围**：`GET /api/answer/list?classId=` 仍在原项目数据权限内过滤；只有 `listAnswerByClass` 才按班级放开到本班全部。
@@ -413,10 +419,10 @@ npm run docs:check
 线上探针（登录后带 Cookie）：
 
 ```bash
-# 管理员：71 条，且不含学员专属
+# 管理员：79 条权限串（另加 ROLE_admin），且不含学员专属
 curl -s -b cookie.txt https://<host>/api/currentUser \
-  | python -c "import json,sys; a=json.load(sys.stdin)['data']['authorityList']; print(len(a)); print([x for x in a if x in {'project:answer','repo:practice','repo:book','repo:questions:read','exercise:list','portal:student'}])"
-# 期望：71，第二行是 []
+  | python -c "import json,sys; a=json.load(sys.stdin)['data']['authorityList']; p=[x for x in a if not x.startswith('ROLE_')]; print(len(p)); print([x for x in p if x in {'project:answer','repo:practice','repo:book','repo:questions:read','exercise:list','portal:student'}])"
+# 期望：79，第二行是 []
 
 # 组织树类型筛选：用户组只回 org，班级只回 class
 curl -s -b cookie.txt "https://<host>/api/system/dept/list?deptType=org"
@@ -429,11 +435,15 @@ curl -s -b cookie.txt https://<host>/api/system/audit/actions
 docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT code, LENGTH(authority)-LENGTH(REPLACE(authority,',',''))+1 AS n
   FROM t_role WHERE is_deleted=0 ORDER BY n DESC;"
-# 期望：admin 71 / teacher 33 / student(xueyuan) 14
+# 期望（空库种子）：admin 76 / teacher 42 / student(xueyuan) 15；运行时 admin 再注入到 79 条
 
 # 老师删答卷应 403，body.message 是可读中文（不是 Authentication failed）
 curl -s -b teacher.txt -X POST https://<host>/api/answer/delete -d '{"ids":["x"]}'
 
+# 未交名单：能管班但读不到项目 -> 403；项目可见 -> 200（total/submitted/list）
+curl -s -b teacher.txt "https://<host>/api/teaching/classes/unsubmitted?projectId=<projectId>&deptId=<classId>"
+# 模型列表：admin 或 system:setting:update 才 200；响应里不应出现 apiKey
+curl -s -b admin.txt -X POST https://<host>/api/system/aiModels -H 'Content-Type: application/json' -d '{}'
 # 班级可见的老师（非项目协作者）：按班看答卷应 200，通用导出应 403
 curl -s -o /dev/null -w '%{http_code}\n' -b teacher.txt \
   "https://<host>/api/teaching/classes/answers?projectId=<projectId>&deptId=<classId>&current=1&pageSize=20"

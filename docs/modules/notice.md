@@ -49,7 +49,7 @@ tests:
   - server/rdbms/src/test/java/cn/surveyking/server/impl/NoticeServiceImplTest.java
   - client:npm run check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 通知公告

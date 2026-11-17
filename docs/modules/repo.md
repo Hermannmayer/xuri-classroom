@@ -93,7 +93,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 题库与题目
@@ -124,7 +124,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 | 批量移动分类 | `client/src/pages/repo/BatchRepoCategoryModal.tsx` | TreeSelect 扁平分类 path（根「未分类」=空串）+ 可输入新路径；逐个 `POST /repo/update {id,category}`，成功/失败计数，完成后刷新树/列表 |
 | 题目批量设置 | `client/src/pages/repo/Questions.tsx` + `POST /api/template/batchUpdate` | 勾选多题后批量追加/覆盖标签、改难度、改每题分值；后端 `TemplateServiceImpl#batchPatchTemplate` 只改非空字段 |
 | 题库分类树 | `client/src/pages/repo/RepoCategoryTree.tsx` | `GET /api/repo/categories` 扁平列表按 `/` 拆树；根「全部分类」+ 各路径 count；「新建分类文件夹」→ `/categories/create`；选中 path 过滤列表 |
-| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel、导入旁「下载模板」、导出 xlsx；读取权限与导入/导出权限分开判定 |
+| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel / 文本 / Word、导入旁「下载模板」+ 题型说明（`ImportHelp`）、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | AI 题库体检 | `client/src/pages/repo/ai/AiRepoAuditDrawer.tsx` + `POST /api/ai/repo/audit` | 查重复题 / 缺解析 / 缺难度章节标签，逐题给建议；勾选后走 `POST /api/ai/repo/audit/apply` 批量写回（只写勾选的字段）。入口在题目页「AI 体检」，也能从 AI 对话框带 `?ai=audit` 直接打开 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | **只面向教师**：按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树只拉 `deptType=org`，人只拉 `userType=staff`；成员行可改级别。学员/班级不在这里出现 |
@@ -145,14 +145,20 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 | 题库全局开放期 | `server/rdbms/.../domain/model/Repo.java`、`server/shared/.../dto/RepoRequest.java`、`RepoView.java`、`init-mysql.sql`、`scripts/nas/migrate/32-repo-open-window.sql` | `t_repo.open_start_at/open_end_at`（datetime，NULL=不限）；`RepoServiceImpl#updateRepo` 显式 set，支持清空 |
 | 统计 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java` | 每个题库的题量、题型分布、标签分布 |
 | 数据表 | `t_repo`、`t_repo_category`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book`、`t_file_ref` | 题库、分类目录、题目、授权（含 access_level）、班级分配、标签、错题/收藏、富文本图片引用 |
-| Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析，行级安全校验 |
-| Excel 文案 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java` | sheet 名与表头的中英文别名，导入导出共用 |
+| Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析（13 种），行级安全校验；结果带 `sourceSheet/sourceRow` 供挂内嵌图片 |
+| Excel 文案 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java` | sheet 名与表头的中英文别名（`SheetType` / `HeaderLabel` / 行标题N / 列标题N / 选项树 / 高级配置），导入导出共用 |
 
 ## 关键流程
 
 1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`category` 是**精确值**（前端传分类树的 path，不做 trim/规范化）；`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权 / 本班在 `t_class_resource` 有 repo 分配」收窄（班级分配只对非管理员生效，实际只影响学员）。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。`/api/repo/detail` 现在接受 `repo:detail` 或 `repo:questions:read`，但服务层仍走 `assertReadableRepo`（管理员/创建者/共享/partner/班级分配），学员只能读可见题库。
-3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` 与 `file` 到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=题库导入模板`（白名单与别名见 [files](./files.md)）。`RepoServiceImpl.importFromTemplate` 调 `RepoTemplateExcelParseHelper.parse` 解析出 `TemplateRequest` 列表，再进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
+3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` / `kind` / `file`（或 `text`）到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。
+   导入下拉有三项：Excel（按题型分表）/ 文本（粘贴题目）/ Word（按模板），对应 `kind=excel`（默认）/ `text` / `word`：
+   Excel 走 `RepoTemplateExcelParseHelper.parse`（13 个题型 sheet）**并按行挂内嵌图片**——`attachExcelRowImages` 复用
+   `ExcelRowImages` + `QuestionImageUploader`（与试卷导入同一套抽图/上传逻辑），题干末尾追加 `<img>` 并置 `richTitle=true`；
+   Word/文本走 `WordQuestionParser` / `TextQuestionParser`，**图片占位符会被剥掉**（题库题目只存题目本体，不挂图）。
+   解析结果进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
+   导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=题库导入模板`（白名单与别名见 [files](./files.md)）。
 4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
    - 打开弹窗先读 `GET /api/system` 的 `setting.exportPasswordEnabled`：为 `false` 时**直接自动开始下载**，不再让用户对着空密码框猜；为 `true` 才显示密码输入。
    - 下载流程：`POST /api/repo/export/token`（密码换一次性 token，60 秒、绑定用户、用一次即失效）→ `GET /api/repo/export?id=...&exportToken=...`。密码只走 POST body，URL 里只出现 token。
@@ -222,8 +228,14 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ### 改导入/导出模板
 
 1. sheet 名与表头以 `RepoTemplateI18n` 为准（中英文别名都认），改文案要同时考虑导入解析与导出表头。
-2. 解析逻辑在 `RepoTemplateExcelParseHelper` 的 `parseRadioOrJudge`、`parseCheckbox`、`parseFillBlank`、`parseTextarea`；新增题型要先确认 `SheetType` 与导出 sheet 都有对应实现。
-3. 导出列在 `RepoServiceImpl.exportRepoQuestions` 里逐题型拼装，改完先用「导出 → 原样导入」做一次闭环验证。
+2. 解析逻辑在 `RepoTemplateExcelParseHelper`：`parseDataRow` 按 `SheetType` 分发到各自的 `parseXxx`
+   （`parseRadioOrJudge` 兼单选/判断、`parseCheckbox`、`parseFillBlank`、`parseTextarea`、`parseSelect`、`parseScore`、
+   `parseNps`、`parseCascader`、`parseMatrix`、`parseUpload`），最后都走 `addQuestion` 合并「高级配置(JSON)」。
+   表头按**名字**定位（`HeaderLabel`），插列、删空列、换列序都不影响导入。
+3. 导出列在 `RepoServiceImpl.exportRepoQuestions` 里逐题型拼装（**仍只有 5 个 sheet**，见「坑与已知限制」），
+   改完先用「导出 → 原样导入」做一次闭环验证。
+4. Excel 内嵌图片的抽取与上传在 `core/importer/ExcelRowImages` + `QuestionImageUploader`（shared），
+   题库与试卷两条链路共用；改锚点行归属规则会同时影响两边。
 
 ## 权限与数据范围
 
@@ -255,7 +267,12 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 - **班级分配只对 student 生效**：`canStudentReadRepo` 对 staff/管理员/匿名返回 false，不会放宽教职工口径。
 - **`ClassResourceService#assertStudentCanAccessRepo` 目前没有调用方**：实际读闸门是 `canStudentReadRepo`（RepoServiceImpl / TemplateServiceImpl / RepoPartnerServiceImpl 各自调用）；新增入口时不要误以为它已兜底。
 - **`updateRepo` 是整表单保存**：清空全局开放时间（前端传 null）会通过显式 `set` 落 NULL；只传 `id+name` 的脚本/调用会连 `openStartAt/openEndAt` 一起清空，改题库时务必带上完整字段。
-- 导出不含「多空填空」（`MultipleBlank`）：`exportRepoQuestions` 只处理单选、多选、判断、填空（单空）、简答；多空填空会丢。空题库导出会因 fastexcel 不允许 0 个 sheet 而 500，前端已提前拦截并提示。
+- 导出不含「多空填空」（`MultipleBlank`）：`exportRepoQuestions` 只处理单选、多选、判断、填空（单空）、简答；多空填空会丢。
+  **2026-11 新增的 8 种题型（下拉/评分/NPS/级联/矩阵单选/矩阵多选/矩阵填空/上传）也不会出现在导出文件里**——
+  它们只能导入、没有反向导出，「导出 → 原样导入」的闭环只对那 5 种题型成立。空题库导出会因 fastexcel 不允许 0 个 sheet 而 500，前端已提前拦截并提示。
+- **题库题目列表不认识富题干**：`Questions.tsx` 的「题干」列把 `row.template?.title` 当纯文本渲染，
+  Excel 内嵌图片导入后题干里带 `<img>`，列表会把标签原样显示出来；题目编辑/预览走渲染层没这个问题。
+  要在列表里看图，得把那一处换成 `RichTextContent`（或按 `attribute.richTitle` 分流）。
 - 导入是按「序号 + 题型」匹配的 upsert：同一题库里序号相同、题型相同的行会覆盖原题，不是追加。导入前先导出一份当模板最稳。
 - `/api/project/selectRepo`（编辑器选题库）只返回「自己创建 + 共享」，没有管理员放行、也不含组授权/班级分配；但组卷弹窗 `ComposeModal` 用的是 `/api/repo/list`（含组授权与班级分配），不要按 `selectRepo` 的口径判断老师在组卷弹窗里能选到的题库。
 - `shared`（共享题库）在题库列表页没有开关，只能通过接口或直接改库设置；共享后所有能进题库列表的人都能读。

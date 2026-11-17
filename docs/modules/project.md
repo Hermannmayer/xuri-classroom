@@ -104,7 +104,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-17
-verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 考试与问卷（项目）
@@ -156,9 +156,9 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 ### 0. 入口与页面复用（/project + /teaching）
 
 - `/project` 路由守卫仍是 `project:list`，但组件换成 `ProjectEntry`：有 `portal:teacher + project:list` 的账号重定向到 `/teaching?tab=exam`；学员、以及没有 `portal:teacher` 的只读账号继续渲染 `ProjectList` 的「考试安排」。
-- `/teaching` 守卫是 `portal:teacher + project:list`；「考试/问卷」Tab 渲染 `<ProjectList embedded />`，隐藏 ProjectList 自己的页头/分隔线，保留搜索、新建、回收站、批量等工具条。
+- `/teaching` 守卫是「`project:list` 或 `class:list` 任一命中」（`router.tsx` 里传的是一组权限码，不再要求 `portal:teacher`——合并后只带班不带课的班主任也要有入口）；「考试/问卷」Tab 渲染 `<ProjectList embedded />`，隐藏 ProjectList 自己的页头/分隔线，保留搜索、新建、回收站、批量等工具条。
 - 教学页的另一个 Tab 是「班级」（`TeachingClasses embedded`，原班级管理页），不是 ProjectList；没有 `class:list` 时不渲染该 Tab。原「学情」Tab 已删除。
-- 菜单只剩一个「教学」`/teaching`（`portal:teacher && (project:list || project:report)`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
+- 菜单只剩一个「教学」`/teaching`，显示条件与路由守卫是同一套判定（`project:list || class:list`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
 - 学员侧不变：菜单/首页仍走「我的任务」，`/project` 是可访问的「考试安排」，不会被重定向。
 
 ### 0.1 双栏列表与文件夹树（P5）
@@ -286,7 +286,7 @@ verified_against: 9a47a82d7451434a22e66fbdb54e29d0d66f7d9c
 - **`t_class_resource` 是逻辑删表且混存两类资源**：手写 SQL 必须显式加 `is_deleted=0` **和** `resource_type='project'`（题库 repo 也在这张表里）；`t_project_partner` 没有 `is_deleted`，两者不要混。
 - **`/project` 现在只是学员入口**：老师访问会被 `Entry` 重定向到 `/teaching?tab=exam`；`/project/trash` 没有重定向，老师仍可直接访问（侧栏不再给入口）。
 - **嵌入列表的页头只由外层负责**：`<ProjectList embedded />` 会隐藏自己的标题/分隔线，但保留工具条；外层 `TeachingHome` 已有标题，别再套第二份。
-- **菜单「教学」与路由守卫不完全一致**：菜单是 `portal:teacher && (project:list || project:report)`，`/teaching` 路由还要 `project:list`；只有 report、没有 list 的自定义角色会看到入口但进不去。
+- **菜单「教学」与路由守卫现在是同一套判定**：`BasicLayout` 的菜单项和 `router.tsx` 的 `/teaching` 守卫都是「`project:list` 或 `class:list` 任一命中」，两边不再看 `portal:teacher`；只给 `project:report` 的自定义角色既看不到菜单、也进不去 `/teaching`，要让他看报表得同时给 `project:list`（报表页本身只要 `project:report`）。
 - **分类树与项目列表不是同一套可见性**：`/api/project/tree` 自身授权只查 `create_by` + partner `type IN (1,2)`，不认 `type=3 RESPONDENT` 自身，也不认 `t_class_resource` 的班级分配；但父/祖父文件夹授权（type1/2/3）的子项目会额外可见。因此「/project/list 能看到、树里没有」仍可能出现。不要把班级分配直接补进树：学生端本来就不用树，老师端补了会把学生可见项目混进教学树。
 - **树只展示文件夹，叶子项目不在树节点里**：叶子考试/问卷通过右侧 `parentId` 列表展示；`count` 是子树非 folder 数，不要把 folder 的 count 当答卷数。父文件夹不可见时子项目会退化成根，目录层级看起来会「少一层」。
 - **根级考试/问卷的边界**：如果项目本身是考试/问卷、父文件夹不可见而退化成根，`ProjectTree` 会跳过它（树只渲染 folder），右侧「全部」又只查 `parent_id IS NULL/0`，所以这类项目可能只能靠搜索/直接 URL 找到。API 已按根返回，UI 尚未为「根级叶子」补入口。

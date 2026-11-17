@@ -29,7 +29,7 @@ description: "页面、路由、请求封装、权限判定、编辑器与主题
 | `pages/repo` | 题库列表、题目、练习册 |
 | `pages/exercise` | 练习页 |
 | `pages/tasks` | 我的任务（考试/练习/成绩） |
-| `pages/teaching` | 教学工作台、班级管理 |
+| `pages/teaching` | 教学（考试/问卷 + 班级两个 Tab，班级资源面板里带答卷抽屉） |
 | `pages/system` | 用户、用户组、权限、系统设置、审计 |
 
 ## 路由与守卫

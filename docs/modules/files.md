@@ -55,20 +55,21 @@ apis:
   - GET /api/teaching/classes/member/template
 tables:
   - t_file
+  - t_file_ref
   - t_user
   - t_account
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-10
-verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
+last_verified: 2026-11-17
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 文件、附件与导入模板
 
 ## 30 秒摘要
 
-文件能力只有一套实现：本地磁盘 + `t_file` 元数据表，没有对象存储分支（`StorageService` 只由 `LocalStorageService` 实现）。后台上传走 `POST /api/file/create`，要 `file:upload` 或 `file:import`；答题附件走公开的 `POST /api/public/upload`，匿名可传，但受「题目类型 + 扩展名 + 大小 + 频率 + 项目配额」五重限制。读取统一走 `FileService#loadUserFile`（本人或 `shared=1`），预览有 inline 白名单。导入模板走**白名单映射**后从 classpath 的 `template/*.xlsx` 下发：未知 name / 资源缺失统一 `FileNotExists`（404），不再把请求参数拼进路径。答卷提交时 `validateAndBindAnswerFiles` 会把附件与题目/答卷绑定，绑定后不能被别的答卷复用。
+文件能力只有一套实现：本地磁盘 + `t_file` 元数据表，没有对象存储分支（`StorageService` 只由 `LocalStorageService` 实现）。后台上传走 `POST /api/file/create`，要 `file:upload` 或 `file:import`；答题附件走公开的 `POST /api/public/upload`，匿名可传，但受「题目类型 + 扩展名 + 大小 + 频率 + 项目配额」五重限制。读取统一走 `FileService#loadUserFile`（本人或 `shared=1`），预览有 inline 白名单。图片落盘前会先解码校验再重编码（超 1920 宽等比缩小、JPEG 0.85），顺带剥掉 EXIF 与尾部附加数据；题面/题库富文本里的图片用 `t_file_ref` 记引用，引用归零才删物理文件。导入模板走**白名单映射**后从 classpath 的 `template/*` 下发（xlsx / docx，按扩展名给 MIME）：未知 name / 资源缺失统一 `FileNotExists`（404），不再把请求参数拼进路径。答卷提交时 `validateAndBindAnswerFiles` 会把附件与题目/答卷绑定，绑定后不能被别的答卷复用。
 
 ## 什么时候看这篇
 
@@ -84,18 +85,19 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 |---|---|---|
 | 后台接口 | `server/api/src/main/java/cn/surveyking/server/api/FileApi.java` | `/create`、`/list`、`GET /api/file`、`/delete`、`/downloadTemplate`（白名单 + 404） |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `POST /api/public/upload`（置 `publicUpload=true`）、`GET /api/public/preview/{id}` |
-| 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java` | 校验、命名、路径、缩略图、条码、配额、绑定、读取、删除 |
+| 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java` | 校验、命名、路径、缩略图、图片净化、条码、配额、绑定、读取、删除 |
 | 存储抽象 | `server/shared/src/main/java/cn/surveyking/server/storage/` | `StorageService`、`AbstractStorageService`、`LocalStorageService`、`StorageProperties`、`StorageAutoConfiguration` |
-| 请求/查询 DTO | `server/shared/src/main/java/cn/surveyking/server/domain/dto/UploadFileRequest.java`、`FileQuery.java` | `UploadFileRequest.publicUpload` 标了 `@JsonIgnore`；`FileQuery.id` 带 `@` 时读缩略图 |
+| 请求/查询 DTO | `server/shared/src/main/java/cn/surveyking/server/domain/dto/UploadFileRequest.java`、`FileQuery.java` | `UploadFileRequest.publicUpload` 标了 `@JsonIgnore`；`ownerType`/`ownerId` 标富文本图片的归属（project/repo）；`FileQuery.id` 带 `@` 时读缩略图 |
 | 常量 | `StorageTypeEnum`、`AttachmentNameVariableEnum`、`FileUtils.ALLOWED_EXTENSIONS` | 存储类型 1~5、导出命名变量、默认扩展名白名单 |
 | 实体/Mapper | `server/rdbms/src/main/java/cn/surveyking/server/domain/model/File.java`、`mapper/FileMapper.java` | `t_file`；`selectTotalSizeByProjectId` / `selectTotalPublicSize` 供配额 |
 | 答卷侧 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java` | 导出时打 zip（整卷 Excel / 单份附件 / 批量附件）、按 `AttachmentNameVariableEnum` 命名 |
 | 前端上传 | `client/src/pages/system/Setting.tsx` | 系统 Logo：`FormData` → `/api/file/create` → 存 `/api/public/preview/<id>` |
 | 前端下载 | `client/src/api/request.ts`（`download`） | 先看 `content-type`，是 JSON 就按 `code/message` 抛中文错误，只有二进制才落盘 |
-| 导入模板文件 | `server/api/src/main/resources/template/` | `旭日云课堂用户导入模板.xlsx`、`学员导入模板.xlsx`、`旭日云课堂题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx` |
+| 导入模板文件 | `server/api/src/main/resources/template/` | `旭日云课堂用户导入模板.xlsx`、`学员导入模板.xlsx`、`旭日云课堂题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx`、`旭日云课堂试卷导入模板.docx` |
+| 引用回收 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileRefServiceImpl.java`、`server/rdbms/src/main/java/cn/surveyking/server/impl/FileOrphanCleanupService.java` | `t_file_ref` 记项目/题库富文本图片的引用；每日 03:47 兜底清孤儿（无主答卷附件、7 天仍未绑定的上传件） |
 | 学员导入 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java`、`server/rdbms/.../impl/ClassStudentImportService.java` | `POST /api/teaching/classes/member/import`（multipart：deptId + file）；行级校验、整批事务 |
 | Excel 安全限制 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java` | 文件 ≤20MB、解压 ≤100MB、行数 ≤20000、列数 ≤500 等 |
-| 数据表 | `t_file` | `original_name`、`file_path`、`thumb_file_path`、`storage_type`、`shared`、`project_id`、`question_id`、`answer_id`、`file_size` |
+| 数据表 | `t_file`、`t_file_ref` | `t_file`：`original_name`、`file_path`、`thumb_file_path`、`storage_type`、`shared`、`project_id`、`question_id`、`answer_id`、`file_size`；`t_file_ref`：`file_id` + `owner_type`（project/repo）+ `owner_id` + `question_id` |
 
 ## 关键流程
 
@@ -104,10 +106,10 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 1. `FileApi#upload` 先过 `@PreAuthorize("hasAnyAuthority('file:upload','file:import') or hasRole('admin')")`。
 2. `FileServiceImpl#upload` 校验原始文件名（长度、`.`/`..`、斜杠、控制字符），取扩展名。
 3. 非公开上传时，只有 `publicRead=true` 才要求是图片（`isSupportImage`）。
-4. 图片一律做像素校验（`max-image-pixels`，默认 1600 万）；条码题调 `BarcodeReader` 读内容。
+4. 图片先按 `ImageReader` 校验：扩展名必须是 jpeg/png/gif/bmp/wbmp 之一，且真实格式要与扩展名一致、像素数 ≤ `max-image-pixels`（默认 1600 万），否则直接 `FileUploadError`。通过后走 `sanitizeImage`：GIF 原样保留（可能带动画），其余解码后重编码——宽 > `max-image-width`（默认 1920）等比缩小，png 仍存 png，bmp/wbmp 转 png，jpeg 按 `image-quality`（默认 0.85）重编码；EXIF 与尾部附加数据在这一步被丢掉。条码题再调 `BarcodeReader` 读内容。
 5. 生成文件名（默认 `seqAndOriginalName`：时间戳自增序号 + `_` + 原名）与路径（默认 `byId`：`<fileId>/<fileName>`，可用 `basePath` 再套一层）。
 6. 图片额外生成 `_640x480` 缩略图（`AbstractStorageService#generateThumbImage`），与原图一起写盘。
-7. 落 `t_file`；任一步抛异常都会把已写入的物理文件删掉再抛出。
+7. 落 `t_file`；请求带 `ownerType`/`ownerId` 时再写一条 `t_file_ref`（富文本图片归属 project/repo）。任一步抛异常都会把已写入的物理文件删掉再抛出。
 
 ### 2. 公开答题上传
 
@@ -115,7 +117,7 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 2. 必须带 `projectId` + `questionId`；`SurveyService#validateProject` 先校验项目状态（截止、密码、白名单等）。
 3. 题目必须在项目 schema 里，且题型属于 `Upload` / `Signature` / `RichText` / `Barcode`。
 4. 扩展名：题目配置了 `fileAccept` 就只认它，否则回落到 `FileUtils.ALLOWED_EXTENSIONS`；签名/富文本/条码必须是图片。
-5. 大小：`min(题目 maxFileSize, max-public-file-size-mb=20)`，同时受 `spring.servlet.multipart.max-file-size: 20MB` 兜底。
+5. 大小：`min(题目 maxFileSize, max-public-file-size-mb=10)`，同时受 `spring.servlet.multipart.max-file-size: 20MB` 兜底（图片重编码后通常只有几百 KB，10MB 留给 PDF/Office/压缩包）。
 6. 频率：单客户端 10 次/分、单项目 60 次/分（`assertPublicUploadRate`，内存窗口，进程重启清零）。
 7. 配额：单项目 1024MB、所有公开附件合计 5120MB（`assertProjectStorageQuota`）。
 8. 落盘路径固定为 `public/<projectId>/<questionId>/<fileId>/<fileName>`，每个路径段只允许 `[a-zA-Z0-9_-]`；`RichText` 图片置 `shared=1`，其余是私有附件。
@@ -124,12 +126,12 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 
 1. `GET /api/file` 走 `loadUserFile`：`assertReadableFile` 要求「本人上传」或 `shared=1`，否则 403。
 2. `GET /api/public/preview/{id}` 走 `loadPublicFile`：只认 `shared=1`。登录页 Logo 就靠这条匿名可读。
-3. `buildFileResponse`：只有 `SAFE_INLINE_EXTENSIONS`（图片、pdf、txt、音视频等）且请求 `dispositionType=inline` 才按原 MIME 内联，其余一律 `application/octet-stream` + `attachment`；统一加 `X-Content-Type-Options: nosniff`。
+3. `buildFileResponse`：只有 `SAFE_INLINE_EXTENSIONS`（图片、pdf、txt、音视频等）且请求 `dispositionType=inline` 才按原 MIME 内联，其余一律 `application/octet-stream` + `attachment`；统一加 `X-Content-Type-Options: nosniff`，图片内联时再加 `Content-Security-Policy: default-src 'none'; sandbox`（PDF/下载不加 CSP，避免影响内置阅读器）。
 4. `FileQuery.id` 带 `@` 后缀时取 `thumb_file_path`（前端用缩略图 id 约定），找不到路径按「文件不存在」处理。
 
 ### 4. 删除
 
-`FileApi#delete` 要 `file:delete`，但服务层仍只允许删**自己上传**的文件（`assertCurrentUserOwnsFile`）。删除时先按 `file_path` / `thumb_file_path` 统计其它行是否引用同一物理文件，无人引用才真删盘，最后 `removeById` 并清 `fileCache`（`allEntries`）。
+`FileApi#delete` 要 `file:delete`，但服务层仍只允许删**自己上传**的文件（`assertCurrentUserOwnsFile`）。删除时先清掉 `t_file_ref` 里该 fileId 的引用行，再按 `file_path` / `thumb_file_path` 统计其它行是否引用同一物理文件，无人引用才真删盘，最后 `removeById` 并清 `fileCache`（`allEntries`）。
 
 ### 5. 绑定到答卷
 
@@ -138,7 +140,7 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 ### 6. 导入模板（白名单）
 
 1. `GET /api/file/downloadTemplate?name=…` 要 `file:import` 或 `template:import`（或 admin）。
-2. `FileServiceImpl` 只接受 5 个固定 name，映射到真实文件：
+2. `FileServiceImpl` 只接受 6 个固定 name，映射到真实文件：
 
    | 请求 name | classpath 文件 |
    |---|---|
@@ -147,9 +149,10 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
    | `题库导入模板` | `旭日云课堂题库导入模板.xlsx` |
    | `字典导入模板` | `字典导入模板.xlsx` |
    | `白名单导入模板` | `白名单导入模板.xlsx` |
+   | `试卷导入模板` | `旭日云课堂试卷导入模板.docx` |
 
 3. 其它 name、空 name、资源不存在都抛 `ErrorCodeException(ErrorCode.FileNotExists)` → HTTP 404（不会 200 返回空 Resource，也不会 500）。`name` 只用于查表，**绝不拼进 classpath 路径**。
-4. 当前前端调用：用户导入 `client/src/pages/system/User.tsx`（`name=用户导入模板`）；题库导入 `client/src/pages/repo/Questions.tsx`（`name=题库导入模板`）；学员导入走 `GET /api/teaching/classes/member/template`（`ImportMembersModal.tsx`），不经过 `/api/file/downloadTemplate`。
+4. 当前前端调用：用户导入 `client/src/pages/system/User.tsx`（`name=用户导入模板`）；题库导入 `client/src/pages/repo/Questions.tsx`（`name=题库导入模板`）；试卷导入 `client/src/pages/import/ImportWizard.tsx`（word 分支传 `name=试卷导入模板`，保存名 `试卷导入模板.docx`）；学员导入走 `GET /api/teaching/classes/member/template`（`ImportMembersModal.tsx`），不经过 `/api/file/downloadTemplate`。
 
 ### 7. 学员导入模板与批量导入
 
@@ -159,6 +162,13 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 4. 导入接口：`POST /api/teaching/classes/member/import`（multipart：`deptId` + `file`；权限 `class:member:create` 或 admin，服务层再 `assertClassManage`）。任一行失败整批回滚，异常统一「第 N 行：原因」。
 5. 导入前先过 `ExcelImportSecurity`：文件 ≤20MB、解压后 ≤100MB、ZIP 条目 ≤1000、行数 ≤20000、列数 ≤500、单元格 ≤32767 字符；损坏/非 xlsx 提示「Excel 文件解析失败，请确认使用模板且文件未损坏」。
 
+### 8. 富文本图片引用与回收
+
+1. 上传时可带 `ownerType`（`project`/`repo`）与 `ownerId`：`FileServiceImpl#upload` 落库后再写一条 `t_file_ref`，把这张图挂到项目或题库上。
+2. 保存题面/题库题目时，`ProjectServiceImpl#syncOwnerRefs` 与 `TemplateServiceImpl` 会把 HTML 里的 `/api/public/preview/<fileId>` 扫出来，用 `replaceOwnerRefs` 重建引用：`FileRefServiceImpl#replaceHtml` 先删掉这次消失的引用，再对每个被摘掉的文件判一次「还有没有别的 owner」，没有才物理删。
+3. 逻辑删项目只删引用（`deleteByOwner`）；彻底删项目走 `purgeProjectFiles`，连 `answer_id` 非空的答卷附件一起清，避免留下永远没人认领的孤儿。
+4. 兜底：`FileOrphanCleanupService` 每天 03:47 跑一次、每批 200 条——清「`answer_id` 指向已不存在的答卷」的行，以及 `ANSWER_ATTACHMENT` 里超过 7 天仍未绑定答卷的上传件。题面图（`QUESTION_IMAGE`）不在第二步范围内。
+
 ## 修改指南
 
 ### 加文件类型
@@ -167,7 +177,7 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 
 ### 改配额 / 频率
 
-改 `application.yml` 的 `file-storage.*`（`max-public-file-size-mb`、`max-public-uploads-per-minute`、`max-project-storage-mb`、`max-total-public-storage-mb`、`max-image-pixels`）。改大单文件上限时同步改 `spring.servlet.multipart.max-file-size` 与 `max-request-size`，否则会在进 Controller 之前就被容器拒掉。
+改 `application.yml` 的 `file-storage.*`（`max-public-file-size-mb`、`max-public-uploads-per-minute`、`max-project-storage-mb`、`max-total-public-storage-mb`、`max-image-pixels`、`max-image-width`、`image-quality`）。改大单文件上限时同步改 `spring.servlet.multipart.max-file-size` 与 `max-request-size`，否则会在进 Controller 之前就被容器拒掉。
 
 ### 换存储后端
 
@@ -183,8 +193,8 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 
 ### 加导入模板
 
-1. 把 `xxx导入模板.xlsx` 放进 `server/api/src/main/resources/template/`（不要重命名/删除已有模板）。
-2. 在 `FileServiceImpl.TEMPLATE_WHITELIST` 加「请求 name → 真实文件名」映射；前端用 `download('/api/file/downloadTemplate', { name: 'xxx导入模板' }, 'xxx导入模板.xlsx')`。
+1. 把 `xxx导入模板.xlsx`（或 `.docx`）放进 `server/api/src/main/resources/template/`（不要重命名/删除已有模板）。
+2. 在 `FileServiceImpl.TEMPLATE_WHITELIST` 加「请求 name → 真实文件名」映射；前端用 `download('/api/file/downloadTemplate', { name: 'xxx导入模板' }, 'xxx导入模板.xlsx')`。docx 走同一张白名单，`downloadTemplate` 会按 `.docx` 给 `application/vnd.openxmlformats-officedocument.wordprocessingml.document`，不用另开接口。
 3. 不要给 `name` 传用户可控的任意串；白名单外的 name 一律 404。
 4. 需要被 fastexcel 读取的模板要带 `xl/sharedStrings.xml`（可用 XlsxWriter 生成）。
 
@@ -196,7 +206,7 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 | `GET /api/file/list` | `file:list` | 默认只返回本人上传；传 `ids` 时按 id 查，`projectId`/`questionId` 只做二次收窄 |
 | `GET /api/file` | `file:detail` | 本人或 `shared=1` |
 | `POST /api/file/delete` | `file:delete` | 仅本人上传的文件；老师可删自己传的，删不了别人的 |
-| `GET /api/file/downloadTemplate` | `file:import` 或 `template:import`（或 admin） | 白名单 5 个固定 name；未知/缺失 404 |
+| `GET /api/file/downloadTemplate` | `file:import` 或 `template:import`（或 admin） | 白名单 6 个固定 name（5 个 xlsx + 1 个 docx）；未知/缺失 404 |
 | `POST /api/teaching/classes/member/import` | `class:member:create` + `assertClassManage` | 目标班可管理；整批事务，逐行校验 |
 | `GET /api/teaching/classes/member/template` | `class:member:create` 或 admin | 固定 classpath 学员模板 |
 | `POST /api/public/upload` | 无（匿名） | 题型白名单 + 项目状态 + 扩展名 + 大小 + 频率 + 配额 |
@@ -216,7 +226,9 @@ verified_against: a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d
 - `fileCache` TTL 1 小时（`custom-cache.entries.fileCache`），`FileMapper` 的 `@Cacheable` 只在按 id 取文件时命中；删除会 `allEntries` 清空。
 - 改 `file-storage.local.root-path` 不会迁移旧文件；开发环境是相对路径 `./files`，取决于进程工作目录（仓库里那份 `server/files/` 就是它）。
 - 上传错误文案统一是 `ErrorCode.FileUploadError`，前端 `humanizeApiError` 会把非中文/内部异常兜底成「服务器内部错误」，排查要看后端日志里的具体分支。
-- `downloadTemplate` 只认白名单里的 5 个 name；旧别名/拼写不一致（例如 `题库导入模板`）会 404，不要在前端临时改 name。
+- `downloadTemplate` 只认白名单里的 6 个 name；旧别名/拼写不一致（例如 `题库导入模板`）会 404，不要在前端临时改 name。传 `试卷导入模板` 时下发的是 docx，MIME 由扩展名决定，不要按「模板都是 xlsx」写死前端处理。
+- **图片会被重编码，不是原样存**：`sanitizeImage` 只认 jpeg/png/gif/bmp/wbmp，GIF 不动，其余解码后按 1920 宽 / JPEG 0.85 重编码——这些格式的 EXIF（拍摄方向、GPS、时间）会丢，靠原图字节做校验/去重的逻辑也别指望它。扩展名与真实格式不一致会直接拒绝（不再「改个后缀就能传」）。
+- **`t_file_ref` 只解决「图还被谁引用」，不负责可见性**：能不能看图仍由 `loadUserFile`（本人或 `shared=1`）与 `loadPublicFile`（只认 `shared=1`）决定；清引用时按 owner 维度删，不按用户维度。
 - 学员导入模板必须带 `xl/sharedStrings.xml`：fastexcel reader 依赖 sharedStrings，用会省略它的库重生成会导致「Excel 文件解析失败」。
 - 学员导入是整批事务：任一行失败全部回滚，不会出现「导入一半」；第 N 行提示里的序号是 Excel 行号（表头是第 1 行）。
 - 当前 React 端没有「附件列表」页面，也没有 `Upload` / `Signature` / `Barcode` 题的作答组件（`client/src/renderer/questions/` 里没有对应文件）；答题附件上传仍由公开接口与旧版页面承担，新页面要接就得补渲染组件。

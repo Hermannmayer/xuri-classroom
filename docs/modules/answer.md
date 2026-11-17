@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-17
-verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 答卷、判分与报表
@@ -222,8 +222,22 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 6. 统计：`listAnswersForStat` 与 `ProjectStatisticsService` 包含匿名答卷，选项配额/投票/公开统计按实际提交计数；`ReportServiceImpl` 的 `includeAnonymous` 由管理端传 true。`ProjectServiceImpl` 的项目列表/回收站 total 也包含匿名。班级资源面板/班级学情仍不含匿名（按 `class_id` 归属）。
 7. 成绩单归属：匿名答卷没有 `create_by`，`PublicAnswerSubmitter` 提交成功后写 `rd_result_<projectId>` cookie（HttpOnly、7 天），`AnswerLookup` 在 `rd_answer_id_` 之外接受它，用于成绩单/结果页/「我的答卷」回看；`rd_answer_id_` 仍只负责随机卷续答，不复用。
 8. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体。匿名答卷在管理端可见，但详情不显示身份，导出只有「匿名」标识。
-9. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#
-10. 班级链接归属（2026-11）：`ProjectQuery.classToken` / `AnswerRequest.classToken` 从公开页透传，`AnswerServiceImpl` 调 `ClassResourceService#resolveShareToken` 反查，前端不能直接传 `classId`。token 存在 `t_class_resource.share_token`，按班级 × 考试生成；匿名答卷写 `class_id` 后进本班列表/统计，普通链接匿名仍为 NULL（总面板「未归属」）。登录学员用别班 token 会被拒绝。cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
+9. 保留期清理（P7）：系统设置 `SystemInfo.SystemSetting` 有 `anonymousCleanupEnabled`（默认开）、`anonymousRetentionDays`（默认 90，夹到 1~3650）与只读的 `anonymousLastCleanupAt/Count`。`AnonymousCleanupService#cleanupDaily` 每天 03:30（`@Scheduled`、`@EnableScheduling`）调用 `purgeOlderThan`；关闭时跳过。`purgeOlderThan(days)` 只删 `is_anonymous=1` 且 `create_at < cutoff` 的答卷，走 `@TableLogic` 逻辑删除；主体下没有剩余匿名答卷时物理删 `t_anonymous_subject`。管理员可在系统设置「匿名答卷」Tab 点「立即清理」，走 `POST /api/system/anonymous/cleanup`（`system:setting:update` 或 admin，返回 `{deleted:n}`）；清理后写回 last 字段并清 `commonCache`。
+10. 班级链接归属（2026-11）：`ProjectQuery.classToken` / `AnswerRequest.classToken` 从公开页透传，`AnswerServiceImpl` 调 `ClassResourceService#resolveShareToken` 反查，前端不能直接传 `classId`。token 存在 `t_class_resource.share_token`，按班级 × 考试生成；匿名答卷写 `class_id` 后进本班列表/统计，普通链接匿名仍为 NULL（总面板「未归属」）。登录学员用别班 token 会被拒绝。
+
+### 作答轮次（attempt_no）
+
+同一项目 + 同一答题人可以有多份答卷（补考、重做），`t_answer.attempt_no` 从 0 开始编号，与
+`(project_id, create_by, attempt_no)` 唯一键一起，把交卷幂等从进程内 15 秒窗口升级成**数据库裁决**。
+
+- 写入：新建答卷时 `AnswerAttemptAllocator#next` 取「当前最大值 + 1」；算最大值时**包含已逻辑删除的答卷**——
+  否则删掉再交会重新拿到一个被占用的序号、直接撞唯一键。多实例并发算出同一个序号时由唯一键裁决，
+  落库失败的那条回滚后按 `(project_id, create_by, attempt_no)` 回读赢家；匿名答卷认领（claim）时也要重算轮次。
+- 下发：`AnswerView.attemptNo` 随 `/api/answer/list`、`/api/teaching/classes/answers`、批改详情一起返回；
+  前端显示时 **+1**（库里从 0 开始，给人看是「第 1 次」）。数据页表格目前不显示这一列，班级答卷抽屉与批改抽屉显示。
+- 筛选/导出：`AnswerQuery.attemptNo` 可按轮次过滤列表；`DownloadQuery.attemptNo` 让 Excel 明细与 PDF/长图只导出指定轮次，
+  `attemptNo > 0` 的单份产物文件名会追加 `_第N次`。
+- 历史不改：重新提交只新开一条答卷，不回写已有答卷的 `attempt_no`。
 
 ### 人工批改（2.2.1）
 
@@ -248,18 +262,23 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 
 ### 答卷导出（2.2.1，2026-11 扩成多格式）
 
-班级答卷抽屉里除了 Excel 明细，还能导出「每人一份」的四种产物，整体打成一个 ZIP：
+班级答卷抽屉里除了 Excel 明细，还能导出四种产物（三种每人一份、成绩确认单整班一张表），整体打成一个 ZIP：
 
 | outputs | 产物 | 用途 |
 |---|---|---|
 | `answerPdf` | `成绩单/<姓名>.pdf` | 现有「问卷星成绩单」版式：分数卡 + 逐题得分 + 可选解析 |
 | `answerSheetPdf` | `答题卷/<姓名>.pdf` | **答题页还原**：题号/题干/选项方框（选中实心）、填空与简答原文、签名与上传图片，不标对错、不显示每题得分 |
 | `answerImage` | `长图/<姓名>.png` | 上面那份答题卷的**整页纵向长图**（150 DPI，省纸、可直接发微信；页脚会关掉，免得落在图片中间） |
-| `confirmSheetPdf` | `确认单/成绩确认单-<班级>-<时间>.pdf` | **成绩确认单（整班一张表）**：每人一行（序号/姓名/班级/总分/客观/主观/是否及格），签名列留空手写；单班 A4 纵向、跨班自动横向，超页重复表头 |
+| `confirmSheetPdf` | `确认单/成绩确认单-<班级或项目>-<时间>.pdf` | **成绩确认单（整班一张表）**：每人一行（序号/姓名/[班级]/总分/客观/主观/是否及格），签名列留空手写；单班 A4 纵向（无班级列）、跨班自动横向，超页重复表头 |
 
 - 一次任务可以同时要多种格式（`outputs: [...]`），只建一个任务、只轮询一份进度；ZIP 内**总是按格式分子目录**。
 - **确认单是「每班一份」而不是「每人一份」**：名册在逐份渲染之外单独生成（`AnswerConfirmSheetExporter#renderRoster`），15 人一页放得下，30 人自动翻页并重复表头；`filesWritten` 只 +1，`done` 仍按答卷份数计。
 - **签名题 / 上传题图片总是包含**（`includeImages` 已废弃，传什么都按 true 处理）；「附解析」仍可关，考试期间别开。
+- **确认单的名册列跟着班级数走**：单班只有「序号/姓名/总分/客观/主观/是否及格/考生签名」7 列（A4 纵向），
+  跨班才多出「班级」列并转横向；文件名是 `成绩确认单-<班级名或项目名>-<yyyyMMddHHmm>.pdf`。
+  名册不带「第几次作答」，轮次只在单人版成绩单/答题卷的抬头里出现。
+- **单份产物文件名带轮次**：`attemptNo > 0`（即第 2 次及以后）时，成绩单/答题卷/长图文件名会追加 `_第N次`，
+  否则补考的多份文件在同一个 ZIP 里只能靠 `(2)`/`(3)` 后缀区分，看不出是哪一轮（`uniqueEntryName` 只防重名，不带语义）。
 - 数据页（`/survey/:id/data`）同一个入口：勾选若干份就只导这几份，不勾选就按当前筛选（班级 / 时间 / 状态 / 分数段）导。
 
 - 接口：`POST /api/answer/export/pdf-job`（body 可带 `outputs`）建任务 → `GET /{id}` 2 秒轮询进度（没有 SSE/WebSocket，只能轮询）→ `GET /{id}/file` 下载 → `DELETE /{id}` 取消；权限 `answer:export` + 一次性导出 token。
@@ -274,7 +293,7 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 - 结果行用文字（回答正确/部分正确/回答错误/待老师批改）而不是 ✓/✕：字体子集不含 Dingbats，缺字会让 PDFBox 抛异常。
 - **答题卷的选项方框是矢量画的**：字体子集同样不含 □/■（U+25A1/U+25A0），直接 showText 会被 sanitize 换成「·」，所以选中/未选靠描边与填充区分。
 - **成绩确认单的及格线是绝对值 60**（可传 `passScore` 覆盖）：满分低于 60 的卷子会全部判「不及格」，这种极少见的卷子需要在调用处传比例。
-- 单人名册版（`renderConfirmSheet`）保留为兜底 API，正常导出走不到；将来若要做「每人一页签字」，直接复用即可。
+- 单人版确认单（`renderConfirmSheet`，一页 A4、带逐题得分与签字栏）保留为兜底 API，正常导出走不到；将来若要做「每人一页签字」，直接复用即可。
 - 产物落 `{file-storage.local.root-path}/export/{jobId}.zip`，**24 小时**后由 `@Scheduled` 每小时清一次（含进程重启后 JOBS 丢失的孤儿文件）。
 
 ### 文件生命周期（2.2.1）

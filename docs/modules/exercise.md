@@ -54,8 +54,8 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-15
-verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
+last_verified: 2026-11-17
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 任务中心、练习与错题本
@@ -104,7 +104,7 @@ verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 4. **本地进度**：每次答题/切题/追加题目都写回 `practice:<repoId>`；提交成功删除。进度只在本机，换设备/清缓存就没了。提交走 `POST /api/public/saveAnswer`，`projectId='exercise'`，`survey` 是整份题卷，`answer` 是答案，`tempSave=1`。
 5. **后端练习建卷（另一条路径）**：`SurveyServiceImpl.loadProject` 在请求带 `repoId` 时走练习分支：校验题库可见且 `isPractice=true`，按 `examExerciseType` 取题——`O` 顺序（按模板 id 顺序）、`R` 随机（`Collections.shuffle`）、`W` 错题（`t_user_book.wrong_times>0`）；创建一条 `project_id='exercise'`、带 `examExerciseType` 的 `t_answer`。当前 `Practice.tsx` 没有走这条路径（它直接读模板/抽题），所以这条路径主要供旧客户端或接口调用。
 6. **错题收集**：考试交卷时 `SurveyServiceImpl.saveAnswer` 调 `UserBookServiceImpl.saveWrongQuestion(questionScore, answer, survey, projectId, null)`。只收"本题得分 0 且确实作答"的题；未作答也 0 分但不收。去重键是 `(create_by, type=1, project_id, template_id)`：同一场考试再次错同题累加 `wrong_times`，不同考试各留一条；题库练习/历史数据 `project_id` 为空。题干兜底顺序：模板名 → schema 题干（截断 200 字）→ "题目 <id 前 8 位>"。
-7. **错题本**：`Book.tsx` 调 `GET /api/repo/book/list`，支持 `type`（1 错题/2 收藏）、日期、`wrongTimesMin`、`status`（2 重点）、`projectId`；`note` 后端 DTO 没有，前端拉全量后自己过滤。行内操作：改笔记 `/api/repo/book/update`、切换重点（status 2/0）、标记已掌握（status 1）、删除 `/api/repo/book/delete`。
+7. **错题本**：`Book.tsx` 调 `GET /api/repo/book/list`，支持 `type`（1 错题/2 收藏）、日期、`wrongTimesMin`、`status`（2 重点）、`projectId`；`note` 后端 DTO 没有，前端拉全量后自己过滤。行内操作：改笔记 `/api/repo/book/update`、切换重点（status 2/0，另有批量重点/取消重点）、删除 `/api/repo/book/delete`；`status=1`「已掌握」不在列表页改，由错题练习页 `BookPractice` 的「标记已掌握 / 全部答对标记」写入。
 8. **错题练习**：`BookPractice.tsx` 按列表筛选条件逐题 `GET /api/repo/book/question?id=` 取完整 schema，前端 `gradeAnswer` 判对错。题库题的标准答案常记在选项子节点 `attribute.examCorrectAnswer`；如果接口把答案过滤掉，`gradeAnswer` 返回 `unknown`，结果页提示"自评"，不臆造对错。进度存在 `book-practice:<key>`，不写后端练习记录。
 9. **我的成绩**：`GET /api/my-report/list`（`project:report` 或 admin）→ `MyReportService.listMine`：查当前用户 `temp_save=1` 的答卷，按 `projectId` 分组，返回考试名、状态、交卷次数、最高分、最近交卷时间。`projectId='exercise'` 的练习答卷在 `t_project` 里找不到项目，会被跳过。
 
@@ -149,6 +149,7 @@ verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 - **错题按考试拆条**：同一道题在两场考试各错一次会有两条 `t_user_book` 记录；这是为了"只练本场错题"不串场，不是重复 bug。
 - **`note` 只能前端过滤**：`UserBookQuery` 没有 `note` 字段，`Book.tsx` 用到笔记筛选时会拉全量再过滤；错题很多时性能会下降。
 - **错题练习不写练习记录**：`BookPractice` 是纯前端自测，不调 `/api/exercise/*`，也不会更新 `wrong_times`/`correct_times`；"标记已掌握"只改 `status`，不删记录。
+- **手机端的错题本是卡片列表**（<768px）：每张卡只有「练这题 / 笔记 / 移除」加一个重点星标，来源/错误次数/备注改成分行显示，分页挪到列表底部；桌面端仍是表格。
 - **`MyReportService` 不含练习**：`projectId='exercise'` 在 `t_project` 里查不到，练习答卷不会出现在"我的成绩"；练习成绩看练习记录页。
 - **练习记录删除是物理删除**：`deleteExercise` 用 `remove`（不是逻辑删除），删完不可恢复；前端提示"删除后不可恢复"与实现一致。
 

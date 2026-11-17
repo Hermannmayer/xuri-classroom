@@ -49,7 +49,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
 last_verified: 2026-11-17
-verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 试卷导入（解析 / 预览 / 落地）
@@ -60,10 +60,13 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 
 - 解析：POST /api/import/parse，服务端按来源选解析器，统一返回 ImportPreview（题目树 + 扁平列表 + 统计 + 警告）。
 - 预览：前端 ImportWizard 三步（选择来源 → 预览确认 → 选择去向），可逐题剔除（题库导入除外）。
-- 落地：试卷走既有的 POST /api/project/create 或 POST /api/project/update（整树 JSON，无新表）；题库走 POST /api/repo/import?kind=text。
+- 落地：试卷走既有的 POST /api/project/create 或 POST /api/project/update（整树 JSON，无新表）；
+  题库走 POST /api/repo/import（`kind=excel|word|text`，Excel 还会按行挂内嵌图片）。
 
-四种来源都可用：**文本 / Excel / Word / JSON**。Excel 按题型分 sheet，13 个 sheet 覆盖编辑器里除「排序题」外的全部题型（章节列可选拆大题），
+四种来源都可用：**文本 / Excel / Word / JSON**。Excel 按题型分 sheet，13 个 sheet 覆盖编辑器里最常用的题型
+（单选/多选/判断/填空/简答/下拉/评分/NPS/级联/矩阵单选/矩阵多选/矩阵填空/上传），章节列可选拆大题，
 并支持**按行归属的内嵌图片**与**「高级配置(JSON)」兜底列**；Word 按「一、二、三」拆大题、用【题型】标注、抽取题干图片；JSON 吃本系统导出的整卷。
+签名题、地址、条码、矩阵评分、矩阵 NPS、矩阵自动、富文本这几类没有 sheet（见「坑与已知限制」）。
 
 > 「排序题」不是本系统的题型：`SurveySchema.QuestionType` 里没有 Rank，前端设计器/渲染器也没有对应组件。
 > 模板刻意不提供「排序题」sheet；文本里写【排序题】只会拿到一条 TYPE_UNKNOWN 提示，按内容回退。
@@ -94,10 +97,11 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 | 行图片索引 | server/shared/src/main/java/cn/surveyking/server/core/importer/ExcelRowImages.java | POI 读内嵌图片，按锚点左上角行索引（试卷导入与题库导入共用） |
 | 图片挂题干 | server/shared/src/main/java/cn/surveyking/server/core/importer/QuestionImageUploader.java | 图片上传成 QUESTION_IMAGE（publicRead）并追加 `<img>` |
 | 前端向导 | client/src/pages/import/ImportWizard.tsx | 三步 + 统计 + 警告 + 去向 |
+| 题型说明 | client/src/pages/import/ImportHelp.tsx | 「支持哪些题型」折叠说明（向导与题库页共用）+ 预览里的题型标签、warnings 分级、图片计数；纯展示，不发请求 |
 | 前端接口 | client/src/api/import.ts | parseImport、recordPaperImport |
 | 列表入口 | client/src/pages/project/List.tsx | 新建 → 导入试卷（唯一入口） |
 | 编辑器入口 | client/src/pages/survey/Editor.tsx | 顶部「导入」+ 空卷引导 |
-| 题库入口 | client/src/pages/repo/Questions.tsx | 导入下拉（Excel / 文本） |
+| 题库入口 | client/src/pages/repo/Questions.tsx | 导入下拉（Excel / 文本 / Word） |
 
 ## Excel 模板：13 个 sheet
 
@@ -119,8 +123,9 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 | 上传题 | Upload | — | 答案列写「参考答案/示例说明」，可空 |
 | 矩阵填空题 | MatrixFillBlank | 行标题1…10 / 列标题1…10 | 每行一个答案，行之间 `\|` |
 
-公共列：`序号 / 章节 / 题干 / 分数 / 难度 / 标签 / 解析 / 答案`，最后都可跟 `高级配置(JSON)`。
-表头**按名字识别**（`RepoTemplateI18n.HeaderLabel` + 行/列标题的序号别名），插列、删空列、换列序都不影响导入。
+公共列：`序号 / 章节 / 题干 / 分数 / 难度 / 标签 / 解析 / 答案`（填空题另有 `单空分数`），最后都可跟 `高级配置(JSON)`。
+表头**按名字识别**（`RepoTemplateI18n.HeaderLabel` + 行/列标题的序号别名），插列、删空列、换列序都不影响导入；
+带不带 `(JSON)` 后缀都认（`选项树(JSON)` 与 `选项树`、`高级配置(JSON)` 与 `高级配置` 等价，全角括号也按半角处理）。
 
 ### 上传题
 
@@ -165,6 +170,21 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 - 两条链路挂图方式不同：试卷导入产出 `[[IMG:n]]` token（落库时由 `ImportServiceImpl.applyAttachments` 换地址）；题库导入没有 token 这层，`QuestionImageUploader.attachRowImages` 直接把 `<img>` + `richTitle=true` 写进题干。
 - `RepoTemplateExcelParseHelper` 给每条 `TemplateRequest` 填 `sourceSheet/sourceRow`（`@JsonIgnore`，不下发前端），图片就按这两个字段回挂到行。
 
+### Word / 文本的题型标记
+
+Word 与文本共用一套规则（`WordQuestionParser` 先把段落/表格拍平成文本，再交给 `TextQuestionParser`），
+所以**Word 里能用的标记就是文本里能用的**：
+
+- 原有标记：`【单选题】【多选题】【判断题】【填空题】【多项填空】【简答题】`（多空填空 = `MultipleBlank`）；
+- 本轮新增：`【下拉题】【评分题】【NPS】【上传题】`（评分也认「打分」「星级」，NPS 也认「净推荐」）；
+- 矩阵题：`【矩阵单选题】【矩阵多选题】【矩阵填空题】`，标记后面必须再写若干 `行：xxx` / `列：xxx` 定义表头，
+  答案按行写、行之间用 `|`、行内多选用 `,`；缺「行：」或「列：」会整题跳过（`MATRIX_TITLES_MISSING`），
+  答案行数与「行：」条数不符只给 `MATRIX_ANSWER_MISMATCH` 警告、照常导入；
+- `【欢迎语】` 是说明块，不算题目；
+- 没有【排序题】：DSL 里没有 Rank 题型，写了只会拿到 `TYPE_UNKNOWN` 提示并按内容推断。
+
+分值/答案/解析/标签仍用 `（10分）`、`答案：A`、`解析：…`、`标签：…`；难度只提示、不落库。
+
 ## 关键流程
 
 1. 列表「新建」→ 名称/类型/分类 → 新建方式选「导入试卷」→「下一步：上传」。
@@ -172,7 +192,7 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 3. 第三步选去向：
    - 列表新建：固定「新建试卷」，提交时 POST /api/project/create（带整份 survey），失败即返回向导，不会残留空项目；
    - 编辑器：选「新建题组」或「现有题组」，前端 insertNode / updateNode 合并，一次导入 = 一个撤销步；
-   - 题库：固定导入当前题库，POST /api/repo/import?kind=text（服务端重新解析全文，整批导入）。
+   - 题库：固定导入当前题库，POST /api/repo/import（Excel / Word / 文本三种 kind；服务端重新解析、整批导入，不能逐题剔除）。
 4. 成功后：列表流程跳编辑器；编辑器流程提示「记得保存」；题库流程刷新列表。
 
 ## 修改指南
@@ -198,6 +218,10 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 ## 坑与已知限制
 
 - **排序题不存在**：DSL 没有 Rank 题型、前端没有渲染器；即使后端硬造一个 type=Rank 也会在答题页「隐身」（SchemaRenderer 对未知类型只下钻 children）。要排序能力得先做题型，不是导入的事。
+- **没有 sheet 的题型**：签名（Signature）、地址（Address）、条码（Barcode）、矩阵自动（MatrixAuto）、矩阵评分（MatrixScore）、
+  矩阵 NPS（MatrixNps）、富文本（RichText）都不在 13 个 sheet 里。其中签名/地址/富文本在 `registerAll.ts` 里有渲染器
+  （可以在设计器里建，也可以走「高级配置(JSON)」把 type 覆盖过去）；矩阵自动/矩阵评分/矩阵 NPS/条码**连渲染器都没有**，
+  导进来只会显示「[未注册题型]」。
 - **矩阵题不参与自动判分**：前端 EXAM_TYPES 不含矩阵类，`examAnswerMode` 一律 `none`；答案只作为题面数据保留。
 - **矩阵评分题（MatrixScore）不做**：`registerAll.ts` 里没有 MatrixScore 渲染器（MatrixNps 同样没有），导进来只会显示「[未注册题型]」；模板里换成已注册的**上传题 Upload**。等前端补组件再加 sheet。
 - **题库导入的图片在题库列表里是原始 HTML**：题库列表用 `row.template?.title` 直接出文本（Questions.tsx），带 `<img>` 的题干会把标签原样显示；题目预览/编辑走渲染层没这个问题。列表要显示图片，前端那两处得换成 `TitleContent`。
@@ -215,7 +239,7 @@ verified_against: 0c5a8ac03ba685926b817e7ed185a54d58454d89
 
 ## 验证
 
-- 解析器单测（importer 包 24 个用例）：
+- 解析器单测（importer 包 29 个用例）：
   - TextQuestionParserTest 10（含题型标记：【下拉题】【评分题】【NPS】【上传题】【矩阵单选/多选/填空】）；
   - ExcelQuestionParserAllTypesTest 4（13 个 sheet 全题型 / 图片按行 / JSON 兜底与 type+children 覆盖 / 坏 JSON 只警告 / .xls 拒绝）；
   - ExcelRowImagesTest 2（锚点行归属、坏文件退化成空表）；

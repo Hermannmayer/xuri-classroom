@@ -37,8 +37,8 @@ tables:
 tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test
-last_verified: 2026-11-14
-verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
+last_verified: 2026-11-17
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 组卷中心
@@ -72,13 +72,13 @@ verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
 3. 「生成并发布」→ POST /api/compose/create：逐套调用 ProjectService.addProject，直接创建 N 个考试项目（名称 试卷名-A/B/C）。
 4. 生成后回列表，按文件夹/分类管理这些试卷；每份可编辑、打印、删除。
 5. 编辑器「从题库添加」→ POST /api/compose/pick，排除卷内已有题，插入新题组（一次撤销步）。
-6. 打印页：浏览器打印即 PDF；「下载 Word」走 GET /api/paper/{id}/docx（POI 生成，A4、题号连续、可选答案页/答题卡）。
+6. 打印页：浏览器打印即 PDF；「下载 Word」走 GET /api/paper/{id}/docx（POI 生成，A4、题号连续、可选答案页/答题卡）。卷头（标题/副标题/考生信息行）也在这页的「卷头设置」抽屉里改，保存直接 `updateProject({survey})` 写库，不用回编辑器再存一次。
 
 ## 修改指南
 
 - 改选择规则：只动 ComposeServiceImpl（resolveNeeds / take / weightedOrder / buildVariant）；整套拆分在 planSplit（按题型轮转分配，保证套间不重复）。
 - 改统计口径：ComposeServiceImpl#stats；前端 ComposePage 的 chapterOptions 依赖 byChapter。
-- 改打印版式：Print.tsx 的 PRINT_CSS 与题目渲染；A4/A3 用 size 状态注入 @page。
+- 改打印版式：Print.tsx 的 `printCss`（`@media print` + `@page`）与 `blocks` 的组装顺序；A4/A3 由 `size` 状态切 `@page`，页边距由 `margin` 状态换成 mm 注入页面。
 - 新增难度等级：同时改 t_template.difficulty 长度、题库编辑下拉、组卷页权重输入。
 
 ## 权限与数据范围
@@ -95,16 +95,19 @@ verified_against: e5cf39996b1d0757f1814f314d8e812dbf49c4a1
 - 题不够策略：less（默认少出+提示）/ reuse（复用补足）/ error（直接报错）。
 - 整套拆分要求总题量 ≥ 套数，否则直接报错；按题型轮转分配，各套题数最多差 1。
 - 卷内抽题有两个页签：浏览选题（/api/template/list 分页 + 搜索 + 勾选）和按规则抽题（/api/compose/pick，按题型题数/分值随机或顺序抽）；题型选项只显示题库里有的。
-- 打印页先按 A4 内容高度分页：A4 一页一张；A3 横向把两张 A4 并排拼一张，答案卡/答案页单独起页；支持试卷信息/代码、密封线、页码、答题区（横线/留白）、页边距（标准/宽松）开关。
+- 打印页先按 A4 内容高度分页：A4 一页一张；A3 横向把两张 A4 并排拼一张，答案卡/答案页单独起页；支持试卷信息/代码、密封线、页码、答题区（横线/留白）、页边距（标准 18mm / 宽松 22mm）开关。可用高度还要再减 24px 缓冲——字体/行高取整会让最后一行差一点挤出页；量题目块高度时要连内层 margin 一起算，外层 wrapper 自己不带 `marginBottom`。切版式后旧的页索引可能指向已被合并的 block，渲染前统一过一遍 `safePages`，不要直接拿 `pages` 拼。
+- 卷头文字存在 `survey.attribute.headerTitle` / `headerSubtitle` / `examHeaderInfo`：打印页「卷头设置」抽屉保存即写库（`updateProject({survey})`），留空回落到「试卷标题」和默认的「姓名/考号/得分」行。同一份 attribute 被 Word 导出复用，所以卷头只需设一次；它只影响打印与 Word，不改项目名/试卷标题。
 - 主题的背景图/页眉图支持上传（/api/file/create publicRead=true）、预览、清除或填 URL；页眉显示在答题页与打印卷首。
-- Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。
-- 打印页 A3 只改 @page 尺寸，未做双页拼版。
+- 答案页是「客观题 8 列速查格 + 简答（Textarea）逐题参考答案」：客观题按单选/多选/判断/填空/下拉/横向填空筛出来，每 80 条换一块；答题卡是 10 列题号格（每格题号 + 手写区）再加姓名/考号/班级行，替代了原来 6 列的「序号 + 横线」。
+- Word 导出为纯文本版式：题干里的图片不会进 Word（富题干仅在网页端显示）。题号按 `dataType` 递归编号——题组只当大题标题、说明输出为段落、分割线/选项/随机题节点不占题号；选项平铺只对单选/多选/判断/下拉，填空/矩阵/签名/上传不会再被错当选项。
+- 打印页 A3 是把两张 A4 页并排画进一张 420mm 宽的 sheet（`@page` 同步设 A3 横向），拼版固定按页序两两成对，不按内容高度重新流排；出纸前记得在打印对话框里选 A3 纸张，否则浏览器会把 420mm 缩印到 A4 上。
 
 ## 验证
 
 - cd client && npx tsc --noEmit
 - cd server && ./gradlew :shared:test
 - 手工：新建 → 从题库组卷 → 选 1 个题库 → 规则填 2 套 → 预览 → 生成并发布 → 列表出现 2 份试卷 → 打印页题号连续 → 编辑器从题库添加 3 题。
+- 手工（打印/导出）：打印页「卷头设置」改标题 + 副标题 + 考生信息行 → 保存 → 刷新页面卷头仍在、回到编辑器标题没被改；勾「附答案页 / 附答题卡」后答案页是 8 列客观题格 + 简答题、答题卡是 10 列题号格；下载 Word 的卷头同步、题号连续且选项只出现在单选/多选/判断/下拉题下面。
 
 ## 相关文档
 

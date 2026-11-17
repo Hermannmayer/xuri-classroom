@@ -64,8 +64,8 @@ tests:
   - client:npm run test:rules
   - client:npm run test:tree
   - docs:npm run docs:check
-last_verified: 2026-11-15
-verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
+last_verified: 2026-11-17
+verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---
 
 # 考试编辑器与题型
@@ -86,19 +86,19 @@ verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 编辑器 | `client/src/pages/survey/Editor.tsx` | 顶部编辑/设置/统计/分享/发布；左栏题目/大纲/主题页签；右栏快捷/题目；画布整块选中；批量分值/必填；卷头独立设置；预览用弹窗内嵌真实答题页；JSON/主题/保存 |
+| 编辑器 | `client/src/pages/survey/Editor.tsx` | 顶部编辑/设置/统计/分享/发布 + 「AI 组卷」「AI 质检」（`ai:use` 门控）；左栏题目/大纲/主题页签；右栏快捷/题目；画布整块选中；批量分值（计分关闭时隐藏）/必填；预览用弹窗内嵌真实答题页（`/s/:id?preview=1`）；JSON/主题/保存。卷头设置已挪到打印页 |
 | 概述/发布设置 | `client/src/pages/survey/Overview.tsx` | 概览与全部 `setting` 合并保存；旧 `/setting` 路由兼容 |
-| 题型定义 | `client/src/designer/defaults.ts` | `QUESTION_META`（面板 17 项）、`createQuestion`、`normalizeSchema` |
+| 题型定义 | `client/src/designer/defaults.ts` | `QUESTION_META`（面板 20 项）、`createQuestion`、`normalizeSchema` |
 | 大纲/树操作 | `client/src/designer/tree.ts` | `insertNode` / `moveNode` / `cloneNode` / `flattenOutline` |
 | 属性/规则面板 | `client/src/designer/AttributePanel.tsx`、`RuleEditor.tsx`、`attributeSchema.ts` | 通用属性、显隐规则、分值/答案/解析 |
 | Schema 类型 | `client/src/schema/types.ts` | 与后端 `SurveySchema.java` 对应的 `QuestionType` / `Attribute` |
 | 拍平/题号 | `client/src/schema/flatten.ts` | 只对 `DATA_TYPES` 递增题号，容器继续下钻 |
 | 规则构建/求值 | `client/src/schema/rules/buildExpression.ts`、`engine.ts` | `RuleConfig` → `AND(...)` 表达式 → 布尔 |
-| 渲染注册表 | `client/src/renderer/registerAll.ts`、`registry.ts` | 14 个题型组件；未注册类型显示占位框 |
+| 渲染注册表 | `client/src/renderer/registerAll.ts`、`registry.ts` | 17 个题型组件；未注册类型显示占位框 |
 | 渲染入口 | `client/src/renderer/SchemaRenderer.tsx` | 按 `displays` 隐藏、渲染题号/题干/组件、处理题组/说明/分割线 |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `/api/public/**`，无 `@PreAuthorize`，校验在 Service |
 | 业务实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/SurveyServiceImpl.java` | `loadProject` / `loadPublicQuestion` / `saveAnswer` / `loadExamResult` 的入口；门面只做委托，实现在 impl 包组件里（`PublicProjectLoader`、`PublicAnswerSubmitter`、`ProjectAnswerValidator`） |
-| 打印 | `client/src/pages/survey/Print.tsx` | A4 分页、A3 双页拼版、自定义卷头（标题/副标题/考生信息）、试卷信息/代码/密封线/页码/答题区/页边距、标准答题卡、紧凑答案速查；Word 导出同源 |
+| 打印 | `client/src/pages/survey/Print.tsx` | A4 分页、A3 双页拼版、卷头设置抽屉（标题/副标题/考生信息，保存即写库）、试卷信息/代码/密封线/页码/答题区/页边距、网格答题卡、答案速查（客观题 8 列格 + 简答逐题）；Word 导出同源，排版细节见 [compose](./compose.md) |
 | 随机抽题 | `server/rdbms/src/main/java/cn/surveyking/server/impl/RandomSurveyProcessor.java` | 编辑器 `RandomSurvey` 节点 + `examSetting.randomSurvey` |
 | 数据表 | `t_project`、`t_answer`、`t_template` | 项目含 schema；答案含随机卷快照；模板供抽题 |
 
@@ -109,9 +109,9 @@ verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
    - **离开自动保存**：返回、设置、统计、打印统一走 `leaveTo`，有未保存改动时先写库再跳转；`beforeunload` 也会拦截刷新/关页。
    - **返回**：`components/BackButton.tsx` 优先 `navigate(-1)`，没有站内历史才回 fallback；概述页只保留一个「返回上一级」，不再重复「项目列表」。
    - **题型分值**：概述页显示每种题型的题数、每题分值、题型小计，以及整卷题数/总分/平均每题；可按整套总分 + 题型比例分配每题分值，再「按题型应用」。
-3. **题型盘点**：设计器面板 `QUESTION_META` 共 **17 项**：选择类 8 项（单选、多选、下拉、NPS、矩阵单选/多选、级联、判断），填写类 6 项（填空、多空填空、多行文本、矩阵填空、地址、评分），结构类 3 项（题组、说明、分割线）。渲染器实际注册 **14 个组件**；后端 `SurveySchema.QuestionType` 有 33 个枚举值，其中 `dataType()` 24 个、`examType()` 7 个。README 说的"18 种"来自"面板 17 + 未进面板的 `Pagination` 容器"，`docs/scope.md` 的"14 种"是更早的旧口径。
+3. **题型盘点**：设计器面板 `QUESTION_META` 共 **20 项**：选择类 8 项（单选、多选、下拉、NPS、矩阵单选/多选、级联、判断），填写类 9 项（填空、多空填空、多行文本、矩阵填空、地址、富文本、评分、签名、上传），结构类 3 项（题组、说明、分割线）。渲染器实际注册 **17 个组件**；后端 `SurveySchema.QuestionType` 有 31 个枚举值，其中 `dataType()` 24 个、`examType()` 7 个。签名/上传是文件类题：属性面板的 `fileAccept`/`maxFileSize`/`maxFileCount` 管允许的类型、单文件 MB 上限与数量，答案形如 `{题目id: {空位id: fileId}}`，空位 id 必须是 `children[0].id`。README 说的"18 种"是面板早期口径（当时 17 项 + 未进面板的 `Pagination` 容器，README 自己列出的名字也只有 17 个），`docs/scope.md` 的"14 种"是更早的旧口径。
 4. **规则**：属性里的 `visibleRule` / `requiredRule` / `finishRule` 等是 JSON 字符串，内容形如 `{ conditionLogic: 'AND', conditionItem: [...] }`。`buildExpression` 把它拼成 `AND(#{q1.o1} ,NOT(#{+q2}))`（分隔符是空格+逗号，不能改成纯逗号），`engine.evaluateRule` 求值。规则只在**前端**求值，后端只负责存取；解析失败的规则返回 `success=false`，表现为"规则不生效"而不是报错。
-5. **预览**：`preview` 切换后同一棵 schema 交给 `SchemaRenderer`，并把 `values` 传进去；显隐规则只在预览/答题态应用，编辑态全部显示，否则隐藏题会在设计器里消失。预览不写答案，只用于检查题面与联动。
+5. **预览**：编辑器右上「预览」用 iframe 打开 `/s/:id?preview=1`，跑的是真实答题页（`SchemaRenderer` 的 `mode='preview'` 分支只在答题页用），显隐规则、题号与学员看到的完全一致；编辑态一律按 `mode='edit'` 渲染，隐藏题不会在设计器里消失。`?preview=1` 由后端 `PublicProjectLoader#isPreviewAllowed` 处理：只对管理员/项目所有者/协作者跳过「能不能答」的校验（发布状态、考试时间窗、班级分配），「能不能看」没有放松，交卷也不走这段——所以未发布的卷子能预览，但预览里交不了卷。
 6. **首屏与逐题下发**：答题页先 `POST /api/public/projectOutline`，后端 `loadProjectOutline` 只返回 `outline`（题号/题型/必填）和一个不含题干/选项的 shell；前端再按题 id 调 `POST /api/public/question` 取单题。`loadPublicQuestion` 会重新走 `loadProject` 校验项目访问权限（**包括班级分配**），并校验题目确实属于当前问卷/当前随机卷快照。
 7. **答案剥离**：公开视图由 `ProjectViewMapper.toPublicProjectView` 生成，考试模式且非练习模式时会 `trimExamAnswerInfo` 去掉 `examCorrectAnswer`、`examScore`、`examMatchRule`；`loadPublicQuestion` 默认再剥一次正确答案/解析/分值。只有 `examSetting.exerciseMode=true` 时保留正确答案与解析给前端即时判题，分值仍然不下发。
 8. **随机题**：`RandomSurveyProcessor.processRandomSurvey` 在考试模式下处理两种来源：编辑器里的 `RandomSurvey` 节点，以及 `examSetting.randomSurvey` 配置。抽出的卷子会写进 `t_answer.survey` 快照，并用 `rd_answer_id_<projectId>` Cookie（7 天）复用；`examSetting.randomOrder=true` 时 `ProjectViewMapper.randomSchemaOrder` 会打乱非填空/非简答题目，填空题顺序保持不变。
@@ -123,6 +123,20 @@ verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 2. 登录用户是 `student` 时：没有班级、或所在班没有这场考试的 `t_class_resource` 分配 → `ProjectNotFound`（404，不泄露标题）；班级/全局未开始 → `ExamUnStarted`；已结束 → `ExamFinished`；班级开关关闭/项目停用 → `SurveySuspend`。
 3. 全局窗口 `ProjectSetting.examSetting.startTime/endTime` 是硬上限；班级窗口为空继承全局，非空必须落在全局窗口内（由班级管理页维护，见 [teaching](./teaching.md)）。
 4. 匿名、staff、管理员直接放行；练习/错题本伪项目（`ExerciseProjectTemplate.EXERCISE_PROJECT_ID`）也直接放行，不参与班级分配。
+
+### 数据页与报表（2026-11）
+
+- 数据页 `/survey/:id/data`：顶部过滤条六维条件（班级 / 交卷时间 / 交卷状态 / 批改状态 / 分数段 / 姓名，外加「含匿名 / 仅实名」开关），条件定义与导出共用 `data/filters.ts`；班级只存 URL（`?classId=`），报表页、教学页跳过来能直达。「未交」不是过滤答卷，而是把列表换成未交名单（`data/UnsubmittedPanel.tsx`，数据源是「班级在册学员 − 已交」，没选班级时只提示、不发请求）。
+- 导出弹窗 `data/ExportModal.tsx`：五种格式——Excel 明细 + 成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单（后四种走同一个异步任务、打成一个 ZIP），范围可选「当前筛选」或「仅勾选」，关掉弹窗会取消正在跑的任务。
+- 报表页 `Report.tsx`：班级 + 交卷时间筛选写进 URL，带班级时走 `/api/report/class/{id}`；逐题区块除分布图外还显示「答题 N 人 / 判分 M 人 / 正确率」。
+- 判分、导出、统计的口径都在 [answer](./answer.md)，AI 批改与错题重练在 [ai](./ai.md)；这一页只记入口，不重复那边的规则。
+
+### 编辑器里的 AI 入口（2026-11）
+
+- 顶部「AI 组卷」（弹窗：从题库抽题、预览后写入画布，一次一个撤销步）与「AI 质检」（抽屉：读的是**已保存**的卷子），选中题的浮标 / 属性面板 / 右键菜单里还有「AI 优化题干」（抽屉：采纳后留题干快照，可「恢复原题干」）。
+- 三个入口都按 `ai:use` 门控：没权限时**不渲染**（不是灰掉），权限列表没回来之前也不渲染。
+- `/survey/:id/edit?ai=pick|check|rewrite` 可直达对应面板（对话里的「打开工具」就靠它）；参数只认一次，面板关闭时用 `replace` 摘掉，刷新不会再弹。
+- 能力清单、限额，以及「AI 不写库 / 采纳后才写」的边界见 [ai](./ai.md)。
 
 ## 修改指南
 
@@ -160,7 +174,7 @@ verified_against: 903ed1ca8eaf97ecd50fcce7684d7c88145ef826
 
 - **统计有 20000 份的硬上限**：`statProject` 先 `count()`，超过 `STAT_MAX_ANSWERS` 抛 `ErrorCode.StatisticsTooLarge(4060)`，提示按班级/时间段筛选。这个上限是为了在「全量内存聚合」的实现下守住 `-Xmx768m`；S2 把统计改成投影表 + `GROUP BY` 之后可以放开。
 - **统计优先走投影表**：`statProject` 先比对 `t_answer_item` 覆盖的答卷数与该场总数，相等就用 `GROUP BY` 聚合（只回传「题 × 选项」计数），否则回退到旧的「全量内存遍历」。新增统计逻辑时优先扩投影表，不要往内存算法里加东西。
-- **"18 种题型"是旧文案**：`QUESTION_META` 实际 17 项；`Pagination` 是 schema 支持但面板不提供的容器。写文档/答复用户时不要按 18 去数，否则会和代码对不上。
+- **"18 种题型"是旧文案**：`QUESTION_META` 实际 20 项（2026-11 加了签名、上传）；`Pagination` 是 schema 支持但面板不提供的容器，`MatrixAuto`/`Barcode` 等后端枚举也不进面板。写文档/答复用户时不要按 18 去数，否则会和代码对不上。
 - **未注册题型不会报错，只会占位**：`SchemaRenderer` 找不到组件时渲染橙色"[未注册题型] xxx"，答卷仍可提交但该题没有输入控件。加后端枚举/导入题时尤其容易踩。
 - **选项有两份数据**：`dataSource`（渲染器读）和 `children` 的 `Option` 节点（答案 key、统计、计分读）必须同时存在。导入的题库题常常只有 `children`，练习页会补 `dataSource`；编辑器保存前也会 `normalizeSchema`。
 - **考试模式公开视图会剥答案**：如果自定义页面直接读 `/api/public/loadProject` 的 `survey` 找 `examCorrectAnswer`，在非练习模式下永远拿不到；这是防泄题，不是 bug。
@@ -193,7 +207,7 @@ npm run docs:check
 ### 问卷/考试模式分区（2026-11）
 
 - 项目设置新增 `examSetting.scoringEnabled`：考试默认 true，问卷默认 false；问卷可手动开启计分。
-- 关闭计分时，概述页隐藏题型分值/考试控制，数据页隐藏得分列，问卷属性的「考试」分组（分值、正确答案、解析、判分模式）不渲染。
+- 关闭计分时，概述页隐藏题型分值/考试控制、编辑器隐藏「批量设置分值」按钮、数据页隐藏得分列，问卷属性的「考试」分组（分值、正确答案、解析、判分模式）不渲染。
 - 报表「答卷概览」统计已开始/已提交/完成率/匿名数/平均填写时长；问卷也有这套收集指标，只是不出现正确率和分值段（除非手动开启计分）。
 - 新建项目时按考试/问卷给出默认提示：考试默认计分，问卷默认匿名收集+回收限制。
 

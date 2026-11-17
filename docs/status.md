@@ -6,19 +6,19 @@
 
 | 模块 | 最后核对 | 核对 commit | 覆盖文件数 |
 |---|---|---|---|
-| `module-ai` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 103 |
-| `module-answer` | 2026-11-17 | `0c5a8ac03ba685926b817e7ed185a54d58454d89` | 60 |
-| `module-audit` | 2026-11-17 | `120dbd4056587d04d31f5e05ce9c5018c96722f6` | 16 |
-| `module-auth` | 2026-11-09 | `6c14ecfdf35a6c2610f436152c616e25e525c5b6` | 14 |
-| `module-compose` | 2026-11-14 | `e5cf39996b1d0757f1814f314d8e812dbf49c4a1` | 15 |
-| `module-dashboard` | 2026-11-17 | `0c5a8ac03ba685926b817e7ed185a54d58454d89` | 28 |
-| `module-exercise` | 2026-11-15 | `903ed1ca8eaf97ecd50fcce7684d7c88145ef826` | 13 |
-| `module-files` | 2026-11-10 | `a19f1d8d4cd2546f4054e18e95c37b6e84b3e21d` | 31 |
-| `module-import` | 2026-11-17 | `0c5a8ac03ba685926b817e7ed185a54d58454d89` | 29 |
+| `module-ai` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 103 |
+| `module-answer` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 60 |
+| `module-audit` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 16 |
+| `module-auth` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 14 |
+| `module-compose` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 15 |
+| `module-dashboard` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 28 |
+| `module-exercise` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 13 |
+| `module-files` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 31 |
+| `module-import` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 29 |
 | `module-mcp` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 31 |
-| `module-notice` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 18 |
-| `module-permissions` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 107 |
-| `module-project` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 26 |
-| `module-repo` | 2026-11-17 | `9a47a82d7451434a22e66fbdb54e29d0d66f7d9c` | 33 |
-| `module-survey` | 2026-11-15 | `903ed1ca8eaf97ecd50fcce7684d7c88145ef826` | 79 |
-| `module-teaching` | 2026-11-17 | `0c5a8ac03ba685926b817e7ed185a54d58454d89` | 41 |
+| `module-notice` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 18 |
+| `module-permissions` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 107 |
+| `module-project` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 26 |
+| `module-repo` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 33 |
+| `module-survey` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 79 |
+| `module-teaching` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 41 |
