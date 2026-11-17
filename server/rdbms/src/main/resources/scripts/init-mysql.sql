@@ -538,15 +538,15 @@ CREATE TABLE `t_role` (
 -- Records of t_role
 -- ----------------------------
 BEGIN;
-INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
+INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect,notice:list,notice:manage:system,notice:manage:class', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
 -- 老师：能建/编/发考试与题库、看答卷与报表、管班级；没有 system:*
 -- 答卷侧给了 answer:delete / answer:restore（回收站里能删能恢复），删除范围仍受
 -- AnswerAccessGuard 限制：只能动自己负责项目下的答卷，只有 admin 是全量。
 -- 学员：答题、练习、错题本、看题库；没有 project:create/update 等管理权限，答题走公开链接
 -- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
-('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
-('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
+('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import,notice:list,notice:manage:class', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student,notice:list', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
 -- ----------------------------
@@ -777,6 +777,41 @@ COMMIT;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ----------------------------
+-- Table structure for t_notice（通知公告：管理员全站公告与老师班级公告共用）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `t_notice` (
+  `id`            varchar(64)  NOT NULL COMMENT 'ID',
+  `title`         varchar(200) NOT NULL COMMENT '标题',
+  `content`       longtext     NOT NULL COMMENT '正文富文本，入库前服务端白名单消毒',
+  `type`          varchar(32)  NOT NULL DEFAULT 'notice' COMMENT 'notice / system_update / ai_result',
+  `audience`      varchar(16)  NOT NULL DEFAULT 'all' COMMENT 'all / admin / teacher / student',
+  `scope_type`    varchar(16)  DEFAULT NULL COMMENT 'NULL=全站 / class=某个班 / project=某场考试',
+  `scope_id`      varchar(64)  DEFAULT NULL COMMENT 'scope_type 对应的 id',
+  `pinned`        tinyint(1)   NOT NULL DEFAULT 0 COMMENT '是否置顶',
+  `require_ack`   tinyint(1)   NOT NULL DEFAULT 0 COMMENT '是否要求已读回执',
+  `status`        varchar(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft / published / archived',
+  `publish_at`    datetime     DEFAULT NULL COMMENT '发布时间',
+  `expire_at`     datetime     DEFAULT NULL COMMENT '过期时间',
+  `create_by`     varchar(256) DEFAULT NULL,
+  `create_at`     timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_at`     datetime     DEFAULT NULL,
+  `is_deleted`    tinyint(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_notice_audience` (`audience`, `status`, `publish_at`),
+  KEY `idx_notice_scope` (`scope_type`, `scope_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知公告';
+
+CREATE TABLE IF NOT EXISTS `t_notice_read` (
+  `id`         varchar(64) NOT NULL COMMENT 'ID',
+  `notice_id`  varchar(64) NOT NULL COMMENT '公告 id',
+  `user_id`    varchar(64) NOT NULL COMMENT '已读用户 id',
+  `read_at`    datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '已读时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_notice_read` (`notice_id`, `user_id`),
+  KEY `idx_notice_read_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告已读记录';
+
+-- ----------------------------
 -- Table structure for t_audit_log（操作审计）
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `t_audit_log` (
@@ -785,6 +820,10 @@ CREATE TABLE IF NOT EXISTS `t_audit_log` (
   `target_id` varchar(64) DEFAULT NULL COMMENT '目标 id',
   `target_name` varchar(256) DEFAULT NULL COMMENT '目标名称',
   `detail` varchar(512) DEFAULT NULL COMMENT '附加说明',
+  `before_json` text NULL COMMENT '操作前快照（仅高危动作）',
+  `after_json` text NULL COMMENT '操作后快照（仅高危动作）',
+  `source` varchar(16) DEFAULT 'web' COMMENT '来源：web / mcp / api',
+  `request_id` varchar(64) DEFAULT NULL COMMENT '同一次请求关联 id',
   `ip` varchar(64) DEFAULT NULL COMMENT '操作人 IP',
   `is_deleted` tinyint(1) NOT NULL DEFAULT '0',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -793,7 +832,8 @@ CREATE TABLE IF NOT EXISTS `t_audit_log` (
   `update_by` varchar(256) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_audit_action_time` (`action`, `create_at`),
-  KEY `idx_audit_create_by` (`create_by`)
+  KEY `idx_audit_create_by` (`create_by`),
+  KEY `idx_audit_target` (`target_id`, `create_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='操作审计日志';
 
 -- ----------------------------

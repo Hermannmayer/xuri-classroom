@@ -90,6 +90,9 @@ export const PERMISSIONS: PermissionDef[] = [
   { code: "portal:student", name: "学员视角", group: "PORTAL", studentOnly: true },
   { code: "portal:teacher", name: "教师视角", group: "PORTAL", studentOnly: false },
   { code: "portal:admin", name: "管理视角", group: "PORTAL", studentOnly: false },
+  { code: "notice:list", name: "查看公告", group: "NOTICE", studentOnly: false },
+  { code: "notice:manage:system", name: "管理全站公告", group: "NOTICE", studentOnly: false },
+  { code: "notice:manage:class", name: "管理班级公告", group: "NOTICE", studentOnly: false },
   { code: "content:protect", name: "水印与防复制策略", group: "CONTENT", studentOnly: false },
 ];
 
@@ -188,5 +191,8 @@ export const PERMISSION_CODES = {
   portalStudent: 'portal:student',
   portalTeacher: 'portal:teacher',
   portalAdmin: 'portal:admin',
+  noticeList: 'notice:list',
+  noticeManageSystem: 'notice:manage:system',
+  noticeManageClass: 'notice:manage:class',
   contentProtect: 'content:protect',
 } as const;

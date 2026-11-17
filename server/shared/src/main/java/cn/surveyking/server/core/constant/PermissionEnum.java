@@ -145,6 +145,12 @@ public enum PermissionEnum {
 	PORTAL_STUDENT("portal:student", "学员视角", Group.PORTAL, "显示「我的任务」：考试安排 / 练习记录 / 我的成绩", false, true),
 	PORTAL_TEACHER("portal:teacher", "教师视角", Group.PORTAL, "显示「教学管理」与「班级学情」", false),
 	PORTAL_ADMIN("portal:admin", "管理视角", Group.PORTAL, "显示系统管理（用户 / 用户组 / 系统设置 / 权限 / 日志）", false),
+	/* ------ 公告 */
+
+	NOTICE_LIST("notice:list", "查看公告", Group.NOTICE, "站内公告中心与顶栏未读数；全角色可见"),
+	NOTICE_MANAGE_SYSTEM("notice:manage:system", "管理全站公告", Group.NOTICE, "受众可选 all / admin / teacher / student；只给管理员", false),
+	NOTICE_MANAGE_CLASS("notice:manage:class", "管理班级公告", Group.NOTICE, "只能发给「自己可见的班」；老师用这个，发不了全站", false),
+
 	CONTENT_PROTECT("content:protect", "水印与防复制策略", Group.CONTENT, "全站水印与防复制开关；文档里标注可与修改系统设置二选一", true);
 
 	/* ---------------------------------------------------------------- 其它 */
@@ -195,7 +201,7 @@ public enum PermissionEnum {
 	public enum Group {
 
 		PORTAL("视角"), EXAM("考试"), ANSWER("答卷"), REPO("题库"), TEMPLATE("题目"), EXERCISE("练习"), CLASS("班级"), FILE("文件"), USER("用户"),
-		SYSTEM("系统"), CONTENT("内容保护"), OTHER("其它");
+		SYSTEM("系统"), NOTICE("公告"), CONTENT("内容保护"), OTHER("其它");
 
 		private final String label;
 

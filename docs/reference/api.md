@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 212 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 215 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -28,6 +28,9 @@
 | GET | `${api.prefix}/system/audit/list` | `AuditApi#list` | `hasAuthority('system:log:list')` | — |
 | POST | `${api.prefix}/system/audit/clean` | `AuditApi#clean` | `hasRole('admin')` | — |
 | GET | `${api.prefix}/system/audit/actions` | `AuditApi#actions` | `hasAuthority('system:log:list')` | — |
+| POST | `/captcha/get` | `CaptchaApi#get` | — | — |
+| POST | `/captcha/check` | `CaptchaApi#check` | — | — |
+| POST | `/captcha/verify` | `CaptchaApi#verify` | — | — |
 | GET | `${api.prefix}/compose/stats` | `ComposeApi#stats` | `hasAnyAuthority('repo:list','project:create','project:update') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/plan` | `ComposeApi#plan` | `hasAuthority('project:create') or hasRole('admin')` | — |
 | POST | `${api.prefix}/compose/create` | `ComposeApi#create` | `hasAuthority('project:create') or hasRole('admin')` | — |

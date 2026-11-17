@@ -10,8 +10,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 结构探测与版本匹配的纯逻辑测试（不连数据库）。
@@ -81,14 +83,46 @@ class SchemaUpgradeServiceTest {
 	@Test
 	void allowsRollbackWhenDatabaseIsAlreadyNewer() {
 		SchemaUpgradeService service = newService();
-		assertDoesNotThrow(() -> service.assertNoFutureScripts("2.2.0", "2.2.1"));
+		String latest = latestScriptVersion();
+		assertDoesNotThrow(() -> service.assertNoFutureScripts("2.0.0", latest));
 	}
 
 	/** 版本对齐（正常发版）时不该报错。 */
 	@Test
 	void allowsWhenAppVersionCoversAllScripts() {
 		SchemaUpgradeService service = newService();
-		assertDoesNotThrow(() -> service.assertNoFutureScripts("2.2.1", "2.2.1"));
+		String latest = latestScriptVersion();
+		assertDoesNotThrow(() -> service.assertNoFutureScripts(latest, latest));
+	}
+
+	/**
+	 * 取 db/migration 下最高的脚本版本。
+	 *
+	 * <p>
+	 * 原来这里写死 2.2.1，每加一个迁移就得回来改一次测试——不改就红，而且是「看起来像功能坏了」
+	 * 的假红。改成从 classpath 现算，测试的语义回到它真正想验证的东西：
+	 * 「程序版本覆盖得住全部脚本时不许拦；覆盖不住时必须拦」。
+	 */
+	private static String latestScriptVersion() {
+		try {
+			Resource[] resources = new PathMatchingResourcePatternResolver()
+					.getResources("classpath*:db/migration/V*.sql");
+			String latest = "0.0.0";
+			for (Resource resource : resources) {
+				String name = resource.getFilename();
+				if (name == null) {
+					continue;
+				}
+				String version = name.substring(1, name.indexOf("__"));
+				if (SchemaUpgradeService.compare(version, latest) > 0) {
+					latest = version;
+				}
+			}
+			return latest;
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("读取迁移脚本版本失败", e);
+		}
 	}
 
 	private SchemaSpec.VersionSpec version(String value, String... requires) {

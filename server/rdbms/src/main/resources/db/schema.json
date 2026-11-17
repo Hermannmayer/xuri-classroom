@@ -52,6 +52,23 @@
         "index:t_answer.idx_answer_project_grade",
         "table:t_answer_grade"
       ]
+    },
+    {
+      "version": "2.2.2",
+      "requires": [
+        "table:t_notice",
+        "table:t_notice_read"
+      ]
+    },
+    {
+      "version": "2.2.3",
+      "requires": [
+        "column:t_audit_log.before_json",
+        "column:t_audit_log.after_json",
+        "column:t_audit_log.source",
+        "column:t_audit_log.request_id",
+        "index:t_audit_log.idx_audit_target"
+      ]
     }
   ]
 }
