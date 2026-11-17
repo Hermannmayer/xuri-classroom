@@ -41,6 +41,8 @@
 | `t_user_role` | id:varchar(64)<br>user_type:varchar(100)<br>user_id:varchar(64)<br>role_id:varchar(64)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
 | `t_notice` | id:varchar(64)<br>title:varchar(200)<br>content:longtext<br>type:varchar(32)<br>audience:varchar(16)<br>scope_type:varchar(16)<br>scope_id:varchar(64)<br>pinned:tinyint(1)<br>require_ack:tinyint(1)<br>status:varchar(16)<br>publish_at:datetime<br>expire_at:datetime |
 | `t_notice_read` | id:varchar(64)<br>notice_id:varchar(64)<br>user_id:varchar(64)<br>read_at:datetime |
+| `t_api_token` | id:varchar(64)<br>user_id:varchar(64)<br>name:varchar(100)<br>token_hash:varchar(128)<br>scopes:varchar(500)<br>expires_at:datetime<br>last_used_at:datetime<br>revoked:tinyint(1)<br>create_at:timestamp |
+| `t_api_idempotency` | id:varchar(64)<br>user_id:varchar(64)<br>key_value:varchar(128)<br>result_json:longtext<br>create_at:timestamp |
 | `t_ai_usage` | id:varchar(64)<br>user_id:varchar(64)<br>scene:varchar(32)<br>model:varchar(120)<br>prompt_tokens:int<br>completion_tokens:int<br>total_tokens:int<br>cost_ms:bigint<br>status:varchar(16)<br>error:varchar(500)<br>create_at:timestamp |
 | `t_audit_log` | id:varchar(64)<br>action:varchar(64)<br>target_id:varchar(64)<br>target_name:varchar(256)<br>detail:varchar(512)<br>before_json:text<br>after_json:text<br>source:varchar(16)<br>request_id:varchar(64)<br>ip:varchar(64)<br>is_deleted:tinyint(1)<br>create_at:timestamp |
 | `t_dept_role` | id:varchar(64)<br>dept_id:varchar(64)<br>role_id:varchar(64)<br>is_deleted:tinyint(1)<br>create_at:timestamp<br>create_by:varchar(256)<br>update_at:timestamp<br>update_by:varchar(256) |
@@ -55,6 +57,7 @@
 - `server/rdbms/src/main/resources/db/migration/V2.2.2__notice.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.2.3__audit_detail.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.2.4__ai_usage.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.2.5__api_token.sql`
 
 ## 历史运维脚本（只读，不再维护）
 

@@ -75,6 +75,13 @@
       "requires": [
         "table:t_ai_usage"
       ]
+    },
+    {
+      "version": "2.2.5",
+      "requires": [
+        "table:t_api_token",
+        "table:t_api_idempotency"
+      ]
     }
   ]
 }
