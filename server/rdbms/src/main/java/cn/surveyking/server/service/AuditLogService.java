@@ -169,6 +169,10 @@ public class AuditLogService {
 		view.setTargetId(entry.getTargetId());
 		view.setTargetName(entry.getTargetName());
 		view.setDetail(entry.getDetail());
+		view.setBeforeJson(entry.getBeforeJson());
+		view.setAfterJson(entry.getAfterJson());
+		view.setSource(entry.getSource());
+		view.setRequestId(entry.getRequestId());
 		view.setIp(entry.getIp());
 		view.setCreateBy(entry.getCreateBy());
 		view.setOperatorName(operatorName);

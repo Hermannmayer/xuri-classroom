@@ -236,8 +236,10 @@ public class RepoApi {
 			exportGuardService.assertExportAllowed(exportPassword);
 		}
 		repoService.exportRepoQuestions(request);
+		// 题库导出口径（题库 id / 名称 / 分类 / 模式）同样是「范围」，不记录导出的题目内容
 		exportGuardService.record(cn.surveyking.server.service.ExportGuardService.EXPORT_REPO, request.getId(),
-				request.getName(), "导出题库题目");
+				request.getName(), "导出题库题目",
+				cn.surveyking.server.service.ExportGuardService.repoExportScope(request));
 	}
 
 	/** 用导出密码换一次性导出令牌（密码只走请求体，不落日志/历史） */

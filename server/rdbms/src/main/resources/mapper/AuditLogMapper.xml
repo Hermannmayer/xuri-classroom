@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.surveyking.server.mapper.AuditLogMapper">
+
+    <!-- 显式 resultMap：2.2.3 新增的 before_json / after_json / source / request_id 必须列出来，
+         否则换用 resultType 自动映射时漏字段（字段名对不上驼峰规则）会静默变成 null。 -->
+    <resultMap id="auditLogResultMap" type="cn.surveyking.server.domain.model.AuditLog">
+        <id column="id" property="id"/>
+        <result column="action" property="action"/>
+        <result column="target_id" property="targetId"/>
+        <result column="target_name" property="targetName"/>
+        <result column="detail" property="detail"/>
+        <result column="before_json" property="beforeJson"/>
+        <result column="after_json" property="afterJson"/>
+        <result column="source" property="source"/>
+        <result column="request_id" property="requestId"/>
+        <result column="ip" property="ip"/>
+        <result column="create_at" property="createAt"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_at" property="updateAt"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="is_deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 答卷操作时间线：target_id + create_at 命中 idx_audit_target。
+         不筛 before_json 是否为空——「提交答卷」「删除答卷」这类没有快照的动作也要算操作记录。 -->
+    <select id="selectByTarget" resultMap="auditLogResultMap">
+        SELECT id, action, target_id, target_name, detail, before_json, after_json, source, request_id, ip,
+               create_at, create_by, update_at, update_by, is_deleted
+        FROM t_audit_log
+        WHERE target_id = #{targetId}
+          AND is_deleted = 0
+        ORDER BY create_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

@@ -6,7 +6,7 @@
 一、这是什么
 ----------------------------------------------------------------
 · 解压即用：不用装 Java、MySQL、Tomcat、nginx，也不写注册表、不装服务。
-· 包里只有程序本体（jar 约 78MB）。第一次启动会自动下载 JRE 8（约 38MB）
+· 包里只有程序本体（jar 约 78MB）。第一次启动会自动下载 JRE 25（约 56MB）
   和 MySQL 8（约 212MB），之后完全离线可用。
 · 前端已经打进 jar，一个进程同时提供页面和接口。
 · 首次运行会自动生成随机数据库密码和登录密钥，写在 config\app.env 里。
@@ -14,7 +14,9 @@
 二、系统要求
 ----------------------------------------------------------------
 · Windows 10 / 11，64 位（不支持 Win7/Win8/32 位）。
-· 磁盘：安装后约 320MB（JRE 约 97MB + MySQL 约 138MB + jar 约 78MB）；
+· 不需要预装 Java：内置运行时是 Temurin 25（JRE 镜像，首次运行下载）；
+  机器上原有的旧版 Java 不会被使用。
+· 磁盘：安装后约 400MB（JRE 约 180MB + MySQL 约 138MB + jar 约 78MB）；
   安装过程还要约 600MB 放下载的压缩包（cache 目录），建议预留 2GB。
 · 内存：2GB 以上。默认 JVM 上限 1024MB，小内存机器可改 config\app.env
   里的 JAVA_OPTS=-Xmx768m。
@@ -31,7 +33,7 @@
 2) 双击 start.cmd。如果还没安装，会自动进入引导安装（和 setup.cmd 一样）。
 3) 向导按 4 步执行，每一步都有进度和中文提示：
      1/4 环境检查：系统版本、位数、磁盘、8080/3307 端口、写权限
-     2/4 JRE：下载 OpenJDK 8（优先清华 TUNA，失败自动换南京大学）
+     2/4 JRE：下载 Temurin 25（优先清华 TUNA，失败自动换南京大学）
      3/4 MySQL：下载 8.0.28（华为/阿里镜像，约 212MB），解压、裁剪、
            初始化 data\mysql、启动 127.0.0.1:3307、建库 surveyking、
            建用户 xuri、导入 app\init-mysql.sql，最后核对 t_user
@@ -96,7 +98,7 @@ data\files\               附件与导出文件（备份就备这个）
 logs\                     所有日志
 run\                      PID、my.ini、临时 SQL
 cache\                    下载的 zip（可以删；删了下次要重新下载）
-runtime\jre8\             内置 JRE（首次安装生成）
+runtime\jre25\            内置 JRE（Temurin 25，首次安装生成）
 mysql\                    内置 MySQL（首次安装生成，已裁剪）
 lib\launcher.ps1          启动器本体
 
@@ -115,7 +117,7 @@ config\app.env（首次运行自动生成，随机密码，不要发群/上传�
   FILE_STORAGE_ROOT=data\files
 
 config\runtime.env（下载源，换源只改这里）
-  JRE_URLS / JRE_SHA256 / JRE_SIZE
+  JRE_VERSION / JRE_URLS / JRE_SHA256 / JRE_SIZE
   MYSQL_MIRRORS=地址|版本|SHA256|字节数   （可以写多行，按顺序尝试）
   MYSQL_PORT=3307
 
@@ -158,8 +160,8 @@ config\runtime.env（下载源，换源只改这里）
 向导会自动换下一个镜像；全部失败时会打印手动指引。手动步骤如下：
 1) 用浏览器打开日志里给出的地址，下载完整 zip；
 2) 把文件放进 cache 目录。两种命名都认：
-     · 保持原文件名，例如 OpenJDK8U-jre_x64_windows_hotspot_8u512b09.zip
-     · 或改名为固定别名：JRE 用 jre8.zip，MySQL 用 mysql8.zip
+     · 保持原文件名，例如 OpenJDK25U-jre_x64_windows_hotspot_25.0.5_8.zip
+     · 或改名为固定别名：JRE 用 jre25.zip，MySQL 用 mysql8.zip
 3) 重新运行离线安装：
      setup.cmd --offline --step jre
      setup.cmd --offline --step mysql
@@ -187,7 +189,7 @@ Q4 路径有中文，或移动文件夹后 MySQL 起不来
 
 Q5 杀毒软件报毒 / 拦截
    这是本地 PowerShell 启动器 + Java 程序，不采集上传任何数据。
-   把整个文件夹加入白名单，尤其是 lib\launcher.ps1 和 runtime\jre8。
+   把整个文件夹加入白名单，尤其是 lib\launcher.ps1 和 runtime\jre25。
 
 Q6 忘记管理员密码
    需要用维护工具重置（数据库里的账号密码是加密存储的）。

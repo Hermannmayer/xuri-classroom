@@ -36,8 +36,8 @@ $script:P = @{
   Lib        = $script:ScriptDir
   App        = Join-Path $script:Root 'app'
   Runtime    = Join-Path $script:Root 'runtime'
-  Jre        = Join-Path $script:Root 'runtime\jre8'
-  JavaExe    = Join-Path $script:Root 'runtime\jre8\bin\java.exe'
+  Jre        = Join-Path $script:Root 'runtime\jre25'
+  JavaExe    = Join-Path $script:Root 'runtime\jre25\bin\java.exe'
   Mysql      = Join-Path $script:Root 'mysql'
   MysqldExe  = Join-Path $script:Root 'mysql\bin\mysqld.exe'
   MysqlExe   = Join-Path $script:Root 'mysql\bin\mysql.exe'
@@ -745,13 +745,14 @@ function Get-DefaultRuntimeEnvLines {
   [void]$lines.Add('# 内置 MySQL 端口（只监听 127.0.0.1）')
   [void]$lines.Add('MYSQL_PORT=3307')
   [void]$lines.Add('')
-  [void]$lines.Add('# ---- JRE（OpenJDK 8 JRE / Temurin 8u512b09，Windows x64，约 38 MB）----')
+  [void]$lines.Add('# ---- JRE（Temurin 25 JRE 镜像 / 25.0.5+8，Windows x64，压缩包约 56 MB）----')
+  [void]$lines.Add('# 本项目的字节码目标是 Java 25，运行时必须 >= 25；更低版本启动会直接失败。')
   [void]$lines.Add('# 优先清华 TUNA，失败自动换南京大学；两个都是同一份官方构建的镜像。')
-  [void]$lines.Add('JRE_VERSION=8u512b09')
-  [void]$lines.Add('JRE_URLS=https://mirrors.tuna.tsinghua.edu.cn/Adoptium/8/jre/x64/windows/OpenJDK8U-jre_x64_windows_hotspot_8u512b09.zip;https://mirrors.nju.edu.cn/adoptium/8/jre/x64/windows/OpenJDK8U-jre_x64_windows_hotspot_8u512b09.zip')
-  [void]$lines.Add('# SHA256 来自 Adoptium 官方发布页（大小只作展示，校验以 SHA256 为准）')
-  [void]$lines.Add('JRE_SHA256=ae1ae12f817d7735477c6555107eece73854da0654da69077309ef9bff0b78bf')
-  [void]$lines.Add('JRE_SIZE=40124908')
+  [void]$lines.Add('JRE_VERSION=25.0.5+8')
+  [void]$lines.Add('JRE_URLS=https://mirrors.tuna.tsinghua.edu.cn/Adoptium/25/jre/x64/windows/OpenJDK25U-jre_x64_windows_hotspot_25.0.5_8.zip;https://mirrors.nju.edu.cn/adoptium/25/jre/x64/windows/OpenJDK25U-jre_x64_windows_hotspot_25.0.5_8.zip')
+  [void]$lines.Add('# SHA256 来自 Adoptium 官方 API（api.adoptium.net），并已核对镜像上的同名文件；大小只作展示，校验以 SHA256 为准')
+  [void]$lines.Add('JRE_SHA256=da78d54a2fcdbba1e92d5e3f07dd30236f96297891c4a21a781c3f38f5c0beae')
+  [void]$lines.Add('JRE_SIZE=58589419')
   [void]$lines.Add('')
   [void]$lines.Add('# ---- MySQL 8.0（Windows x64 zip）----')
   [void]$lines.Add('# 格式：地址|版本|SHA256|字节数。按顺序尝试，失败自动换下一个源。')
@@ -1175,7 +1176,7 @@ function Invoke-ComponentDownload {
       continue
     }
 
-    # 允许手动下载后按固定别名放进 cache（jre8.zip / mysql8.zip），方便用户自救
+    # 允许手动下载后按固定别名放进 cache（jre25.zip / mysql8.zip），方便用户自救
     $cachedFile = ''
     foreach ($alias in $CacheAliases) {
       if ([string]::IsNullOrEmpty($alias)) { continue }
@@ -1268,26 +1269,38 @@ function Get-JavaVersionInfo([string]$JavaExe) {
   return $info
 }
 
-function Test-Java8Version([string]$Version) {
+# 旧格式的版本串以 1 开头（主版本在 “1.” 之后），Java 9+ 直接给主版本号（“25.0.5”）。
+# 返回 $true 表示这个版本能跑本项目：要求主版本 >= 25（jar 的 class 文件目标是 Java 25）。
+function Test-Java25Version([string]$Version) {
   if ([string]::IsNullOrWhiteSpace($Version)) { return $false }
-  if ($Version.StartsWith('1.8')) { return $true }
-  if ($Version.StartsWith('8.')) { return $true }
-  return $false
+  $majorText = $Version.Trim()
+  if ($majorText.StartsWith('1.')) { $majorText = $majorText.Substring(2) }
+  $majorText = [regex]::Replace($majorText, '[^0-9].*$', '')
+  $major = 0
+  if (-not ([int]::TryParse($majorText, [ref]$major))) { return $false }
+  return ($major -ge 25)
 }
 
 function Ensure-JreInstalled {
+  # 从旧版本升级上来的机器可能还留着 runtime\jre8（旧运行时），本版本只用 runtime\jre25。
+  # 不自动删（不动用户的文件），只提示可以手动清理。
+  $legacyJre = Join-Path $script:Root 'runtime\jre8'
+  if (Test-Path -LiteralPath $legacyJre) {
+    Out-Warn ('检测到旧版本遗留的运行时目录 runtime\jre8，本版本已不再使用（可手动删除以释放空间）：' + $legacyJre)
+  }
+
   $javaExe = $script:P.JavaExe
   if ((Test-Path -LiteralPath $javaExe) -and -not $script:Opts.Force) {
     $existing = Get-JavaVersionInfo $javaExe
-    if ($existing.Ok -and (Test-Java8Version $existing.Version)) {
-      Out-Ok ('JRE 已就绪：' + $existing.Version + '（runtime\jre8）')
+    if ($existing.Ok -and (Test-Java25Version $existing.Version)) {
+      Out-Ok ('JRE 已就绪：' + $existing.Version + '（runtime\jre25）')
       return
     }
-    Out-Warn 'runtime\jre8 存在但 java.exe 无法正常运行，将重新安装'
+    Out-Warn 'runtime\jre25 存在但 java.exe 无法正常运行，将重新安装'
   }
 
   if ($script:DryRun) {
-    Out-Dry '将下载 OpenJDK 8 JRE（约 38 MB）并解压到 runtime\jre8'
+    Out-Dry '将下载 Temurin 25 JRE（约 56 MB）并解压到 runtime\jre25'
     return
   }
 
@@ -1305,7 +1318,7 @@ function Ensure-JreInstalled {
     }
   }
 
-  $download = Invoke-ComponentDownload -Label 'JRE 运行时（OpenJDK 8）' -Candidates $candidates -StepName 'jre' -CacheAliases @('jre8.zip')
+  $download = Invoke-ComponentDownload -Label 'JRE 运行时（OpenJDK 25）' -Candidates $candidates -StepName 'jre' -CacheAliases @('jre25.zip')
   if ($download.Planned) { return }
 
   $extractDir = Join-Path $script:P.Cache ('extract-jre-' + (Get-Timestamp))
@@ -1325,14 +1338,14 @@ function Ensure-JreInstalled {
   Remove-Item -LiteralPath $extractDir -Recurse -Force -ErrorAction SilentlyContinue
 
   if (-not (Test-Path -LiteralPath $script:P.JavaExe)) {
-    throw 'JRE 安装后仍找不到 runtime\jre8\bin\java.exe'
+    throw 'JRE 安装后仍找不到 runtime\jre25\bin\java.exe'
   }
   $installed = Get-JavaVersionInfo $script:P.JavaExe
   if (-not $installed.Ok) { throw 'JRE 安装完成，但执行 java.exe -version 失败。可能被杀毒软件拦截，请把包目录加入白名单后重试。' }
-  if (-not (Test-Java8Version $installed.Version)) {
-    Out-Warn ('安装的 JRE 版本是 ' + $installed.Version + '，本程序只在 Java 8 上验证过')
+  if (-not (Test-Java25Version $installed.Version)) {
+    Out-Warn ('安装的 JRE 版本是 ' + $installed.Version + '，低于本程序要求的 Java 25')
   }
-  Out-Ok ('JRE 安装完成：' + $installed.Version + '（runtime\jre8，' + (Get-DirectorySizeMB $script:P.Jre) + ' MB）')
+  Out-Ok ('JRE 安装完成：' + $installed.Version + '（runtime\jre25，' + (Get-DirectorySizeMB $script:P.Jre) + ' MB）')
 }
 
 # ===========================================================================
@@ -1886,7 +1899,7 @@ function Get-AppJar {
 
 function Resolve-JavaRuntime {
   $candidates = New-Object System.Collections.ArrayList
-  [void]$candidates.Add(@{ Path = $script:P.JavaExe; Source = 'runtime\jre8' })
+  [void]$candidates.Add(@{ Path = $script:P.JavaExe; Source = 'runtime\jre25' })
   if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
     [void]$candidates.Add(@{ Path = (Join-Path $env:JAVA_HOME 'bin\java.exe'); Source = 'JAVA_HOME' })
   }
@@ -1900,12 +1913,14 @@ function Resolve-JavaRuntime {
     if (-not (Test-Path -LiteralPath $path)) { continue }
     $info = Get-JavaVersionInfo $path
     if (-not $info.Ok) { continue }
-    if (-not (Test-Java8Version $info.Version)) {
-      Out-Warn ('找到的 Java 是 ' + $info.Version + '（' + [string]$candidate.Source + '），本程序只在 Java 8 上验证过')
+    if (-not (Test-Java25Version $info.Version)) {
+      # 版本太低（例如机器上只装了旧版 Java）不能用：跳过，继续看下一个候选
+      Out-Warn ('跳过 Java ' + $info.Version + '（' + [string]$candidate.Source + '）：本项目需要 Java 25 及以上')
+      continue
     }
     return @{ Path = $path; Version = $info.Version; Source = [string]$candidate.Source }
   }
-  throw '找不到可用的 Java 运行时。请运行 setup.cmd --step jre 下载内置 JRE（推荐），或安装 Java 8 后重试。'
+  throw '找不到可用的 Java 运行时（需要 Java 25 及以上）。请运行 setup.cmd --step jre 下载内置 JRE（推荐），或安装 Java 25 后重试。'
 }
 
 function Get-AppProcess {
@@ -2262,7 +2277,7 @@ function Write-SetupDone {
 function Get-MissingComponents {
   $missing = New-Object System.Collections.ArrayList
   if (-not (Test-Path -LiteralPath $script:P.AppEnv)) { [void]$missing.Add('config\app.env') }
-  if (-not (Test-Path -LiteralPath $script:P.JavaExe)) { [void]$missing.Add('JRE（runtime\jre8）') }
+  if (-not (Test-Path -LiteralPath $script:P.JavaExe)) { [void]$missing.Add('JRE（runtime\jre25）') }
   if (-not (Test-Path -LiteralPath $script:P.MysqldExe)) { [void]$missing.Add('MySQL（mysql\）') }
   if (-not (Test-Path -LiteralPath (Join-Path $script:P.DataMysql 'mysql'))) { [void]$missing.Add('数据库（data\mysql）') }
   if (-not (Test-Path -LiteralPath (Join-Path $script:P.App 'init-mysql.sql'))) { [void]$missing.Add('app\init-mysql.sql') }
@@ -2897,9 +2912,9 @@ function Invoke-StatusCommand {
 
   if (Test-Path -LiteralPath $script:P.JavaExe) {
     $java = Get-JavaVersionInfo $script:P.JavaExe
-    if ($java.Ok) { Out-Ok ('JRE：' + $java.Version + '（runtime\jre8）') } else { Out-Warn 'JRE：java.exe 存在但无法运行' }
+    if ($java.Ok) { Out-Ok ('JRE：' + $java.Version + '（runtime\jre25）') } else { Out-Warn 'JRE：java.exe 存在但无法运行' }
   } else {
-    Out-Warn 'JRE：未安装（runtime\jre8）'
+    Out-Warn 'JRE：未安装（runtime\jre25）'
   }
 
   if (Test-Path -LiteralPath $script:P.MysqldExe) {
@@ -3084,16 +3099,16 @@ function Invoke-DoctorCommand {
   if (Test-Path -LiteralPath $script:P.JavaExe) {
     $java = Get-JavaVersionInfo $script:P.JavaExe
     if ($java.Ok) {
-      if (Test-Java8Version $java.Version) {
-        Add-DoctorResult '通过' 'JRE' ($java.Version + '（runtime\jre8）') ''
+      if (Test-Java25Version $java.Version) {
+        Add-DoctorResult '通过' 'JRE' ($java.Version + '（runtime\jre25）') ''
       } else {
-        Add-DoctorResult '警告' 'JRE' ($java.Version + '，不是 Java 8') '运行 setup.cmd --force --step jre 重新安装'
+        Add-DoctorResult '警告' 'JRE' ($java.Version + '，低于 Java 25') '运行 setup.cmd --force --step jre 重新安装'
       }
     } else {
-      Add-DoctorResult '失败' 'JRE' 'java.exe 无法运行' '删除 runtime\jre8，再运行 setup.cmd --step jre'
+      Add-DoctorResult '失败' 'JRE' 'java.exe 无法运行' '删除 runtime\jre25，再运行 setup.cmd --step jre'
     }
   } else {
-    Add-DoctorResult '失败' 'JRE' 'runtime\jre8\bin\java.exe 不存在' '运行 setup.cmd --step jre'
+    Add-DoctorResult '失败' 'JRE' 'runtime\jre25\bin\java.exe 不存在' '运行 setup.cmd --step jre'
   }
 
   Out-Step '5. MySQL'

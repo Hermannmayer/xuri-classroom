@@ -1,0 +1,315 @@
+package cn.surveyking.server.core.audit;
+
+import cn.surveyking.server.domain.dto.AnswerGradeRequest;
+import cn.surveyking.server.domain.dto.AnswerRequest;
+import cn.surveyking.server.domain.dto.ProjectRequest;
+import cn.surveyking.server.domain.dto.ProjectStatusRequest;
+import cn.surveyking.server.domain.dto.RoleRequest;
+import cn.surveyking.server.domain.model.Answer;
+import cn.surveyking.server.domain.model.AnswerGrade;
+import cn.surveyking.server.domain.model.Project;
+import cn.surveyking.server.domain.model.Role;
+import cn.surveyking.server.mapper.AnswerGradeMapper;
+import cn.surveyking.server.mapper.AnswerMapper;
+import cn.surveyking.server.mapper.ProjectMapper;
+import cn.surveyking.server.mapper.RoleMapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * 高危动作的「改前 / 改后」快照（计划 §5.3）。
+ *
+ * <p>做成由 {@link AuditAspect} 在业务执行前后各调一次 {@link #snapshot(String, Object[])}，
+ * 而不是在每个 ServiceImpl 里手写：同一个动作只要在清单里就自动带上快照，
+ * 新加接口不用改第二处，也避免业务代码里散落一堆审计调用。
+ *
+ * <p>三条硬约束（不遵守会出事）：
+ * <ul>
+ * <li><b>只给清单里的动作写</b>：全量写会把 t_audit_log 撑爆，普通增删改没有回溯价值；</li>
+ * <li><b>不存答案正文与个人身份信息</b>：只放分数、状态、权限串、导出范围、答卷/项目/角色 id 与提交人账号 id；</li>
+ * <li><b>解析失败不能影响业务</b>：任何异常都吞掉只打 debug 日志，快照拿不到就退化成普通审计。</li>
+ * </ul>
+ *
+ * <p>「改前」必须在业务执行前采集：删除类动作执行完目标行已经查不到了（逻辑删除后
+ * {@code @TableLogic} 会把它挡在查询之外），这正是 {@code visible} 字段的含义。
+ *
+ * @author audit
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class AuditDiffSupport {
+
+	/** 要写快照的动作码，与计划 §5.3 的表格一一对应；不在表里的动作不要加 */
+	private static final Set<String> ACTIONS = Set.of("ANSWER_GRADE", "ANSWER_GRADE_RESET", "ANSWER_DELETE",
+			"ANSWER_DESTROY", "ANSWER_RESTORE", "PROJECT_DELETE", "PROJECT_DESTROY", "PROJECT_RESTORE", "PROJECT_STATUS",
+			"SYSTEM_ROLE_UPDATE");
+
+	/** 一次快照最多列多少份答卷：批量删除可能上千条，快照本身也要受 2KB 限制 */
+	private static final int MAX_ANSWERS = 20;
+
+	private final AnswerMapper answerMapper;
+
+	private final AnswerGradeMapper answerGradeMapper;
+
+	private final ProjectMapper projectMapper;
+
+	private final RoleMapper roleMapper;
+
+	/**
+	 * 比 {@link AuditRecorder#targetIdOf} 更准的目标 id：批改请求的目标是答卷（{@code answerId}），
+	 * 整卷/批量动作取第一条 id。非高危动作返回 null，由调用方回退到通用解析。
+	 */
+	public String targetIdOf(String action, Object[] args) {
+		if (!ACTIONS.contains(action) || args == null) {
+			return null;
+		}
+		if (isGradeAction(action)) {
+			AnswerGradeRequest request = find(args, AnswerGradeRequest.class);
+			return request == null ? null : trimToNull(request.getAnswerId());
+		}
+		if (isAnswerAction(action)) {
+			List<String> ids = answerIds(find(args, AnswerRequest.class));
+			return ids.isEmpty() ? null : ids.get(0);
+		}
+		if (isProjectAction(action)) {
+			ProjectStatusRequest statusRequest = find(args, ProjectStatusRequest.class);
+			if (statusRequest != null) {
+				return trimToNull(statusRequest.getId());
+			}
+			ProjectRequest projectRequest = find(args, ProjectRequest.class);
+			return projectRequest == null ? null : trimToNull(projectRequest.getId());
+		}
+		RoleRequest roleRequest = find(args, RoleRequest.class);
+		return roleRequest == null ? null : trimToNull(roleRequest.getId());
+	}
+
+	/**
+	 * 采集当前时刻的快照；非清单里的动作、参数对不上、查询出错都返回 null。
+	 * @param action 动作码
+	 * @param args Controller 方法参数
+	 */
+	public Map<String, Object> snapshot(String action, Object[] args) {
+		if (!ACTIONS.contains(action) || args == null) {
+			return null;
+		}
+		try {
+			if (isGradeAction(action)) {
+				AnswerGradeRequest request = find(args, AnswerGradeRequest.class);
+				return request == null ? null : gradeSnapshot(action, request);
+			}
+			if (isAnswerAction(action)) {
+				AnswerRequest request = find(args, AnswerRequest.class);
+				return request == null ? null : answerSnapshot(request);
+			}
+			if (isProjectAction(action)) {
+				ProjectStatusRequest statusRequest = find(args, ProjectStatusRequest.class);
+				if (statusRequest != null) {
+					return projectSnapshot(statusRequest.getId());
+				}
+				ProjectRequest projectRequest = find(args, ProjectRequest.class);
+				return projectRequest == null ? null : projectSnapshot(projectRequest.getId());
+			}
+			RoleRequest roleRequest = find(args, RoleRequest.class);
+			return roleRequest == null ? null : roleSnapshot(roleRequest.getId());
+		}
+		catch (Exception e) {
+			log.debug("采集审计快照失败 action={}", action, e);
+			return null;
+		}
+	}
+
+	/* ------ 以下为内部实现 ------ */
+
+	private static boolean isGradeAction(String action) {
+		return "ANSWER_GRADE".equals(action) || "ANSWER_GRADE_RESET".equals(action);
+	}
+
+	private static boolean isAnswerAction(String action) {
+		return "ANSWER_DELETE".equals(action) || "ANSWER_DESTROY".equals(action) || "ANSWER_RESTORE".equals(action);
+	}
+
+	private static boolean isProjectAction(String action) {
+		// destroy / restore 与 delete 同属「考试没了 / 回来了」，快照口径一致；
+		// 计划文档 §5.3 只写了 PROJECT_DELETE，属于漏列。
+		return "PROJECT_DELETE".equals(action) || "PROJECT_DESTROY".equals(action) || "PROJECT_RESTORE".equals(action)
+				|| "PROJECT_STATUS".equals(action);
+	}
+
+	/**
+	 * 批改快照：逐题的分数与评语 + 整卷 {@code exam_score} 与批改状态。
+	 *
+	 * <p>撤销批改（reset）不带题目 id 表示整卷清空，这时要取库里现存的全部人工分，
+	 * 否则「改前」是空的，看上去像什么都没撤。
+	 */
+	private Map<String, Object> gradeSnapshot(String action, AnswerGradeRequest request) {
+		String answerId = trimToNull(request.getAnswerId());
+		Map<String, Object> snapshot = new LinkedHashMap<>();
+		snapshot.put("answerId", answerId);
+		Answer answer = answerId == null ? null : answerMapper.selectById(answerId);
+		if (answer != null) {
+			snapshot.put("projectId", answer.getProjectId());
+			snapshot.put("examScore", answer.getExamScore());
+			snapshot.put("gradeStatus", answer.getGradeStatus());
+		}
+		Map<String, AnswerGrade> grades = loadGrades(answerId);
+		List<String> questionIds = new ArrayList<>();
+		if ("ANSWER_GRADE_RESET".equals(action)) {
+			List<String> requested = cleanIds(request.getQuestionIds());
+			questionIds.addAll(requested.isEmpty() ? grades.keySet() : requested);
+		}
+		else if (request.getItems() != null) {
+			for (AnswerGradeRequest.Item item : request.getItems()) {
+				if (item != null && StringUtils.hasText(item.getQuestionId())) {
+					questionIds.add(item.getQuestionId().trim());
+				}
+			}
+		}
+		// 去重但保留顺序：一次请求里同一题出现多次只记一条，快照看的是「改前/改后」，不需要重复项
+		List<Map<String, Object>> items = new ArrayList<>();
+		for (String questionId : new LinkedHashSet<>(questionIds)) {
+			AnswerGrade grade = grades.get(questionId);
+			Map<String, Object> item = new LinkedHashMap<>();
+			item.put("questionId", questionId);
+			// 没批改过是 null，不是 0：前端要能区分「0 分」和「还没打分」
+			item.put("score", grade == null ? null : grade.getScore());
+			item.put("comment", grade == null ? null : grade.getComment());
+			items.add(item);
+		}
+		if (!items.isEmpty()) {
+			snapshot.put("items", items);
+		}
+		return snapshot;
+	}
+
+	/**
+	 * 答卷删除 / 彻底删除 / 恢复的快照：答卷 id、项目 id、提交人（只存账号 id，不存姓名）+ 是否还能查到。
+	 *
+	 * <p>{@code visible=false} 就是「当前查不到这一行」：逻辑删除后 {@code @TableLogic} 会把它挡掉。
+	 * 于是「删除」的前后是 true→false，「恢复」是 false→true，一眼能看出动作方向。
+	 */
+	private Map<String, Object> answerSnapshot(AnswerRequest request) {
+		List<String> ids = answerIds(request);
+		Map<String, Object> snapshot = new LinkedHashMap<>();
+		snapshot.put("count", ids.size());
+		snapshot.put("answerIds", ids.size() > MAX_ANSWERS ? ids.subList(0, MAX_ANSWERS) : ids);
+		List<Map<String, Object>> rows = new ArrayList<>();
+		for (String id : ids) {
+			if (rows.size() >= MAX_ANSWERS) {
+				break;
+			}
+			Answer answer = answerMapper.selectById(id);
+			if (answer == null) {
+				continue;
+			}
+			Map<String, Object> row = new LinkedHashMap<>();
+			row.put("answerId", answer.getId());
+			row.put("projectId", answer.getProjectId());
+			// 提交人只记账号 id：审计要能追到人，但不把姓名/联系方式复制进长期保留的表
+			row.put("submitter", answer.getCreateBy());
+			row.put("gradeStatus", answer.getGradeStatus());
+			row.put("tempSave", answer.getTempSave());
+			row.put("examScore", answer.getExamScore());
+			rows.add(row);
+		}
+		snapshot.put("visible", !rows.isEmpty());
+		if (!rows.isEmpty()) {
+			snapshot.put("answers", rows);
+		}
+		return snapshot;
+	}
+
+	private Map<String, Object> projectSnapshot(String projectId) {
+		String id = trimToNull(projectId);
+		Map<String, Object> snapshot = new LinkedHashMap<>();
+		snapshot.put("projectId", id);
+		Project project = id == null ? null : projectMapper.selectById(id);
+		snapshot.put("visible", project != null);
+		if (project != null) {
+			snapshot.put("name", project.getName());
+			// 发布开关的真源是 t_project.status（setting.status 是它的副本），这里只记列上的值
+			snapshot.put("status", project.getStatus());
+		}
+		return snapshot;
+	}
+
+	/** 角色快照：权限变更必须可追，所以留完整的权限串（before/after 一比就知道加了什么） */
+	private Map<String, Object> roleSnapshot(String roleId) {
+		String id = trimToNull(roleId);
+		Map<String, Object> snapshot = new LinkedHashMap<>();
+		snapshot.put("roleId", id);
+		Role role = id == null ? null : roleMapper.selectById(id);
+		snapshot.put("visible", role != null);
+		if (role != null) {
+			snapshot.put("code", role.getCode());
+			snapshot.put("name", role.getName());
+			snapshot.put("authority", role.getAuthority());
+		}
+		return snapshot;
+	}
+
+	private Map<String, AnswerGrade> loadGrades(String answerId) {
+		Map<String, AnswerGrade> grades = new LinkedHashMap<>();
+		if (!StringUtils.hasText(answerId)) {
+			return grades;
+		}
+		List<AnswerGrade> rows = answerGradeMapper
+				.selectList(Wrappers.<AnswerGrade>lambdaQuery().eq(AnswerGrade::getAnswerId, answerId));
+		for (AnswerGrade row : rows) {
+			if (row != null && StringUtils.hasText(row.getQuestionId())) {
+				grades.put(row.getQuestionId(), row);
+			}
+		}
+		return grades;
+	}
+
+	private static List<String> answerIds(AnswerRequest request) {
+		if (request == null) {
+			return new ArrayList<>();
+		}
+		List<String> ids = cleanIds(request.getIds());
+		if (ids.isEmpty() && StringUtils.hasText(request.getId())) {
+			ids.add(request.getId().trim());
+		}
+		return ids;
+	}
+
+	private static List<String> cleanIds(List<String> ids) {
+		List<String> cleaned = new ArrayList<>();
+		if (CollectionUtils.isEmpty(ids)) {
+			return cleaned;
+		}
+		for (String id : ids) {
+			if (StringUtils.hasText(id) && !cleaned.contains(id.trim())) {
+				cleaned.add(id.trim());
+			}
+		}
+		return cleaned;
+	}
+
+	private static String trimToNull(String value) {
+		return StringUtils.hasText(value) ? value.trim() : null;
+	}
+
+	/** 按类型挑第一个参数：接口里同一动作的 DTO 类型互不相同，不需要再看 URI */
+	private static <T> T find(Object[] args, Class<T> type) {
+		for (Object arg : args) {
+			if (type.isInstance(arg)) {
+				return type.cast(arg);
+			}
+		}
+		return null;
+	}
+
+}

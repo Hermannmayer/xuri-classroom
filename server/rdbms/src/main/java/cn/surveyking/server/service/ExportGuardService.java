@@ -1,14 +1,14 @@
 package cn.surveyking.server.service;
 
+import cn.surveyking.server.core.audit.AuditRecorder;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
-import cn.surveyking.server.domain.dto.SystemInfo;
-import cn.surveyking.server.domain.model.AuditLog;
-import cn.surveyking.server.mapper.AuditLogMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 导出管控：密码校验 + 审计记录。
@@ -31,7 +31,11 @@ public class ExportGuardService {
 
 	public static final String IMPORT_REPO = "IMPORT_REPO";
 
-	private final AuditLogMapper auditLogMapper;
+	/**
+	 * 审计统一走 {@link AuditRecorder}：导出这条链路和 AOP 那条链路必须用同一套口径，
+	 * 否则「操作日志」里同一动作会出现一半有 source/操作人、一半没有的情况。
+	 */
+	private final AuditRecorder auditRecorder;
 
 	private final cn.surveyking.server.mapper.SysInfoMapper sysInfoMapper;
 
@@ -116,34 +120,53 @@ public class ExportGuardService {
 		}
 	}
 
-	/** 记一条审计日志；失败不影响导出本身 */
+	/** 记一条审计日志；失败不影响导出本身（AuditRecorder 内部已经吞掉异常） */
 	public void record(String action, String targetId, String targetName, String detail) {
-		try {
-			AuditLog log = new AuditLog();
-			log.setAction(action);
-			log.setTargetId(targetId);
-			log.setTargetName(targetName);
-			log.setDetail(detail);
-			log.setIp(currentIp());
-			auditLogMapper.insert(log);
-		}
-		catch (Exception e) {
-			ExportGuardService.log.warn("写入审计日志失败: action={}, target={}", action, targetId, e);
-		}
+		auditRecorder.record(action, targetId, targetName, detail, true, null);
 	}
 
-	private String currentIp() {
-		try {
-			org.springframework.web.context.request.ServletRequestAttributes attrs = (org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder
-					.getRequestAttributes();
-			if (attrs == null) {
-				return null;
-			}
-			return cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(attrs.getRequest());
+	/**
+	 * 记一条带「导出口径」的审计。
+	 *
+	 * <p>导出是只读动作，没有「改后」状态，所以把筛选范围记进 before_json：
+	 * 项目 / 班级 / 第几次作答 / 请求条数 / 类型。**只记范围，不复制任何导出内容**——
+	 * 审计表长期保留，把答卷正文放进去等于又开了一个数据出口。
+	 * @param scope 导出口径，由各导出接口按自己关心的筛选条件拼
+	 */
+	public void record(String action, String targetId, String targetName, String detail, Map<String, Object> scope) {
+		auditRecorder.recordWithDiff(action, targetId, targetName, detail, true, null, scope, null);
+	}
+
+	/**
+	 * 答卷导出口径：只记筛选范围（项目 / 班级 / 第几次作答 / 请求条数 / 导出类型），不记任何答卷内容。
+	 *
+	 * <p>{@code requestedIds=0} 表示没有按 id 过滤，导出的就是该范围内全部答卷——
+	 * 真实条数要到导出那一刻才知道，这里有筛选条件已经足够回答「这次带走多大范围」。
+	 */
+	public static Map<String, Object> answerExportScope(cn.surveyking.server.domain.dto.DownloadQuery query) {
+		Map<String, Object> scope = new LinkedHashMap<>();
+		if (query == null) {
+			return scope;
 		}
-		catch (Exception e) {
-			return null;
+		scope.put("projectId", query.getProjectId());
+		scope.put("classId", query.getClassId());
+		scope.put("attemptNo", query.getAttemptNo());
+		scope.put("type", query.getType() == null ? null : query.getType().name());
+		scope.put("requestedIds", query.getIds() == null ? 0 : query.getIds().size());
+		return scope;
+	}
+
+	/** 题库导出口径：题库 id + 名称/分类/模式（题库导出没有题目级筛选，不记条数） */
+	public static Map<String, Object> repoExportScope(cn.surveyking.server.domain.dto.RepoRequest request) {
+		Map<String, Object> scope = new LinkedHashMap<>();
+		if (request == null) {
+			return scope;
 		}
+		scope.put("repoId", request.getId());
+		scope.put("name", request.getName());
+		scope.put("category", request.getCategory());
+		scope.put("mode", request.getMode());
+		return scope;
 	}
 
 	/** 当前操作人（审计里 create_by 由 BaseModel 自动填充，这里仅用于日志文本） */

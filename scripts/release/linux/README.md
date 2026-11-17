@@ -15,7 +15,7 @@
 | **app.env.example** | 运行配置模板；安装器会复制为 **app.env** |
 | **README.md** | 本文件 |
 
-安装包**不再内置 JRE**（包体积约 55MB）。默认使用系统 java；机器没有 java 时，加 **--download-jre** 从国内镜像（清华 TUNA，失败回退南京大学）下载 Temurin JRE 8（约 39.9MB）到 **<安装目录>/runtime/jre8**，并校验官方 SHA256。
+安装包**不再内置 JRE**（包体积约 55MB）。默认使用系统 java（**必须是 Java 25 或更高的运行时**：jar 的字节码目标是 Java 25，8/11/17 都起不来）；机器没有 java 时，加 **--download-jre** 从国内镜像（清华 TUNA，失败回退南京大学）下载 Temurin JRE 25.0.5+8（约 59MB）到 **<安装目录>/runtime/jre25**，并校验官方 SHA256（值来自 Adoptium 官方 API，见第 12 节）。
 
 ## 2. 前置条件
 
@@ -24,8 +24,8 @@
 - MySQL 5.7 或 8.0（本机或远程都可）
 - 使用 **--init-db** 时，本机需要 **mysql** 客户端
 - 服务端口可被访问（默认 8080）；小于 1024 的端口会自动加 CAP_NET_BIND_SERVICE
-- Java：JRE 8（推荐）；更高版本通常可用但未做完整验证
-- 使用 **--download-jre** 时需要 curl 或 wget，以及 sha256sum（coreutils）或 openssl 用于校验；解压后约 110MB 磁盘空间
+- Java：Java 25 运行时（**必需**）；低于 25 的版本启动会直接失败（class 文件 major 69）
+- 使用 **--download-jre** 时需要 curl 或 wget，以及 sha256sum（coreutils）或 openssl 用于校验；解压后约 190MB 磁盘空间
 
 ## 3. 快速开始
 
@@ -37,7 +37,7 @@ cd xuri-classroom-<version>-linux-x64
 sudo bash install.sh --db-password '你的强密码' --init-db
 ~~~
 
-机器上没有 java 时（自动下载 JRE 8）：
+机器上没有 java 时（自动下载 JRE 25）：
 
 ~~~bash
 sudo bash install.sh --db-password '你的强密码' --init-db --download-jre
@@ -77,8 +77,8 @@ sudo bash install.sh --no-systemd --install-dir /tmp/xuri --db-password '你的�
 | **--db-admin-user <用户>** | root | 仅 --init-db：用于建库/建用户的管理员账号 |
 | **--db-admin-password <密码>** | 无 | 仅 --init-db：管理员密码；也可用环境变量 MYSQL_ROOT_PASSWORD |
 | **--init-db** | 关闭 | 建库、建用户、授权并导入 app/init-mysql.sql |
-| **--download-jre** | 关闭 | 从国内镜像下载 Temurin JRE 8 到安装目录并使用 |
-| **--no-jre** | 关闭 | 强制使用系统 java（不下载，也不用安装目录内的 JRE） |
+| **--download-jre** | 关闭 | 从国内镜像下载 Temurin JRE 25 到安装目录并使用 |
+| **--no-jre** | 关闭 | 强制使用系统 java（不下载，也不用安装目录内的 JRE；系统 java 必须 >= 25） |
 | **--no-systemd** | 关闭 | 只准备文件，不注册/启动 systemd 服务 |
 | **--yes, -y** | 关闭 | 不询问确认，适合自动化 |
 | **--help, -h** | — | 显示帮助 |
@@ -101,7 +101,8 @@ sudo bash install.sh --no-systemd --install-dir /tmp/xuri --db-password '你的�
 
 1. 校验 root、参数、安装包完整性（jar 文件头、init 脚本）
 2. 创建系统用户（默认 xuri）与安装目录（默认 /opt/xuri-classroom）
-3. 解析 Java：系统 java 优先 → 安装目录内已有 JRE → （--download-jre 时）下载 JRE
+3. 解析 Java：系统 java 优先 → 安装目录内已有 JRE → （--download-jre 时）下载 JRE。
+   每个候选都会跑一次 java -version，主版本低于 25 直接中止并提示改用 --download-jre
 4. 复制 jar 为 **<安装目录>/app.jar**
 5. 生成 **<安装目录>/app.env**（0600，属主为运行用户）；首次安装自动生成 **SK_JWT_SECRET**
 6. 需要时初始化数据库（--init-db）
@@ -141,7 +142,7 @@ sudo systemctl restart xuri-classroom
 | **app.env** | 运行配置（0600，属主为运行用户） |
 | **files/** | 上传附件（**要备份**） |
 | **logs/** | 应用日志（logback 按天滚动；systemd 下也可用 journalctl 看控制台日志） |
-| **runtime/jre8/** | 只有使用 --download-jre 时才存在 |
+| **runtime/jre25/** | 只有使用 --download-jre 时才存在 |
 
 ## 8. 日常运维
 
@@ -253,28 +254,28 @@ sudo bash uninstall.sh --purge --yes
 
 **找不到 java**
 
-按提示安装 JRE 8（Debian/Ubuntu：apt install openjdk-8-jre-headless；RHEL/CentOS：dnf install java-1.8.0-openjdk-headless），或改用 **--download-jre**。
+本项目要求 **Java 25 及以上**（jar 的字节码目标是 Java 25）。最省事的办法是加 **--download-jre**，由安装器从国内镜像下载 Temurin JRE 25.0.5+8；也可以装发行版仓库里的 OpenJDK 25（Debian/Ubuntu：apt install openjdk-25-jre-headless；RHEL/Fedora：dnf install java-25-openjdk-headless，需发行版已提供该版本）。
 
 **JRE 下载失败 / 404**
 
 --download-jre 会校验官方 SHA256；镜像不可用时也可手动下载（两个源任选）：
 
 ~~~bash
-curl -fL -o /tmp/jre8.tar.gz \
-  https://mirrors.tuna.tsinghua.edu.cn/Adoptium/8/jre/x64/linux/OpenJDK8U-jre_x64_linux_hotspot_8u512b09.tar.gz
+curl -fL -o /tmp/jre25.tar.gz \
+  https://mirrors.tuna.tsinghua.edu.cn/Adoptium/25/jre/x64/linux/OpenJDK25U-jre_x64_linux_hotspot_25.0.5_8.tar.gz
 
 # 备用源（清华失败时）：
-# https://mirrors.nju.edu.cn/adoptium/8/jre/x64/linux/OpenJDK8U-jre_x64_linux_hotspot_8u512b09.tar.gz
+# https://mirrors.nju.edu.cn/adoptium/25/jre/x64/linux/OpenJDK25U-jre_x64_linux_hotspot_25.0.5_8.tar.gz
 
-# 校验 SHA256（官方值）
-echo '57468dc8bfd71dd0578d9717e63a8c13b9efe0a2f2c85c2a13966d1c0f9b1e5f  /tmp/jre8.tar.gz' | sha256sum -c -
+# 校验 SHA256（Adoptium 官方 API 公布的值，与上面两个镜像的文件一致）
+echo '6fac98f0c8202efc3135a9e9e42aa61963ec42d1c5cbb40caf231e7b14a24ef6  /tmp/jre25.tar.gz' | sha256sum -c -
 
-sudo mkdir -p /opt/xuri-classroom/runtime/jre8
-sudo tar -xzf /tmp/jre8.tar.gz -C /opt/xuri-classroom/runtime/jre8 --strip-components=1
+sudo mkdir -p /opt/xuri-classroom/runtime/jre25
+sudo tar -xzf /tmp/jre25.tar.gz -C /opt/xuri-classroom/runtime/jre25 --strip-components=1
 sudo chown -R xuri:xuri /opt/xuri-classroom/runtime
 ~~~
 
-然后重新执行安装（脚本会复用已有的 runtime/jre8）。
+然后重新执行安装（脚本会复用已有的 runtime/jre25）。
 
 **服务起不来**
 
@@ -288,7 +289,7 @@ journalctl -u xuri-classroom -n 200 --no-pager
 
 - 确认 **app.env** 里的 DB_HOST/DB_PORT/DB_USER/DB_PASSWORD 正确；
 - 本机库确认 mysqld 已启动、端口在监听：**ss -ltnp | grep 3306**；
-- 连接串里的 **useSSL=false** 是故意的：JDK8 的 MySQL connector 与 MySQL 8 的 TLS 握手会失败；
+- 连接串里的 **useSSL=false** 是沿用的默认值（内网/本机库走明文连接；历史上早期 JDK 的 connector 与 MySQL 8 的 TLS 握手会失败）。需要加密连接时自备证书并把 useSSL 改成 true；
 - 手工验证：**mysql -h 127.0.0.1 -u surveyking -p -e 'SELECT 1'**。
 
 **端口被占用**

@@ -18,7 +18,7 @@ Linux 包是一个 tar.gz：解压后执行 `install.sh`，它会创建系统用
 | 项 | 要求 |
 |---|---|
 | 系统 | x86_64 Linux，带 systemd（Debian/Ubuntu/CentOS/RHEL/麒麟等） |
-| Java | Java 8 运行时；没有就加 `--download-jre`（清华 TUNA 的 Temurin JRE 8，失败回退南大镜像） |
+| Java | **Java 25 必需**（jar 的 class 文件是 major 69）；没有就加 `--download-jre`（清华 TUNA 的 Temurin JRE 25，失败回退南大镜像） |
 | MySQL | MySQL 8，本机或可访问的远程实例；用 `--init-db` 可自动建库导入 |
 | 内存 | 2GB 起，建议 4GB |
 | 磁盘 | 2GB 起（附件与备份另算） |
@@ -36,7 +36,7 @@ sudo bash install.sh --port 8080 --init-db \
   --db-host 127.0.0.1 --db-port 3306 \
   --db-name surveyking --db-user surveyking --db-password '改成强密码'
 
-# 没有系统 Java 时（从清华 TUNA 下载 Temurin JRE 8，回退南大镜像）
+# 没有系统 Java 时（从清华 TUNA 下载 Temurin JRE 25，回退南大镜像）
 sudo bash install.sh --port 8080 --download-jre --init-db --db-password '改成强密码'
 ```
 
@@ -48,7 +48,7 @@ sudo bash install.sh --port 8080 --download-jre --init-db --db-password '改成�
 2. 创建运行用户（默认 `xuri`）与安装目录；
 3. 复制 jar 到 `/opt/xuri-classroom/app.jar`；
 4. 生成 `/opt/xuri-classroom/app.env`（权限 `0600`，含 `DB_*`、`SERVER_PORT`、随机 `SK_JWT_SECRET`、`SK_WEB_SPA_ENABLED=true`、附件目录，并按 `DB_*` 同步 `SPRING_DATASOURCE_*`）；
-5. 选 Java：优先系统 `java`；系统没有时复用安装目录已有的 `runtime/jre8`；两者都没有则提示安装，或加 `--download-jre` 从国内镜像下载；
+5. 选 Java：优先系统 `java`；系统没有时复用安装目录已有的 `runtime/jre25`；两者都没有则提示安装，或加 `--download-jre` 从国内镜像下载；
 6. `--init-db` 时：建库、建用户、授权、导入 `init-mysql.sql`（失败会明确报错且**不启动**服务）；
 7. 写 `/etc/systemd/system/xuri-classroom.service`，`systemctl enable` + 启动；`--no-systemd` 只准备目录并打印手动启动命令；
 8. 打印访问地址、配置路径与看日志的命令。
@@ -66,8 +66,8 @@ sudo bash install.sh --port 8080 --download-jre --init-db --db-password '改成�
 | `--db-password` | 必填（或交互询问） | 连接密码；也可用环境变量 `XURI_DB_PASSWORD` |
 | `--db-admin-user` / `--db-admin-password` | `root` / 空 | 只有 `--init-db` 建库时用 |
 | `--init-db` | 关 | 用本机 `mysql` 客户端建库、建用户、授权并导入 `init-mysql.sql`（只允许空库；缺客户端会明确报错） |
-| `--download-jre` | 关 | 下载 Temurin JRE 8 到 `/opt/xuri-classroom/runtime/jre8`（清华 TUNA，回退南大） |
-| `--no-jre` | 关 | 不下载、不使用 `runtime/jre8`，强制系统 `java`（与 `--download-jre` 互斥） |
+| `--download-jre` | 关 | 下载 Temurin JRE 25 到 `/opt/xuri-classroom/runtime/jre25`（清华 TUNA，回退南大） |
+| `--no-jre` | 关 | 不下载、不使用 `runtime/jre25`，强制系统 `java`（与 `--download-jre` 互斥） |
 | `--no-systemd` | 关 | 不写 unit、不启动（容器或自管守护进程时用）；检测不到 systemd 会自动降级到这个模式 |
 | `--yes` / `-y` | 关 | 非交互确认 |
 | `--help` | — | 用法 |
@@ -176,7 +176,7 @@ sudo bash uninstall.sh --purge  # 连安装目录和运行用户一起删
 | `/opt/xuri-classroom/app.env` | 配置（`0600`） |
 | `/opt/xuri-classroom/files/` | 上传附件（**要备份**） |
 | `/opt/xuri-classroom/logs/` | 日志 |
-| `/opt/xuri-classroom/runtime/jre8/` | `--download-jre` 时才有 |
+| `/opt/xuri-classroom/runtime/jre25/` | `--download-jre` 时才有 |
 | `/etc/systemd/system/xuri-classroom.service` | systemd 单元 |
 
 ```bash
@@ -190,7 +190,7 @@ journalctl -u xuri-classroom -f          # 看日志
 | 现象 | 原因 / 处理 |
 |---|---|
 | `install.sh: Permission denied` | 忘了 `sudo`，或用了 `sh install.sh`；用 `sudo bash install.sh …`，必要时 `chmod +x install.sh` |
-| 提示找不到 java | 装 JRE 8，或加 `--download-jre`（清华 TUNA / 南大镜像的 Temurin JRE 8） |
+| 提示找不到 java | 装 JRE 25，或加 `--download-jre`（清华 TUNA / 南大镜像的 Temurin JRE 25） |
 | 服务起不来（`status` 是 failed） | `journalctl -u xuri-classroom -n 100` 看真实报错；多为数据库连不上或端口被占 |
 | 数据库连不上 | 检查 `--db-host/--db-port`、MySQL 是否监听、账号是否有 `surveyking` 库权限；远程连不上时先看 MySQL 的 `bind-address` |
 | 8080 被占用 | `ss -lntp \| grep 8080` 找进程；改 `--port` 或停掉占用者 |

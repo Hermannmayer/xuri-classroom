@@ -7,8 +7,9 @@
 #   sudo bash install.sh --help
 #
 # 说明：
-#   · 安装包不内置 JRE。默认使用系统 java；没有 java 时会给出安装提示，
-#     也可以加 --download-jre 从国内镜像下载 Temurin JRE 8 到安装目录。
+#   · 安装包不内置 JRE。默认使用系统 java（必须是 Java 25 或更高的运行时）；
+#     系统没有 java 时会给出安装提示，也可以加 --download-jre 从国内镜像
+#     下载 Temurin JRE 25 到安装目录。
 #   · 幂等：重复执行会保留已有的 app.env 与 SK_JWT_SECRET，只更新命令行
 #     显式给出的值，并重启服务。升级时用新包里的 install.sh 再跑一次即可。
 #   · 只支持 bash；请勿使用 sh install.sh。
@@ -40,13 +41,16 @@ DB_PASSWORD_SET=0
 READY_TIMEOUT="${XURI_READY_TIMEOUT:-60}"
 
 # 自动下载 JRE 使用的版本与镜像（x86_64 Linux）。如需换版本，改这里即可。
-JRE_VERSION="8u512b09"
-JRE_TARBALL="OpenJDK8U-jre_x64_linux_hotspot_${JRE_VERSION}.tar.gz"
-# 官方 Temurin 8u512-b09 JRE（x86_64，约 39.9MB）的 SHA256，下载后强制校验
-JRE_SHA256="57468dc8bfd71dd0578d9717e63a8c13b9efe0a2f2c85c2a13966d1c0f9b1e5f"
+# 本项目的字节码目标是 Java 25（class 文件 major 69），运行时必须 >= 25，否则起不来。
+# Adoptium 的 release 名用加号（25.0.5+8），压缩包文件名用下划线（25.0.5_8）。
+JRE_VERSION="25.0.5+8"
+JRE_TARBALL="OpenJDK25U-jre_x64_linux_hotspot_25.0.5_8.tar.gz"
+# 官方 Temurin 25.0.5+8 JRE（x86_64，压缩包 61736206 字节，解压后约 190MB）的 SHA256：
+# 取值来自 Adoptium 官方 API（api.adoptium.net），并已核对镜像上的同名文件；下载后强制校验。
+JRE_SHA256="6fac98f0c8202efc3135a9e9e42aa61963ec42d1c5cbb40caf231e7b14a24ef6"
 JRE_URLS=(
-  "https://mirrors.tuna.tsinghua.edu.cn/Adoptium/8/jre/x64/linux/${JRE_TARBALL}"
-  "https://mirrors.nju.edu.cn/adoptium/8/jre/x64/linux/${JRE_TARBALL}"
+  "https://mirrors.tuna.tsinghua.edu.cn/Adoptium/25/jre/x64/linux/${JRE_TARBALL}"
+  "https://mirrors.nju.edu.cn/adoptium/25/jre/x64/linux/${JRE_TARBALL}"
 )
 
 SCRIPT_DIR=""
@@ -104,9 +108,10 @@ usage() {
                                 （也可用环境变量 MYSQL_ROOT_PASSWORD）
 
 Java 选项：
-  --download-jre            从国内镜像下载 Temurin JRE 8（x86_64）到安装目录，
-                            已在 <安装目录>/runtime/jre8 时直接复用
+  --download-jre            从国内镜像下载 Temurin JRE 25（x86_64）到安装目录，
+                            已在 <安装目录>/runtime/jre25 时直接复用
   --no-jre                  强制使用系统 java：不下载、也不用安装目录内的 JRE
+                            （系统 java 必须 >= 25，否则安装直接中止）
 
 其他：
   --no-systemd              只安装文件、不注册 systemd，打印手动启动命令
@@ -117,7 +122,7 @@ Java 选项：
   # 全新安装：本机 MySQL，自动建库并导入初始数据
   sudo bash install.sh --db-password 'Str0ng-Pass' --init-db
 
-  # 机器没有 java，用国内镜像下载 JRE 8
+  # 机器没有 java，用国内镜像下载 JRE 25
   sudo bash install.sh --db-password 'Str0ng-Pass' --init-db --download-jre
 
   # 连接已有数据库，不建库、不导入
@@ -343,20 +348,53 @@ sha256_of() {
   printf '%s' "$out" | tr '[:upper:]' '[:lower:]'
 }
 
-check_java_version() {
-  local bin="$1" ver=""
-  ver=$("$bin" -version 2>&1 | head -n 1 || true)
-  info "Java 版本：${ver:-未知}（$bin）"
+# 提取 Java 主版本号：旧格式是 1 开头（主版本在 "1." 之后），Java 9+ 直接给主版本号
+# （如 "25.0.5"，早期访问版是 "25-ea"）。
+java_major_version() {
+  local text="$1" ver=""
+  # 正常输出形如：openjdk version "25.0.5" 2026-10-20 LTS（版本号带双引号）
+  ver=$(printf '%s\n' "$text" | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -n 1)
+  if [[ -z "$ver" ]]; then
+    # 兜底：某些包装脚本/老实现不带引号，退化成取 version 后面第一段数字
+    ver=$(printf '%s\n' "$text" | sed -n 's/.*version[[:space:]]\+\([0-9][0-9._+-]*\).*/\1/p' | head -n 1)
+  fi
+  if [[ -z "$ver" ]]; then
+    return 1
+  fi
   case "$ver" in
-    *'"1.8.'*|*'version "8'*) ;;
-    *) warn "检测到的 Java 不是 8.x（${ver:-未知}）。本项目基于 Spring Boot 2.7，官方目标是 JRE 8，更高版本可能可用但不保证。" ;;
+    1.*) ver="${ver#1.}"; ver="${ver%%.*}" ;;
+    *) ver="${ver%%.*}"; ver="${ver%%-*}" ;;
   esac
+  printf '%s' "$ver"
+}
+
+check_java_version() {
+  local bin="$1" out="" text="" major=""
+  # 整个输出都交给解析器：JAVA_TOOL_OPTIONS 会让 java 先打一行 "Picked up ..."，
+  # 只看第一行会误判成"无法识别"。
+  out=$("$bin" -version 2>&1 || true)
+  text=$(printf '%s\n' "$out" | head -n 1)
+  info "Java 版本：${text:-未知}（$bin）"
+  major=$(java_major_version "$out" || true)
+  if [[ ! "$major" =~ ^[0-9]+$ ]]; then
+    die "无法从 java -version 的输出里识别主版本号（${text:-空}）。
+  本项目需要 Java 25 或更高的运行时：请确认 $bin 是可用的 OpenJDK 25+（可直接执行 '$bin -version' 查看），
+  或改用 --download-jre 由安装器下载 Temurin JRE ${JRE_VERSION}。"
+  fi
+  if [[ $major -lt 25 ]]; then
+    die "Java 版本过低：检测到 Java ${major}（$bin）。本项目的字节码目标是 Java 25，必须用 Java 25 或更高的运行时。
+   最省事的办法：加 --download-jre，由安装器从国内镜像下载 Temurin JRE ${JRE_VERSION}；
+   或安装发行版仓库提供的 OpenJDK 25（若你的发行版已提供）后重跑本脚本。"
+  fi
+  if [[ $major -gt 25 ]]; then
+    warn "检测到 Java ${major}（$bin）：本项目在 Java 25 上验证，更高主版本通常可用但未做完整验证。"
+  fi
 }
 
 ensure_downloaded_jre() {
-  local installed="$INSTALL_DIR/runtime/jre8/bin/java"
+  local installed="$INSTALL_DIR/runtime/jre25/bin/java"
   if [[ -x "$installed" ]] && "$installed" -version >/dev/null 2>&1; then
-    ok "已存在可用的 JRE：$INSTALL_DIR/runtime/jre8（跳过下载）"
+    ok "已存在可用的 JRE：$INSTALL_DIR/runtime/jre25（跳过下载）"
     return 0
   fi
 
@@ -364,7 +402,7 @@ ensure_downloaded_jre() {
   arch=$(uname -m 2>/dev/null || echo unknown)
   case "$arch" in
     x86_64|amd64) ;;
-    *) die "自动下载的 JRE 只提供 x86_64 版本，当前架构是 $arch。请安装系统 JRE 8（--no-jre），或换用 x86_64 机器。" ;;
+    *) die "自动下载的 JRE 只提供 x86_64 版本，当前架构是 $arch。请安装系统 Java 25（--no-jre），或换用 x86_64 机器。" ;;
   esac
 
   local downloader=""
@@ -381,7 +419,7 @@ ensure_downloaded_jre() {
   CLEANUP_FILES+=("$tmp_dir")
   tmp_tar="$tmp_dir/jre.tar.gz"
 
-  info "下载 Temurin JRE ${JRE_VERSION}（x86_64，约 40MB，国内镜像）"
+  info "下载 Temurin JRE ${JRE_VERSION}（x86_64，约 59MB，国内镜像）"
   for url in "${JRE_URLS[@]}"; do
     info "尝试：$url"
     if [[ "$downloader" == "curl" ]]; then
@@ -397,7 +435,7 @@ ensure_downloaded_jre() {
     warn "下载失败：$url"
   done
   if [[ $worked -eq 0 ]]; then
-    die "JRE 下载失败。请检查网络/代理，或手动下载后解压到 $INSTALL_DIR/runtime/jre8：
+    die "JRE 下载失败。请检查网络/代理，或手动下载后解压到 $INSTALL_DIR/runtime/jre25：
   ${JRE_URLS[0]}
   ${JRE_URLS[1]}"
   fi
@@ -414,7 +452,7 @@ ensure_downloaded_jre() {
     die "下载的 JRE 压缩包损坏（tar 校验失败），请重试或手动下载。"
   fi
 
-  info "解压 JRE 到 $INSTALL_DIR/runtime/jre8"
+  info "解压 JRE 到 $INSTALL_DIR/runtime/jre25"
   mkdir -p -- "$tmp_dir/extract"
   if ! tar -xzf "$tmp_tar" -C "$tmp_dir/extract" --strip-components=1; then
     die "解压 JRE 失败（压缩包结构异常）"
@@ -422,18 +460,25 @@ ensure_downloaded_jre() {
   if [[ ! -x "$tmp_dir/extract/bin/java" ]]; then
     die "解压后的 JRE 缺少 bin/java，压缩包结构不符合预期，请手动下载。"
   fi
-  rm -rf -- "$INSTALL_DIR/runtime/jre8"
+  rm -rf -- "$INSTALL_DIR/runtime/jre25"
   mkdir -p -- "$INSTALL_DIR/runtime"
-  mv -- "$tmp_dir/extract" "$INSTALL_DIR/runtime/jre8" || die "安装 JRE 到 $INSTALL_DIR/runtime/jre8 失败"
+  mv -- "$tmp_dir/extract" "$INSTALL_DIR/runtime/jre25" || die "安装 JRE 到 $INSTALL_DIR/runtime/jre25 失败"
   chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR/runtime" || warn "设置 JRE 属主失败，请手动 chown -R $RUN_USER:$RUN_GROUP $INSTALL_DIR/runtime"
   if ! "$installed" -version >/dev/null 2>&1; then
-    die "下载的 JRE 无法运行（可能是 glibc 版本不兼容）。请安装系统 JRE 8 后使用 --no-jre。"
+    die "下载的 JRE 无法运行（常见原因：glibc 过旧、CPU 架构不匹配，或被安全策略拦截）。请安装系统 Java 25 后使用 --no-jre。"
   fi
-  ok "JRE 已安装：$INSTALL_DIR/runtime/jre8"
+  ok "JRE 已安装：$INSTALL_DIR/runtime/jre25"
 }
 
 resolve_java() {
-  local installed="$INSTALL_DIR/runtime/jre8/bin/java"
+  local installed="$INSTALL_DIR/runtime/jre25/bin/java"
+
+  # 从 2.2.x 升级上来的机器可能还留着旧版本的 runtime/jre8（本版本只用 runtime/jre25）。
+  # 不自动删（不动用户的文件），只提示可以手动清理。
+  if [[ -d "$INSTALL_DIR/runtime/jre8" ]]; then
+    warn "检测到旧版本遗留的运行时目录：$INSTALL_DIR/runtime/jre8。本版本要求 Java 25，该目录已不再使用，
+  确认无用后可删除：rm -rf '$INSTALL_DIR/runtime/jre8'（可释放约 100MB 磁盘）"
+  fi
 
   if [[ $DOWNLOAD_JRE -eq 1 ]]; then
     ensure_downloaded_jre
@@ -464,17 +509,19 @@ resolve_java() {
   fi
 
   if [[ $FORCE_SYSTEM_JAVA -eq 1 ]]; then
-    die "已指定 --no-jre，但系统里找不到 java。请先安装 JRE 8：
-  Debian/Ubuntu : apt install openjdk-8-jre-headless
-  RHEL/CentOS   : dnf install java-1.8.0-openjdk-headless
-  或者去掉 --no-jre，加 --download-jre 从国内镜像下载。"
+    die "已指定 --no-jre，但系统里找不到 java。请先安装 Java 25 运行时：
+  最省事：去掉 --no-jre，加 --download-jre（会从国内镜像下载 Temurin JRE ${JRE_VERSION}）；
+  或装发行版仓库里的 OpenJDK 25（需发行版已提供），例如：
+     Debian/Ubuntu : apt install openjdk-25-jre-headless
+     RHEL/Fedora   : dnf install java-25-openjdk-headless"
   fi
 
   die "系统里找不到 java。请任选一种：
-  1) 安装系统 JRE 8：
-     Debian/Ubuntu : apt install openjdk-8-jre-headless
-     RHEL/CentOS   : dnf install java-1.8.0-openjdk-headless
-  2) 加 --download-jre，从国内镜像下载 Temurin JRE 8 到 $INSTALL_DIR/runtime/jre8"
+  1) 加 --download-jre，从国内镜像下载 Temurin JRE ${JRE_VERSION} 到 $INSTALL_DIR/runtime/jre25
+  2) 安装 Java 25 运行时（需发行版仓库已提供），例如：
+     Debian/Ubuntu : apt install openjdk-25-jre-headless
+     RHEL/Fedora   : dnf install java-25-openjdk-headless
+  本项目的字节码目标是 Java 25，低于 25 的运行时都会启动失败。"
 }
 
 resolve_db_password() {
@@ -531,7 +578,7 @@ maybe_confirm() {
   if [[ $DOWNLOAD_JRE -eq 1 ]]; then
     jre_text="从国内镜像下载 Temurin JRE ${JRE_VERSION}"
   else
-    jre_text="优先系统 java，缺失时使用安装目录内已有 JRE"
+    jre_text="优先系统 java（需 Java 25+），缺失时使用安装目录内已有 JRE"
   fi
   cat <<EOF
 即将安装旭日云课堂：

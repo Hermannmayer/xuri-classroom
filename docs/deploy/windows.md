@@ -5,7 +5,7 @@ description: "解压即用：首次向导下载 JRE 与 MySQL，自动初始化�
 
 # Windows 便携包部署
 
-Windows 包是**绿色解压版**：不写注册表、不装服务，所有东西都在解压目录里。双击 `setup.cmd` 走一次首次向导（下载 JRE 8 与 MySQL 8、初始化数据库、启动），之后用 `start.cmd` / `stop.cmd` 开关。
+Windows 包是**绿色解压版**：不写注册表、不装服务，所有东西都在解压目录里。双击 `setup.cmd` 走一次首次向导（下载 JRE 25 与 MySQL 8、初始化数据库、启动），之后用 `start.cmd` / `stop.cmd` 开关。
 
 - 安装包：`xuri-classroom-<version>-windows-x64.zip`（约 73MB，其中 jar 约 78MB；**不含** JRE 与 MySQL）
 - 默认地址：`http://<本机IP>:8080`
@@ -38,7 +38,7 @@ Windows 包是**绿色解压版**：不写注册表、不装服务，所有东�
 | 步 | 内容 | 落到哪里 |
 |---|---|---|
 | 1/4 | 环境检查：系统版本、位数、磁盘、8080 与 3307 端口、写权限；生成配置（随机数据库口令、随机 JWT 密钥、`PORT=8080`），已存在则保留 | `config/app.env` |
-| 2/4 | 下载 **JRE 8u512b09**（清华 TUNA 的 Adoptium 构建，约 38MB；失败自动换南京大学镜像），校验 SHA256 后解压 | `cache/\` → `runtime/jre8/\` |
+| 2/4 | 下载 **JRE 25.0.5+8**（清华 TUNA 的 Adoptium 构建，约 59MB；失败自动换南京大学镜像），校验 SHA256 后解压 | `cache/\` → `runtime/jre25/\` |
 | 3/4 | 下载 **MySQL 8**：优先华为/阿里镜像的 **8.0.28**（约 212MB），失败回退官方 **8.0.44**（约 233MB）；校验、解压裁剪，并初始化数据目录 | `cache/\` → `mysql/\`、`data/mysql/\` |
 | 4/4 | 启动内置 MySQL（`127.0.0.1:3307`）→ 建库 `surveyking`、建用户 `xuri`、导入 `app/init-mysql.sql`、核对 `t_user` → 启动应用 → 轮询 `/api/system` → 尝试添加防火墙规则 | `data/mysql/\`、`logs/\`、`run/\`、系统防火墙 |
 
@@ -70,7 +70,7 @@ Windows 包是**绿色解压版**：不写注册表、不装服务，所有东�
 
 适合考点断网、或下载总是失败的环境：
 
-1. 在能上网的机器上下载 JRE 8（Adoptium 8u512b09）与 MySQL 8 压缩包（8.0.28 或 8.0.44）。
+1. 在能上网的机器上下载 JRE 25（Adoptium 25.0.5+8）与 MySQL 8 压缩包（8.0.28 或 8.0.44）。
 2. 把它们按 `config/runtime.env` 里写的**文件名**放进解压目录的 `cache/`。
 3. 再双击 `setup.cmd`：向导会优先使用缓存，只做校验、解压与初始化。
 
@@ -100,7 +100,7 @@ lib/launcher.ps1                     启动器
 | `logs/` | 应用与启动器日志 | 不用 |
 | `run/` | PID 文件 | 不用 |
 | `cache/` | 下载的 JRE / MySQL 压缩包 | 不用（删了会重下） |
-| `runtime/jre8/`、`mysql/` | 解压后的运行时 | 不用（删了会重解压） |
+| `runtime/jre25/`、`mysql/` | 解压后的运行时 | 不用（删了会重解压） |
 
 ## 初始化
 

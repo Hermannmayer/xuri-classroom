@@ -5,14 +5,20 @@
  * 保存：POST /api/answer/grade —— 只提交 examAnswerMode=manual 的题；客观题的机器分不参与，
  * 后端收到客观题传分会直接 400（机器分不可覆盖）。
  *
+ * 操作记录：底部「操作记录」折叠面板，展开时拉一次
+ * GET /api/audit/answer-timeline?answerId=（权限 answer:detail），
+ * 展示「谁在什么时候把哪道题从几分改成几分」，读不到不影响批改主流程。
+ *
  * 快捷键：
  * - 分数框 Enter：保存并跳到下一题；
  * - 评语框 Ctrl/⌘ + Enter：保存并跳到下一题（Enter 仍是换行）；
  * - ← / →：在题目卡片之间切换（焦点在输入框里时保留光标移动，避免打字时跳题）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Card, Drawer, Empty, Input, InputNumber, Space, Spin, Tag } from 'antd';
-import { getGradeDetail, resetGrade, submitGrade } from '../../../api';
+import { App, Button, Card, Collapse, Drawer, Empty, Input, InputNumber, Space, Spin, Tag, Timeline } from 'antd';
+import { HistoryOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { get, getGradeDetail, resetGrade, submitGrade } from '../../../api';
 import type { GradeDetail, GradeItem } from '../../../api';
 import type { Answer } from '../../../schema/project';
 import { flattenSchema } from '../../../schema/flatten';
@@ -64,6 +70,147 @@ const TYPE_LABEL: Record<string, string> = {
   RichText: '图文',
 };
 
+/** 操作记录折叠面板的 key：只有一个面板，用常量避免裸串 */
+const TIMELINE_KEY = 'timeline';
+
+/** 差异摘要里最多逐题列几条：超出的只报题数，避免一条记录撑满整个抽屉 */
+const MAX_QUESTION_PARTS = 4;
+
+/**
+ * 答卷操作时间线的一行（对齐后端 AuditAnswerTimelineView）。
+ *
+ * <p>before / after 是后端解析好的 JSON 快照：正常是对象，历史半截 JSON（审计快照超 2KB 会截断）
+ * 会被原样返回字符串，所以类型是 unknown，展示时按「对象 / 文本」两种形态处理。
+ */
+interface AuditTimelineRow {
+  /** 操作时间：spring.jackson.date-format=yyyy-MM-dd HH:mm:ss；兼容数字时间戳 */
+  at?: string | number;
+  operator?: string;
+  /** 动作中文名，如「批改答卷」「撤销批改」；审计动作字典没收录时是动作码 */
+  actionName?: string;
+  /** 只批改一道题时给出，整卷操作为空 */
+  questionId?: string | null;
+  before?: unknown;
+  after?: unknown;
+}
+
+/** 批改快照里的单题项（后端 AuditDiffSupport#gradeSnapshot 的 items[]） */
+interface TimelineGradeItem {
+  questionId?: string | null;
+  /** null = 还没给分，不是 0 分 */
+  score?: number | null;
+  comment?: string | null;
+}
+
+/** 快照里前端会用到的字段：批改类有 items/examScore，删除恢复类只有 visible */
+interface TimelineSnapshot {
+  examScore?: number | null;
+  gradeStatus?: string;
+  visible?: boolean;
+  items?: TimelineGradeItem[];
+}
+
+/** 只有普通对象才算结构化快照：数组 / 字符串 / null 一律不当快照解析 */
+function asSnapshot(value: unknown): TimelineSnapshot | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as TimelineSnapshot;
+}
+
+/** 分数文案：null / undefined 是「还没给分」，不能显示成 0 */
+const scoreText = (value?: number | null) => (typeof value === 'number' ? formatScore(value) : '未给分');
+
+/** 快照里的 items 按 questionId 建索引，改前改后按题对齐 */
+function gradeItemsOf(snapshot?: TimelineSnapshot): Map<string, TimelineGradeItem> {
+  const map = new Map<string, TimelineGradeItem>();
+  for (const item of snapshot?.items ?? []) {
+    if (item && typeof item === 'object' && typeof item.questionId === 'string' && item.questionId) {
+      map.set(item.questionId, item);
+    }
+  }
+  return map;
+}
+
+/**
+ * 操作时间：后端 spring.jackson.date-format=yyyy-MM-dd HH:mm:ss，正常是字符串；
+ * 兼容数字时间戳。解析不了就原样显示，不出现 Invalid Date。
+ */
+function fmtAt(value?: string | number): string {
+  if (value === null || value === undefined || value === '') return '时间未知';
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : String(value);
+}
+
+/** 快照被截断 / 写坏时后端返回原文字符串：截短展示，别把整段 JSON 塞进抽屉 */
+function snapshotText(value: unknown): string {
+  const text = typeof value === 'string' ? value : '';
+  return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+}
+
+/**
+ * before → after 的差异摘要。
+ *
+ * <p>后端快照口径（计划 §5.3）：
+ * - 批改 / 撤销批改：{examScore, gradeStatus, items:[{questionId, score, comment}]}；
+ * - 删除 / 恢复答卷：{visible, answers:[...]}，用「可查看」表达方向；
+ * - 业务抛异常时只记改前（AuditAspect 的约定），这时不编造改后值。
+ */
+function changeParts(
+  row: AuditTimelineRow,
+  labelOf: (questionId?: string | null) => string,
+): string[] {
+  const before = asSnapshot(row.before);
+  const after = asSnapshot(row.after);
+  if (!before && !after) {
+    const text = snapshotText(row.before) || snapshotText(row.after);
+    return [text ? `快照文本：${text}` : '无改前/改后快照'];
+  }
+  if (before && !after) {
+    // 业务抛异常时只记改前；也可能是改后快照超 2KB 被截断，所以只陈述事实不下结论
+    return ['只有改前快照（没有改后值）'];
+  }
+  const parts: string[] = [];
+  const beforeItems = gradeItemsOf(before);
+  const afterItems = gradeItemsOf(after);
+  const questionIds = Array.from(new Set([...beforeItems.keys(), ...afterItems.keys()]));
+  const shown = questionIds.slice(0, MAX_QUESTION_PARTS);
+  for (const questionId of shown) {
+    const prev = beforeItems.get(questionId)?.score ?? null;
+    const next = afterItems.get(questionId)?.score ?? null;
+    if (prev === next) continue;
+    // 单题动作的题号已经显示在行首的标签上，这里不再重复
+    const prefix = row.questionId && row.questionId === questionId ? '' : `${labelOf(questionId)} `;
+    parts.push(`${prefix}分数 ${scoreText(prev)} → ${scoreText(next)}`);
+  }
+  if (questionIds.length > shown.length) {
+    // 只列了前几条：报总数，别让人以为还剩 N 条（「等 5 题」在只显示 4 条时会被误读）
+    parts.push(`…共 ${questionIds.length} 题`);
+  }
+  const prevTotal = before?.examScore;
+  const nextTotal = after?.examScore;
+  if ((typeof prevTotal === 'number' || typeof nextTotal === 'number') && prevTotal !== nextTotal) {
+    parts.push(`总分 ${scoreText(prevTotal)} → ${scoreText(nextTotal)}`);
+  }
+  if (
+    typeof before?.visible === 'boolean' &&
+    typeof after?.visible === 'boolean' &&
+    before.visible !== after.visible
+  ) {
+    parts.push(`可查看 ${before.visible ? '是' : '否'} → ${after.visible ? '是' : '否'}`);
+  }
+  if (parts.length === 0) {
+    // 快照里压根没有分数信息（非批改类动作）：如实说明，别硬说「分数没变」
+    const hasGradeData =
+      questionIds.length > 0 || typeof prevTotal === 'number' || typeof nextTotal === 'number';
+    if (!hasGradeData) return ['快照里没有分数信息'];
+    const commentChanged = shown.some(
+      (questionId) =>
+        (beforeItems.get(questionId)?.comment ?? '') !== (afterItems.get(questionId)?.comment ?? ''),
+    );
+    parts.push(commentChanged ? '评语已修改' : '分数没有变化');
+  }
+  return parts;
+}
+
 export default function GradeDrawer({ open, answerId, onClose, onChanged }: GradeDrawerProps) {
   const { message } = App.useApp();
   const [detail, setDetail] = useState<GradeDetail>();
@@ -76,6 +223,13 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
   const [active, setActive] = useState(0);
   const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const inputRefs = useRef<Array<{ focus: () => void } | null>>([]);
+  /** 操作记录（计划 §5.4）：展开时才拉，读不到不影响批改 */
+  const [timeline, setTimeline] = useState<AuditTimelineRow[]>();
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string>();
+  /** 已经加载过哪份答卷的时间线：同一条反复收起展开不重复请求 */
+  const [timelineFor, setTimelineFor] = useState<string>();
+  const [timelineKeys, setTimelineKeys] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!answerId) return;
@@ -110,8 +264,71 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     void load();
   }, [open, load]);
 
+  // 换答卷 / 关抽屉：清掉上一条的操作记录，避免串台（下次展开再拉）
+  useEffect(() => {
+    setTimeline(undefined);
+    setTimelineFor(undefined);
+    setTimelineError(undefined);
+    setTimelineKeys([]);
+  }, [answerId, open]);
+
+  /**
+   * 拉操作记录。
+   *
+   * <p>失败静默降级：面板里给一句提示就够了，不弹 message.error——
+   * 老师正在批改时不该被一条「操作记录读不到」打断，这也是任务里写明的降级要求。
+   */
+  const loadTimeline = useCallback(async (id: string) => {
+    setTimelineLoading(true);
+    setTimelineError(undefined);
+    try {
+      const rows = await get<AuditTimelineRow[]>('/api/audit/answer-timeline', { answerId: id });
+      setTimeline(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setTimeline([]);
+      setTimelineError((e as Error).message || '请求失败');
+    } finally {
+      setTimelineFor(id);
+      setTimelineLoading(false);
+    }
+  }, []);
+
+  /** 展开才拉；收起不动，来回点不会重复请求同一份答卷 */
+  const toggleTimeline = (keys: string | string[]) => {
+    const next = Array.isArray(keys) ? keys : [keys];
+    setTimelineKeys(next);
+    if (next.includes(TIMELINE_KEY) && answerId && timelineFor !== answerId) {
+      void loadTimeline(answerId);
+    }
+  };
+
+  /**
+   * 批改 / 撤销之后审计里刚多了一条：面板开着就立刻重拉，没开就标记成未加载，
+   * 下次展开时再拉——否则会一直显示批改前的旧时间线。
+   */
+  const refreshTimeline = useCallback(() => {
+    setTimelineFor(undefined);
+    if (answerId && timelineKeys.includes(TIMELINE_KEY)) {
+      void loadTimeline(answerId);
+    }
+  }, [answerId, timelineKeys, loadTimeline]);
+
   const questions = useMemo(() => (detail?.schema ? flattenSchema(detail.schema) : []), [detail]);
   const questionById = useMemo(() => new Map(questions.map((q) => [q.id, q])), [questions]);
+  /** 题号索引：时间线里把审计的 questionId 换成人看得懂的「第 N 题」 */
+  const numberById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const question of questions) {
+      if (typeof question.number === 'number') map.set(question.id, question.number);
+    }
+    return map;
+  }, [questions]);
+  /** 快照里的题已经不在当前 schema（比如改过卷）时只说「题目」，不把 id 甩给用户 */
+  const questionLabel = (questionId?: string | null) => {
+    if (!questionId) return '题目';
+    const number = numberById.get(questionId);
+    return typeof number === 'number' ? `第 ${number} 题` : '题目';
+  };
   const items = useMemo(() => detail?.items ?? [], [detail]);
   const editableItems = useMemo(() => items.filter((item) => item.editable), [items]);
   const unanswered = editableItems.filter((item) => typeof scores[item.questionId] !== 'number').length;
@@ -179,6 +396,8 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
       message.success('已保存');
       await load();
       onChanged?.();
+      // 这次批改已经进了审计：操作记录面板要能看到刚写的这一条
+      refreshTimeline();
       if (options?.next && index >= 0) {
         setActive(Math.min(index + 1, Math.max(editableItems.length - 1, 0)));
       }
@@ -197,6 +416,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
       message.success('已撤销这道题的批改');
       await load();
       onChanged?.();
+      refreshTimeline();
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -421,6 +641,80 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                 </div>
               );
             })}
+
+            {/* 操作记录（计划 §5.4）：放在最后，展开时才拉一次，失败不挡批改 */}
+            <Collapse
+              ghost
+              size="small"
+              activeKey={timelineKeys}
+              onChange={toggleTimeline}
+              items={[
+                {
+                  key: TIMELINE_KEY,
+                  label: (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                      <HistoryOutlined />
+                      操作记录
+                      {timeline && timeline.length > 0 ? (
+                        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                          {timeline.length} 条
+                        </span>
+                      ) : null}
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ fontSize: 12 }}>
+                      {timelineLoading ? (
+                        <div style={{ padding: '12px 0', textAlign: 'center' }}>
+                          <Spin size="small" />
+                        </div>
+                      ) : timelineError ? (
+                        <div style={{ color: 'var(--bp-text-soft)' }}>
+                          操作记录暂时读不到（{timelineError}），不影响批改。
+                        </div>
+                      ) : !timeline || timeline.length === 0 ? (
+                        <div style={{ color: 'var(--bp-text-soft)' }}>暂无操作记录</div>
+                      ) : (
+                        // 后端按 create_at 正序返回（AuditLogMapper#selectByTarget），这里不再倒序
+                        <Timeline
+                          items={timeline.map((row, index) => {
+                            const parts = changeParts(row, questionLabel);
+                            return {
+                              key: index,
+                              children: (
+                                <div>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      gap: 8,
+                                      flexWrap: 'wrap',
+                                      alignItems: 'baseline',
+                                    }}
+                                  >
+                                    <b style={{ fontSize: 12 }}>{row.actionName || '操作'}</b>
+                                    <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                                      {fmtAt(row.at)} · {row.operator || '未知操作人'}
+                                    </span>
+                                    {row.questionId ? (
+                                      <Tag style={{ marginInlineEnd: 0 }}>{questionLabel(row.questionId)}</Tag>
+                                    ) : null}
+                                  </div>
+                                  {parts.length > 0 && (
+                                    <div style={{ marginTop: 2, color: 'var(--bp-text)' }}>
+                                      {parts.join(' · ')}
+                                    </div>
+                                  )}
+                                </div>
+                              ),
+                            };
+                          })}
+                        />
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </Space>
         )}
       </Spin>

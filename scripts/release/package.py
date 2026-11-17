@@ -9,7 +9,9 @@
   xuri-classroom-<version>.jar
   SHA256SUMS
 
-Windows/Linux 包不内置 JRE 和 MySQL：JRE/MySQL 由首次启动向导从国内镜像下载。
+Windows/Linux 包不内置 JRE 和 MySQL：JRE（Temurin 25，对应 Java 25 运行时）与 MySQL
+由首次启动向导从国内镜像下载。发布脚本本身不校验 Java 版本，版本要求只写在
+scripts/release/linux/install.sh 与 scripts/release/windows/lib/launcher.ps1 里。
 """
 
 from __future__ import annotations

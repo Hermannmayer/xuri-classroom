@@ -12,7 +12,7 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 | 适合 | 考点单机、教研室、临时机房 | 学校服务器、已有 MySQL 的机器 | 已有 Docker 的服务器 |
 | 需要什么 | Windows 10/11 x64 | x86_64 Linux + systemd | Docker Engine 20.10+、Compose v2 |
 | MySQL 从哪来 | 首次向导下载并初始化 | `--init-db` 自动建库，或接外部 MySQL | compose 里的 `mysql:8.0` |
-| Java 从哪来 | 首次向导下载 JRE 8 | 默认用系统 Java，可 `--download-jre` | 镜像内置 |
+| Java 从哪来 | 首次向导下载 JRE 25 | 默认用系统 Java，可 `--download-jre` | 镜像内置 |
 | 默认端口 | 8080 | 8080 | 8080（`APP_PORT`） |
 | 数据在哪 | 解压目录下 `data/` | `/opt/xuri-classroom/` + MySQL 数据目录 | 卷 `xuri-classroom-db-data`、`xuri-classroom-app-files` |
 | 升级方式 | 换程序文件，保留 `data/` | 重跑 `install.sh` | 改 `VERSION` 后 `up -d` |
@@ -20,7 +20,7 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 
 ## 我该选哪个
 
-- **只有一台 Windows 电脑，装完就要用** → [Windows 便携包](windows.md)。解压双击 `setup.cmd`，向导会把 JRE 8 和 MySQL 8 一起装好。
+- **只有一台 Windows 电脑，装完就要用** → [Windows 便携包](windows.md)。解压双击 `setup.cmd`，向导会把 JRE 25 和 MySQL 8 一起装好。
 - **有一台 Linux 服务器，希望开机自启、多人长期使用** → [Linux 安装包](linux.md)。装成 systemd 服务 `xuri-classroom`。
 - **服务器上已经有 Docker / 要做统一编排、离线分发** → [Docker](docker.md)。一条 compose 起 app + mysql，或一行脚本装好。
 - **已经有 MySQL 8，只想要一个 jar** → 任意一种方式都可以，或直接看[环境变量](../reference/env.md)手工起 jar。

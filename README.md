@@ -8,7 +8,7 @@
 
 | 场景 | 安装方式 | 一句话 |
 |---|---|---|
-| 一台 Windows 电脑 | [Windows 便携包](docs/deploy/windows.md) | 解压 → 双击 `setup.cmd`，首次向导自动下载 JRE 8 + MySQL 8 并初始化 |
+| 一台 Windows 电脑 | [Windows 便携包](docs/deploy/windows.md) | 解压 → 双击 `setup.cmd`，首次向导自动下载 JRE 25 + MySQL 8 并初始化 |
 | Linux 服务器 | [Linux 安装包](docs/deploy/linux.md) | `tar -xzf …` → `sudo bash install.sh --port 8080`，装成 systemd 服务 |
 | 已有 Docker | [Docker](docs/deploy/docker.md) | 一行脚本，或 `docker compose -f docker-compose.release.yml up -d` |
 
@@ -132,7 +132,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 
 1. 下载 `xuri-classroom-<版本>-windows-x64.zip`（约 73MB，不含 JRE / MySQL）。
 2. 解压到可写目录，例如 `D:\xuri-classroom`（不要放 `C:\Program Files`）。
-3. 双击 `setup.cmd`：首次向导从国内镜像下载 JRE 8（约 38MB）与 MySQL 8（约 212MB，失败回退官方源），校验后自动初始化数据库并启动。
+3. 双击 `setup.cmd`：首次向导从国内镜像下载 JRE 25（约 59MB）与 MySQL 8（约 212MB，失败回退官方源），校验后自动初始化数据库并启动。
 4. 浏览器打开 `http://<本机IP>:8080`。数据在 `data/`、日志在 `logs/`、停止用 `stop.cmd`。
 5. 向导失败先跑 `doctor.cmd`，详见 [Windows 部署](docs/deploy/windows.md)。
 

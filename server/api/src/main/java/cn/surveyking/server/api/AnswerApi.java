@@ -163,8 +163,10 @@ public class AnswerApi {
 				assertProjectExportAllowed(query.getProjectId());
 				response = answerService.download(query);
 			}
+			// 导出口径进审计（项目 / 班级 / 第几次 / 条数），只记范围不记内容
 			exportGuardService.record(cn.surveyking.server.service.ExportGuardService.EXPORT_ANSWER,
-					query.getProjectId(), null, "导出答卷");
+					query.getProjectId(), null, "导出答卷",
+					cn.surveyking.server.service.ExportGuardService.answerExportScope(query));
 			return response;
 		}
 		finally {

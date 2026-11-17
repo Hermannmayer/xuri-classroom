@@ -32,6 +32,22 @@ public class AuditLogView {
 
 	private String detail;
 
+	/**
+	 * 改前快照（JSON 文本，仅高危动作有）：管理员在「操作日志」页要能看到
+	 * 「8 分改成 10 分」「权限串前后」这类差异，否则 2.2.3 存的快照只有时间线接口能看到。
+	 * 超长时是被截断后的 JSON 外壳（{@code _truncated/_bytes/_preview}）。
+	 */
+	private String beforeJson;
+
+	/** 改后快照（JSON 文本，仅高危动作有） */
+	private String afterJson;
+
+	/** 来源：web / mcp / api */
+	private String source;
+
+	/** 同一次请求的关联 id（X-Request-Id / MDC），可空 */
+	private String requestId;
+
 	private String ip;
 
 	/** 操作人 id（原始 create_by） */

@@ -143,8 +143,15 @@ public class AnswerExportApi {
 		int done = doneValue instanceof Number ? ((Number) doneValue).intValue() : 0;
 		Object projectIdValue = job.get("projectId");
 		// 真正的数据出口留审计：谁在什么时候导出了哪个班的多少份
-		exportGuardService.record(ExportGuardService.EXPORT_ANSWER,
-				projectIdValue == null ? null : String.valueOf(projectIdValue), null, "导出答卷 PDF（" + done + " 份）");
+		String projectId = projectIdValue == null ? null : String.valueOf(projectIdValue);
+		// 导出口径同样进 before_json：PDF 是异步任务，条数与班级在任务里，这里补齐（仍不记内容）
+		Map<String, Object> exportScope = new LinkedHashMap<>();
+		exportScope.put("projectId", projectId);
+		exportScope.put("classId", classId);
+		exportScope.put("type", "answerPdf");
+		exportScope.put("count", done);
+		exportGuardService.record(ExportGuardService.EXPORT_ANSWER, projectId, null, "导出答卷 PDF（" + done + " 份）",
+				exportScope);
 		return ResponseEntity.ok()
 				.header(HttpHeaders.CONTENT_DISPOSITION, HTTPUtils.getContentDispositionValue(fileName))
 				.contentType(MediaType.parseMediaType("application/zip")).contentLength(size)

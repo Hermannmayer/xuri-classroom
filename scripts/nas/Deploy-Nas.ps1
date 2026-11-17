@@ -327,6 +327,28 @@ $forceReload    = $ReloadOnly.IsPresent
 
 # ---------------------------------------------------------------- 4. compose
 if ($composeChanged -or $forceReload) {
+# ------ 4a. 运行时镜像：Dockerfile.runtime 变了、或本地还没有这个 tag，就必须重建。
+# 否则 compose 会拿 image: xuri-runtime:25 去 registry 拉，而它只存在于本地，直接失败。
+$imageScript = @'
+cd "@REPO@/@COMPOSE@" || exit 1
+RUNTIME_IMAGE=$(grep -E "^XURI_RUNTIME_IMAGE=" .env 2>/dev/null | cut -d= -f2)
+RUNTIME_IMAGE=${RUNTIME_IMAGE:-xuri-runtime:25}
+BASE_IMAGE=$(grep -E "^FROM " Dockerfile.runtime | head -1 | awk '{print $2}')
+DOCKER_MIRROR=${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}
+if docker image inspect "$RUNTIME_IMAGE" >/dev/null 2>&1; then
+  echo "RUNTIME_IMAGE_OK $RUNTIME_IMAGE"
+  exit 0
+fi
+if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
+  docker pull "${DOCKER_MIRROR}${BASE_IMAGE}" >/dev/null || { echo "PULL_FAILED $BASE_IMAGE"; exit 1; }
+  docker tag "${DOCKER_MIRROR}${BASE_IMAGE}" "$BASE_IMAGE"
+fi
+docker build -f Dockerfile.runtime -t "$RUNTIME_IMAGE" . >/dev/null || { echo "BUILD_FAILED"; exit 1; }
+echo "RUNTIME_IMAGE_BUILT $RUNTIME_IMAGE"
+'@.Replace('@REPO@', $RemoteRepo).Replace('@COMPOSE@', $ComposeDir)
+Say '4a/6 确认后端运行时镜像'
+(Invoke-NasScript -Body $imageScript).Output | ForEach-Object { "     $_" }
+
     Say '4/6 应用 compose 变更'
     $composeScript = @'
 cd "@REPO@/@COMPOSE@" || exit 1
