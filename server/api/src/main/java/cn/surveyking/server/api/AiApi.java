@@ -1,5 +1,8 @@
 package cn.surveyking.server.api;
 
+import cn.surveyking.server.ai.domain.AiChatReply;
+import cn.surveyking.server.ai.domain.AiChatRequest;
+import cn.surveyking.server.ai.domain.AiStatusView;
 import cn.surveyking.server.domain.dto.AiGradeSuggestRequest;
 import cn.surveyking.server.domain.dto.AiGradeSuggestView;
 import cn.surveyking.server.domain.dto.AiPaperApplyRequest;
@@ -12,6 +15,7 @@ import cn.surveyking.server.domain.dto.AiReportSummaryRequest;
 import cn.surveyking.server.domain.dto.AiReportSummaryView;
 import cn.surveyking.server.domain.dto.AiUsageView;
 import cn.surveyking.server.service.AiAssistService;
+import cn.surveyking.server.service.AiAssistantService;
 import cn.surveyking.server.service.AiUsageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 内嵌 AI 的四个场景（出卷 / 改题 / 批改建议 / 学情）+ 当日用量。
+ * 内嵌 AI 的四个场景（出卷 / 改题 / 批改建议 / 学情）+ 侧栏对话 + 当日用量。
  *
  * <p>为什么统一放一个 Controller：四个场景共用一条权限口径（{@code ai:use}）与同一份限额，
  * 分散成四个 Controller 只会让「哪些接口要 AI 权限」更难一眼看清。与学员侧的
@@ -53,6 +57,8 @@ import java.util.Map;
 public class AiApi {
 
 	private final AiAssistService aiAssistService;
+
+	private final AiAssistantService aiAssistantService;
 
 	private final AiUsageService aiUsageService;
 
@@ -126,6 +132,34 @@ public class AiApi {
 	@PreAuthorize("hasAuthority('ai:use')")
 	public AiReportSummaryView summarizeReport(@RequestBody AiReportSummaryRequest request) {
 		return aiAssistService.summarizeReport(request);
+	}
+
+	/* ====== ⑤ 侧栏 AI 助手（多轮对话） ====== */
+
+	/**
+	 * 对话：一问一答，历史由前端带上（只留在内存里，刷新即丢，不落库）。
+	 * <p>请求里的 {@code context} 只描述「在哪一页、哪个 id」；试卷名 / 题干 / 答卷信息一律由后端按 id
+	 * 查库并过权限后补进系统提示（见 {@code AiAssistantServiceImpl}），前端给的文案不采信。
+	 * <p>没配模型时返回 <b>400 + 中文原因</b>（「AI 功能未启用，请先在系统设置里配置模型」等），
+	 * 前端据此显示「去系统设置」的引导；想提前知道就调 {@code GET /api/ai/status}。
+	 * <p><b>为什么不做流式</b>：侧栏是「一轮一答」，而输出要过 {@code AiContentGuard} 才能给用户看，
+	 * 流式等于把未经校验的内容先露出去，校验就失去意义了。
+	 */
+	@PostMapping("/chat")
+	@PreAuthorize("hasAuthority('ai:use')")
+	public AiChatReply chat(@RequestBody AiChatRequest request) {
+		return aiAssistantService.chat(request);
+	}
+
+	/**
+	 * 现在能不能聊：{ready, reason, model}。
+	 * <p>侧栏打开时先问一次，省得用户打完一段话、点了发送才看到 400；
+	 * 判断口径与 {@code /chat} 完全一致（同一个 {@code AiGateway#readiness()}）。
+	 */
+	@GetMapping("/status")
+	@PreAuthorize("hasAuthority('ai:use')")
+	public AiStatusView status() {
+		return aiAssistantService.status();
 	}
 
 	/* ====== 用量 ====== */

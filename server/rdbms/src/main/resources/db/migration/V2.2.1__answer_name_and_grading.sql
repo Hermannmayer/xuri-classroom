@@ -12,7 +12,7 @@ SET @col_exists := (
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'answerer_name'
 );
 SET @ddl := IF(@col_exists = 0,
-  'ALTER TABLE t_answer ADD COLUMN answerer_name varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT ''答题人姓名（交卷时快照，选填；成绩单与 PDF 抬头用）'' AFTER is_anonymous',
+  'ALTER TABLE t_answer ADD COLUMN answerer_name varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT ''答题人姓名（交卷时快照，选填；成绩单与 PDF 抬头用）''',
   'SELECT ''answerer_name already exists'' AS skipped_answerer_name');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
