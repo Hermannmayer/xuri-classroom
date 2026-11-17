@@ -11,6 +11,19 @@ update:
 spring:
   application:
     name: survey
+  threads:
+    # 虚拟线程（Java 21+ 的 JEP 444；这里跑的是 Java 25）。
+    #
+    # 打开后 Tomcat 每个请求一个虚拟线程、@Async 也走虚拟线程。对这套系统的意义：
+    # 瓶颈是「等 I/O」（MySQL 查询、读附件、调模型 API），不是算力；平台线程数一旦被
+    # 慢请求占满，后面所有请求（包括 40 个学生同时开考）都会排队。虚拟线程让等待不占线程。
+    #
+    # ⚠️ 前置条件：SecurityContextHolder 仍是 MODE_INHERITABLETHREADLOCAL（见 WebSecurityConfig），
+    # 因为代码里有 4 处 new Thread(...)（AI 任务 / 答卷导出 / PDF 导出）和 2 处 @Async 依赖
+    # 「子线程继承安全上下文」来写审计归属。虚拟线程同样支持 inheritable thread-local 继承，
+    # 所以这条链路保持可用；但**改动这些异步代码时必须显式传递上下文**，不要继续依赖继承。
+    virtual:
+      enabled: ${SK_VIRTUAL_THREADS:true}
   profiles:
     active: @activeProfile@
   mvc:
