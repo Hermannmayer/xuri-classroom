@@ -75,7 +75,9 @@ def main():
     # 2. 未交卷名单
     try:
         roster = get('/api/teaching/classes/unsubmitted?projectId=%s&deptId=%s' % (PROJECT, CLASS_ID))
-        print('未交卷：%s 人（期望 3）' % roster.get('total'))
+        # total 是班级人数、submitted 是已交人数，未交 = total - submitted（与 list 长度一致）
+        unsubmitted = int(roster.get('total') or 0) - int(roster.get('submitted') or 0)
+        print('未交卷：%s 人（期望 3，名单 %s 条）' % (unsubmitted, len(roster.get('list') or [])))
     except Exception as exc:  # 旧版本没有这个接口
         print('未交卷接口不可用（旧版本？）：', exc)
 
