@@ -30,6 +30,9 @@ public class ProjectView {
 
 	private Long total;
 
+	/** 待批改答卷数（grade_status='pending' 且已正式交卷），列表据此显示「待批改 N」 */
+	private Integer pendingCount;
+
 	/** 今日答卷数量 */
 	private Integer totalOfToday;
 

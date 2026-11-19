@@ -360,6 +360,8 @@ function ManagerProjectList({
   const canDelete = can(authorities, PERMISSION_CODES.projectDelete);
   const canPublish = can(authorities, PERMISSION_CODES.projectPublish);
   const canData = can(authorities, PERMISSION_CODES.answerList);
+  /** 统计（报表）是独立权限：能看答卷不等于能看分析 */
+  const canReport = can(authorities, PERMISSION_CODES.projectReport);
   const canDetail = can(authorities, PERMISSION_CODES.projectDetail);
   const canPartner = can(authorities, PERMISSION_CODES.projectPartner);
 
@@ -934,12 +936,27 @@ function ManagerProjectList({
                                 编辑
                               </Button>
                             )}
-                            {canData && (
+                            {canData &&
+                              (() => {
+                                // 有待批改就显示「待批改 N」，没有就叫「批改」——按钮位置固定，不因为数字消失而跳动
+                                const pending = Number((row as { pendingCount?: number }).pendingCount ?? 0);
+                                return (
+                                  <Button
+                                    style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                    onClick={() =>
+                                      navigate(`/survey/${row.id}/data${pending > 0 ? '?gradeStatus=pending' : ''}`)
+                                    }
+                                  >
+                                    {pending > 0 ? `待批改 ${pending}` : '批改'}
+                                  </Button>
+                                );
+                              })()}
+                            {canReport && (
                               <Button
                                 style={{ flex: 1, height: 38, paddingInline: 0 }}
-                                onClick={() => navigate(`/survey/${row.id}/data`)}
+                                onClick={() => navigate(`/survey/${row.id}/report`)}
                               >
-                                数据
+                                统计
                               </Button>
                             )}
                             {canPartner && (
@@ -1102,7 +1119,24 @@ function ManagerProjectList({
                       <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
                     )}
                     {canData && (
-                      <LinkAction onClick={() => navigate(`/survey/${row.id}/data`)}>数据</LinkAction>
+                      <LinkAction
+                        onClick={() =>
+                          navigate(
+                            `/survey/${row.id}/data${
+                              Number((row as { pendingCount?: number }).pendingCount ?? 0) > 0
+                                ? '?gradeStatus=pending'
+                                : ''
+                            }`,
+                          )
+                        }
+                      >
+                        {Number((row as { pendingCount?: number }).pendingCount ?? 0) > 0
+                          ? `待批改 ${Number((row as { pendingCount?: number }).pendingCount)}`
+                          : '批改'}
+                      </LinkAction>
+                    )}
+                    {canReport && (
+                      <LinkAction onClick={() => navigate(`/survey/${row.id}/report`)}>统计</LinkAction>
                     )}
                     <LinkAction onClick={() => void copyLink(row)}>{copyLinkLabel(row)}</LinkAction>
                     {canPublish &&

@@ -122,7 +122,13 @@ export default function SurveyData() {
   const [selected, setSelected] = useState<string[]>([]);
 
   /** 过滤条件（classId 不在里面，走 URL） */
-  const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
+  const [filters, setFilters] = useState<FilterState>(() => {
+    // 从项目列表的「待批改 N」按钮进来时直接落到那一档；URL 是唯一真源，刷新/分享都保持
+    const preset = searchParams.get('gradeStatus');
+    return preset === 'pending' || preset === 'graded' || preset === 'ai'
+      ? { ...INITIAL_FILTERS, gradeStatus: preset }
+      : INITIAL_FILTERS;
+  });
   /** 姓名输入框的实时值：防抖用，真正下推的是 nameQuery */
   const [nameInput, setNameInput] = useState('');
   const [nameQuery, setNameQuery] = useState('');

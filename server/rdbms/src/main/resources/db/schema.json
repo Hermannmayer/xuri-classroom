@@ -107,6 +107,11 @@
       "requires": [
         "column:t_answer_grade.source"
       ]
+    },
+    {
+      "_comment": "2.3.4 只给老师/管理员补 repo:report 权限（纯数据 UPDATE），没有结构变更",
+      "version": "2.3.4",
+      "requires": []
     }
   ]
 }

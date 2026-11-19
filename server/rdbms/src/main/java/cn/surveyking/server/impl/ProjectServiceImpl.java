@@ -131,6 +131,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));
 		PaginationResponse<ProjectView> result = new PaginationResponse<>(page.getTotal(),
 				projectViewMapper.toView(page.getRecords()));
+		fillPendingCount(result.getList());
 		result.getList().forEach(view -> {
 			if (ProjectModeEnum.folder.equals(view.getMode())) {
 				view.setTotal(count(Wrappers.<Project>lambdaQuery().eq(Project::getParentId, view.getId())));
@@ -141,6 +142,26 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			}
 		});
 		return result;
+	}
+
+	/**
+	 * 批量回填「待批改答卷数」。
+	 * <p>一页最多几十条，每条一次主键级 count（走 idx_answer_project_grade），比拉全表聚合更简单可靠。
+	 */
+	private void fillPendingCount(java.util.List<ProjectView> views) {
+		if (views == null || views.isEmpty()) {
+			return;
+		}
+		for (ProjectView view : views) {
+			if (view.getId() == null || ProjectModeEnum.folder.equals(view.getMode())) {
+				view.setPendingCount(0);
+				continue;
+			}
+			long count = answerMapper.selectCount(Wrappers.<Answer>lambdaQuery()
+					.eq(Answer::getProjectId, view.getId()).eq(Answer::getTempSave, 1)
+					.eq(Answer::getGradeStatus, "pending"));
+			view.setPendingCount((int) count);
+		}
 	}
 
 	/**

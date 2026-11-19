@@ -139,6 +139,8 @@ export const PERMISSION_CODES = {
   repoBook: 'repo:book',
   repoPractice: 'repo:practice',
   repoExport: 'repo:export',
+  /** 题库统计（老师/管理员）：整体练习情况、题目正确率、薄弱题 */
+  repoReport: 'repo:report',
   repoGrant: 'repo:grant',
   templateList: 'template:list',
   templateCreate: 'template:create',

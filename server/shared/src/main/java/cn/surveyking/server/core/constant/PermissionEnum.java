@@ -68,6 +68,7 @@ public enum PermissionEnum {
 	REPO_BOOK("repo:book", "错题本/收藏", Group.REPO, "错题本与收藏，属于学员功能；练习入口已拆到 repo:practice", false, true),
 	REPO_PRACTICE("repo:practice", "开始练习", Group.REPO, "题库的开始/随机/继续练习；学员功能，老师/管理员默认不给", false, true),
 	REPO_EXPORT("repo:export", "导出题库", Group.REPO, "题库是最核心资产，导出必须能单独关闭"),
+	REPO_REPORT("repo:report", "查看题库统计", Group.REPO, "题库整体练习情况、题目正确率与薄弱题；只看不改，学员不可见"),
 	REPO_GRANT("repo:grant", "题库授权给教师", Group.REPO, "把题库授权给教师用户组/个人；学员不在这里授权，统一走班级资源分配", false),
 
 	/* ---------------------------------------------------------------- 题目 */
