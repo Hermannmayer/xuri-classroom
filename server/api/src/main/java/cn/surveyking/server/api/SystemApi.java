@@ -236,7 +236,12 @@ public class SystemApi {
 		}
 	}
 
-	/** 自建清单：{"version":"2.1.0","notes":"...","url":"..."} */
+	/**
+	 * 自建清单：{"version":"2.1.0","notes":"...","url":"...","assets":{"jar":{...}}}。
+	 *
+	 * <p>assets 可选：填了就和 Release 里的 update.json 同构，能走完整的「下载 → 校验 → 待安装」流程；
+	 * 不填就只是「有新版本」的提示。这样内网/自建源也能用一键更新，不必依赖 GitHub Release。
+	 */
 	private void fillFromManifest(UpdateCheckView view, String manifestUrl) throws Exception {
 		HttpURLConnection connection = null;
 		try {
@@ -256,7 +261,26 @@ public class SystemApi {
 				view.setNotes(truncate(asText(manifest.get("notes")), 800));
 				view.setDownloadUrl(asText(manifest.get("url")));
 				view.setPublishedAt(asText(manifest.get("publishedAt")));
+				view.setChannel(asText(manifest.get("channel")));
 				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
+				// assets 与 Release 里的 update.json 同构：有它才能「下载到服务器」
+				Object rawAssets = manifest.get("assets");
+				if (rawAssets instanceof Map<?, ?> map) {
+					Map<String, UpdateCheckView.Asset> assets = new LinkedHashMap<>();
+					for (Map.Entry<?, ?> entry : map.entrySet()) {
+						if (!(entry.getValue() instanceof Map<?, ?> item)) {
+							continue;
+						}
+						UpdateCheckView.Asset asset = new UpdateCheckView.Asset();
+						asset.setFile(asText(item.get("file")));
+						asset.setUrl(asText(item.get("url")));
+						asset.setSha256(asText(item.get("sha256")));
+						Object size = item.get("size");
+						asset.setSize(size instanceof Number number ? number.longValue() : null);
+						assets.put(String.valueOf(entry.getKey()), asset);
+					}
+					view.setAssets(assets);
+				}
 			}
 		}
 		finally {
