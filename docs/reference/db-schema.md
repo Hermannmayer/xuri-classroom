@@ -63,6 +63,7 @@
 - `server/rdbms/src/main/resources/db/migration/V2.3.2__answer_grade_backfill.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.3.3__answer_grade_source.sql`
 - `server/rdbms/src/main/resources/db/migration/V2.3.4__repo_report_perm.sql`
+- `server/rdbms/src/main/resources/db/migration/V2.3.5__default_light_theme.sql`
 
 ## 历史运维脚本（只读，不再维护）
 
