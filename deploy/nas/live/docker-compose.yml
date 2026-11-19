@@ -97,6 +97,9 @@ services:
         bind:
           create_host_path: false
       - ${XURI_DATA_DIR:-/vol2/1000/xuri/live}/files:/app/files
+      # 日志落宿主机：容器重建（--force-recreate / 换镜像）不会再把应用日志一起丢掉。
+      # 之前只在容器可写层，配合「系统设置 → 导出诊断日志」时经常拿到空包。
+      - ${XURI_DATA_DIR:-/vol2/1000/xuri/live}/logs:/app/logs
     mem_limit: 1g
     stop_grace_period: 30s
     depends_on:
