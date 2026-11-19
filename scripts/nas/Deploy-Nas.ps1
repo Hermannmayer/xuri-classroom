@@ -617,6 +617,25 @@ echo "FRONTEND_TIMEOUT"
     $w.Output | Where-Object { $_ -match 'FRONTEND_READY' } | ForEach-Object { "  $_" }
 }
 
+# 容器重建（compose 变更、换 jar）后，nginx 到 app 的连接要重新建立，有几秒 502 窗口。
+# 冒烟若正好落在这个窗口里会报「系统信息 502」这种假失败（2026-11-19 日志挂载那次踩过）。
+# 这里等「外部入口」真正能返回 200 再冒烟；探的是 $BaseUrl 而不是容器内的 7007。
+if (-not $ReloadOnly) {
+    $deadline = (Get-Date).AddSeconds(90)
+    $probeUrl = "$BaseUrl/api/system"
+    $externalReady = $false
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $resp = Invoke-WebRequest -Uri $probeUrl -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
+            if ($resp.StatusCode -eq 200) { $externalReady = $true; break }
+        }
+        catch { }
+        Start-Sleep -Seconds 2
+    }
+    if ($externalReady) { Say '外部入口已就绪（nginx → app）' }
+    else { Write-Host '  ⚠ 外部入口 90 秒内没返回 200，冒烟可能失败；先看 nginx 与 app 日志' -ForegroundColor Yellow }
+}
+
 Test-Smoke
 
 Say '完成'
