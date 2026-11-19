@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Checkbox, Drawer, Input, Segmented, Select, Spin, Typography, message } from 'antd';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { download, getProject, updateProject } from '../../api';
 import type { SurveySchema } from '../../schema/types';
@@ -141,6 +142,7 @@ export default function SurveyPrintPage() {
   const [showAnswers, setShowAnswers] = useState(searchParams.get('answers') === '1');
   const [showCard, setShowCard] = useState(searchParams.get('card') === '1');
   const [size, setSize] = useState<'A4' | 'A3'>('A4');
+  const isMobile = useIsMobile();
   const [showInfo, setShowInfo] = useState(true);
   const [showCode, setShowCode] = useState(true);
   const [sealLine, setSealLine] = useState(false);
@@ -417,6 +419,11 @@ export default function SurveyPrintPage() {
     <div className="print-root" style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
       <style>{printCss}</style>
 
+      {isMobile && (
+        <div className="no-print" style={{ maxWidth: 900, margin: '0 auto 8px', fontSize: 11, color: 'var(--bp-text-soft)', lineHeight: 1.7 }}>
+          手机屏幕放不下 A4 宽度（210mm），下面的预览会自动缩小；打印或另存 PDF 仍按实际纸张尺寸输出，不受影响。
+        </div>
+      )}
       <div className="no-print" style={{ maxWidth: 900, margin: '0 auto 12px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <Button onClick={() => navigate('/survey/' + id + '/edit')}>返回编辑</Button>
         <Button onClick={openHeader}>卷头设置</Button>
