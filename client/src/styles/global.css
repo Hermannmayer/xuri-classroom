@@ -465,7 +465,8 @@ body {
     font-size: 12px;
     margin: 0 0 4px 0 !important;
   }
-  .sk-settings-tabs > .ant-tabs-content-holder {
+  /* antd 6 的内容容器叫 body-holder（不是 content-holder），写错选择器等于没写 */
+  .sk-settings-tabs > .ant-tabs-body-holder {
     padding-left: 10px;
     min-width: 0;
     overflow: hidden;
