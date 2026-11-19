@@ -453,6 +453,11 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 注册页的三步说明：三列在手机上每列只剩 100px，文字被压成四行，改成单列竖排 */
+  .sk-register-steps {
+    grid-template-columns: 1fr !important;
+  }
+
   /* 权限页的保存条原本 sticky bottom:0，被底部 56px 的导航栏整个盖住：
      上移到底栏之上，并按安全区再加一点，iPhone 横条不会压住按钮 */
   .sk-perm-savebar {

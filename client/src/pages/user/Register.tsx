@@ -182,8 +182,11 @@ export default function Register() {
   return shell(
     <>
       <div
+        className="sk-register-steps"
         style={{
           display: 'grid',
+          // 三列在 390px 上每列只有 ~100px，「填手机号/姓名/密码」被压成 4 行；
+          // 窄屏由 .sk-register-steps 切成单列
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 8,
           marginBottom: 18,
