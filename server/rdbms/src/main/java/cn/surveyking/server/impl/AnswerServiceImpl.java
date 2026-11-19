@@ -264,6 +264,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				// 第几次作答（补考区分）与批改状态；传空表示不过滤
 				.eq(query.getAttemptNo() != null, Answer::getAttemptNo, query.getAttemptNo())
 				.eq(StringUtils.hasText(query.getGradeStatus()), Answer::getGradeStatus, query.getGradeStatus())
+				.apply(Boolean.TRUE.equals(query.getAiReview()),
+						"EXISTS (SELECT 1 FROM t_answer_grade g WHERE g.answer_id = t_answer.id AND g.source = 'ai')")
 				// 分数段（含边界）：exam_score 为 NULL（未判分 / 非考试卷）时比较恒为 UNKNOWN，
 				// 不会被 >= / <= 误命中，因此不需要额外的 is not null
 				.ge(query.getMinScore() != null, Answer::getExamScore, query.getMinScore())
