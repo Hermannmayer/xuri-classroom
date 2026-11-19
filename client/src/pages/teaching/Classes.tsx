@@ -1376,12 +1376,12 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             // 260 宽时「演示班 · 2026春养老五级」会被截成「演示班 · 2026春养老…」，放宽到 320
             width: isMobile ? '100%' : 320,
             flex: isMobile ? '1 1 100%' : '0 0 320px',
-            // 手机上撑满剩余可视高度：只包内容时卡片只占屏幕三分之一，下面一大片网格空白，
-            // 班级多了还得先滚到卡片内才能继续看。330 ≈ 顶栏 + 页头 + 页签 + 工具条 + 底部导航。
-            // 实测：卡片顶部在 353px，底部导航顶在 788px（视口 844）。
-            // 目标是让卡片底边停在导航之上，475 是量出来的差值（不是拍的）。
+            // 手机上撑满剩余可视高度（实测：卡片顶部 353，底部导航顶 788，差 475）
             minHeight: isMobile ? 'calc(100dvh - 475px)' : undefined,
-            display: isMobile && selectedId ? 'none' : undefined,
+            // Card 自己必须是纵向 flex，「body 吃满剩余高度」才成立；
+            // 否则 body 里的 flex:1 无处可依，列表区只按内容高度撑开，滚动条就卡在中间不上不下。
+            display: isMobile && selectedId ? 'none' : 'flex',
+            flexDirection: 'column',
           }}
           styles={{
             body: {
@@ -1405,7 +1405,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             style={{ marginBottom: 8 }}
           />
           {/* 手机上是「列表 → 详情」整页切换：列表不再限高；桌面跟着卡片高度走，内部自己滚 */}
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
             {treeLoading && tree.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center' }}>
                 <Spin />
