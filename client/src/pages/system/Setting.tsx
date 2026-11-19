@@ -730,7 +730,17 @@ export default function SystemSetting() {
         />
       )}
 
-      <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
+      <Card
+        className="bp-corners"
+        // 手机上不要再套一层描边 + 半透明底：那会在页面四周形成一圈「白框」，
+        // 和网格背景之间多出一条边。窄屏直接铺平，桌面保持卡片感。
+        style={
+          isMobile
+            ? { border: 'none', background: 'transparent' }
+            : { border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }
+        }
+        styles={isMobile ? { body: { padding: 0 } } : undefined}
+      >
         <Form form={form} layout="vertical" size="small" requiredMark={false} disabled={!canUpdate}>
           {/* 手机上不用页签：竖排太占宽（表单被挤成「威海市旭日职业培训学」），横排又会折进「»」。
               改成下拉选分区，内容区独占整行。桌面端仍是页签。 */}

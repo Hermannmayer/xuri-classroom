@@ -447,8 +447,9 @@ body {
   z-index: 5;
   margin-top: 12px;
   padding: 10px 0;
-  background: var(--bp-chrome);
-  border-top: 1px dashed var(--bp-line);
+  /* 底色跟页面走（不用 --bp-chrome 的纯色），否则会在内容上方形成一条白色横带 */
+  background: transparent;
+  backdrop-filter: blur(2px);
 }
 
 /* 手机端底栏：固定 5 Tab，56px + 安全区；蓝图直角 + 橙色选中短线 */
