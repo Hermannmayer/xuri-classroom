@@ -395,6 +395,8 @@ function ManagerProjectList({
   }>({ open: false, name: '' });
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
+  /** 手机上的文件夹树默认收起：它竖排在最上面，会把列表整个推到首屏之外 */
+  const [treeOpen, setTreeOpen] = useState(false);
   // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
@@ -743,6 +745,29 @@ function ManagerProjectList({
         }}
       >
         <div style={{ width: isMobile ? '100%' : 220, flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 0 }}>
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setTreeOpen((v) => !v)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 10px',
+                marginBottom: treeOpen ? 8 : 0,
+                background: 'transparent',
+                border: '1px dashed var(--bp-line)',
+                color: 'var(--bp-text-soft)',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <span>文件夹筛选{parentId || category ? '（已启用）' : ''}</span>
+              <span style={{ fontSize: 10 }}>{treeOpen ? '收起 ▾' : '展开 ▸'}</span>
+            </button>
+          )}
+          {(!isMobile || treeOpen) && (
           <ProjectTree
             selectedId={parentId}
             selectedCategory={category}
@@ -762,6 +787,7 @@ function ManagerProjectList({
             }}
             canCreate={canCreate}
           />
+          )}
         </div>
         <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
 
