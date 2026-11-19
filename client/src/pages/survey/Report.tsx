@@ -566,23 +566,57 @@ export default function SurveyReport() {
       .slice(0, 10);
   }, [blocks, answers]);
 
-  const scoreAnalysis = useMemo(() => {
-    const totalScore = questions.reduce((sum, q) => sum + Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0), 0);
-    if (totalScore <= 0) return undefined;
-    const buckets = [
-      { label: '0–33%', min: 0, max: 33, count: 0 },
-      { label: '33–67%', min: 33, max: 67, count: 0 },
-      { label: '67–100%', min: 67, max: 100.0001, count: 0 },
-    ];
-    let scored = 0;
-    for (const answer of answers) {
-      if (typeof answer.examScore !== 'number') continue;
-      const percent = Math.max(0, Math.min(100, (answer.examScore / totalScore) * 100));
-      const bucket = buckets.find((item) => percent >= item.min && percent < item.max);
-      if (bucket) bucket.count += 1;
-      scored += 1;
+  /**
+   * 分值统计：绝对分数段（按满分自动选桶宽）+ 均分/中位数/标准差/极值/及格率/优秀率。
+   *
+   * <p>原来是三档百分比（0-33/33-67/67-100），老师看不出「到底几个人不及格」。
+   * 现在按绝对分数分段，桶宽跟着满分走：≤20 分 5 分一档、≤60 分 10 分一档、其余 20 分一档。
+   */
+  const scoreStats = useMemo(() => {
+    const totalScore = questions.reduce(
+      (sum, q) => sum + Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0),
+      0,
+    );
+    const scores = answers.map((a) => a.examScore).filter((v): v is number => typeof v === 'number');
+    if (totalScore <= 0 || scores.length === 0) return undefined;
+
+    const sorted = [...scores].sort((a, b) => a - b);
+    const sum = scores.reduce((s, v) => s + v, 0);
+    const mean = sum / scores.length;
+    const variance = scores.reduce((s, v) => s + (v - mean) ** 2, 0) / scores.length;
+    const median =
+      sorted.length % 2 === 1
+        ? sorted[(sorted.length - 1) / 2]
+        : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+    const passLine = totalScore * 0.6;
+    const excellentLine = totalScore * 0.85;
+
+    const bucketSize = totalScore <= 20 ? 5 : totalScore <= 60 ? 10 : 20;
+    const bucketCount = Math.max(1, Math.ceil(totalScore / bucketSize));
+    const buckets = Array.from({ length: bucketCount }, (_, i) => {
+      const min = i * bucketSize;
+      const max = Math.min(totalScore, (i + 1) * bucketSize);
+      return { label: `${min}-${Math.round(max)}`, min, max, count: 0 };
+    });
+    for (const value of scores) {
+      const index = Math.min(bucketCount - 1, Math.max(0, Math.floor(value / bucketSize)));
+      buckets[index].count += 1;
     }
-    return { totalScore, scored, buckets };
+
+    return {
+      totalScore,
+      scored: scores.length,
+      mean,
+      median,
+      std: Math.sqrt(variance),
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      pass: scores.filter((v) => v >= passLine).length,
+      excellent: scores.filter((v) => v >= excellentLine).length,
+      passLine,
+      excellentLine,
+      buckets,
+    };
   }, [questions, answers]);
 
   const numeric = useMemo(() => {
@@ -823,21 +857,51 @@ export default function SurveyReport() {
                 </Card>
               )}
 
-              {scoreAnalysis && (
+              {scoreStats && (
                 <Card
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>SCORE / 分值分析</span>}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
-                      已判分 {scoreAnalysis.scored} 人 · 总分 {scoreAnalysis.totalScore} 分
-                    </div>
-                    {scoreAnalysis.buckets.map((bucket) => (
-                      <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                        <span style={{ width: 80 }}>{bucket.label}</span>
-                        <Bar value={bucket.count} max={Math.max(1, ...scoreAnalysis.buckets.map((b) => b.count))} />
-                        <span style={{ width: 100, textAlign: 'right', color: 'var(--bp-text-soft)' }}>
-                          {bucket.count} 人 · {scoreAnalysis.scored ? ((bucket.count / scoreAnalysis.scored) * 100).toFixed(1) : '0.0'}%
+                  {/* 关键指标条：一屏能看全整体水平，不用滚到下面找 */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
+                      gap: 6,
+                      marginBottom: 10,
+                    }}
+                  >
+                    {[
+                      { label: '已判分', value: `${scoreStats.scored} 份` },
+                      { label: '卷面满分', value: String(scoreStats.totalScore) },
+                      { label: '平均分', value: scoreStats.mean.toFixed(1) },
+                      { label: '中位数', value: scoreStats.median.toFixed(1) },
+                      { label: '标准差', value: scoreStats.std.toFixed(1) },
+                      { label: '最高分', value: String(scoreStats.max) },
+                      { label: '最低分', value: String(scoreStats.min) },
+                      {
+                        label: `及格率 ≥${scoreStats.passLine.toFixed(0)}`,
+                        value: `${((scoreStats.pass / scoreStats.scored) * 100).toFixed(1)}%`,
+                      },
+                      {
+                        label: `优秀率 ≥${scoreStats.excellentLine.toFixed(0)}`,
+                        value: `${((scoreStats.excellent / scoreStats.scored) * 100).toFixed(1)}%`,
+                      },
+                    ].map((item) => (
+                      <div key={item.label} style={{ border: '1px solid var(--bp-line-soft)', padding: '5px 8px' }}>
+                        <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', whiteSpace: 'nowrap' }}>{item.label}</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 分数段明细：人数 + 占比，桶宽按满分自动选 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {scoreStats.buckets.map((bucket) => (
+                      <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                        <span style={{ width: 70, color: 'var(--bp-text-soft)' }}>{bucket.label}</span>
+                        <Bar value={bucket.count} max={Math.max(1, ...scoreStats.buckets.map((b) => b.count))} />
+                        <span style={{ width: 96, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                          {bucket.count} 人 · {((bucket.count / scoreStats.scored) * 100).toFixed(1)}%
                         </span>
                       </div>
                     ))}
