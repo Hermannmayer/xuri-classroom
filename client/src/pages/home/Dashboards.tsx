@@ -415,13 +415,12 @@ export function AdminHome() {
                       {
                         title: '指标',
                         dataIndex: 'name',
+                        // 分组名（题库/试卷/答卷）在多数行与指标名重复，手机上再显示一遍只是白占一行：
+                        // 只留「指标 + 说明」两行，数值右对齐，一屏能多看三四行
                         render: (value: string, row: MetricRow) => (
-                          <div style={{ padding: '2px 0' }}>
-                            <div style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--bp-text-soft)' }}>
-                              {row.group}
-                            </div>
-                            <div style={{ marginTop: 1 }}>{value}</div>
-                            <div style={{ ...NOTE, marginTop: 2 }}>{row.note}</div>
+                          <div style={{ padding: '1px 0' }}>
+                            <div>{value}</div>
+                            <div style={{ ...NOTE, marginTop: 1 }}>{row.note}</div>
                           </div>
                         ),
                       },

@@ -733,6 +733,7 @@ export default function SystemSetting() {
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
         <Form form={form} layout="vertical" size="small" requiredMark={false} disabled={!canUpdate}>
           <Tabs
+            className="sk-settings-tabs"
             activeKey={activeTab}
             onChange={changeTab}
             // 5 个页签在手机上会折进「»」，最后两个（AI / 系统与更新）根本点不到；竖排后全部可见

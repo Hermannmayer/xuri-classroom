@@ -453,6 +453,24 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 设置页竖排页签：antd 默认按内容撑宽，390px 屏上占掉近一半，输入框被截成「威海市旭日职业培训学」。
+     固定 92px 并收紧内边距，把宽度还给表单。 */
+  .sk-settings-tabs > .ant-tabs-nav {
+    width: 92px;
+    min-width: 92px;
+    flex: 0 0 92px;
+  }
+  .sk-settings-tabs > .ant-tabs-nav .ant-tabs-tab {
+    padding: 8px 6px !important;
+    font-size: 12px;
+    margin: 0 0 4px 0 !important;
+  }
+  .sk-settings-tabs > .ant-tabs-content-holder {
+    padding-left: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
   /* 注册页的三步说明：三列在手机上每列只剩 100px，文字被压成四行，改成单列竖排 */
   .sk-register-steps {
     grid-template-columns: 1fr !important;
