@@ -932,12 +932,17 @@ export default function SurveyEditor() {
   const grouped = ['choice', 'input', 'structure'] as const;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100vh - 88px)' }}>
+    // 高度用 dvh：移动端浏览器地址栏收放时 100vh 会把底部内容顶到可视区之外。
+    // 手机上的编辑只保证「工具栏能换行、保存点得到、面板不被底栏盖」，不做移动版设计器。
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100dvh - 88px)', minHeight: 0 }}>
       {/* 工具栏 */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
+          // 1500px 的工具栏在手机上不换行，保存/发布会被挤到屏幕外
+          flexWrap: 'wrap',
+          rowGap: 8,
           gap: 12,
           border: '1px solid var(--bp-line)',
           background: 'var(--bp-toolbar)',

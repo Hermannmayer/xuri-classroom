@@ -501,7 +501,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
         {/* 左栏：分类 */}
-        <div className="bp-card" style={{ ...PANEL_STYLE, flex: '0 0 190px', minWidth: 156 }}>
+        <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '0 0 190px', minWidth: 156 }}>
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               分类
@@ -539,7 +539,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         </div>
 
         {/* 中栏：列表 */}
-        <div className="bp-card" style={{ ...PANEL_STYLE, flex: '2 1 calc(34% - 8px)', minWidth: 260 }}>
+        <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '2 1 calc(34% - 8px)', minWidth: 260 }}>
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               {activeCategory.label}
@@ -680,7 +680,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         </div>
 
         {/* 右栏：详情 */}
-        <div className="bp-card" style={{ ...PANEL_STYLE, flex: '3 1 calc(40% - 8px)', minWidth: 300 }}>
+        <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '3 1 calc(40% - 8px)', minWidth: 300 }}>
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               公告详情

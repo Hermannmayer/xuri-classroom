@@ -453,6 +453,15 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 公告中心：三栏定高（190 / 34% / 40%，每栏 clamp 360~860px）在手机上会竖成 1000px+ 的双层滚动，
+     这里让每栏占满一行、高度跟着内容走，页面只保留一层滚动 */
+  .sk-notice-panel {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: 70vh;
+  }
+
   /* 窄屏兜底（与 docs/work/ui-redesign-plan.md 第 0 步对应） */
 
   /* Word/富文本导入的大图、宽表会撑破整页（题库题干里很常见） */

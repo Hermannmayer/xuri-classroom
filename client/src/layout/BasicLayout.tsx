@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import type { MenuProps } from 'antd';
-import { DatabaseOutlined, FileTextOutlined, HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ProjectOutlined, SettingOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, FileTextOutlined, HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ProjectOutlined, ReadOutlined, SettingOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { get, getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
@@ -144,17 +144,14 @@ export default function BasicLayout() {
       menu.push({ key: '/tasks', icon: <ProjectOutlined />, label: '我的任务' });
     }
 
-    // 题库中心：父项只有在至少有一个子项可见时才出现
-    const repoChildren: NonNullable<MenuProps['items']> = [];
+    // 「题库中心」是一个可直接点的入口（点进去就是题库列表），不再往下挂「题库列表」子项：
+    // 父子结构对只有一个子项的菜单只是多一次点击。练习册是学员能力（repo:book），
+    // 管理员不自动拥有，所以它单独成项，谁有权限谁看到。
     if (allow(PERMISSION_CODES.repoList)) {
-      repoChildren.push({ key: '/repo/index', label: t('menu.repo.list', '题库列表') });
+      menu.push({ key: '/repo/index', icon: <DatabaseOutlined />, label: t('menu.repo', '题库中心') });
     }
-    // 练习册是学员能力（repo:book）；管理员不自动拥有，只有显式勾选的角色才显示
     if (allow(PERMISSION_CODES.repoBook)) {
-      repoChildren.push({ key: '/repo/book', label: t('menu.repo.book', '练习册') });
-    }
-    if (repoChildren.length > 0) {
-      menu.push({ key: '/repo', icon: <DatabaseOutlined />, label: t('menu.repo', '题库中心'), children: repoChildren });
+      menu.push({ key: '/repo/book', icon: <ReadOutlined />, label: t('menu.repo.book', '练习册') });
     }
 
     // 系统管理：4 项（用户与权限 / 系统设置 / 公告管理 / 操作日志）。
