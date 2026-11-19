@@ -37,7 +37,7 @@ public class DiagnosticsExporter {
 
 	private static final long MAX_TOTAL_BYTES = 200L * 1024 * 1024;
 
-	@Value("\${sk.logs.dir:./logs}")
+	@Value("${sk.logs.dir:./logs}")
 	private String logsDir;
 
 	public byte[] export(int days) {
