@@ -142,6 +142,17 @@ export default function SurveyData() {
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
 
   const [detail, setDetail] = useState<Answer>();
+
+  /**
+   * 从班级答卷列表点进来时（`?answerId=xxx`），自动把那份卷子的详情打开。
+   * 列表数据是异步到的，所以要等 rows 里真的出现这一条再开，避免打开一个空抽屉。
+   */
+  useEffect(() => {
+    const answerId = searchParams.get('answerId');
+    if (!answerId || rows.length === 0) return;
+    const row = rows.find((item) => item.id === answerId);
+    if (row && detail?.id !== answerId) setDetail(row);
+  }, [searchParams, rows, detail]);
   /** 正在批改的答卷 id；有值即打开批改抽屉 */
   const [grading, setGrading] = useState<string>();
   const [editor, setEditor] = useState<EditorState>();

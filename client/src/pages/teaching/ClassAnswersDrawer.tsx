@@ -38,6 +38,7 @@ import {
   PaperClipOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import {
@@ -390,6 +391,7 @@ export default function ClassAnswersDrawer({
   onClose: () => void;
 }) {
   const { message } = App.useApp();
+  const navigate = useNavigate();
 
   /* ------ 数据：答卷列表 / 未交名单 / 项目详情，各自独立失败 ------ */
   const [rows, setRows] = useState<ClassAnswerRow[]>([]);
@@ -1198,6 +1200,15 @@ export default function ClassAnswersDrawer({
                   loading={rowsLoading}
                   dataSource={pagedRows}
                   columns={columns}
+                  // 点一行直接看卷子：跳到数据页的答卷详情抽屉（那边有逐题对错与答案）。
+                  // 以前这里只能导出 Excel，想看一眼某个人的卷子要绕三四个页面。
+                  onRow={(row) => ({
+                    style: { cursor: 'pointer' },
+                    onClick: () => {
+                      onClose();
+                      navigate(`/survey/${projectId}/data?answerId=${row.id}`);
+                    },
+                  })}
                   scroll={{ x: 900 }}
                   pagination={{
                     current: safePage,
