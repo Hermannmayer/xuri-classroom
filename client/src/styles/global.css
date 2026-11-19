@@ -372,6 +372,17 @@ body {
   border-bottom: 1px solid var(--bp-line-soft);
 }
 
+/* 设置页的吸底保存条：桌面贴底，手机再上移到底部导航之上 */
+.sk-settings-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin-top: 12px;
+  padding: 10px 0;
+  background: var(--bp-chrome);
+  border-top: 1px dashed var(--bp-line);
+}
+
 /* 手机端底栏：固定 5 Tab，56px + 安全区；蓝图直角 + 橙色选中短线 */
 .sk-mobile-tabbar {
   position: fixed;
@@ -453,6 +464,11 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 保存条再抬 56px：底部导航是 fixed 的，贴底会被它盖住 */
+  .sk-settings-savebar {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
   /* 设置页在手机上改用下拉选分区（见 Setting.tsx），页签栏整个隐藏，内容独占整行 */
   .sk-settings-tabs > .ant-tabs-nav {
     display: none;

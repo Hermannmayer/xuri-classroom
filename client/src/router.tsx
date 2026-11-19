@@ -95,6 +95,11 @@ export const router = createBrowserRouter([
         path: 'teaching/:tab',
         element: guard([PERMISSION_CODES.projectList, PERMISSION_CODES.classList], <TeachingHome />),
       },
+      // 班级详情：手机上「列表 → 点某个班 → 详情」是两级页面，详情要能直达（刷新、分享都停在这个班）
+      {
+        path: 'teaching/:tab/:classId',
+        element: guard([PERMISSION_CODES.projectList, PERMISSION_CODES.classList], <TeachingHome />),
+      },
       // 「我的任务」是学员入口：没有 project:answer 的教职工不再能直接打开答题列表
       { path: 'tasks', element: guard(PERMISSION_CODES.projectAnswer, <TaskCenter />) },
       // /project 只保留给学员/只读协作者；老师与管理员由 Entry 重定向到 /teaching?tab=exam

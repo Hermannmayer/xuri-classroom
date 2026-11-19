@@ -1576,13 +1576,18 @@ function ProtectionRow({ label, hint, children }: { label: string; hint: string;
 }
 
 /** 每个 Tab 底部的保存条：虚线段 + 保存按钮 */
+/**
+ * 分区底部的保存条。
+ *
+ * <p>原来是普通按钮，跟着表单一路排在最底下：手机上要滚完整个分区才看得见，
+ * 用户以为「没有保存按钮」。现在做成吸底条，常驻在可视区底部（并给底部导航让位）。
+ */
 function SaveBar({ loading, onSave }: { loading: boolean; onSave: () => void }) {
   return (
-    <>
-      <hr className="bp-dim" style={{ margin: '4px 0 16px' }} />
+    <div className="sk-settings-savebar">
       <Button type="primary" icon={<SaveOutlined />} loading={loading} onClick={onSave}>
         保存
       </Button>
-    </>
+    </div>
   );
 }

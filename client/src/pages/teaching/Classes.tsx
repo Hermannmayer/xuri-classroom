@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   App,
@@ -21,16 +21,7 @@ import {
 } from 'antd';
 import type { TreeDataNode } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  DeleteOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  UploadOutlined,
-  UserAddOutlined,
-} from '@ant-design/icons';
+import { ArrowLeftOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, TeamOutlined, UploadOutlined, UserAddOutlined } from '@ant-design/icons';
 import { get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import LinkAction from '../../components/LinkAction';
@@ -301,7 +292,11 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   // 初始选中项优先取 URL 的 ?classId=：这一页会被 Tab 卸载重挂，只有 URL 能跨重挂活下来；
   // 从旧链接 /teaching/classes?classId=xxx 进来也应当停在那个班，而不是一律跳回第一个
-  const [selectedId, setSelectedId] = useState<string | undefined>(() => searchParams.get('classId') || undefined);
+  // 班级详情路由 /teaching/classes/:classId：直达某个班；没带就退回 ?classId= 或列表
+  const routeParams = useParams<{ classId?: string }>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    () => routeParams.classId || searchParams.get('classId') || undefined,
+  );
   useEffect(() => {
     setSelectedMemberKeys([]);
   }, [selectedId]);
@@ -1353,7 +1348,12 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
               我的班级
             </span>
           }
-          style={{ width: isMobile ? '100%' : 260, flex: isMobile ? '1 1 100%' : '0 0 260px' }}
+          // 手机上选中班级后把树收起来：树竖排在最上面会占满首屏，成员列表要滚很久才看到
+          style={{
+            width: isMobile ? '100%' : 260,
+            flex: isMobile ? '1 1 100%' : '0 0 260px',
+            display: isMobile && selectedId ? 'none' : undefined,
+          }}
           styles={{ body: { padding: '10px 8px' } }}
         >
           <Input
@@ -1418,6 +1418,16 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             </div>
           ) : (
             <>
+              {isMobile && selectedId && (
+                <Button
+                  size="small"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => setSelectedId(undefined)}
+                  style={{ marginBottom: 8 }}
+                >
+                  班级列表
+                </Button>
+              )}
               <div
                 style={{
                   display: 'flex',
