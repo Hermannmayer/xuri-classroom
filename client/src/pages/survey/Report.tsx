@@ -955,6 +955,8 @@ export default function SurveyReport() {
                     size="small"
                     pagination={false}
                     dataSource={weakQuestions}
+                    // 7 列合计约 620px，手机上横滚而不是把题干压成一字一行
+                    scroll={{ x: 620 }}
                     columns={[
                       { title: '#', dataIndex: 'number', width: 54, align: 'right' },
                       {
@@ -1058,6 +1060,8 @@ export default function SurveyReport() {
                     bordered
                     pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
                     dataSource={itemRows}
+                    // 逐题表 9 列，窄屏必须横滚
+                    scroll={{ x: 820 }}
                     onRow={(row: { id: string }) => ({ onClick: () => setDetailQid(row.id), style: { cursor: 'pointer' } })}
                     columns={[
                       { title: '#', dataIndex: 'number', width: 52, align: 'right' },
