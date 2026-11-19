@@ -734,20 +734,26 @@ export default function SystemSetting() {
         <Form form={form} layout="vertical" size="small" requiredMark={false} disabled={!canUpdate}>
           {/* 手机上不用页签：竖排太占宽（表单被挤成「威海市旭日职业培训学」），横排又会折进「»」。
               改成下拉选分区，内容区独占整行。桌面端仍是页签。 */}
+          {/* 手机上不用页签也不用下拉：页签竖排太占宽，下拉要先点开才知道有哪几个分区。
+              改成一排可横滑的按钮，五个分区一眼看全，当前项高亮。 */}
           {isMobile && (
-            <div style={{ marginBottom: 12 }}>
-              <Select
-                value={activeTab}
-                onChange={(v) => changeTab(v as TabKey)}
-                style={{ width: '100%' }}
-                options={[
-                  { value: 'basic', label: '基本' },
-                  { value: 'access', label: '登录与注册' },
-                  { value: 'content', label: '内容与导出' },
-                  { value: 'ai', label: 'AI' },
-                  { value: 'system', label: '系统与更新' },
-                ]}
-              />
+            <div className="sk-settings-chips">
+              {[
+                { key: 'basic', label: '基本' },
+                { key: 'access', label: '登录与注册' },
+                { key: 'content', label: '内容与导出' },
+                { key: 'ai', label: 'AI' },
+                { key: 'system', label: '系统与更新' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={activeTab === item.key ? 'is-active' : ''}
+                  onClick={() => changeTab(item.key as TabKey)}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           )}
           <Tabs

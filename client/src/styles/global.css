@@ -372,6 +372,34 @@ body {
   border-bottom: 1px solid var(--bp-line-soft);
 }
 
+/* 设置页的分区按钮（仅手机）：一排可横滑，五个分区一眼看全 */
+.sk-settings-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+.sk-settings-chips::-webkit-scrollbar {
+  display: none;
+}
+.sk-settings-chips > button {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--bp-line);
+  background: transparent;
+  color: var(--bp-text-soft);
+  cursor: pointer;
+}
+.sk-settings-chips > button.is-active {
+  border-color: var(--bp-orange);
+  color: var(--bp-orange);
+  background: var(--bp-orange-tint);
+}
+
 /* 设置页的吸底保存条：桌面贴底，手机再上移到底部导航之上 */
 .sk-settings-savebar {
   position: sticky;

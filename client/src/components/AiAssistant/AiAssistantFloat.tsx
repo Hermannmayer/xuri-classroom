@@ -1,16 +1,15 @@
-import { Button, Drawer } from 'antd';
+import { Button } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import AiAssistantPanel from './AiAssistantPanel';
 import { useAiAssistant } from './AiAssistantContext';
 
 /**
- * 右下角悬浮入口：圆形按钮 + 浮层对话框（手机上是全屏抽屉）。
+ * 右下角悬浮入口：圆形按钮 + 浮层对话框。桌面和手机都是浮层，只是尺寸不同。
  *
- * <p>为什么不再做左侧停靠栏：停靠栏常驻要吃掉 336px 正文宽度，而老师 90% 的时间在改卷/看报表，
- * 那 336px 恰好是画布与表格最需要的地方；悬浮按钮只在需要时才占地方。
+ * <p>手机上原来用 Drawer（先全屏、后 92vw），看着仍像「另一个页面」：背景被完全盖住，
+ * 也不知道自己在哪。改成真正的悬浮小窗——保留当前页面可见，像 IM 的聊天窗一样。
  *
- * <p>显示条件由 {@code BasicLayout} 决定（账号有 ai:use 且系统设置里 AI 总开关是开的），
- * 组件本身不判权限——避免「组件里判一次、菜单里判一次」两套口径。
+ * <p>为什么不做左侧停靠栏：停靠栏常驻要吃掉 336px 正文宽度，而老师 90% 的时间在改卷/看报表。
  */
 export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
   const { open, setOpen } = useAiAssistant();
@@ -34,50 +33,32 @@ export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
     />
   );
 
-  if (isMobile) {
-    return (
-      <>
-        {!open && button}
-        <Drawer
-          open={open}
-          placement="right"
-          // 铺满整屏会丢掉「这是浮层」的感觉，也没有地方点一下退出；
-          // 92vw 留一条背景缝，右下角仍是原来的浮层位置
-          width="92vw"
-          closable={false}
-          onClose={() => setOpen(false)}
-          styles={{ body: { padding: 0, height: '100%' } }}
-        >
-          <AiAssistantPanel onClose={() => setOpen(false)} />
-        </Drawer>
-      </>
-    );
+  if (!open) {
+    return button;
   }
 
   return (
-    <>
-      {!open && button}
-      {open && (
-        <div
-          role="dialog"
-          aria-label="AI 助手"
-          style={{
-            position: 'fixed',
-            right: 24,
-            bottom: 24,
-            width: 400,
-            height: 'min(620px, calc(100vh - 96px))',
-            zIndex: 1000,
-            border: '1px solid var(--bp-line)',
-            background: 'var(--bp-panel)',
-            boxShadow: '0 10px 32px rgba(0, 0, 0, 0.34)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <AiAssistantPanel onClose={() => setOpen(false)} />
-        </div>
-      )}
-    </>
+    <div
+      role="dialog"
+      aria-label="AI 助手"
+      style={{
+        position: 'fixed',
+        right: isMobile ? 12 : 24,
+        // 手机上抬到「底部导航 + 安全区」之上，否则聊天输入框会被导航压住
+        bottom: isMobile ? 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)' : 24,
+        // 手机：占满宽度减去两侧留白，高度最多 520 或视口七成，背后仍能看到页面
+        width: isMobile ? 'calc(100vw - 24px)' : 400,
+        height: isMobile ? 'min(520px, calc(100dvh - 150px))' : 'min(620px, calc(100vh - 96px))',
+        // 高于底部导航（1000），避免聊天窗被它盖住
+        zIndex: 1100,
+        border: '1px solid var(--bp-line)',
+        background: 'var(--bp-panel)',
+        boxShadow: '0 10px 32px rgba(0, 0, 0, 0.34)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AiAssistantPanel onClose={() => setOpen(false)} />
+    </div>
   );
 }
