@@ -404,6 +404,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	 * <p>练习答卷的判定：t_answer.repo_id 命中且 exam_exercise_type 非空。正式考试的答卷 repo_id 为空，不会混进来。
 	 */
 	public RepoReportView repoReport(String repoId) {
+		// 光有 repo:report 权限点不等于能看这个库：还得确认它对当前账号可读，
+		// 否则老师用任意 repoId 就能看到没授权给他的题库统计。
+		assertReadableRepo(repoId);
 		Repo repo = getById(repoId);
 		if (repo == null) {
 			throw new ValidationException("题库不存在或已被删除");

@@ -61,8 +61,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: 6a251e737e06fb66049cc4eef9a921784c1679a4
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 文件、附件与导入模板

@@ -146,21 +146,36 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	/**
 	 * 批量回填「待批改答卷数」。
-	 * <p>一页最多几十条，每条一次主键级 count（走 idx_answer_project_grade），比拉全表聚合更简单可靠。
+	 *
+	 * <p>原来是一个项目一次 count（一页 20 条就是 20 次往返），改成一条 group by 聚合：
+	 * 一次查询拿回本页所有项目的待批改数，走 idx_answer_project_grade。
 	 */
 	private void fillPendingCount(java.util.List<ProjectView> views) {
 		if (views == null || views.isEmpty()) {
 			return;
 		}
-		for (ProjectView view : views) {
-			if (view.getId() == null || ProjectModeEnum.folder.equals(view.getMode())) {
-				view.setPendingCount(0);
-				continue;
+		views.forEach(view -> view.setPendingCount(0));
+		java.util.List<String> projectIds = views.stream()
+				.filter(view -> view.getId() != null && !ProjectModeEnum.folder.equals(view.getMode()))
+				.map(ProjectView::getId).collect(java.util.stream.Collectors.toList());
+		if (projectIds.isEmpty()) {
+			return;
+		}
+		java.util.List<java.util.Map<String, Object>> rows = answerMapper.selectMaps(Wrappers.<Answer>query()
+				.select("project_id AS pid", "COUNT(*) AS cnt").eq("temp_save", 1)
+				.eq("grade_status", "pending").in("project_id", projectIds).groupBy("project_id"));
+		java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+		for (java.util.Map<String, Object> row : rows) {
+			Object pid = row.get("pid");
+			Object cnt = row.get("cnt");
+			if (pid != null && cnt instanceof Number number) {
+				counts.put(String.valueOf(pid), number.intValue());
 			}
-			long count = answerMapper.selectCount(Wrappers.<Answer>lambdaQuery()
-					.eq(Answer::getProjectId, view.getId()).eq(Answer::getTempSave, 1)
-					.eq(Answer::getGradeStatus, "pending"));
-			view.setPendingCount((int) count);
+		}
+		for (ProjectView view : views) {
+			if (view.getId() != null && !ProjectModeEnum.folder.equals(view.getMode())) {
+				view.setPendingCount(counts.getOrDefault(view.getId(), 0));
+			}
 		}
 	}
 

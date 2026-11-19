@@ -13,7 +13,9 @@
 | `/ai` | `Navigate` | 公开/仅登录 |
 | `/notice` | `NoticeCenter` | `notice:list` |
 | `/teaching` | `TeachingHome` | `project:list`<br>`class:list` |
-| `/teaching/classes` | `TeachingClassesRedirect` | 公开/仅登录 |
+| `/survey/list` | `SurveyList` | `project:list` |
+| `/teaching/:tab` | `TeachingHome` | `project:list`<br>`class:list` |
+| `/teaching/:tab/:classId` | `TeachingHome` | `project:list`<br>`class:list` |
 | `/tasks` | `TaskCenter` | `project:answer` |
 | `/project` | `ProjectEntry` | `project:list` |
 | `/project/trash` | `ProjectTrash` | `project:list` |
@@ -22,6 +24,7 @@
 | `/exercise/practice/:repoId` | `Practice` | `exercise:list` |
 | `/exercise/:repoId` | `Placeholder` | 公开/仅登录 |
 | `/repo/index` | `RepoList` | `repo:list` |
+| `/repo/:repoId/report` | `RepoReport` | `repo:report` |
 | `/repo/book` | `RepoBook` | `repo:book` |
 | `/repo/:repoId/practice` | `RepoPracticeHome` | `repo:practice` |
 | `/repo/book/practice` | `BookPractice` | `repo:book` |

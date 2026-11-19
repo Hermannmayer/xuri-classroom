@@ -103,8 +103,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-18
-verified_against: 94cafb15f435bbc97035001dffd0ad5a2856459a
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 考试与问卷（项目）
@@ -371,3 +371,10 @@ npm run docs:check
 - 总面板新增 `GET /api/project/class-anonymous-stats?projectId=`（`project:report` + 数据范围），返回 `total / identified / anonymous / unassignedAnonymous / classes[]`；Overview 的「匿名答卷 / 班级」卡片据此展示。
 - 登录学员使用非本班 token 会被拒绝；token 不随项目复制链接自动带出，必须从班级资源面板复制。
 
+## 2026-11-19 列表双入口与待批改计数
+
+- `ProjectView.pendingCount`：该考试待批改答卷数（`grade_status='pending'` 且已正式交卷）。
+- `fillPendingCount` 原来逐项目 `selectCount`（一页 20 条 = 20 次往返），已改成**一条 group by 聚合**。
+- 列表右端拆成两个入口：**批改 / 待批改 N**（有待批改显示数字，跳到 `?gradeStatus=pending`）和 **统计**（走 `project:report`，与 `answer:list` 分开判定）。
+- 数据页支持 `?answerId=` 直达：从班级答卷列表点行会跳过来并自动打开该答卷详情。
+- 手机端卡片只保留「数据 / 统计 / 更多」三个按钮，设置/编辑/授权/关闭/删除收进下拉。

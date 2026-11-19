@@ -92,8 +92,8 @@ tables:
 tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 题库与题目
@@ -325,3 +325,13 @@ npm run docs:check
 - [权限与角色](./permissions.md)：权限串总表与历史基线。
 - [功能范围](../architecture/scope.md)：题库模块「做了什么 / 不做什么」。
 - [文档入口](../start/docs-workflow.md)：按任务定位其他模块。
+
+## 2026-11-19 题库统计（repo:report）
+
+- 新增权限点 `repo:report`「查看题库统计」，**学员没有**（四处同步已完成：PermissionEnum / permission-codes.ts / init-mysql 种子 / V2.3.4 迁移）。
+- 新接口 `GET /api/repo/report?repoId=`：返回题量、题型分布、难度分布、练习概况（次数/人数/平均分）。
+- **要点**：方法内先 `assertReadableRepo(repoId)`——只有权限点不够，还必须确认这个库对当前账号可读，否则老师拿任意 repoId 能看未授权的库。
+- 前端 `pages/repo/Report.tsx` + 路由 `/repo/:repoId/report`；题库列表「统计」入口按 `repo:report` 显隐。
+- 练习答卷判定：`t_answer.repo_id` 命中且 `exam_exercise_type` 非空；正式考试 repo_id 为空，不会混入。
+- 已知限制：一次拉该库全部题目 + 全部练习答卷，无分页缓存；题库上万时有感。
+- 另修：收藏一道「题库里不存在」的题曾 500——`fillFavoriteMeta` 在事务内调 `getReadableTemplate` 抛异常把事务标记成 rollback-only，改用不抛异常的 `getById`。

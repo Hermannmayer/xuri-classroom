@@ -64,8 +64,8 @@ tests:
   - client:npm run test:rules
   - client:npm run test:tree
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 考试编辑器与题型
@@ -219,3 +219,9 @@ npm run docs:check
 - [题库与题目](./repo.md)
 - [从题库组卷到考试](../flows/repo-compose.md)
 - [前端结构](../architecture/frontend.md)
+
+## 2026-11-19 报表页改版
+
+- 分值分析从「三档百分比」改成**绝对分数段**（桶宽按满分自动选：≤20 分 5 分一档、≤60 分 10 分一档、其余 20 分一档），上方加 9 个指标：已判分/卷面满分/平均分/中位数/标准差/最高/最低/及格率/优秀率。
+- 逐题分析从「每题一个折叠块」改成**一张可排序表 + 右侧抽屉**：列含答题/答对/正确率/均分/未答/难度/**区分度**（总分前 27% 与后 27% 的正确率差，D&lt;0.2 标橙）。
+- 错题排行、逐题表在窄屏加横向滚动，不再把题干压成一字一行。

@@ -48,8 +48,8 @@ tables:
 tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
-last_verified: 2026-11-17
-verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 试卷导入（解析 / 预览 / 落地）

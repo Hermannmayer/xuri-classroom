@@ -479,6 +479,14 @@ public class SystemApi {
 				throw new ValidationException("下载的包校验失败：sha256 对不上，已丢弃");
 			}
 			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+			// 记录来源与校验值：出问题时能追到「这个包是从哪来的、sha256 是多少」。
+			// 自建清单被篡改是这个功能唯一的信任缺口（sha256 也来自同一份清单），
+			// 所以至少留下可审计的痕迹。
+			log.info("下载更新包成功 version={} url={} sha256={} size={}", view.getLatestVersion(), asset.getUrl(), actual,
+					Files.size(target));
+			if (asset.getUrl() != null && !asset.getUrl().startsWith("https://")) {
+				log.warn("更新包来源不是 https：{}（自建清单请自行确保通道可信）", asset.getUrl());
+			}
 			Files.writeString(dir.resolve("apply.flag"),
 					"version=" + view.getLatestVersion() + "\nsha256=" + actual + "\n", StandardCharsets.UTF_8);
 			Map<String, Object> result = new LinkedHashMap<>();

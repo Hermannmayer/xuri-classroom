@@ -448,8 +448,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-files
     title: 文件、附件与导入模板
     doc: docs/modules/files.md
@@ -512,8 +512,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: 6a251e737e06fb66049cc4eef9a921784c1679a4
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-import
     title: 试卷导入（解析 / 预览 / 落地）
     doc: docs/modules/import.md
@@ -563,8 +563,8 @@ modules:
     tests:
       - client:npx tsc --noEmit
       - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
-    last_verified: 2026-11-17
-    verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-mcp
     title: MCP / API 接入
     doc: docs/modules/mcp.md
@@ -669,8 +669,8 @@ modules:
     tests:
       - server/rdbms/src/test/java/cn/surveyking/server/impl/NoticeServiceImplTest.java
       - client:npm run check
-    last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md
@@ -815,8 +815,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-18
-    verified_against: 94cafb15f435bbc97035001dffd0ad5a2856459a
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -921,8 +921,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-18
-    verified_against: 94cafb15f435bbc97035001dffd0ad5a2856459a
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -1016,8 +1016,8 @@ modules:
     tests:
       - client:npx tsc --noEmit
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: 988d65b0e72960d30932d32b8d3aa7c06df393c7
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-survey
     title: 考试编辑器与题型
     doc: docs/modules/survey.md
@@ -1083,8 +1083,8 @@ modules:
       - client:npm run test:rules
       - client:npm run test:tree
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
@@ -1207,5 +1207,5 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+    last_verified: 2026-11-19
+    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3

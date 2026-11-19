@@ -143,8 +143,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-18
-verified_against: 94cafb15f435bbc97035001dffd0ad5a2856459a
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 权限、角色与用户组
@@ -495,3 +495,10 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 - [权限变更流程（新增权限点/改角色/缓存/迁移）](../flows/permission-change.md)
 - [权限设计基线（历史推导，部分已过期）](./permissions.md)
 - [模块页模板](https://github.com/Hermannmayer/xuri-classroom/blob/main/docs/ai/module-template.md)
+
+## 2026-11-19 新增 repo:report
+
+- 权限点 `repo:report`「查看题库统计」：**admin / teacher 有，学员没有**。自定义角色不会自动获得，需要在权限页手动勾选。
+- 迁移 `V2.3.4__repo_report_perm.sql`（幂等 UPDATE，只补内置 admin/teacher）。
+- 接口 `GET /api/repo/report` 只校验 `repo:report`，因此**服务层必须再调 `assertReadableRepo`**，否则越权（已补）。
+- 手机端底栏补了「系统」入口：管理员在手机上原本进不去系统设置（底栏只有首页/教学/题库/我的）。

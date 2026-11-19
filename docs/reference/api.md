@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 252 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 257 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -120,6 +120,7 @@
 | GET | `${api.prefix}/repo/list` | `RepoApi#listRepo` | `hasAnyAuthority('repo:list', 'exercise:list')` | — |
 | GET | `${api.prefix}/repo/categories` | `RepoApi#listRepoCategories` | `hasAuthority('repo:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/categories/create` | `RepoApi#createRepoCategory` | `hasAuthority('repo:create') or hasRole('admin')` | — |
+| GET | `${api.prefix}/repo/report` | `RepoApi#report` | `hasAuthority('repo:report')` | — |
 | GET | `${api.prefix}/repo/detail` | `RepoApi#getRpo` | `hasAnyAuthority('repo:detail','repo:questions:read')` | — |
 | POST | `${api.prefix}/repo/create` | `RepoApi#addRepo` | `hasAuthority('repo:create')` | — |
 | POST | `${api.prefix}/repo/update` | `RepoApi#updateRepo` | `hasAuthority('repo:update')` | — |
@@ -163,8 +164,11 @@
 | GET | `${api.prefix}/public/anonymous/answers` | `SurveyApi#anonymousAnswers` | — | — |
 | POST | `${api.prefix}/public/anonymous/claim` | `SurveyApi#claimAnonymousAnswers` | — | — |
 | GET | `${api.prefix}/system/version` | `SystemApi#version` | — | — |
+| POST | `${api.prefix}/system/schema/upgrade` | `SystemApi#upgradeSchema` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/update/check` | `SystemApi#checkUpdate` | `isAuthenticated()` | — |
-| GET | `${api.prefix}/system` | `SystemApi#getSystemInfo` | `isAuthenticated()` | — |
+| GET | `${api.prefix}/system/update/pending` | `SystemApi#updatePending` | `hasAuthority('system:setting:update')` | — |
+| POST | `${api.prefix}/system/update/download` | `SystemApi#downloadUpdate` | `hasAuthority('system:setting:update')` | — |
+| GET | `${api.prefix}/system` | `SystemApi#getSystemInfo` | — | — |
 | GET | `${api.prefix}/system/aiSetting` | `SystemApi#getSystemAiSetting` | `hasRole('admin')` | — |
 | POST | `${api.prefix}/system/aiModels` | `SystemApi#aiModels` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/oauthSetting` | `SystemApi#getOAuthSetting` | `hasRole('admin')` | — |
@@ -204,6 +208,7 @@
 | POST | `${api.prefix}/system/dictItem/update` | `SystemApi#updateItem` | `hasAuthority('system:dictItem:update')` | — |
 | POST | `${api.prefix}/system/dictItem/import` | `SystemApi#importDictItem` | `hasAuthority('system:dictItem:import')` | — |
 | POST | `${api.prefix}/system/dictItem/delete` | `SystemApi#deleteDictItem` | `hasAuthority('system:dictItem:delete')` | — |
+| GET | `${api.prefix}/system/logs/export` | `SystemApi#exportDiagnostics` | `hasAuthority('system:log:list')` | — |
 | POST | `${api.prefix}/system/protection` | `SystemProtectionApi#updateProtection` | `hasAuthority('content:protect') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/projects` | `TeachingApi#myProjects` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/teaching/classes` | `TeachingApi#classes` | `hasAuthority('project:report') or hasRole('admin')` | — |

@@ -121,8 +121,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
+last_verified: 2026-11-19
+verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---
 
 # 班级与教学工作台
@@ -441,3 +441,10 @@ npm run docs:check
 - [题库与题目](./repo.md)：题库授权、按班级分配题库与题库导出。
 - [文档入口与维护规则](../start/docs-workflow.md)
 
+## 2026-11-19 导航重构与班级两级结构
+
+- 左侧菜单：「教学」拆成 **试卷 / 班级** 两个子项（`/teaching/exam`、`/teaching/classes`）；**问卷独立成一级菜单**（`/survey/list`）；「题库中心」合并成一级入口，不再挂「题库列表」子项。
+- 教学页**删掉了页面内那排重复页签**——菜单已经能直达，页签再点只是原地刷新，看着像点不动。
+- 班级页在手机上改成「列表 → 详情」两级：`/teaching/classes` 只显示班级卡片，`/teaching/classes/:classId` 直达详情；**不再自动选中第一个班**。
+- 详情内分「成员 / 试卷」两个页签，页签在班级名下方、操作按钮上方；「添加学员 / 批量导入 / 任课老师 / 班级设置 / 删除分组」只在成员页出现。
+- 班级列表、班级试卷、待审核学员在手机上一律卡片化（不再横滑 720~1180px 的表格）。
