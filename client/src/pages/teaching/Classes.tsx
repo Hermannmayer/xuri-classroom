@@ -302,9 +302,14 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   }, [selectedId]);
   // loadTree 里要判断「当前选中项还在不在」，用 ref 读：把 selectedId 写进依赖会让每次选班都重新拉一次树
   const selectedIdRef = useRef<string | undefined>(undefined);
+  /** loadTree 的 useCallback 依赖里没有 isMobile，用 ref 读当前值 */
+  const isMobileRef = useRef(isMobile);
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+  }, [isMobile]);
 
   /**
    * 选中班级镜像到 URL（?classId=），选班只改状态、URL 统一由这里写，避免两处各写一遍。
@@ -335,7 +340,9 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
       const nodes = normalizeTree(Array.isArray(list) ? list : []);
       setTree(nodes);
       const keep = selectedIdRef.current;
-      const nextId = keep && findNode(nodes, keep) ? keep : firstSelectable(nodes)?.id;
+      // 桌面是「左树 + 右详情」，自动选中第一个班省一次点击；
+      // 手机是「列表 → 详情」两级，自动选中会导致一进页面就直接落在某个班的详情里、看不到列表
+      const nextId = keep && findNode(nodes, keep) ? keep : isMobileRef.current ? undefined : firstSelectable(nodes)?.id;
       setSelectedId(nextId);
       return nextId;
     } catch (e) {
