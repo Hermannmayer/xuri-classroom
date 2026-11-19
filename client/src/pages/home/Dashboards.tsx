@@ -52,7 +52,9 @@ function Shell({
   children: ReactNode;
 }) {
   return (
-    <div style={{ maxWidth: 1200 }}>
+    // 原来这里锁死 maxWidth: 1200，2K/4K 屏上内容只占左边一小块、右边全是空白。
+    // 现在不锁宽度，靠栅格断点自适应：1080p 两列、2K/4K 三到四列。
+    <div>
       <div
         style={{
           marginBottom: 14,
@@ -332,7 +334,7 @@ export function AdminHome() {
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={12} xl={8} xxl={6}>
           <Panel title="用户构成" extra={<span style={NOTE}>单位：人</span>}>
             <Donut
               data={[users?.student, users?.teacher, users?.admin]}
@@ -347,7 +349,7 @@ export function AdminHome() {
             />
           </Panel>
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={12} xl={8} xxl={6}>
           <Panel title={`近 ${DAYS} 天答卷量`} extra={<span style={NOTE}>柱：答卷 / 浅柱：已批改</span>}>
             <BarSeries
               data={trend.answers}
@@ -365,7 +367,7 @@ export function AdminHome() {
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={12} xl={8} xxl={6}>
           <Panel title={`近 ${DAYS} 天平均分走势`} extra={<span style={NOTE}>缺口 = 当天没有分数</span>}>
             <AreaTrend
               data={trend.avgScores}
