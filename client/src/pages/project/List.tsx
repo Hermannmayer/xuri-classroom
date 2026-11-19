@@ -1,23 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  AutoComplete,
-  Breadcrumb,
-  Button,
-  Checkbox,
-  Empty,
-  Form,
-  Input,
-  message,
-  Modal,
-  Pagination,
-  Popconfirm,
-  Segmented,
-  Space,
-  Spin,
-  Table,
-  Tag,
-} from 'antd';
+import { Alert, AutoComplete, Breadcrumb, Button, Checkbox, Dropdown, Empty, Form, Input, Modal, Pagination, Popconfirm, Segmented, Space, Spin, Table, Tag, message } from 'antd';
 import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
@@ -928,74 +910,62 @@ function ManagerProjectList({
                           </>
                         ) : (
                           <>
-                            {canDetail && (
-                              <Button
-                                style={{ flex: 1, height: 38, paddingInline: 0 }}
-                                onClick={() => navigate(`/survey/${row.id}`)}
-                              >
-                                设置
-                              </Button>
-                            )}
-                            {canPublish &&
-                              (row.status === 1 ? (
-                                <Popconfirm
-                                  title="关闭后学员将无法打开答题链接"
-                                  description="已收集的答卷不受影响，可随时重新开启。"
-                                  okText="关闭"
-                                  cancelText="取消"
-                                  onConfirm={() => setStatus(row, 0)}
-                                >
-                                  <Button danger style={{ flex: 1, height: 38, paddingInline: 0 }}>
-                                    关闭
-                                  </Button>
-                                </Popconfirm>
-                              ) : (
-                                <Button
-                                  style={{ flex: 1, height: 38, paddingInline: 0 }}
-                                  onClick={() => setStatus(row, 1)}
-                                >
-                                  开启
-                                </Button>
-                              ))}
-                            {canUpdate && (
-                              <Button
-                                style={{ flex: 1, height: 38, paddingInline: 0 }}
-                                onClick={() => navigate(`/survey/${row.id}/edit`)}
-                              >
-                                编辑
-                              </Button>
-                            )}
+                            {/* 原来六个按钮挤成一行（设置/关闭/编辑/待批改/统计/授权），手指根本点不准。
+                                手机上只留「数据 / 统计 / 更多」，其余收进下拉。 */}
                             {canData &&
                               (() => {
-                                // 有待批改就显示「待批改 N」，没有就叫「批改」——按钮位置固定，不因为数字消失而跳动
                                 const pending = Number((row as { pendingCount?: number }).pendingCount ?? 0);
                                 return (
                                   <Button
-                                    style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                    style={{ flex: 1, height: 40, paddingInline: 0 }}
                                     onClick={() =>
                                       navigate(`/survey/${row.id}/data${pending > 0 ? '?gradeStatus=pending' : ''}`)
                                     }
                                   >
-                                    {pending > 0 ? `待批改 ${pending}` : '批改'}
+                                    {pending > 0 ? `待批改 ${pending}` : '数据'}
                                   </Button>
                                 );
                               })()}
                             {canReport && (
                               <Button
-                                style={{ flex: 1, height: 38, paddingInline: 0 }}
+                                style={{ flex: 1, height: 40, paddingInline: 0 }}
                                 onClick={() => navigate(`/survey/${row.id}/report`)}
                               >
                                 统计
                               </Button>
                             )}
-                            {canPartner && (
-                              <Button
-                                style={{ flex: 1, height: 38, paddingInline: 0 }}
-                                onClick={() => navigate(`/survey/${row.id}`)}
-                              >
-                                授权
-                              </Button>
-                            )}
+                            <Dropdown
+                              trigger={['click']}
+                              menu={{
+                                items: [
+                                  canDetail ? { key: 'setting', label: '设置' } : null,
+                                  canUpdate ? { key: 'edit', label: '编辑' } : null,
+                                  canPartner ? { key: 'auth', label: '授权' } : null,
+                                  canPublish
+                                    ? { key: 'status', label: row.status === 1 ? '关闭（停止收集）' : '开启' }
+                                    : null,
+                                  canDelete ? { key: 'delete', label: '删除', danger: true } : null,
+                                ].filter(Boolean) as { key: string; label: string; danger?: boolean }[],
+                                onClick: ({ key }) => {
+                                  if (key === 'setting') navigate(`/survey/${row.id}`);
+                                  if (key === 'edit') navigate(`/survey/${row.id}/edit`);
+                                  if (key === 'auth') navigate(`/survey/${row.id}`);
+                                  if (key === 'status') void setStatus(row, row.status === 1 ? 0 : 1);
+                                  if (key === 'delete') {
+                                    Modal.confirm({
+                                      title: `删除「${row.name || ''}」？`,
+                                      content: '删除后可在回收站找回。',
+                                      okText: '删除',
+                                      cancelText: '取消',
+                                      okButtonProps: { danger: true },
+                                      onOk: () => void remove(row),
+                                    });
+                                  }
+                                },
+                              }}
+                            >
+                              <Button style={{ flex: 1, height: 40, paddingInline: 0 }}>更多</Button>
+                            </Dropdown>
                           </>
                         )}
                       </div>
