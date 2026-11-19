@@ -562,7 +562,11 @@ export default function ClassResourcesPanel({
                     让他先点进数据页再切筛选是绕路 */}
                 {kind === 'project' ? (
                   <LinkAction
-                    onClick={() => navigate(`/survey/${row.resourceId}/data?gradeStatus=pending`)}
+                    // 带上 classId：这里是「这个班」的待批改，不是全卷的。
+                    // 不带的话数据页会显示所有班的卷子，和这一行的语境对不上。
+                    onClick={() =>
+                      navigate(`/survey/${row.resourceId}/data?gradeStatus=pending&classId=${classId}`)
+                    }
                   >
                     批改
                   </LinkAction>
@@ -715,7 +719,7 @@ export default function ClassResourcesPanel({
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        navigate(`/survey/${row.resourceId}/data?gradeStatus=pending`);
+                        navigate(`/survey/${row.resourceId}/data?gradeStatus=pending&classId=${classId}`);
                       }}
                       style={{
                         padding: '4px 10px',
@@ -743,7 +747,9 @@ export default function ClassResourcesPanel({
           loading={loading}
           dataSource={rows}
           columns={columns}
-          scroll={{ x: 1180 }}
+          // 桌面不设 scroll.x：表格 100% 宽、随容器伸缩，宽屏下不会多出一条横向滚动条。
+          // 手机才按 1180 固定最小宽度让它横滚（列多、屏窄）。
+          scroll={isMobile ? { x: 1180 } : undefined}
           rowSelection={
             manageable
               ? {
