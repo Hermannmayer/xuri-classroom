@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Button, Card, ConfigProvider, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -244,6 +245,7 @@ export default function SystemSetting() {
   const [usageError, setUsageError] = useState<string>();
 
   const activeTab = normalizeTab(searchParams.get('tab') ?? '');
+  const isMobile = useIsMobile();
   /** 点开过的 Tab：令牌面板只在真正进过「系统与更新」后才挂载（见下面的注释） */
   const [visitedTabs, setVisitedTabs] = useState<TabKey[]>(() => [activeTab]);
 
@@ -733,6 +735,9 @@ export default function SystemSetting() {
           <Tabs
             activeKey={activeTab}
             onChange={changeTab}
+            // 5 个页签在手机上会折进「»」，最后两个（AI / 系统与更新）根本点不到；竖排后全部可见
+            tabPosition={isMobile ? 'left' : 'top'}
+            size={isMobile ? 'small' : 'middle'}
             items={[
               {
                 key: 'basic',
