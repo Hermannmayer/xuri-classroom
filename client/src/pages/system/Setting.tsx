@@ -1,22 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  ConfigProvider,
-  Form,
-  Input,
-  InputNumber,
-  message,
-  Modal,
-  Segmented,
-  Select,
-  Spin,
-  Switch,
-  Tabs,
-  Upload,
-} from 'antd';
+import { Alert, Button, Card, ConfigProvider, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
 import { DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -239,6 +223,7 @@ export default function SystemSetting() {
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState<{ version?: string; file?: string; size?: number; sha256?: string }>();
+  const [pendingInfo, setPendingInfo] = useState<{ pending?: boolean; version?: string; size?: number }>();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   /** 诊断日志导出中：导出要现打包日志，几秒到十几秒，按钮要有 loading */
   const [exportingDiag, setExportingDiag] = useState(false);
@@ -540,6 +525,20 @@ export default function SystemSetting() {
       setDownloading(false);
     }
   };
+
+  /** 读「已下载但还没应用」的状态：下载和安装是两步，界面要能看出卡在哪一步 */
+  const loadPendingUpdate = async () => {
+    try {
+      const res = await get<{ pending?: boolean; version?: string; size?: number }>('/api/system/update/pending');
+      setPendingInfo(res);
+    } catch {
+      // 状态读不到不影响别的功能，静默即可
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'system') void loadPendingUpdate();
+  }, [activeTab]);
 
   const checkUpdateNow = async () => {
     setCheckingUpdate(true);
@@ -1234,10 +1233,125 @@ export default function SystemSetting() {
                 forceRender: true,
                 children: (
                   <>
-                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 16, lineHeight: 1.7 }}>
-                      当前版本：{currentVersion || '—'}。检查更新只读取远端版本信息，不会自动下载或升级；
-                      发现的新版本会写成一条系统更新公告，在公告中心查看与归档。
-                    </div>
+                    {/*
+                      更新做成常驻区块：以前只有「发现新版本且 Release 带 update.json」时才冒出一个按钮，
+                      其余时间整块是空的，用户以为根本没有更新功能。
+                      现在无论什么状态都给出版本、通道、检查结果和下一步该做什么。
+                    */}
+                    <Card
+                      className="bp-corners bp-card"
+                      style={{ marginBottom: 16 }}
+                      title={<span className="bp-title" style={{ fontSize: 12 }}>UPDATE / 更新</span>}
+                      extra={<Tag>{updateInfo?.channel === 'nightly' ? '尝鲜版' : '正式版'}</Tag>}
+                    >
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                          gap: 8,
+                          marginBottom: 12,
+                        }}
+                      >
+                        {[
+                          { label: '当前版本', value: currentVersion || '—' },
+                          { label: '最新版本', value: updateInfo?.latestVersion || '—' },
+                          { label: '更新源', value: updateInfo == null ? '读取中' : updateInfo.enabled === false ? '未配置' : '已配置' },
+                          {
+                            label: '待安装',
+                            value: pendingInfo?.pending ? 'v' + (pendingInfo.version || '?') : '无',
+                          },
+                        ].map((item) => (
+                          <div key={item.label} style={{ border: '1px solid var(--bp-line-soft)', padding: '5px 8px' }}>
+                            <div style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}>{item.label}</div>
+                            <div style={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>
+                          立即检查
+                        </Button>
+                        {Boolean(updateInfo?.hasUpdate && updateInfo?.assets?.jar) && (
+                          <Button type="primary" loading={downloading} onClick={() => void downloadUpdateNow()}>
+                            下载 v{updateInfo?.latestVersion} 到服务器
+                          </Button>
+                        )}
+                        {updateInfo?.downloadUrl && (
+                          <Button onClick={() => window.open(updateInfo.downloadUrl, '_blank', 'noopener')}>
+                            打开下载页
+                          </Button>
+                        )}
+                        <Button onClick={() => void loadPendingUpdate()}>刷新状态</Button>
+                      </div>
+
+                      {(() => {
+                        if (updateInfo?.error) {
+                          return (
+                            <Alert
+                              type="error"
+                              showIcon
+                              title="检查失败"
+                              description={`${updateInfo.error}。如果是 GitHub 访问不通，可以在下面把「GitHub API 前缀」换成一个可用镜像，或直接填「自建更新清单」地址。`}
+                            />
+                          );
+                        }
+                        if (updateInfo == null) {
+                          return <Alert type="info" showIcon title="还没有检查过" description="点「立即检查」读取远端版本信息。" />;
+                        }
+                        if (updateInfo.enabled === false) {
+                          return (
+                            <Alert
+                              type="warning"
+                              showIcon
+                              title="没有配置更新源"
+                              description="填下面的「GitHub 仓库」或「自建更新清单」，再点「立即检查」。"
+                            />
+                          );
+                        }
+                        if (updateInfo.hasUpdate && !updateInfo.assets?.jar) {
+                          return (
+                            <Alert
+                              type="warning"
+                              showIcon
+                              title={`发现新版本 v${updateInfo.latestVersion}，但这个 Release 不能一键更新`}
+                              description={
+                                <span>
+                                  Release 里没有 <code>update.json</code>（或里面缺 jar 包），所以拿不到下载地址与 sha256。
+                                  发版时由 CI 自动生成这个文件；在那之前只能用「打开下载页」手动换包。
+                                </span>
+                              }
+                            />
+                          );
+                        }
+                        if (updateInfo.hasUpdate) {
+                          return (
+                            <Alert
+                              type="info"
+                              showIcon
+                              title={`发现新版本 v${updateInfo.latestVersion}`}
+                              description="点「下载到服务器」把安装包抓到本机并校验 sha256；替换与重启由宿主机脚本完成（见下方说明）。"
+                            />
+                          );
+                        }
+                        return <Alert type="success" showIcon title="已是最新版本" />;
+                      })()}
+
+                      {pendingInfo?.pending && (
+                        <Alert
+                          type="warning"
+                          showIcon
+                          style={{ marginTop: 12 }}
+                          title={`已下载 v${pendingInfo.version || '?'}，还没安装`}
+                          description={
+                            <span>
+                              在服务器上执行 <code>bash scripts/nas/apply-update.sh</code>：它会备份旧 jar、替换、重启后端（约 30 秒）。
+                              装一条 cron 每 2 分钟跑一次就能全自动。
+                            </span>
+                          }
+                        />
+                      )}
+                    </Card>
                     <Form.Item
                       name="updateCheckEnabled"
                       label="自动检查"
@@ -1270,26 +1384,7 @@ export default function SystemSetting() {
                     <Form.Item name="updateCheckIntervalHours" label="检查间隔" extra="1–168 小时；默认 24 小时">
                       <InputNumber min={1} max={168} suffix="小时" style={{ width: 200 }} />
                     </Form.Item>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-                      <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>
-                        立即检查
-                      </Button>
-                      {Boolean(updateInfo?.hasUpdate && updateInfo?.assets?.jar) && (
-                        <Button
-                          type="primary"
-                          loading={downloading}
-                          onClick={() => void downloadUpdateNow()}
-                          title="下载到服务器的数据卷并校验 sha256；替换与重启由宿主机脚本完成"
-                        >
-                          下载新版本到服务器
-                        </Button>
-                      )}
-                      {updateInfo?.downloadUrl && (
-                        <Button type="primary" onClick={() => window.open(updateInfo.downloadUrl, '_blank', 'noopener')}>
-                          打开下载页
-                        </Button>
-                      )}
-                    </div>
+
                     {downloaded && (
                       <Alert
                         type="success"

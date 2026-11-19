@@ -389,6 +389,43 @@ public class SystemApi {
 	}
 
 	/**
+	 * 查询「已下载但还没应用」的更新包。
+	 *
+	 * <p>下载与安装是两步：这里只报状态（有没有 apply.flag、包多大、什么时候下的），
+	 * 真正的替换由宿主机脚本完成，所以界面要能看出「已经下好了、还没装」。
+	 *
+	 * @return 待应用状态
+	 */
+	@GetMapping("/update/pending")
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	public Map<String, Object> updatePending() {
+		Path dir = Paths.get(fileRootPath, "update").toAbsolutePath().normalize();
+		Path flag = dir.resolve("apply.flag");
+		Path jar = dir.resolve("app.jar");
+		Map<String, Object> result = new LinkedHashMap<>();
+		boolean pending = Files.isRegularFile(flag);
+		result.put("pending", pending);
+		try {
+			if (pending) {
+				for (String line : Files.readString(flag, StandardCharsets.UTF_8).split("\\n")) {
+					int eq = line.indexOf('=');
+					if (eq > 0) {
+						result.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
+					}
+				}
+			}
+			if (Files.isRegularFile(jar)) {
+				result.put("size", Files.size(jar));
+				result.put("downloadedAt", Files.getLastModifiedTime(jar).toMillis());
+			}
+		}
+		catch (Exception e) {
+			log.warn("读取更新状态失败", e);
+		}
+		return result;
+	}
+
+	/**
 	 * 下载当前平台的最新安装包并校验 sha256。
 	 *
 	 * <p>只做到「下载 + 校验 + 落盘 + 写标记」，**不在这里替换 jar 或重启容器**：
