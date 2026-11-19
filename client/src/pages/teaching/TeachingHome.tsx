@@ -108,6 +108,7 @@ export default function TeachingHome() {
       </div>
 
       <Tabs
+        className="sk-teaching-tabs"
         activeKey={active}
         onChange={(key) => {
           const next = key as TabKey;

@@ -374,28 +374,49 @@ body {
 
 /* 设置页的分区按钮（仅手机）：一排可横滑，五个分区一眼看全 */
 .sk-settings-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 6px;
+  /* 等分整宽：手机缩放到 115%/130% 时也不会出现「系统与更新」被裁掉一半 */
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
   margin-bottom: 12px;
-  scrollbar-width: none;
-}
-.sk-settings-chips::-webkit-scrollbar {
-  display: none;
 }
 .sk-settings-chips > button {
-  flex: 0 0 auto;
-  /* 5 个分区要在 390px 里一眼放全：字号 11 + 左右各 8px 内边距，合计约 330px */
-  padding: 5px 8px;
+  width: 100%;
+  padding: 7px 2px;
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.3;
+  text-align: center;
+  border: 1px solid var(--bp-line);
+  background: transparent;
+  color: var(--bp-text-soft);
+  cursor: pointer;
+  /* 长标签允许折行，宁可两行也不要被裁 */
+  white-space: normal;
+  word-break: break-word;
+}
+.sk-settings-chips > button.is-active {
+  border-color: var(--bp-orange);
+  color: var(--bp-orange);
+  background: var(--bp-orange-tint);
+}
+
+/* 班级详情的两个页签：等分整宽、整块可点，和教学页的页签同一套观感 */
+.sk-class-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 6px 0 12px;
+}
+.sk-class-tabs > button {
+  padding: 9px 4px;
+  font-size: 12px;
+  text-align: center;
   border: 1px solid var(--bp-line);
   background: transparent;
   color: var(--bp-text-soft);
   cursor: pointer;
 }
-.sk-settings-chips > button.is-active {
+.sk-class-tabs > button.is-active {
   border-color: var(--bp-orange);
   color: var(--bp-orange);
   background: var(--bp-orange-tint);
@@ -493,6 +514,18 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 教学页的「考试/问卷 · 班级」两个 Tab：默认宽度按文字，右边留一大片空白且点击区小。
+     等分整宽、整块可点。 */
+  .sk-teaching-tabs > .ant-tabs-nav .ant-tabs-nav-list {
+    width: 100%;
+  }
+  .sk-teaching-tabs > .ant-tabs-nav .ant-tabs-tab {
+    flex: 1 1 0;
+    justify-content: center;
+    margin: 0 !important;
+    padding: 10px 0 !important;
+  }
+
   /* 班级/文件夹树：节点名 + 人数 + 标签（容器/教学班/开放注册）挤在一行，390px 下横向溢出、名字被截。
      允许换行，标题占满剩余宽度。 */
   .ant-tree .ant-tree-node-content-wrapper {

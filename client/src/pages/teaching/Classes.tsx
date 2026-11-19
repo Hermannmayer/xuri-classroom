@@ -400,6 +400,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   /* ---------------- 班级成员 ---------------- */
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [selectedMemberKeys, setSelectedMemberKeys] = useState<string[]>([]);
+  /** 班级详情分两页：成员 / 试卷（考试与题库分配）——手机上不再一条长龙往下堆 */
+  const [detailTab, setDetailTab] = useState<'members' | 'exams'>('members');
   const [batchAction, setBatchAction] = useState<'transfer' | 'add' | 'delete'>();
   const [batchTarget, setBatchTarget] = useState<string>();
   const [batchDeleteInput, setBatchDeleteInput] = useState('');
@@ -1516,8 +1518,25 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                 />
               )}
 
-              <hr className="bp-dim" style={{ margin: '14px 0' }} />
+              <div className="sk-class-tabs">
+                <button
+                  type="button"
+                  className={detailTab === 'members' ? 'is-active' : ''}
+                  onClick={() => setDetailTab('members')}
+                >
+                  成员（{members.length}）
+                </button>
+                <button
+                  type="button"
+                  className={detailTab === 'exams' ? 'is-active' : ''}
+                  onClick={() => setDetailTab('exams')}
+                >
+                  试卷
+                </button>
+              </div>
 
+              {detailTab === 'members' && (
+              <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <span className="bp-title" style={{ fontSize: 13 }}>
                   班级成员
@@ -1614,13 +1633,24 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                   />
                 </TableScrollRegion>
               )}
+              </>
+              )}
 
-              {selected.manageable === true && selected.classKind !== 'group' && (
-                <>
-                  <hr className="bp-dim" style={{ margin: '14px 0' }} />
+              {detailTab === 'exams' && selected.manageable === true && selected.classKind !== 'group' && (
+                <ClassResourcesPanel classId={selected.id} manageable />
+              )}
 
-                  <ClassResourcesPanel classId={selected.id} manageable />
-                </>
+              {detailTab === 'exams' && !(selected.manageable === true && selected.classKind !== 'group') && (
+                <div style={{ padding: '30px 0' }}>
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                      <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                        没有该班级的管理权限，看不到这里的考试/问卷分配
+                      </span>
+                    }
+                  />
+                </div>
               )}
             </>
           )}
