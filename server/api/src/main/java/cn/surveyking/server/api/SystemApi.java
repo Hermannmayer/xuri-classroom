@@ -31,6 +31,14 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 
 import jakarta.validation.Valid;
@@ -97,6 +105,10 @@ public class SystemApi {
 	/** 服务端缓存小时数：默认一天查一次，避免频繁打 GitHub 触发限流 */
 	@Value("${update.check-interval-hours:24}")
 	private long checkIntervalHours;
+
+	/** 更新包落盘目录：挂在数据卷上，宿主机脚本从同一路径取走并应用 */
+	@Value("${file-storage.local.root-path:./files}")
+	private String fileRootPath;
 
 	private volatile UpdateCheckView cachedUpdate;
 
@@ -374,6 +386,103 @@ public class SystemApi {
 				connection.disconnect();
 			}
 		}
+	}
+
+	/**
+	 * 下载当前平台的最新安装包并校验 sha256。
+	 *
+	 * <p>只做到「下载 + 校验 + 落盘 + 写标记」，**不在这里替换 jar 或重启容器**：
+	 * 应用跑在容器里、jar 是只读 bind mount，自我替换等于让进程给自己做手术。
+	 * 真正的替换由宿主机脚本 scripts/nas/apply-update.sh 完成（读这个标记，备份旧 jar、替换、重启）。
+	 *
+	 * @return 下载结果（版本、路径、大小、sha256）
+	 */
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@PostMapping("/update/download")
+	public Map<String, Object> downloadUpdate() {
+		UpdateCheckView view = checkUpdate(true);
+		Map<String, UpdateCheckView.Asset> assets = view.getAssets();
+		UpdateCheckView.Asset asset = assets == null ? null : assets.get("jar");
+		if (asset == null || !StringUtils.hasText(asset.getUrl())) {
+			throw new ValidationException("这个版本没有可下载的 jar：Release 里没带 update.json，或里面缺 jar 资产");
+		}
+		Path dir = Paths.get(fileRootPath, "update").toAbsolutePath().normalize();
+		Path target = dir.resolve("app.jar");
+		Path temp = dir.resolve("app.jar.part");
+		try {
+			Files.createDirectories(dir);
+			downloadTo(asset.getUrl(), temp);
+			String actual = sha256Of(temp);
+			if (StringUtils.hasText(asset.getSha256()) && !asset.getSha256().equalsIgnoreCase(actual)) {
+				Files.deleteIfExists(temp);
+				throw new ValidationException("下载的包校验失败：sha256 对不上，已丢弃");
+			}
+			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+			Files.writeString(dir.resolve("apply.flag"),
+					"version=" + view.getLatestVersion() + "\nsha256=" + actual + "\n", StandardCharsets.UTF_8);
+			Map<String, Object> result = new LinkedHashMap<>();
+			result.put("version", view.getLatestVersion());
+			result.put("file", target.toString());
+			result.put("size", Files.size(target));
+			result.put("sha256", actual);
+			result.put("applied", false);
+			return result;
+		}
+		catch (ValidationException e) {
+			throw e;
+		}
+		catch (Exception e) {
+			log.warn("下载更新包失败 url={}", asset.getUrl(), e);
+			throw new ValidationException("下载更新包失败：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+		}
+	}
+
+	/** 跟随重定向把远端文件抓到本地（GitHub Release 会 302 到 objects.githubusercontent.com） */
+	private void downloadTo(String url, Path target) throws Exception {
+		String current = url;
+		for (int hop = 0; hop < 5; hop++) {
+			HttpURLConnection connection = (HttpURLConnection) new URL(current).openConnection();
+			connection.setConnectTimeout(10000);
+			connection.setReadTimeout(60000);
+			connection.setInstanceFollowRedirects(false);
+			connection.setRequestProperty("User-Agent", "xuri-classroom/" + currentVersion);
+			int status = connection.getResponseCode();
+			if (status >= 300 && status < 400) {
+				String location = connection.getHeaderField("Location");
+				connection.disconnect();
+				if (!StringUtils.hasText(location)) {
+					throw new IllegalStateException("重定向没有 Location");
+				}
+				current = location;
+				continue;
+			}
+			if (status != 200) {
+				connection.disconnect();
+				throw new IllegalStateException("下载返回 HTTP " + status);
+			}
+			try (InputStream input = connection.getInputStream();
+					OutputStream output = Files.newOutputStream(target, StandardOpenOption.CREATE,
+							StandardOpenOption.TRUNCATE_EXISTING)) {
+				input.transferTo(output);
+			}
+			finally {
+				connection.disconnect();
+			}
+			return;
+		}
+		throw new IllegalStateException("重定向次数过多");
+	}
+
+	private static String sha256Of(Path file) throws Exception {
+		MessageDigest digest = MessageDigest.getInstance("SHA-256");
+		try (InputStream input = Files.newInputStream(file)) {
+			byte[] buffer = new byte[8192];
+			int read;
+			while ((read = input.read(buffer)) > 0) {
+				digest.update(buffer, 0, read);
+			}
+		}
+		return HexFormat.of().formatHex(digest.digest());
 	}
 
 	private static String asText(Object value) {
