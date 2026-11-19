@@ -41,22 +41,39 @@ export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
     <div
       role="dialog"
       aria-label="AI 助手"
-      style={{
-        position: 'fixed',
-        right: isMobile ? 12 : 24,
-        // 手机上抬到「底部导航 + 安全区」之上，否则聊天输入框会被导航压住
-        bottom: isMobile ? 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)' : 24,
-        // 手机：占满宽度减去两侧留白，高度最多 520 或视口七成，背后仍能看到页面
-        width: isMobile ? 'calc(100vw - 24px)' : 400,
-        height: isMobile ? 'min(520px, calc(100dvh - 150px))' : 'min(620px, calc(100vh - 96px))',
-        // 高于底部导航（1000），避免聊天窗被它盖住
-        zIndex: 1100,
-        border: '1px solid var(--bp-line)',
-        background: 'var(--bp-panel)',
-        boxShadow: '0 10px 32px rgba(0, 0, 0, 0.34)',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+      style={
+        isMobile
+          ? {
+              position: 'fixed',
+              // 手机用「左右同时贴边 + 宽度自适应」，不要用 calc(100vw - 24px)：
+              // 100vw 在移动端含滚动条宽度，算出来的窗比可视区宽，左边会被裁掉一截。
+              left: 12,
+              right: 12,
+              bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)',
+              height: 'min(520px, calc(100dvh - 160px))',
+              // 高于底部导航（1000），避免聊天窗被它盖住
+              zIndex: 1100,
+              border: '1px solid var(--bp-line)',
+              background: 'var(--bp-panel)',
+              boxShadow: '0 10px 32px rgba(0, 0, 0, 0.34)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }
+          : {
+              position: 'fixed',
+              right: 24,
+              bottom: 24,
+              width: 400,
+              height: 'min(620px, calc(100vh - 96px))',
+              zIndex: 1100,
+              border: '1px solid var(--bp-line)',
+              background: 'var(--bp-panel)',
+              boxShadow: '0 10px 32px rgba(0, 0, 0, 0.34)',
+              display: 'flex',
+              flexDirection: 'column',
+            }
+      }
     >
       <AiAssistantPanel onClose={() => setOpen(false)} />
     </div>
