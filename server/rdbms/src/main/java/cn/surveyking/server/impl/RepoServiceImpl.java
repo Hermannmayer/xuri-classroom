@@ -797,15 +797,14 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String name = request.getName();
 		String repoId = request.getRepoId();
 		if (StringUtils.hasText(request.getTemplateId())) {
-			try {
-				Template template = templateService.getReadableTemplate(request.getTemplateId());
-				if (template != null) {
-					name = StringUtils.hasText(template.getName()) ? template.getName() : name;
-					repoId = template.getRepoId();
-				}
-			}
-			catch (Exception ignored) {
-				// 设计器自建题没有模板行，用前端传的题干兜底
+			// 只取名称与所属题库，不做权限校验：
+			// 这一步在收藏写入的事务里，用 getReadableTemplate 会在模板不存在/不可读时抛异常，
+			// 即使外层 catch 住，事务也已被标记 rollback-only，提交时变成 500
+			// （UnexpectedRollbackException）——「收藏一道题库里没有的自建题」就会踩到。
+			Template template = templateService.getById(request.getTemplateId());
+			if (template != null) {
+				name = StringUtils.hasText(template.getName()) ? template.getName() : name;
+				repoId = template.getRepoId();
 			}
 		}
 		userBook.setName(StringUtils.hasText(name) ? name : "题目 " + request.getTemplateId());
