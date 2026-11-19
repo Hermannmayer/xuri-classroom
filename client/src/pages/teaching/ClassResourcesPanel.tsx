@@ -19,6 +19,7 @@ import {
   Table,
   Tag,
 } from 'antd';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -167,6 +168,7 @@ export default function ClassResourcesPanel({
   const [assignForm] = Form.useForm<AssignValues>();
 
   const [editing, setEditing] = useState<ClassResource | null>(null);
+  const isMobile = useIsMobile();
   const [editSaving, setEditSaving] = useState(false);
   const [editForm] = Form.useForm<WindowValues>();
 
@@ -633,6 +635,75 @@ export default function ClassResourcesPanel({
         </div>
       )}
 
+      {isMobile ? (
+        // 手机端：表格 1180px 宽，横滚也点不准。改成卡片，整块是点击区。
+        rows.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={kind === 'repo' ? '还没有给这个班分配题库' : '还没有给这个班分配考试/问卷'}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {rows.map((row) => (
+              <div
+                key={row.id}
+                className="bp-card"
+                style={{ padding: 12, cursor: manageable ? 'pointer' : undefined }}
+                onClick={() => {
+                  if (manageable) setEditing(row);
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {row.resourceName || '(未命名)'}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: '1px 6px',
+                      border: '1px solid var(--bp-line)',
+                      color: row.resourceMode === 'survey' ? 'var(--bp-blue, #3b7dd8)' : 'var(--bp-orange)',
+                      flex: '0 0 auto',
+                    }}
+                  >
+                    {row.resourceMode === 'survey' ? '问卷' : kind === 'repo' ? '题库' : '考试'}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: 'var(--bp-text-soft)',
+                  }}
+                >
+                  <span>
+                    {row.effectiveStatus === 'OPEN'
+                      ? '进行中'
+                      : row.effectiveStatus === 'NOT_STARTED'
+                        ? '未开始'
+                        : row.effectiveStatus === 'ENDED'
+                          ? '已结束'
+                          : '已关闭'}
+                  </span>
+                  <span>{row.answerCount ?? 0} 份答卷</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
       <TableScrollRegion label="班级考试/问卷与题库（可横向滚动）">
         <Table<ClassResource>
           rowKey="id"
@@ -662,6 +733,7 @@ export default function ClassResourcesPanel({
           }}
         />
       </TableScrollRegion>
+      )}
 
       <Modal
         title="班级专属考试链接"

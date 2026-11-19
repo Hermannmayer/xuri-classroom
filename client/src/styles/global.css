@@ -400,6 +400,24 @@ body {
   background: var(--bp-orange-tint);
 }
 
+/* 手机端班级卡片：整块可点，名字 + 人数 + 标签一行放得下 */
+.sk-class-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--bp-line);
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sk-class-card.is-active {
+  border-color: var(--bp-orange);
+  background: var(--bp-orange-tint);
+}
+
 /* 班级详情的两个页签：等分整宽、整块可点，和教学页的页签同一套观感 */
 .sk-class-tabs {
   display: grid;

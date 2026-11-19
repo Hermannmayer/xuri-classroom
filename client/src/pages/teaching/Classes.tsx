@@ -383,6 +383,19 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     walk(tree, '');
     return result;
   }, [tree, selectedId]);
+  /** 手机端班级卡片：容器班当分组标题，教学班一张卡一行，点击进详情 */
+  const mobileClassList = useMemo(() => {
+    const out: Array<{ node: ClassNode; depth: number }> = [];
+    const walk = (nodes: ClassNode[], depth: number) => {
+      for (const node of nodes) {
+        out.push({ node, depth });
+        if (node.children?.length) walk(node.children, depth + 1);
+      }
+    };
+    walk(visibleTree, 0);
+    return out;
+  }, [visibleTree]);
+
   const hasOpenRegisterClass = useMemo(() => {
     const walk = (nodes: ClassNode[]): boolean =>
       nodes.some((node) => Boolean(node.allowRegister) || walk(node.children ?? []));
@@ -1390,6 +1403,57 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                     </span>
                   }
                 />
+              </div>
+            ) : isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {mobileClassList.map(({ node, depth }) =>
+                  node.classKind === 'group' ? (
+                    <div
+                      key={node.id}
+                      style={{
+                        marginTop: depth ? 6 : 0,
+                        paddingLeft: depth * 8,
+                        fontSize: 11,
+                        letterSpacing: '0.12em',
+                        color: 'var(--bp-text-soft)',
+                      }}
+                    >
+                      {node.name}
+                    </div>
+                  ) : (
+                    <button
+                      key={node.id}
+                      type="button"
+                      className={`sk-class-card${selectedId === node.id ? ' is-active' : ''}`}
+                      style={{ marginLeft: depth * 8 }}
+                      onClick={() => {
+                        if (node.accessible !== false) setSelectedId(node.id);
+                      }}
+                    >
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          textAlign: 'left',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {node.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--bp-text-soft)', flex: '0 0 auto' }}>
+                        {node.memberCount ?? 0} 人
+                      </span>
+                      {node.allowRegister && (
+                        <span style={{ fontSize: 10, color: 'var(--bp-orange)', flex: '0 0 auto' }}>开放注册</span>
+                      )}
+                      <span style={{ color: 'var(--bp-text-soft)', flex: '0 0 auto' }}>›</span>
+                    </button>
+                  ),
+                )}
               </div>
             ) : (
               <Tree
