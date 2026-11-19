@@ -87,8 +87,20 @@ public class AnswerScoreEvaluator {
 	 * <p>批改、交卷状态机、成绩单三处都用这一个判断，避免「前端认为是主观题、后端当成客观题」。
 	 */
 	public static boolean isManual(SurveySchema qSchema) {
-		return qSchema != null && qSchema.getAttribute() != null
-				&& SurveySchema.ExamScoreMode.manual.equals(qSchema.getAttribute().getExamAnswerMode());
+		if (qSchema == null || qSchema.getAttribute() == null) {
+			return false;
+		}
+		if (SurveySchema.ExamScoreMode.manual.equals(qSchema.getAttribute().getExamAnswerMode())) {
+			return true;
+		}
+		// 兜底（2026-11）：多行文本 / 富文本本质是主观题，没有确定性答案，自动判分恒 0 分。
+		// 老试卷常常只填了分值、没选「判分模式」，这类题此前既不计分也不进待批改，老师完全看不到。
+		// 把「未设置判分模式 + 有分值 + 文本类题型」视为人工评分，判分、状态机、成绩单三处口径一致。
+		if (qSchema.getAttribute().getExamAnswerMode() != null || qSchema.getAttribute().getExamScore() == null) {
+			return false;
+		}
+		SurveySchema.QuestionType type = qSchema.getType();
+		return SurveySchema.QuestionType.Textarea.equals(type) || SurveySchema.QuestionType.RichText.equals(type);
 	}
 
 	/**

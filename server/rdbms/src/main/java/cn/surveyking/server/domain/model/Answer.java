@@ -56,8 +56,11 @@ public class Answer extends BaseModel {
 	/**
 	 * 批改状态：none 无需批改（卷里没有 manual 题）/ pending 待批改 / graded 已批改。
 	 * <p>学生重新提交后回到 pending，并清空 t_answer_grade（旧的批改作废）。
+	 * <p>刻意不给字段初值：这一列只能由 {@code AnswerGradeService#onSubmitted} 或批改写入。
+	 * 之前初值是 {@code "none"}，导致「补写 createBy」这类只带 id 的更新把刚算出的 pending 洗成 none
+	 * （updateById 会写入非 null 字段），待批改列表因此恒为空。库里的列默认值仍然是 none。
 	 */
-	private String gradeStatus = "none";
+	private String gradeStatus;
 
 	/** 最近一次批改人（t_user.id） */
 	private String gradedBy;

@@ -43,6 +43,9 @@ public class AnswerGradeItemView {
 	/** 是否允许人工给分（只有 examAnswerMode=manual 的题为 true） */
 	private Boolean editable;
 
+	/** 这一分的来源：manual 人工 / ai AI 预批改（没给分时为空） */
+	private String source;
+
 	/** 学员答案原始值（与 t_answer.answer 里该题的值一致） */
 	private Object answer;
 

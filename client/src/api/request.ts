@@ -77,7 +77,8 @@ function statusError(status: number, url: string): ApiError {
   if (status === 403) return new ApiError(403, humanizeApiError(403));
   if (status === 404) return new ApiError(404, `接口不存在（${url}）`);
   if (status === 429) return new ApiError(4290, '请求过于频繁，请稍后再试');
-  if (status >= 500) return new ApiError(status, '服务暂时不可用，请稍后重试');
+  // 带上接口地址：只有「服务暂时不可用」时，用户和排查的人都不知道是哪个功能坏了
+  if (status >= 500) return new ApiError(status, `服务暂时不可用（HTTP ${status}：${url}），请稍后重试`);
   if (status >= 400) return new ApiError(status, humanizeApiError(status));
   return new ApiError(-1, `接口返回非 JSON（${url}），请检查后端是否已启动`);
 }

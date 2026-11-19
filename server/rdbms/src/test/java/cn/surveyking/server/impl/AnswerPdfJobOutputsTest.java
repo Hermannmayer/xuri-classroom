@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 多格式导出（task-31）的三件事：格式解析、ZIP 命名、失败统计。
@@ -48,6 +49,7 @@ import static org.mockito.Mockito.mock;
  * <p>
  * 纯 Mockito，不启动 Spring、不连库、不写磁盘产物。
  */
+@Tag("slow")
 class AnswerPdfJobOutputsTest {
 
 	private static final byte[] FAKE_BYTES = "x".getBytes(StandardCharsets.UTF_8);

@@ -13,6 +13,7 @@ import java.io.InputStream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 答卷 PDF 的字形兜底。
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <li>替换后的字符串真的能画进 PDF（端到端，不只是字符串比较）。</li>
  * </ol>
  */
+@Tag("slow")
 class PdfTextSanitizeTest {
 
 	@Test

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Card, Empty, Segmented, Table } from 'antd';
+import { Card, Empty, Segmented, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FlatQuestion } from '../../../schema/flatten';
 import type { Answer } from '../../../schema/project';
@@ -208,6 +208,11 @@ function Pie({ rows }: { rows: OptionRow[] }) {
 
 export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers: Answer[] }) {
   const [kind, setKind] = useState<ChartKind>('bar');
+  /**
+   * 默认收起：一页几十道题时，每题都摊开图表 + 明细表会让页面长到没法对比。
+   * 收起态保留「题号 / 题干 / 答题人数 / 正确率」，需要细节再点开。
+   */
+  const [open, setOpen] = useState(false);
   const { rows, answered } = useMemo(() => buildRows(q, answers), [q, answers]);
   const isChoice = CHOICE.has(q.type);
   const score = useMemo(() => {
@@ -226,6 +231,15 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
     }
     return { scored, correct, rate: scored > 0 ? (correct / scored) * 100 : undefined };
   }, [q, answers]);
+
+  /** 正确选项 id：存在选项子节点的 examCorrectAnswer 上（多选可能多个） */
+  const correctKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const child of q.schema.children ?? []) {
+      if (child.attribute?.examCorrectAnswer) set.add(child.id);
+    }
+    return set;
+  }, [q]);
 
   const columns: ColumnsType<OptionRow> = [
     {
@@ -255,11 +269,46 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
       sorter: (a, b) => a.percent - b.percent,
       render: (percent: number) => fmtPercent(percent),
     },
+    {
+      title: '判定',
+      key: 'verdict',
+      width: 82,
+      align: 'center',
+      render: (_: unknown, row: OptionRow) =>
+        correctKeys.size === 0 ? (
+          <span style={{ fontSize: 11, color: 'var(--bp-hint)' }}>未设答案</span>
+        ) : correctKeys.has(row.key) ? (
+          <Tag color="green">正确</Tag>
+        ) : (
+          <Tag color="red">错选</Tag>
+        ),
+    },
+    {
+      title: '错选人数',
+      key: 'wrong',
+      width: 92,
+      align: 'right',
+      sorter: (a: OptionRow, b: OptionRow) => (correctKeys.has(a.key) ? -1 : a.count) - (correctKeys.has(b.key) ? -1 : b.count),
+      render: (_: unknown, row: OptionRow) =>
+        correctKeys.size === 0 || correctKeys.has(row.key) ? '—' : row.count,
+    },
   ];
 
   return (
     <Card className="bp-corners bp-card">
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+      <div
+        role="button"
+        aria-expanded={open}
+        title={open ? '收起明细' : '展开明细'}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          marginBottom: open ? 8 : 0,
+          cursor: 'pointer',
+        }}
+      >
         <span className="bp-tag" style={{ marginTop: 2 }}>
           {q.number ?? q.index + 1}
         </span>
@@ -272,6 +321,8 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
             {score.scored > 0 && ` · 判分 ${score.scored} 人 · 正确率 ${score.rate?.toFixed(1)}%`}
           </div>
         </div>
+        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 2 }}>{open ? '▾' : '▸'}</span>
+        <div onClick={(event) => event.stopPropagation()}>
         <Segmented
           size="small"
           value={kind}
@@ -282,9 +333,12 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
             { label: '扇形图', value: 'pie' },
           ]}
         />
+        </div>
       </div>
 
-      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 14 }}>
+      {open && (
+        <>
+      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
         类型：{TYPE_NAME[q.type] ?? q.type}　必填：{q.schema.attribute?.required ? '是' : '否'}　共 {answered} 条数据
       </div>
 
@@ -314,6 +368,8 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
           />
         </div>
       </div>
+        </>
+      )}
     </Card>
   );
 }

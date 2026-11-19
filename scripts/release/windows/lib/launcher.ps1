@@ -857,6 +857,7 @@ function Parse-CommandLine([string[]]$ArgList) {
     TimeoutSec = 240
     Help = $false
     ShowVersion = $false
+    Json = $false
   }
   $positional = New-Object System.Collections.ArrayList
   $steps = New-Object System.Collections.ArrayList
@@ -890,6 +891,10 @@ function Parse-CommandLine([string[]]$ArgList) {
             }
             if (-not $steps.Contains($stepName)) { [void]$steps.Add($stepName) }
           }
+        }
+        'json' {
+          # GUI 控制台用：把状态输出成 JSON，不再解析人读文本
+          $opts.Json = $true
         }
         'timeout' {
           if ($null -eq $value) {
@@ -2872,7 +2877,66 @@ function Invoke-StopCommand {
   return 0
 }
 
+function Get-StatusSnapshot {
+  $config = $null
+  $configError = ''
+  if (Test-Path -LiteralPath $script:P.AppEnv) {
+    try { $config = Get-AppConfig } catch { $configError = [string]$_.Exception.Message }
+  }
+  $port = 8080
+  $dbPort = 3307
+  if ($config -ne $null) {
+    $port = [int]$config.Port
+    $dbPort = [int]$config.DbPort
+  }
+  $app = Get-AppProcess
+  $healthy = $false
+  $statusCode = 0
+  if ($app -ne $null) {
+    $probe = Invoke-HttpProbe ((Get-AppUrl $port) + '/api/system') 3
+    if ($probe.Ok) {
+      $statusCode = [int]$probe.StatusCode
+      if ($statusCode -ge 200 -and $statusCode -lt 400) { $healthy = $true }
+    }
+  }
+  $mysql = Get-MySqlProcess
+  $missing = @(Get-MissingComponents)
+  $logs = @()
+  $logDir = $script:P.Logs
+  if (Test-Path -LiteralPath $logDir) {
+    $logs = @(Get-ChildItem -LiteralPath $logDir -File -ErrorAction SilentlyContinue |
+      Sort-Object LastWriteTime -Descending | Select-Object -First 5 |
+      ForEach-Object { @{ name = $_.Name; at = $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } })
+  }
+  $lan = @(Get-LanAddresses | ForEach-Object { 'http://' + $_ + ':' + $port })
+  return [ordered]@{
+    version = (Get-PackageVersion)
+    root = $script:Root
+    setupDone = [bool](Test-SetupDone)
+    missing = $missing
+    configError = $configError
+    port = $port
+    dbPort = $dbPort
+    running = ($app -ne $null)
+    pid = $(if ($app -ne $null) { [int]$app.ProcessId } else { 0 })
+    healthy = $healthy
+    statusCode = $statusCode
+    url = (Get-AppUrl $port)
+    lan = $lan
+    mysqlRunning = ($mysql -ne $null)
+    logsDir = $logDir
+    logs = $logs
+  }
+}
+
 function Invoke-StatusCommand {
+  if ($script:Opts.Json) {
+    # 只吐一行 JSON：GUI 与脚本都靠它，不再解析人读文本。
+    # 必须走 [Console]::Out.WriteLine 而不是管道输出——走管道会被 $exitCode = Invoke-StatusCommand 一起捕获成数组。
+    $json = (Get-StatusSnapshot) | ConvertTo-Json -Depth 6 -Compress
+    [Console]::Out.WriteLine($json)
+    return 0
+  }
   Out-Header ('旭日云课堂 · Windows 便携版 ' + (Get-PackageVersion))
   Out-Info ('安装目录：' + $script:Root)
   if (Test-SetupDone) {

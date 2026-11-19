@@ -64,6 +64,10 @@ export interface UserBookView {
   /** 后端只在记录被更新时刷新，近似「最近一次错误时间」 */
   updateAt?: string;
   qscore?: number;
+  /** 这道题还能不能打开（后端按模板存在性 + 题库可读性判定） */
+  available?: boolean;
+  /** available=false 时的中文原因 */
+  unavailableReason?: string;
 }
 
 /** 错题本状态约定（后端 UserBook.status）：1 = 已掌握（标记为简单），2 = 重点标记，0/null = 普通 */
@@ -447,8 +451,14 @@ export default function RepoBook() {
       practiceScope !== 'all' && projectId && projectName ? `&projectName=${encodeURIComponent(projectName)}` : '';
     navigate(`/repo/book/practice?${query}${extra}`);
   };
-  const practiceOne = (row: UserBookView) =>
+  const practiceOne = (row: UserBookView) => {
+    if (row.available === false) {
+      // 列表已经标出来了，这里再拦一次：题面取不到时进去只会看到「加载失败」
+      message.warning(row.unavailableReason || '这道题现在打不开');
+      return;
+    }
     navigate(`/repo/book/practice?scope=filter&ids=${encodeURIComponent(row.id)}`);
+  };
 
   /** 来源考试显示名：考试名 → id 前缀；历史/题库练习产生的错题显示「题库/历史」 */
   const projectLabel = (id?: string) => {
@@ -701,6 +711,11 @@ export default function RepoBook() {
                   <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', marginTop: 3 }}>
                     {row.type === BOOK_TYPE_FAVORITE ? '收藏' : '错题'} · 来源：{projectLabel(row.projectId)}
                   </div>
+                  {row.available === false && (
+                    <div style={{ fontSize: 10, color: 'var(--bp-orange)', marginTop: 3 }}>
+                      {row.unavailableReason || '这道题现在打不开'}
+                    </div>
+                  )}
                 </div>
                 <LinkAction onClick={() => void toggleFocus(row)} title={isFocus(row) ? '取消重点' : '标为重点'}>
                   {isFocus(row) ? <StarFilled style={{ color: 'var(--bp-orange)' }} /> : <StarOutlined style={{ color: 'var(--bp-text-soft)' }} />}
@@ -715,7 +730,16 @@ export default function RepoBook() {
                 <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.note}</div>
               ) : null}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button size="small" type="primary" icon={<PlayCircleOutlined />} onClick={() => practiceOne(row)}>练这题</Button>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<PlayCircleOutlined />}
+                  disabled={row.available === false}
+                  title={row.unavailableReason}
+                  onClick={() => practiceOne(row)}
+                >
+                  练这题
+                </Button>
                 <Button size="small" onClick={() => setEditing(row)}>笔记</Button>
                 <Popconfirm title="从错题本移除这条记录？" description="题库里的题目不受影响。" okText="移除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => void removeOne(row)}>
                   <Button size="small" danger>移除</Button>
@@ -779,6 +803,11 @@ export default function RepoBook() {
                   {' · 来源：'}
                   <span title={row.projectId || ''}>{projectLabel(row.projectId)}</span>
                 </span>
+                {row.available === false && (
+                  <Tag color="orange" style={{ marginInlineEnd: 0, fontSize: 10 }}>
+                    {row.unavailableReason || '打不开'}
+                  </Tag>
+                )}
               </div>
             ),
           },

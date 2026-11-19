@@ -521,6 +521,51 @@ export default function SurveyReport() {
     return [...groups.values()];
   }, [questions, answers]);
 
+  /**
+   * 错题排行：按「正确率最低」排前 10，帮老师一眼找到整套卷子最薄弱的题。
+   * 口径与逐题区块一致（exam_info.questionScore），不另开一套算法。
+   */
+  const weakQuestions = useMemo(() => {
+    const rows = blocks.map((q) => {
+      const max = Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0);
+      let answered = 0;
+      let scored = 0;
+      let correct = 0;
+      let sum = 0;
+      for (const answer of answers) {
+        const value = (answer.answer ?? {})[q.id];
+        const empty =
+          value === undefined ||
+          value === null ||
+          value === '' ||
+          (typeof value === 'object' && Object.keys(value as Record<string, unknown>).length === 0);
+        if (empty) continue;
+        answered += 1;
+        const info = answer.examInfo as { questionScore?: Record<string, number> } | undefined;
+        const got = info?.questionScore?.[q.id];
+        if (typeof got !== 'number' || max <= 0) continue;
+        scored += 1;
+        sum += got;
+        if (got >= max - 0.0001) correct += 1;
+      }
+      return {
+        id: q.id,
+        number: q.number ?? q.index + 1,
+        title: q.title || q.type,
+        max,
+        answered,
+        scored,
+        wrong: scored - correct,
+        rate: scored > 0 ? (correct / scored) * 100 : null,
+        avg: scored > 0 ? sum / scored : null,
+      };
+    });
+    return rows
+      .filter((row) => row.scored > 0)
+      .sort((a, b) => (a.rate ?? 100) - (b.rate ?? 100))
+      .slice(0, 10);
+  }, [blocks, answers]);
+
   const scoreAnalysis = useMemo(() => {
     const totalScore = questions.reduce((sum, q) => sum + Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0), 0);
     if (totalScore <= 0) return undefined;
@@ -754,15 +799,21 @@ export default function SurveyReport() {
                 </Card>
               )}
 
+              {/* 报表是「一屏看全局」的页面：卡片默认 16px 外边距在几十个区块叠加后会吃掉半屏 */}
+              <style>{`
+                .bp-card { margin-bottom: 10px !important; }
+                .ant-card-body { padding: 10px 12px !important; }
+              `}</style>
+
               {/* 每日答卷趋势 */}
               {daily.entries.length > 0 && (
                 <Card
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>DAILY / 每日答卷</span>}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {daily.entries.map(([day, count]) => (
-                      <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                      <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, lineHeight: 1.5 }}>
                         <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
                         <Bar value={count} max={daily.max} />
                         <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
@@ -791,6 +842,72 @@ export default function SurveyReport() {
                       </div>
                     ))}
                   </div>
+                </Card>
+              )}
+
+              {weakQuestions.length > 0 && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>WEAK / 错题排行（正确率最低 10 题）</span>}
+                >
+                  <Table<any>
+                    rowKey="id"
+                    size="small"
+                    pagination={false}
+                    dataSource={weakQuestions}
+                    columns={[
+                      { title: '#', dataIndex: 'number', width: 54, align: 'right' },
+                      {
+                        title: '题目',
+                        dataIndex: 'title',
+                        ellipsis: true,
+                        render: (title: string, row: { max: number }) => (
+                          <span title={title}>
+                            {title}
+                            {row.max > 0 ? (
+                              <span style={{ color: 'var(--bp-text-soft)', fontSize: 11 }}>　满分 {row.max}</span>
+                            ) : null}
+                          </span>
+                        ),
+                      },
+                      { title: '答题', dataIndex: 'answered', width: 68, align: 'right' },
+                      { title: '答错', dataIndex: 'wrong', width: 68, align: 'right' },
+                      {
+                        title: '正确率',
+                        dataIndex: 'rate',
+                        width: 88,
+                        align: 'right',
+                        sorter: (a: { rate: number | null }, b: { rate: number | null }) =>
+                          (a.rate ?? 0) - (b.rate ?? 0),
+                        render: (rate: number | null) =>
+                          rate === null ? '—' : (
+                            <span style={{ color: rate < 60 ? 'var(--bp-orange)' : undefined }}>{rate.toFixed(1)}%</span>
+                          ),
+                      },
+                      {
+                        title: '均分',
+                        dataIndex: 'avg',
+                        width: 74,
+                        align: 'right',
+                        render: (avg: number | null) => (avg === null ? '—' : avg.toFixed(1)),
+                      },
+                      {
+                        title: '难度',
+                        key: 'level',
+                        width: 76,
+                        render: (_: unknown, row: { rate: number | null }) =>
+                          row.rate === null ? (
+                            <Tag>—</Tag>
+                          ) : row.rate < 60 ? (
+                            <Tag color="red">偏难</Tag>
+                          ) : row.rate < 85 ? (
+                            <Tag color="orange">一般</Tag>
+                          ) : (
+                            <Tag color="green">简单</Tag>
+                          ),
+                      },
+                    ]}
+                  />
                 </Card>
               )}
 

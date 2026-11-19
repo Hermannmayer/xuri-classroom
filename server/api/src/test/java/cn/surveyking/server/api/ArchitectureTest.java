@@ -6,6 +6,7 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 分层边界：把「Controller 直连 Mapper」「实现反向依赖 Controller」这类回潮挡在构建期。
@@ -15,6 +16,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * 现在就在 impl 包里被 Controller 直接调用，先立规则会立刻红；等它们搬进独立的 service.support 包再加。
  */
 @AnalyzeClasses(packages = "cn.surveyking.server", importOptions = ImportOption.DoNotIncludeTests.class)
+@Tag("slow")
 class ArchitectureTest {
 
 	@ArchTest

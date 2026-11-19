@@ -297,6 +297,13 @@ public final class RepoTemplateI18n {
 																		(map, index) -> map.put("tags", index)),
 		/** 级联题的选项树（JSON 数组），整列内容就是 dataSource */
 		OPTION_TREE("repo.template.header.optionTree", "选项树", (map, index) -> map.put("optionTree", index), true),
+		/**
+		 * 判分模式：写「人工」= 这道题进人工批改队列（交卷后卷子变待批改）；留空 = 按题型默认。
+		 * <p>没有这一列时，老师只能去设计器里逐题点「判分模式 → 人工打分」，
+		 * 漏设的多行文本题会被当成客观题判 0 分，也永远不会出现在待批改里。
+		 */
+		JUDGE_MODE("repo.template.header.judgeMode", "判分模式",
+				(map, index) -> map.put("judgeMode", index)),
 		/** 通用兜底列：一个 JSON 对象，深度合并到该行生成的题目上 */
 		ADVANCED_JSON("repo.template.header.advancedJson", "高级配置", (map, index) -> map.put("advancedJson", index),
 				true);

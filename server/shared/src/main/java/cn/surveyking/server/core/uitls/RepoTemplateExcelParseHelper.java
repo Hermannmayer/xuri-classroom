@@ -450,7 +450,9 @@ public class RepoTemplateExcelParseHelper {
 	 * 组装一条 TemplateRequest：先合并「高级配置(JSON)」，再取题型/标题/章节。
 	 */
 	private void addQuestion(SurveySchema schema, Row r) {
-		SurveySchema merged = applyAdvancedJson(schema, r);
+		// 「判分模式」列先落，再合并高级配置(JSON)：老师不用写 JSON 也能把主观题标成人工批改，
+		// 需要更细的覆盖仍然可以用 JSON。
+		SurveySchema merged = applyAdvancedJson(applyJudgeMode(schema, r), r);
 		if (merged.getType() == null) {
 			merged.setType(schema.getType());
 		}
@@ -462,6 +464,28 @@ public class RepoTemplateExcelParseHelper {
 		templateRequest.setSourceSheet(currentSheetName);
 		templateRequest.setSourceRow(r.getRowNum());
 		result.add(templateRequest);
+	}
+
+	/**
+	 * 「判分模式」列：写「人工 / 人工批改 / manual / 是」都按人工评分处理，其余（含留空）保持题型默认。
+	 * <p>判不过就什么都不改——导入是批量操作，不该因为一格内容不符合预期就整批失败。
+	 */
+	private SurveySchema applyJudgeMode(SurveySchema schema, Row r) {
+		String raw = getCellAsString(r, "judgeMode");
+		if (isBlank(raw)) {
+			return schema;
+		}
+		String value = raw.trim();
+		boolean manual = "人工".equals(value) || "人工批改".equals(value) || "是".equals(value)
+				|| "manual".equalsIgnoreCase(value);
+		if (!manual) {
+			return schema;
+		}
+		if (schema.getAttribute() == null) {
+			schema.setAttribute(new SurveySchema.Attribute());
+		}
+		schema.getAttribute().setExamAnswerMode(SurveySchema.ExamScoreMode.manual);
+		return schema;
 	}
 
 	private String serialNo(Row r) {

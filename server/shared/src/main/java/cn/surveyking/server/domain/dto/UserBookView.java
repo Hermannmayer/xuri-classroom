@@ -58,4 +58,14 @@ public class UserBookView {
 
 	private Double qscore;
 
+	/**
+	 * 这道记录对应的题还能不能打开。
+	 * <p>收藏/错题只存了 template_id 快照：题目被删、来自试卷内临时编的题、题库取消分配或窗口关闭后，
+	 * 记录还在但题面取不到。前端据此把「练这题」置灰，而不是点进去才看到一句加载失败。
+	 */
+	private Boolean available;
+
+	/** available=false 时的中文原因，直接展示给用户 */
+	private String unavailableReason;
+
 }

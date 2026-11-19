@@ -19,6 +19,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 成绩确认单的「真渲染」冒烟。
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 用真实的 {@link AnswerConfirmSheetExporter}（含字体嵌入与缺字清洗），不是替身：
  * 中文能不能编码、U+2014（总分缺失时的破折号）会不会抛 "No glyph"，只有真渲染才知道。
  */
+@Tag("slow")
 class AnswerConfirmSheetRenderingTest {
 
 	@Test

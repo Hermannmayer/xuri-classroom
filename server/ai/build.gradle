@@ -17,5 +17,11 @@ dependencies {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // 默认跳过 @Tag("slow")：渲染 PDF/Word、起 Spring 上下文、跑 ArchUnit 这类慢用例，
+        // 日常 gradle test 只跑业务规则（秒级）；发版/CI 用 -PwithSlow 全跑。
+        if (!project.hasProperty("withSlow")) {
+            excludeTags "slow"
+        }
+    }
 }

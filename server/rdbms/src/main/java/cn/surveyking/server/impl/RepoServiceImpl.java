@@ -675,9 +675,31 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 						// 来源考试：只看某一场考试产生的错题（不传则不限）
 						.eq(isNotBlank(query.getProjectId()), UserBook::getProjectId, query.getProjectId())
 						.eq(UserBook::getCreateBy, SecurityContextUtils.getUserId()));
-		PaginationResponse<UserBookView> result = new PaginationResponse<>(page.getTotal(),
-				userBookViewMapper.toView(page.getRecords()));
-		return result;
+		List<UserBookView> views = userBookViewMapper.toView(page.getRecords());
+		fillAvailability(views);
+		return new PaginationResponse<>(page.getTotal(), views);
+	}
+
+	/**
+	 * 给每条记录标出「这道题还能不能打开」。
+	 *
+	 * <p>错题本/收藏只存了 template_id 快照：题目被删、来自试卷内临时的自建题、题库取消分配或窗口关闭，
+	 * 记录还在但题面取不到。列表页据此把「练这题」置灰并显示原因，而不是让用户点进去才看到加载失败。
+	 */
+	private void fillAvailability(List<UserBookView> views) {
+		if (CollectionUtils.isEmpty(views)) {
+			return;
+		}
+		// 同一道题可能同时有「错题」和「收藏」两条记录，按 templateId 缓存，避免重复查库
+		Map<String, String> reasonCache = new HashMap<>();
+		for (UserBookView view : views) {
+			String templateId = view.getTemplateId();
+			String cacheKey = templateId == null ? "" : templateId;
+			String reason = reasonCache.computeIfAbsent(cacheKey,
+					key -> templateService.unreadableReason(key.isEmpty() ? null : key));
+			view.setAvailable(reason == null);
+			view.setUnavailableReason(reason);
+		}
 	}
 
 	@Override
@@ -687,7 +709,19 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		if (userBook == null) {
 			throw new AccessDeniedException("笔记不存在或无权查看");
 		}
-		Template template = templateService.getReadableTemplate(userBook.getTemplateId());
+		Template template;
+		try {
+			template = templateService.getReadableTemplate(userBook.getTemplateId());
+		}
+		catch (RuntimeException ex) {
+			// 把「模板不存在 / 没有权限」翻译成用户看得懂的话：错题本里的记录可能来自试卷内现编的题，
+			// 也可能所属题库已经被取消分配。直接抛技术文案会让人以为是系统坏了。
+			throw new ValidationException("这道题现在打不开：" + ex.getMessage()
+					+ "。如果它是在试卷里临时编写的题目（没有进入题库），就不能单独练习。");
+		}
+		if (template.getTemplate() == null) {
+			throw new ValidationException("这道题现在打不开：题库里的题目内容已丢失，请联系管理员。");
+		}
 		SurveySchema schema = template.getTemplate().deepCopy();
 		schema.setId(template.getId());
 		// 默认剥掉答案：做题时不该看到正确答案。

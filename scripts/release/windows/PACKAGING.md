@@ -5,6 +5,7 @@
 | 仓库里的路径                              | 发布包里的路径              |
 | ----------------------------------------- | --------------------------- |
 | `start.cmd` / `stop.cmd` / `status.cmd` / `setup.cmd` / `doctor.cmd` | 根目录同名文件              |
+| `gui.ps1`                              | `gui.ps1`（图形控制台；双击 start.cmd 默认打开它） |
 | `README.txt`                            | `README.txt`              |
 | `lib/launcher.ps1`                      | `lib/launcher.ps1`        |
 | `config/app.env.example`                | `config/app.env.example`  |
@@ -27,7 +28,7 @@
 1. `.cmd` 是 CRLF、无 BOM；`.ps1`/`.txt` 是 UTF-8 BOM + CRLF。
    本目录的 `.gitattributes` 已强制检出为 CRLF；BOM 直接存在文件里。
 2. 压缩包里 `app/` 只有一份 jar 和 init-mysql.sql。
-3. 发布包根目录能看到五个 .cmd、README.txt、VERSION、lib/、config/、app/。
+3. 发布包根目录能看到五个 .cmd、gui.ps1、README.txt、VERSION、lib/、config/、app/。
 4. 解压到含空格的英文路径也能跑（launcher 已处理引号）；含中文的路径 MySQL 起不来，
    见第 6 条。
 5. 预期大小：jar 约 78MB，Windows 整包约 78–80MB（JRE/MySQL 首次运行下载）。

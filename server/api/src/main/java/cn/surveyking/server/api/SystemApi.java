@@ -6,6 +6,7 @@ import cn.surveyking.server.domain.dto.UpdateCheckView;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import cn.surveyking.server.core.constant.PermissionEnum;
+import cn.surveyking.server.core.diag.DiagnosticsExporter;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.impl.AnonymousCleanupService;
 import cn.surveyking.server.schema.SchemaUpgradeResult;
@@ -15,6 +16,11 @@ import cn.surveyking.server.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
@@ -56,6 +62,9 @@ public class SystemApi {
 	private final DictService dictService;
 
 	private final MessageSource messageSource;
+
+	/** 诊断日志打包：用户在「系统设置」里下载后直接发给管理员 */
+	private final DiagnosticsExporter diagnosticsExporter;
 
 	/** 匿名答卷清理（手动触发） */
 	private final AnonymousCleanupService anonymousCleanupService;
@@ -105,8 +114,27 @@ public class SystemApi {
 		if (schema != null) {
 			view.put("schemaVersion", schema.getDbVersion());
 			view.put("schemaStatus", schema.getStatus() == null ? null : schema.getStatus().name());
+			view.put("schemaAppVersion", schema.getAppVersion());
+			view.put("schemaMessage", schema.getMessage());
+			view.put("schemaAppliedScripts", schema.getAppliedScripts());
 		}
 		return view;
+	}
+
+	/**
+	 * 手动检查并升级数据库结构。
+	 *
+	 * <p>启动时会自动做一次（{@code SchemaUpgradeRunner}），但「用户直接覆盖了程序、没重启」或者
+	 * 「升级时数据库账号暂时没权限」这类情况，需要一个不重启就能重试的入口。
+	 * 幂等：结构已经最新时什么都不做。
+	 */
+	@PostMapping("/schema/upgrade")
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
+	public SchemaUpgradeResult upgradeSchema() {
+		SchemaUpgradeResult result = schemaUpgradeService.ensureUpToDate();
+		log.info("手动结构升级：status={}，db={}，applied={}", result.getStatus(), result.getDbVersion(),
+				result.getAppliedScripts());
+		return result;
 	}
 
 	/**
@@ -798,4 +826,23 @@ public class SystemApi {
 		dictService.deleteDictItem(request.getId());
 	}
 
+
+	/**
+	 * 导出诊断日志（zip）。
+	 *
+	 * <p>用户报障时往往只有一句「服务出了点问题」，管理员拿不到现场。这里把最近 N 天的应用日志
+	 * 与一份环境摘要打包下载，用户可以直接发出来；日志没有落盘时 zip 里仍会写明去哪里取。
+	 * @param days 最近多少天（1~30）
+	 */
+	@GetMapping("/logs/export")
+	@PreAuthorize("hasAuthority('system:log:list')")
+	public ResponseEntity<Resource> exportDiagnostics(@RequestParam(defaultValue = "7") int days) {
+		byte[] zip = diagnosticsExporter.export(Math.min(Math.max(days, 1), 30));
+		String fileName = "diagnostics-"
+				+ java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")) + ".zip";
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+				.contentType(MediaType.parseMediaType("application/zip")).contentLength(zip.length)
+				.body(new ByteArrayResource(zip));
+	}
 }

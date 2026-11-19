@@ -138,7 +138,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		Answer answer = loadAnswer(answerId);
 		// 按「这一份答卷」判权：班级级老师不能顺着 projectId 打开别的班的答卷
 		answerAccessGuard.assertAnswerAccess(answer);
-		SurveySchema schema = resolveSchema(answer);
+		SurveySchema schema = includeCorrectAnswer ? resolveSchemaWithAnswers(answer) : resolveSchema(answer);
 		Map<String, AnswerGrade> grades = loadGrades(answer.getId());
 		List<SurveySchema> questions = schema == null ? Collections.emptyList() : SchemaHelper.flatSurveySchema(schema);
 
@@ -148,6 +148,13 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		view.setAnswererName(answer.getAnswererName());
 		view.setAnonymous(answer.getIsAnonymous());
 		view.setGradeStatus(StringUtils.hasText(answer.getGradeStatus()) ? answer.getGradeStatus() : GRADE_NONE);
+		// 自愈：状态是 pending 但卷面已经没有人工评分题（改过卷、或迁移回填误判）→ 归位 none。
+		// 不归位的话这份卷子会永远挂在「待批改」里，老师点进去只看到「没有需要人工评分的题目」。
+		if (GRADE_PENDING.equals(view.getGradeStatus()) && schema != null && manualQuestions(schema).isEmpty()) {
+			answerMapper.update(null, Wrappers.<Answer>lambdaUpdate().eq(Answer::getId, answer.getId())
+					.set(Answer::getGradeStatus, GRADE_NONE));
+			view.setGradeStatus(GRADE_NONE);
+		}
 		view.setGradedBy(answer.getGradedBy());
 		view.setGradedAt(answer.getGradedAt());
 		view.setCreateAt(answer.getCreateAt());
@@ -288,6 +295,49 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		return project == null ? null : project.getSurvey();
 	}
 
+	/**
+	 * 批改/复核页要显示参考答案时的 schema。
+	 *
+	 * <p>优先答卷快照（随机卷每份题不同，只有快照是准的），但历史快照可能被剥掉 examCorrectAnswer。
+	 * 这时回退项目卷面——只在项目卷面能覆盖快照里的全部题目 id（固定卷）时才回退；
+	 * 随机卷拿题库池子顶替会让题目对不上、分数全 0。
+	 */
+	private SurveySchema resolveSchemaWithAnswers(Answer answer) {
+		SurveySchema snapshot = answer.getSurvey();
+		if (snapshot != null && containsCorrectAnswer(snapshot)) {
+			return snapshot;
+		}
+		Project project = projectMapper.selectById(answer.getProjectId());
+		if (project == null || project.getSurvey() == null) {
+			return snapshot;
+		}
+		if (snapshot == null) {
+			return project.getSurvey();
+		}
+		return questionIds(project.getSurvey()).containsAll(questionIds(snapshot)) ? project.getSurvey() : snapshot;
+	}
+
+	private static Set<String> questionIds(SurveySchema schema) {
+		return SchemaHelper.flatSurveySchema(schema).stream().map(SurveySchema::getId).filter(StringUtils::hasText)
+				.collect(Collectors.toSet());
+	}
+
+	/** 递归检查快照里是否还带着正确答案（历史快照可能被剥掉过） */
+	private static boolean containsCorrectAnswer(SurveySchema schema) {
+		if (schema == null || schema.getChildren() == null) {
+			return false;
+		}
+		for (SurveySchema child : schema.getChildren()) {
+			if (child.getAttribute() != null && child.getAttribute().getExamCorrectAnswer() != null) {
+				return true;
+			}
+			if (containsCorrectAnswer(child)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** 卷内所有人工评分题：questionId → schema */
 	private Map<String, SurveySchema> manualQuestions(SurveySchema schema) {
 		Map<String, SurveySchema> result = new LinkedHashMap<>();
@@ -332,6 +382,8 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 
 	private void saveGrade(AnswerGradeRequest.Item item, Answer answer, AnswerGrade existing, String grader,
 			Date now) {
+		// 分数来源：AI 批量批改会显式传 ai；老师手工批改（或老师覆盖 AI 分）一律 manual
+		String source = StringUtils.hasText(item.getSource()) ? item.getSource() : "manual";
 		if (existing == null) {
 			AnswerGrade grade = new AnswerGrade();
 			grade.setAnswerId(answer.getId());
@@ -340,6 +392,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			grade.setScore(item.getScore());
 			grade.setComment(item.getComment());
 			grade.setGrader(grader);
+			grade.setSource(source);
 			grade.setCreateAt(now);
 			grade.setUpdateAt(now);
 			answerGradeMapper.insert(grade);
@@ -348,7 +401,8 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		// 走 UpdateWrapper 显式设置字段：评语允许被清空（updateById 会跳过 null）
 		answerGradeMapper.update(null, Wrappers.<AnswerGrade>lambdaUpdate().eq(AnswerGrade::getId, existing.getId())
 				.set(AnswerGrade::getScore, item.getScore()).set(AnswerGrade::getComment, item.getComment())
-				.set(AnswerGrade::getGrader, grader).set(AnswerGrade::getUpdateAt, now));
+				.set(AnswerGrade::getGrader, grader).set(AnswerGrade::getSource, source)
+				.set(AnswerGrade::getUpdateAt, now));
 	}
 
 	/**
@@ -473,6 +527,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 				// 没批改过就是 null：前端按「待批改」展示，不能当 0 分
 				item.setScore(grade == null ? null : grade.getScore());
 				item.setComment(grade == null ? null : grade.getComment());
+				item.setSource(grade == null ? null : grade.getSource());
 			}
 			else {
 				item.setScore(machineScores.get(question.getId()));

@@ -332,6 +332,26 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		throw new ValidationException("没有权限访问该模板");
 	}
 
+	/**
+	 * 这道题还能不能打开：null = 可读，否则返回给用户看的中文原因。
+	 * <p>错题本/收藏只存了 template_id 快照，题目被删、题库取消分配、窗口关闭都会让记录变成死链。
+	 * 列表页用它在打开之前就把「练这题」置灰。
+	 */
+	public String unreadableReason(String templateId) {
+		if (templateId == null || templateId.isBlank()) {
+			return "记录里没有题目 id";
+		}
+		Template template = getById(templateId);
+		if (template == null) {
+			return "题目已从题库删除（可能是在试卷里现编、未入库的题）";
+		}
+		if (Objects.equals(template.getShared(), 1) || Objects.equals(template.getCreateBy(), SecurityContextUtils.getUserId())
+				|| (template.getRepoId() != null && isReadableRepo(template.getRepoId()))) {
+			return null;
+		}
+		return "题库已取消分配或不在开放时间内";
+	}
+
 	Template getReadableTemplate(String templateId) {
 		Template template = getById(templateId);
 		assertReadableTemplate(template);

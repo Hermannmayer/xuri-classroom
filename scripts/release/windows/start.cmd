@@ -17,8 +17,22 @@ if not exist "%LAUNCHER%" (
   goto :finish
 )
 
+rem 双击（不带参数）= 打开图形控制台；带参数仍走原来的命令行（脚本/自动化兼容）
+if "%~1"=="" goto :gui
+
 "%PS%" -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" start %*
 set "RC=%ERRORLEVEL%"
+goto :finish
+
+:gui
+if not exist "%ROOT%gui.ps1" (
+  "%PS%" -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" start
+  set "RC=%ERRORLEVEL%"
+  goto :finish
+)
+"%PS%" -NoProfile -NoLogo -ExecutionPolicy Bypass -WindowStyle Hidden -File "%ROOT%gui.ps1"
+set "RC=%ERRORLEVEL%"
+goto :finish
 
 :finish
 if not "%RC%"=="0" call :pause_if_double_click

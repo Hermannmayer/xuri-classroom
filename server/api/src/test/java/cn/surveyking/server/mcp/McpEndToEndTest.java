@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 端到端（不用数据库、不用外部模型）：真的发一个 HTTP 请求打到 {@code /mcp}，
@@ -43,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>这就是计划 §7.5 里 {@code curl -X POST /mcp} 那条验收的可执行版本：
  * 本机没有 MySQL 也能跑，因此 CI 上也能守住「令牌撤销立刻 401」「同一个幂等键只执行一次」这两条。
  */
+@Tag("slow")
 class McpEndToEndTest {
 
 	private final ApiTokenService apiTokenService = mock(ApiTokenService.class);

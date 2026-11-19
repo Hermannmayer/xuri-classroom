@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, message, Modal, Segmented, Slider, Spin, Tag } from 'antd';
+import { notifyErrorOnce } from '../../utils/notify';
 import { ArrowLeftOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -254,6 +255,8 @@ export default function BookPractice() {
 
   const [items, setItems] = useState<Array<{ row: UserBookView; schema: SurveySchema }>>([]);
   const [skipped, setSkipped] = useState(0);
+  /** 首条取题失败的原因：全部跳过时不能只说「没有符合条件的错题」 */
+  const [skipReason, setSkipReason] = useState<string>();
   const [truncated, setTruncated] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progressText, setProgressText] = useState('');
@@ -273,6 +276,7 @@ export default function BookPractice() {
     setError(undefined);
     setItems([]);
     setSkipped(0);
+    setSkipReason(undefined);
     setTruncated(0);
     setValues({});
     setIndex(0);
@@ -335,9 +339,11 @@ export default function BookPractice() {
               const schema = raw ? normalizeChoiceSchema(raw) : undefined;
               if (schema && questionIdsOf(schema).length) collected.push({ row: rows[i], schema });
               else skipCount += 1;
-            } catch {
-              // 单题失败不影响整轮，最后统一提示跳过数
+            } catch (e) {
+              // 单题失败不影响整轮，但要留一条原因：全部失败时只显示「没有符合条件的错题」会误导
               skipCount += 1;
+              const reason = (e as Error)?.message;
+              if (reason) setSkipReason((prev) => prev ?? reason);
             }
             done += 1;
             if (!cancelled) setProgressText(`${done} / ${rows.length}`);
@@ -504,7 +510,7 @@ export default function BookPractice() {
       setMastered((prev) => new Set(prev).add(rowId));
       message.success('已标记为「已掌握」，记录仍留在错题本');
     } catch (e) {
-      message.error((e as Error).message);
+      notifyErrorOnce((e as Error).message);
     }
   };
 
@@ -526,7 +532,7 @@ export default function BookPractice() {
     }
     setBusy(false);
     if (done) message.success(`已把 ${done} 道答对的题标记为已掌握`);
-    else message.error('标记失败，请稍后重试');
+    else notifyErrorOnce('标记失败，请稍后重试');
   };
 
   const goBack = () => {
@@ -549,7 +555,13 @@ export default function BookPractice() {
   if (error || !root || !flat.length) {
     return (
       <div className="bp-card" style={{ padding: 30 }}>
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={error || '没有符合条件的错题可练'}>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            error ||
+            (skipped > 0 && skipReason ? `这 ${skipped} 道题都打不开：${skipReason}` : '没有符合条件的错题可练')
+          }
+        >
           <Button onClick={goBack}>返回错题本</Button>
         </Empty>
       </div>
@@ -562,7 +574,10 @@ export default function BookPractice() {
     ...filterChips(filter),
   ];
   const scopeLabel = scope === 'project' ? '本场考试错题' : '错题本';
-  const restoredNote = skipped > 0 ? `有 ${skipped} 道题读取失败或题型不支持，已跳过` : '';
+  const restoredNote =
+    skipped > 0
+      ? `有 ${skipped} 道题读取失败或题型不支持，已跳过${skipReason ? `（原因：${skipReason}）` : ''}`
+      : '';
   const truncatedNote = truncated > 0 ? `错题较多，本次只练前 ${MAX_QUESTIONS} 题（另有 ${truncated} 题未取）` : '';
 
   return (

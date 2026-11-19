@@ -1,6 +1,8 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.common.PaginationResponse;
+import cn.surveyking.server.core.constant.ProjectModeEnum;
+import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
 import cn.surveyking.server.core.uitls.ContextHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
@@ -14,6 +16,7 @@ import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnonymousIdentityService;
+import cn.surveyking.server.service.AnswerGradeService;
 import cn.surveyking.server.service.AnswerPdfJobService;
 import cn.surveyking.server.service.FileService;
 import cn.surveyking.server.service.AnswerService;
@@ -75,6 +78,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	private final AnswerUploadParser answerUploadParser;
 
 	private final AnswerScoringService answerScoringService;
+
+	/** 导入答卷要补「批改状态机」，与交卷链路同一个入口 */
+	private final AnswerGradeService answerGradeService;
 
 	private final AnswerMetaEnricher answerMetaEnricher;
 
@@ -517,6 +523,11 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		if (previous != null) {
 			answer.setIsAnonymous(previous.getIsAnonymous());
 			answer.setAnonymousSubjectId(previous.getAnonymousSubjectId());
+			// 批改状态同理：请求体不带 gradeStatus 时不能让它回落成默认值再被 updateById 写进库。
+			// 显式沿用库里的值，真正的重算交给下面的 beforeSaveAnswer → onSubmitted。
+			answer.setGradeStatus(previous.getGradeStatus());
+			answer.setGradedBy(previous.getGradedBy());
+			answer.setGradedAt(previous.getGradedAt());
 			// 历史草稿没有 class_id 时，用本次班级链接补一次；已有归属不覆盖
 			if (!StringUtils.hasText(previous.getClassId())) {
 				String tokenClassId = classResourceService.resolveShareToken(previous.getProjectId(), request.getClassToken());
@@ -760,7 +771,49 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	@Override
 	public AnswerUploadView upload(AnswerUploadRequest request) {
-		return answerUploadParser.upload(request, this::saveBatch);
+		return answerUploadParser.upload(request, this::saveImportedAnswers);
+	}
+
+	/**
+	 * Excel 导入的答卷落库前补齐「交卷语义」。
+	 *
+	 * <p>解析器只填 projectId 与 answer，temp_save / 判分 / 批改状态一概没有：
+	 * 导入的卷子在数据页显示成「暂存」、不进「已交」，也不会进待批改。
+	 * 这里按项目口径补 temp_save=1，考试项目再跑一次判分与批改状态机——
+	 * 与 {@code AnswerScoringService#beforeSaveAnswer} 用同一个评估器，但不跑计时与附件校验
+	 * （导入的是已经完成的答卷，不该被「最短答题时间」拦下）。
+	 */
+	private void saveImportedAnswers(List<Answer> answers) {
+		if (answers == null || answers.isEmpty()) {
+			return;
+		}
+		Map<String, Project> projectCache = new HashMap<>();
+		for (Answer answer : answers) {
+			if (answer.getTempSave() == null) {
+				answer.setTempSave(1);
+			}
+			Project project = answer.getProjectId() == null ? null
+					: projectCache.computeIfAbsent(answer.getProjectId(), projectMapper::selectById);
+			if (project == null || project.getSurvey() == null) {
+				continue;
+			}
+			if (importedScoringEnabled(project) && answer.getAnswer() != null) {
+				AnswerScoreEvaluator evaluator = new AnswerScoreEvaluator(project.getSurvey(), answer.getAnswer());
+				answer.setExamScore(evaluator.eval());
+				AnswerExamInfo examInfo = new AnswerExamInfo();
+				examInfo.setQuestionScore(evaluator.getQuestionScore());
+				answer.setExamInfo(examInfo);
+			}
+			answerGradeService.onSubmitted(answer, project.getSurvey());
+		}
+		saveBatch(answers);
+	}
+
+	/** 导入时的计分开关：与 AnswerScoringService 同一口径（显式配置优先，未配置时考试默认计分） */
+	private static boolean importedScoringEnabled(Project project) {
+		Boolean flag = project.getSetting() == null || project.getSetting().getExamSetting() == null ? null
+				: project.getSetting().getExamSetting().getScoringEnabled();
+		return flag != null ? flag : ProjectModeEnum.exam.equals(project.getMode());
 	}
 
 	@Override

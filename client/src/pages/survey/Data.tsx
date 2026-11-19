@@ -12,6 +12,7 @@ import {
   Table,
   Tag,
 } from 'antd';
+import { formatScore, isManualGraded } from '../../utils/scoring';
 import type { ColumnsType } from 'antd/es/table';
 import {
   DeleteOutlined,
@@ -491,8 +492,10 @@ export default function SurveyData() {
         render: (_: unknown, row: Answer) => (
           <Space size={8}>
             {/* 只有待批改的卷才有「批改」入口，且必须有 answer:grade */}
-            {canGrade && gradeStatusOf(row) === 'pending' && (
-              <LinkAction onClick={() => setGrading(row.id)}>批改</LinkAction>
+            {canGrade && gradeStatusOf(row) && gradeStatusOf(row) !== 'none' && (
+              <LinkAction onClick={() => setGrading(row.id)}>
+                {gradeStatusOf(row) === 'pending' ? '批改' : '复核'}
+              </LinkAction>
             )}
             <LinkAction onClick={() => setDetail(row)}>详情</LinkAction>
           </Space>
@@ -591,8 +594,16 @@ export default function SurveyData() {
     }
   };
 
-  const detailQuestions = useMemo(
-    () => (detail?.survey ? flattenSchema(detail.survey).filter(isDataQuestion) : []),
+  const detailQuestions = useMemo(() => {
+    // 考试模式下答卷快照可能被服务端清空（防止客户端伪造判分），这时回退到项目卷面：
+    // 没有题目列表的「详情」抽屉等于什么都没告诉老师。
+    const schema = detail?.survey ?? project?.survey;
+    return schema ? flattenSchema(schema).filter(isDataQuestion) : [];
+  }, [detail, project]);
+
+  /** 逐题得分：examInfo 是弱类型（Record<string, unknown>），这里收窄一次给详情抽屉用 */
+  const detailScores = useMemo(
+    () => (detail?.examInfo as { questionScore?: Record<string, number> } | undefined)?.questionScore ?? {},
     [detail],
   );
 
@@ -884,18 +895,39 @@ export default function SurveyData() {
                 : ''}
             </div>
             <hr className="bp-dim" style={{ margin: 0 }} />
-            {detailQuestions.map((q, i) => (
-              <div key={q.id}>
-                <div style={{ fontSize: 12, marginBottom: 4 }}>
-                  <span className="bp-tag" style={{ marginRight: 6 }}>{q.number ?? i + 1}</span>
-                  {q.title || q.type}
+            {detailQuestions.map((q, i) => {
+              const got = detailScores[q.id];
+              const max = q.schema.attribute?.examScore;
+              const manual = isManualGraded(q.schema.attribute);
+              // 老师看答卷时最需要的判断：这题对没对、丢了几分。之前这里只渲染题干 + 学生答案。
+              const verdict =
+                manual && typeof got !== 'number'
+                  ? { text: '待批改', color: 'processing' as const }
+                  : typeof got !== 'number'
+                    ? { text: '未判分', color: 'default' as const }
+                    : typeof max === 'number' && max > 0
+                      ? got >= max
+                        ? { text: `正确 ${formatScore(got)}/${formatScore(max)}`, color: 'success' as const }
+                        : got > 0
+                          ? { text: `部分得分 ${formatScore(got)}/${formatScore(max)}`, color: 'warning' as const }
+                          : { text: `错误 0/${formatScore(max)}`, color: 'error' as const }
+                      : { text: `得分 ${formatScore(got)}`, color: 'default' as const };
+              return (
+                <div key={q.id}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, marginBottom: 4 }}>
+                    <span className="bp-tag">{q.number ?? i + 1}</span>
+                    <span style={{ flex: '1 1 auto', minWidth: 0 }}>{q.title || q.type}</span>
+                    <Tag color={verdict.color} style={{ marginInlineEnd: 0, fontSize: 10 }}>
+                      {verdict.text}
+                    </Tag>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--bp-text)', paddingLeft: 2 }}>
+                    {formatAnswer(q, (detail.answer ?? {})[q.id] as AnswerValue)}
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--bp-text)', paddingLeft: 2 }}>
-                  {formatAnswer(q, (detail.answer ?? {})[q.id] as AnswerValue)}
-                </div>
-              </div>
-            ))}
-            {detailQuestions.length === 0 && <Empty description="这份答卷没有可展示的题目快照" />}
+              );
+            })}
+            {detailQuestions.length === 0 && <Empty description="这份答卷没有可展示的题目" />}
           </Space>
         )}
       </Drawer>

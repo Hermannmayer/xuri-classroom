@@ -119,6 +119,9 @@ public class SchemaUpgradeService {
 
 		List<MigrationScript> pending = pendingScripts(dbVersion, appVersion);
 		if (pending.isEmpty()) {
+			// 没脚本可跑 ≠ 结构齐全：用户可能直接覆盖了程序、库停在更早的版本，
+			// 而探测把某个「requires 为空」的版本当成了兜底。这里逐个对象对照一遍再放行。
+			assertStructureComplete(spec, appVersion);
 			SchemaUpgradeResult result = SchemaUpgradeResult.of(appVersion, dbVersion, Status.OK,
 					"数据库结构已是最新，无需迁移");
 			lastResult = result;
@@ -141,6 +144,9 @@ public class SchemaUpgradeService {
 			result.getAppliedScripts().add(script.name);
 			recordVersion(script.version, script.name);
 		}
+		// 升级后必须复验：脚本可能因为权限/语法只跑了一半，也可能被并发实例抢先写坏了记录。
+		// 不复验的话，用户看到的是运行期「Unknown column」，而不是「哪个对象没补上」。
+		assertStructureComplete(spec, appVersion);
 		lastResult = result;
 		log.info("[schema] 结构升级完成：{} → {}", dbVersion, appVersion);
 		return result;
@@ -179,6 +185,40 @@ public class SchemaUpgradeService {
 			throw new SchemaUpgradeException("数据库还没有初始化（缺少 " + String.join(", ", missing)
 					+ "）。请先用 init-mysql.sql 建库，或使用安装器/发布包完成首次安装；"
 					+ "如果是连错了库，请检查 SPRING_DATASOURCE_URL / DB_NAME。");
+		}
+	}
+
+	/**
+	 * 升级/放行之前逐个对象校验：把 schema.json 里所有「不超过程序版本」的版本声明的对象对照一遍，
+	 * 缺任何一个就抛异常并点名缺的是什么。
+	 *
+	 * <p>没有这一步，「用户直接覆盖程序、没跑迁移」只会表现为运行期报
+	 * {@code Unknown column 'xxx'}，既看不出根因也看不出该补哪一步。
+	 */
+	void assertStructureComplete(SchemaSpec spec, String appVersion) {
+		Set<String> snapshot;
+		try {
+			snapshot = normalizeAll(new SchemaProbe(dataSource).snapshot());
+		}
+		catch (SQLException e) {
+			throw new SchemaUpgradeException("读取数据库结构失败：" + e.getMessage(), e);
+		}
+		List<String> missing = new ArrayList<>();
+		for (SchemaSpec.VersionSpec version : spec.getVersions()) {
+			if (version.getRequires() == null || compare(version.getVersion(), appVersion) > 0) {
+				continue;
+			}
+			for (String require : version.getRequires()) {
+				if (!snapshot.contains(require.toLowerCase(Locale.ROOT)) && !missing.contains(require)) {
+					missing.add(require);
+				}
+			}
+		}
+		if (!missing.isEmpty()) {
+			throw new SchemaUpgradeException("数据库结构与程序版本不匹配（程序 " + appVersion + "），缺少："
+					+ String.join("、", missing) + "。重启服务会自动补；如果重启仍然报这条，说明迁移脚本没跑成功，"
+					+ "常见原因是数据库账号没有 ALTER 权限或库被手工改过。请先备份数据库，"
+					+ "再把这条信息（含缺失对象名单）发给维护人员。");
 		}
 	}
 

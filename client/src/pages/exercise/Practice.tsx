@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Button, Empty, message, Segmented, Spin, Tag } from 'antd';
+import { notifyErrorOnce } from '../../utils/notify';
 import { ArrowLeftOutlined, FlagFilled, FlagOutlined, LeftOutlined, RightOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { get, getWithPagination, post } from '../../api';
@@ -227,7 +228,7 @@ export default function Practice() {
       }
       return added > 0;
     } catch (e) {
-      message.error((e as Error).message || '题目加载失败，请重试');
+      notifyErrorOnce((e as Error).message || '题目加载失败，请重试');
       return false;
     } finally {
       loadingMoreRef.current = false;
@@ -262,7 +263,7 @@ export default function Practice() {
         setJumpingTo(undefined);
         jumpLockRef.current = false;
         if (!ok) {
-          message.error(`第 ${target + 1} 题加载失败，请重试`);
+          notifyErrorOnce(`第 ${target + 1} 题加载失败，请重试`, 'practice-jump');
           return;
         }
       }

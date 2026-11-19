@@ -120,6 +120,7 @@ CREATE TABLE `t_answer_grade` (
   `score` double NOT NULL DEFAULT '0' COMMENT '人工给定分数',
   `comment` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '批改评语',
   `grader` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '批改人（t_user.id）',
+  `source` varchar(8) NOT NULL DEFAULT 'manual' COMMENT '分数来源：manual 人工 / ai AI 预批改（老师复核后可覆盖）',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次批改时间',
   `update_at` datetime DEFAULT NULL COMMENT '最近一次改分时间',
   PRIMARY KEY (`id`),

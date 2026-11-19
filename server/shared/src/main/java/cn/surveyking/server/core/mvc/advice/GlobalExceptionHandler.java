@@ -144,10 +144,60 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<String>> handleInternalServerError(HttpServletRequest request, Exception ex) {
-		log.error("handleInternalServerError {}\n", request.getRequestURI(), ex);
+		// 每条未预期异常都带一个 8 位编号：用户报障时能说出编号，管理员按编号就能在日志里定位。
+		// 之前统一回「服务出了点问题」，用户和客服都拿不到任何可行动的信息。
+		String traceId = java.util.UUID.randomUUID().toString().substring(0, 8);
+		log.error("handleInternalServerError traceId={} uri={} method={}", traceId, request.getRequestURI(),
+				request.getMethod(), ex);
+		String reason = ex instanceof InternalServerError ? ex.getMessage() : readableReason(ex);
+		String message = "服务处理失败（编号 " + traceId + "）"
+				+ (StringUtils.isNotBlank(reason) ? "：" + reason : "")
+				+ "。把编号告诉管理员即可在服务端日志里查到完整原因";
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-				.body(new ApiResponse<>(ResponseCode.INTERNAL_SERVER_ERROR.code,
-						ex instanceof InternalServerError ? ex.getMessage() : "服务出了点问题"));
+				.body(new ApiResponse<>(ResponseCode.INTERNAL_SERVER_ERROR.code, message));
+	}
+
+	/**
+	 * 把未预期异常压成一句「用户看得懂、又不泄露内部细节」的原因。
+	 *
+	 * <p>取最内层 cause 的异常类名与首行 message；SQL/驱动相关一律改写成可读描述，
+	 * 避免把表名、SQL 语句直接甩到前端。
+	 */
+	private static String readableReason(Throwable ex) {
+		if (ex == null) {
+			return null;
+		}
+		Throwable root = ex;
+		while (root.getCause() != null && root.getCause() != root) {
+			root = root.getCause();
+		}
+		String type = root.getClass().getSimpleName();
+		String raw = root.getMessage();
+		if (StringUtils.isBlank(raw)) {
+			return type;
+		}
+		String first = raw.split("\\R", 2)[0].trim();
+		// 「缺列 / 缺表」是最容易让用户截图就能定位的一类：直接把对象名和补救动作说出来，
+		// 而不是只回一句「服务出了点问题」。
+		java.util.regex.Matcher missingColumn = java.util.regex.Pattern
+				.compile("Unknown column '([^']+)'", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(first);
+		if (missingColumn.find()) {
+			return "数据库缺少列 " + missingColumn.group(1) + "：说明数据库结构没有升级到当前程序版本。"
+					+ "重启服务会自动补；也可以在「系统设置 → 系统与更新」点「检查并升级数据库结构」。";
+		}
+		java.util.regex.Matcher missingTable = java.util.regex.Pattern
+				.compile("Table '([^']+)' doesn't exist", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(first);
+		if (missingTable.find()) {
+			return "数据库缺少表 " + missingTable.group(1) + "：说明数据库结构没有升级到当前程序版本。"
+					+ "重启服务会自动补；也可以在「系统设置 → 系统与更新」点「检查并升级数据库结构」。";
+		}
+		if (first.matches("(?i).*(select|insert|update|delete)\\s+.*|.*jdbc.*|.*sqlstate.*|.*sqlexception.*")) {
+			return "数据库读写失败（" + type + "），请稍后重试或把编号告诉管理员";
+		}
+		if (first.length() > 120) {
+			first = first.substring(0, 120) + "…";
+		}
+		return type + "：" + first;
 	}
 
 	/**

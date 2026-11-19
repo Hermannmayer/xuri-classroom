@@ -764,6 +764,12 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                         ) : (
                           <Tag>机器判分</Tag>
                         )}
+                        {/* 分数来源：AI 预批改的题要明确标出来，老师才知道自己是在复核机器给的分 */}
+                        {(item as { source?: string }).source === 'ai' && (
+                          <Tag color="purple" style={{ marginInlineEnd: 0, fontSize: 10 }}>
+                            AI 给分
+                          </Tag>
+                        )}
                         {/* AI 建议入口：放在题头右侧，面板在分数框下面展开（不挡输入） */}
                         {item.editable && canUseAi ? (
                           <span style={{ marginLeft: 'auto' }}>

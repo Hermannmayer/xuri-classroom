@@ -48,4 +48,11 @@ public class AnswerGrade {
 	/** 最近一次改分时间 */
 	private Date updateAt;
 
+	/**
+	 * 分数来源：{@code manual} 人工给分 / {@code ai} AI 预批改。
+	 * <p>AI 批量批改走的是同一条写库路径，所以必须单独记来源，否则老师复核时分不清这块分是谁给的，
+	 * 也没法筛出「AI 批过、等人看」的卷子。老师覆盖 AI 分后来源会变回 manual。
+	 */
+	private String source = "manual";
+
 }

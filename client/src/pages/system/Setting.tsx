@@ -17,10 +17,10 @@ import {
   Tabs,
   Upload,
 } from 'antd';
-import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { get, getAiModels, getSystem, post } from '../../api';
+import { download, get, getAiModels, getSystem, post } from '../../api';
 import { getAiStatus, getAiUsageToday } from '../../api/ai';
 import type { AiStatus, AiUsageToday } from '../../api/ai';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -225,6 +225,17 @@ export default function SystemSetting() {
   const [currentVersion, setCurrentVersion] = useState<string>();
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  /** 诊断日志导出中：导出要现打包日志，几秒到十几秒，按钮要有 loading */
+  const [exportingDiag, setExportingDiag] = useState(false);
+  /** 数据库结构状态：用户「覆盖程序没跑迁移」时，这里是唯一能一眼看到的地方 */
+  const [schemaInfo, setSchemaInfo] = useState<{
+    version?: string;
+    schemaVersion?: string;
+    schemaStatus?: string;
+    schemaAppVersion?: string;
+    schemaMessage?: string;
+  }>();
+  const [upgradingSchema, setUpgradingSchema] = useState(false);
   /** AI 现状：ready=false 时页面直接给出「还差哪几步」，而不是让人对着开关猜 */
   const [aiStatus, setAiStatus] = useState<AiStatus>();
   /** 今日用量：管理员据此判断要不要调限额 */
@@ -287,6 +298,16 @@ export default function SystemSetting() {
     setLastCleanupAt(anonymous.anonymousLastCleanupAt);
     setLastCleanupCount(anonymous.anonymousLastCleanupCount);
     setCurrentVersion(sys?.version);
+    // 顺便拿一次数据库结构状态：/api/system（系统信息）不带这些字段，只有 /version 有
+    void get<{
+      version?: string;
+      schemaVersion?: string;
+      schemaStatus?: string;
+      schemaAppVersion?: string;
+      schemaMessage?: string;
+    }>('/api/system/version')
+      .then(setSchemaInfo)
+      .catch(() => undefined);
     form.setFieldsValue({
       name: sys?.name,
       description: sys?.description,
@@ -1245,6 +1266,89 @@ export default function SystemSetting() {
                       />
                     )}
                     {canUpdate && <SaveBar loading={saving === 'system'} onSave={() => void save('system')} />}
+
+                    {/* 数据库结构：用「直接覆盖程序、没跑迁移」时，这里能一眼看出库和程序对不上 */}
+                    <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
+                    <div
+                      className="bp-card"
+                      style={{ padding: 12, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}
+                    >
+                      <div style={{ fontSize: 11, letterSpacing: '0.16em', color: 'var(--bp-text-soft)' }}>数据库结构</div>
+                      <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.75 }}>
+                        程序版本 {schemaInfo?.version || currentVersion || '—'} · 库结构版本{' '}
+                        {schemaInfo?.schemaVersion || '—'} ·{' '}
+                        {schemaInfo?.schemaStatus === 'OK'
+                          ? '已是最新'
+                          : schemaInfo?.schemaStatus === 'UPGRADED'
+                            ? '刚刚完成升级'
+                            : schemaInfo?.schemaStatus === 'AHEAD'
+                              ? '库结构比程序新（回滚过程序）'
+                              : schemaInfo?.schemaStatus === 'DISABLED'
+                                ? '自动升级已关闭'
+                                : '未知'}
+                      </div>
+                      {schemaInfo?.schemaMessage ? (
+                        <div style={{ fontSize: 11, color: 'var(--bp-hint)' }}>{schemaInfo.schemaMessage}</div>
+                      ) : null}
+                      {canUpdate && (
+                        <div>
+                          <Button
+                            size="small"
+                            loading={upgradingSchema}
+                            onClick={async () => {
+                              setUpgradingSchema(true);
+                              try {
+                                const result = await post<{ appliedScripts?: string[] }>('/api/system/schema/upgrade');
+                                const applied = result?.appliedScripts?.length ?? 0;
+                                message.success(applied ? `已执行 ${applied} 个升级脚本` : '数据库结构已是最新');
+                                setSchemaInfo(await get('/api/system/version'));
+                              } catch (e) {
+                                message.error((e as Error).message);
+                              } finally {
+                                setUpgradingSchema(false);
+                              }
+                            }}
+                          >
+                            检查并升级数据库结构
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 诊断日志：用户报障时先下载这个再发出来，比截一句「服务出了点问题」有用得多 */}
+                    <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
+                    <div
+                      className="bp-card"
+                      style={{ padding: 12, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}
+                    >
+                      <div style={{ fontSize: 11, letterSpacing: '0.16em', color: 'var(--bp-text-soft)' }}>诊断日志</div>
+                      <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.75 }}>
+                        遇到问题（报错、白屏、批改结果不对）时，先在这里下载诊断日志，连同截图一起发给管理员。
+                        压缩包里只有运行日志和环境信息，不含答卷内容和密码。
+                      </div>
+                      {canUpdate && (
+                        <div>
+                          <Button
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            loading={exportingDiag}
+                            onClick={async () => {
+                              setExportingDiag(true);
+                              try {
+                                await download('/api/system/logs/export', { days: 7 }, '诊断日志.zip');
+                                message.success('诊断日志已开始下载，发给管理员即可');
+                              } catch (e) {
+                                message.error((e as Error).message);
+                              } finally {
+                                setExportingDiag(false);
+                              }
+                            }}
+                          >
+                            导出诊断日志
+                          </Button>
+                        </div>
+                      )}
+                    </div>
 
                     <hr className="bp-dim" style={{ margin: '4px 0 16px' }} />
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12, lineHeight: 1.75 }}>

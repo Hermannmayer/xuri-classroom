@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
 
 /**
  * Word 试卷导出的「真写出」冒烟。
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 一旦 {@code poi-ooxml-lite} 里缺对应 schema，运行期才会炸。
  * 这里走完整链路——建 ProjectView → 导出字节 → 再用 POI 读回来——两端都验一遍。
  */
+@Tag("slow")
 class PaperDocxRenderingTest {
 
 	@Test

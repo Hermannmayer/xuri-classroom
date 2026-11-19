@@ -229,6 +229,7 @@ final class RepoQuestionExcelExporter {
 		row.add(tagsOf(template, schema));
 		row.add(nullToEmpty(attribute.getExamAnalysis()));
 		row.add(answerOf(sheetType, schema, attribute));
+		row.add(judgeModeOf(attribute));
 		switch (sheetType) {
 			case SINGLE_CHOICE:
 			case MULTIPLE_CHOICE:
@@ -508,6 +509,11 @@ final class RepoQuestionExcelExporter {
 		return schema.getTags().stream().filter(StringUtils::hasText).map(String::trim).collect(Collectors.joining(","));
 	}
 
+	/** 判分模式列：只有人工评分的题写「人工」，其余留空（导入时空 = 按题型默认） */
+	private static String judgeModeOf(SurveySchema.Attribute attribute) {
+		return SurveySchema.ExamScoreMode.manual.equals(attribute.getExamAnswerMode()) ? "人工" : "";
+	}
+
 	private static String nullToEmpty(String value) {
 		return value == null ? "" : value;
 	}
@@ -524,6 +530,8 @@ final class RepoQuestionExcelExporter {
 		headers.add(RepoTemplateI18n.HeaderLabel.TAGS.displayLabel());
 		headers.add(RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel());
 		headers.add(RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel());
+		// 导出也必须带这一列，否则「导出 → 改 → 再导入」会把人工批改标记丢掉
+		headers.add(RepoTemplateI18n.HeaderLabel.JUDGE_MODE.displayLabel());
 		switch (sheetType) {
 			case SINGLE_CHOICE:
 			case MULTIPLE_CHOICE:

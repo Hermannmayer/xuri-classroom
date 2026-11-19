@@ -188,6 +188,8 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 					gradeItem.setQuestionId(item.getQuestionId());
 					gradeItem.setScore(Double.valueOf(suggestion.score()));
 					gradeItem.setComment(suggestion.comment());
+					// 标明这块分是 AI 给的：老师复核时能区分「自己改过的」与「AI 预批的」，审计也查得到来源
+					gradeItem.setSource("ai");
 					pending.add(gradeItem);
 					if (suggestion.confidence() < minConfidence) {
 						AiGradeBatchView.Low row = new AiGradeBatchView.Low();

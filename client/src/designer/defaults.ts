@@ -68,7 +68,14 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
       attribute: {},
     }));
   } else if (type === 'FillBlank' || type === 'Textarea') {
-    base.attribute = { required: false, placeholder: '请输入', ...(type === 'Textarea' ? { rows: 3 } : {}) };
+    base.attribute = {
+      required: false,
+      placeholder: '请输入',
+      ...(type === 'Textarea' ? { rows: 3 } : {}),
+      // 多行文本是主观题：默认人工打分。否则老师只填分值、不选判分模式时，
+      // 这道题会被当成客观题按 0 分判，卷子也永远进不了「待批改」（见 AnswerScoreEvaluator#isManual 的兜底）。
+      ...(type === 'Textarea' ? { examAnswerMode: 'manual' as const } : {}),
+    };
     // 后端填空答案格式是 {题目id: {空位id: 文本}}，空位节点必须有 id（见 AnswerServiceImpl 造 schema）
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'MultipleBlank') {
@@ -102,7 +109,8 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
     base.attribute = { required: false, placeholder: '请输入地址' };
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'RichText') {
-    base.attribute = { required: false, placeholder: '请输入答案，可插入图片和公式' };
+    // 富文本题同样是主观题，默认人工打分
+    base.attribute = { required: false, placeholder: '请输入答案，可插入图片和公式', examAnswerMode: 'manual' as const };
   } else if (type === 'Score') {
     base.attribute = { scope: '[0,5]' };
   } else if (type === 'Signature' || type === 'Upload') {

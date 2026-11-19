@@ -77,13 +77,14 @@ class RepoExportRoundTripTest {
 				RepoTemplateI18n.HeaderLabel.SCORE.displayLabel(),
 				RepoTemplateI18n.HeaderLabel.DIFFICULTY.displayLabel(),
 				RepoTemplateI18n.HeaderLabel.TAGS.displayLabel(), RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel(),
-				RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel(), RepoTemplateI18n.optionLabel("A"),
+				RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel(), RepoTemplateI18n.HeaderLabel.JUDGE_MODE.displayLabel(),
+				RepoTemplateI18n.optionLabel("A"),
 				RepoTemplateI18n.optionLabel("B"), RepoTemplateI18n.optionLabel("C"), RepoTemplateI18n.optionLabel("D"),
 				RepoTemplateI18n.optionLabel("E"), RepoTemplateI18n.optionLabel("F"), RepoTemplateI18n.optionLabel("G"),
 				RepoTemplateI18n.optionLabel("H"), RepoTemplateI18n.advancedJsonLabel() + "(JSON)"),
 				headerOf(exported, RepoTemplateI18n.SheetType.SINGLE_CHOICE.exportName()));
-		assertEquals(29, headerOf(exported, RepoTemplateI18n.SheetType.MATRIX_RADIO.exportName()).size(),
-				"矩阵题：8 个公共列 + 行标题10 + 列标题10 + 高级配置");
+		assertEquals(30, headerOf(exported, RepoTemplateI18n.SheetType.MATRIX_RADIO.exportName()).size(),
+				"矩阵题：8 个公共列 + 判分模式 + 行标题10 + 列标题10 + 高级配置");
 
 		// 四、把导出的字节原样再导入一遍
 		List<TemplateRequest> reparsed = parse(exported);

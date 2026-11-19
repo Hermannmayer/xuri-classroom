@@ -17,6 +17,7 @@ import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 答卷 PDF 导出的「真渲染」冒烟。
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 这里按导出器实际用到的那几个 API 走一遍——建文档、嵌 TTF 子集字体、画中文、
  * 插入一张 PNG、收尾存字节——断言产出的是一份结构完整的 PDF。
  */
+@Tag("slow")
 class PdfRenderingTest {
 
 	private static final String FONT = "/fonts/answer-pdf.ttf";

@@ -16,6 +16,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
 
 /**
  * 成绩确认单「名册版」：整班一张表、每人一行、签名列留空手写。
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>
  * 用真渲染 + PDFTextStripper 抽文本，不是替身：字体子集/列宽/翻页这些只有真跑才知道。
  */
+@Tag("slow")
 class AnswerConfirmSheetRosterTest {
 
 	@Test

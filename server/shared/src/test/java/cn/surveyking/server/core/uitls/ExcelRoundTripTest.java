@@ -7,11 +7,13 @@ import org.dhatim.fastexcel.reader.Sheet;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -66,4 +68,36 @@ class ExcelRoundTripTest {
 		assertTrue(rowTexts.get(2).contains("李四") && rowTexts.get(2).contains("72"), "第二行数据不对：" + rowTexts.get(2));
 	}
 
+
+	/**
+	 * 带外部 OutputStream 的构造不能和 export() 混用：历史上会**静默**拿到 0 字节。
+	 * 从 ExcelExporterStreamTest 合并进来（同包同类，没必要单独一个文件）。
+	 */
+	@Test
+	void exportRejectsExternalStreamInstance() {
+		ByteArrayOutputStream external = new ByteArrayOutputStream();
+		ExcelExporter exporter = new ExcelExporter(external);
+		exporter.createSheet("S1");
+		exporter.createHeader(Arrays.asList("姓名"));
+		exporter.createRow(Arrays.asList(Arrays.asList("张三")));
+
+		IllegalStateException error = assertThrows(IllegalStateException.class, exporter::export);
+		assertTrue(error.getMessage().contains("exportToStream"), "错误提示要指路：" + error.getMessage());
+
+		exporter.exportToStream();
+		assertTrue(external.size() > 0, "exportToStream 应该把内容写进外部流");
+	}
+
+	@Test
+	void exportWorksOnInternalBufferInstance() {
+		ExcelExporter exporter = new ExcelExporter();
+		exporter.createSheet("S1");
+		exporter.createHeader(Arrays.asList("姓名"));
+		exporter.createRow(Arrays.asList(Arrays.asList("张三")));
+		try (var in = exporter.export()) {
+			assertTrue(in != null && in.readAllBytes().length > 0, "无参构造的 export() 应该有内容");
+		} catch (java.io.IOException e) {
+			throw new IllegalStateException(e);
+		}
+	}
 }

@@ -132,6 +132,12 @@ def build_windows(version: str, jar: Path, out: Path) -> Path:
     if launcher.read_bytes()[:3] != b"\xef\xbb\xbf":
         fail("lib/launcher.ps1 缺少 UTF-8 BOM；PowerShell 5.1 会把中文按 GBK 读成乱码并解析失败")
 
+    gui = WINDOWS_TEMPLATE / "gui.ps1"
+    if not gui.exists():
+        fail("Windows 模板缺少 gui.ps1（图形控制台）")
+    if gui.read_bytes()[:3] != b"\xef\xbb\xbf":
+        fail("gui.ps1 缺少 UTF-8 BOM；PowerShell 5.1 会把中文按 GBK 读成乱码并解析失败")
+
     name = "xuri-classroom-" + version + "-windows-x64"
     staging = out / "staging" / name
     if staging.exists():
@@ -146,7 +152,7 @@ def build_windows(version: str, jar: Path, out: Path) -> Path:
 
     copy_migrations(staging)
 
-    for required in ["start.cmd", "setup.cmd", "doctor.cmd", "upgrade.cmd", "lib/launcher.ps1"]:
+    for required in ["start.cmd", "setup.cmd", "doctor.cmd", "upgrade.cmd", "gui.ps1", "lib/launcher.ps1"]:
         if not (staging / required).exists():
             fail("Windows 模板缺少 " + required)
 

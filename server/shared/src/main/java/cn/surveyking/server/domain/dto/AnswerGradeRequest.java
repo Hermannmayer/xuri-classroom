@@ -52,6 +52,12 @@ public class AnswerGradeRequest {
 		/** 评语（可空），保存时按最后一次传入的值覆盖，传空串即清空 */
 		private String comment;
 
+		/**
+		 * 分数来源：不传按 manual 处理；AI 批量批改传 {@code ai}。
+		 * <p>只做审计标记，不影响分数本身——老师复核时直接把分改掉，来源会回到 manual。
+		 */
+		private String source;
+
 	}
 
 }
