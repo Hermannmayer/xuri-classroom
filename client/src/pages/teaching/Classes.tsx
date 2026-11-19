@@ -1388,7 +1388,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             onChange={(event) => setKeyword(event.target.value)}
             style={{ marginBottom: 8 }}
           />
-          <div style={{ maxHeight: isMobile ? 300 : 520, overflowY: 'auto' }}>
+          {/* 手机上是「列表 → 详情」整页切换：列表不再限 300px 高，否则下面会空出一大片 */}
+          <div style={{ maxHeight: isMobile ? undefined : 520, overflowY: 'auto' }}>
             {treeLoading && tree.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center' }}>
                 <Spin />
@@ -1475,7 +1476,13 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
         <Card
           className="bp-card bp-corners"
           size="small"
-          style={{ width: isMobile ? '100%' : undefined, flex: '1 1 auto', minWidth: 0 }}
+          style={{
+            width: isMobile ? '100%' : undefined,
+            flex: '1 1 auto',
+            minWidth: 0,
+            // 手机上没选班级时整块不显示：列表本身就是整页，再挂一个「从左侧选择一个班级」的空态只是浪费一屏
+            display: isMobile && !selected ? 'none' : undefined,
+          }}
           styles={{ body: { padding: 14 } }}
         >
           {!selected ? (
@@ -1527,39 +1534,27 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                     <span>成员：{selected.memberCount ?? 0} 人</span>
                   </div>
                 </div>
-                <Space wrap>
-                  {canCreateMember && !readOnlyClass && selected.classKind !== 'group' && (
-                    <Button type="primary" icon={<UserAddOutlined />} onClick={openMemberModal}>
-                      添加学员
-                    </Button>
-                  )}
-                  {canAssign && !readOnlyClass && selected.classKind !== 'group' && (
-                    <Button icon={<UserAddOutlined />} onClick={openAddExisting}>
-                      从其他班级添加
-                    </Button>
-                  )}
-                  {canCreateMember && !readOnlyClass && selected.classKind !== 'group' && (
-                    <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
-                      批量导入
-                    </Button>
-                  )}
-                  {canGrant && (
-                    <Button icon={<TeamOutlined />} onClick={openGrantModal}>
-                      任课老师
-                    </Button>
-                  )}
-                  {/* 管理员，或老师自己建/被授「可管理」的班（manageable=true）都能改班级设置 */}
-                  {(canDeptUpdate || selected.manageable === true) && (
-                    <Button icon={<SettingOutlined />} onClick={openClassSettings}>
-                      班级设置
-                    </Button>
-                  )}
-                  {canDeptDelete && (
-                    <Button danger icon={<DeleteOutlined />} onClick={() => setDeleteTarget(selected)}>
-                      删除分组
-                    </Button>
-                  )}
-                </Space>
+              </div>
+
+              {/*
+                页签提到操作按钮之前：原来「一堆按钮中间夹着两个页面标签」，
+                看不出这两个标签是切换整块内容的。现在顺序是 班级名 → 页签 → 该页的操作。
+              */}
+              <div className="sk-class-tabs">
+                <button
+                  type="button"
+                  className={detailTab === 'members' ? 'is-active' : ''}
+                  onClick={() => setDetailTab('members')}
+                >
+                  成员（{members.length}）
+                </button>
+                <button
+                  type="button"
+                  className={detailTab === 'exams' ? 'is-active' : ''}
+                  onClick={() => setDetailTab('exams')}
+                >
+                  试卷
+                </button>
               </div>
 
               {selected.classKind === 'group' && (
@@ -1582,25 +1577,40 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                 />
               )}
 
-              <div className="sk-class-tabs">
-                <button
-                  type="button"
-                  className={detailTab === 'members' ? 'is-active' : ''}
-                  onClick={() => setDetailTab('members')}
-                >
-                  成员（{members.length}）
-                </button>
-                <button
-                  type="button"
-                  className={detailTab === 'exams' ? 'is-active' : ''}
-                  onClick={() => setDetailTab('exams')}
-                >
-                  试卷
-                </button>
-              </div>
-
               {detailTab === 'members' && (
               <>
+                <Space wrap style={{ marginBottom: 10 }}>
+                  {canCreateMember && !readOnlyClass && selected.classKind !== 'group' && (
+                    <Button type="primary" icon={<UserAddOutlined />} onClick={openMemberModal}>
+                      添加学员
+                    </Button>
+                  )}
+                  {canAssign && !readOnlyClass && selected.classKind !== 'group' && (
+                    <Button icon={<UserAddOutlined />} onClick={openAddExisting}>
+                      从其他班级添加
+                    </Button>
+                  )}
+                  {canCreateMember && !readOnlyClass && selected.classKind !== 'group' && (
+                    <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
+                      批量导入
+                    </Button>
+                  )}
+                  {canGrant && (
+                    <Button icon={<TeamOutlined />} onClick={openGrantModal}>
+                      任课老师
+                    </Button>
+                  )}
+                  {(canDeptUpdate || selected.manageable === true) && (
+                    <Button icon={<SettingOutlined />} onClick={openClassSettings}>
+                      班级设置
+                    </Button>
+                  )}
+                  {canDeptDelete && (
+                    <Button danger icon={<DeleteOutlined />} onClick={() => setDeleteTarget(selected)}>
+                      删除分组
+                    </Button>
+                  )}
+                </Space>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <span className="bp-title" style={{ fontSize: 13 }}>
                   班级成员
