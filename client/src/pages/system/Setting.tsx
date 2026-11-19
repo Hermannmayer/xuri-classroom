@@ -160,6 +160,14 @@ function normalizeTab(value: string): TabKey {
   return TAB_KEYS.includes(mapped) ? mapped : 'basic';
 }
 
+/** 单个平台的安装包（来自 Release 里附带的 update.json） */
+interface UpdateAsset {
+  file?: string;
+  url?: string;
+  size?: number;
+  sha256?: string;
+}
+
 interface UpdateCheckInfo {
   currentVersion?: string;
   latestVersion?: string;
@@ -168,6 +176,10 @@ interface UpdateCheckInfo {
   notes?: string;
   downloadUrl?: string;
   error?: string;
+  /** stable（正式版）/ nightly */
+  channel?: string;
+  /** 各平台资产；有 jar 才能「下载到服务器」 */
+  assets?: Record<string, UpdateAsset>;
 }
 
 /**
@@ -225,6 +237,8 @@ export default function SystemSetting() {
   const [cleaning, setCleaning] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<string>();
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState<{ version?: string; file?: string; size?: number; sha256?: string }>();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   /** 诊断日志导出中：导出要现打包日志，几秒到十几秒，按钮要有 loading */
   const [exportingDiag, setExportingDiag] = useState(false);
@@ -508,6 +522,23 @@ export default function SystemSetting() {
       cancelText: '取消',
       onOk: () => runCleanup(),
     });
+  };
+
+  /** 下载新版本到服务器的数据卷（后端校验 sha256 后落盘并写 apply.flag） */
+  const downloadUpdateNow = async () => {
+    setDownloading(true);
+    try {
+      const res = await post<{ version?: string; file?: string; size?: number; sha256?: string }>(
+        '/api/system/update/download',
+        {},
+      );
+      setDownloaded(res);
+      message.success('已下载并校验通过');
+    } catch {
+      // request.ts 已经弹过错误，这里不再重复提示
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const checkUpdateNow = async () => {
@@ -1243,12 +1274,37 @@ export default function SystemSetting() {
                       <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>
                         立即检查
                       </Button>
+                      {Boolean(updateInfo?.hasUpdate && updateInfo?.assets?.jar) && (
+                        <Button
+                          type="primary"
+                          loading={downloading}
+                          onClick={() => void downloadUpdateNow()}
+                          title="下载到服务器的数据卷并校验 sha256；替换与重启由宿主机脚本完成"
+                        >
+                          下载新版本到服务器
+                        </Button>
+                      )}
                       {updateInfo?.downloadUrl && (
                         <Button type="primary" onClick={() => window.open(updateInfo.downloadUrl, '_blank', 'noopener')}>
                           打开下载页
                         </Button>
                       )}
                     </div>
+                    {downloaded && (
+                      <Alert
+                        type="success"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        title={`已下载 v${downloaded.version ?? ''}，sha256 校验通过`}
+                        description={
+                          <span style={{ lineHeight: 1.75 }}>
+                            还没有应用。在服务器上执行 <code>bash scripts/nas/apply-update.sh</code>：
+                            它会备份旧 jar、替换、重启后端（约 30 秒）。
+                            装一条 cron 每 2 分钟跑一次就能全自动（命令见脚本开头的注释）。
+                          </span>
+                        }
+                      />
+                    )}
                     {updateInfo && (
                       <Alert
                         type={updateInfo.error ? 'error' : updateInfo.hasUpdate ? 'info' : 'success'}
