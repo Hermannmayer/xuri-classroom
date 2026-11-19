@@ -507,7 +507,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
               分类
             </span>
           </div>
-          <div style={{ ...PANEL_BODY_STYLE, padding: '8px 8px 12px' }}>
+          <div className="sk-notice-cats" style={{ ...PANEL_BODY_STYLE, padding: '8px 8px 12px' }}>
             {categories.map((item) => {
               const selected = item.key === category;
               return (

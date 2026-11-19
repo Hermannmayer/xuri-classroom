@@ -68,7 +68,8 @@ export default function Login() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        // dvh：移动端地址栏收放时 100vh 会把居中的表单顶出去一半
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

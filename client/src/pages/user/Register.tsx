@@ -93,7 +93,8 @@ export default function Register() {
   }
 
   const shell = (children: ReactNode) => (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    // dvh：移动端地址栏收放时 100vh 会把居中的三步表单顶出去一半
+        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <Card style={{ width: 470, maxWidth: '100%' }} className="bp-corners">
         <div style={{ marginBottom: 16 }}>
           <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/user/login')}>

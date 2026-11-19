@@ -584,6 +584,8 @@ export function TeacherHome() {
             <Table<TeacherRecentRow>
               rowKey={(row) => row.projectId ?? row.projectName ?? 'row'}
               size="small"
+              // 列宽合计约 510px，手机（324px 可用）不横滚会把交卷时间折成三行
+              scroll={{ x: 520 }}
               loading={board.loading}
               pagination={recent.length > 8 ? { pageSize: 8, size: 'small', showSizeChanger: false } : false}
               dataSource={recent}
@@ -762,6 +764,7 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
               size="small"
               pagination={false}
               loading={projectsLoading}
+              scroll={{ x: 520 }}
               dataSource={projects.slice(0, 5)}
               locale={{ emptyText: '暂时没有安排给你的考试' }}
               columns={[

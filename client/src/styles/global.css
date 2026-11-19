@@ -465,7 +465,22 @@ body {
     flex: 1 1 100% !important;
     min-width: 0 !important;
     height: auto !important;
-    max-height: 70vh;
+    /* 手机上不要再给每栏单独限高：三栏竖排时每栏都限高 = 三个内部滚动区，页面自己还能滚，
+       层级一多就找不到自己在哪。让内容自然展开，整页只留一层滚动。 */
+    max-height: none !important;
+  }
+
+  /* 分类在手机上一行横排、可左右滑，不再占掉整个第一屏 */
+  .sk-notice-cats {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 6px !important;
+  }
+  .sk-notice-cats > button {
+    flex: 0 0 auto;
+    width: auto !important;
   }
 
   /* 窄屏兜底（与 docs/work/ui-redesign-plan.md 第 0 步对应） */
