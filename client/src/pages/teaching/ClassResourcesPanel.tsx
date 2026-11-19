@@ -558,6 +558,15 @@ export default function ClassResourcesPanel({
                 {kind === 'project' && (
                   <LinkAction onClick={() => setAnswersRow(row)}>查看答卷</LinkAction>
                 )}
+                {/* 批改入口直接摆在这一行：老师的动线是「看这个班 → 这个班还没批完的卷子」，
+                    让他先点进数据页再切筛选是绕路 */}
+                {kind === 'project' ? (
+                  <LinkAction
+                    onClick={() => navigate(`/survey/${row.resourceId}/data?gradeStatus=pending`)}
+                  >
+                    批改
+                  </LinkAction>
+                ) : null}
                 {kind === 'repo' && (
                   <LinkAction onClick={() => setRepoAnswersRow(row)}>练习记录</LinkAction>
                 )}
@@ -682,7 +691,9 @@ export default function ClassResourcesPanel({
                 <div
                   style={{
                     display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
+                    gap: 8,
                     marginTop: 6,
                     fontSize: 11,
                     color: 'var(--bp-text-soft)',
@@ -696,8 +707,29 @@ export default function ClassResourcesPanel({
                         : row.effectiveStatus === 'ENDED'
                           ? '已结束'
                           : '已关闭'}
+                    {' · '}
+                    {row.answerCount ?? 0} 份答卷
                   </span>
-                  <span>{row.answerCount ?? 0} 份答卷</span>
+                  {kind === 'project' ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(`/survey/${row.resourceId}/data?gradeStatus=pending`);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        border: '1px solid var(--bp-orange)',
+                        color: 'var(--bp-orange)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        flex: '0 0 auto',
+                      }}
+                    >
+                      去批改
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}

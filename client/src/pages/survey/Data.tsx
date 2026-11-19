@@ -446,7 +446,8 @@ export default function SurveyData() {
         title: '提交时间',
         dataIndex: 'createAt',
         width: 160,
-        fixed: 'left',
+        // 不固定：横向滑到题目列时，左边应该是「谁、第几份」，时间不是批改时最要紧的信息
+        
         sorter: (a: Answer, b: Answer) => (a.createAt ?? '').localeCompare(b.createAt ?? ''),
         render: (v?: string) => <span style={{ fontSize: 12 }}>{v || EMPTY}</span>,
       },
@@ -454,6 +455,8 @@ export default function SurveyData() {
         title: '答卷人',
         dataIndex: 'createByName',
         width: 110,
+        // 横向滑动时跟着序号一起固定在左侧：批改时最需要一直看到的就是「这是谁的卷子」
+        fixed: 'left',
         sorter: (a: Answer, b: Answer) =>
           (a.createByName ?? a.createBy ?? '').localeCompare(
             b.createByName ?? b.createBy ?? '',
