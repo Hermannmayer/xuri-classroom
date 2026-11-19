@@ -206,13 +206,24 @@ function Pie({ rows }: { rows: OptionRow[] }) {
   );
 }
 
-export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers: Answer[] }) {
+export default function QuestionBlock({
+  q,
+  answers,
+  bare = false,
+  defaultOpen = false,
+}: {
+  q: FlatQuestion;
+  answers: Answer[];
+  /** true：不带 Card 外壳与折叠头，直接渲染明细（报表的抽屉里用） */
+  bare?: boolean;
+  defaultOpen?: boolean;
+}) {
   const [kind, setKind] = useState<ChartKind>('bar');
   /**
    * 默认收起：一页几十道题时，每题都摊开图表 + 明细表会让页面长到没法对比。
    * 收起态保留「题号 / 题干 / 答题人数 / 正确率」，需要细节再点开。
    */
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const { rows, answered } = useMemo(() => buildRows(q, answers), [q, answers]);
   const isChoice = CHOICE.has(q.type);
   const score = useMemo(() => {
@@ -294,6 +305,49 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
     },
   ];
 
+  /**
+   * 单题明细：图表三态 + 选项表 + 判定/错选列。
+   * <p>抽成变量是为了让「表格 + 抽屉」那条路径能直接复用它（bare=true 时连 Card 都不渲染）。
+   */
+  const detail = (
+    <>
+      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+        类型：{TYPE_NAME[q.type] ?? q.type}　必填：{q.schema.attribute?.required ? '是' : '否'}　共 {answered} 条数据
+      </div>
+
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+          {rows.length === 0 || answered === 0 ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+          ) : kind === 'bar' ? (
+            <Bars rows={rows} />
+          ) : kind === 'column' ? (
+            <Columns rows={rows} />
+          ) : (
+            <Pie rows={rows} />
+          )}
+        </div>
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+          <Table<OptionRow>
+            rowKey="key"
+            size="small"
+            bordered
+            tableLayout="fixed"
+            pagination={false}
+            columns={columns}
+            dataSource={rows}
+            components={TABLE_COMPONENTS}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" /> }}
+          />
+        </div>
+      </div>
+    </>
+  );
+
+  if (bare) {
+    return <div>{detail}</div>;
+  }
+
   return (
     <Card className="bp-corners bp-card">
       <div
@@ -336,40 +390,7 @@ export default function QuestionBlock({ q, answers }: { q: FlatQuestion; answers
         </div>
       </div>
 
-      {open && (
-        <>
-      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
-        类型：{TYPE_NAME[q.type] ?? q.type}　必填：{q.schema.attribute?.required ? '是' : '否'}　共 {answered} 条数据
-      </div>
-
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 300px', minWidth: 0 }}>
-          {rows.length === 0 || answered === 0 ? (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
-          ) : kind === 'bar' ? (
-            <Bars rows={rows} />
-          ) : kind === 'column' ? (
-            <Columns rows={rows} />
-          ) : (
-            <Pie rows={rows} />
-          )}
-        </div>
-        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-          <Table<OptionRow>
-            rowKey="key"
-            size="small"
-            bordered
-            tableLayout="fixed"
-            pagination={false}
-            columns={columns}
-            dataSource={rows}
-            components={TABLE_COMPONENTS}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" /> }}
-          />
-        </div>
-      </div>
-        </>
-      )}
+      {open && detail}
     </Card>
   );
 }

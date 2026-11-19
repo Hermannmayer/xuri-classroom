@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Empty, Input, Select, Spin, Table, Tag, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Drawer, Empty, Input, Select, Spin, Table, Tag, message } from 'antd';
 import { ReadOutlined, ReloadOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import { useParams, useSearchParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -525,11 +525,33 @@ export default function SurveyReport() {
    * 错题排行：按「正确率最低」排前 10，帮老师一眼找到整套卷子最薄弱的题。
    * 口径与逐题区块一致（exam_info.questionScore），不另开一套算法。
    */
-  const weakQuestions = useMemo(() => {
-    const rows = blocks.map((q) => {
+  /**
+   * 逐题指标：全部题一行一条，供「表格 + 抽屉」展示。
+   * 区分度 = 总分前 27% 与后 27% 两组的正确率差（教育测量标准做法：D<0.2 基本没有区分能力）。
+   */
+  const itemRows = useMemo(() => {
+    const scoredAnswers = answers.filter((a) => typeof a.examScore === 'number');
+    const ranked = [...scoredAnswers].sort((a, b) => (b.examScore as number) - (a.examScore as number));
+    const groupSize = Math.max(1, Math.round(ranked.length * 0.27));
+    const highGroup = ranked.slice(0, groupSize);
+    const lowGroup = ranked.slice(Math.max(0, ranked.length - groupSize));
+    const rateOf = (group: typeof answers, questionId: string, max: number) => {
+      let n = 0;
+      let c = 0;
+      for (const a of group) {
+        const info = a.examInfo as { questionScore?: Record<string, number> } | undefined;
+        const got = info?.questionScore?.[questionId];
+        if (typeof got !== 'number' || max <= 0) continue;
+        n += 1;
+        if (got >= max - 0.0001) c += 1;
+      }
+      return n > 0 ? c / n : null;
+    };
+
+    return blocks.map((q) => {
       const max = Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0);
       let answered = 0;
-      let scored = 0;
+      let scoredCount = 0;
       let correct = 0;
       let sum = 0;
       for (const answer of answers) {
@@ -544,27 +566,41 @@ export default function SurveyReport() {
         const info = answer.examInfo as { questionScore?: Record<string, number> } | undefined;
         const got = info?.questionScore?.[q.id];
         if (typeof got !== 'number' || max <= 0) continue;
-        scored += 1;
+        scoredCount += 1;
         sum += got;
         if (got >= max - 0.0001) correct += 1;
       }
+      const high = rateOf(highGroup, q.id, max);
+      const low = rateOf(lowGroup, q.id, max);
       return {
         id: q.id,
         number: q.number ?? q.index + 1,
         title: q.title || q.type,
         max,
+        total: answers.length,
         answered,
-        scored,
-        wrong: scored - correct,
-        rate: scored > 0 ? (correct / scored) * 100 : null,
-        avg: scored > 0 ? sum / scored : null,
+        scored: scoredCount,
+        wrong: scoredCount - correct,
+        blank: answers.length - answered,
+        rate: scoredCount > 0 ? (correct / scoredCount) * 100 : null,
+        avg: scoredCount > 0 ? sum / scoredCount : null,
+        discrimination: high !== null && low !== null ? high - low : null,
       };
     });
-    return rows
-      .filter((row) => row.scored > 0)
-      .sort((a, b) => (a.rate ?? 100) - (b.rate ?? 100))
-      .slice(0, 10);
   }, [blocks, answers]);
+
+  /** 错题排行：正确率最低 10 题（从 itemRows 里取，口径完全一致） */
+  const weakQuestions = useMemo(
+    () =>
+      [...itemRows]
+        .filter((row) => row.scored > 0)
+        .sort((a, b) => (a.rate ?? 100) - (b.rate ?? 100))
+        .slice(0, 10),
+    [itemRows],
+  );
+
+  /** 逐题抽屉当前打开的那道题 */
+  const [detailQid, setDetailQid] = useState<string>();
 
   /**
    * 分值统计：绝对分数段（按满分自动选桶宽）+ 均分/中位数/标准差/极值/及格率/优秀率。
@@ -1009,10 +1045,85 @@ export default function SurveyReport() {
                 </Card>
               )}
 
-              {/* 每题一个区块：图表三态 + 选项明细表 */}
-              {blocks.map((q) => (
-                <QuestionBlock key={q.id} q={q} answers={answers} />
-              ))}
+              {/* 逐题分析：一张可排序表，点行在右侧抽屉看选项分布 */}
+              {itemRows.length > 0 && (
+                <Card
+                  className="bp-corners bp-card"
+                  title={<span className="bp-title" style={{ fontSize: 12 }}>ITEM / 逐题分析</span>}
+                  extra={<span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>点任意行看选项分布</span>}
+                >
+                  <Table<any>
+                    rowKey="id"
+                    size="small"
+                    bordered
+                    pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
+                    dataSource={itemRows}
+                    onRow={(row: { id: string }) => ({ onClick: () => setDetailQid(row.id), style: { cursor: 'pointer' } })}
+                    columns={[
+                      { title: '#', dataIndex: 'number', width: 52, align: 'right' },
+                      { title: '题目', dataIndex: 'title', ellipsis: true },
+                      { title: '答题', dataIndex: 'answered', width: 62, align: 'right' },
+                      {
+                        title: '答对',
+                        key: 'correct',
+                        width: 62,
+                        align: 'right',
+                        render: (_: unknown, row: { scored: number; wrong: number }) => row.scored - row.wrong,
+                      },
+                      {
+                        title: '正确率',
+                        dataIndex: 'rate',
+                        width: 82,
+                        align: 'right',
+                        sorter: (a: { rate: number | null }, b: { rate: number | null }) => (a.rate ?? 0) - (b.rate ?? 0),
+                        render: (value: number | null) =>
+                          value === null ? '—' : <span style={{ color: value < 60 ? 'var(--bp-orange)' : undefined }}>{value.toFixed(1)}%</span>,
+                      },
+                      {
+                        title: '均分',
+                        dataIndex: 'avg',
+                        width: 66,
+                        align: 'right',
+                        render: (value: number | null) => (value === null ? '—' : value.toFixed(1)),
+                      },
+                      {
+                        title: '未答',
+                        dataIndex: 'blank',
+                        width: 62,
+                        align: 'right',
+                        render: (value: number) => (value > 0 ? <Tag color="orange">{value}</Tag> : 0),
+                      },
+                      {
+                        title: '难度',
+                        key: 'level',
+                        width: 70,
+                        render: (_: unknown, row: { rate: number | null }) =>
+                          row.rate === null ? (
+                            <Tag>—</Tag>
+                          ) : row.rate >= 80 ? (
+                            <Tag color="green">易</Tag>
+                          ) : row.rate >= 40 ? (
+                            <Tag color="orange">中</Tag>
+                          ) : (
+                            <Tag color="red">难</Tag>
+                          ),
+                      },
+                      {
+                        title: '区分度',
+                        dataIndex: 'discrimination',
+                        width: 76,
+                        align: 'right',
+                        sorter: (a: { discrimination: number | null }, b: { discrimination: number | null }) =>
+                          (a.discrimination ?? -1) - (b.discrimination ?? -1),
+                        render: (value: number | null) =>
+                          value === null ? '—' : (
+                            <span style={{ color: value < 0.2 ? 'var(--bp-orange)' : undefined }}>{value.toFixed(2)}</span>
+                          ),
+                      },
+                    ]}
+                  />
+                </Card>
+              )}
 
               {blocks.length === 0 && (
                 <Card className="bp-corners bp-card">
@@ -1047,6 +1158,24 @@ export default function SurveyReport() {
         错题重练（计划 §6.3 ④）：入口放在页头，也可以从 AI 侧栏带 ?ai=recommend 直接展开。
         生成只是预览，勾了「同时追加到本卷」还要再点一次才会写进卷子。
       */}
+      <Drawer
+        open={Boolean(detailQid)}
+        onClose={() => setDetailQid(undefined)}
+        size="min(880px, 96vw)"
+        title={
+          detailQid
+            ? (() => {
+                const q = blocks.find((item) => item.id === detailQid);
+                return q ? `第 ${q.number ?? q.index + 1} 题 · ${q.title || q.type}` : '题目明细';
+              })()
+            : '题目明细'
+        }
+      >
+        {detailQid && blocks.some((item) => item.id === detailQid) ? (
+          <QuestionBlock q={blocks.find((item) => item.id === detailQid)!} answers={answers} bare defaultOpen />
+        ) : null}
+      </Drawer>
+
       <AiPracticeRecommendDrawer
         open={recommendOpen}
         projectId={id}
