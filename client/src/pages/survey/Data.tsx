@@ -819,6 +819,9 @@ export default function SurveyData() {
                 showSizeChanger: true,
                 pageSizeOptions: [20, 50, 100],
                 showTotal: (t) => `共 ${t} 条`,
+                // 手机上右下角的 AI 浮钮是 fixed 定位，正好压住「下一页」：
+                // 给分页条留出底部空间，浮钮就不会再盖住点击目标
+                style: mobile ? { paddingBottom: 56 } : undefined,
                 onChange: (p, ps) => {
                   setPage(p);
                   setPageSize(ps);

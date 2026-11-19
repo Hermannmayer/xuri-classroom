@@ -115,13 +115,16 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
           </Tag>
         ) : null}
         <div style={{ flex: 1 }} />
-        <Tooltip title="AI 能力说明与模型设置">
+        <Tooltip title="AI 能力说明与模型设置（新标签打开）">
           <Button
             type="text"
             size="small"
             aria-label="AI 使用说明"
             icon={<BookOutlined />}
-            onClick={() => navigate('/system/setting?tab=ai')}
+            // 原来在同窗口跳转：手机上和「收起」只隔 6px，误触直接把对话页顶掉。
+            // 改新标签打开，既不会丢失当前对话，也把两个按钮的误触代价降下来
+            style={{ marginInlineEnd: 10 }}
+            onClick={() => window.open('/system/setting?tab=ai', '_blank', 'noopener')}
           />
         </Tooltip>
         <Tooltip title={messages.length ? '清空当前对话' : '还没有对话'}>

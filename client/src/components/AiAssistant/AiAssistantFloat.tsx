@@ -41,7 +41,9 @@ export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
         <Drawer
           open={open}
           placement="right"
-          width="100%"
+          // 铺满整屏会丢掉「这是浮层」的感觉，也没有地方点一下退出；
+          // 92vw 留一条背景缝，右下角仍是原来的浮层位置
+          width="92vw"
           closable={false}
           onClose={() => setOpen(false)}
           styles={{ body: { padding: 0, height: '100%' } }}
