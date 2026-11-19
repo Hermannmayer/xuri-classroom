@@ -1,0 +1,25 @@
+#!/bin/sh
+# 旭日云课堂 pre-commit 守卫：把 VERSION 同步到 client/package.json 与 server/pom.xml。
+#
+# 为什么要有它：版本号有四个落点（VERSION / CHANGELOG / package.json / pom.xml），
+# 只在发版脚本里同步不够——手动改 VERSION 时另外两处会忘，CI 的版本一致性校验就红。
+# 这个钩子在每次提交前统一对齐，让「三处版本号不一致」这件事根本发生不了。
+#
+# 安装：pwsh scripts/release/install-hooks.ps1
+# 临时绕过：git commit --no-verify
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+PY=''
+for c in python python3 py; do
+  if command -v "$c" >/dev/null 2>&1; then PY="$c"; break; fi
+done
+[ -n "$PY" ] || exit 0
+
+if ! "$PY" scripts/release/release.py sync >/dev/null 2>&1; then
+  exit 0
+fi
+
+# 同步后的文件要跟着这次提交一起进，否则工作区会变脏
+git add client/package.json server/pom.xml 2>/dev/null || true
+exit 0

@@ -241,6 +241,27 @@ def application_version_token() -> str:
     return match.group(1).strip() if match else ""
 
 
+def cmd_sync(_args) -> int:
+    """把 VERSION 同步到 package.json / pom.xml。
+
+    版本号有四个落点：VERSION（唯一真源）、CHANGELOG、client/package.json、server/pom.xml。
+    以前只靠发版脚本同步，手动改 VERSION 时另外两处会忘，CI 的版本一致性校验当场红。
+    这个子命令 + pre-commit 钩子把它们钉在一起。
+    """
+    version = read_version()
+    changed = []
+    if package_json_version() != version:
+        update_package_json(version)
+        changed.append("client/package.json")
+    if pom_version() != version:
+        update_pom(version)
+        changed.append("server/pom.xml")
+    if changed:
+        print("已把 {} 同步到：{}".format(version, "、".join(changed)))
+    else:
+        print("版本已一致：{}".format(version))
+    return 0
+
 def update_version_file(version: str) -> None:
     VERSION_FILE.write_text(version + "\n", encoding="utf-8", newline="\n")
 
@@ -497,6 +518,9 @@ def cmd_commits(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="旭日云课堂版本与发版脚本")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    sync = sub.add_parser("sync", help="把 VERSION 同步到 package.json / pom.xml")
+    sync.set_defaults(func=cmd_sync)
 
     plan = sub.add_parser("plan", help="计算下一个版本（不改文件）")
     plan.add_argument("--bump", default="auto", choices=["auto", "major", "minor", "patch", "none"])

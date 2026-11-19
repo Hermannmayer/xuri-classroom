@@ -4,6 +4,39 @@
 
 <!-- version list -->
 
+## v2.3.5 (2026-11-19)
+
+### 新功能
+
+- **repo**: 题库统计页与列表入口，新增权限点 `repo:report`（学员不可见）
+- **update**: 设置页可下载更新包并校验 sha256；CI 发版时产出 `update.json`
+- **teaching**: 班级列表与班级试卷改卡片；新增班级详情路由 `/teaching/classes/:classId`
+- **nav**: 问卷独立为一级菜单；题库中心合并为一级入口；教学拆成试卷/班级两个子项
+- **answer**: 数据页新增「AI 待复核」筛选，列表标出含 AI 预批改分数的答卷
+
+### 修复
+
+- **answer**: 批改状态机（白名单交卷洗状态、主观题无 manual 默认、Excel 导入绕过状态机、存量回填迁移）
+- **repo**: 收藏一道题库里不存在的题不再 500（事务被 getReadableTemplate 抛异常污染）
+- **data**: 答卷详情抽屉关不掉（关闭时没清 URL 的 answerId）；选择题答案显示 optionId 而非选项文本
+- **schema**: 版本探测优先信 t_schema_version，纯数据迁移不再被结构探测跳过
+- **security**: 题库统计补 assertReadableRepo，防止越权查看未授权题库的统计
+
+### 性能
+
+- **project**: 待批改答卷数改为一次 group by 聚合，去掉逐项目 count 的 N+1
+
+### 界面
+
+- 移动端全站适配：首页概览、设置页、班级、答题页、AI 助手（改悬浮小窗）、公告中心、编辑器
+- 宽屏：首页去掉 1200px 固定宽度，2K/4K 下图表卡改 3~4 列
+- 默认主题由暗色改为亮色（含 V2.3.5 迁移）
+
+### 文档
+
+- 模块页补 2026-11-19 变更小节（repo / project / teaching / survey / permissions）
+
+
 ## v2.3.1 (2026-11-18)
 
 ### 新功能
