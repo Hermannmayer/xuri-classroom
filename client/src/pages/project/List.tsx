@@ -347,9 +347,12 @@ function StudentProjectList({
 function ManagerProjectList({
   authorities,
   embedded = false,
+  mode,
 }: {
   authorities: string[];
   embedded?: boolean;
+  /** 限定项目类型：问卷独立成页时只看 mode=survey，教学页的「试卷」只看 mode=exam */
+  mode?: 'exam' | 'survey';
 }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -410,7 +413,7 @@ function ManagerProjectList({
     setLoading(true);
     try {
       // listProjects 的 query 类型还没加 category（api 层不在本任务范围），这里按可变参数传入
-      const query = { current: page, pageSize, name: keyword, parentId, category };
+      const query = { current: page, pageSize, name: keyword, parentId, category, mode };
       const res = await listProjects(query as Parameters<typeof listProjects>[0]);
       setRows(res.data);
       setTotal(res.total);
@@ -419,7 +422,7 @@ function ManagerProjectList({
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, keyword, parentId, category]);
+  }, [page, pageSize, keyword, parentId, category, mode]);
 
   useEffect(() => {
     void load();
@@ -1330,7 +1333,14 @@ function ManagerProjectList({
  * - 没有 project:update、但有 project:list（学员 / 只读协作者）：学员视图，
  *   只有「开始答题」，不出现任何管理入口，避免每点一次都是 403。
  */
-export default function ProjectList({ embedded = false }: { embedded?: boolean }) {
+export default function ProjectList({
+  embedded = false,
+  mode,
+}: {
+  embedded?: boolean;
+  /** 限定项目类型（exam / survey）：问卷独立成页、教学页的「试卷」各取所需 */
+  mode?: 'exam' | 'survey';
+}) {
   const [authorities, setAuthorities] = useState<string[]>();
 
   useEffect(() => {
@@ -1353,5 +1363,5 @@ export default function ProjectList({ embedded = false }: { embedded?: boolean }
     return <StudentProjectList authorities={authorities} embedded={embedded} />;
   }
 
-  return <ManagerProjectList authorities={authorities} embedded={embedded} />;
+  return <ManagerProjectList authorities={authorities} embedded={embedded} mode={mode} />;
 }

@@ -24,6 +24,7 @@ const NoticeAdmin = lazy(() => import('./pages/notice/NoticeAdmin'));
 const ProjectEntry = lazy(() => import('./pages/project/Entry'));
 const TaskCenter = lazy(() => import('./pages/tasks/TaskCenter'));
 const TeachingHome = lazy(() => import('./pages/teaching/TeachingHome'));
+const SurveyList = lazy(() => import('./pages/survey/SurveyList'));
 const ProjectTrash = lazy(() => import('./pages/project/Trash'));
 const SurveyEditor = lazy(() => import('./pages/survey/Editor'));
 const SurveyPrint = lazy(() => import('./pages/survey/Print'));
@@ -86,6 +87,8 @@ export const router = createBrowserRouter([
       // 教学 = 考试/问卷 + 班级（原「班级管理」独立菜单已并入）。
       // 守卫用「任一命中」：只带班不带课的班主任（class:list）也要能进来，否则合并之后他反而没入口了。
       { path: 'teaching', element: guard([PERMISSION_CODES.projectList, PERMISSION_CODES.classList], <TeachingHome />) },
+      // 问卷独立成一级菜单：静态段 'survey/list' 排在 '/survey/:id' 之前，不会被当成项目 id
+      { path: 'survey/list', element: guard(PERMISSION_CODES.projectList, <SurveyList />) },
       // 左侧菜单的两个子项：试卷 / 班级。旧链接 /teaching/classes（含 ?classId=）照样能用，
       // 页面按路径里的 :tab 决定显示哪个 Tab，query 里的 classId 不受影响。
       {

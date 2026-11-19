@@ -1,18 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import type { MenuProps } from 'antd';
-import {
-  DatabaseOutlined,
-  HomeOutlined,
-  LogoutOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  MoonOutlined,
-  ProjectOutlined,
-  SettingOutlined,
-  SunOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+import { DatabaseOutlined, FileTextOutlined, HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ProjectOutlined, SettingOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { get, getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
@@ -144,6 +133,10 @@ export default function BasicLayout() {
         teachingChildren.push({ key: '/teaching/classes', label: '班级' });
       }
       menu.push({ key: '/teaching', icon: <ProjectOutlined />, label: '教学', children: teachingChildren });
+    }
+    // 问卷是独立的一级入口：它和考试共用同一张项目表，但用途不同（只收反馈、不批改算分）
+    if (allow(PERMISSION_CODES.projectList)) {
+      menu.push({ key: '/survey/list', icon: <FileTextOutlined />, label: '问卷' });
     }
     // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
     // 不再显示「我的任务」——管理员和老师不做题。
