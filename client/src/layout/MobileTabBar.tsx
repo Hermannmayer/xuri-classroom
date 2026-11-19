@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
-import { DatabaseOutlined, HomeOutlined, ProjectOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  DatabaseOutlined,
+  HomeOutlined,
+  ProjectOutlined,
+  SettingOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { can } from '../auth/permissions';
 import { t } from '../i18n';
@@ -61,6 +67,32 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => under(p, '/repo'),
     });
   }
+  // 系统管理：手机上没有侧栏，底栏原来只有「首页/教学/题库/我的」，
+  // 管理员在手机上根本进不去系统设置。这里补一个「系统」，落到他有权限的第一个系统页。
+  const canSystem =
+    can(authorities, PERMISSION_CODES.systemUserList) ||
+    can(authorities, PERMISSION_CODES.systemRoleList) ||
+    can(authorities, PERMISSION_CODES.systemDeptList) ||
+    can(authorities, PERMISSION_CODES.noticeManageSystem) ||
+    can(authorities, PERMISSION_CODES.noticeManageClass) ||
+    can(authorities, PERMISSION_CODES.systemLogList);
+  if (canSystem) {
+    const systemPath = can(authorities, PERMISSION_CODES.systemRoleList)
+      ? '/system/setting'
+      : can(authorities, PERMISSION_CODES.systemUserList) || can(authorities, PERMISSION_CODES.systemDeptList)
+        ? '/system/access'
+        : can(authorities, PERMISSION_CODES.noticeManageSystem) || can(authorities, PERMISSION_CODES.noticeManageClass)
+          ? '/system/notice'
+          : '/system/audit';
+    tabs.push({
+      key: 'system',
+      path: systemPath,
+      label: '系统',
+      icon: <SettingOutlined />,
+      active: (p) => under(p, '/system'),
+    });
+  }
+
   // 与桌面端一致：不再给「没有任何角色」的用户强塞「我的练习」。
   // 菜单能点但路由守卫（exercise:list）会 403，属于自欺欺人；
   // 正确做法是给用户配一个角色（学员预设），见 /system/permissions。

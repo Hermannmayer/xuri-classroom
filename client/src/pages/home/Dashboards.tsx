@@ -406,52 +406,62 @@ export function AdminHome() {
               loading={overview.loading}
               dataSource={rows}
               locale={{ emptyText: '统计接口暂不可用' }}
-              // 手机上「分组 + 指标 + 数值 + 说明」四列放不下（344px > 324px 可用宽），
-              // 说明列会被压成一字一行。这里把说明折到指标名下面，并允许表格横向滚动兜底。
-              scroll={isMobile ? { x: 300 } : undefined}
-              columns={[
-                {
-                  title: '分组',
-                  dataIndex: 'group',
-                  width: isMobile ? 52 : 84,
-                  onCell: (row) => ({ rowSpan: row.rowSpan }),
-                  render: (value: string) => (
-                    <span style={{ fontSize: 11, letterSpacing: '0.08em', ...SOFT }}>{value}</span>
-                  ),
-                },
-                {
-                  title: '指标',
-                  dataIndex: 'name',
-                  width: isMobile ? undefined : 140,
-                  render: (value: string, row: MetricRow) =>
-                    isMobile ? (
-                      <div>
-                        <div>{value}</div>
-                        <div style={{ ...NOTE, marginTop: 2 }}>{row.note}</div>
-                      </div>
-                    ) : (
-                      value
-                    ),
-                },
-                {
-                  title: '数值',
-                  dataIndex: 'value',
-                  width: isMobile ? 72 : 120,
-                  align: 'right',
-                  render: (value: string) => (
-                    <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
-                  ),
-                },
-                ...(isMobile
-                  ? []
+              // 手机上四列（分组/指标/数值/说明）合计 344px > 324px 可用宽：分组列会被压成半个字，
+              // 说明列一字一行。改成两列——分组折进指标名上方当小标签，说明折到下方。
+              scroll={isMobile ? undefined : undefined}
+              columns={
+                isMobile
+                  ? [
+                      {
+                        title: '指标',
+                        dataIndex: 'name',
+                        render: (value: string, row: MetricRow) => (
+                          <div style={{ padding: '2px 0' }}>
+                            <div style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--bp-text-soft)' }}>
+                              {row.group}
+                            </div>
+                            <div style={{ marginTop: 1 }}>{value}</div>
+                            <div style={{ ...NOTE, marginTop: 2 }}>{row.note}</div>
+                          </div>
+                        ),
+                      },
+                      {
+                        title: '数值',
+                        dataIndex: 'value',
+                        width: 78,
+                        align: 'right',
+                        render: (value: string) => (
+                          <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
+                        ),
+                      },
+                    ]
                   : [
+                      {
+                        title: '分组',
+                        dataIndex: 'group',
+                        width: 84,
+                        onCell: (row) => ({ rowSpan: row.rowSpan }),
+                        render: (value: string) => (
+                          <span style={{ fontSize: 11, letterSpacing: '0.08em', ...SOFT }}>{value}</span>
+                        ),
+                      },
+                      { title: '指标', dataIndex: 'name', width: 140 },
+                      {
+                        title: '数值',
+                        dataIndex: 'value',
+                        width: 120,
+                        align: 'right',
+                        render: (value: string) => (
+                          <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
+                        ),
+                      },
                       {
                         title: '说明',
                         dataIndex: 'note',
                         render: (value: string) => <span style={{ ...NOTE }}>{value}</span>,
                       },
-                    ]),
-              ]}
+                    ]
+              }
             />
           </Panel>
         </Col>
