@@ -79,6 +79,12 @@ public class AnswerQuery extends PageQuery {
 	 * 是否显式包含匿名答卷；默认 false。
 	 * <p>只有管理员/项目管理者生效，普通学员即使传 true 也会被强制过滤。
 	 */
+	/**
+	 * 只看「含 AI 预批改分数」的答卷：t_answer_grade 里还有 source='ai' 的记录。
+	 * <p>老师复核并改过分之后，那些题的 source 会变回 manual；全部改完就不再出现在这里。
+	 */
+	private Boolean aiReview;
+
 	private Boolean includeAnonymous;
 
 	/** 后台统计专用：count 时排除匿名答卷（答题限次/幂等不传，保持原口径） */

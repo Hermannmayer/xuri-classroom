@@ -77,6 +77,12 @@ public class AnswerView {
 	private Date gradedAt;
 
 	/**
+	 * 这份答卷里是否还有「AI 预批改」的题（t_answer_grade.source='ai'）。
+	 * <p>列表据此显示「AI 待复核」标签；老师全部复核并改过分之后会变回 false。
+	 */
+	private Boolean aiGraded;
+
+	/**
 	 * 是否匿名答卷。管理端据此显示「匿名」标识，导出时提交人写「匿名」；
 	 * 不暴露 anonymousSubjectId，避免把同一匿名主体的多份答卷关联起来。
 	 */

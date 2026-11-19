@@ -40,6 +40,7 @@ const GRADE_OPTIONS = [
   { label: '全部', value: 'all' },
   { label: '待批改', value: 'pending' },
   { label: '已批改', value: 'graded' },
+            { label: 'AI 待复核', value: 'ai' },
 ];
 
 const ANON_OPTIONS = [

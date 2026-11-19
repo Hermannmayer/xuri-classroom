@@ -8,9 +8,11 @@ import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.*;
 import cn.surveyking.server.domain.mapper.AnswerViewMapper;
 import cn.surveyking.server.domain.model.Answer;
+import cn.surveyking.server.domain.model.AnswerGrade;
 import cn.surveyking.server.domain.model.AnswerItem;
 import cn.surveyking.server.domain.model.Project;
 import cn.surveyking.server.domain.model.User;
+import cn.surveyking.server.mapper.AnswerGradeMapper;
 import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
@@ -52,6 +54,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 	/** 答卷列表回填答题人姓名用（只读 t_user.name，不参与权限） */
 	private final UserMapper userMapper;
+
+	/** 列表回填「是否含 AI 预批改」用 */
+	private final AnswerGradeMapper answerGradeMapper;
 
 	private final AnswerViewMapper answerViewMapper;
 
@@ -127,6 +132,10 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				// 第几次作答（补考区分）与批改状态；传空表示不过滤
 				.eq(query.getAttemptNo() != null, Answer::getAttemptNo, query.getAttemptNo())
 				.eq(StringUtils.hasText(query.getGradeStatus()), Answer::getGradeStatus, query.getGradeStatus())
+				// AI 待复核：只要还有任意一题是 AI 给的（source='ai'），这份卷子就该被老师看一眼。
+				// 用 EXISTS 而不是 IN：一份卷子几十道题，子查询命中即返回。
+				.apply(Boolean.TRUE.equals(query.getAiReview()),
+						"EXISTS (SELECT 1 FROM t_answer_grade g WHERE g.answer_id = t_answer.id AND g.source = 'ai')")
 				// 姓名模糊与分数段：与 listAnswer 同一套条件，否则「班级抽屉里筛不到、也导不出」
 				.ge(query.getMinScore() != null, Answer::getExamScore, query.getMinScore())
 				.le(query.getMaxScore() != null, Answer::getExamScore, query.getMaxScore())
@@ -146,6 +155,26 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 	 * 批量回填答题人姓名：一页最多几十条，一次 in 查询足够；createBy 为空或查不到（例如白名单导入的
 	 * 参与者 id）就留 null。
 	 */
+	/**
+	 * 批量回填「这份答卷里是否还有 AI 预批改的题」。
+	 * <p>一次 in 查询，页大小几十条，成本可以忽略；列表靠它显示「AI 待复核」标签。
+	 */
+	private void fillAiGraded(List<AnswerView> views) {
+		if (views == null || views.isEmpty()) {
+			return;
+		}
+		List<String> ids = views.stream().map(AnswerView::getId).filter(StringUtils::hasText).collect(Collectors.toList());
+		if (ids.isEmpty()) {
+			return;
+		}
+		Set<String> aiAnswerIds = new HashSet<>();
+		answerGradeMapper
+				.selectList(Wrappers.<AnswerGrade>lambdaQuery().select(AnswerGrade::getAnswerId)
+						.in(AnswerGrade::getAnswerId, ids).eq(AnswerGrade::getSource, "ai"))
+				.forEach(row -> aiAnswerIds.add(row.getAnswerId()));
+		views.forEach(view -> view.setAiGraded(aiAnswerIds.contains(view.getId())));
+	}
+
 	private void fillCreateByName(List<AnswerView> views) {
 		if (views == null || views.isEmpty()) {
 			return;
@@ -267,6 +296,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		}
 		super.page(page, wrapper);
 		List<AnswerView> list = answerViewMapper.toView(page.getRecords());
+		fillAiGraded(list);
 		Project project = projectMapper.selectById(query.getProjectId());
 		FlatSurveySchemaByType schemaByType = answerSchemaDecorator.parseSurveySchemaByType(project.getSurvey());
 		list.forEach(view -> answerSchemaDecorator.setAnswerExtraInfo(view, schemaByType));

@@ -358,7 +358,10 @@ export default function SurveyData() {
     const [from, to] = filters.range ?? [];
     return rows.filter((row) => {
       if (filters.submitStatus === 'submitted' && row.tempSave !== 1) return false;
-      if (filters.gradeStatus !== 'all' && gradeStatusOf(row) !== filters.gradeStatus) return false;
+      // 'ai' 这一档由服务端按「有没有 source='ai' 的批改记录」过滤，前端不再按 grade_status 二次筛
+      if (filters.gradeStatus !== 'all' && filters.gradeStatus !== 'ai' && gradeStatusOf(row) !== filters.gradeStatus) {
+        return false;
+      }
       if (!timeOnServer && (from || to)) {
         const at = row.createAt ? dayjs(row.createAt) : undefined;
         if (!at?.isValid()) return false;
@@ -445,6 +448,7 @@ export default function SurveyData() {
           <Space size={4}>
             {v === 1 ? <Tag color="success">已提交</Tag> : <Tag color="warning">暂存</Tag>}
             {gradeStatusOf(row) === 'pending' && <Tag color="processing">待批改</Tag>}
+            {(row as { aiGraded?: boolean }).aiGraded && <Tag color="purple">AI 待复核</Tag>}
           </Space>
         ),
       },

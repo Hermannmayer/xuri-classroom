@@ -52,8 +52,11 @@ export const DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 /** 交卷状态：unsubmitted 不是「过滤答卷」，而是把列表换成未交名单视图 */
 export type SubmitStatus = 'all' | 'submitted' | 'unsubmitted';
 
-/** 批改状态：all 不下推，pending / graded 原样传给 gradeStatus */
-export type GradeStatus = 'all' | 'pending' | 'graded';
+/**
+ * 批改状态：all 不下推；pending / graded 原样传给 gradeStatus；
+ * ai = 只看「还有 AI 预批改的题、等老师复核」的卷子（对应 t_answer_grade.source='ai'）。
+ */
+export type GradeStatus = 'all' | 'pending' | 'graded' | 'ai';
 
 /**
  * 页面上的过滤条件。
@@ -86,6 +89,8 @@ export interface AnswerFilterParams {
   endTime?: string;
   /** pending / graded，对应 t_answer.grade_status */
   gradeStatus?: string;
+  /** true = 只看含 AI 预批改分数的答卷 */
+  aiReview?: boolean;
   /** 姓名模糊匹配（服务端按 answerer_name / 用户姓名 like） */
   createByName?: string;
   minScore?: number;
@@ -124,7 +129,9 @@ export function toFilterParams(
     classId,
     startTime,
     endTime,
-    gradeStatus: filters.gradeStatus === 'all' ? undefined : filters.gradeStatus,
+    gradeStatus:
+      filters.gradeStatus === 'pending' || filters.gradeStatus === 'graded' ? filters.gradeStatus : undefined,
+    aiReview: filters.gradeStatus === 'ai' ? true : undefined,
     createByName: createByName?.trim() || undefined,
     minScore: filters.minScore ?? undefined,
     maxScore: filters.maxScore ?? undefined,
