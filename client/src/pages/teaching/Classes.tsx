@@ -1405,7 +1405,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             style={{ marginBottom: 8 }}
           />
           {/* 手机上是「列表 → 详情」整页切换：列表不再限高；桌面跟着卡片高度走，内部自己滚 */}
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+          {/* 横向滚动条保留（树节点带缩进和标签，窄栏放不下），关键是它现在贴在卡片底部而不是夹在中间 */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             {treeLoading && tree.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center' }}>
                 <Spin />
