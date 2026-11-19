@@ -732,12 +732,29 @@ export default function SystemSetting() {
 
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
         <Form form={form} layout="vertical" size="small" requiredMark={false} disabled={!canUpdate}>
+          {/* 手机上不用页签：竖排太占宽（表单被挤成「威海市旭日职业培训学」），横排又会折进「»」。
+              改成下拉选分区，内容区独占整行。桌面端仍是页签。 */}
+          {isMobile && (
+            <div style={{ marginBottom: 12 }}>
+              <Select
+                value={activeTab}
+                onChange={(v) => changeTab(v as TabKey)}
+                style={{ width: '100%' }}
+                options={[
+                  { value: 'basic', label: '基本' },
+                  { value: 'access', label: '登录与注册' },
+                  { value: 'content', label: '内容与导出' },
+                  { value: 'ai', label: 'AI' },
+                  { value: 'system', label: '系统与更新' },
+                ]}
+              />
+            </div>
+          )}
           <Tabs
             className="sk-settings-tabs"
             activeKey={activeTab}
             onChange={changeTab}
             // 5 个页签在手机上会折进「»」，最后两个（AI / 系统与更新）根本点不到；竖排后全部可见
-            tabPosition={isMobile ? 'left' : 'top'}
             size={isMobile ? 'small' : 'middle'}
             items={[
               {

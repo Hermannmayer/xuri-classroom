@@ -453,21 +453,12 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
-  /* 设置页竖排页签：antd 默认按内容撑宽，390px 屏上占掉近一半，输入框被截成「威海市旭日职业培训学」。
-     固定 92px 并收紧内边距，把宽度还给表单。 */
+  /* 设置页在手机上改用下拉选分区（见 Setting.tsx），页签栏整个隐藏，内容独占整行 */
   .sk-settings-tabs > .ant-tabs-nav {
-    width: 92px;
-    min-width: 92px;
-    flex: 0 0 92px;
+    display: none;
   }
-  .sk-settings-tabs > .ant-tabs-nav .ant-tabs-tab {
-    padding: 8px 6px !important;
-    font-size: 12px;
-    margin: 0 0 4px 0 !important;
-  }
-  /* antd 6 的内容容器叫 body-holder（不是 content-holder），写错选择器等于没写 */
   .sk-settings-tabs > .ant-tabs-body-holder {
-    padding-left: 10px;
+    padding-left: 0;
     min-width: 0;
     overflow: hidden;
   }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Card, Col, Row, Table, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -240,6 +240,8 @@ export function AdminHome() {
   const [tick, setTick] = useState(0);
   const overview = useSection(() => fetchOverview(DAYS), [tick]);
   const isMobile = useIsMobile();
+
+
   const trendState = useSection(() => fetchTrend(DAYS), [tick]);
 
   const data = overview.data;
@@ -253,6 +255,21 @@ export function AdminHome() {
 
   const gradedTotal = (answers?.graded ?? 0) + (answers?.pending ?? 0);
   const rows = buildMetricRows(data);
+
+/**
+   * 手机端把概览表按「题库 / 试卷 / 答卷」分组渲染成列表。
+   * <p>表格在 390px 上无论怎么调列宽都别扭：分组列要么重复要么压成半个字，
+   * 干脆换一套结构——每组一个小标题，组内一条一行，数值右对齐。
+   */
+  const metricGroups = useMemo(() => {
+    const groups: Array<{ group: string; items: MetricRow[] }> = [];
+    for (const row of rows) {
+      if (row.rowSpan > 0) groups.push({ group: row.group, items: [] });
+      const last = groups[groups.length - 1];
+      if (last) last.items.push(row);
+    }
+    return groups;
+  }, [rows]);
 
   return (
     <Shell
@@ -399,69 +416,90 @@ export function AdminHome() {
             extra={<span style={NOTE}>数字口径见「说明」列</span>}
             note={overview.error}
           >
-            <Table<MetricRow>
-              size="small"
-              rowKey="key"
-              pagination={false}
-              loading={overview.loading}
-              dataSource={rows}
-              locale={{ emptyText: '统计接口暂不可用' }}
-              // 手机上四列（分组/指标/数值/说明）合计 344px > 324px 可用宽：分组列会被压成半个字，
-              // 说明列一字一行。改成两列——分组折进指标名上方当小标签，说明折到下方。
-              scroll={isMobile ? undefined : undefined}
-              columns={
-                isMobile
-                  ? [
-                      {
-                        title: '指标',
-                        dataIndex: 'name',
-                        // 分组名（题库/试卷/答卷）在多数行与指标名重复，手机上再显示一遍只是白占一行：
-                        // 只留「指标 + 说明」两行，数值右对齐，一屏能多看三四行
-                        render: (value: string, row: MetricRow) => (
-                          <div style={{ padding: '1px 0' }}>
-                            <div>{value}</div>
-                            <div style={{ ...NOTE, marginTop: 1 }}>{row.note}</div>
-                          </div>
-                        ),
-                      },
-                      {
-                        title: '数值',
-                        dataIndex: 'value',
-                        width: 78,
-                        align: 'right',
-                        render: (value: string) => (
-                          <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
-                        ),
-                      },
-                    ]
-                  : [
-                      {
-                        title: '分组',
-                        dataIndex: 'group',
-                        width: 84,
-                        onCell: (row) => ({ rowSpan: row.rowSpan }),
-                        render: (value: string) => (
-                          <span style={{ fontSize: 11, letterSpacing: '0.08em', ...SOFT }}>{value}</span>
-                        ),
-                      },
-                      { title: '指标', dataIndex: 'name', width: 140 },
-                      {
-                        title: '数值',
-                        dataIndex: 'value',
-                        width: 120,
-                        align: 'right',
-                        render: (value: string) => (
-                          <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
-                        ),
-                      },
-                      {
-                        title: '说明',
-                        dataIndex: 'note',
-                        render: (value: string) => <span style={{ ...NOTE }}>{value}</span>,
-                      },
-                    ]
-              }
-            />
+            {isMobile ? (
+              <div>
+                {metricGroups.map(({ group, items }) => (
+                  <div key={group} style={{ marginBottom: 14 }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.16em',
+                        color: 'var(--bp-text-soft)',
+                        marginBottom: 4,
+                      }}
+                    >
+                      {group}
+                    </div>
+                    {items.map((row) => (
+                      <div
+                        key={row.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 10,
+                          padding: '7px 0',
+                          borderBottom: '1px dashed var(--bp-line-soft)',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, lineHeight: 1.5 }}>{row.name}</div>
+                          {row.note ? (
+                            <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', marginTop: 2, lineHeight: 1.5 }}>
+                              {row.note}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 600,
+                            fontVariantNumeric: 'tabular-nums',
+                            flex: '0 0 auto',
+                          }}
+                        >
+                          {row.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Table<MetricRow>
+                size="small"
+                rowKey="key"
+                pagination={false}
+                loading={overview.loading}
+                dataSource={rows}
+                locale={{ emptyText: '统计接口暂不可用' }}
+                columns={[
+                  {
+                    title: '分组',
+                    dataIndex: 'group',
+                    width: 84,
+                    onCell: (row) => ({ rowSpan: row.rowSpan }),
+                    render: (value: string) => (
+                      <span style={{ fontSize: 11, letterSpacing: '0.08em', ...SOFT }}>{value}</span>
+                    ),
+                  },
+                  { title: '指标', dataIndex: 'name', width: 140 },
+                  {
+                    title: '数值',
+                    dataIndex: 'value',
+                    width: 120,
+                    align: 'right',
+                    render: (value: string) => (
+                      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
+                    ),
+                  },
+                  {
+                    title: '说明',
+                    dataIndex: 'note',
+                    render: (value: string) => <span style={{ ...NOTE }}>{value}</span>,
+                  },
+                ]}
+              />
+            )}
           </Panel>
         </Col>
       </Row>
