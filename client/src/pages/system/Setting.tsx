@@ -174,6 +174,7 @@ interface UpdateCheckInfo {
  * 系统设置：基本 / 登录与注册 / 内容与导出 / AI / 系统与更新。
  *
  * 为什么从 7 个 Tab 收到 5 个：原来「内容与隐私」「答卷导出」「匿名答卷」「MCP 令牌」各占一个 Tab，
+ * （MCP 令牌后来又从「系统与更新」挪进了「AI」：它服务的是 AI 客户端，不是运维动作）
  * 管理员为了改一个水印要记住它在第几个 Tab 里；合并的规则是「同一类人、同一件事」——
  * 品牌与水印都在「基本」，登录与注册 + 匿名答卷都在「开放入口」，导出密码与 PDF 并发都在「内容与导出」，
  * 检查更新与令牌都是「运维动作」。合并只改归属，不改任何一条接口与权限。
@@ -184,7 +185,7 @@ interface UpdateCheckInfo {
  * - 基本里的水印 / 防复制是「改完即存」，走独立接口 POST /api/system/protection（只写
  *   copyProtected / watermarkEnabled / watermarkMode，其它字段后端一律忽略），权限 content:protect，
  *   保存成功后广播 window 事件，让 main.tsx 里挂的水印 / 防复制组件立即生效；
- * - 系统与更新里的「MCP / API 令牌」面板不走保存按钮：列表 / 签发 / 撤销都是即时生效的独立接口，
+ * - AI 页签里的「MCP / API 令牌」面板不走保存按钮：列表 / 签发 / 撤销都是即时生效的独立接口，
  *   权限同样是 system:setting:update；没有该权限时不渲染列表、也不发请求。
  *
  * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
@@ -1167,6 +1168,31 @@ export default function SystemSetting() {
                     <ConfigProvider componentDisabled={false}>
                       <AiCapabilityGuide authorities={authorities} />
                     </ConfigProvider>
+
+                    <hr className="bp-dim" style={{ margin: '16px 0 12px' }} />
+                    <div
+                      style={{
+                        fontSize: 11,
+                        letterSpacing: '0.16em',
+                        color: 'var(--bp-text-soft)',
+                        marginBottom: 8,
+                      }}
+                    >
+                      MCP / API 令牌
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12, lineHeight: 1.75 }}>
+                      给外部 AI 客户端（Claude Desktop、Cursor 等）用的访问令牌。签发后它可以你的身份读写本站，
+                      权限与当前账号一致，不用了就撤销。
+                    </div>
+                    {/* 令牌面板会拉一次列表：forceRender 会连它一起挂载，所以只在真正点进过「AI」页签后才渲染
+                        （列表、签发、撤销本来就是即时生效的独立接口，与底部「保存」无关） */}
+                    {visitedTabs.includes('ai') ? (
+                      <>
+                        <ApiTokenPanel canManage={canUpdate} />
+                        <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
+                        <McpGuide canManageToken={canUpdate} canOpenSettings />
+                      </>
+                    ) : null}
                   </>
                 ),
               },
@@ -1350,20 +1376,7 @@ export default function SystemSetting() {
                       )}
                     </div>
 
-                    <hr className="bp-dim" style={{ margin: '4px 0 16px' }} />
-                    <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 12, lineHeight: 1.75 }}>
-                      MCP / API 令牌也是「运维动作」：它让外部 AI 客户端以你的身份读写本站，
-                      和检查更新放在一起，管理员不用在两处找。
-                    </div>
-                    {/* 令牌面板会拉一次列表：forceRender 会连它一起挂载，所以只在真正点进过这个页签后才渲染
-                        （列表、签发、撤销本来就是即时生效的独立接口，与底部「保存」无关） */}
-                    {visitedTabs.includes('system') ? (
-                      <>
-                        <ApiTokenPanel canManage={canUpdate} />
-                        <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
-                        <McpGuide canManageToken={canUpdate} canOpenSettings />
-                      </>
-                    ) : null}
+                    {/* MCP / API 令牌已挪到「AI」页签：它是给外部 AI 客户端用的，和模型配置放一起更好找 */}
                   </>
                 ),
               },
