@@ -12,6 +12,7 @@ import {
   Tabs,
   TreeSelect,
 } from 'antd';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { Dayjs } from 'dayjs';
 import { get, post } from '../../api';
 import type {
@@ -307,6 +308,7 @@ export default function BatchSettingModal({
   onUpdated,
 }: BatchSettingModalProps) {
   const [tab, setTab] = useState('display');
+  const isMobile = useIsMobile();
   const [flags, setFlags] = useState<Record<BoolField, FlagState>>(initialFlags);
   const [statusEnabled, setStatusEnabled] = useState(false);
   const [statusValue, setStatusValue] = useState<number>(1);
@@ -774,7 +776,14 @@ export default function BatchSettingModal({
         只移动所属文件夹；不选或选「根目录」表示移到最外层，不影响其他设置。
       </div>
 
-      <Tabs activeKey={tab} onChange={setTab} items={tabItems} />
+      {/* 手机上一行放不下 5 个 Tab，会折进「»」里（「授权给班级」直接找不到）；竖排后每个都看得见 */}
+      <Tabs
+        activeKey={tab}
+        onChange={setTab}
+        items={tabItems}
+        tabPosition={isMobile ? 'left' : 'top'}
+        size={isMobile ? 'small' : 'middle'}
+      />
     </Modal>
   );
 }

@@ -322,6 +322,8 @@ export default function BankPickModal({ open, excludeIds, onClose, onPick }: Pro
         rowKey="id"
         loading={loading}
         dataSource={rows}
+        // 抽题表列多（题型/章节/难度/题干），窄屏必须横滚
+        scroll={{ x: 480 }}
         locale={{ emptyText: <Empty description="没有匹配的题目" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         pagination={{
           current: page,

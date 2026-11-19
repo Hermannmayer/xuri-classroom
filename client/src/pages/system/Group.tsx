@@ -303,6 +303,8 @@ export default function SystemGroup({ embedded = false }: { embedded?: boolean }
           loading={loading}
           dataSource={tree}
           pagination={false}
+          // 列宽合计约 670px，窄屏（324px 可用）不横滚就会把名称列压成一字一行、操作列挤出屏幕
+          scroll={{ x: 680 }}
           expandable={{ defaultExpandAllRows: true, expandedRowKeys: allKeys, indentSize: 18 }}
           columns={[
             {

@@ -268,6 +268,8 @@ export default function PartnerPanel({
         loading={loading}
         dataSource={rows}
         pagination={false}
+        // 对象 / 身份 / 权限 / 操作合计约 350px
+        scroll={{ x: 360 }}
         locale={{ emptyText: <Empty description="还没有协作者或班级授权" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         columns={[
           {

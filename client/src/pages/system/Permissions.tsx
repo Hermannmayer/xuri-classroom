@@ -874,7 +874,8 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
             </div>
 
             {/* 右栏：当前角色已有的权限 */}
-            <div className="bp-card" style={{ ...PANEL_STYLE, flex: '3 1 calc(60% - 8px)', minWidth: 340 }}>
+            {/* minWidth 用 min() 夹住：窄屏时 340px 会直接溢出容器，变成整页横向滚动 */}
+            <div className="bp-card" style={{ ...PANEL_STYLE, flex: '3 1 calc(60% - 8px)', minWidth: 'min(340px, 100%)' }}>
               <div style={PANEL_HEAD_STYLE}>
                 <span className="bp-title" style={{ fontSize: 13 }}>
                   当前角色权限
@@ -960,6 +961,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
 
           {!editorLocked && (
             <div
+              className="sk-perm-savebar"
               style={{
                 position: 'sticky',
                 bottom: 0,

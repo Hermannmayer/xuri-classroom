@@ -269,6 +269,8 @@ export default function SystemAudit() {
           size="small"
           loading={loading}
           dataSource={rows}
+          // 时间 / 人 / 动作 / 详情几列合计 730px，窄屏必须能横滚
+          scroll={{ x: 740 }}
           locale={{ emptyText: <Empty description="还没有操作记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
           pagination={{
             current: page,

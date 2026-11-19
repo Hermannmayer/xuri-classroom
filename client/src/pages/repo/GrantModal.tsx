@@ -326,6 +326,8 @@ export default function GrantModal({
         loading={loading}
         dataSource={visiblePartners}
         pagination={false}
+        // 授权对象 / 类型 / 权限几列合计约 330px，弹窗窄屏时横滚，避免操作列被挤出
+        scroll={{ x: 340 }}
         rowSelection={
           canWrite && !isBatch
             ? {
