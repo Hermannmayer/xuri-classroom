@@ -1358,7 +1358,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
         style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          alignItems: 'flex-start',
+          // 桌面两栏等高：右栏高时左栏跟着拉伸，两个卡片的上下边才能对齐
+          alignItems: isMobile ? 'flex-start' : 'stretch',
           gap: 12,
         }}
       >
@@ -1372,8 +1373,9 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
           }
           // 手机上选中班级后把树收起来：树竖排在最上面会占满首屏，成员列表要滚很久才看到
           style={{
-            width: isMobile ? '100%' : 260,
-            flex: isMobile ? '1 1 100%' : '0 0 260px',
+            // 260 宽时「演示班 · 2026春养老五级」会被截成「演示班 · 2026春养老…」，放宽到 320
+            width: isMobile ? '100%' : 320,
+            flex: isMobile ? '1 1 100%' : '0 0 320px',
             // 手机上撑满剩余可视高度：只包内容时卡片只占屏幕三分之一，下面一大片网格空白，
             // 班级多了还得先滚到卡片内才能继续看。330 ≈ 顶栏 + 页头 + 页签 + 工具条 + 底部导航。
             // 实测：卡片顶部在 353px，底部导航顶在 788px（视口 844）。
@@ -1381,7 +1383,16 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             minHeight: isMobile ? 'calc(100dvh - 475px)' : undefined,
             display: isMobile && selectedId ? 'none' : undefined,
           }}
-          styles={{ body: { padding: '10px 8px' } }}
+          styles={{
+            body: {
+              padding: '10px 8px',
+              // 卡片内部纵向排布：搜索框固定，列表区吃掉剩余高度并自己滚动
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              flex: 1,
+            },
+          }}
         >
           <Input
             allowClear
@@ -1393,8 +1404,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             onChange={(event) => setKeyword(event.target.value)}
             style={{ marginBottom: 8 }}
           />
-          {/* 手机上是「列表 → 详情」整页切换：列表不再限 300px 高，否则下面会空出一大片 */}
-          <div style={{ maxHeight: isMobile ? undefined : 520, overflowY: 'auto' }}>
+          {/* 手机上是「列表 → 详情」整页切换：列表不再限高；桌面跟着卡片高度走，内部自己滚 */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {treeLoading && tree.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center' }}>
                 <Spin />
