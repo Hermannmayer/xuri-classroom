@@ -567,7 +567,25 @@ $depsOutput = (Invoke-NasScript -Body $depsScript).Output
 $depsOutput | ForEach-Object { "     $_" }
 $depsReinstalling = "$depsOutput" -match 'DEPS_REINSTALLING'
 
-if ($serverChanged -or $forceReload) {
+# 代码没变不代表已经上线：上一次发布若在「编译完、重启前」中断，或有人手工 reset 了 NAS，
+# 这里就会因为「无差异」跳过重载，线上仍跑旧 jar（2026-11-19 实际踩过：jar 已是 2.3.4，运行版本还是 2.3.3）。
+# 所以先用「运行版本 vs 仓库 VERSION」兜一次底，对不上就补一次重载。
+$needReload = $serverChanged -or $forceReload
+if (-not $needReload) {
+    $wantVersion = ''
+    try { $wantVersion = (Get-Content (Join-Path $PSScriptRoot '..\..\VERSION') -Raw).Trim() } catch { }
+    $liveVersion = $null
+    try {
+        $probe = Invoke-WebRequest -Uri "$BaseUrl/api/system" -TimeoutSec 5 -UseBasicParsing
+        $liveVersion = ($probe.Content | ConvertFrom-Json).data.version
+    } catch { }
+    if ($wantVersion -and $liveVersion -and $liveVersion -ne $wantVersion) {
+        Write-Host "  线上运行 $liveVersion，仓库是 $wantVersion —— 代码没变但没真正上线，补一次重载" -ForegroundColor Yellow
+        $needReload = $true
+    }
+}
+
+if ($needReload) {
     Say '5/6 重载后端（编译 + 重启）'
     $reload = @'
 cd "@REPO@" || exit 1
