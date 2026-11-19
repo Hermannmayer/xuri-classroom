@@ -134,7 +134,16 @@ export default function BasicLayout() {
     // 只带班不带课的班主任也有入口，合并之后他不会反而进不去。
     const canTeach = allow(PERMISSION_CODES.projectList) || allow(PERMISSION_CODES.classList);
     if (canTeach) {
-      menu.push({ key: '/teaching', icon: <ProjectOutlined />, label: '教学' });
+      // 教学拆成两个子项（原来是一页两个 Tab，入口藏在页面里，左侧看不出来）：
+      // 有 project:list 才给「试卷」，有 class:list 才给「班级」；只带班不带课的班主任只看到「班级」。
+      const teachingChildren: NonNullable<MenuProps['items']> = [];
+      if (allow(PERMISSION_CODES.projectList)) {
+        teachingChildren.push({ key: '/teaching/exam', label: '试卷' });
+      }
+      if (allow(PERMISSION_CODES.classList)) {
+        teachingChildren.push({ key: '/teaching/classes', label: '班级' });
+      }
+      menu.push({ key: '/teaching', icon: <ProjectOutlined />, label: '教学', children: teachingChildren });
     }
     // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
     // 不再显示「我的任务」——管理员和老师不做题。

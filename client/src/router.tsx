@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { JSX } from 'react';
-import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import BasicLayout from './layout/BasicLayout';
 import RequirePerm from './components/RequirePerm';
 import Placeholder from './pages/Placeholder';
@@ -58,19 +58,6 @@ const PageLoading = () => (
 /** 顶层路由（布局与公开页）包一层 Suspense；布局内的子路由由它一并覆盖 */
 const withSuspense = (element: JSX.Element) => <Suspense fallback={<PageLoading />}>{element}</Suspense>;
 
-/**
- * 旧链接 /teaching/classes → /teaching?tab=classes。
- *
- * <p>为什么不直接用 `<Navigate to="/teaching?tab=classes" />`：那样会把旧链接里的 ?classId=
- * 丢掉——老师从「按班级看作答」收藏过来的链接正好带着它，跳过去却回到了第一个班。
- */
-function TeachingClassesRedirect() {
-  const { search } = useLocation();
-  const next = new URLSearchParams(search);
-  next.set('tab', 'classes');
-  return <Navigate to={'/teaching?' + next.toString()} replace />;
-}
-
 /** 页面级权限守卫：角色权限在 auth/permissions.ts 里统一判定 */
 const guard = (perm: string | string[], element: JSX.Element) => (
   <RequirePerm perm={perm}>{element}</RequirePerm>
@@ -99,8 +86,12 @@ export const router = createBrowserRouter([
       // 教学 = 考试/问卷 + 班级（原「班级管理」独立菜单已并入）。
       // 守卫用「任一命中」：只带班不带课的班主任（class:list）也要能进来，否则合并之后他反而没入口了。
       { path: 'teaching', element: guard([PERMISSION_CODES.projectList, PERMISSION_CODES.classList], <TeachingHome />) },
-      // 旧链接保留：/teaching/classes → /teaching?tab=classes（书签、文档、别人发过的链接都还活）
-      { path: 'teaching/classes', element: <TeachingClassesRedirect /> },
+      // 左侧菜单的两个子项：试卷 / 班级。旧链接 /teaching/classes（含 ?classId=）照样能用，
+      // 页面按路径里的 :tab 决定显示哪个 Tab，query 里的 classId 不受影响。
+      {
+        path: 'teaching/:tab',
+        element: guard([PERMISSION_CODES.projectList, PERMISSION_CODES.classList], <TeachingHome />),
+      },
       // 「我的任务」是学员入口：没有 project:answer 的教职工不再能直接打开答题列表
       { path: 'tasks', element: guard(PERMISSION_CODES.projectAnswer, <TaskCenter />) },
       // /project 只保留给学员/只读协作者；老师与管理员由 Entry 重定向到 /teaching?tab=exam

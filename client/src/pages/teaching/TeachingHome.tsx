@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Result, Spin, Tabs } from 'antd';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import ProjectList from '../project/List';
@@ -37,6 +37,7 @@ const LEGACY_TAB: Record<string, TabKey> = { insight: 'classes', class: 'classes
  */
 export default function TeachingHome() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const params = useParams<{ tab?: string }>();
   const [authorities, setAuthorities] = useState<string[]>();
 
   useEffect(() => {
@@ -46,7 +47,10 @@ export default function TeachingHome() {
   const tabs: TabKey[] = authorities ? TAB_ORDER.filter((key) => can(authorities, TAB_PERMISSION[key])) : [];
 
   // ?tab= 只认 exam / classes（外加两个旧值），其余乱值退回第一个可用 Tab
-  const requestedParam = searchParams.get('tab');
+  // 左侧菜单现在直接指到 /teaching/exam 与 /teaching/classes，路径里的 :tab 优先；
+  // 旧的 ?tab= 仍然认，保证老链接和页面内切换都还能用
+  const pathTab = params.tab;
+  const requestedParam = pathTab === 'exam' || pathTab === 'classes' ? pathTab : searchParams.get('tab');
   const requested: TabKey | undefined =
     requestedParam === 'exam' || requestedParam === 'classes'
       ? requestedParam
