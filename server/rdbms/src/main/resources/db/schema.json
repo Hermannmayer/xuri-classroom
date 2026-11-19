@@ -112,6 +112,11 @@
       "_comment": "2.3.4 只给老师/管理员补 repo:report 权限（纯数据 UPDATE），没有结构变更",
       "version": "2.3.4",
       "requires": []
+    },
+    {
+      "_comment": "2.3.5 只改 t_user.ui_theme 的默认值并把旧 dark 改 light（纯数据），没有结构变更",
+      "version": "2.3.5",
+      "requires": []
     }
   ]
 }

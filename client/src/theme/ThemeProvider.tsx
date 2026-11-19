@@ -8,7 +8,8 @@ const STORAGE_KEY = 'sk-theme';
 
 function readMode(): ThemeMode {
   const saved = localStorage.getItem(STORAGE_KEY);
-  return saved === 'light' ? 'light' : 'dark';
+  // 默认亮色：只有显式选过暗色的用户才进暗色分支
+  return saved === 'dark' ? 'dark' : 'light';
 }
 
 /** 把主题落到 <html data-theme>，global.css 的 :root[data-theme='light'] 靠它生效 */
@@ -26,7 +27,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  mode: 'dark',
+  mode: 'light',
   setMode: () => undefined,
   toggle: () => undefined,
 });

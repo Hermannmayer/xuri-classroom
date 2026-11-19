@@ -652,7 +652,7 @@ CREATE TABLE `t_user` (
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '用户状态',
   `user_type` varchar(16) NOT NULL DEFAULT 'student' COMMENT '用户类型 staff/student',
   `ui_zoom` decimal(4,2) DEFAULT '1.00' COMMENT '界面缩放',
-  `ui_theme` varchar(10) DEFAULT 'dark' COMMENT '主题 light/dark',
+  `ui_theme` varchar(10) DEFAULT 'light' COMMENT '主题 light/dark',
   `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `create_by` varchar(256) DEFAULT NULL,
