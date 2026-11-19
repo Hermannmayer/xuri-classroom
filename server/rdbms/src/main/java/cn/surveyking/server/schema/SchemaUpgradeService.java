@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -222,8 +224,42 @@ public class SchemaUpgradeService {
 		}
 	}
 
+	/**
+	 * 读 t_schema_version 里最高的版本；表不存在（老库）或没有记录时返回 null，交回结构探测。
+	 */
+	String readRecordedVersion() {
+		List<String> versions = new ArrayList<>();
+		try (Connection connection = dataSource.getConnection();
+				Statement statement = connection.createStatement();
+				ResultSet rs = statement.executeQuery("SELECT version FROM t_schema_version")) {
+			while (rs.next()) {
+				String value = rs.getString(1);
+				if (value != null && !value.isBlank()) {
+					versions.add(value.trim());
+				}
+			}
+		}
+		catch (SQLException e) {
+			return null;
+		}
+		String highest = null;
+		for (String version : versions) {
+			if (highest == null || compare(version, highest) > 0) {
+				highest = version;
+			}
+		}
+		return highest;
+	}
+
 	String detectVersion(SchemaSpec spec, Set<String> snapshot) {
 		snapshot = normalizeAll(snapshot);
+		// 优先信 t_schema_version：它是「真的执行过哪些脚本」的唯一凭据。
+		// 只看结构的话，「纯数据迁移」（requires 为空，例如 V2.3.2 回填批改状态）永远无法被证明执行过——
+		// 用户手工 ALTER 补过列、或换过一次发布包之后，回填脚本会被当成「已经跑过」而静默跳过。
+		String recorded = readRecordedVersion();
+		if (recorded != null) {
+			return recorded;
+		}
 		List<SchemaSpec.VersionSpec> versions = new ArrayList<>(spec.getVersions());
 		versions.sort(Comparator.comparing(SchemaSpec.VersionSpec::getVersion, SchemaUpgradeService::compare));
 		// 「只改数据」的版本（requires 为空）无法从库结构上证明，不能拿它当探测结果：
