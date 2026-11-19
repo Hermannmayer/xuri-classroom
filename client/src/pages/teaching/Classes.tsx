@@ -1431,27 +1431,45 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                         if (node.accessible !== false) setSelectedId(node.id);
                       }}
                     >
+                      {/* 上下两行：名字一行，人数/标签一行。原来全挤在一行，卡片又扁又窄，手机上扫一眼分不清 */}
                       <span
                         style={{
-                          flex: 1,
-                          minWidth: 0,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          textAlign: 'left',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          width: '100%',
                         }}
                       >
-                        {node.name}
+                        <span
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontSize: 14,
+                            fontWeight: 600,
+                            textAlign: 'left',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {node.name}
+                        </span>
+                        <span style={{ color: 'var(--bp-text-soft)', flex: '0 0 auto' }}>›</span>
                       </span>
-                      <span style={{ fontSize: 11, color: 'var(--bp-text-soft)', flex: '0 0 auto' }}>
-                        {node.memberCount ?? 0} 人
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          fontSize: 11,
+                          color: 'var(--bp-text-soft)',
+                        }}
+                      >
+                        <span>{node.memberCount ?? 0} 人</span>
+                        {node.allowRegister && (
+                          <span style={{ color: 'var(--bp-orange)' }}>开放注册</span>
+                        )}
                       </span>
-                      {node.allowRegister && (
-                        <span style={{ fontSize: 10, color: 'var(--bp-orange)', flex: '0 0 auto' }}>开放注册</span>
-                      )}
-                      <span style={{ color: 'var(--bp-text-soft)', flex: '0 0 auto' }}>›</span>
                     </button>
                   ),
                 )}
@@ -2178,20 +2196,65 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             description="请先在左侧新建班级，并在「班级设置 → 开放注册」里打开，学员注册页才会出现这个班。"
           />
         )}
-        <TableScrollRegion label="待审核学员（可横向滚动）">
-          <Table<ClassMember>
-            rowKey="id"
-            size="small"
-            loading={pendingLoading}
-            dataSource={pending}
-            columns={pendingColumns}
-            pagination={false}
-            scroll={{ x: 720 }}
-            locale={{
-              emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待审核学员" />,
-            }}
-          />
-        </TableScrollRegion>
+        {isMobile ? (
+          // 手机端：表格 720px 宽，横滑着看名字和按钮太别扭。改成一人一张卡，班级下拉 + 通过就在下面。
+          pending.length === 0 ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待审核学员" />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {pending.map((row) => {
+                const currentValid = classOptions.some((option) => option.value === row.deptId);
+                const picked = pendingDept[row.id] ?? (currentValid ? row.deptId : undefined);
+                return (
+                  <div key={row.id} className="bp-card" style={{ padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600 }}>
+                        {row.name || '(未填姓名)'}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--bp-text-soft)', fontVariantNumeric: 'tabular-nums' }}>
+                        {row.phone || row.username || '—'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+                      注册时间 {(row as { createAt?: string }).createAt || '—'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                      <Select
+                        style={{ flex: 1, minWidth: 0 }}
+                        placeholder="选择教学班"
+                        value={picked}
+                        onChange={(v) => setPendingDept((prev) => ({ ...prev, [row.id]: v }))}
+                        options={classOptions}
+                      />
+                      <Button
+                        type="primary"
+                        loading={approvingId === row.id}
+                        onClick={() => void approvePending(row)}
+                      >
+                        通过
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <TableScrollRegion label="待审核学员（可横向滚动）">
+            <Table<ClassMember>
+              rowKey="id"
+              size="small"
+              loading={pendingLoading}
+              dataSource={pending}
+              columns={pendingColumns}
+              pagination={false}
+              scroll={{ x: 720 }}
+              locale={{
+                emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待审核学员" />,
+              }}
+            />
+          </TableScrollRegion>
+        )}
         <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button onClick={() => void loadPending()} loading={pendingLoading}>
             刷新

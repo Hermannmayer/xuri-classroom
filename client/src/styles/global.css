@@ -402,15 +402,18 @@ body {
 
 /* 手机端班级卡片：整块可点，名字 + 人数 + 标签一行放得下 */
 .sk-class-card {
+  /* 竖排两行（名字 / 人数+标签），不再是又扁又挤的一行 */
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
   width: 100%;
-  padding: 11px 12px;
+  padding: 13px 14px;
   border: 1px solid var(--bp-line);
   background: transparent;
   color: inherit;
   font-size: 13px;
+  text-align: left;
   cursor: pointer;
 }
 .sk-class-card.is-active {
