@@ -324,6 +324,17 @@ jobs:
           sha256sum *.zip *.tar.gz *.jar > SHA256SUMS
           cat SHA256SUMS
 
+      - name: 生成 update.json（客户端自动升级清单）
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          python scripts/release/update_manifest.py \
+            --dist dist \
+            --version "$VERSION" \
+            --notes RELEASE_NOTES.md \
+            --out dist/update.json
+          cat dist/update.json
+
       - name: 创建或更新 Release
         uses: softprops/action-gh-release@v2
         with:
@@ -335,6 +346,7 @@ jobs:
             dist/*.tar.gz
             dist/*.jar
             dist/SHA256SUMS
+            dist/update.json
             RELEASE_NOTES.md
           fail_on_unmatched_files: true
           generate_release_notes: false
