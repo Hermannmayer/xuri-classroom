@@ -11,7 +11,7 @@ import {
   firstSelectedId,
   matrixAnswer,
   matrixColumns,
-  toOptions,
+  optionsOf,
 } from '../../../renderer/questions/answers';
 
 export const EMPTY = '—';
@@ -77,7 +77,9 @@ export function formatAnswer(q: FlatQuestion, value: AnswerValue): string {
   const record = value as Record<string, AnswerValue>;
 
   if (CHOICE.has(q.type)) {
-    const options = toOptions(q.schema.dataSource);
+    // 必须用 optionsOf 而不是 toOptions：Excel 导入的题没有 dataSource，
+    // 选项只写在 children 里。只读 dataSource 会让整列答案退化成 optionId（界面上就是 6fb8e4 这种串）。
+    const options = optionsOf(q.schema);
     // 选项被删掉的老答卷回退成 id，别静默丢答案
     return Object.keys(record)
       .map((id) => options.find((o) => o.value === id)?.label ?? id)

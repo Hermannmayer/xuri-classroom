@@ -144,6 +144,20 @@ export default function SurveyData() {
   const [detail, setDetail] = useState<Answer>();
 
   /**
+   * 关闭详情抽屉：除了清状态，**必须把 URL 里的 answerId 一起去掉**。
+   * <p>否则自动打开那条 effect 看到 answerId 还在，会立刻把抽屉又打开——
+   * 表现就是「点了关闭没反应、抽屉关不掉」。
+   */
+  const closeDetail = useCallback(() => {
+    setDetail(undefined);
+    if (searchParams.get('answerId')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('answerId');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  /**
    * 从班级答卷列表点进来时（`?answerId=xxx`），自动把那份卷子的详情打开。
    * 列表数据是异步到的，所以要等 rows 里真的出现这一条再开，避免打开一个空抽屉。
    */
@@ -907,7 +921,7 @@ export default function SurveyData() {
         placement="right"
         size="min(520px, 100vw)"
         open={Boolean(detail)}
-        onClose={() => setDetail(undefined)}
+        onClose={closeDetail}
       >
         {detail && (
           <Space orientation="vertical" size={14} style={{ width: '100%' }}>
