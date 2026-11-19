@@ -1374,6 +1374,9 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
           style={{
             width: isMobile ? '100%' : 260,
             flex: isMobile ? '1 1 100%' : '0 0 260px',
+            // 手机上撑满剩余可视高度：只包内容时卡片只占屏幕三分之一，下面一大片网格空白，
+            // 班级多了还得先滚到卡片内才能继续看。330 ≈ 顶栏 + 页头 + 页签 + 工具条 + 底部导航。
+            minHeight: isMobile ? 'calc(100dvh - 330px)' : undefined,
             display: isMobile && selectedId ? 'none' : undefined,
           }}
           styles={{ body: { padding: '10px 8px' } }}
