@@ -464,6 +464,20 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 班级/文件夹树：节点名 + 人数 + 标签（容器/教学班/开放注册）挤在一行，390px 下横向溢出、名字被截。
+     允许换行，标题占满剩余宽度。 */
+  .ant-tree .ant-tree-node-content-wrapper {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .ant-tree .ant-tree-title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+
   /* 保存条再抬 56px：底部导航是 fixed 的，贴底会被它盖住 */
   .sk-settings-savebar {
     bottom: calc(56px + env(safe-area-inset-bottom, 0px));
