@@ -356,6 +356,11 @@ if (-not $ReloadOnly) {
         if (-not $Message) { Die "工作区有未提交改动，必须给 -Message，例如：`n  .\scripts\nas\Deploy-Nas.ps1 -Message `"fix: 修了某某`"" }
         git add -A
         git commit -q -m $Message
+        # 提交被拒（提交信息不符合 Conventional Commits / pre-commit 钩子）时必须停下：
+        # 否则下面会继续用「没提交的旧代码」走完发布，看上去全绿，线上其实一点没变。
+        if ($LASTEXITCODE -ne 0) {
+            Die '本地提交失败（见上面的钩子输出，多半是提交信息格式）。改好信息后重跑本脚本。'
+        }
         Ok "已提交：$(git log --oneline -1)"
     } else {
         Ok '工作区干净，不用提交'
