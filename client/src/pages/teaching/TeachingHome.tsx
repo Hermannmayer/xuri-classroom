@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Result, Spin, Tabs } from 'antd';
+import { Result, Spin } from 'antd';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
@@ -13,10 +13,6 @@ const TAB_ORDER: TabKey[] = ['exam', 'classes'];
 const TAB_PERMISSION: Record<TabKey, string> = {
   exam: PERMISSION_CODES.projectList,
   classes: PERMISSION_CODES.classList,
-};
-const TAB_LABEL: Record<TabKey, string> = {
-  exam: '考试/问卷',
-  classes: '班级',
 };
 /**
  * 旧参数值归一到现在的 Tab。
@@ -103,30 +99,16 @@ export default function TeachingHome() {
           教学与班级
         </h2>
         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-          考试/问卷与班级都在这里；学员与班级成员在「班级」里维护，题库在「题库中心」。
+          左侧「试卷」管考试与问卷，「班级」管成员与班级资源。
         </div>
       </div>
 
-      <Tabs
-        className="sk-teaching-tabs"
-        activeKey={active}
-        onChange={(key) => {
-          const next = key as TabKey;
-          setSearchParams(
-            (prev) => {
-              const params = new URLSearchParams(prev);
-              params.set('tab', next);
-              return params;
-            },
-            { replace: true },
-          );
-        }}
-        items={tabs.map((key) => ({
-          key,
-          label: TAB_LABEL[key],
-          children: key === 'exam' ? <ProjectList embedded /> : <TeachingClasses embedded />,
-        }))}
-      />
+      {/*
+        这里原来有一排「考试/问卷 · 班级」页签，和左侧菜单的两个子项完全重复：
+        菜单已经能直达 /teaching/exam 与 /teaching/classes，页签再点一次只是原地刷新，
+        看上去像「点不动」。现在直接渲染当前子页，不再画第二层导航。
+      */}
+      {active === 'exam' ? <ProjectList embedded mode="exam" /> : <TeachingClasses embedded />}
     </div>
   );
 }
