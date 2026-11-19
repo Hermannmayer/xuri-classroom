@@ -38,6 +38,7 @@ const SystemAudit = lazy(() => import('./pages/system/Audit'));
 const AccountSettings = lazy(() => import('./pages/account/Settings'));
 const RepoList = lazy(() => import('./pages/repo/List'));
 const RepoQuestions = lazy(() => import('./pages/repo/Questions'));
+const RepoReport = lazy(() => import('./pages/repo/Report'));
 const RepoBook = lazy(() => import('./pages/repo/Book'));
 const RepoPracticeHome = lazy(() => import('./pages/repo/PracticeHome'));
 const BookPractice = lazy(() => import('./pages/repo/BookPractice'));
@@ -110,6 +111,10 @@ export const router = createBrowserRouter([
       { path: 'exercise/practice/:repoId', element: guard(PERMISSION_CODES.exerciseList, <Practice />) },
       { path: 'exercise/:repoId', element: <Placeholder title="练习详情" /> },
       { path: 'repo/index', element: guard(PERMISSION_CODES.repoList, <RepoList />) },
+    {
+      path: 'repo/:repoId/report',
+      element: guard(PERMISSION_CODES.repoReport, <RepoReport />),
+    },
       // 练习册/错题本后端要 repo:book，路由守卫与接口保持一致；
       // 只有 repo:list 的角色（如老师）本来也不该从菜单进来。
       { path: 'repo/book', element: guard(PERMISSION_CODES.repoBook, <RepoBook />) },

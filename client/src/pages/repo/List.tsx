@@ -160,12 +160,15 @@ export default function RepoList() {
   // 管理员不再自动注入学员能力，老师角色默认也没有，所以这里不需要额外判 isAdmin/portal:teacher；
   // 如果某个自定义角色明确勾了 repo:practice，就按配置显示，这才是真正的权限驱动。
   const canPractice = hasPermission(PERMISSION_CODES.repoPractice);
+  /** 题库统计：老师/管理员可见，学员没有这个权限点 */
+  const canReport = hasPermission(PERMISSION_CODES.repoReport);
 
   // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）：
   // 没有练习入口约 260，有练习入口约 380，保证「开始练习」不会被挤成两行。
   const actionWidth = (() => {
     const labels = [
       canOpen ? '题目' : '',
+      canReport ? '统计' : '',
       canPractice ? '开始练习' : '',
       canPractice ? '随机练习' : '',
       canPractice ? '继续练习' : '',
@@ -800,6 +803,11 @@ export default function RepoList() {
                       {canOpen && (
                         <LinkAction style={NOWRAP} onClick={() => openRepo(row)}>
                           题目
+                        </LinkAction>
+                      )}
+                      {canReport && (
+                        <LinkAction style={NOWRAP} onClick={() => navigate('/repo/' + row.id + '/report')}>
+                          统计
                         </LinkAction>
                       )}
                       {canExport && (

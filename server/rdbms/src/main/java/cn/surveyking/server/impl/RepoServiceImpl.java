@@ -398,6 +398,40 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		return path;
 	}
 
+	/**
+	 * 题库统计：题量、题型/难度分布、练习概况。
+	 *
+	 * <p>练习答卷的判定：t_answer.repo_id 命中且 exam_exercise_type 非空。正式考试的答卷 repo_id 为空，不会混进来。
+	 */
+	public RepoReportView repoReport(String repoId) {
+		Repo repo = getById(repoId);
+		if (repo == null) {
+			throw new ValidationException("题库不存在或已被删除");
+		}
+		RepoReportView view = new RepoReportView();
+		view.setRepoId(repoId);
+		view.setRepoName(repo.getName());
+
+		List<Template> templates = templateService.list(Wrappers.<Template>lambdaQuery().eq(Template::getRepoId, repoId));
+		view.setTotal(templates.size());
+		for (Template template : templates) {
+			String type = template.getQuestionType() == null ? "未知" : template.getQuestionType().name();
+			view.getByType().merge(type, 1, Integer::sum);
+			String difficulty = StringUtils.hasText(template.getDifficulty()) ? template.getDifficulty() : "未标注";
+			view.getByDifficulty().merge(difficulty, 1, Integer::sum);
+		}
+
+		List<Answer> answers = answerService.list(Wrappers.<Answer>lambdaQuery().eq(Answer::getRepoId, repoId)
+				.isNotNull(Answer::getExamExerciseType));
+		RepoReportView.Practice practice = view.getPractice();
+		practice.setCount(answers.size());
+		practice.setStudents((int) answers.stream().map(Answer::getCreateBy).filter(StringUtils::hasText).distinct().count());
+		DoubleSummaryStatistics scoreStats = answers.stream().map(Answer::getExamScore).filter(Objects::nonNull)
+				.mapToDouble(Double::doubleValue).summaryStatistics();
+		practice.setAvgScore(scoreStats.getCount() == 0 ? null : scoreStats.getAverage());
+		return view;
+	}
+
 	@Override
 	public RepoView getRpo(String id) {
 		assertReadableRepo(id);

@@ -36,6 +36,14 @@ public interface RepoService {
 	 * @param id
 	 * @return
 	 */
+	/**
+	 * 题库统计：题量、题型/难度分布、练习概况。
+	 *
+	 * @param repoId 题库 id
+	 * @return 统计结果
+	 */
+	RepoReportView repoReport(String repoId);
+
 	RepoView getRpo(String id);
 
 	/**

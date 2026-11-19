@@ -66,6 +66,21 @@ public class RepoApi {
 		repoService.createRepoCategory(request);
 	}
 
+	/**
+	 * 题库统计（题量/题型/难度/练习概况）。
+	 *
+	 * <p>学员不可见：这份数据暴露的是「别人练得怎么样」，所以单独开 repo:report，
+	 * 没有挂在 repo:detail（学员也有）上。
+	 *
+	 * @param repoId 题库 id。
+	 * @return 统计结果。
+	 */
+	@PreAuthorize("hasAuthority('repo:report')")
+	@GetMapping("/report")
+	public RepoReportView report(@RequestParam String repoId) {
+		return repoService.repoReport(repoId);
+	}
+
 	@GetMapping("/detail")
 	// 学员用 repo:questions:read / repo:book 进练习页，也要能读到题库详情（读闸门仍在 RepoServiceImpl#assertReadableRepo）
 	@PreAuthorize("hasAnyAuthority('repo:detail','repo:questions:read')")

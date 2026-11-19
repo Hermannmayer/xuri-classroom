@@ -59,6 +59,21 @@ export interface CreateProjectRequest {
 export const listProjects = (query: ProjectListQuery = {}) =>
   getWithPagination<ProjectView>('/api/project/list', query as Record<string, unknown>);
 
+/** 题库统计（后端 RepoReportView） */
+export interface RepoReportInfo {
+  repoId: string;
+  repoName?: string;
+  /** 题量 */
+  total: number;
+  /** 题型分布 */
+  byType: Record<string, number>;
+  /** 难度分布 */
+  byDifficulty: Record<string, number>;
+  practice: { count: number; students: number; avgScore?: number };
+}
+
+export const getRepoReport = (repoId: string) => get<RepoReportInfo>('/api/repo/report', { repoId });
+
 export const getProject = (id: string) => get<ProjectView>('/api/project', { id });
 
 export const createProject = (data: CreateProjectRequest) => post<ProjectView>('/api/project/create', data);
