@@ -1754,6 +1754,9 @@ export default function PublicAnswer() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
+                // 手机上一行放不下「上一题 / 标记 / 收藏 / 计数 / 下一题」五个大按钮，
+                // 不给换行就会把「下一题」挤到屏外（用户实测）。换行后按钮保持完整尺寸。
+                flexWrap: 'wrap',
                 marginTop: 24,
                 paddingTop: 16,
                 borderTop: '1px dashed var(--bp-line)',
@@ -1787,7 +1790,7 @@ export default function PublicAnswer() {
                   {favorites.has(currentQuestion.id) ? '已收藏' : '收藏'}
                 </Button>
               )}
-              <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              <div style={{ flex: '1 0 56px', textAlign: 'center', fontSize: 12, color: 'var(--bp-text-soft)' }}>
                 {currentIndex + 1} / {total}
               </div>
               {currentIndex >= total - 1 ? (

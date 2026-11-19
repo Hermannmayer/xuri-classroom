@@ -453,6 +453,24 @@ body {
 
 /* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
 @media (max-width: 767.98px) {
+  /* 窄屏兜底（与 docs/work/ui-redesign-plan.md 第 0 步对应） */
+
+  /* Word/富文本导入的大图、宽表会撑破整页（题库题干里很常见） */
+  .rich-text-content img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  .rich-text-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* 小号图标按钮在手机上是「点不准」的主要来源：抬到 32px 触控高 */
+  .ant-btn-sm {
+    min-height: 32px;
+  }
+
   .sk-designer {
     flex-direction: column !important;
     overflow-y: auto;

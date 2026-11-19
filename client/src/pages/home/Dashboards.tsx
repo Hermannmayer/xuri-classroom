@@ -18,6 +18,7 @@ import {
 import { can } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import LinkAction from '../../components/LinkAction';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import {
   AreaTrend,
   BarSeries,
@@ -238,6 +239,7 @@ export function AdminHome() {
   const navigate = useNavigate();
   const [tick, setTick] = useState(0);
   const overview = useSection(() => fetchOverview(DAYS), [tick]);
+  const isMobile = useIsMobile();
   const trendState = useSection(() => fetchTrend(DAYS), [tick]);
 
   const data = overview.data;
@@ -404,31 +406,51 @@ export function AdminHome() {
               loading={overview.loading}
               dataSource={rows}
               locale={{ emptyText: '统计接口暂不可用' }}
+              // 手机上「分组 + 指标 + 数值 + 说明」四列放不下（344px > 324px 可用宽），
+              // 说明列会被压成一字一行。这里把说明折到指标名下面，并允许表格横向滚动兜底。
+              scroll={isMobile ? { x: 300 } : undefined}
               columns={[
                 {
                   title: '分组',
                   dataIndex: 'group',
-                  width: 84,
+                  width: isMobile ? 52 : 84,
                   onCell: (row) => ({ rowSpan: row.rowSpan }),
                   render: (value: string) => (
                     <span style={{ fontSize: 11, letterSpacing: '0.08em', ...SOFT }}>{value}</span>
                   ),
                 },
-                { title: '指标', dataIndex: 'name', width: 140 },
+                {
+                  title: '指标',
+                  dataIndex: 'name',
+                  width: isMobile ? undefined : 140,
+                  render: (value: string, row: MetricRow) =>
+                    isMobile ? (
+                      <div>
+                        <div>{value}</div>
+                        <div style={{ ...NOTE, marginTop: 2 }}>{row.note}</div>
+                      </div>
+                    ) : (
+                      value
+                    ),
+                },
                 {
                   title: '数值',
                   dataIndex: 'value',
-                  width: 120,
+                  width: isMobile ? 72 : 120,
                   align: 'right',
                   render: (value: string) => (
                     <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{value}</span>
                   ),
                 },
-                {
-                  title: '说明',
-                  dataIndex: 'note',
-                  render: (value: string) => <span style={{ ...NOTE }}>{value}</span>,
-                },
+                ...(isMobile
+                  ? []
+                  : [
+                      {
+                        title: '说明',
+                        dataIndex: 'note',
+                        render: (value: string) => <span style={{ ...NOTE }}>{value}</span>,
+                      },
+                    ]),
               ]}
             />
           </Panel>
