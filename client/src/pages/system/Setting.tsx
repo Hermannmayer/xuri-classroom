@@ -740,10 +740,10 @@ export default function SystemSetting() {
             <div className="sk-settings-chips">
               {[
                 { key: 'basic', label: '基本' },
-                { key: 'access', label: '登录与注册' },
-                { key: 'content', label: '内容与导出' },
+                { key: 'access', label: '登录' },
+                { key: 'content', label: '内容' },
                 { key: 'ai', label: 'AI' },
-                { key: 'system', label: '系统与更新' },
+                { key: 'system', label: '系统' },
               ].map((item) => (
                 <button
                   key={item.key}
