@@ -283,7 +283,91 @@ public class SystemApi {
 				view.setDownloadUrl(asText(release.get("html_url")));
 				view.setPublishedAt(asText(release.get("published_at")));
 				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
+				// Release 里如果附了 update.json，就用它把「各平台资产 + sha256」补全；
+				// 没有就保持只有 html_url，客户端退回「手动下载」的老路。
+				String manifestUrl = findUpdateManifest(release);
+				if (manifestUrl != null) {
+					fillFromUpdateManifest(view, manifestUrl);
+				}
 			}
+		}
+		finally {
+			if (connection != null) {
+				connection.disconnect();
+			}
+		}
+	}
+
+	/** 从 Release 的 assets 里找 update.json 的下载地址 */
+	private static String findUpdateManifest(Map<String, Object> release) {
+		Object raw = release.get("assets");
+		if (!(raw instanceof List<?> list)) {
+			return null;
+		}
+		for (Object item : list) {
+			if (!(item instanceof Map<?, ?> asset)) {
+				continue;
+			}
+			if (!"update.json".equals(asText(asset.get("name")))) {
+				continue;
+			}
+			String url = asText(asset.get("browser_download_url"));
+			if (url != null) {
+				return url;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 解析 update.json：版本/通道/说明/各平台资产。
+	 * <p>失败只告警不抛：更新检查是只读运维动作，清单解析不了也不该让设置页报错。
+	 */
+	private void fillFromUpdateManifest(UpdateCheckView view, String manifestUrl) {
+		HttpURLConnection connection = null;
+		try {
+			connection = (HttpURLConnection) new URL(manifestUrl).openConnection();
+			connection.setConnectTimeout(5000);
+			connection.setReadTimeout(8000);
+			connection.setRequestProperty("Accept", "application/json");
+			connection.setRequestProperty("User-Agent", "xuri-classroom/" + currentVersion);
+			if (connection.getResponseCode() / 100 != 2) {
+				return;
+			}
+			try (InputStream input = connection.getInputStream()) {
+				Map<String, Object> manifest = objectMapper.readValue(input, new TypeReference<Map<String, Object>>() {
+				});
+				String version = asText(manifest.get("version"));
+				if (StringUtils.hasText(version)) {
+					view.setLatestVersion(version);
+					view.setHasUpdate(compareVersion(version, currentVersion) > 0);
+				}
+				view.setChannel(asText(manifest.get("channel")));
+				String notes = asText(manifest.get("notes"));
+				if (StringUtils.hasText(notes)) {
+					view.setNotes(truncate(notes, 800));
+				}
+				Object raw = manifest.get("assets");
+				if (raw instanceof Map<?, ?> map) {
+					Map<String, UpdateCheckView.Asset> assets = new LinkedHashMap<>();
+					for (Map.Entry<?, ?> entry : map.entrySet()) {
+						if (!(entry.getValue() instanceof Map<?, ?> item)) {
+							continue;
+						}
+						UpdateCheckView.Asset asset = new UpdateCheckView.Asset();
+						asset.setFile(asText(item.get("file")));
+						asset.setUrl(asText(item.get("url")));
+						asset.setSha256(asText(item.get("sha256")));
+						Object size = item.get("size");
+						asset.setSize(size instanceof Number number ? number.longValue() : null);
+						assets.put(String.valueOf(entry.getKey()), asset);
+					}
+					view.setAssets(assets);
+				}
+			}
+		}
+		catch (Exception e) {
+			log.warn("解析 update.json 失败 url={}", manifestUrl, e);
 		}
 		finally {
 			if (connection != null) {
