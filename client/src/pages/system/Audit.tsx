@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Button, Card, DatePicker, Empty, Input, Modal, Radio, Select, Space, Table, Tag, Tooltip } from 'antd';
+import { App, Button, Card, DatePicker, Empty, Input, Modal, Pagination, Radio, Select, Space, Table, Tag, Tooltip } from 'antd';
 import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { get, getWithPagination, post } from '../../api';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface AuditLog {
   id: string;
@@ -50,6 +51,7 @@ const RANGE_PRESETS: { label: string; value: [Dayjs, Dayjs] }[] = [
 /** 系统管理 → 操作日志：筛选、时间范围、清理 */
 export default function SystemAudit() {
   const { message } = App.useApp();
+  const isMobile = useIsMobile();
   const [rows, setRows] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -173,7 +175,7 @@ export default function SystemAudit() {
       </div>
 
       <Card
-        className="bp-corners"
+        className="bp-corners sk-audit-filters"
         style={{ border: '1px solid var(--bp-line)', marginBottom: 12 }}
         styles={{ body: { padding: 14 } }}
       >
@@ -264,6 +266,42 @@ export default function SystemAudit() {
       </Card>
 
       <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)' }}>
+        {isMobile ? (
+          <div className="sk-audit-list">
+            {rows.length === 0 ? (
+              <Empty description="还没有操作记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ) : (
+              rows.map((row) => (
+                <div className="sk-audit-card" key={row.id}>
+                  <div className="sk-audit-card-head">
+                    <Tag color={isFailed(row) ? 'error' : 'blue'}>{actionText(row)}</Tag>
+                    <span>{row.createAt || '—'}</span>
+                  </div>
+                  <div className="sk-audit-card-target">{row.targetName || row.targetId || '—'}</div>
+                  {row.detail ? <div className="sk-audit-card-detail">{row.detail}</div> : null}
+                  <div className="sk-audit-card-meta">
+                    <span>{row.operatorName || row.createBy || '—'}</span>
+                    <span>{row.ip || '—'}</span>
+                    <Tag color={isFailed(row) ? 'error' : 'success'}>{isFailed(row) ? '失败' : '成功'}</Tag>
+                  </div>
+                </div>
+              ))
+            )}
+            {total > 0 ? (
+              <Pagination
+                simple
+                current={page}
+                pageSize={pageSize}
+                total={total}
+                onChange={(p, ps) => {
+                  setPage(p);
+                  setPageSize(ps);
+                }}
+                style={{ marginTop: 12, textAlign: 'right' }}
+              />
+            ) : null}
+          </div>
+        ) : (
         <Table<AuditLog>
           rowKey="id"
           size="small"
@@ -346,6 +384,7 @@ export default function SystemAudit() {
             },
           ]}
         />
+        )}
       </Card>
 
       <Modal

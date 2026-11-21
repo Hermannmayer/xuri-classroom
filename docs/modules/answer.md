@@ -457,6 +457,13 @@ npm run docs:check
 16. 把保留天数设为 1，构造一条 2 天前的 `is_anonymous=1` 答卷和一条登录用户答卷：手动/定时清理只删匿名那条（`is_deleted=1`），登录答卷不受影响；主体下无剩余匿名答卷时应被物理删除。
 17. 匿名考试：公开链接提交后，成绩单页能打开并显示分数（`transcriptVisible=true`）；换无 cookie 浏览器打开同一 `answerId` 应 403；数据页/导出能看到该答卷且提交人为「匿名」。
 
+## 答题自动下一题（2026-11-21）
+
+- `answerSetting.autoNextAfterAnswer=true` 时，一页一题在单选/判断/选择题答完后自动进入下一题；瀑布流则滚动到下一题。
+- 多选题在最后一次变更后 900ms 触发，填空题失焦后触发；一页一题最后一题不会自动提交，仍由用户确认。
+- 练习模式（`examSetting.exerciseMode`）和闯关模式（`passMode`）强制不生效；练习模式下设置开关禁用，保存时也会清掉。
+- 只改项目设置 JSON（`ProjectSetting.AnswerSetting`），无数据库迁移；逻辑在 `PublicAnswer.tsx`，入口在 `Overview.tsx` 的「答题显示」卡片。
+
 ## 相关文档
 
 - [考试与问卷（项目）](./project.md)

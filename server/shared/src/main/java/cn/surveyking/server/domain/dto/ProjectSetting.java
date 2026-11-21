@@ -117,8 +117,7 @@ public class ProjectSetting {
 
 		private Boolean onePageOneQuestion;
 
-
-
+		private Boolean autoNextAfterAnswer;
 
 		private Boolean answerSheetVisible;
 

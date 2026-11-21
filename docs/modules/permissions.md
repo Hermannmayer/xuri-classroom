@@ -487,6 +487,12 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
   SELECT COALESCE(access_level, -1) AS lvl, COUNT(*) FROM t_repo_partner GROUP BY access_level;"
 ```
 
+## 手机端系统管理（2026-11-21）
+
+- 系统首页卡片改为实色面板 + 橙色顶边，提高浅色主题对比度；卡片按权限显示，底栏「系统」统一进入 `/system`。
+- 用户组改为手机卡片列表；操作日志改为手机卡片列表；权限配置双栏在手机端上下堆叠；公告面板上下堆叠。
+- 用户管理原有手机卡片保留；系统设置仍是独立页面。
+
 ## 相关文档
 
 - [班级与教学工作台](./teaching.md)

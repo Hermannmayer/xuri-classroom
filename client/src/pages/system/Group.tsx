@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, DatePicker, Form, Input, message, Modal, Select, Space, Table, Tag } from 'antd';
+import { Button, Card, DatePicker, Empty, Form, Input, message, Modal, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -8,6 +8,7 @@ import DeleteDeptDialog from '../teaching/DeleteDeptDialog';
 import { ApiError, get, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface Dept {
   id: string;
@@ -45,6 +46,10 @@ function flattenDepts(list: Dept[], depth = 0): { id: string; name: string; dept
   return list.flatMap((d) => [{ id: d.id, name: d.name, depth }, ...flattenDepts(d.children ?? [], depth + 1)]);
 }
 
+function flattenDeptNodes(list: Dept[], depth = 0): { node: Dept; depth: number }[] {
+  return list.flatMap((node) => [{ node, depth }, ...flattenDeptNodes(node.children ?? [], depth + 1)]);
+}
+
 function collectIds(list: Dept[]): string[] {
   return list.flatMap((d) => [d.id, ...collectIds(d.children ?? [])]);
 }
@@ -70,6 +75,7 @@ function sameIds(a: string[] = [], b: string[] = []): boolean {
 }
 
 export default function SystemGroup({ embedded = false }: { embedded?: boolean } = {}) {
+  const isMobile = useIsMobile();
   const [tree, setTree] = useState<Dept[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
 
@@ -284,61 +290,96 @@ export default function SystemGroup({ embedded = false }: { embedded?: boolean }
         }
         styles={embedded ? { body: { padding: 0 } } : undefined}
       >
-        <Table<Dept>
-          rowKey="id"
-          size="small"
-          loading={loading}
-          dataSource={tree}
-          pagination={false}
-
-          scroll={{ x: 680 }}
-          expandable={{ defaultExpandAllRows: true, expandedRowKeys: allKeys, indentSize: 18 }}
-          columns={[
-            {
-              title: '名称',
-              dataIndex: 'name',
-              render: (v: string) => <span style={{ fontSize: 13 }}>{v || '—'}</span>,
-            },
-            {
-              title: '角色',
-              dataIndex: 'roleNames',
-              width: 260,
-
-
-              render: (names?: string[]) =>
-                names && names.length ? (
-                  <Space size={4} wrap>
-                    {names.map((n) => (
-                      <Tag key={n} color="blue">
-                        {n}
-                      </Tag>
-                    ))}
-                  </Space>
-                ) : (
-                  <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
-                    {roleDenied ? '无权读取角色' : '未分配角色'}
+        {isMobile ? (
+          <div className="sk-group-list">
+            {flattenDeptNodes(tree).length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有用户组" />
+            ) : (
+              flattenDeptNodes(tree).map(({ node, depth }) => (
+                <div className="sk-group-row" key={node.id} style={{ marginLeft: depth * 12 }}>
+                  <div className="sk-group-row-head">{node.name || '—'}</div>
+                  <div className="sk-group-row-meta">
+                    <span>
+                      {node.roleNames?.length
+                        ? node.roleNames.join(' / ')
+                        : roleDenied
+                          ? '无权读取角色'
+                          : '未分配角色'}
+                    </span>
+                    <span style={{ color: isExpired(node.validTo) ? 'var(--bp-orange)' : undefined }}>
+                      {validityText(node.validFrom, node.validTo)}
+                      {isExpired(node.validTo) ? '（已过期）' : ''}
+                    </span>
+                  </div>
+                  {(canCreate || canUpdate || canDelete) && (
+                    <div className="sk-group-row-actions">
+                      {canCreate && <LinkAction onClick={() => openCreate(node)}>加子组</LinkAction>}
+                      {canUpdate && <LinkAction onClick={() => openEdit(node)}>编辑</LinkAction>}
+                      {canDelete && (
+                        <LinkAction style={{ color: 'var(--bp-orange)' }} onClick={() => setDeleteTarget(node)}>
+                          删除
+                        </LinkAction>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <Table<Dept>
+            rowKey="id"
+            size="small"
+            loading={loading}
+            dataSource={tree}
+            pagination={false}
+            scroll={{ x: 680 }}
+            expandable={{ defaultExpandAllRows: true, expandedRowKeys: allKeys, indentSize: 18 }}
+            columns={[
+              {
+                title: '名称',
+                dataIndex: 'name',
+                render: (v: string) => <span style={{ fontSize: 13 }}>{v || '—'}</span>,
+              },
+              {
+                title: '角色',
+                dataIndex: 'roleNames',
+                width: 260,
+                render: (names?: string[]) =>
+                  names && names.length ? (
+                    <Space size={4} wrap>
+                      {names.map((n) => (
+                        <Tag key={n} color="blue">
+                          {n}
+                        </Tag>
+                      ))}
+                    </Space>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
+                      {roleDenied ? '无权读取角色' : '未分配角色'}
+                    </span>
+                  ),
+              },
+              {
+                title: '有效期',
+                key: 'validity',
+                width: 210,
+                render: (_, row) => (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: isExpired(row.validTo) ? 'var(--bp-orange)' : 'var(--bp-text-soft)',
+                    }}
+                  >
+                    {validityText(row.validFrom, row.validTo)}
+                    {isExpired(row.validTo) && ' （已过期）'}
                   </span>
                 ),
-            },
-            {
-              title: '有效期',
-              key: 'validity',
-              width: 210,
-              render: (_, row) => (
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: isExpired(row.validTo) ? 'var(--bp-orange)' : 'var(--bp-text-soft)',
-                  }}
-                >
-                  {validityText(row.validFrom, row.validTo)}
-                  {isExpired(row.validTo) && ' （已过期）'}
-                </span>
-              ),
-            },
-            ...(canCreate || canUpdate || canDelete ? [opsColumn] : []),
-          ]}
-        />
+              },
+              ...(canCreate || canUpdate || canDelete ? [opsColumn] : []),
+            ]}
+          />
+        )}
       </Card>
 
       <Modal

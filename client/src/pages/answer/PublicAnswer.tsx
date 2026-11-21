@@ -513,6 +513,10 @@ export default function PublicAnswer() {
   const passModePerSeconds = project?.setting?.examSetting?.passModePerSeconds;
 
   const onePage = Boolean(project?.setting?.answerSetting?.onePageOneQuestion) || passMode;
+  const autoNextRef = useRef<number | undefined>(undefined);
+  const autoNext = project?.setting?.answerSetting?.autoNextAfterAnswer === true && !exerciseMode && !passMode;
+
+  useEffect(() => () => window.clearTimeout(autoNextRef.current), []);
 
   const showQuestionNumber = project?.setting?.answerSetting?.questionNumber !== false;
 
@@ -1022,7 +1026,7 @@ export default function PublicAnswer() {
   };
 
   const jumpTo = (index: number) => {
-
+    window.clearTimeout(autoNextRef.current);
     if (passMode && index !== currentIndex) return;
     setPage(index);
     setSheetOpen(false);
@@ -1099,10 +1103,52 @@ export default function PublicAnswer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passMode, passModePerSeconds, currentQuestion?.id]);
 
+  const advanceAfterAnswer = (qId: string) => {
+    if (!autoNext || examLocked) return;
+    if (onePage) {
+      if (currentIndex < total - 1) jumpTo(currentIndex + 1);
+      return;
+    }
+    const index = visibleQuestions.findIndex((question) => question.id === qId);
+    const next = index >= 0 ? visibleQuestions[index + 1] : undefined;
+    if (!next) return;
+    document.querySelector('[data-qid="' + next.id + '"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const scheduleAutoNext = (qId: string, delay: number) => {
+    if (!autoNext) return;
+    window.clearTimeout(autoNextRef.current);
+    autoNextRef.current = window.setTimeout(() => {
+      if (isEmptyAnswer(valuesRef.current[qId])) return;
+      advanceAfterAnswer(qId);
+    }, delay);
+  };
+
+  const handleAutoNextBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!autoNext) return;
+    const related = event.relatedTarget as HTMLElement | null;
+    if (related?.closest('button, a, input, textarea, select, [role="button"]')) return;
+    const qid = (event.target as HTMLElement).closest('[data-qid]')?.getAttribute('data-qid');
+    if (!qid || isEmptyAnswer(valuesRef.current[qid])) return;
+    advanceAfterAnswer(qid);
+  };
+
   /** 答题写入 */
   const handleChange = (qId: string, v: AnswerValue) => {
     setValues((prev) => ({ ...prev, [qId]: v }));
-    if (!passMode) return;
+    if (!passMode) {
+      if (autoNext && !isEmptyAnswer(v)) {
+        const question = visibleQuestions.find((item) => item.id === qId);
+        if (question && (!onePage || qId === currentQuestion?.id)) {
+          if (question.type === 'Radio' || question.type === 'Judge' || question.type === 'Select') {
+            scheduleAutoNext(qId, 350);
+          } else if (question.type === 'Checkbox') {
+            scheduleAutoNext(qId, 900);
+          }
+        }
+      }
+      return;
+    }
     const type = currentQuestion?.type;
     const singleChoice = type === 'Radio' || type === 'Judge' || type === 'Select';
     if (qId === currentQuestion?.id && singleChoice && !isEmptyAnswer(v)) {
@@ -1681,7 +1727,12 @@ export default function PublicAnswer() {
           ) : (
             <QuestionFavoriteContext.Provider value={favoriteApi}>
             <QuestionMarkContext.Provider value={onePage ? null : markApi}>
-              <div onBlur={passMode ? handlePassBlur : undefined}>
+              <div
+                onBlur={(event) => {
+                  if (passMode) handlePassBlur(event);
+                  handleAutoNextBlur(event);
+                }}
+              >
                 <SchemaRenderer
                   schema={schemaForCanvas}
                   values={values}

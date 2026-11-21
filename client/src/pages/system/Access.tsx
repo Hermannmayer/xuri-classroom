@@ -74,7 +74,7 @@ export default function SystemAccess() {
           description="需要管理员在「权限配置」里给当前角色补上对应权限点，重新登录后生效。"
         />
       )}
-      <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
+      <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'var(--bp-panel)' }}>
         <Tabs
           activeKey={active}
           onChange={(key) => {

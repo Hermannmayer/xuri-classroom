@@ -130,6 +130,11 @@ python scripts/release/check_schema.py
 npm run docs:check
 ```
 
+## 手机端（2026-11-21）
+
+- 公告中心/公告管理在手机端把分类面板与列表改为上下堆叠，面板高度由内容决定，不再强制桌面 `clamp` 高度。
+- 分类、列表仍共用同一套数据和已读逻辑，仅调整布局。
+
 ## 相关文档
 
 - [权限模型](./permissions.md)

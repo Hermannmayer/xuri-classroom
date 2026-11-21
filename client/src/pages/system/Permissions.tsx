@@ -798,7 +798,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
           </div>
 
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
+          <div className="sk-perm-panels" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
 
             <div className="bp-card" style={{ ...PANEL_STYLE, flex: '2 1 calc(40% - 8px)', minWidth: 260 }}>
               <div style={PANEL_HEAD_STYLE}>

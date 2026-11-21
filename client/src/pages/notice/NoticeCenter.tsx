@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { get, getSystem, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import LinkAction from '../../components/LinkAction';
 import RichTextContent from '../../components/RichTextContent';
 import NoticeEditor from './NoticeEditor';
@@ -112,6 +113,7 @@ function fmtTime(value?: string | number): string {
 
 /** 公告页的共用实现：左分类、中列表、右详情（实施计划 4.6） */
 export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
+  const isMobile = useIsMobile();
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const isManage = mode === 'manage';
@@ -456,9 +458,17 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
 
-        <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '0 0 190px', minWidth: 156 }}>
+        <div
+          className="bp-card sk-notice-panel"
+          style={{
+            ...PANEL_STYLE,
+            flex: isMobile ? '0 0 auto' : '0 0 190px',
+            minWidth: isMobile ? 0 : 156,
+            height: isMobile ? 'auto' : PANEL_STYLE.height,
+          }}
+        >
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               分类
@@ -496,7 +506,15 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         </div>
 
 
-        <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '2 1 calc(34% - 8px)', minWidth: 260 }}>
+        <div
+          className="bp-card sk-notice-panel"
+          style={{
+            ...PANEL_STYLE,
+            flex: isMobile ? '1 1 auto' : '2 1 calc(34% - 8px)',
+            minWidth: isMobile ? 0 : 260,
+            height: isMobile ? 'auto' : PANEL_STYLE.height,
+          }}
+        >
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               {activeCategory.label}

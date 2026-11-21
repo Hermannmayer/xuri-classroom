@@ -136,6 +136,11 @@ cd server && ./gradlew :rdbms:test :api:test
 python scripts/release/check_schema.py
 ```
 
+## 手机端（2026-11-21）
+
+- 操作日志在手机端改为卡片列表：动作/时间、对象、说明、操作人/IP/结果分组展示；桌面仍用表格。
+- 筛选卡片在手机端宽度铺满，时间范围、动作、结果、操作人、关键词不再横向溢出。
+
 ## 相关文档
 
 - [答卷与判分](./answer.md)

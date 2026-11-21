@@ -355,6 +355,11 @@ npm run docs:check
 21. 把一场考试放进文件夹并设分类「保育员」→ 在分类树选「保育员」：即使考试不在根目录也应出现在右侧列表；文件夹行不应混进分类结果。把文件夹分类留空也不会出现在「未分类」。
 22. 对文件夹行点「授权」应打开 FolderAuthModal（不再跳 `/survey/:id`）；给某老师/组授权 type=1/2/3：该文件夹的子考试、孙考试（父/祖父两层）应出现在其 `/project/list`/tree/categories；曾孙项目不应出现。文件夹 level>=2 时子项目编辑闸门应放行；成员管理仍只看子项目自己的 level3。
 
+## 2026-11-21 答题后自动下一题
+
+- 项目设置 `answerSetting.autoNextAfterAnswer` 控制一页一题/瀑布流答题后的自动前进；与练习模式、闯关模式互斥。
+- 设置随 `/api/project/setting` 的 JSON 保存，不新增表/列；服务端 DTO 在 `ProjectSetting.AnswerSetting`。
+
 ## 相关文档
 
 - [考试编辑器与题型](./survey.md)

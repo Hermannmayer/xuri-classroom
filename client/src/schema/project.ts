@@ -41,6 +41,7 @@ export interface AnswerSetting {
   cookieLimit?: UniqueLimitSetting;
   loginLimit?: UniqueLimitSetting;
   onePageOneQuestion?: boolean;
+  autoNextAfterAnswer?: boolean;
   answerSheetVisible?: boolean;
   whitelistType?: number;
   whitelistLimit?: UniqueLimitSetting;

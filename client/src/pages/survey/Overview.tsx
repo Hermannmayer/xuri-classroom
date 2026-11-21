@@ -158,6 +158,8 @@ interface ReportData {
 export default function SurveyOverview() {
   const { id = '' } = useParams();
   const [form] = Form.useForm();
+  const exerciseMode = Form.useWatch('exerciseMode', form);
+  const passMode = Form.useWatch('passMode', form);
 
 
   const [project, setProject] = useState<Project & { category?: string }>();
@@ -289,6 +291,7 @@ export default function SurveyOverview() {
         progressBar: value.answerSetting?.progressBar,
         autoSave: value.answerSetting?.autoSave ?? true,
         onePageOneQuestion: value.answerSetting?.onePageOneQuestion,
+        autoNextAfterAnswer: value.answerSetting?.autoNextAfterAnswer,
         answerSheetVisible: value.answerSetting?.answerSheetVisible,
         questionNumber: value.answerSetting?.questionNumber ?? true,
         answererNameRequired: value.answerSetting?.answererNameRequired ?? false,
@@ -433,6 +436,7 @@ export default function SurveyOverview() {
       progressBar: Boolean(v.progressBar),
       autoSave: Boolean(v.autoSave),
       onePageOneQuestion: Boolean(v.onePageOneQuestion),
+      autoNextAfterAnswer: Boolean(v.autoNextAfterAnswer) && !Boolean(v.exerciseMode),
       answerSheetVisible: Boolean(v.answerSheetVisible),
       questionNumber: Boolean(v.questionNumber),
 
@@ -539,10 +543,10 @@ export default function SurveyOverview() {
     </span>
   );
 
-  const switchItem = (name: string, label: string, extra?: string) => (
+  const switchItem = (name: string, label: string, extra?: string, disabled?: boolean) => (
     <Col xs={24} md={12} key={name}>
       <Form.Item name={name} label={label} valuePropName="checked" extra={extra}>
-        <Switch />
+        <Switch disabled={disabled} />
       </Form.Item>
     </Col>
   );
@@ -847,6 +851,12 @@ export default function SurveyOverview() {
                 {switchItem('autoSave', '自动暂存', '答题过程中定时保存草稿')}
                 {switchItem('progressBar', '显示进度条')}
                 {switchItem('onePageOneQuestion', '一页一题')}
+                {switchItem(
+                  'autoNextAfterAnswer',
+                  '答题后自动下一题',
+                  '一页一题和瀑布流都生效；练习模式、闯关模式不生效',
+                  Boolean(exerciseMode || passMode),
+                )}
                 {switchItem('answerSheetVisible', '显示答题卡')}
                 {switchItem('questionNumber', '显示题目序号')}
                 {switchItem(

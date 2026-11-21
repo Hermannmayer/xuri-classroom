@@ -1355,7 +1355,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             width: isMobile ? '100%' : 320,
             flex: isMobile ? '1 1 100%' : '0 0 320px',
 
-            minHeight: isMobile ? 'calc(100dvh - 475px)' : undefined,
+            minHeight: undefined,
 
 
             display: isMobile && selectedId ? 'none' : 'flex',
@@ -1384,7 +1384,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
           />
 
 
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
             {treeLoading && tree.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center' }}>
                 <Spin />
@@ -1401,7 +1401,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                 />
               </div>
             ) : isMobile ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {mobileClassList.map(({ node, depth }) =>
                   node.classKind === 'group' ? (
                     <div
@@ -1421,7 +1421,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                       key={node.id}
                       type="button"
                       className={`sk-class-card${selectedId === node.id ? ' is-active' : ''}`}
-                      style={{ marginLeft: depth * 8 }}
+                      style={{ marginLeft: depth * 8, width: `calc(100% - ${depth * 8}px)` }}
                       onClick={() => {
                         if (node.accessible !== false) setSelectedId(node.id);
                       }}
@@ -2075,7 +2075,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
         open={grantOpen}
         onCancel={closeGrantModal}
         footer={null}
-        width={isMobile ? '94%' : 680}
+        width={isMobile ? 'calc(100vw - 16px)' : 680}
+        style={{ top: isMobile ? 8 : undefined }}
         destroyOnHidden
       >
         <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
@@ -2089,20 +2090,61 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
           <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>共 {teachers.length} 人</span>
         </div>
 
-        <TableScrollRegion label="已授权任课老师（可横向滚动）">
-          <Table<ClassTeacher>
-            rowKey="id"
-            size="small"
-            loading={teacherLoading}
-            dataSource={teachers}
-            columns={teacherColumns}
-            pagination={false}
-            scroll={{ x: 620 }}
-            locale={{
-              emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这个班级还没有任课老师" />,
-            }}
-          />
-        </TableScrollRegion>
+        {isMobile ? (
+          <div className="sk-teacher-list">
+            {teacherLoading ? (
+              <div style={{ padding: 20, textAlign: 'center' }}>
+                <Spin />
+              </div>
+            ) : teachers.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这个班级还没有任课老师" />
+            ) : (
+              teachers.map((row) => (
+                <div className="sk-teacher-row" key={row.id}>
+                  <div className="sk-teacher-row-head">
+                    <span>{row.userName || '—'}</span>
+                    <Tag color={row.accessLevel === 2 ? 'orange' : 'blue'}>
+                      {row.accessLevel === 2 ? '可管理' : '只读'}
+                    </Tag>
+                  </div>
+                  <div className="sk-teacher-row-meta">
+                    <span>{row.deptName || '—'}</span>
+                    <span>{row.createAt || '—'}</span>
+                  </div>
+                  <div className="sk-teacher-row-actions">
+                    <LinkAction onClick={() => void updateTeacherLevel(row)}>
+                      {row.accessLevel === 2 ? '设为只读' : '设为可管理'}
+                    </LinkAction>
+                    <Popconfirm
+                      title={'取消「' + (row.userName || '该老师') + '」的查看权限？'}
+                      okText="取消授权"
+                      okButtonProps={{ danger: true }}
+                      cancelText="保留"
+                      onConfirm={() => removeTeacher(row)}
+                    >
+                      <LinkAction style={{ color: 'var(--bp-orange)' }}>取消授权</LinkAction>
+                    </Popconfirm>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <TableScrollRegion label="已授权任课老师（可横向滚动）">
+            <Table<ClassTeacher>
+              rowKey="id"
+              size="small"
+              loading={teacherLoading}
+              dataSource={teachers}
+              columns={teacherColumns}
+              pagination={false}
+              scroll={{ x: 620 }}
+              locale={{
+                emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这个班级还没有任课老师" />,
+              }}
+            />
+          </TableScrollRegion>
+        )}
 
         <hr className="bp-dim" style={{ margin: '14px 0' }} />
 
