@@ -4,6 +4,25 @@
 
 <!-- version list -->
 
+## v2.3.9 (2026-11-21)
+
+补丁版：更新下载支持多镜像自动切换，改善国内网络访问 GitHub 资产不稳定的问题。
+
+### 新功能
+
+- **update**：默认按 `ghfast.top` → `gh-proxy.com` → `ghproxy.net` → GitHub 直连的顺序下载，任一线路连接超时、HTTP 错误、jar 大小或 sha256 不符会自动试下一个。
+- **update**：新增 `UPDATE_DOWNLOAD_MIRRORS`，逗号分隔多个模板，支持 `{url}`、`{version}`、`{file}`；设置为 `none` 可强制只走直连，`UPDATE_DOWNLOAD_PROXY` 继续兼容。
+- **update**：支持 GitCode 或自建发布镜像模板，例如 `https://gitcode.com/<owner>/<repo>/releases/download/v{version}/{file}`；自建 `update.json` 仍可通过 `UPDATE_MANIFEST_URL` 接入。
+- **update**：下载状态显示实际线路，并区分 sha256 校验通过 / Release 未提供 sha256。
+
+### 修复
+
+- **update**：自定义更新清单失败时自动回退 GitHub 检查，不再因为清单单点故障直接失败。
+
+### 升级
+
+无数据库结构变更。公共镜像属于第三方服务，异常时会自动切换；生产环境仍建议优先配置自建 manifest 或 GitCode 镜像。
+
 ## v2.3.8 (2026-11-21)
 
 补丁版：修复 GitHub 更新下载在资产域不可达时失败的问题。
