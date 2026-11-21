@@ -122,6 +122,11 @@
       "_comment": "2.3.6 无数据库结构变更；更新检查状态存进 t_sys_info.setting JSON",
       "version": "2.3.6",
       "requires": []
+    },
+    {
+      "_comment": "2.3.7 只有更新下载/一键安装功能，无数据库结构变更",
+      "version": "2.3.7",
+      "requires": []
     }
   ]
 }
