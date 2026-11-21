@@ -77,16 +77,9 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
     can(authorities, PERMISSION_CODES.noticeManageClass) ||
     can(authorities, PERMISSION_CODES.systemLogList);
   if (canSystem) {
-    const systemPath = can(authorities, PERMISSION_CODES.systemRoleList)
-      ? '/system/setting'
-      : can(authorities, PERMISSION_CODES.systemUserList) || can(authorities, PERMISSION_CODES.systemDeptList)
-        ? '/system/access'
-        : can(authorities, PERMISSION_CODES.noticeManageSystem) || can(authorities, PERMISSION_CODES.noticeManageClass)
-          ? '/system/notice'
-          : '/system/audit';
     tabs.push({
       key: 'system',
-      path: systemPath,
+      path: '/system',
       label: '系统',
       icon: <SettingOutlined />,
       active: (p) => under(p, '/system'),

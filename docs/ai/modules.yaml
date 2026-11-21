@@ -29,6 +29,9 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/service/Ai*.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/Ai*.java
       - client/src/api/ai.ts
+      - client/src/pages/system/Setting.tsx
+      - client/src/pages/system/AiModelCatalog.tsx
+      - client/src/pages/system/aiProviders.ts
       - client/src/components/AiAssistant/**
       - client/src/pages/survey/ai/**
       - client/src/pages/repo/ai/**

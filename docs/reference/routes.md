@@ -37,6 +37,7 @@
 | `/survey/:id/data` | `SurveyData` | `answer:list` |
 | `/survey/:id/report` | `SurveyReport` | `project:report` |
 | `/survey/:id/poster` | `Placeholder` | 公开/仅登录 |
+| `/system` | `SystemHome` | `system:user:list`<br>`system:role:list`<br>`system:dept:list`<br>`notice:manage:system`<br>`notice:manage:class`<br>`system:log:list` |
 | `/system/access` | `SystemAccess` | `system:user:list`<br>`system:role:list`<br>`system:dept:list` |
 | `/system/user` | `Navigate` | 公开/仅登录 |
 | `/system/group` | `Navigate` | 公开/仅登录 |

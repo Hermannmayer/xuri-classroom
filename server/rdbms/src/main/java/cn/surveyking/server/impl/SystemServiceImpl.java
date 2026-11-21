@@ -735,8 +735,17 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getEnabled() != null) {
 				aiSetting.setEnabled(source.getEnabled());
 			}
+			if (source.getProvider() != null) {
+				aiSetting.setProvider(source.getProvider().trim());
+			}
+			if (source.getDisplayName() != null) {
+				aiSetting.setDisplayName(source.getDisplayName().trim());
+			}
 			if (source.getModels() != null) {
 				aiSetting.setModels(source.getModels());
+			}
+			if (source.getModelMeta() != null) {
+				aiSetting.setModelMeta(source.getModelMeta());
 			}
 			if (source.getBaseUrl() != null) {
 				aiSetting.setBaseUrl(source.getBaseUrl().trim());

@@ -258,7 +258,7 @@ verified_against: fb6206b64d7bc1e157df14c943c985a562477a81
 - 前端只调用五个统计接口（`overview/trend/teacher/teacher/trend/student`），**从未调用遗留的 `/api/dashboard/list`**；
   统计接口有 `DashboardStatsServiceImplTest`（趋势补空、窗口夹取、及格率与待批改、无分数时 null、老师最近 8 条、
   老师趋势只算可见项目 / 无项目时整段 0、学员 recent 20 条、学员匿名全 0、响应结构契约），遗留 `/list` 仍只有手工验证。
-- 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。教学、班级合并后两处都只有一个「教学」入口，`/teaching/classes` 已重定向到 `/teaching?tab=classes`。
+- 移动端底栏（`MobileTabBar`）与侧栏菜单各判一套条件，改门户权限时两处都要改，否则手机上会少入口或多入口。系统底栏现在统一指向 `/system` 系统首页（`SystemHome`），不再按权限挑一个深链；教学、班级合并后两处都只有一个「教学」入口。
 - 首页/快捷入口的 `?tab=exam|classes` 只是前端状态：直接访问 `/teaching` 默认取第一个可用 Tab；没有 `class:list` 的账号访问 `?tab=classes` 会被 `TeachingHome` 归一回去，不要把该 URL 当权限校验（旧值 `insight`/`class`/`survey` 也会归一）。
 
 ## 验证

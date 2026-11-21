@@ -27,6 +27,9 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/service/Ai*.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/Ai*.java
   - client/src/api/ai.ts
+  - client/src/pages/system/Setting.tsx
+  - client/src/pages/system/AiModelCatalog.tsx
+  - client/src/pages/system/aiProviders.ts
   - client/src/components/AiAssistant/**
   - client/src/pages/survey/ai/**
   - client/src/pages/repo/ai/**
@@ -89,7 +92,8 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 
 - 老师问「AI 出的题不对」「AI 建议按钮点了没反应」「为什么 AI 不显示」
 - 要调「每天能用多少 token」「一次对话最多几条」——系统设置 → AI，五项限额都可配
-- 要换模型供应商：填 Base URL / API Key 后点「从服务商获取」自动拉模型列表（`POST /api/system/aiModels`，Key 只在服务端用）
+- 要换模型供应商：先选供应商（预填 Base URL），填 API Key 后点「获取可用模型」自动拉模型列表（`POST /api/system/aiModels`，Key 只在服务端用）；自定义地址仍保留
+- 要调单个模型的显示名 / 上下文窗口 / 最大输出 / 输入类型：系统设置 → AI → 模型目录（`modelMeta` 元数据，不改变网关调用）
 - 要加第七个 AI 场景，或要让对话支持一个新动作
 - 排查「AI 批改把分打错了」——先看撤销，再看审计日志里的 `ANSWER_GRADE`
 
@@ -98,6 +102,7 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 | 层 | 入口 | 说明 |
 |---|---|---|
 | 内核 | `server/ai/.../core/AiGateway.java` | 非流式统一入口：120s 超时、2 次指数退避重试、每用户限流（可配，后台任务跳过）；`listModels()` 拉服务商 `GET {base}/models`（Key 只在服务端用） |
+| 配置 | `client/src/pages/system/Setting.tsx`、`AiModelCatalog.tsx`、`aiProviders.ts` | 供应商预设、API Key、模型目录与单模型元数据；整体存 `t_sys_info.ai_setting` JSON，`models` 仍是网关实际使用的模型 ID 数组 |
 | 内核 | `server/ai/.../core/PromptRegistry.java` | `prompts/*.md` 模板，首行 `version: x.y`，`render(id, vars)` |
 | 内核 | `server/ai/.../core/AiJobService.java` | 长任务 jobId + 内存表 + 线程池 + 24h TTL（与 PDF 导出同一套模型） |
 | 内核 | `server/ai/.../core/AiContentGuard.java` | 对话回复口径校验、采纳题目的逐题校验 |

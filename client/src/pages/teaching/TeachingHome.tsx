@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Result, Spin } from 'antd';
-import { useSearchParams, useParams } from 'react-router-dom';
+import { Button, Result, Spin } from 'antd';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import ProjectList from '../project/List';
 import TeachingClasses from './Classes';
 
@@ -23,6 +24,8 @@ const LEGACY_TAB: Record<string, TabKey> = { insight: 'classes', class: 'classes
 
 /** 教学页：考试/问卷与班级合并成一页两个 Tab */
 export default function TeachingHome() {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const params = useParams<{ tab?: string }>();
   const [authorities, setAuthorities] = useState<string[]>();
@@ -90,9 +93,31 @@ export default function TeachingHome() {
           教学与班级
         </h2>
         <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-          左侧「试卷」管考试与问卷，「班级」管成员与班级资源。
+          {isMobile ? '上方' : '左侧'}「试卷」管考试与问卷，「班级」管成员与班级资源。
         </div>
+        {isMobile && authorities && can(authorities, PERMISSION_CODES.projectList) ? (
+          <Button type="link" size="small" onClick={() => navigate('/survey/list')} style={{ paddingLeft: 0, marginTop: 2 }}>
+            问卷列表 →
+          </Button>
+        ) : null}
       </div>
+
+      {isMobile && tabs.length > 1 ? (
+        <div className="sk-class-tabs" role="tablist" aria-label="教学分类">
+          {tabs.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={active === key}
+              className={active === key ? 'is-active' : ''}
+              onClick={() => navigate('/teaching/' + key)}
+            >
+              {key === 'exam' ? '试卷' : '班级'}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
 
 

@@ -184,7 +184,8 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
    旧值 `insight` / `class` 会归一到 `classes`（首页旧链接不会 404）。
 4. `/project` 入口：`ProjectEntry` 在 `portal:teacher + project:list` 时重定向到 `/teaching?tab=exam`；学员、以及没有 `portal:teacher` 的只读账号仍渲染原 `ProjectList`「考试安排」。
 5. 菜单：桌面侧栏与移动底栏都只保留一个「教学」`/teaching`（`project:list || class:list`）。
-   原来独立的「班级管理 /teaching/classes」菜单已合并进来；该旧路由保留为重定向（会带上原来的 `?classId=`）。
+   手机端在教学页标题下显示「试卷 / 班级」分段（`sk-class-tabs`），直接切 `/teaching/exam`、`/teaching/classes`；只有一个权限时不显示分段。
+   教学页标题下还有「问卷列表 →」入口（`/survey/list`，`project:list`），补上桌面侧栏有、手机底栏没有的问卷入口。
 6. 学情 Tab 已删除（2026-11）：它展示的「本班交卷数 / 平均分」在班级 Tab 的资源面板里本来就有，两套口径反而让人对不上账。
 6. 水印：`Watermark.AUTH_PREFIXES` 已加入 `/teaching`，教学页会正常显示水印。
 

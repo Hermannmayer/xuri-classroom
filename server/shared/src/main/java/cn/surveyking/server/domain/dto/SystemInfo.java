@@ -5,6 +5,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 
 
@@ -220,12 +221,15 @@ public class SystemInfo {
 
 		private Boolean enabled;
 
+		private String provider;
 
-
+		private String displayName;
 
 		private String baseUrl;
 
 		private List<String> models;
+
+		private Map<String, ModelMeta> modelMeta;
 
 		private String defaultModel;
 
@@ -277,6 +281,18 @@ public class SystemInfo {
 
 
 		private Integer rateLimitPerMinute;
+
+		@Data
+		public static class ModelMeta {
+
+			private String displayName;
+
+			private Integer contextWindow;
+
+			private Integer maxOutputTokens;
+
+			private List<String> inputTypes;
+		}
 
 	}
 

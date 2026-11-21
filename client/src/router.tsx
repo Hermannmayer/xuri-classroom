@@ -29,6 +29,7 @@ const SurveyReport = lazy(() => import('./pages/survey/Report'));
 const SystemAccess = lazy(() => import('./pages/system/Access'));
 const SystemSetting = lazy(() => import('./pages/system/Setting'));
 const SystemAudit = lazy(() => import('./pages/system/Audit'));
+const SystemHome = lazy(() => import('./pages/system/SystemHome'));
 const AccountSettings = lazy(() => import('./pages/account/Settings'));
 const RepoList = lazy(() => import('./pages/repo/List'));
 const RepoQuestions = lazy(() => import('./pages/repo/Questions'));
@@ -127,6 +128,21 @@ export const router = createBrowserRouter([
 
       { path: 'survey/:id/report', element: guard(PERMISSION_CODES.projectReport, <SurveyReport />) },
       { path: 'survey/:id/poster', element: <Placeholder title="分享海报" /> },
+
+      {
+        path: 'system',
+        element: guard(
+          [
+            PERMISSION_CODES.systemUserList,
+            PERMISSION_CODES.systemRoleList,
+            PERMISSION_CODES.systemDeptList,
+            PERMISSION_CODES.noticeManageSystem,
+            PERMISSION_CODES.noticeManageClass,
+            PERMISSION_CODES.systemLogList,
+          ],
+          <SystemHome />,
+        ),
+      },
 
       {
         path: 'system/access',

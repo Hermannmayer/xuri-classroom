@@ -501,4 +501,4 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 - 权限点 `repo:report`「查看题库统计」：**admin / teacher 有，学员没有**。自定义角色不会自动获得，需要在权限页手动勾选。
 - 迁移 `V2.3.4__repo_report_perm.sql`（幂等 UPDATE，只补内置 admin/teacher）。
 - 接口 `GET /api/repo/report` 只校验 `repo:report`，因此**服务层必须再调 `assertReadableRepo`**，否则越权（已补）。
-- 手机端底栏补了「系统」入口：管理员在手机上原本进不去系统设置（底栏只有首页/教学/题库/我的）。
+- 手机端底栏「系统」统一指向 `/system` 系统首页（`SystemHome`）：按权限显示系统设置、权限配置、用户管理、用户组、公告管理和操作日志；不再按权限单选一个深链。

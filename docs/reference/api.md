@@ -169,7 +169,7 @@
 | GET | `${api.prefix}/system/update/pending` | `SystemApi#updatePending` | `hasAuthority('system:setting:update')` | — |
 | POST | `${api.prefix}/system/update/download` | `SystemApi#downloadUpdate` | `hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system` | `SystemApi#getSystemInfo` | — | — |
-| GET | `${api.prefix}/system/aiSetting` | `SystemApi#getSystemAiSetting` | `hasRole('admin')` | — |
+| GET | `${api.prefix}/system/aiSetting` | `SystemApi#getSystemAiSetting` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | POST | `${api.prefix}/system/aiModels` | `SystemApi#aiModels` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/oauthSetting` | `SystemApi#getOAuthSetting` | `hasRole('admin')` | — |
 | POST | `${api.prefix}/system/oauthSetting` | `SystemApi#updateOAuthSetting` | `hasRole('admin')` | — |

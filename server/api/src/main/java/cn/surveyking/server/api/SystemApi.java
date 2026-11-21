@@ -581,7 +581,7 @@ public class SystemApi {
 
 
 	@GetMapping("/aiSetting")
-	@PreAuthorize("hasRole('admin')")
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public SystemInfo.AiSetting getSystemAiSetting() {
 		SystemInfo.AiSetting storedSetting = systemService.getSystemAiSetting();
 		if (storedSetting == null) {
@@ -592,8 +592,11 @@ public class SystemApi {
 
 		SystemInfo.AiSetting response = new SystemInfo.AiSetting();
 		response.setEnabled(storedSetting.getEnabled());
+		response.setProvider(storedSetting.getProvider());
+		response.setDisplayName(storedSetting.getDisplayName());
 		response.setBaseUrl(storedSetting.getBaseUrl());
 		response.setModels(storedSetting.getModels());
+		response.setModelMeta(storedSetting.getModelMeta());
 		response.setDefaultModel(storedSetting.getDefaultModel());
 		response.setPrompt(storedSetting.getPrompt());
 

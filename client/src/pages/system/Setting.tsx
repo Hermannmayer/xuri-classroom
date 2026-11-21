@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Button, Card, ConfigProvider, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
+import { Alert, Button, Card, Collapse, ConfigProvider, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -16,6 +16,8 @@ import { formatTokens, limitText } from '../../components/AiAssistant/format';
 import type { RegisterOptions } from '../../api';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import AiCapabilityGuide from '../ai-guide/AiGuide';
+import AiModelCatalog, { type ModelMeta } from './AiModelCatalog';
+import { AI_PROVIDERS, findAiProvider } from './aiProviders';
 import ApiTokenPanel from './ApiTokenPanel';
 
 import McpGuide from '../ai-guide/McpGuide';
@@ -26,9 +28,12 @@ import McpGuide from '../ai-guide/McpGuide';
 
 interface AiSetting {
   enabled?: boolean;
+  provider?: string;
+  displayName?: string;
   baseUrl?: string;
   apiKey?: string;
   models?: string[];
+  modelMeta?: Record<string, ModelMeta>;
   defaultModel?: string;
   prompt?: string;
 
@@ -114,9 +119,10 @@ const TAB_FIELDS: Record<TabKey, string[]> = {
   content: ['answerPdfConcurrency', 'pauseAnswerPdfDuringExam'],
   ai: [
     'aiEnabled',
+    'provider',
+    'displayName',
     'baseUrl',
     'apiKey',
-    'models',
     'defaultModel',
     'prompt',
     'dailyTokenLimit',
@@ -183,6 +189,10 @@ export default function SystemSetting() {
 
   const [openClassCount, setOpenClassCount] = useState(0);
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
+  const modelMeta = Form.useWatch<Record<string, ModelMeta> | undefined>('modelMeta', form) ?? {};
+  const defaultModel = Form.useWatch<string | undefined>('defaultModel', form);
+  const providerId = Form.useWatch<string | undefined>('provider', form);
+  const currentProvider = findAiProvider(providerId);
   const logo = Form.useWatch<string | undefined>('avatar', form);
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
   const aiEnabled = Form.useWatch<boolean | undefined>('aiEnabled', form);
@@ -315,9 +325,12 @@ export default function SystemSetting() {
       updateManifestUrl: sys?.setting?.updateManifestUrl,
       updateCheckIntervalHours: sys?.setting?.updateCheckIntervalHours ?? 24,
       aiEnabled: Boolean(ai?.enabled),
+      provider: ai?.provider,
+      displayName: ai?.displayName,
       baseUrl: ai?.baseUrl,
       apiKey: ai?.apiKey,
       models: ai?.models ?? [],
+      modelMeta: ai?.modelMeta ?? {},
       defaultModel: ai?.defaultModel,
       prompt: ai?.prompt,
 
@@ -623,9 +636,12 @@ export default function SystemSetting() {
         await post('/api/system/update', {
           aiSetting: {
             enabled: Boolean(v.aiEnabled),
+            provider: v.provider,
+            displayName: v.displayName,
             baseUrl,
             apiKey: v.apiKey,
-            models: v.models,
+            models: (form.getFieldValue('models') as string[] | undefined) ?? [],
+            modelMeta: (form.getFieldValue('modelMeta') as Record<string, ModelMeta> | undefined) ?? {},
             defaultModel: v.defaultModel,
             prompt: v.prompt,
             dailyTokenLimit: Number(v.dailyTokenLimit ?? 0),
@@ -1088,11 +1104,21 @@ export default function SystemSetting() {
                       <Switch checkedChildren="启用" unCheckedChildren="停用" />
                     </Form.Item>
                     <Form.Item
-                      name="baseUrl"
-                      label="API Base URL"
-                      extra="OpenAI 兼容地址，例如 https://api.openai.com/v1"
+                      name="provider"
+                      label="供应商"
+                      extra="选择后自动填入 Base URL；手动改地址会自动切回「自定义」"
                     >
-                      <Input placeholder="https://api.openai.com/v1" allowClear />
+                      <Select
+                        options={AI_PROVIDERS.map((item) => ({ value: item.id, label: item.name }))}
+                        onChange={(value) => {
+                          const provider = findAiProvider(value);
+                          form.setFieldsValue({
+                            provider: value,
+                            displayName: provider?.name,
+                            baseUrl: provider?.custom ? form.getFieldValue('baseUrl') : provider?.baseUrl,
+                          });
+                        }}
+                      />
                     </Form.Item>
                     <Form.Item
                       name="apiKey"
@@ -1101,32 +1127,79 @@ export default function SystemSetting() {
                     >
                       <Input.Password placeholder="留空表示不修改" autoComplete="new-password" />
                     </Form.Item>
+
+                    <Collapse
+                      ghost
+                      size="small"
+                      items={[
+                        {
+                          key: 'custom',
+                          label: '自定义设置',
+                          forceRender: true,
+                          children: (
+                            <>
+                              <Form.Item name="displayName" label="显示名称">
+                                <Input placeholder="例如 DeepSeek" />
+                              </Form.Item>
+                              <Form.Item
+                                name="baseUrl"
+                                label="API 地址"
+                                extra="OpenAI 兼容地址，例如 https://api.openai.com/v1"
+                              >
+                                <Input
+                                  placeholder="https://api.openai.com/v1"
+                                  allowClear
+                                  onChange={() => {
+                                    if (form.getFieldValue('provider') !== 'custom') {
+                                      form.setFieldValue('provider', 'custom');
+                                    }
+                                  }}
+                                />
+                              </Form.Item>
+                              <Form.Item label="API 协议" extra="当前仅支持 OpenAI Chat Completions">
+                                <Input value="OpenAI Chat Completions" disabled />
+                              </Form.Item>
+                              <Form.Item
+                                label="重试策略"
+                                extra="当前固定：超时 / 网络 / 5xx / 429 重试，4xx 直接报错"
+                              >
+                                <Input value="默认（仅临时错误）" disabled />
+                              </Form.Item>
+                            </>
+                          ),
+                        },
+                      ]}
+                    />
+
                     <Form.Item
-                      name="models"
-                      label={
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          模型列表
-                          <Button
-                            type="link"
-                            size="small"
-                            loading={fetchingModels}
-                            onClick={() => void fetchModels()}
-                            style={{ padding: 0, height: 'auto', fontSize: 12 }}
-                          >
-                            从服务商获取
-                          </Button>
-                        </span>
-                      }
-                      extra="点「从服务商获取」按当前 Base URL / API Key 拉一次（没保存的值也能试，Key 留空就沿用已保存的）；也可以自己回车添加"
+                      label="模型目录"
+                      extra="模型 ID 用于实际调用；显示名、上下文窗口和输入类型只影响本页展示"
                     >
-                      <Select mode="tags" placeholder="例如 gpt-4o-mini" tokenSeparators={[',', ' ']} />
+                      <AiModelCatalog
+                        models={models}
+                        modelMeta={modelMeta}
+                        defaultModel={defaultModel}
+                        onChange={(nextModels, nextMeta) => {
+                          form.setFieldValue('models', nextModels);
+                          form.setFieldValue('modelMeta', nextMeta);
+                        }}
+                        onDefaultModelChange={(value) => form.setFieldValue('defaultModel', value)}
+                        onFetch={() => void fetchModels()}
+                        fetching={fetchingModels}
+                        canFetch={currentProvider?.supportsModelList !== false}
+                        fetchHint={
+                          currentProvider?.supportsModelList === false
+                            ? '该供应商没有稳定的 /models 端点，请手动添加模型 ID'
+                            : undefined
+                        }
+                      />
                     </Form.Item>
                     <Form.Item name="defaultModel" label="默认模型">
                       <Select
                         allowClear
                         showSearch
-                        placeholder="从模型列表中选择"
-                        options={models.map((m) => ({ value: m, label: m }))}
+                        placeholder="从模型目录中选择"
+                        options={models.map((m) => ({ value: m, label: modelMeta[m]?.displayName || m }))}
                       />
                     </Form.Item>
                     <Form.Item name="prompt" label="系统提示词" extra="作为 AI 对话的系统角色内容，选填">
