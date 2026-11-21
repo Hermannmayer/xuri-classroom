@@ -570,6 +570,8 @@ if (-not ($clientSourceChanged -or $depsReinstalling)) {
     Write-Host "  (reset 前 web-watch 日志 $beforeLines 行，等这次构建完成)"
     $wait = @'
 BEFORE=@BEFORE@
+NOW=$(docker logs xuri-live-web-watch 2>&1 | wc -l)
+if [ "$NOW" -lt "$BEFORE" ]; then BEFORE=0; fi
 for i in $(seq 1 120); do
   NEW=$(docker logs xuri-live-web-watch 2>&1 | tail -n +$((BEFORE + 1)) | grep -c 'built in' 2>/dev/null)
   if [ -z "$NEW" ]; then NEW=0; fi
