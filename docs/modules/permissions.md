@@ -493,6 +493,13 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 - 用户组改为手机卡片列表；操作日志改为手机卡片列表；权限配置双栏在手机端上下堆叠；公告面板上下堆叠。
 - 用户管理原有手机卡片保留；系统设置仍是独立页面。
 
+## 更新下载与一键安装（2026-11-21）
+
+- `POST /api/system/update/download` 改为后台任务：返回阶段、已下载字节、总字节、百分比、速度、重试次数；最多自动重试 3 次，前端每秒轮询 `GET /api/system/update/download/status`。
+- 下载包保存在 `files/update/downloads/<version>.jar`，同时以硬链接/副本生成 `files/update/app.jar` 和 `apply.flag`；`GET /api/system/update/downloads` 可查看，`POST /api/system/update/downloads/delete` / `clear` 可清理。
+- 一键安装支持三端：Docker/Linux 直接备份并替换 jar，退出后由 Docker restart policy 或 systemd `Restart=always` 拉起；Windows 便携版生成更新 helper，等主进程退出后替换 jar 并重新运行 `start.cmd`。
+- 通过 `UPDATE_APPLY_ENABLED=false` 可显式关闭；缺少可写 jar 路径时返回不支持，不伪造成功。旧版 `scripts/nas/apply-update.sh` 仍保留作宿主机兜底。
+
 ## 相关文档
 
 - [班级与教学工作台](./teaching.md)

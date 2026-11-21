@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Button, Card, Collapse, ConfigProvider, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
+import { Alert, Button, Card, Collapse, ConfigProvider, Form, Input, InputNumber, Modal, Progress, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -174,6 +174,31 @@ interface UpdateCheckInfo {
   assets?: Record<string, UpdateAsset>;
 }
 
+interface UpdateDownloadStatus {
+  phase?: string;
+  version?: string;
+  downloadedBytes?: number;
+  totalBytes?: number;
+  percent?: number;
+  bytesPerSecond?: number;
+  attempt?: number;
+  maxAttempts?: number;
+  error?: string;
+  file?: string;
+}
+
+interface UpdateDownloadItem {
+  version: string;
+  size?: number;
+  downloadedAt?: number;
+}
+
+function formatBytes(value?: number) {
+  if (!value || value <= 0) return '0 B';
+  if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
+  return (value / 1024 / 1024).toFixed(1) + ' MB';
+}
+
 /** 系统设置：基本 / 登录与注册 / 内容与导出 / AI / 系统与更新。 */
 export default function SystemSetting() {
   const [form] = Form.useForm();
@@ -214,8 +239,11 @@ export default function SystemSetting() {
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
   const [updateLoading, setUpdateLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [downloaded, setDownloaded] = useState<{ version?: string; file?: string; size?: number; sha256?: string }>();
-  const [pendingInfo, setPendingInfo] = useState<{ pending?: boolean; version?: string; size?: number }>();
+  const [downloadStatus, setDownloadStatus] = useState<UpdateDownloadStatus>();
+  const [downloadHistory, setDownloadHistory] = useState<UpdateDownloadItem[]>([]);
+  const [applying, setApplying] = useState(false);
+  const [autoApplyAfterDownload, setAutoApplyAfterDownload] = useState(false);
+  const [pendingInfo, setPendingInfo] = useState<{ pending?: boolean; version?: string; size?: number; canApply?: boolean }>();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const [exportingDiag, setExportingDiag] = useState(false);
@@ -496,16 +524,16 @@ export default function SystemSetting() {
     });
   };
 
-  /** 下载新版本到服务器的数据卷（后端校验 sha256 后落盘并写 apply.flag） */
-  const downloadUpdateNow = async () => {
+  const runningDownload = Boolean(
+    downloadStatus?.phase && ['downloading', 'retrying', 'verifying'].includes(downloadStatus.phase),
+  );
+
+  const startDownload = async () => {
     setDownloading(true);
+    setAutoApplyAfterDownload(true);
     try {
-      const res = await post<{ version?: string; file?: string; size?: number; sha256?: string }>(
-        '/api/system/update/download',
-        {},
-      );
-      setDownloaded(res);
-      message.success('已下载并校验通过');
+      const res = await post<UpdateDownloadStatus>('/api/system/update/download', {});
+      setDownloadStatus(res);
     } catch {
       // request.ts 已经弹过错误，这里不再重复提示
     } finally {
@@ -513,10 +541,29 @@ export default function SystemSetting() {
     }
   };
 
-  /** 读「已下载但还没应用」的状态：下载和安装是两步，界面要能看出卡在哪一步 */
+  const loadDownloadStatus = async () => {
+    try {
+      const res = await get<UpdateDownloadStatus>('/api/system/update/download/status');
+      setDownloadStatus(res);
+    } catch {
+      // 状态读取失败不阻塞页面
+    }
+  };
+
+  const loadDownloadHistory = async () => {
+    try {
+      const res = await get<{ items?: UpdateDownloadItem[] }>('/api/system/update/downloads');
+      setDownloadHistory(res.items ?? []);
+    } catch {
+      // 历史读取失败不阻塞页面
+    }
+  };
+
   const loadPendingUpdate = async () => {
     try {
-      const res = await get<{ pending?: boolean; version?: string; size?: number }>('/api/system/update/pending');
+      const res = await get<{ pending?: boolean; version?: string; size?: number; canApply?: boolean }>(
+        '/api/system/update/pending',
+      );
       setPendingInfo(res);
     } catch {
       // 状态读不到不影响别的功能，静默即可
@@ -539,8 +586,95 @@ export default function SystemSetting() {
     if (activeTab === 'system') {
       void loadPendingUpdate();
       void loadUpdateInfo();
+      void loadDownloadStatus();
+      void loadDownloadHistory();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!runningDownload) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await get<UpdateDownloadStatus>('/api/system/update/download/status');
+        setDownloadStatus(next);
+        if (next.phase === 'done') {
+          message.success('更新包下载并校验完成');
+          void loadDownloadHistory();
+          const pending = await get<{ pending?: boolean; canApply?: boolean }>('/api/system/update/pending');
+          setPendingInfo(pending);
+          if (autoApplyAfterDownload && pending.canApply) {
+            void applyUpdateNow();
+          }
+          setAutoApplyAfterDownload(false);
+        }
+      } catch {
+        // 轮询失败下一轮继续
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [runningDownload, autoApplyAfterDownload]);
+
+  const applyUpdateNow = async () => {
+    setApplying(true);
+    const before = currentVersion;
+    try {
+      await post('/api/system/update/apply', {});
+      message.success('更新包已替换，服务正在重启');
+      let tries = 0;
+      const timer = window.setInterval(async () => {
+        tries += 1;
+        try {
+          const res = await get<{ version?: string }>('/api/system/version');
+          if (res.version && res.version !== before) {
+            window.clearInterval(timer);
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // 重启期间请求失败是正常的
+        }
+        if (tries >= 30) {
+          window.clearInterval(timer);
+          setApplying(false);
+          message.warning('服务还没有恢复，请稍后手动刷新');
+        }
+      }, 2000);
+    } catch (e) {
+      setApplying(false);
+      message.error((e as Error).message);
+    }
+  };
+
+  const removeDownload = (version: string) => {
+    Modal.confirm({
+      title: '删除下载记录 v' + version + '？',
+      content: '会删除服务器上的更新包；如果它是待安装包，也会一并清掉。',
+      okText: '删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        await post('/api/system/update/downloads/delete', { version });
+        await loadDownloadHistory();
+        await loadPendingUpdate();
+      },
+    });
+  };
+
+  const clearDownloadHistory = () => {
+    Modal.confirm({
+      title: '清空全部更新下载？',
+      content: '会删除所有已下载的更新包，包括待安装包；不会影响当前运行版本。',
+      okText: '清空',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        await post('/api/system/update/downloads/clear', {});
+        await loadDownloadHistory();
+        await loadPendingUpdate();
+        setDownloadStatus(undefined);
+      },
+    });
+  };
 
   const checkUpdateNow = async () => {
     setCheckingUpdate(true);
@@ -1379,8 +1513,18 @@ export default function SystemSetting() {
                           立即检查
                         </Button>
                         {Boolean(updateInfo?.hasUpdate && updateInfo?.assets?.jar) && (
-                          <Button type="primary" loading={downloading} onClick={() => void downloadUpdateNow()}>
-                            下载 v{updateInfo?.latestVersion} 到服务器
+                          <Button
+                            type="primary"
+                            loading={downloading || runningDownload}
+                            disabled={runningDownload}
+                            onClick={() => void startDownload()}
+                          >
+                            {runningDownload ? '正在下载…' : '一键更新到 v' + (updateInfo?.latestVersion || '')}
+                          </Button>
+                        )}
+                        {Boolean(pendingInfo?.pending && pendingInfo?.canApply) && (
+                          <Button type="primary" loading={applying} onClick={() => void applyUpdateNow()}>
+                            安装并重启
                           </Button>
                         )}
                         {updateInfo?.downloadUrl && (
@@ -1388,8 +1532,38 @@ export default function SystemSetting() {
                             打开下载页
                           </Button>
                         )}
-                        <Button onClick={() => void loadPendingUpdate()}>刷新状态</Button>
+                        <Button
+                          onClick={() => {
+                            void loadPendingUpdate();
+                            void loadDownloadStatus();
+                            void loadDownloadHistory();
+                          }}
+                        >
+                          刷新状态
+                        </Button>
                       </div>
+
+                      {downloadStatus && (runningDownload || downloadStatus.phase === 'failed' || downloadStatus.phase === 'done') ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <Progress
+                            percent={downloadStatus.percent && downloadStatus.percent >= 0 ? downloadStatus.percent : 0}
+                            status={
+                              downloadStatus.phase === 'failed'
+                                ? 'exception'
+                                : downloadStatus.phase === 'done'
+                                  ? 'success'
+                                  : 'active'
+                            }
+                          />
+                          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', lineHeight: 1.7 }}>
+                            {downloadStatus.phase === 'done'
+                              ? '已下载 v' + (downloadStatus.version || '') + '，sha256 校验通过'
+                              : downloadStatus.phase === 'failed'
+                                ? '下载失败：' + (downloadStatus.error || '未知错误')
+                                : formatBytes(downloadStatus.downloadedBytes) + ' / ' + formatBytes(downloadStatus.totalBytes) + ' · ' + formatBytes(downloadStatus.bytesPerSecond) + '/s · 第 ' + (downloadStatus.attempt || 1) + '/' + (downloadStatus.maxAttempts || 3) + ' 次'}
+                          </div>
+                        </div>
+                      ) : null}
 
                       {(() => {
                         if (updateInfo?.error) {
@@ -1449,15 +1623,23 @@ export default function SystemSetting() {
 
                       {pendingInfo?.pending && (
                         <Alert
-                          type="warning"
+                          type={pendingInfo.canApply ? 'warning' : 'info'}
                           showIcon
                           style={{ marginTop: 12 }}
-                          title={`已下载 v${pendingInfo.version || '?'}，还没安装`}
+                          title={`已下载 v${pendingInfo.version || '?'}，可以安装`}
                           description={
-                            <span>
-                              在服务器上执行 <code>bash scripts/nas/apply-update.sh</code>：它会备份旧 jar、替换、重启后端（约 30 秒）。
-                              装一条 cron 每 2 分钟跑一次就能全自动。
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              <span>
+                                {pendingInfo.canApply
+                                  ? '点「安装并重启」会备份旧包、替换并重启服务，约 30 秒。'
+                                  : '当前部署没有开启应用内安装；需要先用带更新器的发布包升级一次。'}
+                              </span>
+                              {pendingInfo.canApply && (
+                                <Button type="primary" loading={applying} onClick={() => void applyUpdateNow()}>
+                                  安装并重启
+                                </Button>
+                              )}
+                            </div>
                           }
                         />
                       )}
@@ -1495,21 +1677,47 @@ export default function SystemSetting() {
                       <InputNumber min={1} max={168} suffix="小时" style={{ width: 200 }} />
                     </Form.Item>
 
-                    {downloaded && (
-                      <Alert
-                        type="success"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                        title={`已下载 v${downloaded.version ?? ''}，sha256 校验通过`}
-                        description={
-                          <span style={{ lineHeight: 1.75 }}>
-                            还没有应用。在服务器上执行 <code>bash scripts/nas/apply-update.sh</code>：
-                            它会备份旧 jar、替换、重启后端（约 30 秒）。
-                            装一条 cron 每 2 分钟跑一次就能全自动（命令见脚本开头的注释）。
-                          </span>
-                        }
-                      />
-                    )}
+                    <Card
+                      size="small"
+                      className="bp-card"
+                      title={<span className="bp-title" style={{ fontSize: 12 }}>下载记录</span>}
+                      extra={
+                        downloadHistory.length > 0 ? (
+                          <Button size="small" danger onClick={clearDownloadHistory}>
+                            清空
+                          </Button>
+                        ) : null
+                      }
+                      style={{ marginBottom: 16 }}
+                    >
+                      {downloadHistory.length === 0 ? (
+                        <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>还没有下载记录</span>
+                      ) : (
+                        downloadHistory.map((item) => (
+                          <div
+                            key={item.version}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              padding: '7px 0',
+                              borderBottom: '1px solid var(--bp-line-soft)',
+                            }}
+                          >
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13 }}>v{item.version}</div>
+                              <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                                {formatBytes(item.size)} ·{' '}
+                                {item.downloadedAt ? dayjs(item.downloadedAt).format('MM-DD HH:mm') : '—'}
+                              </div>
+                            </div>
+                            <Button size="small" onClick={() => removeDownload(item.version)}>
+                              删除
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </Card>
                     {updateInfo && (
                       <Alert
                         type={updateInfo.error ? 'error' : updateInfo.hasUpdate ? 'info' : 'success'}

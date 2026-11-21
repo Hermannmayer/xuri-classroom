@@ -88,6 +88,8 @@ public class SystemApi {
 
 	private final AiGateway aiGateway;
 
+	private final UpdateDownloadService updateDownloadService;
+
 	@Value("${version}")
 	private String currentVersion;
 
@@ -448,6 +450,7 @@ public class SystemApi {
 		Map<String, Object> result = new LinkedHashMap<>();
 		boolean pending = Files.isRegularFile(flag);
 		result.put("pending", pending);
+		result.put("canApply", updateDownloadService.canApply());
 		try {
 			if (pending) {
 				for (String line : Files.readString(flag, StandardCharsets.UTF_8).split("\\n")) {
@@ -479,50 +482,54 @@ public class SystemApi {
 
 	@PreAuthorize("hasAuthority('system:setting:update')")
 	@PostMapping("/update/download")
-	public Map<String, Object> downloadUpdate() {
+	public UpdateDownloadStatus downloadUpdate() {
 		UpdateCheckView view = checkUpdate(true);
 		Map<String, UpdateCheckView.Asset> assets = view.getAssets();
 		UpdateCheckView.Asset asset = assets == null ? null : assets.get("jar");
 		if (asset == null || !StringUtils.hasText(asset.getUrl())) {
 			throw new ValidationException("这个版本没有可下载的 jar：Release 里没带 update.json，或里面缺 jar 资产");
 		}
-		Path dir = Paths.get(fileRootPath, "update").toAbsolutePath().normalize();
-		Path target = dir.resolve("app.jar");
-		Path temp = dir.resolve("app.jar.part");
-		try {
-			Files.createDirectories(dir);
-			downloadTo(asset.getUrl(), temp);
-			String actual = sha256Of(temp);
-			if (StringUtils.hasText(asset.getSha256()) && !asset.getSha256().equalsIgnoreCase(actual)) {
-				Files.deleteIfExists(temp);
-				throw new ValidationException("下载的包校验失败：sha256 对不上，已丢弃");
-			}
-			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+		return updateDownloadService.start(view.getLatestVersion(), asset);
+	}
 
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@GetMapping("/update/download/status")
+	public UpdateDownloadStatus downloadStatus() {
+		return updateDownloadService.status();
+	}
 
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@GetMapping("/update/downloads")
+	public Map<String, Object> downloadHistory() {
+		List<Map<String, Object>> items = updateDownloadService.history();
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("items", items);
+		result.put("count", items.size());
+		return result;
+	}
 
-			log.info("下载更新包成功 version={} url={} sha256={} size={}", view.getLatestVersion(), asset.getUrl(), actual,
-					Files.size(target));
-			if (asset.getUrl() != null && !asset.getUrl().startsWith("https://")) {
-				log.warn("更新包来源不是 https：{}（自建清单请自行确保通道可信）", asset.getUrl());
-			}
-			Files.writeString(dir.resolve("apply.flag"),
-					"version=" + view.getLatestVersion() + "\nsha256=" + actual + "\n", StandardCharsets.UTF_8);
-			Map<String, Object> result = new LinkedHashMap<>();
-			result.put("version", view.getLatestVersion());
-			result.put("file", target.toString());
-			result.put("size", Files.size(target));
-			result.put("sha256", actual);
-			result.put("applied", false);
-			return result;
-		}
-		catch (ValidationException e) {
-			throw e;
-		}
-		catch (Exception e) {
-			log.warn("下载更新包失败 url={}", asset.getUrl(), e);
-			throw new ValidationException("下载更新包失败：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
-		}
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@DeleteMapping("/update/downloads/{version}")
+	public void deleteDownload(@PathVariable String version) {
+		updateDownloadService.delete(version);
+	}
+
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@PostMapping("/update/downloads/delete")
+	public void deleteDownloadPost(@RequestBody Map<String, String> body) {
+		updateDownloadService.delete(body == null ? null : body.get("version"));
+	}
+
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@PostMapping("/update/downloads/clear")
+	public void clearDownloads() {
+		updateDownloadService.clear();
+	}
+
+	@PreAuthorize("hasAuthority('system:setting:update')")
+	@PostMapping("/update/apply")
+	public Map<String, Object> applyUpdate() {
+		return updateDownloadService.apply();
 	}
 
 	/** 跟随重定向把远端文件抓到本地（GitHub Release 会 302 到 objects.githubusercontent.com） */

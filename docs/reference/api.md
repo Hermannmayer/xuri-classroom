@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 257 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 263 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -168,6 +168,12 @@
 | GET | `${api.prefix}/system/update/check` | `SystemApi#checkUpdate` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/system/update/pending` | `SystemApi#updatePending` | `hasAuthority('system:setting:update')` | — |
 | POST | `${api.prefix}/system/update/download` | `SystemApi#downloadUpdate` | `hasAuthority('system:setting:update')` | — |
+| GET | `${api.prefix}/system/update/download/status` | `SystemApi#downloadStatus` | `hasAuthority('system:setting:update')` | — |
+| GET | `${api.prefix}/system/update/downloads` | `SystemApi#downloadHistory` | `hasAuthority('system:setting:update')` | — |
+| DELETE | `${api.prefix}/system/update/downloads/{version}` | `SystemApi#deleteDownload` | `hasAuthority('system:setting:update')` | — |
+| POST | `${api.prefix}/system/update/downloads/delete` | `SystemApi#deleteDownloadPost` | `hasAuthority('system:setting:update')` | — |
+| POST | `${api.prefix}/system/update/downloads/clear` | `SystemApi#clearDownloads` | `hasAuthority('system:setting:update')` | — |
+| POST | `${api.prefix}/system/update/apply` | `SystemApi#applyUpdate` | `hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system` | `SystemApi#getSystemInfo` | — | — |
 | GET | `${api.prefix}/system/aiSetting` | `SystemApi#getSystemAiSetting` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | POST | `${api.prefix}/system/aiModels` | `SystemApi#aiModels` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
