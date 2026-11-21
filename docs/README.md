@@ -51,7 +51,7 @@ npm run docs:dev                     # 本地预览
 
 | 层 | 位置 | 规则 |
 |---|---|---|
-| 入口 | `AGENTS.md`、本页 | 短、稳定、只放路由和红线 |
+| 入口 | `AGENTS.md`、本页 | 短、稳定、只放路由、硬规则和红线 |
 | 模块 | `docs/modules/*.md` | 手写；必须带 frontmatter；150~300 行 |
 | 流程 | `docs/flows/*.md` | 跨模块的端到端链路 |
 | 参考 | `docs/reference/*.md` | **生成**，不要手改（`routes/api/permissions/db-schema`） |
@@ -81,6 +81,7 @@ npm run docs:dev                     # 本地预览
 ## 模块索引与上下文
 
 - 机器索引：[ai/modules.yaml](ai/modules.yaml)（由各模块 frontmatter 生成）
+- AI 编码规则：[ai/coding-rules.md](ai/coding-rules.md)
 - 常见改动配方：[ai/task-recipes.md](ai/task-recipes.md)
 - 导航自测题：[ai/eval.md](ai/eval.md)
 - 模块页模板：[ai/module-template.md](ai/module-template.md)
