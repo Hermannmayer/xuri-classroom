@@ -184,6 +184,7 @@ export default function SystemSetting() {
   const [saving, setSaving] = useState<TabKey>();
 
   const [fetchingModels, setFetchingModels] = useState(false);
+  const [modelFetchError, setModelFetchError] = useState<string>();
   const [uploading, setUploading] = useState(false);
   const [roleOptions, setRoleOptions] = useState<Role[]>([]);
 
@@ -546,6 +547,7 @@ export default function SystemSetting() {
   /** 从服务商拉模型列表（系统设置 → AI →「从服务商获取」） */
   const fetchModels = async () => {
     setFetchingModels(true);
+    setModelFetchError(undefined);
     try {
       const baseUrl = String(form.getFieldValue('baseUrl') ?? '').trim();
       const apiKey = String(form.getFieldValue('apiKey') ?? '').trim();
@@ -558,7 +560,9 @@ export default function SystemSetting() {
       }
       message.success(`已获取 ${result.count} 个模型（当前共 ${merged.length} 个），记得点下面的「保存」`);
     } catch (e) {
-      message.error((e as Error).message);
+      const error = (e as Error).message;
+      setModelFetchError(error);
+      message.error(error);
     } finally {
       setFetchingModels(false);
     }
@@ -1194,6 +1198,15 @@ export default function SystemSetting() {
                         }
                       />
                     </Form.Item>
+                    {modelFetchError ? (
+                      <Alert
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: 12 }}
+                        title="获取模型列表失败"
+                        description={modelFetchError}
+                      />
+                    ) : null}
                     <Form.Item name="defaultModel" label="默认模型">
                       <Select
                         allowClear
