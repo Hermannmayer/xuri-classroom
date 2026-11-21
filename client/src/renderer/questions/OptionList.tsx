@@ -9,12 +9,12 @@ interface OptionListProps {
   options: OptionItem[];
   picked: string[];
   locked: boolean;
-  /** 左侧标记：默认 A/B/C，判断题传 √/× */
+
   mark?: (index: number) => string;
-  /**
-   * 选项的 ARIA 角色：单选 / 判断传 radio，多选传 checkbox。
-   * 不传时用题干上下文里的题型默认值，再兜底 radio —— 老调用方不用改就能用。
-   */
+
+
+
+
   optionRole?: 'radio' | 'checkbox';
   onPick: (value: string) => void;
 }

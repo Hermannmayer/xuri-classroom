@@ -45,13 +45,13 @@ export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
         isMobile
           ? {
               position: 'fixed',
-              // 手机用「左右同时贴边 + 宽度自适应」，不要用 calc(100vw - 24px)：
-              // 100vw 在移动端含滚动条宽度，算出来的窗比可视区宽，左边会被裁掉一截。
+
+
               left: 12,
               right: 12,
               bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 12px)',
               height: 'min(520px, calc(100dvh - 160px))',
-              // 高于底部导航（1000），避免聊天窗被它盖住
+
               zIndex: 1100,
               border: '1px solid var(--bp-line)',
               background: 'var(--bp-panel)',

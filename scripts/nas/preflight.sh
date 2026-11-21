@@ -44,9 +44,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# ---------------------------------------------------------------- 默认值（NAS 实测路径）
+
 COMPOSE_DIR="$REPO_ROOT/deploy/nas/prod"
-CONTAINER="${XURI_CONTAINER:-surveyking}"        # 当前在生产跑的容器（手工 docker run）
+CONTAINER="${XURI_CONTAINER:-surveyking}"
 HEALTH_URL="${XURI_HEALTH_URL:-http://127.0.0.1:201/api/system}"
 BACKUP_DIR="${BACKUP_DIR:-/vol2/1000/xuri/backup}"
 DATA_DIR="${XURI_LEGACY_DATA_DIR:-/vol2/1000/surveyking}"
@@ -92,7 +92,7 @@ usage() {
 USAGE
 }
 
-# ---------------------------------------------------------------- 参数解析
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --compose-dir) [[ $# -ge 2 ]] || die "$1 需要目录参数"; COMPOSE_DIR="$2"; shift 2 ;;
@@ -126,10 +126,10 @@ http_ok() {
     if wget -q -T "$HEALTH_TIMEOUT" -O /dev/null "$1" >/dev/null 2>&1; then return 0; fi
     return 1
   fi
-  return 2   # 2 = 没有探测工具
+  return 2
 }
 
-env_value() {   # env_value <file> <KEY>
+env_value() {
   local file="$1" key="$2" line
   [[ -f "$file" ]] || return 0
   line="$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null | tail -n 1 || true)"
@@ -141,7 +141,7 @@ if command -v docker >/dev/null 2>&1; then
   if docker info >/dev/null 2>&1; then DOCKER_OK=1; fi
 fi
 
-# ---------------------------------------------------------------- banner
+
 NOW_HUMAN="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "=================================================================="
 echo " 旭日云课堂 · 发布前体检（只读）"
@@ -156,7 +156,7 @@ echo " compose 目录: $COMPOSE_DIR"
 echo "=================================================================="
 echo
 
-# ---------------------------------------------------------------- 1. 环境
+
 echo "---- 1. 环境 ----"
 if command -v docker >/dev/null 2>&1; then
   if [[ "$DOCKER_OK" -eq 1 ]]; then
@@ -174,7 +174,7 @@ else
 fi
 echo
 
-# ---------------------------------------------------------------- 2. 目录
+
 echo "---- 2. 目录 ----"
 if [[ -d "$DATA_DIR" ]]; then
   pass "生产数据目录存在：$DATA_DIR"
@@ -199,7 +199,7 @@ else
 fi
 echo
 
-# ---------------------------------------------------------------- 3. 磁盘
+
 echo "---- 3. 磁盘空间 ----"
 for probe_dir in "$BACKUP_DIR" "$DATA_DIR"; do
   [[ -d "$probe_dir" ]] || continue
@@ -217,7 +217,7 @@ for probe_dir in "$BACKUP_DIR" "$DATA_DIR"; do
 done
 echo
 
-# ---------------------------------------------------------------- 4. 备份新鲜度
+
 echo "---- 4. 备份新鲜度 ----"
 if [[ -d "$BACKUP_DIR" ]]; then
   LATEST_BACKUP="$(ls -1t -- "$BACKUP_DIR"/backup_*.tar.gz 2>/dev/null | head -n 1 || true)"
@@ -251,7 +251,7 @@ else
 fi
 echo
 
-# ---------------------------------------------------------------- 5. 容器健康
+
 echo "---- 5. 当前生产容器 ----"
 CONTAINER_EXISTS=0
 if [[ "$DOCKER_OK" -eq 1 ]]; then
@@ -262,7 +262,7 @@ fi
 if [[ "$CONTAINER_EXISTS" -eq 1 ]]; then
   STATE="$(docker inspect -f '{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo unknown)"
   RESTARTS="$(docker inspect -f '{{.RestartCount}}' "$CONTAINER" 2>/dev/null || echo 0)"
-  # 防御：docker inspect 可能返回空/怪值，别让算术展开把整个体检脚本带走
+
   [[ "$RESTARTS" =~ ^[0-9]+$ ]] || RESTARTS=0
   IMG="$(docker inspect -f '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || echo unknown)"
   info "容器 $CONTAINER：status=$STATE，restartCount=$RESTARTS，image=$IMG"
@@ -298,7 +298,7 @@ else
 fi
 echo
 
-# ---------------------------------------------------------------- 6. 端口
+
 echo "---- 6. 目标端口 ${TARGET_PORT} ----"
 if [[ "$DOCKER_OK" -eq 1 ]]; then
   PORT_OWNERS="$(docker ps --filter "publish=${TARGET_PORT}" --format '{{.Names}}' 2>/dev/null | tr '\n' ' ' || true)"
@@ -321,7 +321,7 @@ else
 fi
 echo
 
-# ---------------------------------------------------------------- 7. 发布配置
+
 echo "---- 7. 发布配置 ----"
 COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
 ENV_FILE="$COMPOSE_DIR/.env"
@@ -361,7 +361,7 @@ if [[ "$DOCKER_OK" -eq 1 ]]; then
 fi
 echo
 
-# ---------------------------------------------------------------- 8. 日志配置
+
 echo "---- 8. 容器日志配置 ----"
 if [[ "$CONTAINER_EXISTS" -eq 1 && "$DOCKER_OK" -eq 1 ]]; then
   LOG_TYPE="$(docker inspect -f '{{.HostConfig.LogConfig.Type}}' "$CONTAINER" 2>/dev/null || echo unknown)"
@@ -380,9 +380,9 @@ else
 fi
 echo
 
-# ---------------------------------------------------------------- 9. 考试中判定
+
 echo "---- 9. 是否在考试中 ----"
-EXAM_VERDICT="unknown"   # unknown | clear | busy
+EXAM_VERDICT="unknown"
 EXAM_DETAIL=""
 
 find_db_container() {
@@ -453,7 +453,7 @@ case "$EXAM_VERDICT" in
 esac
 echo
 
-# ---------------------------------------------------------------- 结论
+
 echo "=================================================================="
 if (( BLOCKERS > 0 )); then
   printf '[结论] 不可发布：%d 个阻塞项，%d 个警告\n' "$BLOCKERS" "$WARNINGS"

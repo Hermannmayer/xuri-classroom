@@ -6,7 +6,7 @@
 ALTER TABLE t_answer
   ADD COLUMN attempt_no INT NOT NULL DEFAULT 0 COMMENT '同项目同答题人的第几次作答（从 0 开始）' AFTER items_synced;
 
--- 回填：按 (project_id, create_by) 分组，用创建时间 + id 稳定排序分配序号
+
 UPDATE t_answer a
 JOIN (
   SELECT id, ROW_NUMBER() OVER (PARTITION BY project_id, create_by ORDER BY create_at, id) - 1 AS rn

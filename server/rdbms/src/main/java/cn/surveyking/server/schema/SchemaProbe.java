@@ -12,14 +12,14 @@ import javax.sql.DataSource;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * 结构探针：一次性把库里"有哪些表 / 列 / 索引"读进内存，再用字符串键比对契约。
- *
- * <p>
- * 键格式：{@code table:t_user}、{@code column:t_template.chapter}、{@code index:t_template.idx_template_chapter}。
- * 全部小写比较：MySQL 在 Linux 上表名区分大小写，但契约是人写的，不该被大小写坑到。
- * </p>
- */
+
+
+
+
+
+
+
+
 @RequiredArgsConstructor
 public class SchemaProbe {
 

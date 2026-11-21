@@ -12,29 +12,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * 组卷参数（调用方从自己的请求 DTO 里取出来之后的归一化产物）。
- *
- * <p>为什么要有这一层：出卷的参数既要给提示词用（「单选 8 题、多选 4 题」），
- * 又要给 {@link AiContentGuard} 用（校验题量/题型配比/总分），两处必须用<b>同一份</b>归一化结果，
- * 否则会出现「提示词让模型出 8 道单选、校验却按 7 道算」这种自相矛盾的拒收。
- *
- * <p>归一化规则：
- * <ul>
- * <li>题型比例不要求加和为 1，按比例换算成题数（四舍五入），差额补到比例最大的题型上，
- * 保证期望题数之和正好等于题量；</li>
- * <li>难度缺省 mixed。</li>
- * </ul>
- *
- * @author p4-backend
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Getter
 public final class AiPaperSpec {
 
-	/** 一次最多生成多少题：再多既慢又容易崩，老师说「分批来」更实际 */
+
 	public static final int MAX_QUESTIONS = 100;
 
-	/** 出卷支持的题型：必须是能自动判分的题型，否则生成出来也不能直接当考试用 */
+
 	public static final Set<SurveySchema.QuestionType> SUPPORTED_TYPES = EnumSet.of(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Judge,
 			SurveySchema.QuestionType.FillBlank, SurveySchema.QuestionType.MultipleBlank,
@@ -64,7 +64,7 @@ public final class AiPaperSpec {
 
 	private final double totalScore;
 
-	/** 归一化后的题型 → 比例（只保留比例 > 0 的题型，顺序与请求一致） */
+
 	private final LinkedHashMap<String, Double> typeRatio;
 
 	private final String difficulty;

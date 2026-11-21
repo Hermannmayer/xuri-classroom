@@ -19,6 +19,6 @@ CREATE TABLE IF NOT EXISTS `t_ai_usage` (
   KEY `idx_ai_usage_scene` (`scene`, `create_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 用量记账';
 
--- ------ 新权限点 ai:use：给已部署库的 admin / teacher 补上（幂等，只加不删；学员不自动给） ------
+
 UPDATE `t_role` SET `authority` = CONCAT(`authority`, ',ai:use')
  WHERE `code` IN ('admin', 'teacher') AND `authority` IS NOT NULL AND `authority` <> '' AND `authority` NOT LIKE '%ai:use%';

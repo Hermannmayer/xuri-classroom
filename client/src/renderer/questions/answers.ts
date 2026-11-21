@@ -54,7 +54,7 @@ export function blankId(schema: Partial<SurveySchema>): string | undefined {
   return schema.children?.[0]?.id;
 }
 
-/** 填空答案：{ [空位id]: 文本 }；没有空位节点时退化成字符串（兼容早期数据） */
+
 export function blankAnswer(id: string | undefined, text: string): AnswerValue {
   return id ? { [id]: text } : text;
 }
@@ -78,9 +78,9 @@ export function blankValues(answer: AnswerValue): Record<string, string> {
   return out;
 }
 
-/* ---------------- 矩阵（单选/多选/填空） ---------------- */
 
-/** 矩阵答案：{ [rowId]: { [colId]: true | 文本 } } */
+
+
 export type MatrixAnswer = Record<string, Record<string, unknown>>;
 
 export function matrixAnswer(answer: AnswerValue): MatrixAnswer {
@@ -92,7 +92,7 @@ export function matrixAnswer(answer: AnswerValue): MatrixAnswer {
   return out;
 }
 
-/** 矩阵列：优先 schema.dataSource；旧数据把列放在 children 里，做兼容 */
+
 export function matrixColumns(schema: Partial<SurveySchema>): Option[] {
   const columns = toOptions(schema.dataSource);
   if (columns.length) return columns;
@@ -185,7 +185,7 @@ export function cascaderLabel(dataSource: DataSource[] | undefined, leaf: string
   return undefined;
 }
 
-/** 地址答案：{ [questionId]: '省 市 区' }；兼容早期直接存字符串的数据 */
+
 export function addressText(answer: AnswerValue, questionId: string): string {
   if (typeof answer === 'string') return answer;
   if (answer && typeof answer === 'object' && !Array.isArray(answer)) {
@@ -217,9 +217,9 @@ function textLimitMax(textLimit?: string): number | undefined {
 export interface InputRule {
   inputMode?: 'numeric' | 'tel' | 'email' | 'decimal' | 'text';
   maxLength?: number;
-  /** 输入时过滤：非数字/字母直接打不进去 */
+
   filter?: (raw: string) => string;
-  /** 失焦/提交时校验，返回错误文案 */
+
   validate?: (value: string) => string | undefined;
 }
 

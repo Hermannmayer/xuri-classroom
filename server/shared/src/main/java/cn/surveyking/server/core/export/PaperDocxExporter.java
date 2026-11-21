@@ -16,9 +16,9 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 试卷 Word 导出：与打印页同一份 survey，A4、题号连续、可选答案页/答题卡。
- */
+
+
+
 public final class PaperDocxExporter {
 
 	private static final String FONT = "宋体";
@@ -128,7 +128,7 @@ public final class PaperDocxExporter {
 				}
 			}
 			else if (type == QuestionType.SplitLine || type == QuestionType.Option || type == QuestionType.RandomSurvey) {
-				// 结构/选项节点不编号
+
 			}
 			else if (QuestionType.dataType().contains(type)) {
 				number[0]++;

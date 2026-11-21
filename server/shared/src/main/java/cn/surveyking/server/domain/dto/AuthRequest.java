@@ -5,10 +5,10 @@ import lombok.Data;
 
 import jakarta.validation.constraints.NotNull;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 @Data
 public class AuthRequest {
 
@@ -20,9 +20,9 @@ public class AuthRequest {
 
 	private String captchaVerification;
 
-	/**
-	 * 默认认证方式，密码认证
-	 */
+
+
+
 	private AppConsts.AUTH_TYPE authType = AppConsts.AUTH_TYPE.PWD;
 
 }

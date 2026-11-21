@@ -55,10 +55,10 @@ import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-/**
- * @author javahuang
- * @date 2022/1/28
- */
+
+
+
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
@@ -73,22 +73,22 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 
 	private final ProjectPartnerViewMapper projectPartnerViewMapper;
 
-	/** 班级级答卷权限：考试分配给自己带的班时，数据页/报表也要能进（否则入口点进去 403） */
+
 	private final AnswerAccessGuard answerAccessGuard;
 
-	/** 文件夹授权要向下继承：需要 id/parent_id/mode 展开子项目 */
+
 	private final ProjectMapper projectMapper;
 
-	/** 文件夹最多嵌套多少层（防脏数据成环） */
+
 	private static final int MAX_FOLDER_DEPTH = 32;
 
-	/** 授权级别：1 只读 */
+
 	private static final int ACCESS_LEVEL_VIEW = 1;
 
-	/** 授权级别：2 可编辑（含只读） */
+
 	private static final int ACCESS_LEVEL_EDIT = 2;
 
-	/** 授权级别：3 可授权（含编辑） */
+
 	private static final int ACCESS_LEVEL_GRANT = 3;
 
 	@Override
@@ -111,7 +111,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		for (ProjectPartnerView view : result.getList()) {
 			if (view.getUserId() != null) {
 				view.setUser(userService.loadUserById(view.getUserId()));
-				// 前端对象列优先显示 userName；不补的话文件夹/协作授权里只显示一串用户 id
+
 				if (view.getUser() != null && org.apache.commons.lang3.StringUtils.isNotBlank(view.getUser().getName())) {
 					view.setUserName(view.getUser().getName());
 				}
@@ -130,13 +130,13 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		if (type == ProjectPartnerTypeEnum.OWNER.getType() && ownerCount > 0) {
 			throw new AccessDeniedException("请使用专用的所有权转移功能");
 		}
-		// 首任所有者由 addProject 内部写入（此刻项目还没有 owner），跳过授权校验；
-		// 其余情况（协作者、答卷人）都要求调用者「可授权」（owner / admin / access_level=3 的协作者）
+
+
 		if (!(type == ProjectPartnerTypeEnum.OWNER.getType() && ownerCount == 0)) {
 			assertCanGrant(request.getProjectId());
 		}
-		// 授权给用户组：只写一条 group_id 记录，组员自动继承。
-		// type=2 是「教师组协作者」（带级别），type=3 仍是原来的班级/学员组（只读）
+
+
 		if (org.apache.commons.lang3.StringUtils.isNotBlank(request.getGroupId())) {
 			int level = type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
 					? normalizeAccessLevel(request.getAccessLevel()) : ACCESS_LEVEL_VIEW;
@@ -153,17 +153,17 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 			}
 			else if (type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
 					&& !Objects.equals(exist.getAccessLevel(), level)) {
-				// 协作者组改级别：更新原记录，不要再插一条重复的组授权
+
 				ProjectPartner update = new ProjectPartner();
 				update.setId(exist.getId());
 				update.setAccessLevel(level);
 				updateById(update);
 			}
-			// 组授权的变化在行上看不出影响哪些用户，直接清全量（见 evictProjectPermissions 注释）
+
 			evictAllProjectPermissions();
 			return;
 		}
-		// 添加/更新成员：协作者按请求级别，答卷人固定只读
+
 		int level = type == ProjectPartnerTypeEnum.OWNER.getType() ? ACCESS_LEVEL_GRANT
 				: type == ProjectPartnerTypeEnum.COLLABORATOR.getType()
 						? normalizeAccessLevel(request.getAccessLevel()) : ACCESS_LEVEL_VIEW;
@@ -206,7 +206,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		if (!newPartners.isEmpty()) {
 			saveBatch(newPartners);
 		}
-		// 已是协作者的：重复添加时按新级别更新，而不是静默跳过
+
 		if (type == ProjectPartnerTypeEnum.COLLABORATOR.getType()) {
 			List<ProjectPartner> levelUpdates = existUserIds.stream()
 					.filter(partner -> partner.getUserId() != null
@@ -221,7 +221,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 				updateBatchById(levelUpdates);
 			}
 		}
-		// 级别或成员范围变了：按用户失效「我可见的项目」缓存
+
 		evictProjectPermissionsForUsers(request.getUserIds());
 	}
 
@@ -231,7 +231,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 				&& request.getProjectId() == null) {
 			throw new AccessDeniedException("未指定要删除的项目成员");
 		}
-		// 授权闸门：owner / admin / access_level=3 的协作者
+
 		if (!isBlank(request.getProjectId())) {
 			assertCanGrant(request.getProjectId());
 		}
@@ -240,7 +240,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 				.in(CollectionUtils.isNotEmpty(request.getProjectIds()), ProjectPartner::getProjectId,
 						request.getProjectIds())
 				.eq(request.getProjectId() != null, ProjectPartner::getProjectId, request.getProjectId()));
-		// 按 ids / projectIds 批量删时，逐个涉及的项目校验（projectId 那个上面已经校验过）
+
 		partners.stream().map(ProjectPartner::getProjectId).filter(Objects::nonNull).distinct()
 				.filter(projectId -> !Objects.equals(projectId, request.getProjectId())).forEach(this::assertCanGrant);
 		if (partners.stream()
@@ -267,7 +267,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		}
 		assertCanGrant(partner.getProjectId());
 		if (!Objects.equals(partner.getType(), ProjectPartnerTypeEnum.COLLABORATOR.getType())) {
-			// 所有者不按级别处理；答卷人只读，也不需要级别
+
 			throw new ValidationException("只有协作者可以调整授权级别");
 		}
 		if (request.getAccessLevel() == null) {
@@ -312,14 +312,14 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 			return;
 		}
 		String userId = SecurityContextUtils.getUserId();
-		// 所有者：全权
+
 		boolean owner = count(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, projectId)
 				.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.OWNER.getType())
 				.eq(ProjectPartner::getUserId, userId)) > 0;
 		if (owner) {
 			return;
 		}
-		// 被授到「可授权」（access_level=3）的协作者；按组授权的组员也算（主组 + 附加组 + 祖先链）
+
 		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		long grantor = count(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, projectId)
 				.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.COLLABORATOR.getType())
@@ -342,8 +342,8 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		if (SecurityContextUtils.isAdmin()) {
 			return ACCESS_LEVEL_GRANT;
 		}
-		// 沿祖先链向上找：文件夹授权对里面所有层级生效（以前只支持父/祖父两级，
-		// 文件夹套文件夹时第三层就失效，老师能看到入口但打不开）。
+
+
 		int level = directAccessLevel(projectId);
 		String cursor = projectId;
 		int depth = 0;
@@ -419,7 +419,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 			evictAllProjectPermissions();
 			return;
 		}
-		// 不按 type 过滤：OWNER/COLLABORATOR 直接决定可见项目，答卷人（3/4）顺手清掉也不会错
+
 		Set<String> affectedUserIds = partners.stream().map(ProjectPartner::getUserId).filter(Objects::nonNull)
 				.collect(Collectors.toSet());
 		evictProjectPermissionsForUsers(affectedUserIds);
@@ -469,7 +469,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		if (getProjectPerms().contains(projectId)) {
 			return true;
 		}
-		// 班级级：实时查（不走缓存），班级授权变更后立刻生效
+
 		return !answerAccessGuard.readableClassIds(projectId).isEmpty();
 	}
 
@@ -477,8 +477,8 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 	public List<String> getProjectPerms() {
 		String userId = SecurityContextUtils.getUserId();
 		Set<String> result = new java.util.LinkedHashSet<>(getBaseMapper().getProjectPerms(userId));
-		// 按用户组授权的项目（group_id 存 dept id）：之前只查 user_id，
-		// 组协作者在「数据/报表/答卷列表」这些 @EnableDataPerm 接口上会被误判 403。
+
+
 		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		if (!deptScope.isEmpty()) {
 			list(Wrappers.<ProjectPartner>lambdaQuery().in(ProjectPartner::getGroupId, deptScope)

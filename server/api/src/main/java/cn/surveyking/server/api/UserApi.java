@@ -29,10 +29,10 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("${api.prefix}")
@@ -51,8 +51,8 @@ public class UserApi {
 	@PostMapping("/public/login")
 	public ResponseEntity login(@RequestBody @Valid AuthRequest request, HttpServletRequest httpRequest) {
 		userService.validateCaptcha(request);
-		// 用统一解析：getRemoteAddr() 在 nginx 后面永远是 docker 网关，
-		// 会让「同一账号 + 同一地址」的失败计数退化成「全站按账号锁定」。
+
+
 		String clientAddress = cn.surveyking.server.core.uitls.IPUtils.getClientIpAddress(httpRequest);
 		if (!loginAttemptLimiter.isAllowed(request.getUsername(), clientAddress)) {
 			throw new ErrorCodeException(ErrorCode.UsernameOrPasswordError);
@@ -64,8 +64,8 @@ public class UserApi {
 			Authentication authenticate = authenticationManager.authenticate(authentication);
 			UserInfo user = (UserInfo) authenticate.getPrincipal();
 			loginAttemptLimiter.recordSuccess(request.getUsername(), clientAddress);
-			// 登录成功单记一条：AuthAspect 排除了 /api/public/**，否则「谁在什么时候从哪里登录成功」永远查不到。
-			// 此刻 SecurityContext 里还没有用户，必须显式传操作人 id，否则 create_by 只能落成匿名。
+
+
 			auditRecorder.record("AUTH_LOGIN", user.getUserId(), user.getName(),
 					"登录成功 username=" + request.getUsername() + " ip=" + clientAddress, true, null,
 					user.getUserId());
@@ -75,12 +75,12 @@ public class UserApi {
 					.header(HttpHeaders.AUTHORIZATION, token).build();
 		}
 		catch (Exception e) {
-			// 不要吞掉真实原因：登录失败常见于密码错、账号禁用、组有效期过期、鉴权链异常，
-			// 统一转 1024 会把这些问题藏起来，排查时无从下手。这里至少把栈打进日志。
+
+
 			org.slf4j.LoggerFactory.getLogger(UserApi.class).warn("登录失败 username={} ip={}", request.getUsername(),
 					clientAddress, e);
 			loginAttemptLimiter.recordFailure(request.getUsername(), clientAddress);
-			// 失败也记：撞库、错密、禁用、组过期都靠这条追溯（detail 里带真实原因，便于区分）
+
 			auditRecorder.record("AUTH_LOGIN_FAILED", null,
 					"登录失败 username=" + request.getUsername() + " ip=" + clientAddress, false, e.getMessage());
 			throw new ErrorCodeException(ErrorCode.UsernameOrPasswordError);
@@ -160,23 +160,23 @@ public class UserApi {
 		userService.importUser(request);
 	}
 
-	/**
-	 * 查询用户任务
-	 * @param query
-	 * @return
-	 */
-	/**
-	 * 保存当前账号的界面缩放，换设备登录后也一致。
-	 */
+
+
+
+
+
+
+
+
 	@PostMapping("/user/ui-zoom")
 	@PreAuthorize("isAuthenticated()")
 	public void updateUiZoom(@RequestBody UserRequest request) {
 		userService.updateUiZoom(request);
 	}
 
-	/**
-	 * 保存当前账号的主题（light / dark），换设备登录后也一致。
-	 */
+
+
+
 	@PostMapping("/user/ui-theme")
 	@PreAuthorize("isAuthenticated()")
 	public void updateUiTheme(@RequestBody UserRequest request) {

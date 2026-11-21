@@ -21,21 +21,21 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * 用户域的权限断言：能管谁、能授哪些角色、能放进哪些组。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的守卫块。{@code assertDeptAssignmentAllowed} 原本按职责更贴近部门域，
- * 但它要复用 {@code toAuthorityNames} / {@code currentAuthorityNames}；放在部门域会让
- * {@code UserAuthService → 部门域 → 权限断言 → UserAuthService} 形成循环，所以和另外两个断言放在一起。
- * {@code toAuthorityNames} 则留在 {@link UserAuthService}（构造 UserInfo 的权限集合也要用），
- * 依赖方向固定为「断言 → 认证 → 部门域」，无环。
- */
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class UserPermissionGuard {
 
-	/** 后台系统管理权限前缀：带这类权限的角色属于「老师/职工」档，只能由持 system:user:create:teacher 的人授予 */
+
 	private static final String SYSTEM_AUTHORITY_PREFIX = "system:";
 
 	private final RoleServiceImpl roleService;
@@ -58,7 +58,7 @@ public class UserPermissionGuard {
 
 	/**
 	 * 「把用户放进某个组」会连带把该组（含祖先链）绑定的角色授予他，因此非管理员改 deptId / deptIds 时，
-	 * 必须确认目标组链上绑定的角色自己都能授予——否则光有 system:user:update 就能把人塞进绑了
+
 	 * admin/teacher 的组，等于绕开 assertGrantableRoles 发角色。
 	 *
 	 * <p>
@@ -129,7 +129,7 @@ public class UserPermissionGuard {
 	 * <ul>
 	 * <li>目标角色里<b>任一</b>权限串以 {@code system:} 开头（即能进系统管理）→ 调用方必须是管理员，
 	 * 或持有 {@code system:user:create:teacher}；</li>
-	 * <li>否则（纯学员类角色，不含任何 system:*）→ 调用方持有
+
 	 * {@code system:user:create:student} 或 {@code system:user:create} 即可。</li>
 	 * </ul>
 	 *
@@ -147,10 +147,10 @@ public class UserPermissionGuard {
 		if (normalizedIds.isEmpty() || SecurityContextUtils.isAdmin()) {
 			return;
 		}
-		// 有效权限与 toAuthorityNames 同口径：code=admin 的角色会被注入全部权限目录，天然落进 system: 档。
-		// 另外把 code=teacher 显式算作「老师档」：老师角色没有 system:* 权限（进不了系统管理），
-		// 但能管考试/题库，属于高权角色，只有 system:user:create:teacher 的人才能授予，
-		// 否则只有 create:student 的人也能把学员改成老师，等于越权提权。
+
+
+
+
 		boolean assignsSystemRole = roleService.listByIds(normalizedIds).stream().filter(Objects::nonNull).anyMatch(role -> {
 			if ("admin".equals(role.getCode()) || "teacher".equals(role.getCode())) {
 				return true;
@@ -178,7 +178,7 @@ public class UserPermissionGuard {
 	 * <p>
 	 * 只查 t_user_role 会把「没有任何直挂角色、但所在组绑了 teacher」的老师误判成低权限，
 	 * 从而允许别人重置他的密码/删除他（账号接管）。这里直接用 loadUserById 的并集结果。
-	 * 注意：内部自调用不走缓存代理，拿到的一定是实时结果。
+
 	 */
 	public Set<String> loadAuthorityNames(String userId) {
 		UserInfo userInfo = userAuthService.buildUserInfo(userId);

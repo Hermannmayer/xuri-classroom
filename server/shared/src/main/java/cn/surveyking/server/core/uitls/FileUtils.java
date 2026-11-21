@@ -3,26 +3,26 @@ package cn.surveyking.server.core.uitls;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/**
- * @author javahuang
- * @date 2023/11/20
- */
+
+
+
+
 public class FileUtils {
 
 	public static final String[] ALLOWED_EXTENSIONS = {
-			// 图像文件
+
 			"jpg", "jpeg", "png", "gif", "bmp",
 
-			// 文档和文本文件
+
 			"pdf", "txt", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "odt", "ods",
 
-			// 音频文件
+
 			"mp3", "wav", "aac", "ogg", "webm",
 
-			// 视频文件
+
 			"mp4", "mov", "wmv", "avi", "mkv",
 
-			// 其他安全文件类型
+
 			"csv", "json", "xml" };
 
 	/**

@@ -107,7 +107,7 @@ public class ChatController {
 				allowDefaultContent);
 		return chatService.createChatStream(chatRequest, conversationId, model).doOnNext(event -> {
 			if (event.getEventType().name().equals("done") && conversationId != null) {
-				// 预留扩展：如有需要可在这里缓存 AI 响应
+
 			}
 		});
 	}

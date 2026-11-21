@@ -5,7 +5,7 @@ import { SaveOutlined } from '@ant-design/icons';
 import { getCurrentUser, post } from '../../api';
 import type { UserInfo } from '../../api/types';
 
-/** 与后端 UserServiceImpl.STRONG_PASSWORD_PATTERN 一致：8-16 位，含大写、小写和数字，不允许特殊字符 */
+
 const PASSWORD_PATTERN = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[a-zA-Z0-9]{8,16}$/;
 const PASSWORD_RULE = {
   pattern: PASSWORD_PATTERN,
@@ -39,9 +39,9 @@ export default function AccountSettings() {
     };
   }, []);
 
-  // 页面上有 `if (loading) return <Spin/>`，Form 要等 loading 结束才挂载。
-  // 回填必须等挂载之后再调，否则 antd 会报「Instance created by useForm is not connected to any
-  // Form element」，而且值有可能在挂载时被重新初始化掉。
+
+
+
   useEffect(() => {
     if (loading || !profile) return;
     profileForm.setFieldsValue({
@@ -63,7 +63,7 @@ export default function AccountSettings() {
     try {
       await post('/api/user', { name: v.name, phone: v.phone, email: v.email, gender: v.gender });
       message.success('已保存');
-      // 顶栏用户名来自 BasicLayout 自身状态，重载一次最省事
+
       setTimeout(() => location.reload(), 400);
     } catch (e) {
       message.error((e as Error).message);

@@ -9,10 +9,10 @@ import org.mapstruct.MappingTarget;
 import static org.mapstruct.NullValueCheckStrategy.ALWAYS;
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 @Mapper
 public interface UserEditMapper {
 

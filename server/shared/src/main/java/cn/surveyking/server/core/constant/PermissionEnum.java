@@ -7,29 +7,29 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 权限目录：权限串的唯一来源，供「角色权限矩阵」页面列出可勾选项。
- *
- * <p>
- * 盘点依据 docs/permissions.md：
- * <ul>
- * <li>第 2 节的 56 个权限串，全部来自 {@code @PreAuthorize("hasAuthority('...')")}，
- * 这类条目的 {@code suggested=false}；</li>
- * <li>第 4 节建议新增的条目，{@code suggested=true}，本版本只进目录、暂未接到注解上，
- * 勾选后对现有接口没有实际约束力，等后续接口补注解时即可生效。</li>
- * </ul>
- *
- * <p>
- * 权限串保持「域:对象:动作」约定；分组仅用于展示排序，不参与鉴权。
- * 权限目录分两类听众：管理权限（管理员自动全量）与 {@code studentOnly} 学员能力
- * （开始答题/开始练习/错题本/学员视角）。学员能力不自动注入管理员，避免
- * 「管理员=全部权限」和「管理员不该看到开始答题」互相打架。
- * 注意：{@code t_role.authority} 里还存在 {@code answer}、{@code system:role}、{@code position}
- * 这类历史遗留的前缀串（早期权限提取器把层级前缀一并写库），它们不是真正的权限点，不在本目录内，
- * 前端保存角色权限时应原样保留，避免误删。
- *
- * @author perm-matrix
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Getter
 public enum PermissionEnum {
 
@@ -158,27 +158,27 @@ public enum PermissionEnum {
 
 	CONTENT_PROTECT("content:protect", "水印与防复制策略", Group.CONTENT, "全站水印与防复制开关；文档里标注可与修改系统设置二选一", true);
 
-	/* ---------------------------------------------------------------- 其它 */
+
 
 
 	private final String code;
 
-	/** 中文名，权限矩阵里的主标题 */
+
 	private final String name;
 
-	/** 展示分组 */
+
 	private final Group group;
 
-	/** 一句话说明，权限矩阵里的副标题 */
+
 	private final String description;
 
-	/** 是否为 docs/permissions.md 第 4 节建议新增、尚未接入注解的权限点 */
+
 	private final boolean suggested;
 
-	/**
-	 * 学员专属权限：管理员虽然天然拥有全部权限，但这类权限不自动注入。
-	 * 否则管理员界面会不断出现「开始答题 / 开始练习」，再靠前端逐个页面判断。
-	 */
+
+
+
+
 	private final boolean studentOnly;
 
 	PermissionEnum(String code, String name, Group group, String description) {
@@ -199,9 +199,9 @@ public enum PermissionEnum {
 		this.studentOnly = studentOnly;
 	}
 
-	/**
-	 * 权限分组：声明顺序即前端卡片的展示顺序。
-	 */
+
+
+
 	@Getter
 	public enum Group {
 
@@ -216,9 +216,9 @@ public enum PermissionEnum {
 
 	}
 
-	/**
-	 * 单个权限点（目录接口的叶子节点）。
-	 */
+
+
+
 	@Getter
 	public static class PermissionItem {
 
@@ -232,7 +232,7 @@ public enum PermissionEnum {
 
 		private final boolean suggested;
 
-		/** 学员专属权限，权限矩阵里可以单独标出来 */
+
 		private final boolean studentOnly;
 
 		PermissionItem(PermissionEnum permission) {
@@ -246,9 +246,9 @@ public enum PermissionEnum {
 
 	}
 
-	/**
-	 * 一个分组的权限点集合（目录接口的顶层节点）。
-	 */
+
+
+
 	@Getter
 	public static class PermissionGroupView {
 

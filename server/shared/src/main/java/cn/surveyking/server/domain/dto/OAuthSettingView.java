@@ -2,7 +2,7 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
-/** Admin-facing OAuth settings with secrets removed. */
+
 @Data
 public class OAuthSettingView {
 

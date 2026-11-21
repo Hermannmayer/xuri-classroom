@@ -9,7 +9,7 @@ import { flattenSchema, type FlatQuestion } from '../../schema/flatten';
 import type { SurveySchema } from '../../schema/types';
 import { EMPTY, formatAnswer, questionHeader } from '../survey/data/format';
 
-/** 后端 AppConsts.PUBLIC_QUERY_PASSWORD_FIELD_ID */
+
 const PASSWORD_FIELD_ID = 'password';
 
 interface QueryAnswerView {
@@ -18,13 +18,13 @@ interface QueryAnswerView {
   createAt?: string;
 }
 
-/** POST /api/public/loadQuery */
+
 interface PublicQueryVerifyView {
   password?: string;
   schema?: SurveySchema;
 }
 
-/** POST /api/public/getQueryResult */
+
 interface PublicQueryView {
   schema?: SurveySchema;
   answers?: QueryAnswerView[];
@@ -139,7 +139,7 @@ export default function PublicQuery() {
 
     const missing = formQuestions.filter((q) => {
       if (!q.schema.attribute?.required || !isEmptyAnswer(values[q.id], true)) return false;
-      // 非密码条件如果已经在 URL 里，视为已提供
+
       if (
         q.id !== PASSWORD_FIELD_ID &&
         (q.schema.children ?? []).some((child) => urlQuery[child.id] !== undefined)

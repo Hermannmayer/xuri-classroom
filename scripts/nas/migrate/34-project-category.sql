@@ -10,7 +10,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. category（先查 information_schema.COLUMNS，避免重复执行报 Duplicate column）
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -24,6 +24,6 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. 自检：列应存在（返回 1）
+
 SELECT COUNT(*) AS category_column FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_project' AND COLUMN_NAME = 'category';

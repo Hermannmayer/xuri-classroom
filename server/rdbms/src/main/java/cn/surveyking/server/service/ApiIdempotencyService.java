@@ -2,15 +2,15 @@ package cn.surveyking.server.service;
 
 import org.springframework.util.StringUtils;
 
-/**
- * MCP 写操作幂等（计划 §7.4：每个写工具都要求 {@code idempotencyKey}）。
- *
- * <p>语义：同一个用户 + 同一个幂等键，第二次调用直接回放第一次的结果，业务**不会**再执行一次。
- * 命中判定靠 {@code t_api_idempotency} 的 {@code uk_api_idem (user_id, key_value)} 唯一键。
- */
+
+
+
+
+
+
 public interface ApiIdempotencyService {
 
-	/** key_value 列宽（varchar(128)），超了要退化处理 */
+
 	int MAX_KEY_LENGTH = 128;
 
 	/**

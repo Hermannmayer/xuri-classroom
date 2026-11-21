@@ -2,17 +2,17 @@ import { useReducedMotion } from './hooks';
 import { ChartEmpty } from './State';
 
 export interface ProgressRingProps {
-  /** 0~100 的百分数；null = 算不出来（例如 0/0），显示 — */
+
   percent: number | null | undefined;
-  /** 圆环下方的标题 */
+
   label?: string;
-  /** 额外的说明行（例如「已批 120 / 待批 8」） */
+
   hint?: string;
-  /** 直径（px），默认 132 */
+
   height?: number;
-  /** 主色，默认 var(--bp-blue) */
+
   color?: string;
-  /** 中心数字的小数位，默认 1 */
+
   digits?: number;
   loading?: boolean;
   error?: string | null;

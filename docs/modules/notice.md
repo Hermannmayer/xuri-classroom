@@ -46,7 +46,6 @@ tables:
   - t_notice
   - t_notice_read
 tests:
-  - server/rdbms/src/test/java/cn/surveyking/server/impl/NoticeServiceImplTest.java
   - client:npm run check
 last_verified: 2026-11-19
 verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3

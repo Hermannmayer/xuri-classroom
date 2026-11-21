@@ -2,7 +2,7 @@
  * 未交名单：数据页把「交卷状态」切成「未交」时，列表位置换成这块。
  *
  * <p>数据来自 /api/teaching/classes/unsubmitted（班级在册学员 减 本卷已交答卷），
- * 跟答卷列表不是同一份数据，所以这里单独取数：没有班级就无从统计，直接给提示而不是发一个必然失败的请求。
+
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, App, Button, Empty, Space, Spin, Table, Tag } from 'antd';
@@ -11,23 +11,23 @@ import { CopyOutlined, ReloadOutlined } from '@ant-design/icons';
 import { get } from '../../../api';
 import { EMPTY } from './format';
 
-/** 与后端 UnsubmittedMemberView 对齐 */
+
 interface UnsubmittedMember {
   id: string;
   name?: string;
   phone?: string;
 }
 
-/**
- * 与后端 UnsubmittedStudentView 对齐。
- *
- * <p>total / submitted 都是**班级全体**口径，list 只放没交的人（后端最多回 500 条，
- * 所以 list.length 不一定是全部未交人数，展示时以 total - submitted 为准）。
- */
+
+
+
+
+
+
 interface UnsubmittedResult {
-  /** 班级学员总数（主组 + 兼报组） */
+
   total?: number;
-  /** 其中已在项目里正式交卷的人数 */
+
   submitted?: number;
   list?: UnsubmittedMember[];
 }
@@ -43,7 +43,7 @@ export default function UnsubmittedPanel({
   mobile,
 }: {
   projectId: string;
-  /** 空 = 没选班级，无从统计 */
+
   classId?: string;
   mobile: boolean;
 }) {
@@ -94,7 +94,7 @@ export default function UnsubmittedPanel({
       await navigator.clipboard.writeText(text);
       message.success(`已复制 ${list.length} 人的名单`);
     } catch {
-      // 非 https / 旧浏览器拿不到剪贴板权限：给一条可自己选的提示，别假装复制成功
+
       message.warning('当前环境不能自动复制，请手动选择表格内容');
     }
   };
@@ -122,10 +122,10 @@ export default function UnsubmittedPanel({
     },
   ];
 
-  /**
-   * 未交人数：班级全体口径（total - submitted）。名单被后端截断（>500 人）时 list.length 偏小，
-   * 用 max 兜一下，至少不会比实际列出的人还少。
-   */
+
+
+
+
   const unsubmittedCount = total === undefined ? list.length : Math.max(total - submitted, list.length);
 
   if (!classId) {

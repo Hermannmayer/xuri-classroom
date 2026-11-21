@@ -56,19 +56,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# ---------------------------------------------------------------- 默认值（NAS 实测路径）
-CONTAINER="${XURI_CONTAINER:-surveyking}"           # 手工 docker run 起的生产容器
+
+CONTAINER="${XURI_CONTAINER:-surveyking}"
 DATA_DIR="${XURI_LEGACY_DATA_DIR:-/vol2/1000/surveyking}"
 BACKUP_DIR="${BACKUP_DIR:-/vol2/1000/xuri/backup}"
 RETENTION=14
-HEALTH_URL="${XURI_HEALTH_URL:-http://127.0.0.1:201/api/system}"   # 学校现在走宿主机 201
+HEALTH_URL="${XURI_HEALTH_URL:-http://127.0.0.1:201/api/system}"
 HEALTH_TIMEOUT="${XURI_HEALTH_TIMEOUT:-120}"
-MODE="stop"          # stop | hot
+MODE="stop"
 INCLUDE_LOGS=0
 VERIFY=1
 DRY_RUN=0
 ASSUME_CONFIRM=0
-MIN_FREE_MB="${XURI_MIN_FREE_MB:-1024}"   # 除本次所需空间外，额外留 1GB
+MIN_FREE_MB="${XURI_MIN_FREE_MB:-1024}"
 
 # ---------------------------------------------------------------- 输出助手
 log()  { printf '[信息] %s\n' "$*"; }
@@ -97,7 +97,7 @@ usage() {
 USAGE
 }
 
-# ---------------------------------------------------------------- 参数解析
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output|--backup-dir|--output-dir)
@@ -134,7 +134,7 @@ done
 [[ "$MIN_FREE_MB" =~ ^[0-9]+$ ]] || die "XURI_MIN_FREE_MB 必须是整数兆：$MIN_FREE_MB" 1
 [[ -n "$BACKUP_DIR" ]] || die "备份目录不能为空" 1
 
-# ---------------------------------------------------------------- 运行期状态
+
 STAGE=""
 STOPPED_BY_US=0
 T0=0
@@ -149,7 +149,7 @@ health_once() {
     if wget -q -T 5 -O /dev/null "$HEALTH_URL" >/dev/null 2>&1; then return 0; fi
     return 1
   fi
-  return 0   # 没有探测工具，视为通过（调用方会打印提示）
+  return 0
 }
 
 wait_health() {
@@ -233,7 +233,7 @@ EOF
   exit 1
 }
 
-# ---------------------------------------------------------------- 前置检查
+
 command -v docker >/dev/null 2>&1 || die "找不到 docker 命令（本脚本必须在 NAS 宿主机上跑）" 1
 docker info >/dev/null 2>&1 || die "docker 守护进程不可用：检查 Docker 服务是否在运行（systemctl status docker）" 1
 command -v tar >/dev/null 2>&1 || die "找不到 tar 命令" 1
@@ -250,7 +250,7 @@ if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
   warn "找不到容器 $CONTAINER（容器名不同或首次使用？）。将只备份宿主机目录，不做停机动作。"
 fi
 
-# 空间检查：所需 ≈ 未压缩数据大小 + 余量（tar.gz 会压缩，按未压缩算最保守）
+
 NEED_KB=0
 for sub in db files config logs; do
   if [[ "$sub" == "logs" && "$INCLUDE_LOGS" -ne 1 ]]; then continue; fi
@@ -269,7 +269,7 @@ else
   warn "无法读取 $BACKUP_DIR 的剩余空间，跳过空间检查"
 fi
 
-# ---------------------------------------------------------------- 暂存目录（放备份目录内，同文件系统）
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 ARCHIVE="$BACKUP_DIR/backup_${STAMP}.tar.gz"
 suffix=2
@@ -277,11 +277,11 @@ while [[ -e "$ARCHIVE" ]]; do
   ARCHIVE="$BACKUP_DIR/backup_${STAMP}-r${suffix}.tar.gz"
   suffix=$((suffix + 1))
 done
-# 暂存目录名必须能被 cleanup 的白名单模式 *xuri_nas_backup* 匹配，否则退出时不会自动清理
+
 STAGE="$BACKUP_DIR/.tmp_xuri_nas_backup_${STAMP}_$$"
 COMPONENTS=()
 
-# ---------------------------------------------------------------- 采集元信息
+
 CONTAINER_IMAGE="unknown"
 CONTAINER_IMAGE_ID="unknown"
 CONTAINER_PORTS="无端口映射"
@@ -292,13 +292,13 @@ if [[ "$CONTAINER_EXISTS" -eq 1 ]]; then
   CONTAINER_IMAGE_ID="$(docker inspect -f '{{.Image}}' "$CONTAINER" 2>/dev/null || echo unknown)"
   CONTAINER_PORTS="$(docker port "$CONTAINER" 2>/dev/null | tr '\n' ' ' || true)"
   CONTAINER_PORTS="${CONTAINER_PORTS:-无端口映射}"
-  # 只记录非敏感环境变量，绝不打库密码、加密密钥、JWT 密钥
+
   CONTAINER_ENV_SUMMARY="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER" 2>/dev/null \
     | grep -E '^(PROFILE|SPRING_PROFILES_ACTIVE|SERVER_PROFILES_ACTIVE|SERVER_PORT|TZ|JAVA_OPTS|JAVA_TOOL_OPTIONS)=' || true)"
   if exists_running; then WAS_RUNNING=1; fi
 fi
 
-# ---------------------------------------------------------------- 计划打印
+
 echo
 log "================ 备份计划 ================"
 log "容器            : $CONTAINER（存在=$([[ $CONTAINER_EXISTS -eq 1 ]] && echo 是 || echo 否)，备份前运行中=$([[ $WAS_RUNNING -eq 1 ]] && echo 是 || echo 否)）"
@@ -351,11 +351,11 @@ tar_component() {
 mkdir -p "$STAGE"
 
 if [[ "$MODE" == "stop" && "$WAS_RUNNING" -eq 1 ]]; then
-  # ---- 短暂停机：只覆盖 db 目录 ----
+
   confirm_gate
   T0=$SECONDS
   log "[动作] docker stop --time 30 $CONTAINER"
-  # 先置位：即使 stop 行为异常（超时/部分成功），退出时也会尝试拉起
+
   STOPPED_BY_US=1
   if ! docker stop --time 30 "$CONTAINER" >/dev/null; then
     die "docker stop $CONTAINER 失败；容器状态未知，未做任何拷贝。请先手工检查：docker ps -a --filter name=$CONTAINER" 2
@@ -373,12 +373,12 @@ if [[ "$MODE" == "stop" && "$WAS_RUNNING" -eq 1 ]]; then
   tar_component db "$STAGE/db.tar.gz" || die "打包 H2 目录失败（$DATA_DIR/db）" 2
   COMPONENTS+=("db.tar.gz")
 
-  # 立即恢复生产；压缩/校验等耗时动作全部放到恢复之后
+
   log "[动作] docker start $CONTAINER"
   if ! docker start "$CONTAINER" >/dev/null; then
     err "启动容器失败！生产当前处于停止状态。"
     err "请立刻执行：docker start $CONTAINER && docker logs --tail 100 $CONTAINER"
-    STOPPED_BY_US=0   # 避免 trap 重复尝试掩盖真实错误
+    STOPPED_BY_US=0
     exit 3
   fi
   STOPPED_BY_US=0
@@ -390,7 +390,7 @@ if [[ "$MODE" == "stop" && "$WAS_RUNNING" -eq 1 ]]; then
     warn "健康检查 ${HEALTH_TIMEOUT}s 内未通过，请人工确认：curl -fsS $HEALTH_URL"
   fi
 else
-  # ---- 容器本来就没运行，或 --hot 模式 ----
+
   if [[ "$MODE" == "hot" && "$WAS_RUNNING" -eq 1 ]]; then
     warn "=================================================================="
     warn "--hot 模式：容器保持运行，直接拷贝 H2 目录"
@@ -408,7 +408,7 @@ else
   COMPONENTS+=("db.tar.gz")
 fi
 
-# ---- 附件 / 配置 / 日志（此时生产已恢复，不影响停机窗口）----
+
 MISSING_NOTES=""
 for sub in files config; do
   if [[ -d "$DATA_DIR/$sub" ]]; then
@@ -431,7 +431,7 @@ if [[ "$INCLUDE_LOGS" -eq 1 ]]; then
   fi
 fi
 
-# ---------------------------------------------------------------- manifest + 校验和
+
 log "生成 manifest.txt 与 SHA256SUMS"
 {
   echo "# 旭日云课堂 · NAS 生产备份清单"
@@ -469,7 +469,7 @@ if ((${#COMPONENTS[@]} > 0)); then
   ( cd "$STAGE" && sha256sum "${COMPONENTS[@]}" > SHA256SUMS )
 fi
 
-# ---------------------------------------------------------------- 生成归档
+
 log "生成归档：$ARCHIVE"
 tar -czf "$ARCHIVE" -C "$STAGE" .
 
@@ -480,11 +480,11 @@ if [[ "$VERIFY" -eq 1 ]]; then
   fi
 fi
 
-# 归档旁的旁挂文件（不解包就能核对/查看）
+
 ( cd "$BACKUP_DIR" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256" )
 cp -f "$STAGE/manifest.txt" "$ARCHIVE.manifest.txt"
 
-# ---------------------------------------------------------------- 保留策略
+
 log "应用保留策略：保留最近 $RETENTION 份 backup_*.tar.gz"
 KEEP_FROM=$((RETENTION + 1))
 OLD_LIST=""
@@ -492,7 +492,7 @@ OLD_LIST="$(ls -1t -- "$BACKUP_DIR"/backup_*.tar.gz 2>/dev/null | tail -n +"$KEE
 if [[ -n "$OLD_LIST" ]]; then
   while IFS= read -r old; do
     [[ -n "$old" && -f "$old" ]] || continue
-    [[ "$old" == "$ARCHIVE" ]] && continue      # 绝不删刚生成的这份
+    [[ "$old" == "$ARCHIVE" ]] && continue
     log "清理旧备份：$(basename "$old")"
     rm -f -- "$old" "$old.sha256" "$old.manifest.txt" || warn "删除旧备份失败：$old"
   done <<< "$OLD_LIST"

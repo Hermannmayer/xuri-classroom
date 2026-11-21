@@ -8,14 +8,14 @@
         <module>shared</module>
         <module>rdbms</module>
         <module>ai</module>
-        <!--        <module>flow</module>-->
+
     </modules>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>2.7.7</version>
         <relativePath/>
-        <!-- lookup parent from repository -->
+
     </parent>
     <groupId>cn.surveyking</groupId>
     <artifactId>survey-server</artifactId>
@@ -37,7 +37,7 @@
                 <artifactId>commons-lang3</artifactId>
                 <version>3.0</version>
             </dependency>
-            <!--滑动验证码-->
+
             <dependency>
                 <groupId>com.anji-plus</groupId>
                 <artifactId>spring-boot-starter-captcha</artifactId>
@@ -133,7 +133,7 @@
                             <version>${org.projectlombok.version}</version>
                         </path>
 
-                        <!-- additional annotation processor required as of Lombok 1.18.16 -->
+
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok-mapstruct-binding</artifactId>

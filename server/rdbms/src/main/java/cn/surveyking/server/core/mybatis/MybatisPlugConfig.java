@@ -8,10 +8,10 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 @Configuration
 @MapperScan("cn.surveyking.server.mapper")
 public class MybatisPlugConfig {
@@ -20,7 +20,7 @@ public class MybatisPlugConfig {
 
 	public MybatisPlugConfig(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
-		// 允许 MybatisPlus 使用配置的 ObjectMapper 来操作 json
+
 		Jackson3TypeHandler.setObjectMapper(objectMapper);
 	}
 
@@ -35,10 +35,10 @@ public class MybatisPlugConfig {
 		return interceptor;
 	}
 
-	// @Bean
-	// public ConfigurationCustomizer configurationCustomizer() {
-	// return configuration ->{
-	// };
-	// }
+
+
+
+
+
 
 }

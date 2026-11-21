@@ -3,14 +3,14 @@
  *
  * 之前是两套：外壳（BasicLayout）一套 6 档 zoom，练习/答题页又各自维护 fontScale，
  * 于是首页和答题页的缩放比例、档位都不一样。现在统一成 4 档，写进 localStorage，
- * 启动时直接作用在 <html> 上（所以公开答题页也一致）。
+
  */
 export const ZOOM_PRESETS = [0.9, 1, 1.15, 1.3] as const;
 export const ZOOM_MIN = ZOOM_PRESETS[0];
 export const ZOOM_MAX = ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
 export const ZOOM_KEY = 'sk-zoom';
 
-/** 就近吸附到某个档位，避免历史值（如 1.1 / 1.5）落在档位之间 */
+
 export function snapZoom(value: number): number {
   if (!Number.isFinite(value)) return 1;
   let best: number = ZOOM_PRESETS[1];

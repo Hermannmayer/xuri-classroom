@@ -29,18 +29,18 @@ import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 用户查询：列表、候选项、分组、协作者、我的任务。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的查询块，全部只读。分页不再继承 {@code ServiceImpl}：
- * {@link #pageByQuery(PageQuery, Wrapper)} 与 {@code BaseService#pageByQuery} 等价
- * （同样是 new Page + {@code baseMapper.selectPage}）。
- *
- * <p>
- * 「取当前用户实时信息」一律走 {@link UserAuthService#buildUserInfo(String)}（不带缓存），
- * 与原来 {@code getUsersByGroup} 里自调用 {@code loadUserById} 的效果一致。
- */
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class UserQueryService {
@@ -77,9 +77,9 @@ public class UserQueryService {
 		List<String> orgIds = deptService.getChildOrgIds(query.getDeptId());
 		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery()
 				.like(isNotBlank(query.getName()), User::getName, query.getName())
-				// 用户管理与班级管理各看各的：staff / student
+
 				.eq(isNotBlank(query.getUserType()), User::getUserType, query.getUserType())
-				// 状态筛选：待审核学员列表用 status=0；不传则查全部
+
 				.eq(query.getStatus() != null, User::getStatus, query.getStatus())
 				.exists(isNotBlank(query.getRoleId()),
 						"select 1 from t_user_role t where t.user_id = t_user.id and t.role_id = {0}",
@@ -89,13 +89,13 @@ public class UserQueryService {
 						query.getNeRoleId())
 				.in(query.getIds() != null, User::getId,
 						Arrays.asList(query.getIds() != null ? query.getIds() : new String[0]));
-		// 一人多组：按组筛选时主组或附加组命中都算，否则加进附加组的人在这个列表里「搜不到」
+
 		deptService.applyUserDeptScope(userQuery, orgIds);
-		// 数据范围：非管理员只看自己组链下的用户 + 自己建的账号（管理员全量）
+
 		deptService.applyCurrentUserDataScope(userQuery);
 		Page<User> userPage = pageByQuery(query, userQuery);
 		List<User> records = userPage.getRecords();
-		// 一人多组：整页一次性取出附加组与组名，避免每行再查库
+
 		List<String> userIds = records.stream().map(User::getId).filter(StringUtils::hasText)
 				.collect(Collectors.toList());
 		Map<String, List<String>> extraDeptIdsByUser = new HashMap<>();
@@ -125,7 +125,7 @@ public class UserQueryService {
 					.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
 			userView.setUsername(account.getAuthAccount());
 			userView.setStatus(account.getStatus());
-			// 设置用户部门（deptName 仍是主组名；附加组单独给 deptIds/deptNames）
+
 			if (StringUtils.hasText(x.getDeptId())) {
 				userView.setDeptName(deptNameById.getOrDefault(x.getDeptId(), x.getDeptId()));
 			}
@@ -133,12 +133,12 @@ public class UserQueryService {
 			userView.setDeptIds(extraDeptIds);
 			userView.setDeptNames(extraDeptIds.stream().map(deptId -> deptNameById.getOrDefault(deptId, deptId))
 					.collect(Collectors.toList()));
-			// 设置用户角色
+
 			userView.setRoles(
 					userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, x.getId()))
 							.stream().map(userRole -> roleViewMapper.toView(roleService.getById(userRole.getRoleId())))
 							.collect(Collectors.toList()));
-			// 设置用户岗位
+
 			userView.setUserPositions(userPositionDtoMapper.toView(userPositionMapper
 					.selectList(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, x.getId()))));
 			return userView;
@@ -183,15 +183,15 @@ public class UserQueryService {
 		}
 		LambdaQueryWrapper<User> userQuery = Wrappers.<User>lambdaQuery().select(User::getId)
 				.like(StringUtils.hasText(request.getName()), User::getName, request.getName());
-		// 一人多组：协作者候选按组筛选时，附加组命中的用户也要出现
+
 		deptService.applyUserDeptScope(userQuery, StringUtils.hasText(request.getDeptId()) ? list : Collections.emptyList());
 		List<User> users = userMapper.selectList(userQuery);
 		List<UserInfo> result = Stream.concat(users.stream().map(user -> user.getId()), request.getSelected().stream())
 				.collect(Collectors.toSet()).stream()
 				.map(userId -> ContextHelper.getBean(UserService.class).loadUserById(userId))
 				.collect(Collectors.toList());
-		// 协作者候选：只留具备协作权限的账号（默认 project:create），学员会被过滤掉。
-		// 注意必须在 simpleMode() 之前判断——simpleMode 会剥掉 authorityList。
+
+
 		if (Boolean.TRUE.equals(request.getCollaboratorOnly())) {
 			String required = resolveCollaboratorAuthority();
 			result = result.stream().filter(user -> hasCollaboratorAuthority(user, required))
@@ -210,7 +210,7 @@ public class UserQueryService {
 			}
 		}
 		catch (Exception ignored) {
-			// 读系统设置失败不影响用户列表，退回默认值
+
 		}
 		return "project:create";
 	}
@@ -225,25 +225,25 @@ public class UserQueryService {
 
 	public Set<String> getUserGroups(String userId) {
 		Set<String> groups = new LinkedHashSet<>();
-		// 获取用户的系统角色
+
 		userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId)).forEach(role -> {
 			groups.add("R:" + role.getRoleId());
 		});
-		// 获取用户的用户岗位
+
 		userPositionMapper.selectList(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, userId))
 				.forEach(userPosition -> {
 					groups.add("P:" + userPosition.getDeptId() + ":" + userPosition.getPositionId());
 					groups.add("P:" + "ALL:" + userPosition.getPositionId());
 					groups.add("P:" + userPosition.getDeptId() + ":ALL");
 				});
-		// User current = getById(userId);
+
 		groups.add("U:" + userId);
-		// groups.add("P:" + current.getOrgId() + ":");
+
 		return groups;
 	}
 
 	public Set<String> getUsersByGroup(String groupId, String currentUser) {
-		// 获取角色下面的所有用户
+
 		if (groupId.startsWith("R:")) {
 			return userRoleMapper
 					.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getRoleId, groupId.split(":")[1]))
@@ -347,7 +347,7 @@ public class UserQueryService {
 						taskView.setEndTime(answer.getMetaInfo().getAnswerInfo().getEndTime());
 					}
 					catch (Exception e) {
-						// ignore error
+
 					}
 					return taskView;
 				}).collect(Collectors.toList()));

@@ -7,7 +7,7 @@
  *   只让设计者看到这块区域长什么样。
  *
  * 文件名回显：答案里只有 fileId，后端没有「按 id 列表给匿名用户查文件名」的接口，
- * 所以本次会话刚上传的文件名 / 是否图片记在内存缓存里（同 Signature 的 previewCache 思路）；
+
  * 刷新页面后认不出的文件先按图片试一次，加载失败再退回「附件 N + 下载链接」，不留破图。
  */
 import { useRef, useState } from 'react';
@@ -20,27 +20,27 @@ import { blankId } from './answers';
 import { QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 import '../../styles/upload.css';
 
-/* ------ 常量 ------ */
 
-/** 后端 AppConsts.FileType.ANSWER_ATTACHMENT */
+
+
 const FILE_TYPE_ANSWER_ATTACHMENT = 4;
 
-/** 默认允许的类型：图片 + 常见办公文档。accept 只是浏览器的筛选提示，真正的白名单在服务端 */
+
 const DEFAULT_ACCEPT = 'image/*,.pdf,.doc,.docx,.xls,.xlsx';
 
-/** 题目没配 maxFileSize / maxFileCount 时的兜底（与设计器建题的默认值一致） */
+
 const DEFAULT_MAX_SIZE_MB = 5;
 const DEFAULT_MAX_COUNT = 1;
 
-/** 回显缓存上限：只缓存本次会话刚上传的文件，够用又不会一直涨 */
+
 const FILE_CACHE_LIMIT = 50;
 
-/** 图片扩展名：按钮文案（选择图片/选择文件）和「拿不到 MIME 时按扩展名判断」都用它 */
+
 const IMAGE_EXT = /^(jpe?g|png|gif|bmp|webp|svg)$/i;
 
-/* ------ 类型 ------ */
 
-/** 上传成功后缓存的展示信息：答案里只有 fileId，名字和是否图片只能记在内存里 */
+
+
 interface FileMeta {
   name: string;
   image: boolean;
@@ -52,7 +52,7 @@ interface UploadedFile {
   image: boolean;
 }
 
-/* ------ 回显缓存 ------ */
+
 
 const fileCache = new Map<string, FileMeta>();
 
@@ -70,8 +70,8 @@ function previewUrl(fileId: string): string {
 
 /**
  * 答案 → 文件 id 列表。
- * 正式格式是 { 空位id: [fileId, ...] }；同时兼容签名那样的单值 { 空位id: fileId }，
- * 以及早期/手写数据用题目 id 当 key 的情况（不能因为 key 不同就当成没答）。
+
+
  */
 function fileIdsOf(answer: AnswerValue, blank: string): string[] {
   if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return [];
@@ -81,7 +81,7 @@ function fileIdsOf(answer: AnswerValue, blank: string): string[] {
   const list = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
   const ids: string[] = [];
   for (const item of list) {
-    // 去空、去重：后端按 id 列表取附件，重复 id 会在回显里出现两张一样的卡片
+
     if (typeof item === 'string' && item && !ids.includes(item)) ids.push(item);
   }
   return ids;
@@ -107,14 +107,14 @@ function normalizeAccept(raw?: string): string {
     .filter(Boolean);
   const normalized: string[] = [];
   for (const token of tokens) {
-    // '*.png' / 'png' / '.png' 都归一成 '.png'
+
     const item = token.includes('/') ? token : '.' + token.replace(/^\*?\.?/, '');
     if (item !== '.' && !normalized.includes(item)) normalized.push(item);
   }
   return normalized.length ? normalized.join(',') : DEFAULT_ACCEPT;
 }
 
-/** accept 只含图片时按钮说「选择图片」，否则说「选择文件」 */
+
 function imageOnly(accept: string): boolean {
   return accept.split(',').every((token) => {
     const item = token.trim().toLowerCase();
@@ -128,8 +128,8 @@ function imageOnly(accept: string): boolean {
 export default function Upload(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
   const { message } = App.useApp();
-  // 答题页和后端补录都把项目 id 放在路由参数 id 上（/s/:id、/survey/:id/data），
-  // 上传接口需要它来定位项目；设计器里没有，这里只能是空串。
+
+
   const params = useParams<{ id?: string }>();
   const projectId = params.id ?? '';
   const [answer, setAnswer] = useAnswerState(props);
@@ -137,8 +137,8 @@ export default function Upload(props: QuestionComponentProps) {
   const fileIds = fileIdsOf(answer, blank);
   const locked = mode !== 'answer' || Boolean(disabled);
 
-  // 上限优先取题目自身属性（设计器把这个写在 attribute 上）；空位节点上的属性是后端
-  // getUploadAttribute 的首选，老数据/导入数据可能只有它，作为兜底 —— 都没配就用默认的 5MB / 1 个
+
+
   const blankAttr = schema.children?.[0]?.attribute;
   const maxCount = Math.max(
     1,
@@ -148,11 +148,11 @@ export default function Upload(props: QuestionComponentProps) {
   const accept = normalizeAccept(schema.attribute?.fileAccept ?? blankAttr?.fileAccept);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-  /** 上传中的同步闸门：state 要等下一次渲染才更新，同一帧里来第二个 change 会并发写答案 */
+
   const uploadingRef = useRef(false);
-  /** 上传进度：一次可能选好几个文件，按钮上显示「已完成/总数」 */
+
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
-  /** 预览失败的文件（被删 / 无权限 / 根本不是能直接渲染的图片）：退回文件行，不留破图 */
+
   const [broken, setBroken] = useState<Record<string, boolean>>({});
   const full = fileIds.length >= maxCount;
 
@@ -173,8 +173,8 @@ export default function Upload(props: QuestionComponentProps) {
     return {
       id: uploaded.id,
       name: uploaded.originalName || file.name,
-      // 上传时能拿到 MIME：比按扩展名猜准，也避免把 PDF/表格塞进 <img>；
-      // 个别环境拿不到 MIME（type 为空）时退回看扩展名，否则照片会显示成普通附件
+
+
       image: file.type ? file.type.startsWith('image/') : IMAGE_EXT.test(extension),
     };
   };
@@ -199,7 +199,7 @@ export default function Upload(props: QuestionComponentProps) {
    */
   const handlePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
-    // 同一个文件重选也要能触发 onChange：立刻清空，不依赖浏览器下次自动重置
+
     event.target.value = '';
     if (!files.length || locked || uploadingRef.current) return;
     if (!projectId) {
@@ -226,7 +226,7 @@ export default function Upload(props: QuestionComponentProps) {
         try {
           uploaded = await uploadOne(file);
         } catch (error) {
-          // 已成功的文件不回滚；这一份失败就停下（继续试多半是撞限流/项目状态，只会连累后面的）
+
           message.error(`${file.name}：${(error as Error).message || '上传失败，请重试'}`);
           break;
         }
@@ -244,7 +244,7 @@ export default function Upload(props: QuestionComponentProps) {
   const removeFile = (fileId: string) => {
     if (locked || uploading) return;
     const next = fileIds.filter((id) => id !== fileId);
-    // 一个都不剩时写空对象：答题页的必填校验走 isEmptyAnswer，{ 空位id: [] } 会被当成「已答」
+
     setAnswer(next.length ? { [blank]: next } : {});
   };
 
@@ -255,7 +255,7 @@ export default function Upload(props: QuestionComponentProps) {
     : full
       ? `已达上限，最多上传 ${maxCount} 个文件`
       : `单个文件不超过 ${maxSizeMb} MB，最多 ${maxCount} 个文件`;
-  // 数量上限只有一个时不给 input 开 multiple，选文件面板里就不会出现多选
+
   const multiple = maxCount > 1;
   const { labelId, descId } = questionA11yIds(schema);
 
@@ -267,7 +267,7 @@ export default function Upload(props: QuestionComponentProps) {
             {fileIds.map((fileId, index) => {
               const meta = fileCache.get(fileId);
               const name = meta?.name || `附件 ${index + 1}`;
-              // 有元信息就按元信息渲染；刷新后认不出的先当图片试一次，onError 再退回文件行
+
               const asImage = !broken[fileId] && (meta ? meta.image : true);
               return (
                 <li className="sk-upload-item" key={fileId}>

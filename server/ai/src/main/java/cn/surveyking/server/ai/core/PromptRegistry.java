@@ -12,24 +12,24 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 提示词模板 + 版本。
- *
- * <p>为什么不把提示词写成 Java 常量：提示词的调整频率远高于代码，写成 {@code prompts/*.md}
- * 之后「改一句话」不必重新想一遍转义，也方便日后做「A/B 两版提示词」。
- *
- * <p>约定：
- * <ul>
- * <li>模板放 {@code server/ai/src/main/resources/prompts/&lt;id&gt;.md}；</li>
- * <li>首行写 {@code version: x.y}，改提示词就要改版本号——出问题时至少能回答「当时用的是哪一版」；</li>
- * <li>{@link #render} 把 {@code {{变量名}}} 换成实际值，未提供的变量替换成空串。</li>
- * </ul>
- *
- * <p>版本号目前只写进应用日志（{@code t_ai_usage} 没有 prompt 版本列，P4 不动表结构）；
- * 需要精确对账时按日志里的 {@code prompt=paper-generate@1.0} 反查。
- *
- * @author p4-backend
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @Slf4j
 public class PromptRegistry {
@@ -40,7 +40,7 @@ public class PromptRegistry {
 
 	private static final String VERSION_PREFIX = "version:";
 
-	/** id → 模板（进程内缓存，模板不会在运行时变） */
+
 	private final Map<String, Template> templates = new ConcurrentHashMap<>();
 
 	/**
@@ -100,7 +100,7 @@ public class PromptRegistry {
 		if (firstLine.toLowerCase().startsWith(VERSION_PREFIX)) {
 			version = firstLine.substring(VERSION_PREFIX.length()).trim();
 			body = firstLineEnd < 0 ? "" : content.substring(firstLineEnd + 1);
-			// 版本行下面通常有一个空行，去掉，别让提示词以空行开头
+
 			while (body.startsWith("\n")) {
 				body = body.substring(1);
 			}
@@ -109,7 +109,7 @@ public class PromptRegistry {
 		return new Template(version, body);
 	}
 
-	/** 一个模板：版本 + 正文（已去掉版本行） */
+
 	private static final class Template {
 
 		private final String version;

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { get, post } from '../../api';
 import type { RegisterOptions, SystemInfo } from '../../api';
 
-/** 注册成功后的回执：不再立刻跳走，先让学员看清「等谁审核、用什么登录」 */
+
 interface SubmittedInfo {
   phone: string;
   className: string;
@@ -49,7 +49,7 @@ export default function Register() {
     };
   }, []);
 
-  // 只有一个班开放时直接选上，少一步操作；多个班必须自己选
+
   useEffect(() => {
     if (classes.length === 1 && !form.getFieldValue('classId')) {
       form.setFieldValue('classId', classes[0].id);
@@ -65,7 +65,7 @@ export default function Register() {
     const target = classes.find((item) => item.id === values.classId);
     setSaving(true);
     try {
-      // 手机号直接作为登录账号，后端注册接口的 username 即手机号
+
       await post('/api/public/register', {
         deptId: values.classId,
         username: values.phone.trim(),
@@ -93,7 +93,7 @@ export default function Register() {
   }
 
   const shell = (children: ReactNode) => (
-    // dvh：移动端地址栏收放时 100vh 会把居中的三步表单顶出去一半
+
         <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <Card style={{ width: 470, maxWidth: '100%' }} className="bp-corners">
         <div style={{ marginBottom: 16 }}>
@@ -185,8 +185,8 @@ export default function Register() {
         className="sk-register-steps"
         style={{
           display: 'grid',
-          // 三列在 390px 上每列只有 ~100px，「填手机号/姓名/密码」被压成 4 行；
-          // 窄屏由 .sk-register-steps 切成单列
+
+
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 8,
           marginBottom: 18,

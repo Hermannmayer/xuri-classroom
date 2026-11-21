@@ -15,7 +15,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. 加列（MySQL 8 不支持 ADD COLUMN IF NOT EXISTS，用 information_schema 判一下）
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_user' AND COLUMN_NAME = 'user_type'
@@ -27,7 +27,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. 回填：只把明确的教职工改成 staff，其余保持/落回 student
+
 UPDATE t_user u
 SET u.user_type = 'staff'
 WHERE u.is_deleted = 0
@@ -54,7 +54,7 @@ WHERE u.is_deleted = 0
 
 UPDATE t_user SET user_type = 'student' WHERE user_type IS NULL OR user_type = '';
 
--- 3. 自检
+
 SELECT user_type, COUNT(*) AS cnt FROM t_user WHERE is_deleted = 0 GROUP BY user_type;
 SELECT u.id, u.name, u.user_type, r.code AS role_code
 FROM t_user u

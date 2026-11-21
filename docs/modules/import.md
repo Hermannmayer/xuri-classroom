@@ -28,7 +28,6 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/PaperImportRecordRequest.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoTemplateRequest.java
-  - server/shared/src/test/java/cn/surveyking/server/core/importer/**
   - server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx
   - server/api/src/main/resources/template/旭日云课堂试卷导入模板.docx
 entrypoints:
@@ -47,7 +46,7 @@ tables:
   - t_template
 tests:
   - client:npx tsc --noEmit
-  - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
+  - server:gradlew :shared:test
 last_verified: 2026-11-19
 verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 ---

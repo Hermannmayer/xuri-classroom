@@ -11,10 +11,10 @@ import org.springframework.cache.annotation.Cacheable;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/1/28
- */
+
+
+
+
 public interface ProjectPartnerService {
 
 	PaginationResponse<ProjectPartnerView> listProjectPartner(ProjectPartnerQuery query);
@@ -27,11 +27,11 @@ public interface ProjectPartnerService {
 			key = "T(cn.surveyking.server.core.uitls.SecurityContextUtils).getUserId()")
 	void deleteProjectPartner(ProjectPartnerRequest request);
 
-	/**
-	 * 调整某个协作者的授权级别（1 只读 / 2 可编辑 / 3 可授权）。
-	 *
-	 * <p>只有「可授权」（access_level=3）的人能调；只允许改 type=2 的协作者记录。
-	 */
+
+
+
+
+
 	@CacheEvict(cacheNames = CacheConsts.projectPermissionCacheName,
 			key = "T(cn.surveyking.server.core.uitls.SecurityContextUtils).getUserId()")
 	void updateProjectPartner(ProjectPartnerRequest request);

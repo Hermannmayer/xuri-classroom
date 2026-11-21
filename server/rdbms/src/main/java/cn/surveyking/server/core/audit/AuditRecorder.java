@@ -20,55 +20,55 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * 统一审计：把所有「写操作」记进 t_audit_log。
- *
- * <p>之前只有查询服务、没有写入方，所以「操作日志」页面永远是空的；导出题库那些动作也
- * 只在文档里写过、代码里没实现。这里用 AOP 统一兜住：
- *
- * <ul>
- * <li>范围：`cn.surveyking.server.api` 下所有 `@PostMapping/@PutMapping/@DeleteMapping/@PatchMapping`</li>
- * <li>排除：`/api/public/**`（登录、公开答题、暂存草稿，量大且无审计价值）与 `/api/captcha/**`</li>
- * <li>记录：动作码（由 URI 生成）、目标 id（反射取参数里的 id）、失败原因、操作人、IP</li>
- * </ul>
- *
- * <p>2.2.3 起（计划 §5）补三样东西，回答「改前是什么、改后是什么、从哪个入口进来的」：
- * <ul>
- * <li>{@link #recordWithDiff}：高危动作写 before/after 快照，序列化后超过 2KB 截断；</li>
- * <li>{@code source}：`/api/mcp/**` 记 mcp，其余 web；</li>
- * <li>{@code request_id}：MDC 或请求头 `X-Request-Id`，都没有就不写。</li>
- * </ul>
- *
- * <p>审计写失败绝不影响业务：所有异常都被吞掉，只打日志。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AuditRecorder {
 
 	private static final Logger log = LoggerFactory.getLogger(AuditRecorder.class);
 
-	/** 快照落库的体积上限（字节）：超过就截断，别把整份 schema 塞进审计表 */
+
 	static final int SNAPSHOT_MAX_BYTES = 2048;
 
-	/** 截断后保留的预览长度（字节）：留出余量给 JSON 外壳，保证整串仍在 2KB 以内 */
+
 	private static final int SNAPSHOT_PREVIEW_BYTES = 1500;
 
-	/** request_id 在 MDC 里可能出现的 key；约定尚未统一，按顺序兜底 */
+
 	private static final String[] REQUEST_ID_MDC_KEYS = { "requestId", "request_id", "traceId", "trace_id" };
 
-	/** 同一次请求的关联 id 也可以由调用方通过请求头带进来 */
+
 	private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
-	/**
-	 * MCP 入口前缀（判定前已去掉 /api）：P5 的 MCP Server 端点就是 {@code POST /mcp}，
-	 * 同时兼容历史约定的 {@code /api/mcp/**}——两种写法归一化后都以 /mcp 开头，
-	 * 所以「操作日志」里能筛出 {@code source=mcp}，不会混进 web。
-	 */
+
+
+
+
+
 	private static final String MCP_PREFIX = "/mcp";
 
 	private final AuditLogMapper auditLogMapper;
 
-	/** 高危动作快照序列化用：注入容器里的 Jackson 3 ObjectMapper，保持与其它 JSON 字段一致 */
+
 	private final ObjectMapper objectMapper;
 
 	/** 由 URI 生成动作码，例如 /api/system/role/update → SYSTEM_ROLE_UPDATE */
@@ -102,7 +102,7 @@ public class AuditRecorder {
 				}
 			}
 			catch (Exception ignored) {
-				// 没有 getId 就算了，审计不能因此失败
+
 			}
 		}
 		return null;
@@ -163,7 +163,7 @@ public class AuditRecorder {
 			entry.setIp(clientIp());
 			String operator = StringUtils.hasText(operatorId) ? operatorId : null;
 			if (!StringUtils.hasText(operator)) {
-				// 登录场景没有 SecurityContext，只能靠调用方传 operatorId；其余场景这里显式落一次
+
 				String currentUserId = SecurityContextUtils.getUserId();
 				if (StringUtils.hasText(currentUserId) && !AppConsts.ANONYMOUS_USER_ID.equals(currentUserId)) {
 					operator = currentUserId;

@@ -328,11 +328,11 @@ export default function BatchSettingModal({
   const [depts, setDepts] = useState<Dept[]>([]);
   const [authDeptIds, setAuthDeptIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  /** 批量改分类：勾选后对所有选中项目写入同一个分类（空=未分类） */
+
   const [categoryEnabled, setCategoryEnabled] = useState(false);
   const [categoryValue, setCategoryValue] = useState('');
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
-  /** 批量移动文件夹：勾选后把所有选中项目挂到同一文件夹（'0'=根目录） */
+
   const [folderEnabled, setFolderEnabled] = useState(false);
   const [folderValue, setFolderValue] = useState('0');
   const [folderOptions, setFolderOptions] = useState<FolderOption[]>([]);
@@ -365,7 +365,7 @@ export default function BatchSettingModal({
     get<Dept[]>('/api/system/dept/list')
       .then((list) => setDepts(Array.isArray(list) ? list : []))
       .catch((e: Error) => message.error(e.message));
-    // 分类候选：可自由输入，所以拿不到选项也不影响提交
+
     get<{ name?: string }[]>('/api/project/categories')
       .then((list) =>
         setCategoryOptions(
@@ -375,7 +375,7 @@ export default function BatchSettingModal({
         ),
       )
       .catch(() => setCategoryOptions([]));
-    // 文件夹候选：失败不影响其它批量设置
+
     get<ProjectTreeNode[]>('/api/project/tree')
       .then((list) => setFolderOptions(buildFolderOptions(Array.isArray(list) ? list : [])))
       .catch(() => setFolderOptions([]));
@@ -465,7 +465,7 @@ export default function BatchSettingModal({
     if (passModePerSeconds.enabled) examPatch.passModePerSeconds = passModePerSeconds.value ?? undefined;
 
     setSaving(true);
-    // 按「项目」去重计数：同一项目既改 setting 又改 category 时只算一次
+
     const updatedIds = new Set<string>();
     let authDone = 0;
     try {
@@ -499,7 +499,7 @@ export default function BatchSettingModal({
         }
       }
 
-      // 文件夹更新放在 setting 之后、分类之前；空值/根目录统一传 '0'
+
       if (folderEnabled) {
         const nextParentId = (folderValue || '0').trim() || '0';
         for (const project of projects) {
@@ -508,7 +508,7 @@ export default function BatchSettingModal({
         }
       }
 
-      // 分类更新放在文件夹之后、授权之前；空串=未分类
+
       if (categoryEnabled) {
         const nextCategory = categoryValue.trim();
         for (const project of projects) {
@@ -776,7 +776,7 @@ export default function BatchSettingModal({
         只移动所属文件夹；不选或选「根目录」表示移到最外层，不影响其他设置。
       </div>
 
-      {/* 手机上一行放不下 5 个 Tab，会折进「»」里（「授权给班级」直接找不到）；竖排后每个都看得见 */}
+
       <Tabs
         activeKey={tab}
         onChange={setTab}

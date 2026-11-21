@@ -8,10 +8,10 @@ import cn.surveyking.server.domain.dto.SelectPositionRequest;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/11/2
- */
+
+
+
+
 public interface PositionService {
 
 	PaginationResponse<PositionView> listPosition(PositionQuery query);

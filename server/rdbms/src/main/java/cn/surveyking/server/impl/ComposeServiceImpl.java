@@ -41,7 +41,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** 组卷实现：范围筛选 → 规则分配 → 多套去重 → 落库。 */
+
 @Service
 @RequiredArgsConstructor
 public class ComposeServiceImpl implements ComposeService {

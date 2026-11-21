@@ -4,22 +4,22 @@ import { ChartEmpty } from './State';
 import { areaPath, labelStep, niceCeil, num, segments, smoothPath, tickValues } from './util';
 
 export interface AreaTrendProps {
-  /** 序列；null = 断点（当天没有分数），折线在这里断开而不是掉到 0 */
+
   data: ReadonlyArray<number | null | undefined>;
-  /** 横轴标签，与 data 一一对应 */
+
   labels?: string[];
-  /** 绘图区高度（px） */
+
   height?: number;
-  /** 主色，默认 var(--bp-blue) */
+
   color?: string;
-  /** y 轴范围；不传按数据自适应（并在两端留余量后取整） */
+
   domain?: [number, number];
-  /** 数值单位：分 / 份… */
+
   unit?: string;
   format?: (value: number) => string;
-  /** tooltip 第一行用更可读的名字（如考试名），缺省用 labels */
+
   tooltipLabels?: string[];
-  /** 是否画数据点，默认 true */
+
   dots?: boolean;
   loading?: boolean;
   error?: string | null;
@@ -75,7 +75,7 @@ export function AreaTrend({
     const max = Math.max(...finite);
     const spread = max - min;
     const pad = spread > 0 ? spread * 0.18 : Math.max(1, Math.abs(max) * 0.1);
-    // 分数不会是负的：下界贴 0，别让 y 轴出现 -50 这种把图压扁又误导的刻度
+
     lo = min >= 0 ? 0 : min - pad;
     hi = max + pad;
   }
@@ -83,7 +83,7 @@ export function AreaTrend({
     lo = 0;
     hi = 1;
   }
-  // 刻度取整：让 y 轴标签落在整数上（分数/份数都不需要小数刻度）
+
   const step = niceCeil((hi - lo) / 3);
   lo = Math.floor(lo / step) * step;
   hi = Math.ceil(hi / step) * step;
@@ -92,8 +92,8 @@ export function AreaTrend({
   const xOf = (index: number) => PAD.left + (count <= 1 ? innerW / 2 : (index / (count - 1)) * innerW);
   const yOf = (value: number) => PAD.top + innerH * (1 - (value - lo) / (hi - lo));
   const parts = segments(values, xOf, yOf);
-  // x 轴标签抽稀：宽度不够时按 labelStep 每 44px 一个；点一多（>12）至少隔一个画一个，
-  // 否则 20 个 MM-dd 挤在一起反而读不出来。从最后一个点往回数，保证「最新的一次」总有日期。
+
+
   const tickStep = Math.max(labelStep(count, innerW, 44), count > 12 ? 2 : 1);
   const showXLabel = (index: number) => (count - 1 - index) % tickStep === 0;
   const ticks = tickValues(lo, hi, step);

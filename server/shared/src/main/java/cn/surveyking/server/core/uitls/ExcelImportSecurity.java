@@ -12,9 +12,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/**
- * Excel 导入资源限制。所有工作簿在交给解析器之前先执行有界 ZIP 检查，解析过程中再限制结构规模。
- */
+
+
+
 public final class ExcelImportSecurity {
 
 	private static final long MAX_FILE_SIZE = 20L * 1024 * 1024;

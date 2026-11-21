@@ -26,9 +26,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * 错题本：错题收集 + 错题本读写
- */
+
+
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
@@ -36,14 +36,14 @@ public class UserBookServiceImpl extends BaseService<UserBookMapper, UserBook> i
 
 	private final TemplateServiceImpl templateService;
 
-	/**
-	 * 我的错题
-	 */
+
+
+
 	public static final Integer BOOK_TYPE_WRONG = 1;
 
-	/**
-	 * 我的收藏
-	 */
+
+
+
 	public static final Integer BOOK_TYPE_FAVORITE = 2;
 
 	/**
@@ -82,9 +82,9 @@ public class UserBookServiceImpl extends BaseService<UserBookMapper, UserBook> i
 		}
 		String userId = SecurityContextUtils.getUserId();
 
-		// 1. 只收「判 0 分 + 真的有作答」的题。
-		// 未作答的题在 AnswerScoreEvaluator 里同样得 0 分，不排除的话整张卷子都会进错题本
-		// （审计：docs/research/exam-mode-audit.md C.6-1）。
+
+
+
 		List<String> wrongQuestionIds = questionScore.entrySet().stream()
 				.filter(entry -> entry.getValue() != null && entry.getValue() == 0).map(Map.Entry::getKey)
 				.filter(questionId -> answer == null || hasAnswer(answer, questionId)).collect(Collectors.toList());
@@ -92,7 +92,7 @@ public class UserBookServiceImpl extends BaseService<UserBookMapper, UserBook> i
 			return;
 		}
 
-		// 2. 同一场考试里已经记过的题：错误次数 +1
+
 		LambdaQueryWrapper<UserBook> existQuery = Wrappers.<UserBook>lambdaQuery()
 				.in(UserBook::getTemplateId, wrongQuestionIds).eq(UserBook::getType, BOOK_TYPE_WRONG)
 				.eq(UserBook::getCreateBy, userId);
@@ -109,8 +109,8 @@ public class UserBookServiceImpl extends BaseService<UserBookMapper, UserBook> i
 			updateBatchById(existUserBooks);
 		}
 
-		// 3. 新错题入库：题库题用模板名 + 模板所属题库；设计器自建题（模板表查不到）用题干兜底，
-		// 不再静默丢弃（审计：docs/research/exam-mode-audit.md C.6-2）。
+
+
 		List<String> existTemplateIds = existUserBooks.stream().map(UserBook::getTemplateId)
 				.collect(Collectors.toList());
 		Set<String> existIdSet = new HashSet<>(existTemplateIds);

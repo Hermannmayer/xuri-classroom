@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.Locale;
 
-/**
- * Bounds repeated password guesses for an account from the same client address.
- */
+
+
+
 @Component
 public class LoginAttemptLimiter {
 

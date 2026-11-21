@@ -32,13 +32,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/**
- * 答卷前的登录 / 密码 / 白名单校验表单。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 拆出的第五块。它负责判断「要不要先弹验证表单」、校验账号密码、
- * 下发 token cookie，以及把白名单参与人置为已访问；密码通过标记交给 {@link AnswerLimitGuard}。
- */
+
+
+
+
+
+
+
 @Component
 @Transactional
 @RequiredArgsConstructor
@@ -50,7 +50,7 @@ public class LoginFormValidator {
 
 	private final JwtTokenUtil jwtTokenUtil;
 
-	/** 密码通过后的短期 cookie 由限次组件统一维护 */
+
 	private final AnswerLimitGuard answerLimitGuard;
 
 	/**
@@ -62,7 +62,7 @@ public class LoginFormValidator {
 	public SurveySchema convertAndValidateLoginFormIfNeeded(ProjectView project,
 			LinkedHashMap<String, Object> answer) {
 		boolean loginRequired = false;
-		// 需要更新答题者为已访问的状态
+
 		boolean updatePartnerVisited = false;
 		LambdaQueryWrapper<ProjectPartner> projectPartnerQuery = Wrappers.<ProjectPartner>lambdaQuery()
 				.eq(ProjectPartner::getProjectId, project.getId());
@@ -70,7 +70,7 @@ public class LoginFormValidator {
 		List<SurveySchema> queryConditions = new ArrayList<>();
 		SurveySchema loginFormSchema = SurveySchema.builder().id(project.getId()).children(queryConditions)
 				.title(project.getName()).build();
-		// 错题练习模式需要登录
+
 		if (project != null && project.getSetting() != null && project.getSetting().getExamSetting() != null) {
 			ProjectSetting.ExamSetting examSetting = project.getSetting().getExamSetting();
 			if (Boolean.TRUE.equals(examSetting.getRandomSurveyWrong()) && !SecurityContextUtils.isAuthenticated()) {
@@ -87,7 +87,7 @@ public class LoginFormValidator {
 		}
 		if (project != null && project.getSetting() != null && project.getSetting().getAnswerSetting() != null) {
 			ProjectSetting.AnswerSetting answerSetting = project.getSetting().getAnswerSetting();
-			// 需要登录答卷
+
 			if (Boolean.TRUE.equals(answerSetting.getLoginRequired()) && !SecurityContextUtils.isAuthenticated()) {
 				loginRequired = true;
 				SchemaHelper.appendChildIfNotExist(loginFormSchema,
@@ -99,7 +99,7 @@ public class LoginFormValidator {
 					authentication = validateUsernameAndPassword(answer);
 				}
 			}
-			// 需要密码答卷
+
 			if (answerSetting.getPassword() != null) {
 				loginRequired = true;
 				queryConditions
@@ -110,15 +110,15 @@ public class LoginFormValidator {
 							SchemaHelper.getLoginFormAnswer(answer, SchemaHelper.LoginFormFieldEnum.extraPassword))) {
 						throw new ErrorCodeException(ErrorCode.ValidationError);
 					}
-					// 密码校验通过：下发一个短期 cookie，作为「本次会话已通过密码」的凭据。
-					// 否则直接 POST saveAnswer 就能绕开密码（提交路径不携带密码字段）。
+
+
 					answerLimitGuard.markPasswordPassed(project.getId(), answerSetting.getPassword());
 				}
 			}
-			// 白名单为系统用户
+
 			if (answerSetting.getWhitelistType() != null
 					&& ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType() == answerSetting.getWhitelistType()) {
-				// 如果当前已登录且当前用户不在白名单内，则报错
+
 				if (SecurityContextUtils.isAuthenticated()) {
 					boolean currentHasPerm = projectPartnerMapper.selectCount(
 							Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, project.getId())
@@ -132,7 +132,7 @@ public class LoginFormValidator {
 							.eq(ProjectPartner::getType, ProjectPartnerTypeEnum.RESPONDENT_SYS_USER.getType());
 				}
 				else {
-					// 需要执行登录操作
+
 					SchemaHelper.appendChildIfNotExist(loginFormSchema,
 							SchemaHelper.buildFillBlankQuerySchema(SchemaHelper.LoginFormFieldEnum.username));
 					SchemaHelper.appendChildIfNotExist(loginFormSchema,
@@ -143,16 +143,16 @@ public class LoginFormValidator {
 						if (authentication == null) {
 							authentication = validateUsernameAndPassword(answer);
 						}
-						// 执行登录操作
+
 						UserInfo user = (UserInfo) authentication.getPrincipal();
-						// 判断登录用户是否在白名单里面
-						/**
-						 * todo 这里应该加上用户类型，否则会出查询出来多条 多条原因： 新创建的问卷的时候，默认的插入一条名单数据，type = 1
-						 * 修改答题白名单设置为系统用户时，又插入一条，type = 3 修改答题白名单设置为外部用户时，又插入一条，type =
-						 * 4，当然这条数据没有用户id，在这里不会被查出来
-						 * 综上，这里至少会查询出2条，所以需要加入用户类型限制，或者修改答题白名单时移除旧数据
-						 * 这里验证的是"白名单为系统用户"，所以type = 3
-						 */
+
+
+
+
+
+
+
+
 						boolean currentHasPerm = projectPartnerMapper.selectCount(
 								Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getProjectId, project.getId())
 										.eq(ProjectPartner::getType,
@@ -168,7 +168,7 @@ public class LoginFormValidator {
 					}
 				}
 			}
-			// 白名单为导入用户
+
 			if (answerSetting.getWhitelistType() != null
 					&& ProjectPartnerTypeEnum.RESPONDENT_IMP_USER.getType() == answerSetting.getWhitelistType()) {
 				SchemaHelper.appendChildIfNotExist(loginFormSchema,
@@ -176,7 +176,7 @@ public class LoginFormValidator {
 				loginRequired = true;
 
 				if (answer != null) {
-					// 校验登录白名单名称是否在白名单列表里面
+
 					String whitelistName = (String) SchemaHelper.getLoginFormAnswer(answer,
 							SchemaHelper.LoginFormFieldEnum.whitelistName);
 					if (whitelistName == null) {
@@ -198,7 +198,7 @@ public class LoginFormValidator {
 		}
 
 		if (authentication != null) {
-			// 执行登录操作，方便后续保存答案的时候获取认证信息
+
 			UserInfo user = (UserInfo) authentication.getPrincipal();
 			HttpCookie cookie = ResponseCookie
 					.from(AppConsts.TOKEN_NAME, jwtTokenUtil.generateAccessToken(new UserTokenView(user.getUserId())))
@@ -206,14 +206,14 @@ public class LoginFormValidator {
 			ContextHelper.getCurrentHttpResponse().setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 		}
 
-		// 更新问卷状态为已访问
+
 		if (updatePartnerVisited) {
 			ProjectPartner projectPartner = projectPartnerMapper.selectOne(projectPartnerQuery);
 			if (projectPartner != null && projectPartner.getStatus() == AppConsts.ProjectPartnerStatus.UNVISITED) {
 				projectPartner.setStatus(AppConsts.ProjectPartnerStatus.VISITED);
 				projectPartnerMapper.updateById(projectPartner);
 			}
-			// 如果配置的外部用户，则 createBy 为 partner 的 id，如果是内部用户则是用户 id
+
 			if (projectPartner.getUserName() != null) {
 				ContextHelper.getCurrentHttpRequest().setAttribute("createBy", projectPartner.getId());
 			}

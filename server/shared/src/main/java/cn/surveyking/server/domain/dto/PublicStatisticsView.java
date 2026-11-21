@@ -5,16 +5,16 @@ import lombok.Data;
 import java.util.List;
 import java.util.Map;
 
-/**
- * @author javahuang
- * @date 2022/3/23
- */
+
+
+
+
 @Data
 public class PublicStatisticsView {
 
-	/**
-	 * 总的记录数
-	 */
+
+
+
 	private int count;
 
 	private Map<String, QuestionStatistics> questionStatistics;
@@ -22,9 +22,9 @@ public class PublicStatisticsView {
 	@Data
 	public static class QuestionStatistics {
 
-		/**
-		 * 回答了当前问题的记录数
-		 */
+
+
+
 		private int count;
 
 		List<OptionStatistics> optionStatistics;

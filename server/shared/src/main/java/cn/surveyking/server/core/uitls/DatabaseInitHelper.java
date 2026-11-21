@@ -17,10 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-/**
- * @author javahuang
- * @date 2022/1/25
- */
+
+
+
+
 public class DatabaseInitHelper {
 
 	private static final String CONFIG_FILE = "application.properties";
@@ -38,12 +38,12 @@ public class DatabaseInitHelper {
 	public static void init(String[] args) {
 		try {
 			needCreateProperties();
-			// 初始化启动配置文件，初始化数据库脚本
+
 			if ("i".equals(args[0])) {
 				initializeDatabase();
 			}
 			else {
-				// 通过启动命令行参数来创建配置文件
+
 				createFileFromProperties(setPropertiesFromArguments(args));
 			}
 		}
@@ -77,22 +77,22 @@ public class DatabaseInitHelper {
 	}
 
 	public static void initMySql() {
-		// 设置连接参数
+
 		DatabaseInitProperties properties = setProperties();
-		// 下载数据库驱动
+
 		downloadDriverJar(properties);
-		// 测试数据库链接
+
 		testDatabaseConnection(properties);
-		// 创建启动文件
+
 		createFileFromProperties(properties);
-		// 执行数据库初始化操作
+
 		initDatabaseSchema(properties);
-		// 完成
+
 		finish();
 	}
 
 	public static void initH2() {
-		// TODO
+
 	}
 
 	@SneakyThrows
@@ -101,7 +101,7 @@ public class DatabaseInitHelper {
 		if (!f.exists()) {
 			f.createNewFile();
 		}
-		// 总是覆盖之前的配置
+
 		return true;
 	}
 
@@ -166,7 +166,7 @@ public class DatabaseInitHelper {
 		}
 		catch (ClassNotFoundException e) {
 			if (yesOrNo("未监测到数据库驱动，是否下载？")) {
-				// TODO: 将数据库驱动下载到当前 lib 目录
+
 				colorOutput("开始下载驱动");
 			}
 		}
@@ -289,13 +289,13 @@ public class DatabaseInitHelper {
 
 	private static void colorOutput(String output, int level) {
 		switch (level) {
-		case 1: // success
+		case 1:
 			System.out.println(Ansi.Green.colorize(output));
 			break;
-		case 2: // fail
+		case 2:
 			System.out.println(Ansi.Red.colorize(output));
 			break;
-		default: // info
+		default:
 			System.out.println(Ansi.Blue.colorize(output));
 			break;
 		}

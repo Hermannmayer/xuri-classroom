@@ -1,6 +1,6 @@
 // 登录链路冒烟：GET /api/system → RSA 加密 → POST /api/public/login → GET /api/currentUser
 // 用法：node scripts/smoke-login.cjs [baseUrl] [username] [password]
-// 用 CJS 是因为 jsencrypt 的 ESM 入口在 Node 下缺扩展名，CJS 入口（umd）正常。
+
 const JSEncrypt = require('jsencrypt');
 
 const base = process.argv[2] || 'http://127.0.0.1:7007';

@@ -1,10 +1,10 @@
 package cn.surveyking.server.core.constant;
 
-/**
- * 文件类型
- * @author javahuang
- * @date 2022/5/5
- */
+
+
+
+
+
 public enum StorageTypeEnum {
 
 	/** 背景图片 */

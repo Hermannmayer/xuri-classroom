@@ -1,9 +1,9 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ----------------------------
--- Table structure for t_account
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_account`;
 CREATE TABLE `t_account` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -25,16 +25,16 @@ CREATE TABLE `t_account` (
   KEY `idx_account_user_auth` (`user_id`,`auth_type`,`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='登录账号';
 
--- ----------------------------
--- Records of t_account
--- ----------------------------
+
+
+
 BEGIN;
 INSERT INTO `t_account` (`id`, `user_type`, `user_id`, `auth_type`, `auth_account`, `auth_secret`, `secret_salt`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', 'SysUser', '1457995481966747649', 'PWD', 'admin', '$2a$10$vZk9P3XtbD2KrdLbQYPvBuPAkkUda0OlkDg7io1Q6VEtfFPig/tqO', NULL, 1, 0, '2021-11-09 16:56:26', NULL, '2022-02-01 23:57:27', '1457995481966747649');
 COMMIT;
 
--- ----------------------------
--- Table structure for t_answer
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_answer`;
 CREATE TABLE `t_answer` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -73,9 +73,9 @@ CREATE TABLE `t_answer` (
   UNIQUE KEY `uk_answer_pid_user_attempt` (`project_id`,`create_by`,`attempt_no`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
 
--- ------
--- Table structure for t_anonymous_subject
--- ------
+
+
+
 DROP TABLE IF EXISTS `t_anonymous_subject`;
 CREATE TABLE `t_anonymous_subject` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -88,9 +88,9 @@ CREATE TABLE `t_anonymous_subject` (
   KEY `idx_anonymous_expires` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='匿名答题主体';
 
--- ------
--- Table structure for t_answer_item
--- ------
+
+
+
 DROP TABLE IF EXISTS `t_answer_item`;
 CREATE TABLE `t_answer_item` (
   `id` varchar(64) NOT NULL,
@@ -108,9 +108,9 @@ CREATE TABLE `t_answer_item` (
   KEY `idx_item_project_question` (`project_id`,`question_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答卷明细投影（统计专用）';
 
--- ----------------------------
--- Table structure for t_answer_grade
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_answer_grade`;
 CREATE TABLE `t_answer_grade` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -128,15 +128,15 @@ CREATE TABLE `t_answer_grade` (
   KEY `idx_answer_grade_project` (`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='主观题人工批改明细';
 
--- ----------------------------
--- Records of t_answer
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_comm_dict
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_comm_dict`;
 CREATE TABLE `t_comm_dict` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -151,15 +151,15 @@ CREATE TABLE `t_comm_dict` (
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC;
 
--- ----------------------------
--- Records of t_comm_dict
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_comm_dict_item
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_comm_dict_item`;
 CREATE TABLE `t_comm_dict_item` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -176,15 +176,15 @@ CREATE TABLE `t_comm_dict_item` (
   PRIMARY KEY (`id`,`item_value`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC;
 
--- ----------------------------
--- Records of t_comm_dict_item
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_dashboard
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_dashboard`;
 CREATE TABLE `t_dashboard` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -199,15 +199,15 @@ CREATE TABLE `t_dashboard` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='仪表盘';
 
--- ----------------------------
--- Records of t_dashboard
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_dept
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_dept`;
 CREATE TABLE `t_dept` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -235,16 +235,16 @@ CREATE TABLE `t_dept` (
   KEY `idx_dept_type` (`dept_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='组织机构';
 
--- ----------------------------
--- Records of t_dept
--- ----------------------------
+
+
+
 BEGIN;
 INSERT INTO `t_dept` (`id`, `parent_id`, `name`, `short_name`, `code`, `manager_id`, `sort_code`, `property_json`, `status`, `remark`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '0', '旭日云课堂', 'surveyking', 'surveyking', '1457995481966747649', NULL, NULL, NULL, NULL, 0, '2021-11-21 14:12:08', NULL, '2021-11-21 14:22:58', '1457995481966747649');
 COMMIT;
 
--- ----------------------------
--- Table structure for t_class_partner（班级授权给老师）
--- ----------------------------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_class_partner` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `dept_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id）',
@@ -260,9 +260,9 @@ CREATE TABLE IF NOT EXISTS `t_class_partner` (
   KEY `idx_class_partner_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级授权给老师';
 
--- ------
--- Table structure for t_class_resource（班级资源分配：按班级的考试窗口）
--- ------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_class_resource` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `class_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id，dept_type=class）',
@@ -286,9 +286,9 @@ CREATE TABLE IF NOT EXISTS `t_class_resource` (
   KEY `idx_cr_class` (`class_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级资源分配（按班级的考试窗口）';
 
--- ----------------------------
--- Table structure for t_file
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_file`;
 CREATE TABLE `t_file` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -312,9 +312,9 @@ CREATE TABLE `t_file` (
   KEY `idx_file_answer_id` (`answer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='附件';
 
--- ------
--- Table structure for t_file_ref
--- ------
+
+
+
 CREATE TABLE `t_file_ref` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `file_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -327,15 +327,15 @@ CREATE TABLE `t_file_ref` (
   KEY `idx_file_ref_owner` (`owner_type`,`owner_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='文件与项目/题库的引用关系';
 
--- ----------------------------
--- Records of t_file
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_position
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_position`;
 CREATE TABLE `t_position` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -352,15 +352,15 @@ CREATE TABLE `t_position` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='岗位';
 
--- ----------------------------
--- Records of t_position
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_project
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_project`;
 CREATE TABLE `t_project` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -381,15 +381,15 @@ CREATE TABLE `t_project` (
   KEY `idx_project_create_by` (`create_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='项目';
 
--- ----------------------------
--- Records of t_project
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_project_partner
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_project_partner`;
 CREATE TABLE `t_project_partner` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -413,15 +413,15 @@ CREATE TABLE `t_project_partner` (
   KEY `idx_pp_group` (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
--- ----------------------------
--- Records of t_project_partner
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_repo
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_repo`;
 CREATE TABLE `t_repo` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -443,15 +443,15 @@ CREATE TABLE `t_repo` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='模板组';
 
--- ----------------------------
--- Records of t_repo
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_repo_category（题库分类 / 空文件夹）
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_repo_category`;
 CREATE TABLE `t_repo_category` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -465,15 +465,15 @@ CREATE TABLE `t_repo_category` (
   KEY `idx_repo_category_parent` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='题库分类（含空文件夹）';
 
--- ----------------------------
--- Records of t_repo_category
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_repo_partner
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_repo_partner`;
 CREATE TABLE `t_repo_partner` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -491,15 +491,15 @@ CREATE TABLE `t_repo_partner` (
   KEY `idx_repo_partner_dept` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='题库成员';
 
--- ----------------------------
--- Records of t_repo_partner
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_repo_template
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_repo_template`;
 CREATE TABLE `t_repo_template` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -510,15 +510,15 @@ CREATE TABLE `t_repo_template` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='模板库模板';
 
--- ----------------------------
--- Records of t_repo_template
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_role
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_role`;
 CREATE TABLE `t_role` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -535,24 +535,24 @@ CREATE TABLE `t_role` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='角色';
 
--- ----------------------------
--- Records of t_role
--- ----------------------------
+
+
+
 BEGIN;
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:report,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect,notice:list,notice:manage:system,notice:manage:class,ai:use', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
--- 老师：能建/编/发考试与题库、看答卷与报表、管班级；没有 system:*
--- 答卷侧给了 answer:delete / answer:restore（回收站里能删能恢复），删除范围仍受
--- AnswerAccessGuard 限制：只能动自己负责项目下的答卷，只有 admin 是全量。
--- 学员：答题、练习、错题本、看题库；没有 project:create/update 等管理权限，答题走公开链接
--- 权限串与现网 t_role 保持一致（学员必须含 repo:book，否则错题本 403）
+
+
+
+
+
 INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
 ('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import,notice:list,notice:manage:class,ai:use,repo:create,repo:update,repo:delete,repo:export,repo:report,template:create,template:update,template:delete', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
 ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student,notice:list', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
 COMMIT;
 
--- ----------------------------
--- Table structure for t_sys_info
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_sys_info`;
 CREATE TABLE `t_sys_info` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '主键',
@@ -573,16 +573,16 @@ CREATE TABLE `t_sys_info` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='系统信息';
 
--- ----------------------------
--- Records of t_sys_info
--- ----------------------------
+
+
+
 BEGIN;
 INSERT INTO `t_sys_info` (`id`, `name`, `description`, `avatar`, `locale`, `version`, `setting`, `ai_setting`, `oauth_setting`, `register_info`, `is_default`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '2.0.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":true,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
 COMMIT;
 
--- ----------------------------
--- Table structure for t_tag
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_tag`;
 CREATE TABLE `t_tag` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -594,15 +594,15 @@ CREATE TABLE `t_tag` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='模板组';
 
--- ----------------------------
--- Records of t_tag
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_template
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_template`;
 CREATE TABLE `t_template` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -630,15 +630,15 @@ CREATE TABLE `t_template` (
   KEY `idx_template_difficulty` (`repo_id`, `difficulty`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
--- ----------------------------
--- Records of t_template
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_user
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_user`;
 CREATE TABLE `t_user` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -664,16 +664,16 @@ CREATE TABLE `t_user` (
   KEY `idx_user_dept` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='系统用户';
 
--- ----------------------------
--- Records of t_user
--- ----------------------------
+
+
+
 BEGIN;
 INSERT INTO `t_user` (`id`, `name`, `dept_id`, `gender`, `birthday`, `phone`, `email`, `avatar`, `status`, `user_type`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`, `profile`, `correct_times`) VALUES ('1457995481966747649', 'Admin', '1', 'F', NULL, '13800138000', 'surveyking@qq.com', NULL, 1, 'staff', 0, '2021-11-09 16:56:26', NULL, '2022-02-11 13:29:17', '1457995481966747649', 'hello surveyking~', NULL);
 COMMIT;
 
--- ----------------------------
--- Table structure for t_user_book
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_user_book`;
 CREATE TABLE `t_user_book` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -695,15 +695,15 @@ CREATE TABLE `t_user_book` (
   KEY `idx_user_book_project` (`create_by`,`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='错题本';
 
--- ----------------------------
--- Records of t_user_book
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_user_dept（用户附加组，主组仍在 t_user.dept_id）
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_user_dept`;
 CREATE TABLE `t_user_dept` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -720,15 +720,15 @@ CREATE TABLE `t_user_dept` (
   KEY `idx_user_dept_dept` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户-用户组（附加组）';
 
--- ----------------------------
--- Records of t_user_dept
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_user_position
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_user_position`;
 CREATE TABLE `t_user_position` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -744,15 +744,15 @@ CREATE TABLE `t_user_position` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户岗位';
 
--- ----------------------------
--- Records of t_user_position
--- ----------------------------
+
+
+
 BEGIN;
 COMMIT;
 
--- ----------------------------
--- Table structure for t_user_role
--- ----------------------------
+
+
+
 DROP TABLE IF EXISTS `t_user_role`;
 CREATE TABLE `t_user_role` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
@@ -768,18 +768,18 @@ CREATE TABLE `t_user_role` (
   KEY `idx_t_user_role` (`user_type`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户角色关联';
 
--- ----------------------------
--- Records of t_user_role
--- ----------------------------
+
+
+
 BEGIN;
 INSERT INTO `t_user_role` (`id`, `user_type`, `user_id`, `role_id`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1488542015867121666', 'SysUser', '1457995481966747649', '1457995481928998914', '2022-02-01 23:57:27', '1457995481966747649', NULL, NULL);
 COMMIT;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- ----------------------------
--- Table structure for t_notice（通知公告：管理员全站公告与老师班级公告共用）
--- ----------------------------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_notice` (
   `id`            varchar(64)  NOT NULL COMMENT 'ID',
   `title`         varchar(200) NOT NULL COMMENT '标题',
@@ -812,9 +812,9 @@ CREATE TABLE IF NOT EXISTS `t_notice_read` (
   KEY `idx_notice_read_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告已读记录';
 
--- ----------------------------
--- Table structure for t_api_token（MCP/API 访问令牌）
--- ----------------------------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_api_token` (
   `id`           varchar(64)  NOT NULL COMMENT 'ID',
   `user_id`      varchar(64)  NOT NULL COMMENT '按哪个用户签发；MCP 调用的权限就是它的权限',
@@ -841,9 +841,9 @@ CREATE TABLE IF NOT EXISTS `t_api_idempotency` (
   KEY `idx_api_idem_time` (`create_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MCP 写操作幂等';
 
--- ----------------------------
--- Table structure for t_ai_usage（AI 用量记账）
--- ----------------------------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_ai_usage` (
   `id`                varchar(64)  NOT NULL COMMENT 'ID',
   `user_id`           varchar(64)  NOT NULL COMMENT '调用人（t_user.id）',
@@ -861,9 +861,9 @@ CREATE TABLE IF NOT EXISTS `t_ai_usage` (
   KEY `idx_ai_usage_scene` (`scene`, `create_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 用量记账';
 
--- ----------------------------
--- Table structure for t_audit_log（操作审计）
--- ----------------------------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_audit_log` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `action` varchar(64) NOT NULL COMMENT '动作：EXPORT_REPO/EXPORT_ANSWER/IMPORT_REPO',
@@ -887,9 +887,9 @@ CREATE TABLE IF NOT EXISTS `t_audit_log` (
   KEY `idx_audit_create_at` (`create_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='操作审计日志';
 
--- ----------------------------
--- Table structure for t_dept_role（用户组-角色绑定）
--- ----------------------------
+
+
+
 CREATE TABLE IF NOT EXISTS `t_dept_role` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `dept_id` varchar(64) NOT NULL COMMENT '用户组ID',

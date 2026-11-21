@@ -62,25 +62,25 @@ import java.util.stream.Collectors;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * @author javahuang
- * @date 2021/11/2
- */
+
+
+
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
 public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements DeptService {
 
-	/** 组织树的根 parent_id（t_dept 里顶层节点的 parent_id 是 "0"） */
+
 	private static final String ROOT_DEPT_PARENT_ID = "0";
 
-	/** 删除组时的成员处理方式：迁移到其他组 */
+
 	private static final String MEMBER_ACTION_MOVE = "MOVE";
 
-	/** 删除组时的成员处理方式：移出分组（主组置空） */
+
 	private static final String MEMBER_ACTION_UNASSIGN = "UNASSIGN";
 
-	/** 删除预检里最多回显多少个成员姓名 */
+
 	private static final int MEMBER_NAME_LIMIT = 10;
 
 	private final DeptDtoMapper deptDtoMapper;
@@ -112,8 +112,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		if (request == null) {
 			request = new SelectDeptRequest();
 		}
-		// deptType 非空时只查该类型（用户组页传 org）；为空则不过滤，保持「全量组织树」的老语义，
-		// 也保住接口上 @Cacheable(condition = "#p0 == null") 的缓存命中
+
+
 		String deptType = normalizeQueryDeptType(request.getDeptType());
 		List<DeptView> result = deptDtoMapper.toView(list(Wrappers.<Dept>lambdaQuery()
 				.eq(deptType != null, Dept::getDeptType, deptType)
@@ -124,7 +124,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 			if (isNotBlank(managerId)) {
 				orgView.setManagerName(userService.loadUserById(managerId).getName());
 			}
-			// 回填该组绑定的角色，前端用户组页要回显「这个组有哪些角色」
+
 			List<String> roleIds = deptRoleMapper.selectList(Wrappers.<DeptRole>lambdaQuery()
 					.eq(DeptRole::getDeptId, orgView.getId())).stream().map(DeptRole::getRoleId)
 							.collect(Collectors.toList());
@@ -142,23 +142,23 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		return deptDtoMapper.toView(getById(id));
 	}
 
-	/**
-	 * 写操作必须同时清 deptCache 与 userCache。
-	 *
-	 * <p>
-	 * deptCache 是 {@code GET /api/system/dept/list}（request 为 null 时取全量列表）的缓存，
-	 * 命中后方法体根本不会执行。此前实现类方法上只写了 {@code @CacheEvict(userCache)}，
-	 * 而 Spring 的缓存拦截器先按「最具体的实现方法」找注解、找到就直接用，<b>不会</b>再回退到
-	 * 接口 {@code DeptService} 上的 {@code @CacheEvict(deptCache)}——于是 deptCache 只写不清：
-	 * 给用户组绑好角色后列表最长 1 天（deptCache 的 TTL）都还是旧值，前端编辑弹窗又拿这份旧数据
-	 * 回填 roleIds，一保存就把空数组写回去，saveDeptRoles 的「先删后插」于是把真实绑定清掉。
-	 * 所以四个写方法统一用 {@code @Caching} 同时清两个缓存，注解只写在实现方法上。
-	 */
+
+
+
+
+
+
+
+
+
+
+
+
 	@Override
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void addDept(DeptRequest request) {
-		// 类型：不传默认 org（用户组）；只接受 org / class
+
 		String deptType = normalizeDeptType(request.getDeptType());
 		request.setDeptType(deptType);
 		String classKind = Dept.TYPE_CLASS.equals(deptType) ? normalizeClassKind(request.getClassKind()) : null;
@@ -166,14 +166,14 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		assertParentDeptType(request.getParentId(), deptType);
 		Dept dept = deptDtoMapper.fromRequest(request);
 		dept.setClassKind(classKind);
-		// 开放注册只对教学班有意义；用户组/容器班一律强制关闭，避免脏配置出现在注册页
+
 		dept.setAllowRegister(Dept.TYPE_CLASS.equals(deptType) && Dept.CLASS_KIND_TEACHING.equals(classKind)
 				&& Boolean.TRUE.equals(request.getAllowRegister()));
-		// 顶层节点（parent 为空）统一挂到 "0"；排序号也按这个真实父节点算，
-		// 否则老师建多个顶层班级时 sort_code 全是 0，班级树的顺序会不稳定
+
+
 		String parentId = StringUtils.isEmpty(request.getParentId()) ? ROOT_DEPT_PARENT_ID : request.getParentId();
 		dept.setParentId(parentId);
-		// short_name 在库里是 NOT NULL 且无默认值，不传会直接 SQL 500
+
 		if (StringUtils.isEmpty(dept.getShortName())) {
 			dept.setShortName(dept.getName());
 		}
@@ -186,18 +186,18 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
 	public void updateDept(DeptRequest request) {
-		// 类型是节点的身份：org 与 class 之间不能靠更新互相转换，否则一棵树又会混起来
+
 		Dept current = requireDept(request.getId());
 		String currentType = deptTypeOf(current);
 		if (isNotBlank(request.getDeptType()) && !Objects.equals(currentType, normalizeDeptType(request.getDeptType()))) {
 			throw new ValidationException("不能修改用户组类型");
 		}
-		// 只有真的换了上级才校验父节点类型：迁移前就挂在 org 根下的老班级，改名不能被这条挡住
+
 		if (isNotBlank(request.getParentId()) && !ROOT_DEPT_PARENT_ID.equals(request.getParentId())
 				&& !Objects.equals(request.getParentId(), current.getParentId())) {
 			assertParentDeptType(request.getParentId(), currentType);
 		}
-		// 无论前端传什么，落库的 dept_type 永远是现有类型
+
 		request.setDeptType(currentType);
 		assertParentPlacementAllowed(request.getId(), request.getParentId());
 		String currentKind = Dept.TYPE_CLASS.equals(currentType) ? classKindOf(current) : null;
@@ -210,7 +210,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		request.setClassKind(nextKind);
 		Dept update = deptDtoMapper.fromRequest(request);
 		update.setClassKind(nextKind);
-		// 用户组/容器班不能开放注册；教学班不传 allowRegister 时显式沿用原值
+
 		if (Dept.TYPE_CLASS.equals(currentType) && Dept.CLASS_KIND_TEACHING.equals(nextKind)) {
 			update.setAllowRegister(request.getAllowRegister() != null ? request.getAllowRegister()
 					: Boolean.TRUE.equals(current.getAllowRegister()));
@@ -219,7 +219,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 			update.setAllowRegister(false);
 		}
 		updateById(update);
-		// roleIds 为 null 表示本次不改角色（只改名字/上级）；传空数组表示清空
+
 		if (request.getRoleIds() != null) {
 			saveDeptRoles(request.getId(), request.getRoleIds());
 		}
@@ -236,14 +236,14 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	 */
 	private void assertParentPlacementAllowed(String deptId, String parentId) {
 		if (!isNotBlank(deptId) || !isNotBlank(parentId) || ROOT_DEPT_PARENT_ID.equals(parentId)) {
-			// 没指定上级，或者移到根：没有新的祖先链，无需校验
+
 			return;
 		}
 		Map<String, Dept> deptMap = loadDeptMap();
 		if (parentId.equals(deptId)) {
 			throw new IllegalArgumentException("上级用户组不能是自己");
 		}
-		// 从新上级往上找：撞到自己说明要挂到自己的子孙下面（成环）
+
 		Set<String> visited = new HashSet<>();
 		String cursor = parentId;
 		while (isNotBlank(cursor) && !ROOT_DEPT_PARENT_ID.equals(cursor) && visited.add(cursor)) {
@@ -258,7 +258,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 
 	/**
 	 * 非管理员把用户 / 整棵子树放到 {@code targetDeptId} 下时，目标组祖先链（含目标本身）绑定的角色
-	 * 必须都是调用者可授予的；否则等于借「改组 / 迁人」把成员塞进高权限组。
+
 	 *
 	 * <p>孤儿绑定（角色已被删）不授予任何权限，忽略；管理员不受限。
 	 */
@@ -273,7 +273,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		Set<String> callerAuthorities = SecurityContextUtils.getUser().getAuthorities().stream()
 				.map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 		for (Role role : roleMapper.selectBatchIds(roleIds)) {
-			// 孤儿绑定（角色已被删）不授予任何权限，忽略
+
 			if (role == null || !Objects.equals(role.getStatus(), AppConsts.USER_STATUS.VALID)) {
 				continue;
 			}
@@ -286,7 +286,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 
 	/** 一次取出全部用户组（组表很小），供祖先链解析复用 */
 	private Map<String, Dept> loadDeptMap() {
-		// MP 3.5.18 的 list() 有多组重载，传裸 null 会「引用不明确」，显式转型消歧义
+
 		return list((com.baomidou.mybatisplus.core.conditions.Wrapper<Dept>) null).stream().filter(Objects::nonNull)
 				.collect(Collectors.toMap(Dept::getId, dept -> dept, (a, b) -> a));
 	}
@@ -330,7 +330,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	 *
 	 * <p>
 	 * 组绑定的角色现在直接决定组内成员的最终权限（见 UserServiceImpl#loadUserById），所以写完必须
-	 * 让 userCache 失效——否则改完角色，组内用户最长 1 小时（userCache TTL）都拿旧权限。
+
 	 * 事务内统一注册 afterCommit 清理，避免并发的 loadUserById 把旧结果重新塞回缓存。
 	 */
 	private void saveDeptRoles(String deptId, List<String> roleIds) {
@@ -403,10 +403,10 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		}
 	}
 
-	/**
-	 * 兼容旧调用：等价于「不指定成员处理方式」的删除。组里还有成员时仍然报错，要求调用方
-	 * 改用 {@link #deleteDept(DeptDeleteRequest)} 明确 MOVE / UNASSIGN。
-	 */
+
+
+
+
 	@Override
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
@@ -431,26 +431,26 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		view.setPrimaryMemberCount(primaryMembers.size());
 		view.setExtraMemberCount(extraBindings.size());
 		view.setMemberNames(collectMemberNames(primaryMembers, extraBindings));
-		// 「最后一个」要按同类型算：用户组和班级是两棵互不相干的使用场景，
-		// 用全表数量会让「只剩一个用户组但有 10 个班级」时判成不是最后一个
+
+
 		view.setLastDept(count(Wrappers.<Dept>lambdaQuery().eq(Dept::getDeptType, deptTypeOf(dept))) <= 1);
 		return view;
 	}
 
-	/**
-	 * 删除用户组。
-	 *
-	 * <p>规则：
-	 * <ol>
-	 * <li>有子组：拒绝，要求先删除 / 移动子组（避免整棵子树被静默留下孤儿节点）；</li>
-	 * <li>有成员但没有 {@code memberAction}：拒绝，要求显式选择「迁移」或「移出分组」。
-	 * 旧实现是一律拒绝，线上「最后一个组 + 1 名成员」因此永远删不掉；</li>
-	 * <li>{@code UNASSIGN}：主组成员 {@code t_user.dept_id} 置 NULL，账号与角色不动；</li>
-	 * <li>{@code MOVE}：主组成员迁到目标组。目标必须存在、不是本组 / 子组；非管理员还必须能
-	 * 授予目标组祖先链上的全部角色（复用 {@link #assertGrantableDeptChain}）。</li>
-	 * </ol>
-	 * 其余清理保持原样：授权记录、岗位、组角色、逻辑删除。
-	 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	@Override
 	@Caching(evict = { @CacheEvict(cacheNames = CacheConsts.deptCacheName, allEntries = true),
 			@CacheEvict(cacheNames = CacheConsts.userCacheName, allEntries = true) })
@@ -486,17 +486,17 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		else if (MEMBER_ACTION_UNASSIGN.equals(memberAction)) {
 			unassignPrimaryMembers(id);
 		}
-		// 该组自己的附加组绑定一律清掉（组都要删了，绑定不能留）。
-		// 这里走 BaseMapper 的逻辑删除；重写附加组的 saveUserDepts 会先物理清空该用户的全部行，
-		// 所以软删行不会在「重新加入某个组」时撞 (user_id, dept_id) 唯一键。
+
+
+
 		userDeptMapper.delete(Wrappers.<UserDept>lambdaQuery().eq(UserDept::getDeptId, id));
 		repoPartnerMapper.delete(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getDeptId, id));
 		projectPartnerMapper.delete(Wrappers.<ProjectPartner>lambdaQuery().eq(ProjectPartner::getGroupId, id));
 		classPartnerMapper.delete(Wrappers.<ClassPartner>lambdaQuery().eq(ClassPartner::getDeptId, id));
-		// 班级资源分配（考试/问卷窗口）也要跟着走，不能留孤儿行
+
 		classResourceMapper.hardDeleteByClassId(id);
 		userPositionMapper.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getDeptId, id));
-		// 组没了，组与角色的绑定也要一起清，否则 t_dept_role 会留下孤儿行
+
 		deptRoleMapper.deleteByDeptId(id);
 		removeById(id);
 	}
@@ -547,7 +547,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		if (parent == null || !Objects.equals(deptTypeOf(parent), deptType)) {
 			throw new ValidationException("上级用户组/班级类型不一致");
 		}
-		// 班级树里只有容器班能做上级：教学班是叶子，不能再挂子班
+
 		if (Dept.TYPE_CLASS.equals(deptType) && !Dept.CLASS_KIND_GROUP.equals(classKindOf(parent))) {
 			throw new ValidationException("教学班下面不能再建子班，请选择容器班作为上级");
 		}
@@ -568,7 +568,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 	 * 容器班 ↔ 教学班互转的结构保护：
 	 * <ul>
 	 * <li>有子班的节点不能改成教学班（教学班必须是叶子）；</li>
-	 * <li>有学员（主班或兼报）、有班级资源、有子班的节点不能改成容器班（否则数据会“悬空”）。</li>
+
 	 * </ul>
 	 */
 	private void assertClassKindChangeAllowed(Dept current, String currentKind, String nextKind) {
@@ -645,7 +645,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		if (!deptMap.containsKey(targetDeptId)) {
 			throw new ValidationException("目标用户组不存在或已删除");
 		}
-		// 学员只能在班级之间迁移、教职工只能在用户组之间迁移：混着迁会把两类节点又搅到一起
+
 		Dept sourceDept = deptMap.get(sourceDeptId);
 		Dept targetDept = deptMap.get(targetDeptId);
 		if (sourceDept != null && targetDept != null
@@ -676,8 +676,8 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		if (movedUserIds.isEmpty()) {
 			return;
 		}
-		// 主组已经是目标组的人，再把目标组挂在「附加组」上就重复了；顺手清掉这些绑定
-		// （同样是逻辑删，后续 saveUserDepts 重写附加组时会物理清掉旧行）
+
+
 		userDeptMapper.delete(Wrappers.<UserDept>lambdaQuery().in(UserDept::getUserId, movedUserIds)
 				.eq(UserDept::getDeptId, targetDeptId));
 	}

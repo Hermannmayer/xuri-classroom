@@ -21,23 +21,23 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-/**
- * AI 用量记账与限额实现。
- *
- * <p>「当日」的口径是<b>本地时区的自然日零点</b>（{@link LocalDate#now()}），不是「最近 24 小时」：
- * 老师理解的「每天额度」是自然日，跨零点重置才符合直觉。
- *
- * <p>超限时抛 {@code ErrorCodeException(ValidationError)}（HTTP 400），消息里带具体数字，例如
- * 「今日 AI 用量已达单人上限（已用 200000 / 上限 200000 tokens）」，老师能自己判断是「等明天」还是「找管理员」。
- *
- * @author p4-backend
- */
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiUsageServiceImpl implements AiUsageService {
 
-	/** 失败原因列最长 500（与 V2.2.4 的列宽一致），超了先截断，别让记账把业务带崩 */
+
 	private static final int MAX_ERROR_LENGTH = 500;
 
 	private final AiUsageMapper aiUsageMapper;
@@ -88,7 +88,7 @@ public class AiUsageServiceImpl implements AiUsageService {
 					usage.getScene(), model, prompt, completion, prompt + completion, costMs, usage.getStatus());
 		}
 		catch (Exception e) {
-			// 记账失败不影响业务：老师要的是题目，不是「记账没成功所以整单失败」
+
 			log.error("AI 用量记账失败（不影响本次调用）: user={}, scene={}", userId, scene, e);
 		}
 	}

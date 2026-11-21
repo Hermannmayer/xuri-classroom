@@ -11,7 +11,7 @@ export default function MultipleBlank(props: QuestionComponentProps) {
   const values = blankValues(answer);
   const rule = inputRule(schema.attribute?.dataType, schema.attribute?.textLimit);
   const locked = mode === 'edit' || Boolean(disabled);
-  // 题干 id：读屏先念「第 N 空」再念题干，多空题才不会念成一串没区别的「编辑框」
+
   const labelId = useQuestionLabelId();
 
   const commit = (id: string, raw: string) => {

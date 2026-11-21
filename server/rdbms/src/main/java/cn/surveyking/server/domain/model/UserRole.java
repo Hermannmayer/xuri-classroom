@@ -7,10 +7,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-/**
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
 @Data
 @TableName(value = "t_user_role", autoResultMap = true)
 @EqualsAndHashCode(callSuper = false)

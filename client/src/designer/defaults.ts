@@ -7,7 +7,7 @@ export interface QuestionMeta {
   title: string;
 }
 
-/** 设计器左侧可加的题型。新增题型 = 这里一项 + registerAll 一行 + 组件。 */
+
 export const QUESTION_META: QuestionMeta[] = [
   { type: 'Radio', label: '单选', group: 'choice', title: '单选题' },
   { type: 'Checkbox', label: '多选', group: 'choice', title: '多选题' },
@@ -57,7 +57,7 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
 
   if (OPTION_TYPES.includes(type) || type === 'Judge') {
     base.attribute = { required: false };
-    // 选项必须同时出现在 dataSource（渲染用）和 children（Option 节点，答案 key 与后端计分/统计都按它来）
+
     const labels = type === 'Judge' ? ['正确', '错误'] : ['选项一', '选项二'];
     const optionIds = [newId(), newId()];
     base.dataSource = optionIds.map((id, i) => ({ label: labels[i], value: id }));
@@ -72,22 +72,22 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
       required: false,
       placeholder: '请输入',
       ...(type === 'Textarea' ? { rows: 3 } : {}),
-      // 多行文本是主观题：默认人工打分。否则老师只填分值、不选判分模式时，
-      // 这道题会被当成客观题按 0 分判，卷子也永远进不了「待批改」（见 AnswerScoreEvaluator#isManual 的兜底）。
+
+
       ...(type === 'Textarea' ? { examAnswerMode: 'manual' as const } : {}),
     };
-    // 后端填空答案格式是 {题目id: {空位id: 文本}}，空位节点必须有 id（见 AnswerServiceImpl 造 schema）
+
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'MultipleBlank') {
     base.attribute = { required: false, placeholder: '请输入' };
     base.children = [0, 1].map(() => ({ id: newId(), title: '', type: 'Option' as QuestionType, attribute: {} }));
   } else if (type === 'Nps') {
     base.attribute = { required: false, npsStartNum: 0, npsTotalNum: 11 };
-    // children 只用来满足后端 getChildren().get(0)，答案 key 是分值本身
+
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (MATRIX_TYPES.includes(type)) {
     base.attribute = { required: false };
-    // 行在 row，列在 dataSource（children 同步一份列节点，保证后端 children 非空）
+
     base.row = ['矩阵行1', '矩阵行2'].map((rowTitle) => ({ id: newId(), title: rowTitle }));
     const columnIds = ['选项一', '选项二'].map((label) => ({ id: newId(), label }));
     base.dataSource = columnIds.map(({ id, label }) => ({ label, value: id }));
@@ -109,13 +109,13 @@ export function createQuestion(type: QuestionType, title?: string): SurveySchema
     base.attribute = { required: false, placeholder: '请输入地址' };
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'RichText') {
-    // 富文本题同样是主观题，默认人工打分
+
     base.attribute = { required: false, placeholder: '请输入答案，可插入图片和公式', examAnswerMode: 'manual' as const };
   } else if (type === 'Score') {
     base.attribute = { scope: '[0,5]' };
   } else if (type === 'Signature' || type === 'Upload') {
-    // 文件类题：默认单文件 5MB（后端 Attribute.maxFileSize 是 MB 的 Double）。
-    // children 必须有 id：后端签名/上传答案格式是 {题目id: {空位id: fileId}}，空位 id 就是 children[0].id
+
+
     base.attribute = { required: false, maxFileSize: 5, maxFileCount: 1 };
     base.children = [{ id: newId(), title: '', type: 'Option', attribute: {} }];
   } else if (type === 'QuestionSet') {

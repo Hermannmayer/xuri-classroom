@@ -15,18 +15,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- *
- */
+
+
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
 public class DashboardServiceImpl extends BaseService<DashboardMapper, Dashboard> implements DashboardService {
 
-	/**
-	 * 注意：必须是 final，否则 Lombok 的 @RequiredArgsConstructor 不会注入它，
-	 * 调用时直接 NPE（这就是 /api/dashboard/list 长期 500 的原因）。
-	 */
+
+
+
+
 	private final DashboardViewMapper dashboardViewMapper;
 
 	@Override

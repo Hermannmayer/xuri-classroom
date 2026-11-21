@@ -20,16 +20,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * 验证码装配。
- *
- * <p>
- * 迁移到 Spring Boot 4 / Jakarta 后，{@code spring-boot-starter-captcha} 不能再用了：
- * 它的 {@code META-INF/spring.factories} 自动配置在 Boot 3 起就不再被读取，而且它的
- * {@code CaptchaController} 是 {@code javax.servlet} 写的，加载即报错。
- * 这里把原 starter 的两段装配（服务实例 + 缓存实例）按同样的语义重写一遍，
- * 只依赖零 servlet 依赖的 {@code captcha-1.3.0} 核心包。
- */
+
+
+
+
+
+
+
+
+
+
 @Configuration
 @EnableConfigurationProperties(CaptchaProperties.class)
 public class CaptchaConfig {
@@ -43,7 +43,7 @@ public class CaptchaConfig {
 		Properties anji = toAnjiProperties(properties);
 		String jigsaw = properties.getJigsaw();
 		String picClick = properties.getPicClick();
-		// 与原 starter 一致：底图走 classpath 时先把图片读进内存缓存（首次启动会慢一点）
+
 		if ((StringUtils.hasText(jigsaw) && jigsaw.startsWith(CLASSPATH_PREFIX))
 				|| (StringUtils.hasText(picClick) && picClick.startsWith(CLASSPATH_PREFIX))) {
 			anji.put("captcha.init.original", "true");

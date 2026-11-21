@@ -15,7 +15,7 @@ import { isEmptyAnswer } from '../empty';
 
 export interface ParsedRef {
   raw: string;
-  /** '+' 已作答 / '-' 已显示 / '$' 得分 / '_' 标题 / '' 取值 */
+
   prefix: '' | '+' | '-' | '$' | '_';
   qId: string;
   oId?: string;
@@ -24,13 +24,13 @@ export interface ParsedRef {
 }
 
 export interface EvalContext {
-  /** questionId -> 答案值（后端格式：{ [optionId]: value }） */
+
   values: Record<string, unknown>;
-  /** questionId -> display 状态 */
+
   displays?: Record<string, string | undefined>;
-  /** questionId -> 标题（#{_qId} 用） */
+
   titles?: Record<string, string>;
-  /** questionId -> 得分（#{$qId} 用） */
+
   scores?: Record<string, number>;
 }
 
@@ -145,7 +145,7 @@ export function resolveRef(ref: ParsedRef, ctx: EvalContext): unknown {
 
   if (value === null || value === undefined) return false;
 
-  // 数组形态（部分题型直接存数组）
+
   if (Array.isArray(value)) {
     if (subId) return value.some((row) => row && typeof row === 'object' && (row as Record<string, unknown>)[subId]);
     return value.includes(oId);
@@ -155,14 +155,14 @@ export function resolveRef(ref: ParsedRef, ctx: EvalContext): unknown {
     const record = value as Record<string, unknown>;
     const cell = record[oId];
 
-    // 矩阵：value = { rowId: { colId: v } }，按列聚合
+
     if (cell && typeof cell === 'object' && !Array.isArray(cell)) {
       if (subId) return truthy((cell as Record<string, unknown>)[subId]);
       return Object.values(cell as Record<string, unknown>).some((v) => truthy(v ?? true));
     }
 
     if (subId) return false;
-    // 布尔选项：判断 key 是否存在（不是值真假）
+
     return Object.prototype.hasOwnProperty.call(record, oId);
   }
 

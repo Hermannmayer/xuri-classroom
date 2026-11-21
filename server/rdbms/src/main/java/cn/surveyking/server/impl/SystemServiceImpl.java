@@ -45,10 +45,10 @@ import java.util.stream.Collectors;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
@@ -68,7 +68,7 @@ public class SystemServiceImpl implements SystemService {
 
 	private final DeptRoleMapper deptRoleMapper;
 
-	/** 构建版本号（Gradle 从根目录 VERSION 注入）；数据库里的旧版本号不再作为展示来源。 */
+
 	@Value("${version:dev}")
 	private String buildVersion;
 
@@ -77,7 +77,7 @@ public class SystemServiceImpl implements SystemService {
 		SystemInfo systemInfo = new SystemInfo();
 		systemInfo.setPublicKey(RSAUtils.DEFAULT_PUBLIC_KEY);
 
-		// 数据库只有一条记录，id为1
+
 		SysInfo info = sysInfoMapper.selectById("1");
 		if (info != null) {
 			BeanUtils.copyProperties(info, systemInfo);
@@ -92,8 +92,8 @@ public class SystemServiceImpl implements SystemService {
 		if (systemInfo.getOauthProviders() == null) {
 			systemInfo.setOauthProviders(new OAuthProviderAvailability());
 		}
-		// 注册总闸默认开启：老库没有 register_info / 缺字段时按「允许老师开放班级注册」处理；
-		// 管理员显式关掉（false）仍然生效。
+
+
 		if (systemInfo.getRegisterInfo() == null) {
 			SystemInfo.RegisterInfo registerInfo = new SystemInfo.RegisterInfo();
 			registerInfo.setRegisterEnabled(true);
@@ -102,8 +102,8 @@ public class SystemServiceImpl implements SystemService {
 		else if (systemInfo.getRegisterInfo().getRegisterEnabled() == null) {
 			systemInfo.getRegisterInfo().setRegisterEnabled(true);
 		}
-		// 安全：GET /api/system 是公开接口，绝不能回显导出密码明文。
-		// 只告诉前端「是否已设置」，密码本身只在写入时使用。
+
+
 		if (systemInfo.getSetting() != null) {
 			systemInfo.getSetting()
 					.setExportPasswordEnabled(org.springframework.util.StringUtils.hasText(systemInfo.getSetting().getExportPassword()));
@@ -146,15 +146,15 @@ public class SystemServiceImpl implements SystemService {
 	public void updateProtection(SystemInfoRequest request) {
 		SystemInfo.SystemSetting source = request == null ? null : request.getSetting();
 		if (source == null) {
-			// 没带 setting 就没什么可改的：直接返回，避免凭空插入一条空配置记录
+
 			return;
 		}
 		if (source.getCopyProtected() == null && source.getWatermarkEnabled() == null
 				&& !isNotBlank(source.getWatermarkMode())) {
-			// 三项都没给，视为无效请求（空对象/只带被忽略的字段），不做任何写入
+
 			return;
 		}
-		// 白名单：只保留这三项，其余（captchaEnabled / collaboratorAuthority / exportPassword …）全部丢弃
+
 		SystemInfo.SystemSetting whitelisted = new SystemInfo.SystemSetting();
 		whitelisted.setCopyProtected(source.getCopyProtected());
 		whitelisted.setWatermarkEnabled(source.getWatermarkEnabled());
@@ -175,9 +175,9 @@ public class SystemServiceImpl implements SystemService {
 		else {
 			sysInfoMapper.insert(sysInfo);
 		}
-		// getSystemInfo() 把结果缓存在 commonCache 的 'systemInfo' 键里。本方法不在 SystemService
-		// 接口上，拿不到接口方法那套 @CacheEvict，必须手动失效；否则水印/防复制改完最长要等缓存
-		// TTL 才生效（前端改完就广播事件，会让界面显示成「已生效」而后端还是旧值）。
+
+
+
 		affectedCacheEvict(CacheConsts.commonCacheName);
 	}
 
@@ -191,8 +191,8 @@ public class SystemServiceImpl implements SystemService {
 
 	@Override
 	public List<RoleOptionView> getRoleOptions() {
-		// 只读下拉：只映射 id/name/code/status，绝不能把 t_role.authority 带出去。
-		// 复用 /role/list 会把角色权限明细暴露给只有组织/班级权限的账号。
+
+
 		return roleService.list().stream().filter(Objects::nonNull).map(role -> {
 			RoleOptionView view = new RoleOptionView();
 			view.setId(role.getId());
@@ -205,7 +205,7 @@ public class SystemServiceImpl implements SystemService {
 
 	@Override
 	public void createRole(RoleRequest request) {
-		// 自定义角色只允许管理员创建：老师即使有 system:role:create 也不能凭空造角色
+
 		if (!SecurityContextUtils.isAdmin()) {
 			throw new AccessDeniedException("只有管理员可以创建自定义角色");
 		}
@@ -225,7 +225,7 @@ public class SystemServiceImpl implements SystemService {
 		assertRoleMutationAllowed(role, request);
 		assertBuiltinAdminAuthorityKept(role, request);
 		if (!CollectionUtils.isEmpty(request.getUserIds())) {
-			// 批量添加角色用户
+
 			for (String userId : request.getUserIds()) {
 				UserRole userRole = new UserRole();
 				userRole.setUserId(userId);
@@ -235,24 +235,24 @@ public class SystemServiceImpl implements SystemService {
 			evictUsers(request.getUserIds());
 		}
 		else if (!CollectionUtils.isEmpty(request.getEvictUserIds())) {
-			// 批量移除用户角色
+
 			userRoleMapper.delete(Wrappers.<UserRole>lambdaUpdate().eq(UserRole::getRoleId, request.getId())
 					.in(UserRole::getUserId, request.getEvictUserIds()));
 			evictUsers(request.getEvictUserIds());
 		}
 		else {
 			Role updates = roleViewMapper.fromRequest(request);
-			// 权限矩阵里「全部取消勾选」提交的是空列表，MapStruct 的 AfterMapping 会跳过空集合，
-			// 于是 authority 为 null、被 updateById 忽略，旧权限会留在库里。这里显式写空串表示「收回全部权限」。
+
+
 			if (request.getAuthorities() != null && request.getAuthorities().isEmpty()) {
 				updates.setAuthority("");
 			}
 			roleService.updateById(updates);
-			// 角色的权限变了，但受影响的人不只是 t_user_role 里的：组绑了该角色的话，
-			// 组内所有成员（含子组）的有效权限都跟着变。这里直接清全量 userCache，
-			// 否则「撤销权限」最长 1 小时（userCache TTL）不生效。
+
+
+
 			evictAllUserCache();
-			// 角色名/权限变化后，用户组列表里回显的「绑定角色」也要跟着刷新（deptCache 里存着 roleNames）
+
 			evictDeptCache();
 		}
 	}
@@ -269,16 +269,16 @@ public class SystemServiceImpl implements SystemService {
 		assertRoleMutationAllowed(role, request);
 		roleService.removeById(request.getId());
 		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getRoleId, request.getId()));
-		// 组上可能还绑着这个角色：物理删掉，否则 t_dept_role 留下指向已删角色的孤儿绑定
+
 		deptRoleMapper.deleteByRoleId(request.getId());
 		evictAllUserCache();
-		// 组列表缓存里还带着这个角色的名字，必须一起失效，否则界面上仍显示已删角色
+
 		evictDeptCache();
 	}
 
 	/**
 	 * 清空组织架构缓存（{@code GET /api/system/dept/list} 会把 roleNames 一起缓存）。
-	 * 角色改名 / 删除角色后必须失效，否则组列表里还显示旧角色名或已删角色。
+
 	 */
 	private void evictDeptCache() {
 		affectedCacheEvict(CacheConsts.deptCacheName);
@@ -366,8 +366,8 @@ public class SystemServiceImpl implements SystemService {
 		if (existingRole != null && request.getAuthorities() == null && isNotBlank(existingRole.getAuthority())) {
 			effectiveAuthorities.addAll(Arrays.asList(existingRole.getAuthority().split(",")));
 		}
-		// 「空数组 = 收回全部权限」是破坏性操作：非管理员只能对「原权限自己都有」的角色做，
-		// 否则 containsAll(空集) 恒真，等于谁有 system:role:update 谁就能把 teacher 这类高权限角色清空。
+
+
 		if (existingRole != null && request.getAuthorities() != null && authorities.isEmpty()
 				&& isNotBlank(existingRole.getAuthority())) {
 			Set<String> currentAuthorities = Arrays.stream(existingRole.getAuthority().split(",")).map(String::trim)
@@ -417,19 +417,19 @@ public class SystemServiceImpl implements SystemService {
 
 	@Override
 	public List<PermissionEnum.PermissionGroupView> getPermissionCatalog() {
-		// 权限目录以 PermissionEnum 为准：注解扫描只能拿到已接入的权限串，且会混进
-		// system:role 这类层级前缀，无法给出中文名与分组，做不了权限矩阵。
+
+
 		return PermissionEnum.grouped();
 	}
 
 	@Override
 	public void extractCodeDiffDbPermissions() {
-		// TODO:
+
 	}
 
 	@Override
 	public SystemInfo.AiSetting getSystemAiSetting() {
-		// 数据库只有一条记录，id为1
+
 		SysInfo info = sysInfoMapper.selectById("1");
 		return info != null && info.getAiSetting() != null ? info.getAiSetting() : new SystemInfo.AiSetting();
 	}
@@ -655,8 +655,8 @@ public class SystemServiceImpl implements SystemService {
 				registerInfo.setStrongPasswordEnabled(source.getStrongPasswordEnabled());
 			}
 			if (source.getDeptId() != null) {
-				// 空字符串 = 清空默认班级；非空必须是 dept_type=class。
-				// 历史脏数据里可能是 org 根节点，这里直接拒绝，避免注册时又把学员塞进用户组。
+
+
 				String deptId = source.getDeptId().trim();
 				if (deptId.isEmpty()) {
 					registerInfo.setDeptId(null);
@@ -695,41 +695,41 @@ public class SystemServiceImpl implements SystemService {
 			if (isNotBlank(source.getAmapSecurityJsCode())) {
 				setting.setAmapSecurityJsCode(source.getAmapSecurityJsCode());
 			}
-			// 内容保护开关：允许显式关闭（false），所以要按 != null 判断而不是 isNotBlank
+
 			if (source.getCopyProtected() != null) {
 				setting.setCopyProtected(source.getCopyProtected());
 			}
-			// 水印开关与内容（隐私相关，统一在系统设置里改）
+
 			if (source.getWatermarkEnabled() != null) {
 				setting.setWatermarkEnabled(source.getWatermarkEnabled());
 			}
 			if (isNotBlank(source.getWatermarkMode())) {
 				setting.setWatermarkMode(source.getWatermarkMode());
 			}
-			// 谁可以当项目协作者（权限串），默认 project:create
+
 			if (isNotBlank(source.getCollaboratorAuthority())) {
 				setting.setCollaboratorAuthority(source.getCollaboratorAuthority().trim());
 			}
-			// 导出密码：留空表示清空（不启用）
+
 			if (source.getExportPassword() != null) {
 				setting.setExportPassword(source.getExportPassword().trim());
 			}
-			// 匿名答卷清理：开关与保留天数可以改；anonymousLastCleanupAt / Count 是清理任务写的
-			// 只读字段，这里刻意不复制（客户端传了也不生效）
+
+
 			if (source.getAnonymousCleanupEnabled() != null) {
 				setting.setAnonymousCleanupEnabled(source.getAnonymousCleanupEnabled());
 			}
 			if (source.getAnonymousRetentionDays() != null) {
 				setting.setAnonymousRetentionDays(clampAnonymousRetentionDays(source.getAnonymousRetentionDays()));
 			}
-			// 物理清理（默认关）：只有显式 true 才开，避免升级后悄悄把能恢复的数据删掉
+
 			if (source.getAnonymousPurgeEnabled() != null) {
 				setting.setAnonymousPurgeEnabled(source.getAnonymousPurgeEnabled());
 			}
 			if (source.getAnonymousPurgeDelayDays() != null) {
 				setting.setAnonymousPurgeDelayDays(clampAnonymousRetentionDays(source.getAnonymousPurgeDelayDays()));
 			}
-			// 检查更新：空串表示清空并回退到环境配置
+
 			if (source.getUpdateCheckEnabled() != null) {
 				setting.setUpdateCheckEnabled(source.getUpdateCheckEnabled());
 			}
@@ -745,8 +745,8 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getUpdateCheckIntervalHours() != null) {
 				setting.setUpdateCheckIntervalHours(Math.max(1, Math.min(168, source.getUpdateCheckIntervalHours())));
 			}
-			// 答卷 PDF 导出：并发数夹到 1~2（这台机器 4 核，再高会把答题页拖慢）；
-			// 暂停开关按 != null 判断，允许显式关掉。
+
+
 			if (source.getAnswerPdfConcurrency() != null) {
 				setting.setAnswerPdfConcurrency(Math.max(1, Math.min(2, source.getAnswerPdfConcurrency())));
 			}
@@ -782,14 +782,14 @@ public class SystemServiceImpl implements SystemService {
 			if (source.getPrompt() != null) {
 				aiSetting.setPrompt(source.getPrompt());
 			}
-			// 双层限额：null 表示「不改」，<= 0 表示「不限」，上限夹到 1 亿（防手滑输天文数字）
+
 			if (source.getDailyTokenLimit() != null) {
 				aiSetting.setDailyTokenLimit(clampTokenLimit(source.getDailyTokenLimit()));
 			}
 			if (source.getPerUserDailyLimit() != null) {
 				aiSetting.setPerUserDailyLimit(clampTokenLimit(source.getPerUserDailyLimit()));
 			}
-			// 每对话上限与限流：null 表示「不改」，范围夹到有意义的区间，别让手滑输 0 把 AI 锁死
+
 			if (source.getMaxChatTurns() != null) {
 				aiSetting.setMaxChatTurns(Integer.valueOf(Math.max(2, Math.min(100, source.getMaxChatTurns().intValue()))));
 			}

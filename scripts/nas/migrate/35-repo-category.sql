@@ -12,7 +12,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. 建表（已存在则跳过）
+
 CREATE TABLE IF NOT EXISTS `t_repo_category` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '分类名（单段，不含 /）',
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `t_repo_category` (
   KEY `idx_repo_category_parent` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='题库分类（含空文件夹）';
 
--- 2. 唯一键与索引（表已存在但缺索引时补上；都存在则跳过）
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_repo_category' AND INDEX_NAME = 'uk_repo_category_path'
@@ -44,7 +44,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. 自检：表 1、唯一键 2（unique 索引在 STATISTICS 里按列各一行）、普通索引 1
+
 SELECT COUNT(*) AS repo_category_table FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_repo_category';
 SELECT COUNT(*) AS path_unique_index FROM information_schema.STATISTICS

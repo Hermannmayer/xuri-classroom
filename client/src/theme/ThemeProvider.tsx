@@ -8,7 +8,7 @@ const STORAGE_KEY = 'sk-theme';
 
 function readMode(): ThemeMode {
   const saved = localStorage.getItem(STORAGE_KEY);
-  // 默认亮色：只有显式选过暗色的用户才进暗色分支
+
   return saved === 'dark' ? 'dark' : 'light';
 }
 
@@ -17,7 +17,7 @@ function applyMode(mode: ThemeMode) {
   document.documentElement.dataset.theme = mode;
 }
 
-// 首屏渲染前先落属性，避免亮色用户先看到一帧暗色
+
 applyMode(readMode());
 
 interface ThemeContextValue {

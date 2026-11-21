@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 /**
  * 图表的空态/失败态占位。
  *
- * 首页要求「接口挂了也要能用」：失败的那块显示一个大破折号 + 一行小字原因，
+
  * 至少告诉用户「这里本来有东西，但现在取不到」，而不是留一块空白让人以为页面坏了。
  */
 export function ChartEmpty({

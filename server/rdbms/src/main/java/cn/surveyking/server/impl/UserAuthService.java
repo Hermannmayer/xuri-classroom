@@ -39,15 +39,15 @@ import java.util.stream.Collectors;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 用户认证侧：账号密码登录、{@code UserInfo} 组装（角色/组链/界面偏好）与验证码校验。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的第一块。{@code buildUserInfo} 就是原来的
- * {@code loadUserById} 方法体：缓存注解 {@code @Cacheable} 仍然留在 {@code UserServiceImpl#loadUserById}
- * 上（外部入口不变），而需要「实时结果」的内部调用方直接调 {@code buildUserInfo}，
- * 与原来「自调用不走缓存代理」的行为完全一致。
- */
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -88,7 +88,7 @@ public class UserAuthService {
 		if (existAccount.getStatus() != AppConsts.USER_STATUS.VALID) {
 			throw new AccessDeniedException(i18n("user.service.disabled", username));
 		}
-		// 用户组有效期：过期后不允许登录（匿名答题走公开链接，不受此限）
+
 		deptService.assertDeptValid(existAccount.getUserId());
 
 		return userViewMapper.toUserView(existAccount);
@@ -100,7 +100,7 @@ public class UserAuthService {
 			return null;
 		}
 		UserInfo userInfo = userViewMapper.toUserInfo(user);
-		// 界面偏好（缩放 / 主题）用显式 SQL 读，实体映射在不同列类型下不可靠
+
 		java.util.Map<String, Object> prefs = userMapper.selectUiPrefs(userId);
 		if (prefs != null) {
 			Object zoom = prefs.get("uiZoom");
@@ -108,18 +108,18 @@ public class UserAuthService {
 			userInfo.setUiZoom(zoom == null ? null : String.valueOf(zoom));
 			userInfo.setUiTheme(theme == null ? null : String.valueOf(theme));
 		}
-		// 一人多组：主组 + 附加组，各自沿祖先链展开（组表整表取一次，避免逐层查库）
+
 		List<String> extraDeptIds = deptService.listExtraDeptIds(user.getId());
 		Map<String, Dept> deptMap = deptService.loadDeptMap();
 		List<String> deptChainIds = deptService.resolveDeptChainIds(deptService.mergeDeptIds(user.getDeptId(), extraDeptIds), deptMap);
 
-		// 最终权限 = 用户直挂角色 ∪ 所属组（主组 + 附加组，含祖先链）绑定的角色 ∪ ROLE_* 标记。
-		// 超级管理员靠 ROLE_admin 放行，这里照常把它的角色标记并进来，不做任何裁剪。
+
+
 		Set<String> authorities = resolveUserAuthorities(user.getId(), deptChainIds);
 		userInfo.setAuthorities(authorities.stream()
 				.map(authority -> (GrantedAuthority) () -> authority).collect(Collectors.toSet()));
 
-		// 设置用户部门（deptName 仍然是主组名）
+
 		if (StringUtils.hasText(user.getDeptId())) {
 			Dept dept = deptMap.get(user.getDeptId());
 			if (dept != null) {
@@ -164,13 +164,13 @@ public class UserAuthService {
 		if (isNotBlank(role.getAuthority())) {
 			Arrays.stream(role.getAuthority().split(",")).filter(StringUtils::hasText).forEach(authorities::add);
 		}
-		// 超级管理员天然拥有全部权限：把权限目录里的所有串直接注进来。
-		// 之前只认 t_role.authority 里存的串，结果目录新增权限（如 system:log:list）后，
-		// 管理员在页面显示「全勾选」，实际调接口却被 403 挡住（/api/system/audit/list 就是例子）。
+
+
+
 		if ("admin".equals(role.getCode())) {
 			for (PermissionEnum permission : PermissionEnum.values()) {
-				// 学员专属（开始答题/开始练习/错题本/学员视角）不注入管理员：
-				// 否则管理员页面会一直出现「开始答题」，前端只能逐页兜底。
+
+
 				if (!permission.isStudentOnly()) {
 					authorities.add(permission.getCode());
 				}
@@ -191,24 +191,24 @@ public class UserAuthService {
 	public void validateCaptcha(AuthRequest request) {
 		SystemInfo systemInfo = systemService.getSystemInfo();
 		if (systemInfo.getSetting() != null && Boolean.TRUE.equals(systemInfo.getSetting().getCaptchaEnabled())) {
-			// 验证码已开启
+
 			CaptchaVO captchaVO = new CaptchaVO();
 			captchaVO.setCaptchaVerification(request.getCaptchaVerification());
 			try {
 				ResponseModel response = captchaService.verification(captchaVO);
 				if (response == null || !Boolean.TRUE.equals(response.isSuccess())) {
-					// 验证码校验失败，返回信息告诉前端
-					// repCode 0000 无异常，代表成功
-					// repCode 9999 服务器内部异常
-					// repCode 0011 参数不能为空
-					// repCode 6110 验证码已失效，请重新获取
-					// repCode 6111 验证失败
-					// repCode 6112 获取验证码失败,请联系管理员
-					// repCode 6113 底图未初始化成功，请检查路径
-					// repCode 6201 get接口请求次数超限，请稍后再试!
-					// repCode 6206 无效请求，请重新获取验证码
-					// repCode 6202 接口验证失败数过多，请稍后再试
-					// repCode 6204 check接口请求次数超限，请稍后再试!
+
+
+
+
+
+
+
+
+
+
+
+
 					String message = response == null ? null : response.getRepMsg();
 					if (message == null || message.contains("服务出了点问题")) {
 						message = "验证码服务暂时不可用，请稍后重试";
@@ -220,7 +220,7 @@ public class UserAuthService {
 				throw e;
 			}
 			catch (Exception e) {
-				// AWT 字体缺失等底层异常不要直接甩给前端「服务出了点问题」；日志里保留完整栈
+
 				log.error("验证码校验异常", e);
 				throw new ValidationException("验证码服务暂时不可用，请稍后重试");
 			}

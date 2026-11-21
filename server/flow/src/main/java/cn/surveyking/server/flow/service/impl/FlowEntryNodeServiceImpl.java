@@ -6,9 +6,9 @@ import cn.surveyking.server.flow.service.FlowEntryNodeService;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
-/**
- *
- */
+
+
+
 @Service
 public class FlowEntryNodeServiceImpl extends ServiceImpl<FlowEntryNodeMapper, FlowEntryNode>
 		implements FlowEntryNodeService {

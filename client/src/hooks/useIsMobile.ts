@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
-/**
- * 手机断点。与 antd 的 md 对齐（767.98 覆盖 767.x 这种小数视口），
- * 也等于 global.css 里所有 @media (max-width: 767.98px) 的口径。
- */
+
+
+
+
 export const MOBILE_QUERY = '(max-width: 767.98px)';
 
 /**

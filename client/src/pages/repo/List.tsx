@@ -34,7 +34,7 @@ import BatchRepoCategoryModal from './BatchRepoCategoryModal';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
-/** 与后端 RepoView 对齐（只取列表要用的字段） */
+
 interface RepoView {
   id: string;
   name?: string;
@@ -47,7 +47,7 @@ interface RepoView {
   shared?: boolean;
   category?: string;
   isPractice?: boolean;
-  /** 全局开放时间（后端 Date 序列化为字符串）；空=不限 */
+
   openStartAt?: string;
   openEndAt?: string;
 }
@@ -67,7 +67,7 @@ const PRACTICE_TYPE_LABEL: Record<string, string> = {
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
-/** 操作列的中文链接一律不折行：列宽再紧也要整词显示（「开始练习」被拆成两行是线上问题） */
+
 const NOWRAP: CSSProperties = { whiteSpace: 'nowrap' };
 
 function useIsMobile() {
@@ -98,16 +98,16 @@ export default function RepoList() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<RepoView | null>(null);
-  // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个题库/重复保存
+
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
   const [granting, setGranting] = useState<RepoView | null>(null);
   const [moveOpen, setMoveOpen] = useState(false);
   const [exportTarget, setExportTarget] = useState<RepoExportTarget | null>(null);
   const [randomRepo, setRandomRepo] = useState<RepoView | null>(null);
-  /** 新建/编辑题库的分类候选（来自 /api/repo/categories，值用 path） */
+
   const [categoryOptions, setCategoryOptions] = useState<{ value: string; label: string }[]>([]);
-  /** 题库/分类变化后递增，让左侧分类树刷新计数 */
+
   const [treeToken, setTreeToken] = useState(0);
   const [randomForm] = Form.useForm<Record<string, number>>();
   const [createForm] = Form.useForm<{
@@ -136,31 +136,31 @@ export default function RepoList() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchGrantIds, setBatchGrantIds] = useState<string[]>([]);
-  // 排序统一受控：antd 只要有一列给了 sortOrder，整张表就按受控处理，
-  // 所以 5 个可排序列必须都由同一个状态驱动，否则没给 sortOrder 的列点了没反应。
-  // name 走服务端（跨页正确、按拼音排）；其余四列在前端对当前页排序。
+
+
+
   const [sortKey, setSortKey] = useState<string>();
   const [sortDesc, setSortDesc] = useState(false);
   const sortOrderOf = (key: string) => (sortKey === key ? (sortDesc ? 'descend' : 'ascend') : null);
 
   const canCreate = hasPermission(PERMISSION_CODES.repoCreate);
-  // 授权入口只认 repo:grant：repo:update 管的是题库内容，不该顺带把可见范围也放出去
+
   const canGrant = hasPermission(PERMISSION_CODES.repoGrant);
   const canDetail = hasPermission(PERMISSION_CODES.repoDetail);
-  // 导出是独立权限：有 repo:export 才显示入口；没有的人不该看到按钮再吃 403
+
   const canExport = hasPermission(PERMISSION_CODES.repoExport);
-  // 能不能进题库看题：与后端 /api/template/list 的守卫对齐。
-  // 管理端用 repo:detail；学员用独立的 repo:questions:read。
-  // 不再用 repo:book（错题本）/repo:import/template:list/repo:update 推断「能看题目」——
-  // 那些是别的动作，混在一起就会出现「能导入但不能看题」或「有错题本就能点开题库」。
+
+
+
+
   const canOpen = canDetail || hasPermission(PERMISSION_CODES.repoQuestionsRead);
   const canUpdate = hasPermission(PERMISSION_CODES.repoUpdate);
   const canDelete = hasPermission(PERMISSION_CODES.repoDelete);
-  // 练习入口只看 repo:practice（学员能力）。
-  // 管理员不再自动注入学员能力，老师角色默认也没有，所以这里不需要额外判 isAdmin/portal:teacher；
-  // 如果某个自定义角色明确勾了 repo:practice，就按配置显示，这才是真正的权限驱动。
+
+
+
   const canPractice = hasPermission(PERMISSION_CODES.repoPractice);
-  /** 题库统计：老师/管理员可见，学员没有这个权限点 */
+
   const canReport = hasPermission(PERMISSION_CODES.repoReport);
 
   // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）：
@@ -180,7 +180,7 @@ export default function RepoList() {
     if (labels.length === 0) return 0;
     return labels.reduce((sum, label) => sum + label.length * 18 + 24, 24);
   })();
-  // 名称(220) + 分类 140 + 类型 170 + 题量 90 + 标签 180 = 800，再加操作列
+
   const scrollX = 800 + actionWidth;
 
   const hasPracticeProgress = (id: string) => {
@@ -225,11 +225,11 @@ export default function RepoList() {
         current: page,
         pageSize,
         name: keyword,
-        // 分类筛选必须下推给后端（RepoQuery.category）；只在前端筛当前页等于没筛
+
         category: categoryFilter || undefined,
-        // 学员没有 repo:create 时只看「自己/被授权/共享」的题库；否则后端会返回 0 条
+
         memberOnly: canCreate ? undefined : true,
-        // 五列全部走服务端排序，跨页才正确
+
         sortBy: sortKey || undefined,
         sortDesc: sortKey ? sortDesc : undefined,
       });
@@ -246,7 +246,7 @@ export default function RepoList() {
     void load();
   }, [load]);
 
-  // 分类候选：来自服务端分类树（path 作为提交值，name 作为展示）
+
   useEffect(() => {
     get<{ name?: string; path?: string }[]>('/api/repo/categories')
       .then((list) =>
@@ -280,7 +280,7 @@ export default function RepoList() {
     try {
       v = await createForm.validateFields();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     setCreating(true);
     try {
@@ -289,7 +289,7 @@ export default function RepoList() {
         category: v.category.trim(),
         mode: v.mode,
         description: v.description?.trim() || undefined,
-        // 全局开放时间：epoch 毫秒；null=不限
+
         openStartAt: v.window?.[0]?.valueOf() ?? null,
         openEndAt: v.window?.[1]?.valueOf() ?? null,
       });
@@ -316,12 +316,12 @@ export default function RepoList() {
     try {
       values = await renameForm.validateFields();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     const { name, category, tag, description } = values;
     setRenameSaving(true);
     try {
-      // updateRepo 会先删光旧标签再按 tag 重建，只传 id+name 会把题库标签清空
+
       await post<void>('/api/repo/update', {
         id: renaming.id,
         name: name.trim(),
@@ -333,7 +333,7 @@ export default function RepoList() {
         isPractice: renaming.isPractice,
         priority: renaming.priority,
         setting: renaming.setting,
-        // 沿用表单回填值：没改就原样提交，不清掉题库已有的全局窗口
+
         openStartAt: values.window?.[0]?.valueOf() ?? null,
         openEndAt: values.window?.[1]?.valueOf() ?? null,
       });
@@ -362,12 +362,12 @@ export default function RepoList() {
   /** 题库名称与「题目」入口统一走这里：没有 canOpen 时名称退化成纯文本，不给出无效点击 */
   const openRepo = (row: RepoView) => {
     if (!canOpen) return;
-    // state 只在本次导航内有效，刷新就丢；同时带上 ?repoName=，题目页刷新后仍能显示名称
+
     const query = row.name ? `?repoName=${encodeURIComponent(row.name)}` : '';
     navigate(`/repo/${row.id}/questions/normal${query}`, { state: { repoName: row.name } });
   };
 
-  // 空列表的说明分三种：搜索/分类没命中、老师自己还没建库、学员没有可见题库（补一句可见范围）
+
   const emptyNode = (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -462,7 +462,7 @@ export default function RepoList() {
         />
       </div>
 
-      {/* 左树与右侧列表同顶：工具栏在上面，分类筛选走左侧树 */}
+
       <div
         style={{
           display: 'flex',
@@ -796,7 +796,7 @@ export default function RepoList() {
             ? [
                 {
                   title: '操作',
-                  // 宽度按实际动作算，配上每个 LinkAction 的 nowrap，中文按钮不会被折成两行
+
                   width: actionWidth,
                   render: (_: unknown, row: RepoView) => (
                     <Space size={4}>
@@ -1011,7 +1011,7 @@ export default function RepoList() {
         repoName={granting?.name}
         open={Boolean(granting)}
         onClose={() => setGranting(null)}
-        // 授权/取消后刷新列表：题库的可见范围变了，列表里的「已授权」状态也要跟着变
+
         onChanged={() => void load()}
       />
       <BatchRepoCategoryModal

@@ -1,16 +1,16 @@
 import { DATA_TYPES, type QuestionType, type SurveySchema } from './types';
 
 export interface FlatQuestion {
-  /** 题目 id（与 answer map 的 key 一致） */
+
   id: string;
   title: string;
   type: QuestionType;
   schema: SurveySchema;
-  /** 所属容器（Survey / QuestionSet / Pagination）的 id */
+
   parentId?: string;
-  /** 在整份问卷中的顺序，从 0 开始 */
+
   index: number;
-  /** 题号，只对会存答案的题递增；结构节点为 undefined */
+
   number?: number;
 }
 

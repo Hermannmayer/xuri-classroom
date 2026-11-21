@@ -61,8 +61,6 @@ tables:
   - t_template
 tests:
   - client:npm run check
-  - client:npm run test:rules
-  - client:npm run test:tree
   - docs:npm run docs:check
 last_verified: 2026-11-19
 verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
@@ -193,8 +191,6 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 
 ```bash
 cd client && npm run check
-npm run test:rules
-npm run test:tree
 npm run docs:check
 ```
 

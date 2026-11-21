@@ -19,49 +19,49 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-/**
- * AI 长任务（目前只有出卷）：任务 id + 内存任务表 + 受控线程池 + 24 小时 TTL。
- *
- * <p>完全照抄「答卷批量导出 PDF」那套模型（{@code AnswerPdfJobServiceImpl}），原因也一样：
- * 一次出卷是「老师点一下、30~90 秒、采纳完就不要了」的短生命周期任务，建表要配迁移、清理、
- * 多实例一致性，收益不抵成本。进程重启后未完成的任务直接消失，前端轮询会拿到
- * 「任务不存在或已过期」，重新生成即可。
- *
- * <p>资源约束（这台机器 4 核，学生可能还在答题）：
- * <ul>
- * <li>出卷线程池最多 2 个并发、队列只有 4 个，满了直接拒绝并给中文提示，不把 JVM 拖死；</li>
- * <li>内存里最多保留 {@link #MAX_JOBS} 个任务记录，防止被刷爆；</li>
- * <li>任务只能被发起人（或管理员）查看——任务里含着老师还没采纳的题目。</li>
- * </ul>
- *
- * @author p4-backend
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @Slf4j
 public class AiJobService {
 
-	/** 排队中 */
+
 	public static final String STATUS_QUEUED = "queued";
 
-	/** 执行中 */
+
 	public static final String STATUS_RUNNING = "running";
 
-	/** 完成 */
+
 	public static final String STATUS_DONE = "done";
 
-	/** 失败（详情见 error） */
+
 	public static final String STATUS_FAILED = "failed";
 
-	/** 任务保留 24 小时（与 PDF 导出一致） */
+
 	private static final long TTL_MILLIS = 24L * 60L * 60L * 1000L;
 
-	/** 内存里最多保留多少个任务 */
+
 	private static final int MAX_JOBS = 20;
 
-	/** 并发执行数：出卷 30~90 秒，2 个并发已经能占满这台 4 核机器的一半 */
+
 	private static final int POOL_SIZE = 2;
 
-	/** 等待队列：2 个在跑 + 4 个排队，再多就拒绝 */
+
 	private static final int QUEUE_CAPACITY = 4;
 
 	private static final ConcurrentHashMap<String, LocalJob> JOBS = new ConcurrentHashMap<>();
@@ -152,7 +152,7 @@ public class AiJobService {
 		}
 	}
 
-	/* ====== 清理 ====== */
+
 
 	/** 每小时清一次超过 24 小时的任务记录 */
 	@Scheduled(cron = "0 23 * * * ?")
@@ -182,14 +182,14 @@ public class AiJobService {
 		}
 	}
 
-	/** 任务体：在 {@code ai-job} 线程里执行，通过 context 报进度与结果 */
+
 	public interface JobTask {
 
 		void run(JobContext context) throws Exception;
 
 	}
 
-	/** 任务上下文：进度（0~99，100 由框架在成功时补）、结果、失败原因 */
+
 	public static final class JobContext {
 
 		private final LocalJob job;
@@ -219,7 +219,7 @@ public class AiJobService {
 
 	}
 
-	/** 内存任务记录：字段是 volatile，轮询线程读到的进度不会因可见性问题停住 */
+
 	private static final class LocalJob {
 
 		private final String id;

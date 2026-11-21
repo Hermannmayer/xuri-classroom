@@ -11,9 +11,9 @@ export { ZOOM_PRESETS, ZOOM_MIN, ZOOM_MAX, snapZoom } from '../utils/uiZoom';
 export interface ZoomControlProps {
   value: number;
   onChange: (value: number) => void;
-  /** 小屏/窄容器下隐藏「缩放」文字，只留档位 */
+
   hideLabel?: boolean;
-  /** 无障碍名称，默认「界面缩放」 */
+
   label?: string;
 }
 

@@ -11,9 +11,9 @@ export interface SchemaRendererProps {
   values: Record<string, AnswerValue>;
   onChange: (qId: string, value: AnswerValue) => void;
   mode: RenderMode;
-  /** 规则求值结果：false 的节点整题不渲染 */
+
   displays?: Record<string, boolean>;
-  /** 题号偏移：一页一题时传当前页索引，保证题号跟着变而不是永远 01 */
+
   numberOffset?: number;
 }
 
@@ -87,8 +87,8 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
             </section>
           );
         case 'Remark':
-          // 富文本由问卷设计者编写。设计者本身是「可编辑问卷的人」（老师即可），
-          // 所以这里不是「未来才需要消毒」：不消毒等于任何老师都能在所有答题学员的浏览器里执行脚本。
+
+
           return node.attribute?.content ? (
             <RichTextContent
               key={node.id}
@@ -99,7 +99,7 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
         case 'SplitLine':
           return <hr key={node.id} style={styles.splitLine} />;
         default:
-          // Survey / Pagination（以及 Option / RandomSurvey 这类纯容器）直接下钻
+
           return <Fragment key={node.id}>{renderNodes(node.children)}</Fragment>;
       }
     }
@@ -107,7 +107,7 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
     const Question = getQuestionComponent(node.type);
     const number = numbers.get(node.id);
 
-    // 已注册的题型自带外壳（题号/标题/必填/描述），这里只留间距容器，避免渲染两遍
+
     if (Question) {
       return (
         <div key={node.id} style={styles.question} data-qid={node.id} data-type={node.type}>
@@ -122,7 +122,7 @@ export function SchemaRenderer({ schema, values, onChange, mode, displays, numbe
       );
     }
 
-    // 未注册：外壳照常显示题目信息，下面挂橙色占位框
+
     return (
       <div key={node.id} style={styles.question} data-qid={node.id} data-type={node.type}>
         <div style={styles.titleRow}>

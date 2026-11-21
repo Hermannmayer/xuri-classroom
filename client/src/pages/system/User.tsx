@@ -34,11 +34,11 @@ interface SysUser {
   phone?: string;
   email?: string;
   status?: number;
-  /** staff / student：用户管理只列 staff */
+
   userType?: string;
   deptId?: string;
   deptName?: string;
-  /** 附加组：一人多组，主组仍用 deptId */
+
   deptIds?: string[];
   deptNames?: string[];
   roleNames?: string[];
@@ -50,7 +50,7 @@ interface Role {
   id: string;
   name?: string;
   code?: string;
-  /** 后端 RoleView.authorities：角色绑定的权限串（t_role.authority 按逗号拆开） */
+
   authorities?: string[];
 }
 
@@ -70,7 +70,7 @@ interface TreeNode {
 const ALL_DEPT = 'all';
 const NO_DEPT = 'none';
 
-/** 后端 UserView 返回主键字段是 id（旧代码用了 userId，这里兼容两者） */
+
 const userKey = (row: SysUser) => row.id ?? row.userId ?? '';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
@@ -94,7 +94,7 @@ function useIsMobile() {
  * 后端字段：UserRequest{ id, username, name, password, roles[], phone, email, status }
  *
  * <p>embedded=true 时本页被「用户与权限」的 Tab 嵌进去用：页头（SYSTEM 标签、账号数、说明）交给外层，
- * 自己只留搜索 / 导入 / 新建这一排工具条，表格也不再套一层 Card——否则会出现「卡片套卡片」的双层边框。
+
  */
 export default function SystemUser({ embedded = false }: { embedded?: boolean } = {}) {
   const isMobile = useIsMobile();
@@ -116,13 +116,13 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [form] = Form.useForm();
-  /** 主组不能同时出现在附加组里，选项里直接把它过滤掉 */
+
   const mainDeptId = Form.useWatch<string | undefined>('deptId', form);
 
-  /**
-   * 按钮级权限：列表本身由路由/后端 system:user:list 守卫，这里只管写操作。
-   * 没权限的按钮直接不渲染，避免「看得见、点了 403」。
-   */
+
+
+
+
   const [authorities, setAuthorities] = useState<string[]>([]);
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
@@ -131,15 +131,15 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
   const canCreate = can(authorities, PERMISSION_CODES.systemUserCreate);
   const canUpdate = can(authorities, PERMISSION_CODES.systemUserUpdate);
   const canDelete = can(authorities, PERMISSION_CODES.systemUserDelete);
-  /** 用户组是教职工组织（与班级分开）：有 system:dept:list 才能进用户组页 */
+
   const canManageGroups = can(authorities, PERMISSION_CODES.systemDeptList);
 
-  /**
-   * 角色下拉按「建用户分权」过滤（与后端 UserServiceImpl.assertRoleGrantScope 同一规则）：
-   * - 目标角色含任一 system:* 权限 = 能进系统管理 → 必须持 system:user:create:teacher（admin 由 can() 直接放行）；
-   * - 没有 teacher 档能力的人只能看到「不含任何 system:*」的角色（学员类）。
-   * code=admin 的角色由后端 toAuthorityNames 注入全部权限目录，即便库里没存 system:* 也按 teacher 档算。
-   */
+
+
+
+
+
+
   const canGrantSystemRole = can(authorities, PERMISSION_CODES.systemUserCreateTeacher);
   const roleTouchesSystem = (role: Role) =>
     role.code === 'admin' || (role.authorities ?? []).some((a) => typeof a === 'string' && a.startsWith('system:'));
@@ -151,16 +151,16 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
     return auth.includes(PERMISSION_CODES.portalStudent) && !auth.includes(PERMISSION_CODES.portalTeacher);
   };
   const staffRoles = assignableRoles.filter((role) => !isStudentRole(role));
-  // 批量导入：注解是 hasAnyAuthority('user:import','system:user:create')（UserApi.java:126）
+
   const canImportUser = can(authorities, PERMISSION_CODES.userImport) || can(authorities, PERMISSION_CODES.systemUserCreate);
-  // 下载导入模板：后端要 file:import（FileApi.java:75）
+
   const canDownloadTemplate = can(authorities, PERMISSION_CODES.fileImport);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       if (deptFilter === NO_DEPT) {
-        // 后端 deptId 为空时不做分组过滤，也没有「未分组」参数；这里一次取全量再前端过滤/分页
+
         const res = await getWithPagination<SysUser>('/api/system/user/list', {
           current: 1,
           pageSize: 1000,
@@ -193,12 +193,12 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
   }, [load]);
 
   useEffect(() => {
-    // 用户组只列教职工组；班级（学员）不混进筛选树和教工表单的下拉里
+
     get<Dept[]>('/api/system/dept/list', { deptType: 'org' })
       .then((list) => {
         const flat = Array.isArray(list) ? list : [];
         setDeptFlat(flat);
-        // 后端 /dept/list 实际返回扁平列表（靠 parentId 关联），这里组装成 Tree 需要的 children 结构
+
         const map = new Map<string, Dept>();
         flat.forEach((dept) => map.set(dept.id, { ...dept, children: [] }));
         const roots: Dept[] = [];
@@ -305,7 +305,7 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
     setImporting(true);
     try {
       const fd = new FormData();
-      // UserRequest.file：后端 importUser(UserRequest request) 直接从 multipart 绑 file
+
       fd.append('file', file);
       await post('/api/importUser', fd);
       message.success('导入成功');
@@ -357,7 +357,7 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
           marginBottom: 14,
         }}
       >
-        {/* 页头交给外层「用户与权限」：这里只留工具条，靠 flex 占位把它推到右边 */}
+
         {!embedded && (
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>SYSTEM / 教职工</div>
@@ -553,7 +553,7 @@ export default function SystemUser({ embedded = false }: { embedded?: boolean } 
         </>
       ) : (
       <Card
-        /* 嵌进「用户与权限」的 Tab 时不再画第二层边框与内边距：外层那张 Card 已经是容器 */
+
         className={embedded ? undefined : 'bp-corners bp-card'}
         variant={embedded ? 'borderless' : undefined}
         style={embedded ? { background: 'transparent' } : undefined}

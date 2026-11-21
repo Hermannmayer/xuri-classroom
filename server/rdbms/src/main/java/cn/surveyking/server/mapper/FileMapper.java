@@ -6,10 +6,10 @@ import org.springframework.cache.annotation.Cacheable;
 
 import java.io.Serializable;
 
-/**
- * @author javahuang
- * @date 2021/9/8
- */
+
+
+
+
 public interface FileMapper extends BaseMapper<File> {
 
 	@Cacheable(cacheNames = "fileCache", key = "#id", unless = "#result == null")

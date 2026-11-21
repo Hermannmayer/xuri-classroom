@@ -14,7 +14,7 @@ type LinkActionProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
  * 补上 `role="button" tabIndex={0}`，并让 Enter / 空格触发一次原生 click（这样
  * Popconfirm 之类依赖 click 的包装组件也能正常工作）。
  *
- * 之所以不用 antd `<Button type="link">`：本项目的 `.ant-btn` 有 `text-transform: uppercase`
+
  * 与 `font-weight: 600`，替换后表格操作列的字重/行高会变化；用 `<a>` 包裹可以做到零视觉回归。
  */
 const LinkAction = forwardRef<HTMLAnchorElement, LinkActionProps>(function LinkAction(
@@ -25,7 +25,7 @@ const LinkAction = forwardRef<HTMLAnchorElement, LinkActionProps>(function LinkA
     onKeyDown?.(event);
     if (event.defaultPrevented) return;
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
-      // 阻止空格滚动页面，然后触发一次原生 click（同时兼容 Popconfirm 等包装组件）
+
       event.preventDefault();
       event.currentTarget.click();
     }

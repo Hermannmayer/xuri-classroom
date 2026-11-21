@@ -62,7 +62,7 @@ else {
     Write-Host "[INFO] 服务不存在，跳过：$ServiceName"
 }
 
-# 移除本脚本创建的防火墙规则（名字带端口，逐条匹配）
+
 Get-NetFirewallRule -DisplayName "$ServiceName HTTP *" -ErrorAction SilentlyContinue |
     Remove-NetFirewallRule -ErrorAction SilentlyContinue
 

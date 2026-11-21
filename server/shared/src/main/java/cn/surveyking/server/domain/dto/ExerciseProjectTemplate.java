@@ -2,9 +2,9 @@ package cn.surveyking.server.domain.dto;
 
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 
-/**
- * 练习模式项目模板
- */
+
+
+
 public class ExerciseProjectTemplate {
 
 	public static final String EXERCISE_PROJECT_ID = "exercise";

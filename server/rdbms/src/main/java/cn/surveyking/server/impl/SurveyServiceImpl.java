@@ -8,29 +8,29 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * 公开答题入口。
- *
- * <p>
- * 这里只剩 13 个接口方法的薄委托（{@code validateProject} 有 ProjectQuery / ProjectView 两个重载），
- * 实现按职责拆在同包的组件里，依赖方向是单向的，不存在构造器循环依赖：
- *
- * <pre>
- * PublicProjectLoader      → LoginFormValidator / ProjectAnswerValidator / AnswerLookup / WechatAccessGuard
- * LoginFormValidator       → AnswerLimitGuard
- * ProjectAnswerValidator   → AnswerLookup / AnswerLimitGuard / ProjectStatisticsService
- * PublicAnswerSubmitter    → AnswerLookup / ProjectAnswerValidator / AnswerValidationService / WechatAccessGuard
- * PublicSurveyExtrasService→ AnswerLookup / WechatAccessGuard / ExamControlService
- * ProjectStatisticsService → 无（只依赖 AnswerService / ProjectService / AnswerItemMapper）
- * </pre>
- *
- * <p>
- * 类上的 {@code @Transactional} 保留：接口调用方（Controller、{@code FileServiceImpl}）
- * 拿到的仍是同一个事务边界，组件方法在事务内被调用，语义与拆分前一致。
- *
- * @author javahuang
- * @date 2021/8/22
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @Transactional
 @RequiredArgsConstructor

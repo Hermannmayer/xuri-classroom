@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 编辑器「从题库添加」：筛选 + 抽题 */
+
 @Data
 public class ComposePickRequest {
 
@@ -21,13 +21,13 @@ public class ComposePickRequest {
 
 	private String keyword;
 
-	/** 按题型配题数：key = 题型名 */
+
 	private java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
 
-	/** 按题型配每题分值 */
+
 	private java.util.Map<String, Double> scores = new java.util.LinkedHashMap<>();
 
-	/** random | sequential */
+
 	private String mode = "random";
 
 	private Integer count = 10;

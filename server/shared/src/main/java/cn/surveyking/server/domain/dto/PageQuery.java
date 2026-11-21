@@ -2,10 +2,10 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
-/**
- * @author javahuang
- * @date 2021/8/31
- */
+
+
+
+
 @Data
 public class PageQuery {
 

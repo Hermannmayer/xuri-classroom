@@ -28,7 +28,7 @@ export default function RepoExportModal({
   const { message } = App.useApp();
   const [pwd, setPwd] = useState('');
   const [busy, setBusy] = useState(false);
-  /** null=正在读系统设置；false=未启用导出密码；true=需要密码 */
+
   const [pwdRequired, setPwdRequired] = useState<boolean | null>(null);
   const autoTried = useRef(false);
 
@@ -46,7 +46,7 @@ export default function RepoExportModal({
       onClose();
     } catch (e) {
       message.error((e as Error).message);
-      // 系统设置读的是 false、但后端实际要密码（设置刚被改过）时，退回密码输入
+
       if (pwdRequired === false) setPwdRequired(true);
     } finally {
       setBusy(false);
@@ -73,7 +73,7 @@ export default function RepoExportModal({
         setPwdRequired(required);
         if (!required) {
           autoTried.current = true;
-          // 没设密码就直接下载，避免用户对着一个空密码框猜
+
           void submit('');
         }
       })

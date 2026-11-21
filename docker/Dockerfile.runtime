@@ -12,11 +12,11 @@
 # ============================================================
 FROM eclipse-temurin:25-jre-jammy
 
-# 时区 + 健康检查用的 curl（基础镜像里没有）
-# fontconfig/libfreetype6/fonts-dejavu-core：anji-captcha 的滑块图用 Java AWT 现画，
-# 没有字体时初始化 sun.awt.X11FontManager 会炸：
-#   NoClassDefFoundError: Could not initialize class sun.awt.X11FontManager
-# 验证码默认关闭，所以缺了也能启动——直到管理员在系统设置里打开它才 500。
+
+
+
+
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tzdata curl fontconfig libfreetype6 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
@@ -25,12 +25,12 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# 默认值即可跑起来；具体数据库/密钥由 compose 注入
+
 ENV TZ=Asia/Shanghai \
     SK_WEB_SPA_ENABLED=true \
     FILE_STORAGE_LOCAL_ROOT_PATH=/app/files
 
-# 发布流程把 jar 复制为 docker/xuri-classroom.jar；也可 --build-arg JAR_FILE=xxx.jar
+
 ARG JAR_FILE=xuri-classroom.jar
 COPY ${JAR_FILE} /app/app.jar
 
@@ -38,9 +38,9 @@ RUN mkdir -p /app/files
 
 EXPOSE 8080
 
-# 启动期 Spring Boot 初始化较慢，给 90 秒
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
   CMD curl -fsS http://127.0.0.1:8080/api/system >/dev/null || exit 1
 
-# headless：容器里没有 X11，不显式声明时 AWT 会尝试连显示服务并失败
+
 ENTRYPOINT ["java", "-Djava.awt.headless=true", "-jar", "/app/app.jar", "--server.port=8080"]

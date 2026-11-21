@@ -6,10 +6,10 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2024/4/30
- */
+
+
+
+
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class HistoryExerciseQuery extends PageQuery {

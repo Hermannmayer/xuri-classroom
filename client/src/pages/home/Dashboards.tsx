@@ -32,7 +32,7 @@ import {
   ratioPercent,
 } from '../../components/charts';
 
-/** 图表统计窗口（天）。契约默认 14，后端允许 1~90 */
+
 const DAYS = 14;
 
 const SOFT = { color: 'var(--bp-text-soft)' } as const;
@@ -52,8 +52,8 @@ function Shell({
   children: ReactNode;
 }) {
   return (
-    // 原来这里锁死 maxWidth: 1200，2K/4K 屏上内容只占左边一小块、右边全是空白。
-    // 现在不锁宽度，靠栅格断点自适应：1080p 两列、2K/4K 三到四列。
+
+
     <div>
       <div
         style={{
@@ -82,7 +82,7 @@ function Shell({
 /**
  * 图表/表格的统一卡片外壳。
  *
- * note 用来放「这块的接口没通」这类小字原因：整页不做统一错误处理，
+
  * 哪个请求挂了就只在它自己的卡片下面留一行说明，其余部分照常可用。
  */
 function Panel({
@@ -150,7 +150,7 @@ function RefreshLink({ onRefresh, busy }: { onRefresh: () => void; busy: boolean
   );
 }
 
-/* ------ 管理员 */
+
 
 interface MetricRow {
   key: string;
@@ -633,7 +633,7 @@ export function TeacherHome() {
             <Table<TeacherRecentRow>
               rowKey={(row) => row.projectId ?? row.projectName ?? 'row'}
               size="small"
-              // 列宽合计约 510px，手机（324px 可用）不横滚会把交卷时间折成三行
+
               scroll={{ x: 520 }}
               loading={board.loading}
               pagination={recent.length > 8 ? { pageSize: 8, size: 'small', showSizeChanger: false } : false}
@@ -694,7 +694,7 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
-  // 考试安排表沿用原逻辑：班级分配的考试可能在文件夹里，学员首页必须拉全层级
+
   useEffect(() => {
     let alive = true;
     setProjectsLoading(true);
@@ -718,7 +718,7 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
   }, [tick]);
 
   const data = board.data;
-  // 点数由 api 层的 STUDENT_RECENT_LIMIT（= 后端 recent 的 20 条）决定，这里不再写死
+
   const score = scoreTrend(data?.recent);
   const openExams = projects.filter((project) => project.status === 1).length;
   const busy = board.loading || projectsLoading;
@@ -848,7 +848,7 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
  * 首页分发：门户权限决定视角，教学首页还要叠加接口权限。
  *
  * <p>TeacherHome 会请求 /api/teaching/projects（要 project:report）；只配了 portal:teacher
- * 的账号进来只会整页报错，所以这里必须 portal:teacher + project:report 才渲染教师首页。
+
  * 学员预设也带 project:report，因此只看 report 会把学员误判成老师，必须两个条件一起判。
  */
 export default function Dashboard({ authorities }: { authorities: string[] }) {

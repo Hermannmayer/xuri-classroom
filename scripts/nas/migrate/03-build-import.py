@@ -13,7 +13,7 @@
 #   · MySQL 里有、H2 里没有的列 → 不写，交给默认值（只有 4 个可空新列）
 #   · H2 里有、MySQL 里没有的列 → 丢弃并报告
 #   · 生成列（GENERATED ALWAYS AS）不能 INSERT → 跳过（实测只有 t_account.oauth_identity_key）
-#   · CSV 里 ##NULL## = NULL；空字段 = 空字符串（这个区别踩过一次坑）
+
 #   · 导入前先 DELETE 整表，避免和 init-mysql.sql 里的种子数据撞主键
 #
 # 用法（在 NAS 上）：

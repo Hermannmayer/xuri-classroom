@@ -7,12 +7,12 @@ import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
-/**
- * 教学工作台用的只读统计。
- *
- * <p>刻意不走实体/Service：这两条都是纯聚合，写成 SQL 比拉全量再算清楚得多，
- * 也不会把「答卷内容」这类重字段带出来。
- */
+
+
+
+
+
+
 @Mapper
 public interface TeachingMapper {
 

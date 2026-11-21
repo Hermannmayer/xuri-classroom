@@ -45,29 +45,29 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * 答卷导出：整卷 Excel、单个答卷附件、批量附件 zip。
- *
- * <p>
- * 从 {@code AnswerServiceImpl} 切出。所有方法都只处理「已经取好的答卷视图」， 取数（分页 / 权限过滤）仍留在调用方，因此这里不需要注入
- * {@code AnswerService}， 也就不会出现「Service 注入组件、组件又注入 Service」的构造器循环。
- *
- * <p>
- * 导出线程池与压缩线程的语义原样保留：Excel 导出最多 2 并发 + 4 排队，队列满直接拒绝； 附件 zip 仍在独立线程里流式写出。
- */
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerExporter {
 
 	private final FileService fileService;
 
-	/**
-	 * 导出线程池：最多 2 个并发导出，队列 4。
-	 * <p>
-	 * 之前每来一个导出请求就 {@code new Thread}，且先把全部行在内存里组装成 List 再交给 Excel 库； 两个老师同时导 500 份 × 100
-	 * 题的卷，峰值就能吃掉几百 MB 堆。-Xmx768m 下这是最容易触发 OOM 的路径。 队列满时直接拒绝（AbortPolicy），让请求拿到明确错误，而不是把
-	 * JVM 拖死。
-	 */
+
+
+
+
+
+
+
 	private static final ExecutorService EXPORT_POOL = new ThreadPoolExecutor(2, 2, 60L, TimeUnit.SECONDS,
 			new ArrayBlockingQueue<>(4), runnable -> {
 				Thread thread = new Thread(runnable, "answer-export");
@@ -104,12 +104,12 @@ public class AnswerExporter {
 				});
 			}
 			catch (RejectedExecutionException rejected) {
-				// 队列满：明确拒绝，别让第三份大导出把堆打穿
+
 				try {
 					outputStream.close();
 				}
 				catch (IOException ignored) {
-					// 关闭管道失败不影响返回错误
+
 				}
 				throw new InternalServerError("当前导出任务过多，请稍后再试（同时最多 3 个）");
 			}
@@ -125,7 +125,7 @@ public class AnswerExporter {
 
 	public DownloadData downloadAttachmentZip(Project project, List<AnswerView> answers, DownloadQuery query) {
 		DownloadData downloadData = new DownloadData();
-		// 下载所有问卷答案的附件
+
 		downloadData.setResource(new InputStreamResource(answerAttachToZip(project, answers, query)));
 		downloadData.setFileName(project.getName() + ".zip");
 		downloadData.setMediaType(MediaType.parseMediaType("application/zip"));
@@ -135,14 +135,14 @@ public class AnswerExporter {
 	public DownloadData generateSurveyAttachment(Project project, AnswerView answer) {
 		DownloadData downloadData = new DownloadData();
 		List<FileView> files = answer.getAttachment();
-		// 如果只有一个附件，则直接返回附件的结果
+
 		if (files.size() == 1) {
 			FileView attachment = files.get(0);
 			downloadData.setFileName(attachment.getOriginalName());
 			downloadData.setResource(fileService.loadFile(new FileQuery(attachment.getId())).getBody());
 		}
 		else {
-			// 多个附件，压缩包
+
 			downloadData.setResource(new InputStreamResource(
 					answerAttachToZip(project, Collections.singletonList(answer), new DownloadQuery())));
 			downloadData.setFileName(answer.getId() + ".zip");
@@ -194,7 +194,7 @@ public class AnswerExporter {
 
 						});
 					});
-					// 生成表格
+
 					if (DownloadQuery.DownloadType.answerAttachment.equals(query.getType())) {
 						ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 						export(project, answers, byteArrayOutputStream);
@@ -220,7 +220,7 @@ public class AnswerExporter {
 
 	private void export(Project project, List<AnswerView> answerViews, OutputStream outputStream) {
 		List<SurveySchema> schemaDataTypes = SchemaHelper.flatSurveySchema(project.getSurvey());
-		// 问卷开启计分时，导出也带分数列；否则按问卷模式不带
+
 		ProjectModeEnum exportMode = project.getMode();
 		if (ProjectModeEnum.survey.equals(exportMode) && project.getSetting() != null
 				&& project.getSetting().getExamSetting() != null
@@ -296,16 +296,16 @@ public class AnswerExporter {
 					}
 				}
 				else {
-					// 问题变量
+
 					Map<String, Object> questionValue = (Map<String, Object>) answerMap.get(questionId);
 
 					if (questionValue != null) {
-						// 单行文本表达式只有问题id #{xxxx}
+
 						if (StringUtils.hasText(optionId)) {
 							expValue = questionValue.get(optionId).toString();
 						}
 						else {
-							// 多行文本会有选项id #{ancd.a3dx}
+
 							expValue = questionValue.values().toArray()[0].toString();
 						}
 					}
@@ -314,14 +314,14 @@ public class AnswerExporter {
 				fileName = StringUtils.replace(fileName, exp, expValue);
 			}
 			String suffix = getFileExtension(file.getOriginalName());
-			// 返回解析之后的文件名字
+
 			if (suffix != null) {
 				return fileName + "." + suffix;
 			}
 			return fileName;
 		}
 		else {
-			// 返回原始文件名字
+
 			return file.getOriginalName();
 		}
 	}

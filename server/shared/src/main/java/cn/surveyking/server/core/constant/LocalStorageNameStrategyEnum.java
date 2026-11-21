@@ -1,9 +1,9 @@
 package cn.surveyking.server.core.constant;
 
-/**
- * 本地存储文件名策略
- * @author Jiutwo
- */
+
+
+
+
 public enum LocalStorageNameStrategyEnum {
 
 	/**

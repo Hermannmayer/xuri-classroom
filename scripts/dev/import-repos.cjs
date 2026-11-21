@@ -75,7 +75,7 @@ async function importFile(cookie, repoId, filePath) {
     .sort();
 
   for (const file of files) {
-    const base = path.basename(file, path.extname(file)); // 保育3 / 养老4 ...
+    const base = path.basename(file, path.extname(file));
     const profession = PROFESSION[base.slice(0, 2)] || base.slice(0, 2);
     const level = LEVEL[base.slice(2)] || base.slice(2);
     const name = `${profession}${level}复习题`;

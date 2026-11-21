@@ -18,12 +18,12 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * 随机问题处理器 负责处理考试模式下的随机问题选择和错题练习功能
- *
- * @author javahuang
- * @date 2025-08-01
- */
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -48,17 +48,17 @@ public class RandomSurveyProcessor {
 		SurveySchema source = project.getSurvey();
 		boolean shouldSaveRandomSchema = false;
 
-		// 处理编辑器中的 RandomSurvey 题型
+
 		if (processRandomSurveyInSchema(source, projectView)) {
 			shouldSaveRandomSchema = true;
 		}
 
-		// 处理随机抽题
+
 		if (processRandomQuestionSelection(project, projectView, source)) {
 			shouldSaveRandomSchema = true;
 		}
 
-		// 如果有 RandomSurvey 题型或配置了随机抽题，保存随机schema到答案表
+
 		if (shouldSaveRandomSchema && projectView.getSurvey() != null) {
 			saveRandomSchemaToAnswer(project, projectView.getSurvey(), projectView);
 		}
@@ -76,10 +76,10 @@ public class RandomSurveyProcessor {
 						.title(source.getTitle()).attribute(source.getAttribute()).description(source.getDescription())
 						.build();
 				projectView.setSurvey(updatedSource);
-				return true; // 表示处理了RandomSurvey题型
+				return true;
 			}
 		}
-		return false; // 没有处理RandomSurvey题型
+		return false;
 	}
 
 	/**
@@ -95,19 +95,19 @@ public class RandomSurveyProcessor {
 			return false;
 		}
 
-		// 尝试从已有答案中加载 schema
+
 		SurveySchema existingSchema = loadSchemaFromExistingAnswer(project, projectView);
 		if (existingSchema != null) {
-			return false; // 已有答案，不需要重新处理
+			return false;
 		}
 
-		// 从题库中选择题目
+
 		List<SurveySchema> selectedQuestions = selectQuestionsFromRepo(project, randomSurveyCondition);
 
 		if (!selectedQuestions.isEmpty()) {
 			SurveySchema randomSchema = buildRandomSchema(source, selectedQuestions, projectView);
 			projectView.setSurvey(randomSchema);
-			return true; // 表示处理了随机抽题
+			return true;
 		}
 
 		return false;
@@ -150,7 +150,7 @@ public class RandomSurveyProcessor {
 			List<ProjectSetting.RandomSurveyCondition> randomSurveyCondition) {
 		List<SurveySchema> questionSchemaList = repoService.pickQuestionFromRepo(randomSurveyCondition);
 
-		// 合并编辑器中的问题和题库中的问题
+
 		if (project.getSurvey() != null && !CollectionUtils.isEmpty(project.getSurvey().getChildren())) {
 			questionSchemaList = Stream.concat(project.getSurvey().getChildren().stream(), questionSchemaList.stream())
 					.collect(Collectors.toList());
@@ -167,7 +167,7 @@ public class RandomSurveyProcessor {
 		SurveySchema randomSchema = SurveySchema.builder().id(source.getId()).children(questionSchemaList)
 				.title(source.getTitle()).attribute(source.getAttribute()).description(source.getDescription()).build();
 
-		// 如果启用了随机排序，则随机化问题顺序
+
 		if (shouldRandomizeOrder(projectView)) {
 			projectViewMapper.randomSchemaOrder(randomSchema);
 		}
@@ -199,7 +199,7 @@ public class RandomSurveyProcessor {
 
 			String cookieName = AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + project.getId();
 			Cookie cookie = new Cookie(cookieName, answerView.getId());
-			cookie.setMaxAge(7 * 24 * 60 * 60); // 7天过期
+			cookie.setMaxAge(7 * 24 * 60 * 60);
 			ContextHelper.getCurrentHttpResponse().addCookie(cookie);
 
 		}
@@ -218,16 +218,16 @@ public class RandomSurveyProcessor {
 
 		for (SurveySchema child : children) {
 			if (SurveySchema.QuestionType.RandomSurvey.equals(child.getType())) {
-				// 处理RandomSurvey题型
+
 				List<SurveySchema> randomQuestions = processSingleRandomSurvey(child);
 				result.addAll(randomQuestions);
 			}
 			else {
-				// 递归处理子节点
+
 				if (!CollectionUtils.isEmpty(child.getChildren())) {
 					List<SurveySchema> processedChildren = processRandomSurveyInChildren(child.getChildren());
 					if (!processedChildren.equals(child.getChildren())) {
-						// 创建新的schema，更新children
+
 						SurveySchema newChild = SurveySchema.builder().id(child.getId()).type(child.getType())
 								.title(child.getTitle()).description(child.getDescription())
 								.attribute(child.getAttribute()).children(processedChildren).build();
@@ -253,7 +253,7 @@ public class RandomSurveyProcessor {
 	 */
 	private List<SurveySchema> processSingleRandomSurvey(SurveySchema randomSurveySchema) {
 		try {
-			// 获取RandomSurvey的抽题规则配置
+
 			SurveySchema.Attribute attributeObj = randomSurveySchema.getAttribute();
 			if (attributeObj == null) {
 				return Collections.emptyList();
@@ -264,7 +264,7 @@ public class RandomSurveyProcessor {
 				return Collections.emptyList();
 			}
 
-			// 使用repoService从题库中选择问题
+
 			List<SurveySchema> selectedQuestions = repoService.pickQuestionFromRepo(conditions);
 			return selectedQuestions != null ? selectedQuestions : Collections.emptyList();
 

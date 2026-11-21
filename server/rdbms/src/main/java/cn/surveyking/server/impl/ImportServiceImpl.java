@@ -28,9 +28,9 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * 导入解析实现。解析阶段不写库，避免“解析失败却留下空项目”。
- */
+
+
+
 @Service
 @RequiredArgsConstructor
 public class ImportServiceImpl implements ImportService {
@@ -97,7 +97,7 @@ public class ImportServiceImpl implements ImportService {
 				}
 			}
 			catch (Exception ex) {
-				// 单张图片失败不影响整份导入
+
 			}
 		}
 		if (!urls.isEmpty()) {

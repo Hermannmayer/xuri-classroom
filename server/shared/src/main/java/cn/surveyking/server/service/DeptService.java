@@ -12,10 +12,10 @@ import org.springframework.cache.annotation.Cacheable;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/11/2
- */
+
+
+
+
 public interface DeptService {
 
 	/**

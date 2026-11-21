@@ -35,21 +35,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Spring上下文帮助类
- *
- * @author mazc@dibo.ltd
- * @version 2.0
- * @date 2019/01/01
- */
+
+
+
+
+
+
+
 @Component
 @Lazy(false)
 @Slf4j
 public class ContextHelper implements ApplicationContextAware {
 
-	/***
-	 * ApplicationContext上下文
-	 */
+
+
+
 	private static ApplicationContext APPLICATION_CONTEXT = null;
 
 	@Override

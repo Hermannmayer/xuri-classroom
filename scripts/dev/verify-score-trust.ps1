@@ -35,9 +35,9 @@ $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ('sk-score-trust-' + [gui
 $srcDir = Join-Path $workDir 'src'
 New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
 
-# ---------------------------------------------------------------------------------------------
-# 1. 生成反射 harness（默认包，方便直接跑；只用到 shared / rdbms 的编译产物）
-# ---------------------------------------------------------------------------------------------
+
+
+
 $harness = @'
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
@@ -147,7 +147,6 @@ public class ScoreTrustHarness {
 		check("首次提交没答满最短时间会被拒绝", minReject != null);
 		System.out.println("       拒绝原因：" + minReject);
 
-		// 没有可信开始时间 → 估算值，此时最短交卷不拦（否则所有首交都会被拒），最长也放行
 		Answer noMeta = new Answer();
 		noMeta.setTempSave(1);
 		Object estimatedStart = resolveStart.invoke(null, noMeta, examProject, null);
@@ -259,9 +258,9 @@ public class ScoreTrustHarness {
 
 Set-Content -Path (Join-Path $srcDir 'ScoreTrustHarness.java') -Value $harness -Encoding UTF8
 
-# ---------------------------------------------------------------------------------------------
-# 2. 生成 gradle init 脚本：借 :rdbms 的真实运行时 classpath 编译并运行 harness
-# ---------------------------------------------------------------------------------------------
+
+
+
 $initScript = @'
 gradle.projectsEvaluated {
     def p = gradle.rootProject.findProject(':rdbms')
@@ -288,9 +287,9 @@ gradle.projectsEvaluated {
 $initPath = Join-Path $workDir 'verify-init.gradle'
 Set-Content -Path $initPath -Value $initScript -Encoding UTF8
 
-# ---------------------------------------------------------------------------------------------
-# 3. 跑
-# ---------------------------------------------------------------------------------------------
+
+
+
 Write-Host "== 验证 task-39 修复（判分只信服务端 schema / 首次提交受时长约束）==" -ForegroundColor Cyan
 Push-Location $serverDir
 try {

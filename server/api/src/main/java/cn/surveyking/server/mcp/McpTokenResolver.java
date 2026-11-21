@@ -16,16 +16,16 @@ import org.springframework.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
-/**
- * 把 {@code Authorization: Bearer <token>} 换成 SecurityContext 里的登录用户。
- *
- * <p>这是整套 MCP 权限模型的关键一步：令牌只负责「你是谁」，**权限完全来自用户本身**。
- * 因此 9 个工具一个 {@code hasRole}/{@code hasAuthority} 判断都不用另写，
- * 直接复用现有 {@code @PreAuthorize} —— 权限页改一次，MCP 立刻跟着变。
- *
- * <p>失败一律抛 {@link McpUnauthorizedException}（HTTP 401）：令牌不存在 / 已撤销 / 已过期 /
- * 对应用户被停用。**不区分**这些原因对外只说一句，避免拿它做「某个令牌是否还活着」的探测。
- */
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -63,7 +63,7 @@ public class McpTokenResolver {
 				user.getAuthorities());
 		authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 		SecurityContextHolder.getContext().setAuthentication(authentication);
-		// last_used_at 是排障信息：失败了也只打日志（服务实现内部已吞异常）
+
 		apiTokenService.touchLastUsed(token.getId());
 		List<String> scopes = ApiTokenService.parseScopes(token.getScopes());
 		return new McpCaller(token.getId(), token.getName(), token.getUserId(), user.getName(), scopes);

@@ -19,10 +19,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * @author javahuang
- * @date 2021/8/25
- */
+
+
+
+
 @Mapper
 public interface ProjectViewMapper extends BaseModelMapper<ProjectRequest, ProjectView, Project> {
 
@@ -36,13 +36,13 @@ public interface ProjectViewMapper extends BaseModelMapper<ProjectRequest, Proje
 	@AfterMapping
 	default void calledWithSourceAndTargetType(ProjectView source, @MappingTarget PublicProjectView view) {
 		view.setSurvey(view.getSurvey().deepCopy());
-		// 非练习模式需要去掉 schema 里面的答案信息
+
 		if (ProjectModeEnum.exam.equals(source.getMode())
 				&& !((source.getSetting() != null && source.getSetting().getExamSetting() != null
 						&& Boolean.TRUE.equals(source.getSetting().getExamSetting().getExerciseMode())))) {
 			trimExamAnswerInfo(view.getSurvey());
 		}
-		// 考试模式，随机问题顺序
+
 		if (ProjectModeEnum.exam.equals(source.getMode())
 				&& ((source.getSetting() != null && source.getSetting().getExamSetting() != null
 						&& Boolean.TRUE.equals(source.getSetting().getExamSetting().getRandomOrder())))) {
@@ -54,14 +54,14 @@ public interface ProjectViewMapper extends BaseModelMapper<ProjectRequest, Proje
 		if (schema.getAttribute() == null) {
 			schema.setAttribute(SurveySchema.Attribute.builder().build());
 		}
-		// examAnswerMode 不能去除，前端要用于区分计分题和信息题
+
 		SchemaHelper.ignoreAttributes(schema, "examCorrectAnswer", "examScore", "examMatchRule");
 	}
 
 	default void randomSchemaOrder(SurveySchema schema) {
 		if (schema.getChildren() != null) {
-			// 非考试题的顺序需要保持不变
-			// 填空题的顺序也保持不变
+
+
 			Map<SurveySchema, Integer> schemaShouldKeepOrder = new LinkedHashMap<>();
 			for (int i = 0; i < schema.getChildren().size(); i++) {
 				SurveySchema curr = schema.getChildren().get(i);

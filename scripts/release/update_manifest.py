@@ -14,7 +14,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-# 文件名 → 平台键。顺序要紧：docker 的 tar.gz 也以 -linux 开头时先匹配更具体的。
+
 PLATFORM_RULES = [
     (re.compile(r"-windows-x64\.zip$"), "windows"),
     (re.compile(r"-docker\.tar\.gz$"), "docker"),

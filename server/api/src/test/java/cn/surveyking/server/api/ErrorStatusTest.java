@@ -21,13 +21,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * S3-7 回归网：HTTP 状态码必须与 {@code body.code} 的语义对齐。
- *
- * <p>
- * 不启动 Spring 上下文、不连库：standalone MockMvc + 真实的 {@link GlobalExceptionHandler}，
- * 因此没配 {@code S2_TEST_DB_URL} 的机器上也会跑。
- */
+
+
+
+
+
+
+
 class ErrorStatusTest {
 
 	private MockMvc mockMvc;

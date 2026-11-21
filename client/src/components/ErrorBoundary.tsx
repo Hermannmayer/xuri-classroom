@@ -39,16 +39,16 @@ const PLAIN_BTN = {
   cursor: 'pointer',
 } as const;
 
-/**
- * 全局渲染异常兜底。
- *
- * 之前 `main.tsx` 直接渲染 RouterProvider：任意页面在 render 阶段抛错（例如某个
- * 字段是 undefined 又去 `.map`），React 会卸载整棵树 → 整页白屏、没有任何提示。
- * 这里用 class 组件接住，给出中文兜底页 + 刷新/回首页，技术细节折叠展示（默认不刷屏）。
- *
- * 只捕获 render / 生命周期 / 构造函数里的错误；事件回调和异步请求里的异常仍走
- * 各页面的 message.error（或全局 unhandledrejection），不要把它当万能兜底。
- */
+
+
+
+
+
+
+
+
+
+
 export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {};
 
@@ -57,7 +57,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // 控制台留全量信息方便排障；页面默认只显示折叠区，不把堆栈糊在用户脸上
+
     console.error('[ErrorBoundary] 页面渲染异常', error, info.componentStack);
   }
 

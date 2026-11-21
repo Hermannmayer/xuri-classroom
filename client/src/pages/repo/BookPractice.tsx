@@ -25,9 +25,9 @@ import {
 } from './Book';
 
 const FONT_KEY = 'sk-font-scale';
-/** 单次最多取多少题：每题都要单独取一次完整 schema，太多会拖慢首屏 */
+
 const MAX_QUESTIONS = 100;
-/** 取 schema 的并发数，兼顾首屏速度和后端压力 */
+
 const CONCURRENCY = 6;
 
 type Layout = 'single' | 'scroll';
@@ -50,7 +50,7 @@ const VERDICT_COLOR: Record<RowVerdict, string | undefined> = {
   unanswered: undefined,
 };
 
-/** 聚合一道错题记录下多道题的判定时用：越靠后越「严重」 */
+
 const VERDICT_RANK: Record<RowVerdict, number> = { unanswered: 0, unknown: 1, correct: 2, wrong: 3 };
 
 /* ---------------------------------------------------------------- 判分 */
@@ -69,8 +69,8 @@ function pickedOptionIds(value: AnswerValue): string[] {
 /**
  * 题库里大量题目是从 Excel 导入的：选项只存在 children 里，dataSource 是空的，
  * 而且这些 Option 子节点没有 type（后端 RepoTemplateExcelParseHelper 造节点时没写 type）。
- * 渲染层（Radio/Checkbox/Judge/Select）只认 dataSource，所以这里按 children 补一份，
- * 否则错题练习会显示「未配置选项」——题目根本没法作答。
+
+
  */
 function normalizeChoiceSchema(schema: SurveySchema): SurveySchema {
   if (!CHOICE_TYPES.has(schema.type)) return schema;
@@ -107,7 +107,7 @@ function textMatches(schema: SurveySchema, expected: string, actual: string): bo
     .filter(Boolean);
   if (!candidates.length) return false;
   if (schema.attribute?.examMatchRule === 'contain') return candidates.some((item) => item.includes(actual));
-  // 后端未配置 examMatchRule 时会判 0 分；这里按「完全一致」处理，练习时更符合直觉
+
   return candidates.some((item) => item === actual);
 }
 
@@ -137,7 +137,7 @@ function gradeAnswer(schema: SurveySchema, value: AnswerValue): Verdict {
   }
 
   if (schema.type === 'MultipleBlank') {
-    // 每个空位各自配了答案才判分，缺一个就整题返回未知
+
     const blanks = schema.children ?? [];
     const expectedByBlank = blanks.map((child) => (child.attribute?.examCorrectAnswer ?? '').trim());
     if (!blanks.length || expectedByBlank.some((item) => !item)) return 'unknown';
@@ -150,7 +150,7 @@ function gradeAnswer(schema: SurveySchema, value: AnswerValue): Verdict {
     return allCorrect ? 'correct' : 'wrong';
   }
 
-  // 矩阵 / 评分 / NPS 等不在这里判分，交给用户自评
+
   return 'unknown';
 }
 
@@ -167,7 +167,7 @@ function answerSummary(schema: SurveySchema, value: AnswerValue): string {
   return '已作答';
 }
 
-/* ---------------------------------------------------------------- 进度暂存 */
+
 
 interface SavedProgress {
   values: Record<string, AnswerValue>;
@@ -208,7 +208,7 @@ function filterChips(filter: BookFilter): string[] {
   if (filter.wrongTimesMin != null) chips.push(`累计错 ≥ ${filter.wrongTimesMin} 次`);
   if (filter.status != null) chips.push('只看重点');
   if (filter.startDate || filter.endDate) {
-    // endDate 传给后端时加了 1 天，展示时减回来
+
     const end = filter.endDate ? dayjs(filter.endDate).subtract(1, 'day').format('YYYY-MM-DD') : '不限';
     chips.push(`${filter.startDate || '不限'} ~ ${end}`);
   }
@@ -226,12 +226,12 @@ export default function BookPractice() {
   const [search] = useSearchParams();
   const searchKey = search.toString();
   const filter = useMemo(() => bookFilterFromParams(new URLSearchParams(searchKey)), [searchKey]);
-  /** scope=project 表示「只练本场考试的错题」，只在标题/标签上做区分，取数逻辑完全一致 */
+
   const scope = search.get('scope') || 'filter';
   const projectNameParam = search.get('projectName') || '';
   const [projectNames, setProjectNames] = useState<Record<string, string>>({});
 
-  // 练习页可能被外部链接直接打开（只带 projectId），名字没带就查一次列表补上
+
   useEffect(() => {
     if (!filter.projectId || projectNameParam) return;
     let alive = true;
@@ -255,7 +255,7 @@ export default function BookPractice() {
 
   const [items, setItems] = useState<Array<{ row: UserBookView; schema: SurveySchema }>>([]);
   const [skipped, setSkipped] = useState(0);
-  /** 首条取题失败的原因：全部跳过时不能只说「没有符合条件的错题」 */
+
   const [skipReason, setSkipReason] = useState<string>();
   const [truncated, setTruncated] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -300,7 +300,7 @@ export default function BookPractice() {
           rows = rows.filter((row) => wanted.has(row.id));
         }
 
-        // 同一道题可能同时有「错题」和「收藏」两条记录，练习时按 templateId 去重
+
         const seen = new Set<string>();
         rows = rows.filter((row) => {
           const key = row.templateId || row.id;
@@ -330,8 +330,8 @@ export default function BookPractice() {
             cursor += 1;
             if (i >= rows.length) return;
             try {
-              // withAnswer=1：练习结果页要判分，必须拿到标准答案。
-              // 后端只对「本人错题本里的题」放行，不会因此泄漏整个题库。
+
+
               const raw = await get<SurveySchema>('/api/repo/book/question', {
                 id: rows[i].id,
                 withAnswer: 1,
@@ -340,7 +340,7 @@ export default function BookPractice() {
               if (schema && questionIdsOf(schema).length) collected.push({ row: rows[i], schema });
               else skipCount += 1;
             } catch (e) {
-              // 单题失败不影响整轮，但要留一条原因：全部失败时只显示「没有符合条件的错题」会误导
+
               skipCount += 1;
               const reason = (e as Error)?.message;
               if (reason) setSkipReason((prev) => prev ?? reason);
@@ -455,7 +455,7 @@ export default function BookPractice() {
     return counts;
   }, [items, rowVerdicts]);
 
-  // 作答进度写回 localStorage；结束练习后清掉，下次进来是新的
+
   useEffect(() => {
     if (loading || phase !== 'answer' || !items.length) return;
     try {
@@ -568,7 +568,7 @@ export default function BookPractice() {
     );
   }
 
-  // 「来源考试」排在最前面：本场考试错题练习时一眼能看出练的是哪一场
+
   const chips = [
     ...(filter.projectId ? [`来源考试：${projectLabel(filter.projectId)}`] : []),
     ...filterChips(filter),
@@ -649,7 +649,7 @@ export default function BookPractice() {
                 step={0.05}
                 value={fontScale}
                 onChange={setFont}
-                // 滑块 handle 需要有可访问名（axe: aria-input-field-name）
+
                 ariaLabelForHandle="字号"
                 style={{ width: 100, margin: 0 }}
               />

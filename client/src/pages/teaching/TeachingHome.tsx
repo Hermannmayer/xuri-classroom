@@ -8,17 +8,17 @@ import TeachingClasses from './Classes';
 
 type TabKey = 'exam' | 'classes';
 
-/** Tab 顺序与各自的权限点：顺序决定 Tab 从左到右怎么排，权限点决定它在不在 */
+
 const TAB_ORDER: TabKey[] = ['exam', 'classes'];
 const TAB_PERMISSION: Record<TabKey, string> = {
   exam: PERMISSION_CODES.projectList,
   classes: PERMISSION_CODES.classList,
 };
-/**
- * 旧参数值归一到现在的 Tab。
- * insight 是被删掉的「学情」—它的内容是班级视角，所以归到「班级」而不是「考试/问卷」；
- * class 是首页卡片里写下的单数形式。不归一会让这些入口静默落到考试/问卷页，用户以为点错了。
- */
+
+
+
+
+
 const LEGACY_TAB: Record<string, TabKey> = { insight: 'classes', class: 'classes' };
 
 /**
@@ -42,9 +42,9 @@ export default function TeachingHome() {
 
   const tabs: TabKey[] = authorities ? TAB_ORDER.filter((key) => can(authorities, TAB_PERMISSION[key])) : [];
 
-  // ?tab= 只认 exam / classes（外加两个旧值），其余乱值退回第一个可用 Tab
-  // 左侧菜单现在直接指到 /teaching/exam 与 /teaching/classes，路径里的 :tab 优先；
-  // 旧的 ?tab= 仍然认，保证老链接和页面内切换都还能用
+
+
+
   const pathTab = params.tab;
   const requestedParam = pathTab === 'exam' || pathTab === 'classes' ? pathTab : searchParams.get('tab');
   const requested: TabKey | undefined =
@@ -55,12 +55,12 @@ export default function TeachingHome() {
         : undefined;
   const active: TabKey | undefined = requested && tabs.includes(requested) ? requested : tabs[0];
 
-  /**
-   * 把实际显示的 Tab 写回 URL：刷新、前进后退、把链接发给别人，看到的都还是同一个 Tab。
-   *
-   * <p>用函数式更新只改 tab 一个参数——班级 Tab 里的 classId / create 是它自己的状态，
-   * 这一层如果整串覆盖 URL，就等于把「链接直达某个班」这件事弄丢了。
-   */
+
+
+
+
+
+
   useEffect(() => {
     if (!active || searchParams.get('tab') === active) return;
     setSearchParams(
@@ -103,11 +103,11 @@ export default function TeachingHome() {
         </div>
       </div>
 
-      {/*
-        这里原来有一排「考试/问卷 · 班级」页签，和左侧菜单的两个子项完全重复：
-        菜单已经能直达 /teaching/exam 与 /teaching/classes，页签再点一次只是原地刷新，
-        看上去像「点不动」。现在直接渲染当前子页，不再画第二层导航。
-      */}
+
+
+
+
+
       {active === 'exam' ? <ProjectList embedded mode="exam" /> : <TeachingClasses embedded />}
     </div>
   );

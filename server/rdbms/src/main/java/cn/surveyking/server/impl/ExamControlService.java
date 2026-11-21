@@ -28,23 +28,23 @@ import java.util.concurrent.ConcurrentMap;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 考试控制：切屏计数、闯关模式超时扣分、考试是否结束。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 抽出的第三块。它们都只读项目设置 + 读写答卷的 metaInfo，
- * 与「出卷/统计/公开查询」无关。
- */
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class ExamControlService {
 
 	private final ProjectService projectService;
 
-	/** 这里要读-改-写整份答卷（metaInfo 是 JSON 列），用实现类才能拿到 getById/updateById */
+
 	private final AnswerServiceImpl answerService;
 
-	/** 按答卷 id 的 JVM 内锁：切屏计数是读-改-写，必须串行（单实例足够，多实例要换 DB 原子自增） */
+
 	private final ConcurrentMap<String, Object> switchScreenLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/**
@@ -76,9 +76,9 @@ public class ExamControlService {
 		if (answer == null) {
 			return 0;
 		}
-		// 读-改-写必须串行：并发实测里 10 次切屏只记到 1 次（10 个线程都读到 0 再各自 +1 覆盖）。
-		// 这里按答卷 id 加 JVM 内锁。单实例部署下足够；将来多实例要改成 DB 原子自增
-		// （MySQL 可用 JSON_SET，但 H2 不支持，所以没走 SQL 方案）。
+
+
+
 		synchronized (switchScreenLocks.computeIfAbsent(answer.getId(), k -> new Object())) {
 			Answer latest = answerService.getById(answer.getId());
 			if (latest == null) {
@@ -130,7 +130,7 @@ public class ExamControlService {
 				}
 			});
 		}
-		// 考试模式：超时题计 0 分，总分重新求和（答案本身保留，成绩单里仍能看到作答内容）
+
 		if (ProjectModeEnum.exam.equals(project.getMode()) && answerView.getExamInfo() != null) {
 			LinkedHashMap<String, Double> questionScore = answerView.getExamInfo().getQuestionScore();
 			if (questionScore != null) {
@@ -140,7 +140,7 @@ public class ExamControlService {
 				answerView.setExamScore(total);
 			}
 		}
-		// 把耗时 / 超时清单落到答卷 metaInfo，便于成绩单与数据页追溯
+
 		Answer saved = answerService.getById(answerView.getId());
 		if (saved == null) {
 			return;

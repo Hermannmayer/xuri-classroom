@@ -3,47 +3,47 @@ import type { ReactNode } from 'react';
 import { chatWithAi, getAiStatus, type AiChatAction, type AiStatus } from '../../api/ai';
 import { usePageContext, type AiPageContextInfo } from './usePageContext';
 
-/**
- * AI 助手（右下角悬浮对话框）的状态容器，挂在 BasicLayout 里，全站唯一一份。
- *
- * <p>为什么状态放在布局层而不是对话框组件里：
- * <ol>
- * <li>对话历史要<b>跨页面保留</b>——老师从编辑器跳到报表，刚才那一轮对话不该消失；</li>
- * <li>对话框在桌面是浮层、在手机上是全屏抽屉，两处渲染的是同一份状态；</li>
- * <li>页面上下文要跟着路由变，而路由只在布局层能拿到。</li>
- * </ol>
- *
- * <p>历史只存在内存里：刷新即丢（不落库，也就不需要为它设计表和迁移）。
- *
- * <p>2026-11 起多了一件事：一条助手回复可能带 {@code action}（真的批改了答卷、打开了工具、
- * 给出了统计）。那份结构化结果跟着气泡一起存，界面就能在对话里渲染「进度 / 去查看 / 撤销」。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export interface AiChatBubble {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  /** 出错时的中文原因（气泡里只显示这段，没有正文） */
+
   error?: string;
-  /** 助手回复时后端实际带上的上下文摘要 */
+
   contextLabel?: string;
-  /** 这次回复用的模型 */
+
   model?: string;
-  /** 这次回复消耗的 token */
+
   totalTokens?: number;
-  /** 这次回复真的干了什么（批改 / 打开工具 / 统计直答） */
+
   action?: AiChatAction;
 }
 
 export interface AiAssistantValue {
   messages: AiChatBubble[];
   sending: boolean;
-  /** 可用性自检结果；undefined 表示还没拿到（网络抖动时不拦用户） */
+
   status?: AiStatus;
   statusLoading: boolean;
-  /** 当前页面上下文（发给后端之前就显示出来，用户知道 AI 看得到什么） */
+
   context: AiPageContextInfo;
-  /** 对话框是否展开（不记住上次状态：悬浮按钮每次进站都是收起的，避免挡内容） */
+
   open: boolean;
   setOpen: (open: boolean) => void;
   send: (text: string) => Promise<void>;
@@ -90,7 +90,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
         return;
       }
       const userBubble: AiChatBubble = { id: newBubbleId(), role: 'user', content };
-      // 出错的气泡没有正文，不能算进历史（否则下一轮会把「出错了」当成 AI 说过的话发回去）
+
       const history = [...messagesRef.current, userBubble]
         .filter((item) => !item.error && item.content.trim().length > 0)
         .map((item) => ({ role: item.role, content: item.content }));
@@ -116,7 +116,7 @@ export function AiAssistantProvider({ children }: { children: ReactNode }) {
         const bubble: AiChatBubble = { id: newBubbleId(), role: 'assistant', content: '', error: message };
         messagesRef.current = [...messagesRef.current, bubble];
         setMessages(messagesRef.current);
-        // 多半是「还没配模型 / 额度用完」这类配置问题：顺手刷一次状态，让引导浮出来
+
         refreshStatus();
       } finally {
         sendingRef.current = false;

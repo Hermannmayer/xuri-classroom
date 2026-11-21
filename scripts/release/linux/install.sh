@@ -40,13 +40,13 @@ DB_USER_SET=0
 DB_PASSWORD_SET=0
 READY_TIMEOUT="${XURI_READY_TIMEOUT:-60}"
 
-# 自动下载 JRE 使用的版本与镜像（x86_64 Linux）。如需换版本，改这里即可。
-# 本项目的字节码目标是 Java 25（class 文件 major 69），运行时必须 >= 25，否则起不来。
-# Adoptium 的 release 名用加号（25.0.5+8），压缩包文件名用下划线（25.0.5_8）。
+
+
+
 JRE_VERSION="25.0.5+8"
 JRE_TARBALL="OpenJDK25U-jre_x64_linux_hotspot_25.0.5_8.tar.gz"
-# 官方 Temurin 25.0.5+8 JRE（x86_64，压缩包 61736206 字节，解压后约 190MB）的 SHA256：
-# 取值来自 Adoptium 官方 API（api.adoptium.net），并已核对镜像上的同名文件；下载后强制校验。
+
+
 JRE_SHA256="6fac98f0c8202efc3135a9e9e42aa61963ec42d1c5cbb40caf231e7b14a24ef6"
 JRE_URLS=(
   "https://mirrors.tuna.tsinghua.edu.cn/Adoptium/25/jre/x64/linux/${JRE_TARBALL}"
@@ -321,8 +321,8 @@ detect_package() {
   if [[ ${#jars[@]} -gt 1 ]]; then
     warn "安装包内有多个 jar，使用：$PKG_JAR"
   fi
-  # Spring Boot 的 bootJar 开了 launchScript()，文件头是 #!/bin/sh，不是 PK；
-  # 两种都接受，真正的完整性由 java -jar 启动和后续健康检查兜底。
+
+
   jar_magic="$(head -c 2 -- "$PKG_JAR")"
   if [[ "$jar_magic" != "PK" && "$jar_magic" != "#!" ]]; then
     die "jar 文件无效（文件头既不是 PK 也不是 #!，可能下载不完整）：$PKG_JAR"
@@ -348,14 +348,14 @@ sha256_of() {
   printf '%s' "$out" | tr '[:upper:]' '[:lower:]'
 }
 
-# 提取 Java 主版本号：旧格式是 1 开头（主版本在 "1." 之后），Java 9+ 直接给主版本号
+
 # （如 "25.0.5"，早期访问版是 "25-ea"）。
 java_major_version() {
   local text="$1" ver=""
-  # 正常输出形如：openjdk version "25.0.5" 2026-10-20 LTS（版本号带双引号）
+
   ver=$(printf '%s\n' "$text" | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -n 1)
   if [[ -z "$ver" ]]; then
-    # 兜底：某些包装脚本/老实现不带引号，退化成取 version 后面第一段数字
+
     ver=$(printf '%s\n' "$text" | sed -n 's/.*version[[:space:]]\+\([0-9][0-9._+-]*\).*/\1/p' | head -n 1)
   fi
   if [[ -z "$ver" ]]; then
@@ -370,8 +370,8 @@ java_major_version() {
 
 check_java_version() {
   local bin="$1" out="" text="" major=""
-  # 整个输出都交给解析器：JAVA_TOOL_OPTIONS 会让 java 先打一行 "Picked up ..."，
-  # 只看第一行会误判成"无法识别"。
+
+
   out=$("$bin" -version 2>&1 || true)
   text=$(printf '%s\n' "$out" | head -n 1)
   info "Java 版本：${text:-未知}（$bin）"
@@ -473,8 +473,8 @@ ensure_downloaded_jre() {
 resolve_java() {
   local installed="$INSTALL_DIR/runtime/jre25/bin/java"
 
-  # 从 2.2.x 升级上来的机器可能还留着旧版本的 runtime/jre8（本版本只用 runtime/jre25）。
-  # 不自动删（不动用户的文件），只提示可以手动清理。
+
+
   if [[ -d "$INSTALL_DIR/runtime/jre8" ]]; then
     warn "检测到旧版本遗留的运行时目录：$INSTALL_DIR/runtime/jre8。本版本要求 Java 25，该目录已不再使用，
   确认无用后可删除：rm -rf '$INSTALL_DIR/runtime/jre8'（可释放约 100MB 磁盘）"
@@ -590,7 +590,7 @@ maybe_confirm() {
   注册 systemd：$systemd_text
   Java        ：$jre_text
 
-确认继续？[y/N] 
+确认继续？[y/N]
 EOF
   read -r answer || die "已取消安装"
   case "$answer" in
@@ -761,7 +761,7 @@ prepare_env() {
   env_set "$ENV_FILE" SPRING_DATASOURCE_USERNAME "$DB_USER"
   env_set "$ENV_FILE" SPRING_DATASOURCE_PASSWORD "$DB_PASSWORD"
 
-  # 统一属主：运行用户必须能读 app.jar、能写 files/（升级时也会顺带修正旧目录权限）
+
   chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR" || die "设置安装目录属主失败"
   chmod 0750 -- "$INSTALL_DIR" "$INSTALL_DIR/files"
   chmod 0600 -- "$ENV_FILE"

@@ -7,8 +7,8 @@
 #
 # 它自己完成：
 #   1. 找到已安装实例（默认 /opt/xuri-classroom，或 --dir 指定）
-#   2. 确定目标版本：--version 指定，否则查 GitHub Releases 最新
-#   3. 拿到发布包：--from 指定本地 tar.gz，否则从 Release 下载
+
+
 #   4. 校验 SHA256（下载 SHA256SUMS 比对）
 #   5. 解压到临时目录，调用包里的 upgrade.sh（备份→构建→切换→校验→回滚）
 #   6. 清理临时文件
@@ -41,7 +41,7 @@ DRY_RUN=0
 ASSUME_YES=0
 WORKDIR=""
 
-# curl | bash 时 stdin 不是终端，不能交互；自动按"确认"处理（会先打印计划）
+
 if [[ ! -t 0 ]]; then ASSUME_YES=1; fi
 
 c_red=$'\033[31m'; c_grn=$'\033[32m'; c_ylw=$'\033[33m'; c_cya=$'\033[36m'; c_rst=$'\033[0m'
@@ -91,9 +91,9 @@ CURRENT_VERSION="$(sed -n 's/^VERSION=//p' "$INSTALL_DIR/.env" | tr -d '\r' | ta
 say "安装目录：$INSTALL_DIR"
 say "当前版本：${CURRENT_VERSION:-未知（.env 里没有 VERSION）}"
 
-# ---------- 确定版本
+
 if [[ -z "$TARGET_VERSION" && -n "$PKG_PATH" ]]; then
-  # 本地包：优先从文件名解析，其次读包内 VERSION（离线场景绝不联网查版本）
+
   base="$(basename "$PKG_PATH")"
   if [[ "$base" =~ xuri-classroom-([0-9]+\.[0-9]+\.[0-9]+)-docker\.tar\.gz ]]; then
     TARGET_VERSION="${BASH_REMATCH[1]}"
@@ -119,13 +119,13 @@ fi
 
 say "目标版本：$TARGET_VERSION"
 
-# 版本比较：已是最新就提示（不自动 --force）
+
 if [[ -n "$CURRENT_VERSION" && "$CURRENT_VERSION" == "$TARGET_VERSION" ]]; then
   warn "当前已经是 $CURRENT_VERSION。要重装请直接跑包内 upgrade.sh --force"
   exit 2
 fi
 
-# ---------- 准备发布包
+
 if [[ -z "$PKG_PATH" ]]; then
   PKG_NAME="xuri-classroom-$TARGET_VERSION-docker.tar.gz"
   PKG_URL="$DOWNLOAD_BASE/$REPO/releases/download/v$TARGET_VERSION/$PKG_NAME"
@@ -161,7 +161,7 @@ else
   WORKDIR="$(mktemp -d)"
 fi
 
-# ---------- 解压 + 调用包内 upgrade.sh
+
 say "解压到临时目录…"
 if ! tar -xzf "$PKG_PATH" -C "$WORKDIR"; then
   die "解压失败：$PKG_PATH（文件可能不完整）"

@@ -7,16 +7,16 @@
  */
 import type { Dayjs } from 'dayjs';
 
-/** 与后端 ClassNodeView 对齐的最小字段集（选班只用这几项） */
+
 export interface ClassNode {
   id: string;
   name?: string;
-  /** false = 后端为了让树有路径而补出来的祖先节点，选它会 403，不能进候选 */
+
   accessible?: boolean;
   children?: ClassNode[];
 }
 
-/** 下拉候选项：label 是带路径的全名（班级重名时能分清），name 是叶子班自己的名字（报表页抬头用） */
+
 export interface ClassOption {
   value: string;
   label: string;
@@ -35,7 +35,7 @@ export function flattenClassLeaves(nodes: ClassNode[], prefix = ''): ClassOption
     const name = node.name || node.id;
     const label = prefix ? `${prefix} / ${name}` : name;
     const children = node.children ?? [];
-    // 先递归再判 accessible：accessible=false 的分组节点下面仍可能有授权的子班
+
     if (children.length > 0) {
       result.push(...flattenClassLeaves(children, label));
       continue;
@@ -46,32 +46,32 @@ export function flattenClassLeaves(nodes: ClassNode[], prefix = ''): ClassOption
   return result;
 }
 
-/** 后端 Date 参数的格式：DownloadQuery / AnswerQuery 的 @DateTimeFormat 都是这一条 */
+
 export const DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
-/** 交卷状态：unsubmitted 不是「过滤答卷」，而是把列表换成未交名单视图 */
+
 export type SubmitStatus = 'all' | 'submitted' | 'unsubmitted';
 
-/**
- * 批改状态：all 不下推；pending / graded 原样传给 gradeStatus；
- * ai = 只看「还有 AI 预批改的题、等老师复核」的卷子（对应 t_answer_grade.source='ai'）。
- */
+
+
+
+
 export type GradeStatus = 'all' | 'pending' | 'graded' | 'ai';
 
-/**
- * 页面上的过滤条件。
- *
- * <p>classId 不放这里：它是 URL（?classId=）的一份镜像，刷新/跳转都要靠它；
- * createByName 也不放这里：它是防抖后的值，属于取数细节而不是「页面上的状态」（见 Data.tsx）。
- */
+
+
+
+
+
+
 export interface FilterState {
-  /** 交卷时间范围；[null, null] 或 null 都表示不过滤 */
+
   range: [Dayjs | null, Dayjs | null] | null;
   submitStatus: SubmitStatus;
   gradeStatus: GradeStatus;
   minScore?: number;
   maxScore?: number;
-  /** 是否包含匿名答卷；默认 true（管理端看不到匿名等于少一半数据） */
+
   includeAnonymous: boolean;
 }
 
@@ -82,16 +82,16 @@ export const INITIAL_FILTERS: FilterState = {
   includeAnonymous: true,
 };
 
-/** 下推给后端的筛选参数：undefined 的键会被 api 层的 qs() 丢掉，不用自己删键 */
+
 export interface AnswerFilterParams {
   classId?: string;
   startTime?: string;
   endTime?: string;
-  /** pending / graded，对应 t_answer.grade_status */
+
   gradeStatus?: string;
-  /** true = 只看含 AI 预批改分数的答卷 */
+
   aiReview?: boolean;
-  /** 姓名模糊匹配（服务端按 answerer_name / 用户姓名 like） */
+
   createByName?: string;
   minScore?: number;
   maxScore?: number;
@@ -101,7 +101,7 @@ export interface AnswerFilterParams {
 /**
  * 时间范围 → 服务端参数。
  *
- * <p>后端的范围是开区间（t_answer.create_at > startTime、< endTime），所以终点取「次日 00:00:00」：
+
  * 写成当天 23:59:59 会把 23:59:59.5 这种带毫秒的答卷漏掉。
  */
 export function toRangeParams(range: FilterState['range']): { startTime?: string; endTime?: string } {

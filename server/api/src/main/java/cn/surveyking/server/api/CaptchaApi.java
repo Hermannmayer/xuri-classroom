@@ -11,19 +11,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 滑块/点选验证码接口。
- *
- * <p>
- * 路径与响应体必须和 aj-captcha 的原版控制器保持一致：前端 {@code LoginCaptcha.tsx} 直接读
- * {@code repCode / repMsg / repData}，并且用 {@code repData.secretKey} 做 AES 加密后拿到
- * {@code captchaVerification}。所以这里原样返回 {@link ResponseModel}，不套本项目的 ApiResponse 信封。
- *
- * <p>
- * 原版控制器在 {@code spring-boot-starter-captcha} 里，是 {@code javax.servlet} 写的，
- * Jakarta 容器下无法加载，因此由这个类接管；真正的拼图、校验、缓存逻辑仍在
- * {@code com.anji-plus:captcha} 核心包（{@link CaptchaService}）里，没有重写。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 @RestController
 @RequestMapping("/captcha")
 @RequiredArgsConstructor

@@ -2,12 +2,12 @@ package cn.surveyking.server.storage;
 
 import lombok.Data;
 
-/**
- * 存储文件的路径信息
- *
- * @author javahuang
- * @date 2021/9/8
- */
+
+
+
+
+
+
 @Data
 public class StorePath {
 

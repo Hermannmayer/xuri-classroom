@@ -9,7 +9,7 @@
         </foreach>
     </insert>
 
-    <!-- S2-4：导出按答卷 id 批量取明细，用来重建 answer（不读 t_answer.answer JSON） -->
+
     <select id="selectByAnswerIds" resultType="cn.surveyking.server.domain.model.AnswerItem">
         SELECT id AS id,
                answer_id AS answerId,
@@ -27,7 +27,7 @@
         </foreach>
     </select>
 
-    <!-- 每题的回答人数（答了该题的人数，去重） -->
+
     <select id="statQuestions" resultType="cn.surveyking.server.domain.dto.AnswerItemStat">
         SELECT question_id AS questionId, COUNT(DISTINCT answer_id) AS cnt
         FROM t_answer_item
@@ -35,7 +35,7 @@
         GROUP BY question_id
     </select>
 
-    <!-- 每题每个选项的选择人数 -->
+
     <select id="statOptions" resultType="cn.surveyking.server.domain.dto.AnswerItemStat">
         SELECT question_id AS questionId, option_id AS optionId, COUNT(DISTINCT answer_id) AS cnt
         FROM t_answer_item

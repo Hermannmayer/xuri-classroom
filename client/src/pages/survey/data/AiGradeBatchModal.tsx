@@ -11,24 +11,24 @@ import {
 } from '../../../api/ai';
 import { formatScore } from '../../../utils/scoring';
 
-/**
- * 批量 AI 批改（计划 §6.3 ⑥，唯一一条「AI 直接写业务数据」的入口）。
- *
- * <p>为什么三步都写在同一块里：老师最怕的是「点一下，三十份卷子的主观题分全被改了还不确定改了什么」，
- * 所以确认框把范围讲清楚（只批未批改的卷子 / 只补没给分的题 / 批完能撤销），
- * 进度与结果也留在同一处，看完结果可以整批撤销。
- *
- * <p>闸门都在后端（只取 grade_status=pending、只补 score==null 的题、必须有参考答案、走人工批改同一条写库路径）；
- * 前端这里只负责把风险讲明白、把撤销按钮放在看得见的地方。
- */
+
+
+
+
+
+
+
+
+
+
 
 type Phase = 'confirm' | 'job' | 'done' | 'failed';
 
-/** 一次最多批多少份（后端上限 100，默认 30） */
+
 const DEFAULT_MAX_ANSWERS = 30;
 const MAX_ANSWERS_LIMIT = 100;
 
-/** 低置信度只列前 10 条：再多就该去批改页逐题看了，列表塞满反而没人看 */
+
 const LOW_CONFIDENCE_LIMIT = 10;
 
 const STATUS_TEXT: Record<string, string> = {
@@ -42,12 +42,12 @@ const STATUS_TEXT: Record<string, string> = {
 export interface AiGradeBatchModalProps {
   open: boolean;
   projectId: string;
-  /** 班级：从教学页 / URL 带过来时只批这个班；不传 = 整份试卷 */
+
   classId?: string;
   onClose: () => void;
-  /** 批完 / 撤销后让答卷列表重新拉一遍（总分和批改状态都变了） */
+
   onChanged?: () => void;
-  /** 去批改页复核某份答卷（页面级打开已有的 GradeDrawer） */
+
   onReview?: (answerId: string) => void;
 }
 
@@ -68,15 +68,15 @@ export default function AiGradeBatchModal({
   const [error, setError] = useState<string>();
   const [undoing, setUndoing] = useState(false);
   const [undone, setUndone] = useState(false);
-  /** 轮询防重入：上一轮还没回来就别再发一个 */
+
   const busyRef = useRef(false);
-  /** 回调用 ref 收着：它们是页面的行内函数，进 effect 依赖会让轮询每帧重建 */
+
   const onChangedRef = useRef(onChanged);
   useEffect(() => {
     onChangedRef.current = onChanged;
   }, [onChanged]);
 
-  // 关掉再打开：参数沿用上次；上一轮还在跑就接着看进度，否则回到确认框重新来
+
   useEffect(() => {
     if (!open) return;
     if (jobId && job && (job.status === 'queued' || job.status === 'running')) {
@@ -92,7 +92,7 @@ export default function AiGradeBatchModal({
     // 只在「打开」这一刻判定一次，任务状态变化交给轮询自己管
   }, [open]);
 
-  // 2 秒一轮（与出卷、PDF 导出同一节奏）；关闭弹窗就停，后台任务继续跑
+
   useEffect(() => {
     if (!open || phase !== 'job' || !jobId) return;
     let alive = true;
@@ -106,10 +106,10 @@ export default function AiGradeBatchModal({
         if (view.status === 'done') {
           setResult(view.result);
           setPhase('done');
-          // 批完列表里的分数 / 批改状态已经变了：让页面重新拉一遍
+
           onChangedRef.current?.();
         } else if (view.status === 'failed' || view.status === 'canceled') {
-          // 后端给的是中文原因（额度、没有待批答卷、模型报错），原样展示，不显示 code
+
           setError(view.error || (view.status === 'canceled' ? '批改已取消' : '批改失败，请稍后重试'));
           setPhase('failed');
         }
@@ -142,7 +142,7 @@ export default function AiGradeBatchModal({
       setJob({ status: 'queued', progress: 0 });
       setPhase('job');
     } catch (e) {
-      // 提交就被拒（例如「没有待批改的答卷」）：留在确认框里改条件，不要跳到一个空的结果页
+
       setError((e as Error).message);
     } finally {
       setSubmitting(false);
@@ -409,8 +409,8 @@ export default function AiGradeBatchModal({
       onCancel={onClose}
       mask={{ closable: false }}
       footer={footer()}
-      // 显式压低一档（antd 容器类浮层默认 1000+100=1100）：点「去批改页复核」时批改抽屉要盖在上面，
-      // 关掉抽屉回来还能接着点「撤销」，不用为了撤销再跑一次
+
+
       zIndex={900}
     >
       {phase === 'confirm' ? confirmBody : phase === 'job' ? jobBody : phase === 'done' ? doneBody : failedBody}

@@ -16,10 +16,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
-/**
- * @author javahuang
- * @date 2021/10/19
- */
+
+
+
+
 @Configuration
 @EnableAspectJAutoProxy
 @EnableAsync
@@ -37,7 +37,7 @@ public class AppConfig implements AsyncConfigurer {
 	 */
 	@EventListener(ApplicationReadyEvent.class)
 	public void initAfterStartup() {
-		// userService.init();
+
 		DefaultConversionService defaultConversionService = (DefaultConversionService) DefaultConversionService
 				.getSharedInstance();
 		defaultConversionService.addConverter(new UniqueLimitSettingConverter());

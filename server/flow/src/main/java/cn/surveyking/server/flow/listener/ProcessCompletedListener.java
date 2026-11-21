@@ -9,12 +9,12 @@ import org.flowable.common.engine.api.delegate.event.FlowableEvent;
 import org.flowable.common.engine.api.delegate.event.FlowableEventListener;
 import org.flowable.engine.delegate.event.impl.FlowableProcessEventImpl;
 
-/**
- * 流程实例完成之后，更新 instance 状态
- *
- * @author javahuang
- * @date 2022/1/6
- */
+
+
+
+
+
+
 @Slf4j
 public class ProcessCompletedListener implements FlowableEventListener {
 

@@ -40,14 +40,14 @@ import java.util.stream.Collectors;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 公开查询：按链接查成绩单、按条件过滤字段、按 url 参数拼模糊匹配。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 抽出的第二块。之前它和答题、交卷、统计挤在同一个 1600 行的类里，
- * 且 {@code findAnswerByQuery} 要强转 {@code AnswerServiceImpl} 才能用 {@code ServiceImpl.list}；
- * 现在查询能力收在 {@code AnswerService.listByProjectAndLikeConditions}，这里只依赖接口。
- */
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class PublicQueryService {
@@ -66,7 +66,7 @@ public class PublicQueryService {
 	@SneakyThrows
 	public PublicQueryVerifyView loadQuery(PublicQueryRequest request) {
 		Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery = getProjectAndQueryThenValidate(request);
-		// 公开查询同样是"打开一份问卷"：问卷设了「仅微信打开」时也要拦，否则可以从查询链接绕过限制
+
 		wechatAccessGuard.requireWechatAccess(projectAndQuery.getFirst());
 		SurveySchema schema = buildQueryFormSchema(projectAndQuery.getFirst(), projectAndQuery.getSecond());
 		PublicQueryVerifyView view = new PublicQueryVerifyView();
@@ -81,7 +81,7 @@ public class PublicQueryService {
 		PublicQueryView view = new PublicQueryView();
 		view.setSchema(schema);
 		List<AnswerView> answers = findAnswerByQuery(request, projectAndQuery);
-		// 根据配置的权限信息过滤答案
+
 		LinkedHashMap<String, Integer> fieldPermission = projectAndQuery.getSecond().getFieldPermission();
 		view.setFieldPermission(fieldPermission);
 		view.setAnswers(answers.stream().map(answer -> {
@@ -91,7 +91,7 @@ public class PublicQueryService {
 			answerView.setAnswer(answer.getAnswer());
 			if (FieldPermissionType.visible.equals(fieldPermission.get("examScore"))
 					|| FieldPermissionType.editable.equals(fieldPermission.get("examScore"))) {
-				// 公开查询允许查询分值
+
 				answer.getAnswer().put("examScore", Collections.singletonMap("examScore", answer.getExamScore()));
 			}
 			answerView.setCreateAt(answer.getCreateAt());
@@ -102,8 +102,8 @@ public class PublicQueryService {
 
 	private Tuple2<ProjectView, ProjectSetting.PublicQuery> getProjectAndQueryThenValidate(PublicQueryRequest request) {
 		ProjectView project = projectService.getProject(request.getId());
-		// 项目或设置缺失时直接解引用会 NPE，被全局兜底成 500。公开查询链接应该统一回「链接已失效」：
-		// 既不泄露项目是否存在，也能让前端显示一句可读的提示（而不是「服务出了点问题」）。
+
+
 		if (project == null || project.getSetting() == null || project.getSetting().getSubmittedSetting() == null) {
 			throw new ErrorCodeException(ErrorCode.QueryNotExist);
 		}
@@ -132,7 +132,7 @@ public class PublicQueryService {
 				sdf.parse(linkValidityPeriod.get(0)), sdf.parse(linkValidityPeriod.get(1)))) {
 			throw new ErrorCodeException(ErrorCode.QueryDisabled);
 		}
-		// 校验密码
+
 		if (isNotBlank(query.getPassword()) && answer != null) {
 			if (!answer.containsKey(AppConsts.PUBLIC_QUERY_PASSWORD_FIELD_ID)) {
 				throw new ErrorCodeException(ErrorCode.QueryPasswordError);
@@ -157,9 +157,9 @@ public class PublicQueryService {
 				.description(query.getDescription())
 				.children(findMatchChildrenInSchema(query.getConditionQuestion(), project))
 				.attribute(SurveySchema.Attribute.builder().submitButton(i18n("survey.query.submit")).build()).build();
-		// 目前只支持文本题 #{huaw}#{fhpd}
+
 		if (isNotBlank(query.getPassword())) {
-			// 添加一个password的schema，用于密码校验
+
 			SurveySchema passwordSchema = SurveySchema.builder().id(AppConsts.PUBLIC_QUERY_PASSWORD_FIELD_ID)
 					.title(i18n("survey.password.title")).type(SurveySchema.QuestionType.FillBlank)
 					.attribute(SurveySchema.Attribute.builder().required(true).build()).build();
@@ -207,7 +207,7 @@ public class PublicQueryService {
 					.attribute(SurveySchema.Attribute.builder().readOnly(true).build())
 					.children(Collections.singletonList(SurveySchema.builder().id("examScore").build())).build());
 		}
-		// 公开查询表单需要取消结束、显示隐藏、跳转规则
+
 		SchemaHelper.ignoreAttributes(schema, "finishRule", "visibleRule", "jumpRule");
 		return schema;
 	}
@@ -227,11 +227,11 @@ public class PublicQueryService {
 		}
 		SchemaHelper.TreeNode treeNode = SchemaHelper.SurveySchema2TreeNode(projectView.getSurvey());
 
-		// 通过 url 参数构建查询表单
+
 		LinkedHashMap<String, Map> queryFormValues = buildFormValuesFromQueryParameter(treeNode, request.getQuery());
-		// 将查询表单和url参数构建的查询表单合并。
-		// 只带 url 参数（前端用 ?q1o1=xxx 这种查询链接）时 answer 为 null，
-		// 直接 putAll 会 NPE，整个公开查询 500 —— 这里补空判断。
+
+
+
 		if (request.getAnswer() != null) {
 			queryFormValues.putAll(request.getAnswer());
 		}
@@ -243,7 +243,7 @@ public class PublicQueryService {
 		if (answer.size() == 0) {
 			throw new ErrorCodeException(ErrorCode.QueryResultNotExist);
 		}
-		// 根据配置过滤结果
+
 		return answer;
 	}
 
@@ -256,7 +256,7 @@ public class PublicQueryService {
 			Map<String, String> query) {
 		LinkedHashMap<String, Map> formValues = new LinkedHashMap<>();
 		query.forEach((id, value) -> {
-			// 默认为选项
+
 			SchemaHelper.TreeNode findNode = surveySchemaTreeNode.getTreeNodeMap().get(id);
 			String questionId = findNode.getParent().getData().getId();
 			Map questionValueMap = formValues.computeIfAbsent(questionId, k -> new HashMap<>());
@@ -276,7 +276,7 @@ public class PublicQueryService {
 		String optionId = optionSchema.getId();
 		Object optionValue = qValueObj.get(optionId);
 		String value = optionValue.toString();
-		// 选项非数值类型
+
 		if (optionSchema.getAttribute() == null
 				|| !SurveySchema.DataType.number.equals(optionSchema.getAttribute().getDataType())) {
 			value = "\"" + value + "\"";

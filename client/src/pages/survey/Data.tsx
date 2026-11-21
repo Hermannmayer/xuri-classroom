@@ -92,7 +92,7 @@ type EditorState = { mode: 'create' } | { mode: 'edit'; row: Answer };
 /**
  * 数据列表。
  *
- * <p>取数口径：一次拉全量（pageSize=-1），因为表头排序要覆盖全部答卷、勾选要能跨页；
+
  * 但**过滤条件尽量下推**——班级 / 交卷时间 / 批改状态 / 姓名 / 分数段都交给服务端
  * （条件定义见 data/filters.ts，和导出共用同一份），前端只留几道兜底。
  *
@@ -104,12 +104,12 @@ export default function SurveyData() {
   const navigate = useNavigate();
   const { modal } = App.useApp();
   const mobile = useIsMobile();
-  /**
-   * 班级筛选：只有 URL 里的 ?classId= 是唯一真源。
-   * 报表页 / 教学页跳过来时带着它，刷新也还在（见 setClassFilter）。
-   */
+
+
+
+
   const classId = searchParams.get('classId') || undefined;
-  /** 批量 AI 批改弹窗；?ai=grade 进来会自动打开（AI 侧栏「批改未批改」快捷入口） */
+
   const [batchOpen, setBatchOpen] = useState(false);
 
   const [project, setProject] = useState<Project>();
@@ -123,29 +123,29 @@ export default function SurveyData() {
 
   /** 过滤条件（classId 不在里面，走 URL） */
   const [filters, setFilters] = useState<FilterState>(() => {
-    // 从项目列表的「待批改 N」按钮进来时直接落到那一档；URL 是唯一真源，刷新/分享都保持
+
     const preset = searchParams.get('gradeStatus');
     return preset === 'pending' || preset === 'graded' || preset === 'ai'
       ? { ...INITIAL_FILTERS, gradeStatus: preset }
       : INITIAL_FILTERS;
   });
-  /** 姓名输入框的实时值：防抖用，真正下推的是 nameQuery */
+
   const [nameInput, setNameInput] = useState('');
   const [nameQuery, setNameQuery] = useState('');
-  /** 时间范围是否已经交给后端过滤；降级成前端过滤时为 false */
+
   const [timeOnServer, setTimeOnServer] = useState(true);
-  /** 已经确认「后端不认时间参数」的那个范围（换了范围要重新试一次） */
+
   const brokenTimeRange = useRef('');
   const degradedWarned = useRef(false);
 
-  /** 班级下拉候选：/api/teaching/classes/tree 拍平后的叶子班 */
+
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
 
   const [detail, setDetail] = useState<Answer>();
 
   /**
    * 关闭详情抽屉：除了清状态，**必须把 URL 里的 answerId 一起去掉**。
-   * <p>否则自动打开那条 effect 看到 answerId 还在，会立刻把抽屉又打开——
+
    * 表现就是「点了关闭没反应、抽屉关不掉」。
    */
   const closeDetail = useCallback(() => {
@@ -157,17 +157,17 @@ export default function SurveyData() {
     }
   }, [searchParams, setSearchParams]);
 
-  /**
-   * 从班级答卷列表点进来时（`?answerId=xxx`），自动把那份卷子的详情打开。
-   * 列表数据是异步到的，所以要等 rows 里真的出现这一条再开，避免打开一个空抽屉。
-   */
+
+
+
+
   useEffect(() => {
     const answerId = searchParams.get('answerId');
     if (!answerId || rows.length === 0) return;
     const row = rows.find((item) => item.id === answerId);
     if (row && detail?.id !== answerId) setDetail(row);
   }, [searchParams, rows, detail]);
-  /** 正在批改的答卷 id；有值即打开批改抽屉 */
+
   const [grading, setGrading] = useState<string>();
   const [editor, setEditor] = useState<EditorState>();
   const [submitting, setSubmitting] = useState(false);
@@ -175,7 +175,7 @@ export default function SurveyData() {
   const [trashOpen, setTrashOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // 导出权限细分：没有 answer:export 就不渲染导出按钮
+
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -183,26 +183,26 @@ export default function SurveyData() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  // 按钮级权限闸门：没有权限的写操作按钮直接不渲染，避免「看得见、点了 403」
+
   const canExport = can(authorities, PERMISSION_CODES.answerExport);
   const canCreate = can(authorities, PERMISSION_CODES.answerCreate);
   const canUpdate = can(authorities, PERMISSION_CODES.answerUpdate);
   const canDelete = can(authorities, PERMISSION_CODES.answerDelete);
-  // 「导入数据」调的是 POST /api/answer/upload（后台补录答卷，见 AnswerApi 的 /upload），
-  // 后端认 answer:upload；它不是 file:import / file:upload（那是文件上传），也不是学员答题附件
-  // 用的 answer:attach（答题页走公开接口 /api/public/upload），所以这里必须跟 answer:upload 对齐。
+
+
+
   const canUpload = can(authorities, PERMISSION_CODES.answerUpload);
   const canRestore = can(authorities, PERMISSION_CODES.answerRestore);
-  // 主观题人工批改：没有 answer:grade 就不渲染「批改」入口，避免「看得见、点了 403」
+
   const canGrade = can(authorities, PERMISSION_CODES.answerGrade);
-  /** 恢复和彻底删除都没有权限时，回收站入口本身也没东西可做，不渲染 */
+
   const canOpenTrash = canRestore || canDelete;
-  // 批量 AI 批改要 answer:grade + ai:use（后端 AiApi#batchGrade 两个都判），缺一个就不渲染入口
+
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
   const canBatchGrade = canGrade && canUseAi;
 
-  // ?ai=grade 进来就自动打开确认框（AI 侧栏的「批改未批改」快捷入口就是这个地址）
-  // 权限拉回来才判：缺 answer:grade / ai:use 的人不该看到这个入口能点
+
+
   useEffect(() => {
     if (canBatchGrade && searchParams.get('ai') === 'grade') setBatchOpen(true);
   }, [canBatchGrade, searchParams]);
@@ -226,7 +226,7 @@ export default function SurveyData() {
 
   /**
    * 选班级只改 URL，不另存一份 state：报表页带着 ?classId= 跳过来时不用做「同步」这件事，
-   * 也就不会出现「URL 上是 A、下拉里显示 B」。replace 保证筛班级不在历史里堆一层又一层。
+
    */
   const setClassFilter = useCallback(
     (next?: string) => {
@@ -247,7 +247,7 @@ export default function SurveyData() {
     setFilters((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  /** 清空筛选：把 URL 上的班级也一起清掉，否则「清空」之后列表还只显示一个班 */
+
   const resetFilters = useCallback(() => {
     setFilters(INITIAL_FILTERS);
     setNameInput('');
@@ -255,13 +255,13 @@ export default function SurveyData() {
     setClassFilter(undefined);
   }, [setClassFilter]);
 
-  // 姓名防抖：列表是 pageSize=-1 的全量请求，每敲一个字就打一次太亏；300ms 没再输入才下推
+
   useEffect(() => {
     const timer = window.setTimeout(() => setNameQuery(nameInput.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [nameInput]);
 
-  // 班级候选：没有 class:list 或接口不可用时只是少一个筛选维度，不要弹错误打断整页
+
   useEffect(() => {
     let alive = true;
     void get<ClassNode[]>('/api/teaching/classes/tree')
@@ -286,7 +286,7 @@ export default function SurveyData() {
     [filters, classId, nameQuery],
   );
 
-  /** 时间范围的指纹：用来记住「这个范围后端不认」，换范围时再试一次 */
+
   const rangeKey = `${filterParams.startTime ?? ''}|${filterParams.endTime ?? ''}`;
   const hasTimeFilter = Boolean(filterParams.startTime || filterParams.endTime);
 
@@ -315,12 +315,12 @@ export default function SurveyData() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // 项目信息并行拉：它失败（例如只剩答卷、问卷被删）不该把列表也带挂
+
       void get<Project>('/api/project', { id })
         .then((value) => setProject(value))
         .catch(() => undefined);
       let list: Answer[] = [];
-      // 同一个时间范围只向服务端试一次：撞过 400 之后直接走前端过滤，不再每次都先发一个废请求
+
       if (hasTimeFilter && brokenTimeRange.current !== rangeKey) {
         try {
           list = (await fetchAnswers(true)).data;
@@ -352,13 +352,13 @@ export default function SurveyData() {
     void load();
   }, [load]);
 
-  // 换筛选条件回到第一页并清空选择，避免把当前不可见的答卷带进批量操作
+
   useEffect(() => {
     setPage(1);
     setSelected([]);
   }, [filterParams]);
 
-  /** 列结构取当前问卷；问卷拉不到时退回最新一份答卷的快照 */
+
   const survey = project?.survey ?? rows[0]?.survey;
 
   const questions = useMemo(
@@ -389,7 +389,7 @@ export default function SurveyData() {
     const [from, to] = filters.range ?? [];
     return rows.filter((row) => {
       if (filters.submitStatus === 'submitted' && row.tempSave !== 1) return false;
-      // 'ai' 这一档由服务端按「有没有 source='ai' 的批改记录」过滤，前端不再按 grade_status 二次筛
+
       if (filters.gradeStatus !== 'all' && filters.gradeStatus !== 'ai' && gradeStatusOf(row) !== filters.gradeStatus) {
         return false;
       }
@@ -406,16 +406,16 @@ export default function SurveyData() {
   /** 顶部提示用：当前拉取范围内有多少份匿名答卷（不随日期/姓名筛选变化） */
   const anonymousCount = useMemo(() => rows.filter((row) => row.isAnonymous).length, [rows]);
 
-  /** 手机端分页在前端切页；桌面端交给 Table 自己的分页 */
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = useMemo(
     () => (mobile ? filtered.slice((page - 1) * pageSize, page * pageSize) : []),
     [mobile, filtered, page, pageSize],
   );
 
-  /** 「未交」不是过滤答卷，而是把列表位置换成未交名单（数据源都不一样，见 UnsubmittedPanel） */
+
   const unsubmittedMode = filters.submitStatus === 'unsubmitted';
-  // 判「有没有筛选」用输入框的即时值（不是防抖后的），点了「清空筛选」才不会刚清完又冒出来
+
   const filtering = hasActiveFilter(filters, classId, nameInput);
 
   const emptyText = rows.length
@@ -446,8 +446,8 @@ export default function SurveyData() {
         title: '提交时间',
         dataIndex: 'createAt',
         width: 160,
-        // 不固定：横向滑到题目列时，左边应该是「谁、第几份」，时间不是批改时最要紧的信息
-        
+
+
         sorter: (a: Answer, b: Answer) => (a.createAt ?? '').localeCompare(b.createAt ?? ''),
         render: (v?: string) => <span style={{ fontSize: 12 }}>{v || EMPTY}</span>,
       },
@@ -455,7 +455,7 @@ export default function SurveyData() {
         title: '答卷人',
         dataIndex: 'createByName',
         width: 110,
-        // 横向滑动时跟着序号一起固定在左侧：批改时最需要一直看到的就是「这是谁的卷子」
+
         fixed: 'left',
         sorter: (a: Answer, b: Answer) =>
           (a.createByName ?? a.createBy ?? '').localeCompare(
@@ -529,7 +529,7 @@ export default function SurveyData() {
         fixed: 'right',
         render: (_: unknown, row: Answer) => (
           <Space size={8}>
-            {/* 只有待批改的卷才有「批改」入口，且必须有 answer:grade */}
+
             {canGrade && gradeStatusOf(row) && gradeStatusOf(row) !== 'none' && (
               <LinkAction onClick={() => setGrading(row.id)}>
                 {gradeStatusOf(row) === 'pending' ? '批改' : '复核'}
@@ -589,7 +589,7 @@ export default function SurveyData() {
           await post('/api/answer/delete', { ids });
           message.success(`已移入回收站 ${ids.length} 份`);
           setSelected((prev) => prev.filter((x) => !ids.includes(x)));
-          setPage(1); // 删到当前页空掉时别停在空白页
+          setPage(1);
           await load();
         } catch (e) {
           message.error((e as Error).message);
@@ -633,8 +633,8 @@ export default function SurveyData() {
   };
 
   const detailQuestions = useMemo(() => {
-    // 考试模式下答卷快照可能被服务端清空（防止客户端伪造判分），这时回退到项目卷面：
-    // 没有题目列表的「详情」抽屉等于什么都没告诉老师。
+
+
     const schema = detail?.survey ?? project?.survey;
     return schema ? flattenSchema(schema).filter(isDataQuestion) : [];
   }, [detail, project]);
@@ -694,7 +694,7 @@ export default function SurveyData() {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        {/* 「分析」不再是列表里独立按钮，入口收在这里，切到统计报表 */}
+
         <Segmented
           value="data"
           options={[
@@ -705,8 +705,8 @@ export default function SurveyData() {
             if (value === 'report') goReport();
           }}
         />
-        {/* 批量 AI 批改（计划 §6.3 ⑥）：只批未批改的卷子、只补没给分的主观题，批完可撤销。
-            未交名单视图下没有答卷可批，入口一起收起来 */}
+
+
         {canBatchGrade && !unsubmittedMode ? (
           <Button
             icon={<RobotOutlined />}
@@ -723,7 +723,7 @@ export default function SurveyData() {
       </div>
 
       <Card className="bp-corners bp-card">
-        {/* 过滤条放在卡片顶部：它过滤的就是下面这张表，移动端从上到下是 条件 → 操作 → 列表 */}
+
         <FilterBar
           mobile={mobile}
           classOptions={classSelectOptions}
@@ -746,7 +746,7 @@ export default function SurveyData() {
               添加数据
             </Button>
           )}
-          {/* 未交名单视图下没有「答卷」可编辑/删除/导出，只留录入类入口 */}
+
           {!mobile && canUpdate && !unsubmittedMode && (
             <Button icon={<EditOutlined />} disabled={selected.length !== 1} onClick={editSelected}>
               编辑数据
@@ -832,7 +832,7 @@ export default function SurveyData() {
               dataSource={filtered}
               columns={columns}
               components={TABLE_COMPONENTS}
-              // 固定表头 + 横向滚动：列多时表头贴住表体顶部，手机上左右滑
+
               scroll={{ x: 'max-content', y: 'max(240px, calc(100vh - 360px))' }}
               rowSelection={{
                 selectedRowKeys: selected,
@@ -847,8 +847,8 @@ export default function SurveyData() {
                 showSizeChanger: true,
                 pageSizeOptions: [20, 50, 100],
                 showTotal: (t) => `共 ${t} 条`,
-                // 手机上右下角的 AI 浮钮是 fixed 定位，正好压住「下一页」：
-                // 给分页条留出底部空间，浮钮就不会再盖住点击目标
+
+
                 style: mobile ? { paddingBottom: 56 } : undefined,
                 onChange: (p, ps) => {
                   setPage(p);
@@ -891,7 +891,7 @@ export default function SurveyData() {
         onChanged={() => void load()}
       />
 
-      {/* 导出：格式多选 + 范围（当前筛选 / 仅勾选）+ 密码 + 进度，全部在弹窗里 */}
+
       <ExportModal
         open={exportOpen}
         projectId={id}
@@ -902,7 +902,7 @@ export default function SurveyData() {
         onClose={() => setExportOpen(false)}
       />
 
-      {/* 批量批改的结果不在这里，只负责发起与撤销；「去复核」用它打开下面这个单题批改抽屉 */}
+
       <AiGradeBatchModal
         open={batchOpen}
         projectId={id}
@@ -940,7 +940,7 @@ export default function SurveyData() {
               const got = detailScores[q.id];
               const max = q.schema.attribute?.examScore;
               const manual = isManualGraded(q.schema.attribute);
-              // 老师看答卷时最需要的判断：这题对没对、丢了几分。之前这里只渲染题干 + 学生答案。
+
               const verdict =
                 manual && typeof got !== 'number'
                   ? { text: '待批改', color: 'processing' as const }

@@ -8,10 +8,10 @@ import org.flowable.common.engine.api.delegate.event.FlowableEvent;
 import org.flowable.common.engine.api.delegate.event.FlowableEventListener;
 import org.flowable.engine.delegate.event.impl.FlowableEntityEventImpl;
 
-/**
- * @author javahuang
- * @date 2022/1/23
- */
+
+
+
+
 public class ProcessSuspendedListener implements FlowableEventListener {
 
 	@Override
@@ -20,7 +20,7 @@ public class ProcessSuspendedListener implements FlowableEventListener {
 		FlowInstanceService flowInstanceService = ContextHelper.getBean(FlowInstanceService.class);
 		FlowInstance instance = new FlowInstance();
 		instance.setStatus(FlowInstanceStatus.SUSPENDED);
-		// 更新当前任务阶段为待申请人完善中
+
 		instance.setApprovalStage(FlowInstanceStatus.getDictStatus(FlowInstanceStatus.SUSPENDED));
 		instance.setId(entityEvent.getProcessInstanceId());
 		flowInstanceService.updateById(instance);

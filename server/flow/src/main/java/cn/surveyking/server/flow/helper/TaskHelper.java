@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/**
- * @author javahuang
- * @date 2022/1/19
- */
+
+
+
+
 @Component("t")
 @RequiredArgsConstructor
 public class TaskHelper {
@@ -31,12 +31,12 @@ public class TaskHelper {
 		FlowEntryNode node = nodeService.getById(activityId);
 		Set<String> result = new LinkedHashSet<>();
 		for (String identity : node.getIdentity()) {
-			// 普通用户
+
 			if (identity.startsWith("U:")) {
 				result.add(identity.split(":")[1]);
 			}
 			else if (identity.startsWith("R:") || identity.startsWith("P:")) {
-				// 角色和岗位
+
 				result.addAll(userService.getUsersByGroup(identity, starterUserId));
 			}
 		}

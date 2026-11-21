@@ -8,9 +8,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * 内存里的 MultipartFile：导入时把抽出来的图片字节直接喂给 FileService.upload，不落临时文件。
- */
+
+
+
 public final class InMemoryMultipartFile implements MultipartFile {
 
 	private final String name;

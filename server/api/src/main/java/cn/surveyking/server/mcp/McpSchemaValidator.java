@@ -12,34 +12,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * 试卷 schema 校验：<b>只读、不落库</b>（{@code sk_project_validate} 的实现）。
- *
- * <p>为什么要在 MCP 侧单独写一份：现有的保存链路（{@code ProjectServiceImpl#addProject}）只做
- * 富文本消毒，不做「这卷子能不能考」的业务校验——老师在页面上靠肉眼和试答发现漏配，
- * 模型批量出卷时必须有一道机器可读的闸门，否则一批卷子建完才发现全是 0 分。
- *
- * <p>输出分三档：
- * <ul>
- * <li>{@code errors}：一定会导致考试不可用的问题（没题目、没分值、选择题没答案……）；</li>
- * <li>{@code warnings}：能跑但很可能是笔误的配置；</li>
- * <li>{@code stats}：题量、总分、按题型计数，便于模型自查。</li>
- * </ul>
- *
- * <p>规则口径只覆盖「结构完整性」，不判断题目内容好坏——那是 P4 的 {@code AiContentGuard} 的事。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class McpSchemaValidator {
 
-	/** 必须配选项才算完整的题型 */
+
 	private static final EnumSet<SurveySchema.QuestionType> CHOICE_TYPES = EnumSet.of(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Select);
 
-	/** 考试模式下必须给正确答案的题型（填空/横线也要，否则没法自动判分） */
+
 	private static final EnumSet<SurveySchema.QuestionType> ANSWER_REQUIRED = EnumSet.of(
 			SurveySchema.QuestionType.Radio, SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Select,
 			SurveySchema.QuestionType.Judge, SurveySchema.QuestionType.FillBlank, SurveySchema.QuestionType.HorzBlank);
 
-	/** 必须带子题的容器题型 */
+
 	private static final EnumSet<SurveySchema.QuestionType> CONTAINER_TYPES = EnumSet.of(
 			SurveySchema.QuestionType.QuestionSet, SurveySchema.QuestionType.RandomSurvey);
 
@@ -145,7 +145,7 @@ public final class McpSchemaValidator {
 		return plain.length() <= 20 ? plain : plain.substring(0, 20) + "…";
 	}
 
-	/** 统计累加器 */
+
 	static final class Stats {
 
 		int questions;

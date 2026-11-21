@@ -19,7 +19,7 @@ export default function Login() {
   const [registerOptions, setRegisterOptions] = useState<RegisterOptions>();
   const [loading, setLoading] = useState(false);
   const [captchaVerification, setCaptchaVerification] = useState<string>();
-  // 登录失败时后端已消费验证码，换 key 让滑块重新拉一张
+
   const [captchaKey, setCaptchaKey] = useState(0);
   const navigate = useNavigate();
   const captchaEnabled = Boolean(system?.setting?.captchaEnabled);
@@ -28,7 +28,7 @@ export default function Login() {
     getSystem()
       .then(setSystem)
       .catch(() => message.error('系统信息加载失败，请确认后端已启动'));
-    // 注册入口只在「全局开 + 至少一个教学班开放」时显示；这里静默失败，不阻塞登录
+
     get<RegisterOptions>('/api/public/registerOptions')
       .then(setRegisterOptions)
       .catch(() => setRegisterOptions(undefined));
@@ -51,7 +51,7 @@ export default function Login() {
         captchaVerification: captchaEnabled ? captchaVerification : undefined,
       });
       await getCurrentUser();
-      // 同标签页换账号：清掉上一个账号的权限缓存，RequirePerm / can() 必须重新拉
+
       notifyAuthChanged();
       navigate('/home', { replace: true });
     } catch (e) {
@@ -68,7 +68,7 @@ export default function Login() {
   return (
     <div
       style={{
-        // dvh：移动端地址栏收放时 100vh 会把居中的表单顶出去一半
+
         minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
@@ -77,7 +77,7 @@ export default function Login() {
       }}
     >
       <div style={{ width: '100%', maxWidth: 420 }}>
-        {/* 图纸标题栏 */}
+
         <div
           style={{
             display: 'flex',
@@ -149,7 +149,7 @@ export default function Login() {
                 autoComplete="current-password"
               />
             </Form.Item>
-            {/* 验证码放在账号密码下面、登录按钮上面 */}
+
             {captchaEnabled && (
               <div style={{ marginBottom: 16 }}>
                 <LoginCaptcha key={captchaKey} onVerified={setCaptchaVerification} />

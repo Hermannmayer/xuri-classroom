@@ -48,16 +48,16 @@ import java.util.stream.Collectors;
 import static com.baomidou.mybatisplus.core.toolkit.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-/**
- * @author javahuang
- * @date 2021/8/3
- */
+
+
+
+
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> implements ProjectService {
 
-	/** 分类列表里「未分类」的展示名 */
+
 	private static final String UNCATEGORIZED_NAME = "未分类";
 
 	private final AnswerMapper answerMapper;
@@ -80,54 +80,54 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public PaginationResponse<ProjectView> listProject(ProjectQuery query) {
-		// 分类过滤：普通值精确匹配；__UNCATEGORIZED__ 表示「未分类」（NULL 或空串）；空不过滤
+
 		String category = isBlank(query.getCategory()) ? null : query.getCategory().trim();
 		boolean uncategorized = ProjectQuery.UNCATEGORIZED.equals(category);
-		// 分类筛选是跨文件夹的：选了分类时不能再按「根目录」限制 parentId，
-		// 否则移到文件夹里的考试会从分类结果里消失（分类与文件夹是两套维度）。
+
+
 		boolean categoryActive = category != null;
-		// 学员任务列表要“所有层级的可见项目”，否则文件夹里的班级考试会被根目录过滤掉（列表空）
+
 		boolean flat = Boolean.TRUE.equals(query.getFlat());
 		boolean rootLevel = isBlank(query.getParentId()) && !categoryActive && !flat;
-		// 说明：项目列表的可见性判定全部落在下面的 EXISTS 子查询里，
-		// 依赖 t_user_dept（附加组）与 t_dept 的祖先链，改这段务必跑一次
-		// scripts/nas/Deploy-Nas.ps1 让冒烟测试覆盖到「试卷能列出来」。
+
+
+
 		List<String> grantedProjectIds = SecurityContextUtils.isAdmin() ? java.util.Collections.emptyList()
 				: projectPartnerService.getProjectPerms();
 		Page<Project> page = pageByQuery(query, Wrappers.<Project>lambdaQuery()
 				.like(isNotBlank(query.getName()), Project::getName, query.getName())
 				.eq(isNotBlank(query.getParentId()), Project::getParentId, query.getParentId())
-				// 父id为空或者为 0 表示一级目录
+
 				.and(rootLevel,
 						c -> c.isNull(Project::getParentId).or().eq(Project::getParentId, "0"))
 				.eq(query.getMode() != null, Project::getMode, query.getMode())
-				// 可见性：本人被授权(type 1/2/3)，或所在用户组被授权（group_id 存 dept id；主组 + 附加组，含祖先链）
-				// 注意：不能加 t.is_deleted = 0 —— t_project_partner 没有这列（ProjectPartner 把
-				// BaseModel.deleted 覆盖成了 @TableField(exist = false)，删除走的是物理 DELETE）。
-				// 加了会直接 500：Unknown column 't.is_deleted' in 'IN/ALL/ANY subquery'。
-				// 两个可见性条件必须包在 and(...) 里，否则 OR 会把上面的 name/parentId/mode 过滤一起 OR 掉
+
+
+
+
+
 				.and(w -> w
 						.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
 								+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
 								+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 								+ " AND t.type IN (1, 2, 3)",
 								SecurityContextUtils.getUserId())
-						// 按班级分配：本班（主组 + 附加组）在 t_class_resource 上有这场考试的分配就可见。
-						// t_class_resource 有真实的 is_deleted 列，必须显式过滤（partner 表没有，见上）。
+
+
 						.or()
 						.exists("SELECT 1 FROM t_class_resource cr WHERE cr.resource_id = t_project.id"
 								+ " AND cr.resource_type = 'project' AND cr.is_deleted = 0"
 								+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + ")",
 								SecurityContextUtils.getUserId())
-						// 父文件夹被授权：子项目继承（文件夹授权，任意层级，由 getProjectPerms 展开）
+
 						.or(!grantedProjectIds.isEmpty())
 						.in(!grantedProjectIds.isEmpty(), Project::getId, grantedProjectIds))
-				// 分类过滤（放在可见性条件之后）：未分类是「NULL 或空串」，用 and(...) 包住避免 OR 串味
+
 				.and(uncategorized, c -> c.isNull(Project::getCategory).or().eq(Project::getCategory, ""))
 				.eq(category != null && !uncategorized, Project::getCategory, category)
-				// 文件夹不参与分类（既不属于某个分类，也不进「未分类」）
+
 				.ne(categoryActive, Project::getMode, ProjectModeEnum.folder)
-				// 文件夹排在前面，然后按创建时间从近到远排序
+
 				.last("ORDER BY CASE WHEN mode = 'folder' THEN 0 ELSE 1 END ASC, create_at DESC"));
 		PaginationResponse<ProjectView> result = new PaginationResponse<>(page.getTotal(),
 				projectViewMapper.toView(page.getRecords()));
@@ -191,9 +191,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Project> wrapper = Wrappers
 				.<Project>lambdaQuery().select(Project::getId, Project::getName, Project::getParentId, Project::getMode,
 						Project::getCreateAt);
-		// 可见性：管理员全量；其余人只看自己创建的、或被授权（含文件夹授权的所有层级，见 getProjectPerms）
+
 			if (!SecurityContextUtils.isAdmin()) {
-				// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
+
 				List<String> grantedProjectIds = projectPartnerService.getProjectPerms();
 				wrapper.and(w -> w.eq(Project::getCreateBy, userId)
 						.or(!grantedProjectIds.isEmpty())
@@ -203,7 +203,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		if (projects.isEmpty()) {
 			return new ArrayList<>();
 		}
-		// 同层排序：文件夹优先，其次创建时间从近到远、名称兜底（先排好序再组树，children 直接按顺序追加）
+
 		projects.sort(Comparator
 				.comparingInt((Project project) -> ProjectModeEnum.folder.equals(project.getMode()) ? 0 : 1)
 				.thenComparing(Project::getCreateAt, Comparator.nullsLast(Comparator.<Date>reverseOrder()))
@@ -224,14 +224,14 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			ProjectTreeNode node = nodes.get(project.getId());
 			String parentId = project.getParentId();
 			Project parent = isNotBlank(parentId) && !"0".equals(parentId) ? byId.get(parentId) : null;
-			// 父节点为空 / "0" / 不在可见集合里（父文件夹不可见）：都当成根，不要把项目丢掉
+
 			if (parent == null || Objects.equals(parent.getId(), project.getId())) {
 				roots.add(node);
 				continue;
 			}
 			nodes.get(parent.getId()).getChildren().add(node);
 		}
-		// 自底向上统计：folder 计子树里的非 folder 数量，叶子项目自身计 1
+
 		roots.forEach(this::fillTreeNodeCount);
 		return roots;
 	}
@@ -241,18 +241,18 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		String userId = SecurityContextUtils.getUserId();
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Project> wrapper = Wrappers
 				.<Project>lambdaQuery().select(Project::getId, Project::getCategory)
-				// 文件夹不是分类项：不参与分类统计与「未分类」
+
 				.ne(Project::getMode, ProjectModeEnum.folder);
-		// 可见性与 listProject 同一口径：管理员全量；其余人只看自己创建的或被授权（type 1/2）
+
 		if (!SecurityContextUtils.isAdmin()) {
-			// 注意：t_project_partner 没有 is_deleted 列，不能加 t.is_deleted = 0（见 listProject 的注释）
+
 			wrapper.and(w -> w.eq(Project::getCreateBy, userId).or()
 					.exists("SELECT 1 FROM t_project_partner t WHERE t.project_id = t_project.id"
 							+ " AND (t.user_id = {0} OR (t.group_id IS NOT NULL AND t.group_id IN ("
 							+ UserDeptScopeService.DEPT_SCOPE_SQL + ")))"
 							+ " AND t.type IN (1, 2)",
 							userId)
-					// 父文件夹授权：子项目继承（文件夹授权）
+
 					.or()
 					.exists("SELECT 1 FROM t_project child JOIN t_project_partner pt"
 							+ " ON pt.project_id = child.parent_id OR pt.project_id = (SELECT p2.parent_id FROM t_project p2 WHERE p2.id = child.parent_id) WHERE child.id = t_project.id"
@@ -267,7 +267,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			if (project == null) {
 				continue;
 			}
-			// 空白分类统一归到「未分类」，与 __UNCATEGORIZED__ 的查询口径一致
+
 			String name = isBlank(project.getCategory()) ? UNCATEGORIZED_NAME : project.getCategory().trim();
 			counts.merge(name, 1, Integer::sum);
 		}
@@ -315,15 +315,15 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	public ProjectView addProject(ProjectRequest request) {
 		RichTextSanitizer.sanitizeSchema(request.getSurvey());
 		Project project = projectViewMapper.fromRequest(request);
-		// 分类：trim，空白转 null（不做长度校验，前端限制 64）
+
 		project.setCategory(normalizeCategory(project.getCategory()));
-		// 第三方/脚本建项目通常不传 setting。setting 为 null 时，后续
-		// /project/update(settingKey) 会在 SpEL setValue 处 NPE、/public/loadProject 与
-		// /public/saveAnswer 会走 getSetting().getXxx() NPE / 4004（见 docs/audit/concurrency-test.md §3）。
-		// 这里补齐成与前端「新建项目」一致的默认结构，调用方显式给的值一律保留。
+
+
+
+
 		project.setSetting(completeSetting(project.getSetting()));
-		// project.status 与 setting.status 保持一致：前端建项目只传 setting.status，
-		// 第三方直接传 setting.status=1 时也应当算已发布。
+
+
 		if (request.getStatus() == null && project.getSetting().getStatus() != null) {
 			project.setStatus(project.getSetting().getStatus());
 		}
@@ -383,7 +383,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	private String generateProjectId() {
 		String projectId = NanoIdUtils.randomNanoId(6);
-		// 不要以数字开头，否则工作流 xml 保存会报错
+
 		if (Character.isDigit(projectId.charAt(0))) {
 			return generateProjectId();
 		}
@@ -404,7 +404,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		if (request == null || isBlank(request.getId())) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
-		// 非 1 一律按「关闭」处理，避免脏值写库
+
 		Integer status = request.getStatus() != null && request.getStatus() == 1 ? 1 : 0;
 		synchronized (request.getId().intern()) {
 			Project project = new Project();
@@ -416,8 +416,8 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			}
 			ProjectSetting setting = completeSetting(existing.getSetting());
 			setting.setStatus(status);
-			// 发布开关同时影响 setting.status 与 t_project.status，两个都要写，
-			// 否则列表页（读列）和答题页（读 setting）会出现一个开一个关。
+
+
 			project.setSetting(setting);
 			updateById(project);
 		}
@@ -428,23 +428,23 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	public void updateProject(ProjectRequest request) {
 		assertCanEditProject(request == null ? null : request.getId());
 		RichTextSanitizer.sanitizeSchema(request.getSurvey());
-		// 分类：显式传空串表示「清空分类」。MyBatis-Plus 的 updateById 会跳过 null 字段，
-		// 所以清空要单独 set 一次；不带 category 的部分更新（settingKey 单字段、批量设置）
-		// 传的是 null，不会走到这里，不会被误清空。
+
+
+
 		boolean clearCategory = request.getCategory() != null && isBlank(request.getCategory());
 		request.setCategory(normalizeCategory(request.getCategory()));
 		synchronized (request.getId().intern()) {
 			Project project = projectViewMapper.fromRequest(request);
 			if (request.getSettingKey() != null) {
 				validateSettingKey(request.getSettingKey());
-				// 实现单个设置的更新
+
 				Project existing = getById(request.getId());
-				// 历史遗留：修 addProject 之前创建的项目 setting 可能是 null（或只有部分子结构），
-				// 这里先补齐再改，否则 SpEL 的 setValue 会直接 NPE。补齐结果会随这次 update 落库，等于自愈。
+
+
 				ProjectSetting setting = completeSetting(existing == null ? null : existing.getSetting());
 				spelParser.parseExpression(request.getSettingKey()).setValue(setting, request.getSettingValue());
 				project.setSetting(setting);
-				// 同步更新项目状态
+
 				if ("status".equals(request.getSettingKey())) {
 					project.setStatus((Integer) request.getSettingValue());
 				}
@@ -488,13 +488,13 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 			fileService.replaceOwnerRefs("project", projectId, objectMapper.writeValueAsString(survey));
 		}
 		catch (Exception ignored) {
-			// 引用登记失败不能阻断试卷保存；图片仍在，后续保存会补登记
+
 		}
 	}
 
 	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权）。 */
 	private void assertCanEditProject(String projectId) {
-		// accessLevel 已经沿祖先链继承文件夹授权（任意层级），不再手写两级回溯
+
 		int level = projectPartnerService.accessLevel(projectId);
 		if (level < 2) {
 			throw new org.springframework.security.access.AccessDeniedException("没有编辑该项目的权限");
@@ -503,7 +503,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 
 	@Override
 	public ProjectSetting getSetting(ProjectQuery query) {
-		// 上游这里是个返回 null 的桩，导致「设置」页打开时永远是空的（保存了也不回显）
+
 		Project project = getById(query.getId());
 		if (project == null || project.getSetting() == null) {
 			return new ProjectSetting();
@@ -512,7 +512,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		if (setting == null) {
 			return new ProjectSetting();
 		}
-		// 访问密码不回传给前端，避免在页面上明文暴露
+
 		if (setting.getAnswerSetting() != null) {
 			setting.getAnswerSetting().setPassword(null);
 		}
@@ -536,12 +536,12 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 	public void batchDestroyProject(ProjectRequest request) {
 		List<String> ids = assertProjectIdsPermitted(request.getIds());
 		getBaseMapper().batchDestroy(ids);
-		// 删除项目参与者
+
 		projectPartnerService.deleteAllProjectPartners(ids);
-		// 文件清理放在**事务提交之后**：物理文件删掉不能回滚，
-		// 先删项目行再删文件 → 删行失败时文件还在（浪费空间而已）；
-		// 反过来则是「文件没了但项目还在」，那是坏数据。
-		// 清理失败会留下孤儿，由 FileOrphanCleanupService 兜底（它按 answer_id 找失效附件）。
+
+
+
+
 		Runnable purge = () -> {
 			for (String id : ids) {
 				fileService.purgeProjectFiles(id);

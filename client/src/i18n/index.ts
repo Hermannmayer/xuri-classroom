@@ -1,7 +1,7 @@
 import zhCN from './locales/zh-CN.json';
 
-// 词条直接来自逆向导出的 zh-CN.json（1493 条），id 形如 pages.login.submit。
-// 其它语言后续按同一份 id 补文件即可。
+
+
 const registry: Record<string, Record<string, string>> = {
   'zh-CN': zhCN as Record<string, string>,
 };

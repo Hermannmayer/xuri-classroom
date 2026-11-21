@@ -16,7 +16,7 @@ export interface TrashDrawerProps {
   open: boolean;
   projectId: string;
   onClose: () => void;
-  /** 恢复/彻底删除后让主列表重新拉一遍 */
+
   onChanged: () => void;
 }
 
@@ -31,7 +31,7 @@ export default function TrashDrawer({ open, projectId, onClose, onChanged }: Tra
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  // 按钮级权限：恢复要 answer:restore，彻底删除要 answer:delete；没有权限的动作不渲染
+
   const canRestore = can(authorities, PERMISSION_CODES.answerRestore);
   const canDelete = can(authorities, PERMISSION_CODES.answerDelete);
   const canOperate = canRestore || canDelete;

@@ -22,29 +22,29 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/**
- * 提交幂等：同一（项目 + 答题人 + 答案指纹）在 15 秒窗口内重复新建，直接回放第一次的答卷。
- *
- * <p>
- * 从 {@code AnswerServiceImpl} 切出。锁与回放快照都是纯内存状态，跟着组件走； 调用方仍然负责「先取键 → 加锁 → 查回放 → 新建 →
- * 记回放」的顺序， 组件不回调 {@code AnswerService}，因此不存在构造器循环依赖。
- */
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerSubmitIdempotency {
 
-	/** 提交幂等窗口：同一（项目 + 答题人 + 答案指纹）在窗口内重复新建，直接回放第一次的答卷 */
+
 	private static final long SUBMIT_IDEMPOTENCY_WINDOW_MS = 15 * 1000L;
 
-	/** 幂等表容量上限，超过就清一次过期项（单实例内存表，防止长跑进程膨胀） */
+
 	private static final int SUBMIT_IDEMPOTENCY_MAX_ENTRIES = 2000;
 
 	private final ProjectService projectService;
 
-	/** 幂等键 → 提交锁：双击/重试的第二枪会等第一枪跑完再走回放分支 */
+
 	private final ConcurrentMap<String, Object> submitLocks = new ConcurrentHashMap<>();
 
-	/** 幂等键 → 最近一次成功新建的答卷（用于回放，不依赖数据库是否已经可见） */
+
 	private final ConcurrentMap<String, RecentSubmit> recentSubmits = new ConcurrentHashMap<>();
 
 	public Object lockFor(String idempotencyKey) {
@@ -67,7 +67,7 @@ public class AnswerSubmitIdempotency {
 	 * 返回 null 表示本次不做幂等：显式「再考一次」、题库练习、以及拿不到可信答题人身份的情况。
 	 */
 	public String buildSubmitIdempotencyKey(AnswerRequest request) {
-		// 「再考一次」是用户显式要一条新答卷，必须绕过幂等
+
 		if (Boolean.TRUE.equals(request.getFreshAttempt())) {
 			return null;
 		}
@@ -77,11 +77,11 @@ public class AnswerSubmitIdempotency {
 		}
 		String actor = resolveSubmitActor(projectId);
 		if (!StringUtils.hasText(actor)) {
-			// 既没登录、也没有设备 cookie：无法安全区分「同一个人的两次提交」和「两个人的相同答案」，
-			// 宁可放弃合并，也不能把别人的答卷回放给你。
+
+
 			return null;
 		}
-		// 答案内容必须一致才合并：用户真改了答案立刻再交，仍然要产生新答卷
+
 		int fingerprint = Objects.hash(request.getAnswer(), request.getTempSave());
 		return projectId + "|" + actor + "|" + fingerprint;
 	}
@@ -90,7 +90,7 @@ public class AnswerSubmitIdempotency {
 	 * 提交幂等用的「答题人」标识：登录用户 → 设备限次 cookie → 考试模式退化为 IP+UA。
 	 *
 	 * <p>
-	 * 匿名且没有设备 cookie 时只有考试模式才用 IP+UA 兜底：考试重复交卷的代价更高； 问卷模式不合并，否则同一个教室 NAT
+
 	 * 下两个答案相同的受访者会被吞掉一份。
 	 */
 	private String resolveSubmitActor(String projectId) {
@@ -153,7 +153,7 @@ public class AnswerSubmitIdempotency {
 		}
 	}
 
-	/** 幂等回放需要的最小应答快照（此刻数据库可能还没提交完成，读不到行） */
+
 	private static final class RecentSubmit {
 
 		private final String answerId;

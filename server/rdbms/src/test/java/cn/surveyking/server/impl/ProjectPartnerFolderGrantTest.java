@@ -35,11 +35,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * 文件夹授权向下继承：授权文件夹 = 授权里面所有层级的考试（列表/数据页/报表/答卷共用这套口径）。
- *
- * <p>纯 Mockito，不启动 Spring、不连库。
- */
+
+
+
+
+
 class ProjectPartnerFolderGrantTest {
 
 	private final ProjectPartnerMapper partnerMapper = mock(ProjectPartnerMapper.class);
@@ -99,7 +99,7 @@ class ProjectPartnerFolderGrantTest {
 		when(projectMapper.selectById("exam-2")).thenReturn(project("exam-2", "folder-2", "exam"));
 		when(projectMapper.selectById("folder-2")).thenReturn(project("folder-2", "folder-1", "folder"));
 		when(projectMapper.selectById("folder-1")).thenReturn(project("folder-1", "0", "folder"));
-		// 依次查：exam-2（无）→ folder-2（无）→ folder-1（level 2）
+
 		when(partnerMapper.selectList(any())).thenReturn(Collections.emptyList(), Collections.emptyList(),
 				List.of(collaborator("folder-1", 2)));
 

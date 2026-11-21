@@ -10,7 +10,7 @@ export default function Textarea(props: QuestionComponentProps) {
   const id = blankId(schema);
   const text = blankText(answer, id);
   const rule = inputRule(schema.attribute?.dataType, schema.attribute?.textLimit);
-  // 多行文本的无障碍名称同样指向题干
+
   const { labelId, descId } = questionA11yIds(schema);
 
   return (

@@ -19,31 +19,31 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 使用 caffeine 自定义 cache，允许针对每个 cacheName 设置单独的 expireTime
- *
- * @author javahuang
- * @date 2021/9/8
- */
+
+
+
+
+
+
 @Configuration
 @EnableCaching
 @ConfigurationProperties("custom-cache")
 public class CacheConfig extends CachingConfigurerSupport {
 
-	/**
-	 * 没在 custom-cache.entries 里配置的缓存名回落到这个 TTL。
-	 * 之前是 entries.get(name).toNanos()，名字没配就会 NPE（整个请求 500）；顺带把兜底值定成 10 分钟。
-	 */
+
+
+
+
 	private static final Duration DEFAULT_TTL = Duration.ofMinutes(10);
 
-	/**
-	 * 每个缓存名的条目上限。
-	 * <p>
-	 * 之前所有缓存统一 {@code maximumSize(100)}：500 人同时在线时 userCache 只能装 100 个用户，
-	 * 命中率接近 0，而每个已登录请求都要走 {@code loadUserById}（约 5~6 次查询）——
-	 * 等于把鉴权变成了每请求一次的数据库风暴。容量按「体积小、读多写少」的原则给：
-	 * 用户与项目权限给足，组织结构与全局配置本来就只有几十条。
-	 */
+
+
+
+
+
+
+
+
 	private static final Map<String, Long> DEFAULT_SIZES = new HashMap<>();
 
 	static {
@@ -56,7 +56,7 @@ public class CacheConfig extends CachingConfigurerSupport {
 		DEFAULT_SIZES.put(CacheConsts.commonCacheName, 200L);
 	}
 
-	/** 可选覆盖：custom-cache.sizes.<cacheName>=条目数 */
+
 	private Map<String, Long> sizes;
 
 	private Map<String, Duration> entries;
@@ -93,7 +93,7 @@ public class CacheConfig extends CachingConfigurerSupport {
 			}
 		};
 
-		// 配置缺失时不要让应用起不来：没有 entries 就等于没有预声明缓存，首次 @Cacheable 时按需创建
+
 		cacheManager.setCacheNames(entries == null ? Collections.emptyList()
 				: entries.keySet().stream().collect(Collectors.toList()));
 		return cacheManager;

@@ -12,10 +12,10 @@ import org.apache.ibatis.type.MappedTypes;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/1/12
- */
+
+
+
+
 @MappedTypes({ Object.class })
 @MappedJdbcTypes(JdbcType.VARCHAR)
 public class FlowEntryNodeTypeHandler extends AbstractJsonTypeHandler<List<FlowEntryNode>> {

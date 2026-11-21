@@ -46,36 +46,36 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * 主观题人工批改实现。
- *
- * <p>三条硬规则（都体现在本类的注释里）：
- * <ol>
- * <li>只有 {@code examAnswerMode = manual} 的题允许人工给分，其它题传分直接拒绝；</li>
- * <li>客观题机器分不可覆盖：重算时仍然走 {@link AnswerScoreEvaluator} 原来的 evaluator，
- * 人工分只是作为 manual 题的覆盖值传进去；</li>
- * <li>三处一起更新：{@code t_answer.exam_score}、{@code t_answer.exam_info.question_score}、
- * {@code t_answer_item.score}，否则报表与成绩单会不一致。</li>
- * </ol>
- *
- * <p>这类只依赖 Mapper 与 AnswerAccessGuard，不依赖 AnswerService，避免和
- * {@code AnswerScoringService}（交卷链路）形成构造器循环依赖。
- *
- * @author grading
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
 @Slf4j
 public class AnswerGradeServiceImpl implements AnswerGradeService {
 
-	/** 无需批改：卷里没有 manual 题 */
+
 	public static final String GRADE_NONE = "none";
 
-	/** 待批改：卷里有 manual 题，还没全部给分 */
+
 	public static final String GRADE_PENDING = "pending";
 
-	/** 已批改：所有 manual 题都有分 */
+
 	public static final String GRADE_GRADED = "graded";
 
 	private final AnswerMapper answerMapper;
@@ -98,23 +98,23 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			throw new ValidationException("待批改列表需要指定项目");
 		}
 		answerAccessGuard.assertProjectAccess(query.getProjectId());
-		// 班级级老师只看自己带的班：项目级老师（所有者/协作者）不受限
+
 		Set<String> classScope = answerAccessGuard.canManageProject(query.getProjectId()) ? Collections.emptySet()
 				: answerAccessGuard.readableClassIds(query.getProjectId());
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
-		// 待批改列表只要「谁、什么时候交的、批完没」，不读整卷答案与快照两个大字段
+
 		LambdaQueryWrapper<Answer> wrapper = Wrappers.<Answer>lambdaQuery()
 				.select(Answer::getId, Answer::getProjectId, Answer::getAnswererName, Answer::getCreateBy,
 						Answer::getGradeStatus, Answer::getGradedBy, Answer::getGradedAt, Answer::getExamScore,
 						Answer::getExamInfo, Answer::getTempSave, Answer::getCreateAt, Answer::getIsAnonymous,
 						Answer::getAttemptNo)
 				.eq(Answer::getProjectId, query.getProjectId())
-				// 暂存卷没有最终答案，不能批改
+
 				.eq(Answer::getTempSave, 1)
 				.isNotNull(Answer::getAnswer)
 				.eq(Answer::getGradeStatus,
 						StringUtils.hasText(query.getGradeStatus()) ? query.getGradeStatus() : GRADE_PENDING)
-				// 匿名答卷默认不进待批改列表，管理员显式 includeAnonymous 才放开（与答卷列表口径一致）
+
 				.eq(!Boolean.TRUE.equals(query.getIncludeAnonymous()), Answer::getIsAnonymous, false)
 				.eq(StringUtils.hasText(query.getClassId()), Answer::getClassId, query.getClassId())
 				.in(!classScope.isEmpty(), Answer::getClassId, classScope)
@@ -136,7 +136,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 	@Override
 	public AnswerGradeView detail(String answerId, boolean includeCorrectAnswer) {
 		Answer answer = loadAnswer(answerId);
-		// 按「这一份答卷」判权：班级级老师不能顺着 projectId 打开别的班的答卷
+
 		answerAccessGuard.assertAnswerAccess(answer);
 		SurveySchema schema = includeCorrectAnswer ? resolveSchemaWithAnswers(answer) : resolveSchema(answer);
 		Map<String, AnswerGrade> grades = loadGrades(answer.getId());
@@ -148,8 +148,8 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		view.setAnswererName(answer.getAnswererName());
 		view.setAnonymous(answer.getIsAnonymous());
 		view.setGradeStatus(StringUtils.hasText(answer.getGradeStatus()) ? answer.getGradeStatus() : GRADE_NONE);
-		// 自愈：状态是 pending 但卷面已经没有人工评分题（改过卷、或迁移回填误判）→ 归位 none。
-		// 不归位的话这份卷子会永远挂在「待批改」里，老师点进去只看到「没有需要人工评分的题目」。
+
+
 		if (GRADE_PENDING.equals(view.getGradeStatus()) && schema != null && manualQuestions(schema).isEmpty()) {
 			answerMapper.update(null, Wrappers.<Answer>lambdaUpdate().eq(Answer::getId, answer.getId())
 					.set(Answer::getGradeStatus, GRADE_NONE));
@@ -169,7 +169,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		view.setManualScore(score.manual);
 		view.setTotalScore(score.maxScore);
 		view.setPendingCount(score.pending);
-		// 默认剥掉正确答案：这个接口按权限只给老师用，但默认最小化下发，防止前端顺手渲染到学生可见的位置
+
 		view.setSchema(includeCorrectAnswer || schema == null ? schema : stripCorrectAnswer(schema));
 		view.setItems(buildItems(questions, answer.getAnswer(), grades, score.questions, includeCorrectAnswer));
 		return view;
@@ -189,7 +189,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		if (schema == null) {
 			throw new ValidationException("这份答卷没有题目快照，无法批改");
 		}
-		// 只有 manual 题可以给分：客观题的机器分不允许被覆盖
+
 		Map<String, SurveySchema> manualQuestions = manualQuestions(schema);
 		if (manualQuestions.isEmpty()) {
 			throw new ValidationException("这份答卷没有需要人工评分的题目");
@@ -216,10 +216,10 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			}
 			saveGrade(item, answer, existing.get(item.getQuestionId()), grader, now);
 		}
-		// 落库后重新读一遍批改记录再算分：本次可能是分批保存，前面几题的分也要算进去
+
 		Map<String, AnswerGrade> grades = loadGrades(answer.getId());
 		ScoreView score = evaluate(answer, schema, grades);
-		// submit=true 且所有 manual 题都有分才算批改完成；否则保持待批改
+
 		boolean graded = Boolean.TRUE.equals(request.getSubmit()) && score.allGraded;
 		String status = graded ? GRADE_GRADED : GRADE_PENDING;
 		persistScore(answer, score, status, grader, now);
@@ -245,7 +245,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 
 		Map<String, AnswerGrade> grades = loadGrades(answer.getId());
 		ScoreView score = evaluate(answer, schema, grades);
-		// 撤销后只要还有 manual 题没分，就回到待批改
+
 		String status = score.allGraded && !grades.isEmpty() ? GRADE_GRADED : GRADE_PENDING;
 		persistScore(answer, score, status, SecurityContextUtils.getUserId(), new Date());
 		syncItemScores(answer.getId(), grades, manualQuestions(schema).keySet());
@@ -256,7 +256,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		if (answer == null || !StringUtils.hasText(answer.getId())) {
 			return;
 		}
-		// 只有正式交卷才动批改状态：暂存草稿不影响老师已经打过的分
+
 		if (!Integer.valueOf(1).equals(answer.getTempSave())) {
 			return;
 		}
@@ -265,10 +265,10 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		answer.setGradeStatus(status);
 		answer.setGradedBy(null);
 		answer.setGradedAt(null);
-		// 重新提交：答卷内容已经变了，旧的人工分不再对应当前答案，整卷作废
+
 		answerGradeMapper.delete(Wrappers.<AnswerGrade>lambdaQuery().eq(AnswerGrade::getAnswerId, answer.getId()));
-		// 新建答卷时这一行还不存在（更新 0 行，由随后的 insert 写入 status）；
-		// 重新提交时它负责把 graded_by / graded_at 真正清空——updateById 会跳过 null 字段
+
+
 		answerMapper.update(null, Wrappers.<Answer>lambdaUpdate().eq(Answer::getId, answer.getId())
 				.set(Answer::getGradeStatus, status).set(Answer::getGradedBy, null).set(Answer::getGradedAt, null));
 	}
@@ -286,7 +286,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		return answer;
 	}
 
-	/** 判分用的 schema：库里已有的快照优先（随机卷），否则用项目 schema */
+
 	private SurveySchema resolveSchema(Answer answer) {
 		if (answer.getSurvey() != null) {
 			return answer.getSurvey();
@@ -382,7 +382,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 
 	private void saveGrade(AnswerGradeRequest.Item item, Answer answer, AnswerGrade existing, String grader,
 			Date now) {
-		// 分数来源：AI 批量批改会显式传 ai；老师手工批改（或老师覆盖 AI 分）一律 manual
+
 		String source = StringUtils.hasText(item.getSource()) ? item.getSource() : "manual";
 		if (existing == null) {
 			AnswerGrade grade = new AnswerGrade();
@@ -398,7 +398,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			answerGradeMapper.insert(grade);
 			return;
 		}
-		// 走 UpdateWrapper 显式设置字段：评语允许被清空（updateById 会跳过 null）
+
 		answerGradeMapper.update(null, Wrappers.<AnswerGrade>lambdaUpdate().eq(AnswerGrade::getId, existing.getId())
 				.set(AnswerGrade::getScore, item.getScore()).set(AnswerGrade::getComment, item.getComment())
 				.set(AnswerGrade::getGrader, grader).set(AnswerGrade::getSource, source)
@@ -484,13 +484,13 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			}
 			AnswerGrade grade = grades.get(questionId);
 			if (grade == null || grade.getScore() == null) {
-				// 撤销批改 / 还没批改：把投影里的分数清空，否则统计会一直用上一次的旧分
+
 				answerItemMapper.update(null, Wrappers.<AnswerItem>lambdaUpdate()
 						.eq(AnswerItem::getAnswerId, answerId).eq(AnswerItem::getQuestionId, questionId)
 						.set(AnswerItem::getScore, null));
 				continue;
 			}
-			// 一题一行最常见（简答/多行文本）；多空题只有第一行带分，保证按 question_id 求和不会重复计分
+
 			items.sort((left, right) -> {
 				String a = left.getOptionId() == null ? "" : left.getOptionId();
 				String b = right.getOptionId() == null ? "" : right.getOptionId();
@@ -524,7 +524,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			item.setEditable(manual);
 			if (manual) {
 				AnswerGrade grade = grades.get(question.getId());
-				// 没批改过就是 null：前端按「待批改」展示，不能当 0 分
+
 				item.setScore(grade == null ? null : grade.getScore());
 				item.setComment(grade == null ? null : grade.getComment());
 				item.setSource(grade == null ? null : grade.getSource());
@@ -592,7 +592,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		});
 	}
 
-	/** 一次批改/撤销算出来的分数快照 */
+
 	private static class ScoreView {
 
 		private Double total = .0;

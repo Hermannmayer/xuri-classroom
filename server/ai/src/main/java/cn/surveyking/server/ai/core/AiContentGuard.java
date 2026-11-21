@@ -12,51 +12,51 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 
-/**
- * AI 产出校验：出卷结果的结构校验 + 侧栏对话回复的口径校验。
- *
- * <p>两条线的共同点是「宁可拒绝，也不要一份看起来能用、实际不能用（或不该给用户看）的东西」；
- * 不同点是出卷连结构一起校验（见下），对话只判断正文能不能直接展示（见 {@link #checkChatReply}）。
- *
- * <p><b>校验不过直接拒绝，不修补。</b>理由：修补等于「后端替模型编题」——把一道没有正确答案的
- * 单选题补一个正确答案出来，老师看到的就不再是模型的输出，而是程序的猜测，出了问题还查不出来。
- * 宁可让老师看到「第 7 题缺正确答案，已作废，请重试」，也不给一份看起来能用、判分却不对的卷子。
- *
- * <p>校验项：
- * <ol>
- * <li>每题都有 type / title / 分值 / 计分方式；</li>
- * <li>选择题必须有 {@code dataSource} + {@code children}，且至少一个选项标了
- * {@code examCorrectAnswer}；填空题/简答题必须有参考答案；</li>
- * <li>题量、总分、每种题型的题数与期望一致（每型允许 ±1 题的凑整误差）；</li>
- * <li>题目 id 不能为空、不能重复（重复会让判分把两题算成一题）。</li>
- * </ol>
- *
- * <p>两类调用方：
- * <ul>
- * <li>{@link #check(AiPaperSpec, List)}：出卷结果，连题量/配比/总分一起校验；</li>
- * <li>{@link #checkAccepted(List)}：老师采纳后写入项目 schema 前，只做逐题校验——
- * 采纳的题可能只是生成结果的一部分，按整卷口径校验必然失败。</li>
- * </ul>
- *
- * @author p4-backend
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class AiContentGuard {
 
-	/** 选择题（有选项、靠选项对错判分） */
+
 	private static final Set<SurveySchema.QuestionType> CHOICE_TYPES = Set.of(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Judge);
 
-	/** 需要标准答案文本的题型 */
+
 	private static final Set<SurveySchema.QuestionType> BLANK_TYPES = Set.of(SurveySchema.QuestionType.FillBlank,
 			SurveySchema.QuestionType.MultipleBlank, SurveySchema.QuestionType.Textarea);
 
-	/** 总分允许的误差（浮点相加的尾差） */
+
 	private static final double SCORE_TOLERANCE = 0.01;
 
-	/** 每种题型的题数允许的凑整误差 */
+
 	private static final int TYPE_COUNT_TOLERANCE = 1;
 
-	/** 一条对话回复最多给用户看这么多字：再长基本是模型跑题或复读，截断比整段丢弃更有用 */
+
 	private static final int MAX_CHAT_REPLY_CHARS = 6000;
 
 	private AiContentGuard() {
@@ -107,7 +107,7 @@ public final class AiContentGuard {
 	/**
 	 * 只做逐题校验（不看题量/配比/总分）：老师采纳后写入项目 schema 前用。
 	 * <p>为什么也要校验：前端可能只采纳了一部分题目，或者题目在画布里被改过；
-	 * 写进项目 schema 的每一道题都必须「能判分」，否则考试交卷时会出现永远拿不到分的题。
+
 	 */
 	public static void checkAccepted(List<SurveySchema> questions) {
 		if (CollectionUtils.isEmpty(questions)) {
@@ -119,7 +119,7 @@ public final class AiContentGuard {
 		}
 	}
 
-	/* ====== 对话回复（侧栏 AI 助手） ====== */
+
 
 	/**
 	 * 对话回复校验：只判断「这段正文能不能直接给用户看」，<b>不改写内容</b>。
@@ -148,7 +148,7 @@ public final class AiContentGuard {
 			throw chatReject("AI 只返回了一个空代码块，请重试");
 		}
 		if (value.contains(AiPageContext.BEGIN) || value.contains(AiPageContext.END)) {
-			// 分隔符只可能来自系统提示，模型把它念出来等于把内部说明泄露给用户
+
 			throw chatReject("AI 回复里带出了系统提示词片段，已拦截");
 		}
 		if (value.length() > MAX_CHAT_REPLY_CHARS) {

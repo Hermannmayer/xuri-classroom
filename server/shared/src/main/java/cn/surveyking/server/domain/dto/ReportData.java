@@ -4,10 +4,10 @@ import lombok.Data;
 
 import java.util.Map;
 
-/**
- * @author javahuang
- * @date 2021/8/4
- */
+
+
+
+
 @Data
 public class ReportData {
 
@@ -15,9 +15,9 @@ public class ReportData {
 
 	private Map<String, Data> statistics;
 
-	/**
-	 * 每日答卷数量统计
-	 */
+
+
+
 	private Map<String, Integer> dailyCountStat;
 
 	@lombok.Data
@@ -31,7 +31,7 @@ public class ReportData {
 
 		private Number sum = 0;
 
-		/** 该问题完成数量 */
+
 		private int total;
 
 	}

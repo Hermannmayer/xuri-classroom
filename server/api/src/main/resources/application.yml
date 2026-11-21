@@ -1,27 +1,27 @@
 version: @projectVersion@
 update:
-  # 方式一：自建清单地址（json）；留空则改用下面的 GitHub 配置
+
   manifest-url: ${UPDATE_MANIFEST_URL:}
-  # 方式二：直接查 GitHub Releases（owner/repo）。留空则关闭检查
+
   github-repo: ${UPDATE_GITHUB_REPO:Hermannmayer/xuri-classroom}
-  # GitHub API 前缀；国内可换成兼容 /repos/{repo}/releases/latest 的镜像
+
   github-api-base: ${UPDATE_GITHUB_API_BASE:https://api.github.com}
-  # 服务端缓存小时数：GitHub 未认证接口限流 60 次/小时/IP，默认一天查一次足够
+
   check-interval-hours: ${UPDATE_CHECK_INTERVAL_HOURS:24}
 spring:
   application:
     name: survey
   threads:
-    # 虚拟线程（Java 21+ 的 JEP 444；这里跑的是 Java 25）。
-    #
-    # 打开后 Tomcat 每个请求一个虚拟线程、@Async 也走虚拟线程。对这套系统的意义：
-    # 瓶颈是「等 I/O」（MySQL 查询、读附件、调模型 API），不是算力；平台线程数一旦被
-    # 慢请求占满，后面所有请求（包括 40 个学生同时开考）都会排队。虚拟线程让等待不占线程。
-    #
-    # ⚠️ 前置条件：SecurityContextHolder 仍是 MODE_INHERITABLETHREADLOCAL（见 WebSecurityConfig），
-    # 因为代码里有 4 处 new Thread(...)（AI 任务 / 答卷导出 / PDF 导出）和 2 处 @Async 依赖
-    # 「子线程继承安全上下文」来写审计归属。虚拟线程同样支持 inheritable thread-local 继承，
-    # 所以这条链路保持可用；但**改动这些异步代码时必须显式传递上下文**，不要继续依赖继承。
+
+
+
+
+
+
+
+
+
+
     virtual:
       enabled: ${SK_VIRTUAL_THREADS:true}
   profiles:
@@ -29,29 +29,29 @@ spring:
   mvc:
     async:
       request-timeout: -1
-    static-path-pattern: /notfound # 覆盖默认的 /**
+    static-path-pattern: /notfound
     throw-exception-if-no-handler-found: true
-    # matching-strategy: ant_path_matcher 已删除：Spring Framework 6 起 AntPathMatcher
-    # 不再参与 MVC 映射，Spring Boot 3.1 移除了这个属性，写在这里只会让人误以为它还在生效。
+
+
   web:
     resources:
-      add-mappings: false # 静态资源交给 WebConfig 的显式 handler，默认映射关闭
+      add-mappings: false
   servlet:
     multipart:
       max-file-size: 20MB
       max-request-size: 21MB
   jackson:
-    default-property-inclusion: non_null # 序列化忽略空值
+    default-property-inclusion: non_null
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
     serialization:
       FAIL_ON_EMPTY_BEANS: false
     deserialization:
-      FAIL_ON_UNKNOWN_PROPERTIES: false # 反序列化时允许未知属性
+      FAIL_ON_UNKNOWN_PROPERTIES: false
 file-storage:
-  # 单文件上限 10MB。图片在入库前还会自动缩到 1920px 宽并重编码
-  # （见 FileServiceImpl#sanitizeImage），实际落盘通常只有几百 KB。
-  # 注意这里是 Java 默认值的覆盖点：改小要连带确认 spring.servlet.multipart.max-file-size 仍够用。
+
+
+
   max-public-file-size-mb: 10
   max-public-uploads-per-minute: 10
   max-public-uploads-per-project-per-minute: 60
@@ -60,24 +60,24 @@ file-storage:
   max-image-pixels: 16000000
 sk:
   audit:
-    # 审计日志自动保留天数：每天 04:12 删掉更早的记录；0 或负数 = 关闭自动清理。
-    # 手动清理（系统设置 → 操作日志 → 清理日志）不受这个开关影响，任何时候都能手动删，
-    # 但无论手动还是自动，保留天数都不允许低于 7 天（见 AuditLogService.MIN_KEEP_DAYS）。
+
+
+
     retention-days: ${SK_AUDIT_RETENTION_DAYS:180}
   web:
     spa:
       enabled: ${SK_WEB_SPA_ENABLED:false}
   schema:
-    # 启动时自动对齐数据库结构：探测库里实际有哪些表/列/索引，只执行缺的那几步迁移。
-    # 关掉后程序不会动数据库，但结构落后时会报 Unknown column —— 只在排障时临时关。
+
+
     auto-upgrade: ${SK_SCHEMA_AUTO_UPGRADE:true}
   security:
     url-token-authentication:
-      enabled: false # 默认关闭 url token 认证，避免令牌出现在 URL、日志或 Referer 中
+      enabled: false
     jwt:
-      # 签 token 用的密钥。留空 = 每次启动随机生成（重启后所有人掉线、多实例之间互不认）。
-      # 生产必须配置：Base64 编码的 32 字节以上随机串，例如 openssl rand -base64 48。
-      # 环境变量名：SK_JWT_SECRET（docker-compose 里用 .env 的 JWT_SECRET 注入）
+
+
+
       secret: ${SK_JWT_SECRET:}
       expiration-seconds: 28800
     cors:
@@ -87,25 +87,25 @@ flowable:
   database-schema-update: false
 
 mybatis-plus:
-  # S2-5：Mapper 的 SQL 统一收敛到各模块 resources/mapper/*.xml；与 MyBatis-Plus 默认值一致，显式写出便于审计
+
   mapper-locations: classpath*:/mapper/**/*.xml
 
 aj:
   captcha:
-    jigsaw: classpath:images/jigsaw # 滑动验证，底图路径，不配置将使用默认图片；以 classpath: 开头，取 resource 目录下路径
-    pic-click: classpath:images/pic-click # 滑动验证，底图路径，不配置将使用默认图片；以 classpath: 开头，取 resource 目录下路径
-    cache-type: local # 缓存 local/redis...
-    cache-number: 1000 # local 缓存的阈值,达到这个值，清除缓存
-    timing-clear: 180 # local定时清除过期缓存(单位秒),设置为0代表不执行
-    type: blockPuzzle # 验证码类型 default两种都实例化。 blockPuzzle 滑块拼图 clickWord 文字点选
-    water-mark: "" # 不加水印，图由用户自己配置
-    interference-options: 2 # 滑动干扰项(0/1/2)
-    req-frequency-limit-enable: false # 接口请求次数一分钟限制是否开启 true|false
-    req-get-lock-limit: 5 # 验证失败5次，get接口锁定
-    req-get-lock-seconds: 10 # 验证失败后，锁定时间间隔
-    req-get-minute-limit: 30 # get 接口一分钟内请求数限制
-    req-check-minute-limit: 60 # check 接口一分钟内请求数限制
-    req-verify-minute-limit: 60 # verify 接口一分钟内请求数限制
+    jigsaw: classpath:images/jigsaw
+    pic-click: classpath:images/pic-click
+    cache-type: local
+    cache-number: 1000
+    timing-clear: 180
+    type: blockPuzzle
+    water-mark: ""
+    interference-options: 2
+    req-frequency-limit-enable: false
+    req-get-lock-limit: 5
+    req-get-lock-seconds: 10
+    req-get-minute-limit: 30
+    req-check-minute-limit: 60
+    req-verify-minute-limit: 60
 
 api:
   prefix: /api

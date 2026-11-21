@@ -13,7 +13,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. 班级资源分配表（IF NOT EXISTS，可重复执行）
+
 CREATE TABLE IF NOT EXISTS `t_class_resource` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `class_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id，dept_type=class）',
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `t_class_resource` (
   KEY `idx_cr_class` (`class_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级资源分配（按班级的考试窗口）';
 
--- 2. t_answer.class_id（答题时所在班级），先查 information_schema.COLUMNS
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -49,7 +49,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. t_answer.class_id 索引（同样先查 information_schema.STATISTICS）
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -63,7 +63,7 @@ PREPARE stmt_idx FROM @ddl_idx;
 EXECUTE stmt_idx;
 DEALLOCATE PREPARE stmt_idx;
 
--- 4. 自检
+
 SELECT COUNT(*) AS class_resource_rows FROM t_class_resource;
 SELECT COUNT(*) AS answer_class_id_column FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'class_id';

@@ -8,10 +8,10 @@ import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombi
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-/**
- * @author javahuang
- * @date 2022/6/5
- */
+
+
+
+
 public class PinyinUtils {
 
 	/**
@@ -28,7 +28,7 @@ public class PinyinUtils {
 		format.setCaseType(HanyuPinyinCaseType.LOWERCASE);
 		format.setToneType(HanyuPinyinToneType.WITHOUT_TONE);
 		for (char c : str.toCharArray()) {
-			// 非汉字原样输出
+
 			if (Character.toString(c).matches("[\\u4E00-\\u9FA5]+")) {
 				String[] charPinyin = new String[0];
 				try {

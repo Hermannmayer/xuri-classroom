@@ -21,7 +21,7 @@ export default function OptionEditor({
       const hit = next.find((option) => option.value === child.id);
       return hit ? { ...child, title: hit.label } : child;
     });
-    // 新增的选项要补 Option 节点，答案 key 才能对上
+
     for (const option of next) {
       if (!children.some((child) => child.id === option.value)) {
         children.push({ id: option.value, title: option.label, type: 'Option', attribute: {} });

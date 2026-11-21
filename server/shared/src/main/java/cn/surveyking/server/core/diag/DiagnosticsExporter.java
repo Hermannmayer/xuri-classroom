@@ -22,13 +22,13 @@ import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * 诊断日志打包：把最近 N 天的应用日志 + 一份环境摘要打成 zip。
- *
- * <p>用户报障时往往只有一句「服务出了点问题」，管理员拿不到现场。日志目录由
- * {@code sk.logs.dir} 决定（默认 {@code ./logs}，与 logback-spring.xml 一致）；
- * 目录不存在时也返回只含 diagnostics.txt 的包，并写明去 docker logs 取日志的命令。
- */
+
+
+
+
+
+
+
 @Slf4j
 @Component
 public class DiagnosticsExporter {

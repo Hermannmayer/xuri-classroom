@@ -11,9 +11,9 @@ import type { SurveySchema } from '../../../schema/types';
 export interface AnswerEditorProps {
   open: boolean;
   mode: 'create' | 'edit';
-  /** 当前问卷结构；没加载到时给 null */
+
   survey?: SurveySchema;
-  /** 编辑时回填的旧答案 */
+
   initial?: Record<string, unknown>;
   submitting?: boolean;
   onCancel: () => void;
@@ -31,7 +31,7 @@ export default function AnswerEditorModal({
 }: AnswerEditorProps) {
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
 
-  // 每次打开都从旧答案重新开始，避免上一份的残留串到下一份
+
   useEffect(() => {
     if (open) setValues((initial ?? {}) as Record<string, AnswerValue>);
   }, [open, initial]);

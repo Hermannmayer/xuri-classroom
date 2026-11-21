@@ -12,7 +12,7 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 /**
  * 项目回收站：软删除的试卷/问卷在这里，可恢复或彻底删除。
  *
- * 注意：后端 `/api/project/trash` 返回的是**数组**（不是分页对象），
+
  * 之前用 getWithPagination 解析导致 rows 永远是 []，回收站看起来像“没用”。
  * 这里改成直接取数组，分页在前端做。
  */
@@ -28,8 +28,8 @@ export default function ProjectTrash() {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  // 逐项按权限渲染，避免「看得见、点了 403」：
-  // 恢复走 project:create，彻底删除走 project:delete，两个动作互不牵连
+
+
   const canRestore = can(authorities, PERMISSION_CODES.projectCreate);
   const canDestroy = can(authorities, PERMISSION_CODES.projectDelete);
 
@@ -53,7 +53,7 @@ export default function ProjectTrash() {
 
   const restore = async (row: Project) => {
     try {
-      // 后端 ProjectServiceImpl 读的是 request.getIds()，单个 id 也要放进数组
+
       await post('/api/project/restore', { ids: [row.id] });
       message.success('已恢复');
       await load();
@@ -116,7 +116,7 @@ export default function ProjectTrash() {
               render: (v: string) => (v === 'exam' ? <Tag>考试</Tag> : <Tag color="blue">问卷</Tag>),
             },
             { title: '删除时间', dataIndex: 'updateAt', width: 180, render: (v?: string) => v || '—' },
-            // 两个动作各自独立渲染；都没有权限时整列不出现
+
             ...(canRestore || canDestroy
               ? [
                   {

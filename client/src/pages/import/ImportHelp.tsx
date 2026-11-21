@@ -11,13 +11,13 @@ import { Alert, Collapse, Tag } from 'antd';
 import { InfoCircleOutlined, PictureOutlined, QuestionCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import type { ImportAttachments, ImportFormat, ImportWarning } from '../../api/import';
 
-/**
- * 说明面板里的题型清单（顺序与导入模板里的 sheet / 标记一致）。
- *
- * <p>只列编辑器里**真的能渲染**的题型：排序题没有对应 QuestionType（DSL 里没有 Rank），
- * 矩阵评分（MatrixScore）也还没注册渲染器，写进来会引导老师导出一批「未注册题型」，
- * 因此不列。上传题是已注册题型，导入只建题、不收答卷。
- */
+
+
+
+
+
+
+
 export const SUPPORTED_TYPE_LABELS: string[] = [
   '单选',
   '多选',
@@ -34,11 +34,11 @@ export const SUPPORTED_TYPE_LABELS: string[] = [
   '上传题',
 ];
 
-/**
- * 后端 stats.byType 的 key（QuestionType 枚举名）→ 中文标签。
- * 没收录的 key 由 importTypeLabel 原样返回：后端以后加新题型，预览里最多露一次英文，
- * 不会因为查不到标签而渲染成空白。
- */
+
+
+
+
+
 export const IMPORT_TYPE_LABEL: Record<string, string> = {
   Radio: '单选',
   Checkbox: '多选',
@@ -103,11 +103,11 @@ export function countImportAttachments(attachments?: unknown): number {
 }
 
 export interface ImportWarningGroups {
-  /** level=error：解析失败的硬错误 */
+
   errors: ImportWarning[];
-  /** level=warn：能继续导入，但要让人看见（用 Alert） */
+
   warns: ImportWarning[];
-  /** level=info 以及后端以后新加的级别：灰色文字，不抢眼 */
+
   infos: ImportWarning[];
 }
 
@@ -123,7 +123,7 @@ export function splitImportWarnings(warnings?: ImportWarning[] | null): ImportWa
   return groups;
 }
 
-/** 各格式的填写规则；只渲染当前可选格式那几条 */
+
 const FORMAT_RULES: Partial<Record<ImportFormat, { title: string; items: string[] }>> = {
   excel: {
     title: 'Excel',
@@ -140,9 +140,9 @@ const FORMAT_RULES: Partial<Record<ImportFormat, { title: string; items: string[
 const HELP_PANEL_KEY = 'types';
 
 export interface ImportHelpProps {
-  /** 当前可选的导入格式；面板只列出这些格式的填写规则 */
+
   formats?: ImportFormat[];
-  /** 默认展开（题库页那种只有 Excel 入口的场景用得上） */
+
   defaultOpen?: boolean;
 }
 
@@ -219,7 +219,7 @@ function WarningLines({ items }: { items: ImportWarning[] }): ReactNode {
   );
 }
 
-/** 后端解析器里那句「已提取 N 张图片，导入后随题干展示」；有 attachments 时前端已经单独提示过同一件事 */
+
 const BACKEND_IMAGE_NOTICE = /已提取\s*\d+\s*张图片/;
 
 /** 同一句图片提示只说一次：attachments 已经提示过，就把后端那条措辞雷同的 info 收起来 */
@@ -229,7 +229,7 @@ export function isRedundantImageWarning(item: ImportWarning, imageCount: number)
 
 export interface ImportPreviewNoticesProps {
   warnings?: ImportWarning[];
-  /** 解析出的图片（张数 / 明细数组 / token 映射），形状见 countImportAttachments */
+
   attachments?: ImportAttachments | null;
 }
 

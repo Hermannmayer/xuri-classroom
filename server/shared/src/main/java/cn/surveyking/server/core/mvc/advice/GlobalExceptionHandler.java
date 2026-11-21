@@ -23,33 +23,33 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ValidationException;
 
-/**
- * 全局异常出口。
- *
- * <p>
- * 2026-11 S3-7：HTTP 状态码与 {@code body.code} 对齐。此前所有异常一律
- * {@code ResponseEntity.ok()}，导致前端、网关、冒烟脚本都无法从状态码看出请求失败，
- * 只能解析 body。现在：
- * <ul>
- * <li>参数/校验类 → 400</li>
- * <li>权限不足 → 403</li>
- * <li>业务错误码里语义明确的「不存在」「未登录」→ 404 / 401</li>
- * <li>其余业务错误码 → 400（body.code 仍是原业务码，前端契约不变）</li>
- * <li>未预期异常 → 500</li>
- * </ul>
- * body 结构保持 {code,message,data} 不变，前端只按 body.code 分支，因此不受影响。
- *
- * @author javahuang
- * @date 2021/08/13
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
 	@ExceptionHandler(NoHandlerFoundException.class)
 	public ResponseEntity<ApiResponse<String>> handleError404(HttpServletRequest request, Exception e) {
-		// 前端已迁到独立的 nginx / vite，jar 里不再打包 SPA 入口；
-		// 后端遇到未知路径直接返回 JSON 404，而不是去找已删除的 static/index.html。
+
+
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(new ApiResponse<>(ResponseCode.NOT_FOUND.code, "接口不存在：" + request.getRequestURI()));
 	}
@@ -123,9 +123,9 @@ public class GlobalExceptionHandler {
 			AccessDeniedException ex) {
 		log.error("handleAccessDeniedException {}\n", request.getRequestURI());
 
-		// 业务代码里抛的 403 通常带着可读的中文原因（「无权访问该答卷」「不能把用户放进该用户组」等），
-		// 一律改写成 "Authentication failed" 会让前端只能显示英文，既不好排查也帮不到用户。
-		// Spring Security 自身抛的异常 message 一般是短英文，直接透出也不含内部细节。
+
+
+
 		String message = org.springframework.util.StringUtils.hasText(ex.getMessage()) ? ex.getMessage()
 				: "Authentication failed";
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -144,8 +144,8 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<String>> handleInternalServerError(HttpServletRequest request, Exception ex) {
-		// 每条未预期异常都带一个 8 位编号：用户报障时能说出编号，管理员按编号就能在日志里定位。
-		// 之前统一回「服务出了点问题」，用户和客服都拿不到任何可行动的信息。
+
+
 		String traceId = java.util.UUID.randomUUID().toString().substring(0, 8);
 		log.error("handleInternalServerError traceId={} uri={} method={}", traceId, request.getRequestURI(),
 				request.getMethod(), ex);
@@ -177,8 +177,8 @@ public class GlobalExceptionHandler {
 			return type;
 		}
 		String first = raw.split("\\R", 2)[0].trim();
-		// 「缺列 / 缺表」是最容易让用户截图就能定位的一类：直接把对象名和补救动作说出来，
-		// 而不是只回一句「服务出了点问题」。
+
+
 		java.util.regex.Matcher missingColumn = java.util.regex.Pattern
 				.compile("Unknown column '([^']+)'", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(first);
 		if (missingColumn.find()) {

@@ -36,56 +36,56 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * AI 组卷：<b>从题库抽题</b>，模型只做「按条件挑哪几道」，题目内容一个字节都不经过模型的手。
- *
- * <p>为什么这么切：编出来的题没有教研过、答案也未必对，老师改起来比自己做还慢；题库里的题是学校
- * 自己的资产，AI 只负责按考点覆盖、难度梯度、题型配比把题「挑出来、排好、凑齐」。这样每道题都能点回
- * 题库改，出了争议也能说清是哪一步出的问题。
- *
- * <p>分工与边界：
- * <ol>
- * <li><b>参数与候选集都在请求线程里做</b>：{@code repoService.getRpo} 与
- * {@code TemplateService.listTemplate} 的可读权限判断依赖登录态，而 {@code ai-job} 线程池是启动时
- * 创建的、没有 {@code SecurityContext}。放进后台线程只会把「别人的私有题库」判成匿名 403；</li>
- * <li><b>模型的任务只有挑选</b>：提示词里只给「序号|题目 id|题型|章节|难度|标签|题干摘要」，
- * 要回来的也只是 {@code {"picks":[{"id","reason"}]}}。模型瞎编的 id 一律丢弃，绝不按模型给的内容组题；</li>
- * <li><b>模型挑不满就用候选补齐</b>：某题型候选不够时先按同题型随机补（reason 写「按条件随机补齐」），
- * 补完还不够就记进 {@code missing} 并在摘要里说清「XX 题型题库里只有 N 道」，绝不拿别的题型凑数；</li>
- * <li><b>题库里的题没有分值</b>：按 {@code typeScores}（题型单价）或「总分 / 题量」补到
- * {@code attribute.examScore} 上——不补的话这道题交卷后永远拿不到分，等于白出。</li>
- * </ol>
- *
- * <p>不做什么：不写库（写库只走 {@code /api/ai/paper/apply}）、不改题库里的题（模板是共享对象，
- * 一切修改都在深拷贝上做）、不校验总分是否「凑得刚好」——题库里的题不给分值时，总分只能按平均分配，
- * 实际合计由 {@code stats.totalScore} 如实告诉老师。
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiPaperPickServiceImpl implements AiPaperPickService {
 
-	/** 提示词模板 id（{@code server/ai/src/main/resources/prompts/paper-pick.md}） */
+
 	private static final String PROMPT_PICK = "paper-pick";
 
-	/** 单个题库默认取多少道候选题进提示词：组卷要的是「能挑」，不是「全都看一遍」 */
+
 	private static final int DEFAULT_MAX_CANDIDATES = 120;
 
-	/** 候选题硬上限：再多提示词装不下，模型也挑不动，只会更慢更贵 */
+
 	private static final int MAX_CANDIDATES = 300;
 
-	/** 进提示词的题干摘要长度 */
+
 	private static final int MAX_SUMMARY_CHARS = 60;
 
-	/** 挑选理由最多保留多少字（模型偶尔写一整段） */
+
 	private static final int MAX_REASON_CHARS = 40;
 
-	/** 摘要里最多列几个章节 */
+
 	private static final int MAX_CHAPTER_HINT = 12;
 
-	/** 难度换算：请求里的口径是 easy / medium / hard，而 t_template.difficulty 里存的是 易 / 中 / 难 */
+
 	private static final Map<String, String> DIFFICULTY_TO_REPO = Map.of("easy", "易", "medium", "中", "hard", "难");
 
 	private final AiAssistSupport support;
@@ -109,23 +109,23 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 				: Math.max(1, Math.min(MAX_CANDIDATES, request.getMaxCandidates().intValue()));
 		List<String> difficulties = clean(request.getDifficulties());
 		Map<String, Double> typeRatio = normalizeRatio(request.getTypeRatio());
-		// 参数归一化放在请求线程：条件不合法要立刻 400，而不是让老师等 30 秒再看一条失败任务
+
 		AiPaperSpec spec = AiPaperSpec.of(request.getQuestionCount(), request.getTotalScore(), typeRatio,
 				resolveDifficulty(difficulties), null, null, request.getRequirements());
 		String userId = SecurityContextUtils.getUserId();
-		// 提交时就判一次额度：组卷要跑 30~90 秒，让老师等完才看到「今天用完了」是最差体验
+
 		support.assertQuota(userId);
 		if (StringUtils.hasText(request.getProjectId())) {
 			support.readableProject(request.getProjectId().trim());
 		}
-		// 候选集在请求线程里查：见类注释第 1 条（ai-job 线程没有登录态）
+
 		List<RepoView> repos = new ArrayList<>(repoIds.size());
 		List<Candidate> candidates = new ArrayList<>();
 		List<String> chapters = clean(request.getChapters());
 		List<String> repoDifficulties = toRepoDifficulties(difficulties);
 		Set<String> types = spec.getTypeRatio().keySet();
 		for (String repoId : repoIds) {
-			// getRpo 自带可读权限校验：别人的私有题库在这里就 403，不会走到模型那一步
+
 			repos.add(repoService.getRpo(repoId));
 			candidates.addAll(loadCandidates(repoId, chapters, repoDifficulties, types));
 		}
@@ -146,7 +146,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		});
 	}
 
-	/* ====== 候选集 ====== */
+
 
 	/**
 	 * 查一个题库里符合条件的题：章节 / 难度交给 SQL，题型在内存里过滤。
@@ -154,7 +154,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 	 * <p>为什么题型不交给 SQL：{@code TemplateQuery.questionType} 一次只能带一种题型，而组卷要的是
 	 * 「配比里那一整组题型」；分题型查 N 次再合并，还不如查一次按枚举筛。
 	 *
-	 * <p>为什么用 {@code pageSize = -1}（全量）：只截断<b>进提示词</b>的候选，不截断统计——否则
+
 	 * 「XX 题型题库里只有 N 道」这句话会失真，老师照着放宽条件也补不出题来。
 	 * 这里与既有组卷（{@code ComposeServiceImpl})同口径：一个题库的题量按「能整份读进内存」设计。
 	 */
@@ -178,7 +178,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		for (TemplateView row : page.getList()) {
 			if (row == null || !StringUtils.hasText(row.getId()) || row.getQuestionType() == null
 					|| row.getTemplate() == null) {
-				// 模板正文为空的脏数据：跳过，不能让一道坏题把整次组卷变成 500
+
 				continue;
 			}
 			String type = row.getQuestionType().name();
@@ -196,7 +196,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 	private AiPaperPickView assemble(AiPaperSpec spec, List<RepoView> repos, List<Candidate> candidates,
 			boolean aiSelect, int maxCandidates, Map<String, Double> typeScores, String userId,
 			AiJobService.JobContext context) {
-		// 打乱两次：一次决定「谁进提示词」，一次决定「随机补齐的顺序」——否则永远只抽到题库最前面几题
+
 		Random random = new Random();
 		List<Candidate> pool = new ArrayList<>(candidates);
 		Collections.shuffle(pool, random);
@@ -233,7 +233,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 				continue;
 			}
 			List<Candidate> chosen = new ArrayList<>(need);
-			// ① 先按模型给的顺序挑这一题型的
+
 			for (String id : picks.keySet()) {
 				if (chosen.size() >= need) {
 					break;
@@ -245,7 +245,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 				chosen.add(candidate);
 				used.add(candidate.id());
 			}
-			// ② 模型没挑够（或压根没让模型挑）：用候选里同题型的随机补，绝不拿别的题型凑数
+
 			if (chosen.size() < need) {
 				for (Candidate candidate : byType.getOrDefault(type, List.of())) {
 					if (chosen.size() >= need) {
@@ -258,7 +258,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 					used.add(candidate.id());
 				}
 			}
-			// ③ 还是不够：把差额记进 missing，并在摘要里说清题库里到底有几道
+
 			if (chosen.size() < need) {
 				missing += need - chosen.size();
 				shortage.add(spec.typeLabel(type) + "题库里只有 " + byType.getOrDefault(type, List.of()).size()
@@ -268,7 +268,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 			for (Candidate candidate : chosen) {
 				SurveySchema question = toQuestion(candidate, score);
 				if (question == null) {
-					// 深拷贝失败的坏题：跳过并算进差额，别让老师拿到一份「少了一题还不说」的卷子
+
 					missing++;
 					continue;
 				}
@@ -307,9 +307,9 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		vars.put("candidates", candidateLines(pool));
 		AiRequest request = AiRequest.builder().systemPrompt(support.prompts().render(PROMPT_PICK, vars))
 				.userPrompt("请按上面的题型配比从候选清单里挑题，只输出 JSON。")
-				// 挑选是「按规则筛」而不是「发挥」：温度压低，同样的条件每次挑出来的题才稳定
+
 				.temperature(Double.valueOf(0.2D))
-				// 后台任务：跳过「每分钟 N 次」的窗口限流（组卷本来就是一次请求里等几十秒）
+
 				.background(true).build();
 		AiCompletion completion = support.call(AiUsageService.SCENE_PAPER_PICK, userId, request, true);
 		return parsePicks(completion == null ? null : completion.getText(), pool);
@@ -384,7 +384,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return question;
 	}
 
-	/* ====== 提示词素材 ====== */
+
 
 	/** 一行一道候选：序号|题目 id|题型|章节|难度|标签|题干摘要（模型只认这一份清单） */
 	private static String candidateLines(List<Candidate> pool) {
@@ -459,7 +459,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 	/**
 	 * 一道题的挑选理由：模型挑的用模型给的理由；模型挑剩的（或压根没让模型挑的）才写「随机」。
 	 *
-	 * <p>三种口径要分清，否则老师会看到「纯条件抽题」的题被标成「随机补齐」：
+
 	 * <ul>
 	 * <li>模型挑中的 → 用模型理由；</li>
 	 * <li>aiSelect=true 但模型没挑够 → 「按条件随机补齐」；</li>
@@ -481,7 +481,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return note;
 	}
 
-	/* ====== 参数归一化 ====== */
+
 
 	/**
 	 * 把题型配比缩放成「加和为 1」再交给 {@link AiPaperSpec}。
@@ -535,7 +535,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 				result.add(repoValue);
 			}
 			else {
-				// 已经写成「易 / 中 / 难」的调用方（MCP / 脚本）原样透传
+
 				result.add(difficulty);
 			}
 		}
@@ -558,7 +558,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return result;
 	}
 
-	/** 每题分值：配了题型单价就用单价，否则按「总分 / 题量」平均（保留一位小数，别出现一长串小数） */
+
 	private static double scoreOf(AiPaperSpec spec, Map<String, Double> typeScores, String type) {
 		Double configured = typeScores.get(type);
 		if (configured != null && configured.doubleValue() > 0D) {
@@ -619,12 +619,12 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return StringUtils.hasText(value) ? value.trim() : "未标注";
 	}
 
-	/**
-	 * 一道候选题：题目内容留在 {@link TemplateView} 里，提示词与统计只用元信息。
-	 *
-	 * <p>为什么不在加载时就把 {@link SurveySchema} 转成题目：一个题库可能上千道题，全转一遍等于把
-	 * 整个题库复制进内存；真正要拼进卷子的只有最后挑中的那几十道。
-	 */
+
+
+
+
+
+
 	private record Candidate(TemplateView template, String type, String chapter, String difficulty, String tags,
 			String summary) {
 

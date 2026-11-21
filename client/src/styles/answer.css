@@ -1,19 +1,19 @@
 .sk-answer {
-  /* 字体档位由外层 zoom 控制，这里只放结构样式 */
-  /* 题干与选项的视觉尺度：QuestionFrame 读这两个变量，默认值（14px / 10px）留给设计器和预览页。
-     答题页把题干放大、题干与选项之间拉开，字号滑块仍然只叠一次 zoom，不会双倍放大。 */
+
+
+
   --sk-stem-size: 16px;
   --sk-stem-gap: 16px;
 }
 
-/* 答题卡 */
+
 .sk-sheet {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
 }
 .sk-sheet button {
-  /* 40px 是触摸目标的下限：34px 在手机上点相邻两题很容易点错 */
+
   height: 40px;
   border: 1px solid var(--bp-line-soft);
   background: transparent;
@@ -40,7 +40,7 @@
   border-style: dashed;
   border-color: var(--bp-orange-line);
 }
-/* 已标记：右上角小三角角标。和已答（蓝底）/ 当前（橙边）/ 必填未答（虚线）叠加都能看清 */
+
 .sk-sheet button {
   position: relative;
 }
@@ -60,7 +60,7 @@
   color: var(--bp-orange);
 }
 
-/* 题卡右上角的标记按钮（瀑布流模式）：方形描边，已标记转橙色 */
+
 .sk-mark {
   flex: 0 0 auto;
   display: inline-flex;
@@ -89,21 +89,21 @@
   color: var(--bp-orange);
 }
 
-/* 一页一题：底部操作条里的标记按钮（antd Button，需压过默认描边色） */
+
 .sk-mark-btn.marked {
   border-color: var(--bp-orange) !important;
   color: var(--bp-orange) !important;
   background: var(--bp-orange-tint) !important;
 }
 
-/* 顶部工具条 */
+
 .sk-answer-top {
   position: sticky;
   top: 0;
   z-index: 10;
   display: flex;
   align-items: center;
-  /* 手机上「返回 + 标题 + 答题卡 + 交卷」一行放不下：给换行，否则答题卡入口会被挤出屏幕 */
+
   flex-wrap: wrap;
   row-gap: 6px;
   gap: 10px;
@@ -112,7 +112,7 @@
   border-bottom: 1px solid var(--bp-line-soft);
 }
 
-/* 返回上一级：只给已登录用户渲染（匿名答题者没有上一级），蓝图风方形描边按钮 */
+
 .sk-answer-top .sk-answer-back {
   flex: 0 0 auto;
   border-radius: 0;
@@ -127,7 +127,7 @@
   background: var(--bp-fill-soft) !important;
 }
 @media (max-width: 520px) {
-  /* 窄屏只留向左箭头，把标题宽度让出来 */
+
   .sk-answer-back-label {
     display: none;
   }
@@ -136,7 +136,7 @@
   }
 }
 
-/* 底部操作栏 */
+
 .sk-answer-bar {
   position: fixed;
   left: 0;
@@ -149,7 +149,7 @@
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
 
-/* 桌面端：答题卡常驻左侧 */
+
 .sk-answer-layout {
   display: flex;
   gap: 20px;
@@ -172,14 +172,14 @@
   }
 }
 
-/* 桌面端已有常驻答题卡，隐藏顶部按钮，避免出现两个答题卡 */
+
 @media (min-width: 861px) {
   .sk-answer-sheet-btn {
     display: none !important;
   }
 }
 
-/* 顶部进度条：滚动模式按已答比例，一页一题按页码 */
+
 .sk-answer-progress {
   height: 2px;
   background: var(--bp-track);
@@ -190,7 +190,7 @@
   transition: width 200ms;
 }
 
-/* 选项卡片：整行可点，左侧字母标 —— 中老年友好，参考粉笔的答题交互 */
+
 .sk-option {
   display: flex;
   align-items: flex-start;
@@ -240,7 +240,7 @@
   word-break: break-word;
 }
 
-/* 多空填空：序号 + 输入框，窄屏自动换行 */
+
 .sk-blanks {
   display: flex;
   flex-direction: column;
@@ -257,7 +257,7 @@
   min-width: 0;
 }
 
-/* NPS：0..10 一行铺开，窄屏换行；按钮复用 .sk-option 的选中样式 */
+
 .sk-nps {
   display: flex;
   flex-wrap: wrap;
@@ -284,7 +284,7 @@
   color: var(--bp-text-soft);
 }
 
-/* 矩阵：表格 + 方形格子；列多时只让表格区域横向滚动，不撑破 375px 页面 */
+
 .sk-matrix-wrap {
   max-width: 100%;
   min-width: 0;
@@ -344,7 +344,7 @@
   box-shadow: inset 0 0 0 3px var(--bp-matrix-inner);
 }
 
-/* 地址：省/市/区三格，窄屏换行 */
+
 .sk-address {
   display: flex;
   flex-wrap: wrap;
@@ -356,7 +356,7 @@
   min-width: 0;
 }
 
-/* 字号控件：两端 A-/A+ 大按钮 + 中间滑块，老人点按钮、年轻人拖滑块 */
+
 .sk-font-ctl {
   display: flex;
   align-items: center;
@@ -396,11 +396,11 @@
   }
 }
 
-/* ------ 键盘焦点（WCAG 2.4.7 焦点可见）
- * 答题页是自定义的深蓝 / 米白底色，浏览器默认焦点环几乎看不见；统一换成 2px 橙色环
- * （暗色 #ff6b35、亮色 #e8590c，两种主题下与底色的对比度都在 3:1 以上）。
- * 只在键盘操作时出现（:focus-visible），鼠标点击不会冒出焦点环抢视觉。
- */
+
+
+
+
+
 .sk-answer .sk-option:focus-visible,
 .sk-answer .sk-matrix-cell:focus-visible,
 .sk-answer .sk-mark:focus-visible,
@@ -411,23 +411,23 @@
   outline-offset: 2px;
 }
 
-/* 选项卡片再加一道橙色描边：橙环 + 橙框，一眼看出焦点停在哪一项 */
+
 .sk-answer .sk-option:focus-visible {
   border-color: var(--bp-orange);
 }
 
-/* 矩阵格子外面套着横向滚动容器，焦点环往里收一格，避免被 overflow 裁掉 */
+
 .sk-answer .sk-matrix-cell:focus-visible {
   outline-offset: 1px;
 }
 
-/* 答题卡格子密排，焦点环画在格子内侧，不压到相邻格 */
+
 .sk-sheet button:focus-visible {
   outline: 2px solid var(--bp-orange);
   outline-offset: -2px;
 }
 
-/* antd Select 真正接收焦点的是内部 combobox 输入框，焦点环画在外框上才看得见 */
+
 .sk-answer .ant-select-focused .ant-select-selector {
   outline: 2px solid var(--bp-orange);
   outline-offset: 2px;

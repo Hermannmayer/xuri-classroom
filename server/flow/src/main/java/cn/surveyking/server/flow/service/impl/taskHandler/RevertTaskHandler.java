@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 撤回当前用户提交的，但是尚未被审批的待办任务。只有已办任务的指派人才能完成该操作。
- *
- * @author javahuang
- * @date 2022/1/7
- */
+
+
+
+
+
+
 @Component("revertTaskHandler")
 @Slf4j
 public class RevertTaskHandler extends AbstractTaskHandler {
@@ -28,7 +28,7 @@ public class RevertTaskHandler extends AbstractTaskHandler {
 		if (rollbackToStartEvent(request)) {
 			return true;
 		}
-		// TODO: 会签撤回
+
 		List<Task> tasks = getProcessInstanceActiveTaskList(request.getProcessInstanceId());
 		runtimeService.createChangeActivityStateBuilder().processInstanceId(request.getProcessInstanceId())
 				.moveActivityIdTo(tasks.get(0).getTaskDefinitionKey(), request.getActivityId()).changeState();
@@ -55,7 +55,7 @@ public class RevertTaskHandler extends AbstractTaskHandler {
 	 * @return
 	 */
 	public List<TaskTreeNode> getRevertNodes(String processInstanceId) {
-		// 不能包含当前节点
+
 		TaskTreeNode lastNode = getHistoricTree(processInstanceId).getParent();
 		List<TaskTreeNode> nodes = new ArrayList<>();
 		while (true) {

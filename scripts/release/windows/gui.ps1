@@ -1,4 +1,4 @@
-﻿<#
+<#
   旭日云课堂 · Windows 本地服务控制台（GUI）
 
   设计原则：
@@ -123,7 +123,7 @@ function Update-Status {
   $script:BtnBrowser.Enabled = ($snap.url -ne $null)
 }
 
-# ---------------- 界面 ----------------
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "旭日云课堂 · 本地服务"
 $form.ClientSize = New-Object System.Drawing.Size(820, 640)
@@ -154,7 +154,7 @@ $lblTitle.Location = New-Object System.Drawing.Point(20, 46)
 $lblTitle.ForeColor = $COLOR_SOFT
 $form.Controls.Add($lblTitle)
 
-# 地址卡片
+
 $card = New-Object System.Windows.Forms.Panel
 $card.Location = New-Object System.Drawing.Point(18, 78)
 $card.Size = New-Object System.Drawing.Size(784, 92)
@@ -251,7 +251,7 @@ $btnDiag.Add_Click({
   Add-LogLine "诊断信息已复制到剪贴板，可直接粘贴给管理员"
 })
 
-# 日志区
+
 $script:LogBox = New-Object System.Windows.Forms.TextBox
 $script:LogBox.Multiline = $true
 $script:LogBox.ReadOnly = $true
@@ -274,7 +274,7 @@ $script:LblDir.Location = New-Object System.Drawing.Point(20, 610)
 $script:LblDir.ForeColor = $COLOR_SOFT
 $form.Controls.Add($script:LblDir)
 
-# 定时刷新
+
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 3000
 $timer.Add_Tick({ if (-not $script:Busy) { Update-Status } })
@@ -282,7 +282,7 @@ $timer.Start()
 
 $form.Add_Shown({
   if ($SelfTest) {
-    # 自检：把窗体自己画到 PNG 再关闭，不依赖桌面坐标/DPI（验证界面用）
+
     $script:SelfTestTimer = New-Object System.Windows.Forms.Timer
     $script:SelfTestTimer.Interval = 2500
     $script:SelfTestTimer.Add_Tick({

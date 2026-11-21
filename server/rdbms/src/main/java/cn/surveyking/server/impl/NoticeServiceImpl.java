@@ -47,38 +47,38 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * 通知公告实现。
- *
- * <p>三类判定各自独立，不要混：
- * <ul>
- * <li><b>能看到哪些</b>（读）：先按 {@code audience} 分角色，再按 {@code scope} 分范围
- * （班级走 {@link UserDeptScopeService} 解析出的「主组 + 附加组 + 祖先链」）；自己发的公告总能看见，
- * 否则老师发完班级公告在自己的列表里反而看不到；</li>
- * <li><b>能改哪些</b>（写）：{@code notice:manage:system} 管全站公告，{@code notice:manage:class}
- * 只管「自己创建 + scope_type=class + 班可见」的那几条；</li>
- * <li><b>已读</b>：一行一个人一条公告，唯一键兜并发，重复标记按幂等处理。</li>
- * </ul>
- *
- * <p>正文统一走 {@link RichTextSanitizer#clean}，和题干富文本同一套白名单，防 XSS。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NoticeServiceImpl implements NoticeService {
 
-	/** 列表摘要长度：够前端列表预览两行，又不至于把正文整段拉到列表里 */
+
 	private static final int SUMMARY_LENGTH = 120;
 
-	/**
-	 * 「这条公告我还没读」的判定：交给数据库一次算完，避免把已读 id 全量捞进内存。
-	 *
-	 * <p>{@code {0}} 由 Wrapper 的 apply 做参数绑定（不是字符串拼接），用户 id 不会成为注入点。
-	 */
+
+
+
+
+
 	private static final String NOT_READ_SQL = "NOT EXISTS (SELECT 1 FROM t_notice_read nr "
 			+ "WHERE nr.notice_id = t_notice.id AND nr.user_id = {0})";
 
-	/** 同版本系统公告去重的进程内互斥：表上没有 (title, type) 唯一键，两个管理员同时点检查更新时靠它收敛 */
+
 	private static final Object SYSTEM_UPDATE_LOCK = new Object();
 
 	private final NoticeMapper noticeMapper;
@@ -91,7 +91,7 @@ public class NoticeServiceImpl implements NoticeService {
 
 	private final UserDeptScopeService userDeptScopeService;
 
-	/** 班级可见性判定走 ClassService 接口，不直接注入实现类（ArchitectureTest 也会拦） */
+
 	private final ClassService classService;
 
 	// ------ 读
@@ -101,11 +101,11 @@ public class NoticeServiceImpl implements NoticeService {
 		NoticeQuery condition = query == null ? new NoticeQuery() : query;
 		String userId = currentUserId();
 		if (!StringUtils.hasText(userId) || AppConsts.ANONYMOUS_USER_ID.equals(userId)) {
-			// /api/notice/** 本来就要求登录，这里只是兜底，避免匿名把整张表数出来
+
 			return new PaginationResponse<>(0L, new ArrayList<>());
 		}
 		User user = loadUser(userId);
-		// 排序放在列表这一侧：未读数走 selectCount，带上 ORDER BY 既没意义也和聚合语义打架
+
 		LambdaQueryWrapper<Notice> wrapper = visibleQuery(condition, userId, user).orderByDesc(Notice::getPinned)
 				.orderByDesc(Notice::getPublishAt).orderByDesc(Notice::getCreateAt);
 		Page<Notice> page = new Page<>(condition.getCurrent(), condition.getPageSize());
@@ -140,13 +140,13 @@ public class NoticeServiceImpl implements NoticeService {
 		if (notice == null || !canSee(notice, userId, user, deptScope)) {
 			throw new ValidationException("公告不存在或已下线");
 		}
-		// 草稿 / 已归档 / 已过期：只有能管理它的人可以预览
+
 		if (!isOnline(notice) && !canManage(notice, userId)) {
 			throw new ValidationException("公告不存在或已下线");
 		}
 		markRead(userId, notice.getId());
 		NoticeView view = toViews(Collections.singletonList(notice), userId, user, deptScope, true).get(0);
-		// 详情即已读：即使并发下插入被唯一键挡掉，也按已读回显，前端不会一直闪未读点
+
 		if (!Boolean.TRUE.equals(view.getRead())) {
 			view.setRead(true);
 			view.setReadAt(view.getReadAt() == null ? new Date() : view.getReadAt());
@@ -168,7 +168,7 @@ public class NoticeServiceImpl implements NoticeService {
 		Set<String> deptScope = resolveDeptScope(userId);
 		Set<String> alreadyRead = loadReadIds(userId, noticeIds);
 		for (Notice notice : noticeMapper.selectBatchIds(noticeIds)) {
-			// 看不到的（别班公告 / 别人的草稿）直接跳过，不写已读记录
+
 			if (notice == null || alreadyRead.contains(notice.getId()) || !canSee(notice, userId, user, deptScope)) {
 				continue;
 			}
@@ -183,7 +183,7 @@ public class NoticeServiceImpl implements NoticeService {
 	public String create(NoticeRequest request) {
 		Notice notice = new Notice();
 		applyRequest(notice, request);
-		// 新建一律落草稿：先确认内容与范围再「发布」，避免误发全站消息
+
 		notice.setStatus(Notice.STATUS_DRAFT);
 		noticeMapper.insert(notice);
 		return notice.getId();
@@ -197,8 +197,8 @@ public class NoticeServiceImpl implements NoticeService {
 		}
 		Notice existing = requireNotice(request.getId());
 		assertCanEdit(existing);
-		// 先按请求做一遍完整校验（含范围权限），再显式写回每一列：
-		// updateById 会跳过 null 字段，把「班级公告改成全站公告」时 scope_id 就清不掉了
+
+
 		Notice merged = new Notice();
 		applyRequest(merged, request);
 		noticeMapper.update(null, Wrappers.<Notice>lambdaUpdate().eq(Notice::getId, existing.getId())
@@ -215,7 +215,7 @@ public class NoticeServiceImpl implements NoticeService {
 		Notice notice = requireNotice(id);
 		assertCanEdit(notice);
 		Date now = new Date();
-		// 已经发过的公告再次发布不改变首次发布时间，只把状态改回来
+
 		Date publishAt = notice.getPublishAt() == null ? now : notice.getPublishAt();
 		noticeMapper.update(null, Wrappers.<Notice>lambdaUpdate().eq(Notice::getId, notice.getId())
 				.set(Notice::getStatus, Notice.STATUS_PUBLISHED).set(Notice::getPublishAt, publishAt)
@@ -236,7 +236,7 @@ public class NoticeServiceImpl implements NoticeService {
 	public void delete(String id) {
 		Notice notice = requireNotice(id);
 		assertCanEdit(notice);
-		// 逻辑删除：@TableLogic 会把 is_deleted 置 1，公告内容与已读记录都留着，便于事后追溯
+
 		noticeMapper.deleteById(notice.getId());
 	}
 
@@ -254,14 +254,14 @@ public class NoticeServiceImpl implements NoticeService {
 			Long exists = noticeMapper.selectCount(Wrappers.<Notice>lambdaQuery()
 					.eq(Notice::getType, Notice.TYPE_SYSTEM_UPDATE).eq(Notice::getTitle, title));
 			if (exists != null && exists > 0) {
-				// 同版本已经提醒过：不再插新的一条
+
 				return;
 			}
 			Notice notice = new Notice();
 			notice.setTitle(title);
 			notice.setContent(buildSystemUpdateContent(view, version));
 			notice.setType(Notice.TYPE_SYSTEM_UPDATE);
-			// 系统更新只给管理员看，且置顶：这是运维消息，不是运营内容
+
 			notice.setAudience(Notice.AUDIENCE_ADMIN);
 			notice.setPinned(true);
 			notice.setRequireAck(false);
@@ -271,7 +271,7 @@ public class NoticeServiceImpl implements NoticeService {
 		}
 	}
 
-	// ------ 校验
+
 
 	/**
 	 * 把请求写进实体，同时做全部业务校验（标题/正文、类型、受众、范围权限）。
@@ -313,14 +313,14 @@ public class NoticeServiceImpl implements NoticeService {
 					throw new AccessDeniedException("只有管理员能把公告发给全体或管理员");
 				}
 			}
-			// 班级可见性 = 写权限的一部分：老师只能发给自己可见的班（管理员在这里直接放行）
+
 			classService.assertVisible(scopeId);
 		}
 		else if (!canManageSystem()) {
 			throw new AccessDeniedException("没有发布全站公告的权限");
 		}
 		notice.setTitle(title);
-		// 服务端最后一道消毒：前端 DOMPurify 只能保护浏览器，直接调接口 / 历史数据都绕得过去
+
 		notice.setContent(RichTextSanitizer.clean(request.getContent()));
 		notice.setType(type);
 		notice.setAudience(audience);
@@ -389,7 +389,7 @@ public class NoticeServiceImpl implements NoticeService {
 	 * 编辑/发布/归档/删除的闸门。
 	 *
 	 * <p>{@code notice:manage:system} 管全部；{@code notice:manage:class} 只管自己创建的班级公告，
-	 * 否则老师之间可以互相改对方的班务通知。
+
 	 */
 	private void assertCanEdit(Notice notice) {
 		if (canManage(notice, currentUserId())) {
@@ -398,7 +398,7 @@ public class NoticeServiceImpl implements NoticeService {
 		throw new AccessDeniedException("没有管理这条公告的权限");
 	}
 
-	// ------ 可见性
+
 
 	/**
 	 * 列表查询条件：状态、筛选、受众、范围、未读，全在这里拼。
@@ -444,12 +444,12 @@ public class NoticeServiceImpl implements NoticeService {
 	 * <ul>
 	 * <li>audience：all 人人可见 / admin 仅管理员 / teacher 教职工 / student 学员；</li>
 	 * <li>scope：空 = 全站；class 要求 scope_id 落在「主组 + 附加组 + 祖先链」里；</li>
-	 * <li>自己发的公告总能看见——老师发完班级公告，自己的组织组链里并没有那个班，否则会「发完就消失」。</li>
+
 	 * </ul>
 	 */
 	private void applyVisibility(LambdaQueryWrapper<Notice> wrapper, String userId, User user) {
 		if (canManageSystem()) {
-			// 能管理全站公告的人（管理员）看全部，含各班公告与草稿：这是「管理视角」的入口
+
 			return;
 		}
 		List<String> audiences = visibleAudiences(user);
@@ -554,7 +554,7 @@ public class NoticeServiceImpl implements NoticeService {
 			noticeReadMapper.insert(row);
 		}
 		catch (DuplicateKeyException e) {
-			// 并发点开同一条公告：uk_notice_read 兜住，「已读」本来就是幂等语义
+
 			log.debug("公告已读记录已存在 noticeId={} userId={}", noticeId, userId);
 		}
 	}
@@ -671,7 +671,7 @@ public class NoticeServiceImpl implements NoticeService {
 		return text.length() <= SUMMARY_LENGTH ? text : text.substring(0, SUMMARY_LENGTH) + "…";
 	}
 
-	// ------ 检查更新
+
 
 	/**
 	 * 系统更新公告正文：版本号、当前版本、Release 说明、下载地址。

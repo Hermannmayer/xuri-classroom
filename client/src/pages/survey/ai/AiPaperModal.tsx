@@ -28,17 +28,17 @@ import { can, loadAuthorities } from '../../../auth/permissions';
 import { PERMISSION_CODES } from '../../../auth/permission-codes';
 import type { SurveySchema } from '../../../schema/types';
 
-/**
- * AI 组卷：从学校自己的题库里按条件抽题，模型只负责「挑」，不负责「编」。
- *
- * 为什么不再让模型凭空出题：编出来的题没有经过教研、答案也未必对，老师改起来比自己做还慢；
- * 抽出来的每道题都能点回题库改，来源可追溯、口径统一。
- *
- * 流程：填条件 → 后台任务（2 秒轮询）→ 预览 → 老师点「采纳」才交给编辑器写画布。
- * 本组件**不写库**：写库是编辑器「保存」时的事；采纳只是往画布追加一个题组（一次 setSurvey = 一个撤销步）。
- */
 
-/** 可配比的题型：只放考试里最常见的五种，矩阵/上传这类老师手动加更方便 */
+
+
+
+
+
+
+
+
+
+
 const RATIO_TYPES: Array<{ type: string; label: string; percent: number }> = [
   { type: 'Radio', label: '单选', percent: 40 },
   { type: 'Checkbox', label: '多选', percent: 20 },
@@ -47,7 +47,7 @@ const RATIO_TYPES: Array<{ type: string; label: string; percent: number }> = [
   { type: 'Textarea', label: '简答', percent: 10 },
 ];
 
-/** 难度只给三档：不勾 = 不限。题库的 difficulty 是自由文本，具体映射由后端做 */
+
 type PickDifficulty = 'easy' | 'medium' | 'hard';
 
 const DIFFICULTY_OPTIONS: Array<{ value: PickDifficulty; label: string }> = [
@@ -76,14 +76,14 @@ const STATUS_TEXT: Record<AiJobStatus, string> = {
   canceled: '已取消',
 };
 
-/** 题库下拉里的一行：只要组卷用得到的字段，避免把整个 RepoView 拖进来 */
+
 interface RepoOption {
   id: string;
   name?: string;
   total?: number;
 }
 
-/** 轮询进度：后端只回状态 + 百分比，够画进度条了 */
+
 interface JobProgress {
   status: AiJobStatus;
   progress?: number;
@@ -131,9 +131,9 @@ function ratioPreview(ratios: Record<string, number>, questionCount: number): st
 
 export interface AiPaperModalProps {
   open: boolean;
-  /** 当前试卷 id：带上后端才好做权限与「这几道题已经在卷里」的过滤 */
+
   projectId?: string;
-  /** 采纳：编辑器往画布追加一个题组（本组件不写库） */
+
   onAdopt: (questions: SurveySchema[]) => void;
   onClose: () => void;
 }
@@ -157,11 +157,11 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
   const [job, setJob] = useState<JobProgress>();
   const [result, setResult] = useState<AiPaperPickResult>();
   const [error, setError] = useState<string>();
-  /** 轮询防重入：上一轮还没回来就别再发一个 */
+
   const busyRef = useRef(false);
 
-  // 关掉再打开：条件保留（老师经常连着组两套卷），结果与报错清空；
-  // 但**上次的任务还在跑**时接着看进度——关弹窗只是收起界面，不该让老师以为要重来
+
+
   useEffect(() => {
     if (!open) return;
     if (phase === 'job' && jobId) return;
@@ -174,8 +174,8 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // 题库候选：和题库列表页同一口径（没有 repo:create 的账号只看自己/被授权/共享的），
-  // 避免列出一堆「看得见但抽不了」的题库
+
+
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -205,8 +205,8 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
     };
   }, [open]);
 
-  // 章节候选来自「已选题库」的统计：手打章节名很容易和题库里的写法差一个字，抽出来就是 0 道。
-  // 统计拿不到就不给候选（章节仍可手填），不影响主流程
+
+
   const repoKey = repoIds.join(',');
   useEffect(() => {
     if (!open || !repoKey) {
@@ -230,7 +230,7 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, repoKey]);
 
-  // 2 秒一轮：太密会把 4 核机器拖慢，太疏进度条看起来像卡住（与答卷 PDF 导出同一套节奏）
+
   useEffect(() => {
     if (!open || phase !== 'job' || !jobId) return;
     let alive = true;
@@ -260,7 +260,7 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
           setPhase('result');
         } else if (view.status === 'failed' || view.status === 'canceled') {
           stop();
-          // 后端给的是中文原因（限额 / 没权限 / 模型报错），原样展示
+
           setError(view.error || (view.status === 'canceled' ? '抽题已取消' : '抽题失败，请稍后重试'));
           setPhase('form');
         }
@@ -322,7 +322,7 @@ export default function AiPaperModal({ open, projectId, onAdopt, onClose }: AiPa
         requirements: requirements.trim() || undefined,
         aiSelect,
       });
-      // 没有任务号就别进进度页：否则进度条会停在 0% 一直转，老师只能干等
+
       if (!created?.jobId) throw new Error('后端没有返回任务号，请稍后重试');
       setJobId(created.jobId);
       setJob({ status: 'queued', progress: 0 });

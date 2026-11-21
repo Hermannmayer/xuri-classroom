@@ -10,12 +10,12 @@ repositories {
 	mavenCentral()
 }
 
-// 根项目不包含启动类，不生成可执行 Spring Boot 包
+
 bootJar {
     enabled = false
 }
 
-// 版本唯一真源：仓库根目录 VERSION（由 scripts/release/release.py 维护）
+
 def appVersionFile = rootProject.file('../VERSION')
 if (!appVersionFile.exists()) {
     throw new GradleException('缺少 VERSION 文件：' + appVersionFile)
@@ -26,9 +26,9 @@ allprojects {
     group = 'cn.surveyking'
     version = appVersion
 
-    // Java 25 LTS + Spring Boot 4（Jakarta EE 11）。
-    // 用 toolchain 而不是 sourceCompatibility：构建 JDK 与产物目标 JDK 由这里唯一决定，
-    // 换机器/换 JDK 时不会因为跑 Gradle 的那个 JDK 版本不同而产出不同字节码。
+
+
+
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(25)
@@ -41,7 +41,7 @@ subprojects {
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'io.spring.javaformat'
-    // 只有 api 模块负责生成可执行包，其余模块作为普通依赖 jar
+
     if (name != 'api') {
         bootJar {
             enabled = false
@@ -51,20 +51,20 @@ subprojects {
 
     }
     dependencies {
-        // Annotation processor 版本必须显式钉住：Lombok 低于 1.18.42 在 JDK 25 上无法工作，
-        // 而 Spring Boot 4 的 BOM 管的是运行期依赖，管不到注解处理器
+
+
         implementation "org.mapstruct:mapstruct:1.6.3"
         compileOnly "org.projectlombok:lombok:1.18.48"
         annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
         annotationProcessor "org.mapstruct:mapstruct-processor:1.6.3"
         annotationProcessor "org.projectlombok:lombok:1.18.48"
 
-        // Spring Boot 4 不再提供 Undertow 支持（Servlet 6.1 没有对应的 Undertow 实现，
-        // spring-boot-starter-undertow 在 4.1.2 已不存在）。容器换回 Tomcat 11。
+
+
         implementation 'org.springframework.boot:spring-boot-starter-web'
         implementation 'org.springframework.boot:spring-boot-starter-validation'
         implementation 'org.springframework.boot:spring-boot-starter-security'
-        // 3.0 命中 CVE-2025-48924（不受控递归），升到最新（API 兼容）
+
 	implementation 'org.apache.commons:commons-lang3:3.22.0'
         implementation 'com.anji-plus:spring-boot-starter-captcha:1.3.0'
 
@@ -75,25 +75,25 @@ subprojects {
         mavenCentral()
     }
 
-    // 显式导入 Spring Boot BOM。
-    // Spring Boot 4 的 Gradle 插件不再自动把 spring-boot-dependencies 塞进
-    // io.spring.dependency-management 的 imports 里，结果是所有 starter 的版本都解析成空，
-    // 报 "Could not find org.springframework.boot:spring-boot-starter-xxx:."。
+
+
+
+
     dependencyManagement {
         imports {
             mavenBom 'org.springframework.boot:spring-boot-dependencies:4.1.2'
         }
     }
 
-    // 让 processResources 感知 VERSION 变化。
-    // application.yml 里写的是 version: @projectVersion@，由 Spring Boot 插件用 project.version
-    // （= 根 VERSION 文件内容）展开；但 Gradle 增量构建默认只认 resources 目录，
-    // 只改 VERSION 时会判定 UP-TO-DATE 不重新展开，版本号就停在旧值。
+
+
+
+
     tasks.withType(ProcessResources).configureEach {
         inputs.property('appVersion', appVersion)
     }
 
-    // 源码是 UTF-8（含中文注释与文案）；显式声明，避免在不同默认编码的机器上编译出乱码
+
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
     }

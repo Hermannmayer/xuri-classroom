@@ -12,12 +12,12 @@ import org.flowable.common.engine.api.delegate.event.FlowableEvent;
 import org.flowable.common.engine.api.delegate.event.FlowableEventListener;
 import org.flowable.engine.delegate.event.FlowableActivityEvent;
 
-/**
- * 节点开始时，更新任务实例的当前所处任务阶段字段
- *
- * @author javahuang
- * @date 2022/1/9
- */
+
+
+
+
+
+
 @Slf4j
 public class ActivityStartedListener implements FlowableEventListener {
 

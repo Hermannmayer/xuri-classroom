@@ -3,23 +3,23 @@ import { ChartEmpty } from './State';
 import { fmtInt, num } from './util';
 
 export interface DonutProps {
-  /** 各分段的值（null/负数按 0 处理） */
+
   data: ReadonlyArray<number | null | undefined>;
-  /** 各分段名称，与 data 一一对应 */
+
   labels?: string[];
-  /** 分段颜色，缺省用蓝图色板 */
+
   colors?: string[];
-  /** 主色：给第一个分段 */
+
   color?: string;
-  /** 直径（px），默认 168 */
+
   height?: number;
-  /** 圆心小字，默认「合计」 */
+
   centerLabel?: string;
-  /** 圆心大数字；不传则自动求和 */
+
   centerValue?: number | null;
-  /** 数值格式化（图例与圆心用） */
+
   format?: (value: number) => string;
-  /** 单位后缀：人 / 份… */
+
   unit?: string;
   loading?: boolean;
   error?: string | null;
@@ -33,7 +33,7 @@ const PALETTE = ['var(--bp-blue)', 'var(--bp-orange)', 'var(--bp-text-soft)', 'v
  * 用 stroke-dasharray 画弧，不写 path 弧线数学：每段一个 circle，
  * dash 长度 = 占比 × 周长，offset 累积。分段之间留一点缝，看起来更清楚。
  *
- * 注意：颜色一律写在 style 里（`style={{ stroke: 'var(--bp-blue)' }}`），
+
  * 不写 SVG 呈现属性（`stroke="var(--bp-blue)"`）—— 后者不解析 CSS 变量。
  */
 export function Donut({

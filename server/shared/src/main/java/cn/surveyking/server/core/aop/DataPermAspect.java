@@ -19,12 +19,12 @@ import org.springframework.util.StringUtils;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * 校验校验权限
- *
- * @author javahuang
- * @date 2022/1/30
- */
+
+
+
+
+
+
 @Aspect
 @Component
 @Slf4j
@@ -41,11 +41,11 @@ public class DataPermAspect {
 
 	@Before("checkPermissionPointCut(dataPerm)")
 	public void around(JoinPoint joinPoint, EnableDataPerm dataPerm) throws Throwable {
-		// 管理员是管理权限全集：不要求它先成为每个项目的协作者
+
 		if (SecurityContextUtils.isAdmin()) {
 			return;
 		}
-		// 获取方法参数名和值
+
 		MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
 		List<String> paramNameList = Arrays.asList(methodSignature.getParameterNames());
 		List<Object> paramList = Arrays.asList(joinPoint.getArgs());
@@ -58,7 +58,7 @@ public class DataPermAspect {
 		if (!StringUtils.hasText(value)) {
 			throw new org.springframework.security.access.AccessDeniedException("未找到对应的问卷");
 		}
-		// 口径见 ProjectPartnerService#hasProjectAccess：项目协作者 + 班级级（考试分配给自己的班）
+
 		if (!projectPartnerService.hasProjectAccess(value)) {
 			throw new org.springframework.security.access.AccessDeniedException("没有权限访问本问卷");
 		}

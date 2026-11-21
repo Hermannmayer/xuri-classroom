@@ -49,16 +49,16 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 
 	private final UserDeptScopeService userDeptScopeService;
 
-	/** 按班级分配的题库：学生练习入口也要认 */
+
 	private final ClassResourceService classResourceService;
 
-	/** 授权级别：1 只读 */
+
 	private static final int ACCESS_LEVEL_VIEW = 1;
 
-	/** 授权级别：2 可编辑（含只读） */
+
 	private static final int ACCESS_LEVEL_EDIT = 2;
 
-	/** 授权级别：3 可授权（含编辑） */
+
 	private static final int ACCESS_LEVEL_GRANT = 3;
 
 	@Override
@@ -69,7 +69,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 				.apply(StringUtils.hasText(query.getUserName()),
 						"EXISTS (SELECT 1 FROM t_user WHERE t_user.id = t_repo_partner.user_id AND t_user.name = {0})",
 						query.getUserName())
-				// 题库授权只面向教职工/用户组：历史遗留的学员/班级行不再展示
+
 				.and(w -> w.isNull(RepoPartner::getUserId).or().apply(
 						"EXISTS (SELECT 1 FROM t_user u WHERE u.id = t_repo_partner.user_id AND u.user_type = 'staff')"))
 				.and(w -> w.isNull(RepoPartner::getDeptId).or().apply(
@@ -85,7 +85,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 					view.setUserType(user.getUserType());
 				}
 			}
-			// 按组授权的记录 userId 为空，这里补组名，否则前端列表只能显示空白
+
 			if (StringUtils.hasText(view.getDeptId())) {
 				Dept dept = deptMapper.selectById(view.getDeptId());
 				if (dept != null) {
@@ -101,7 +101,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 	public void addRepoPartner(RepoPartnerRequest request) {
 		assertManagePermission(request.getRepoId());
 		int level = normalizeAccessLevel(request.getAccessLevel());
-		// 按用户组授权：只存一条 dept 记录，组员靠「主组 + 附加组 + 祖先链」自动继承，新增组员不用重新授权
+
 		if (StringUtils.hasText(request.getDeptId())) {
 			Dept dept = deptMapper.selectById(request.getDeptId());
 			if (dept == null || !Dept.TYPE_ORG.equals(dept.getDeptType())) {
@@ -118,7 +118,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 				save(partner);
 			}
 			else if (!Objects.equals(exist.getAccessLevel(), level)) {
-				// 组已授权过：按新级别更新，不新增重复记录
+
 				RepoPartner update = new RepoPartner();
 				update.setId(exist.getId());
 				update.setAccessLevel(level);
@@ -148,7 +148,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (!partners.isEmpty()) {
 			saveBatch(partners);
 		}
-		// 已存在的成员：按新级别更新（原来只跳过，改级别只能全删重加）
+
 		List<RepoPartner> levelUpdates = existPartners.stream()
 				.filter(partner -> partner.getUserId() != null && !Objects.equals(partner.getAccessLevel(), level))
 				.map(partner -> {
@@ -205,7 +205,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (user == null) {
 			return false;
 		}
-		// 学员：只认班级资源分配，不再走个人/用户组题库授权
+
 		if ("student".equals(user.getUserType())) {
 			return classResourceService.canStudentReadRepo(repoId);
 		}
@@ -215,7 +215,7 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (classResourceService.canStudentReadRepo(repoId)) {
 			return true;
 		}
-		// 可见组 = 主组 + 附加组 + 祖先链（一次解析；原来只认 t_user.dept_id）
+
 		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		return count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId).and(w -> {
 			w.eq(RepoPartner::getUserId, userId);
@@ -230,11 +230,11 @@ public class RepoPartnerServiceImpl extends BaseService<RepoPartnerMapper, RepoP
 		if (repo == null) {
 			throw new AccessDeniedException("无权限管理该题库成员");
 		}
-		// 管理员可以替任何题库授权；创建者全权
+
 		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId())) {
 			return;
 		}
-		// 被授到「可授权」（access_level=3）的成员也能转授：user 或 dept 组（主组 + 附加组 + 祖先链）
+
 		String userId = SecurityContextUtils.getUserId();
 		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		long grantor = count(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)

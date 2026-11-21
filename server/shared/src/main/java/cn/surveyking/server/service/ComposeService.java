@@ -9,7 +9,7 @@ import cn.surveyking.server.domain.dto.SurveySchema;
 
 import java.util.List;
 
-/** 组卷：题库统计、规则预览、批量生成、卷内选题 */
+
 public interface ComposeService {
 
 	ComposeStats stats(List<String> repoIds);

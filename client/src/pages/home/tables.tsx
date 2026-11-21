@@ -7,7 +7,7 @@ import TableScrollRegion from '../../components/TableScrollRegion';
 import { updateProjectStatus } from '../../api';
 import type { ProjectView } from '../../api';
 
-/** 后端 MyTaskView：答题记录。时间是毫秒时间戳，空值 Jackson 不返回 */
+
 export interface MyTask {
   id: string;
   projectId?: string;
@@ -40,12 +40,12 @@ export function ProjectTable({
   rows: ProjectView[];
   loading: boolean;
   label: '考试' | '问卷';
-  /** 有 project:create 的是管理视角（编辑/数据），否则是学员视角（去答题） */
+
   canManage?: boolean;
 }) {
   const navigate = useNavigate();
-  // 父组件只在整页刷新时重新拉数据，这里留一份本地副本让「开启 / 关闭」即时生效；
-  // 父组件换了 rows 引用（点「刷新」）时会重新同步，不会长期偏离后端状态。
+
+
   const [data, setData] = useState(rows);
   const [togglingId, setTogglingId] = useState<string>();
 
@@ -95,7 +95,7 @@ export function ProjectTable({
           title: '创建时间',
           dataIndex: 'createAt',
           width: 158,
-          // 基准字号提到 15 之后日期会换行，强制单行显示
+
           render: (v?: string) => <span style={{ whiteSpace: 'nowrap' }}>{fmtTime(v)}</span>,
         },
         {
@@ -111,7 +111,7 @@ export function ProjectTable({
           width: 190,
           render: (_: unknown, row) =>
             canManage ? (
-              // 管理 / 老师视角：设置 → 开启·关闭 → 编辑（题目）→ 数据
+
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <LinkAction onClick={() => navigate(`/survey/${row.id}/setting`)}>设置</LinkAction>
                 {row.status === 1 ? (

@@ -31,14 +31,14 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * Excel 导入答卷：按行头建项目 schema、按行解析答案。
- *
- * <p>
- * 从 {@code AnswerServiceImpl} 切出。落库仍然走调用方传进来的 {@code batchSaver}
- * （{@code ServiceImpl#saveBatch}），保持「每 1000 行一批、批后清空」的原有内存曲线与事务语义， 组件本身不依赖
- * {@code AnswerService}，避免构造器循环。
- */
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerUploadParser {
@@ -61,7 +61,7 @@ public class AnswerUploadParser {
 					request.getFile().getOriginalFilename().lastIndexOf("."));
 			List<Answer> answers = new ArrayList<>();
 			try (Stream<Row> rows = sheet.openStream()) {
-				// 第一行作为行头
+
 				rows.forEach(r -> {
 					rowGuard.validate(r);
 					int rowNum = r.getRowNum();
@@ -78,7 +78,7 @@ public class AnswerUploadParser {
 						}
 					}
 					else {
-						// 处理答案
+
 						answers.add(parseRow2Answer(view, r));
 						if (answers.size() == 1000) {
 							batchSaver.accept(answers);
@@ -96,7 +96,7 @@ public class AnswerUploadParser {
 	}
 
 	private ProjectView parseRow2Schema(Row row, String name, String parentId) {
-		// 处理行头自动生成 schema
+
 		SurveySchema schema = createSurveyFromExcelRowHeader(row);
 		schema.setTitle(name);
 		ProjectRequest projectRequest = new ProjectRequest();

@@ -350,7 +350,7 @@ export default function SurveyPrintPage() {
     const root = measureRef.current;
     if (!root) return;
     const nodes = Array.from(root.querySelectorAll('[data-block]')) as HTMLElement[];
-    // 预留 24px 缓冲，避免字体/行高取整把最后一行挤出页面
+
     const pageHeight = ((297 - marginMm * 2) * 96) / 25.4 - 24;
     const next: number[][] = [];
     let current: number[] = [];
@@ -363,7 +363,7 @@ export default function SurveyPrintPage() {
       }
       const el = nodes[index];
       if (!el) return;
-      // 外层 wrapper 不含内层题目的 marginBottom，单独补上，否则分页会多塞 1-2 题
+
       const child = el.firstElementChild as HTMLElement | null;
       const childStyle = child ? getComputedStyle(child) : null;
       const margin = childStyle

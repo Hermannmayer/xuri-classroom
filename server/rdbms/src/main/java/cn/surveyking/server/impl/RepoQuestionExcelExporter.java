@@ -25,40 +25,40 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-/**
- * 题库题目导出为 xlsx 字节。
- *
- * <p>
- * 与导入侧 {@link cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper} 共用同一套 sheet 名与表头，
- * 一种题型一个 sheet。老师最常用的是「导出 → 在 Excel 里改 → 再导入」，导出少写一类题型就等于
- * 静默丢题（改了也可能把改好的题一起冲掉），所以导出必须覆盖导入支持的全部题型。
- *
- * <p>
- * 列顺序与随产品发布的《旭日云课堂题库导入模板》一致：
- * 公共列（序号 / 章节 / 题干 / 分数 / 难度 / 标签 / 解析 / 答案）+ 该题型自己的列
- * （选项A~H / 空1~空8 / 行标题1~10 + 列标题1~10 / 选项树(JSON)）+ 高级配置(JSON)。
- * 导入是按表头<b>名字</b>找列的，所以顺序只影响观感；跟着模板走是为了「下载的模板」与「导出的文件」长得一样。
- *
- * @author harden-repo-exp
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 final class RepoQuestionExcelExporter {
 
-	/** 选项列 A~H，顺序即「选项A…选项H」的列顺序 */
+
 	private static final List<String> OPTION_SUFFIXES = Arrays.asList("A", "B", "C", "D", "E", "F", "G", "H");
 
-	/** 填空列 1~8 */
+
 	private static final List<String> BLANK_INDEXES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8");
 
-	/** 矩阵行/列标题列 1~10（与 RepoTemplateI18n 的 MAX_MATRIX_TITLE_INDEX 对齐） */
+
 	private static final int MAX_MATRIX_TITLE_INDEX = 10;
 
-	/**
-	 * 能导出的题型：导入侧支持的 13 种 + 填空题的老形态 {@code FillBlank}。
-	 *
-	 * <p>
-	 * 导入时「空1」只填一个空 → {@code FillBlank}，填多个 → {@code MultipleBlank}，两者共用「填空题」sheet。
-	 * 只查 FillBlank（旧实现就是这样）会把多空填空题整类静默漏掉，所以两个都要查。
-	 */
+
+
+
+
+
+
+
 	static final List<SurveySchema.QuestionType> EXPORTABLE_TYPES = Arrays.asList(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Judge, SurveySchema.QuestionType.FillBlank,
 			SurveySchema.QuestionType.MultipleBlank, SurveySchema.QuestionType.Textarea,
@@ -67,7 +67,7 @@ final class RepoQuestionExcelExporter {
 			SurveySchema.QuestionType.MatrixCheckbox, SurveySchema.QuestionType.MatrixFillBlank,
 			SurveySchema.QuestionType.Upload);
 
-	/** 只用于序列化「选项树(JSON)」这一列，不读入，所以不需要宽松配置 */
+
 	private static final JsonMapper JSON = JsonMapper.builder().build();
 
 	private RepoQuestionExcelExporter() {
@@ -98,7 +98,7 @@ final class RepoQuestionExcelExporter {
 			return normalizeZip(out.toByteArray());
 		}
 		catch (IOException e) {
-			// ByteArrayOutputStream 不会真的抛，这里只是把受检异常挡在调用方之外
+
 			throw new IllegalStateException("导出 Excel 失败：" + e.getMessage(), e);
 		}
 	}
@@ -126,7 +126,7 @@ final class RepoQuestionExcelExporter {
 		ByteArrayOutputStream out = new ByteArrayOutputStream(source.length);
 		try {
 			Files.write(temp, source);
-			// ZipFile 走中央目录，能正常读出 fastexcel 的文件；重写时让 ZipOutputStream 自己写正确的描述符
+
 			try (ZipFile zipFile = new ZipFile(temp.toFile()); ZipOutputStream zipOut = new ZipOutputStream(out)) {
 				Enumeration<? extends ZipEntry> entries = zipFile.entries();
 				while (entries.hasMoreElements()) {
@@ -166,7 +166,7 @@ final class RepoQuestionExcelExporter {
 				continue;
 			}
 			List<List<Object>> rows = rowsBySheet.computeIfAbsent(sheetType, key -> new ArrayList<>());
-			// 序号按 sheet 内顺序从 1 开始：老师的印象是「第几题」，不是题库主键
+
 			rows.add(buildRow(sheetType, template, schema, rows.size() + 1));
 		}
 		return rowsBySheet;
@@ -251,7 +251,7 @@ final class RepoQuestionExcelExporter {
 			default:
 				break;
 		}
-		// 高级配置(JSON)：导出不写覆盖值（老师要覆盖就在这一列自己填），只为保证列位置固定
+
 		row.add("");
 		return row;
 	}
@@ -362,14 +362,14 @@ final class RepoQuestionExcelExporter {
 			case MULTIPLE_CHOICE:
 				return String.join(",", correctOptionLetters(schema));
 			case FILL_BLANK:
-				// 填空题的答案在「空1…空8」列；导入也不读填空题的答案列
+
 				return "";
 			case TEXTAREA:
 				return firstChildAnswer(schema);
 			case CASCADER:
 				return cascaderAnswerPath(schema, attribute);
 			default:
-				// 评分/NPS 没有参考答案；上传题的答案列是「参考答案/示例说明」；矩阵题按行存原文
+
 				return nullToEmpty(attribute.getExamCorrectAnswer());
 		}
 	}
@@ -441,7 +441,7 @@ final class RepoQuestionExcelExporter {
 	 * <p>
 	 * 评分题的「满星」与 NPS 的「最高分」在库里可能只存在于 {@code scope} / {@code npsTotalNum} 上
 	 * （设计器建题时不一定写 {@code examScore}），而导入是拿「分数」列还原它们的——这里反推一次，
-	 * 否则「导出 → 再导入」会把 8 星评分题读成默认 5 星。
+
 	 */
 	private static Object scoreOf(RepoTemplateI18n.SheetType sheetType, SurveySchema.Attribute attribute) {
 		if (attribute.getExamScore() != null) {
@@ -452,7 +452,7 @@ final class RepoQuestionExcelExporter {
 			return max != null ? max : "";
 		}
 		if (sheetType == RepoTemplateI18n.SheetType.NPS && attribute.getNpsTotalNum() != null) {
-			// 导入侧 npsTotalNum = 最高分 + 1（0..max 共 max+1 档）
+
 			return Math.max(attribute.getNpsTotalNum() - 1, 0);
 		}
 		return "";
@@ -477,7 +477,7 @@ final class RepoQuestionExcelExporter {
 		}
 	}
 
-	// ------ 公共列
+
 
 	/** 章节/难度：题库行上的列优先，其次看 schema（导入时两边都写过） */
 	private static String firstText(String primary, String secondary) {
@@ -530,7 +530,7 @@ final class RepoQuestionExcelExporter {
 		headers.add(RepoTemplateI18n.HeaderLabel.TAGS.displayLabel());
 		headers.add(RepoTemplateI18n.HeaderLabel.ANALYSIS.displayLabel());
 		headers.add(RepoTemplateI18n.HeaderLabel.ANSWER.displayLabel());
-		// 导出也必须带这一列，否则「导出 → 改 → 再导入」会把人工批改标记丢掉
+
 		headers.add(RepoTemplateI18n.HeaderLabel.JUDGE_MODE.displayLabel());
 		switch (sheetType) {
 			case SINGLE_CHOICE:
@@ -547,7 +547,7 @@ final class RepoQuestionExcelExporter {
 				}
 				break;
 			case CASCADER:
-				// 导入对「选项树」带不带 (JSON) 后缀都认；跟模板保持一致，老师一眼知道要写 JSON
+
 				headers.add(RepoTemplateI18n.optionTreeLabel() + "(JSON)");
 				break;
 			case MATRIX_RADIO:
@@ -573,7 +573,7 @@ final class RepoQuestionExcelExporter {
 	 */
 	private static void writeSheet(Workbook workbook, RepoTemplateI18n.SheetType sheetType, List<String> headers,
 			List<List<Object>> rows) {
-		// 用 exportName() 而不是 displayName()：sheet 名不随服务端语言变，且不含 Excel 非法字符（见 SheetType#exportName）
+
 		Worksheet sheet = workbook.newWorksheet(sheetType.exportName());
 		sheet.fitToWidth((short) 10);
 		sheet.setFitToPage(true);
@@ -597,7 +597,7 @@ final class RepoQuestionExcelExporter {
 			return;
 		}
 		String text = value.toString();
-		// 空串不落单元格：fastexcel 会当成有内容的格子写进 xlsx，白白撑大文件
+
 		if (!text.isEmpty()) {
 			sheet.value(row, column, text);
 		}

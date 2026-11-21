@@ -17,30 +17,30 @@ import AiPracticeRecommendDrawer from './ai/AiPracticeRecommendDrawer';
 
 const { RangePicker } = DatePicker;
 
-/**
- * 报表与答卷列表共用的时间口径（后端契约固定）：yyyy-MM-dd HH:mm:ss。
- *
- * <p>控件显示也按这个格式走：如果控件只到分钟、请求却发到秒，老师看到的「10:00 ~ 11:00」
- * 和实际查出来的区间会差一分钟，报表总数与答卷列表对不上时很难自证。
- */
+
+
+
+
+
+
 const TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
-/** 与后端 ClassNodeView 对齐：班级下拉只用到这几项 */
+
 interface ClassNode {
   id: string;
   name?: string;
-  /** false = 后端为了让树有层级补出来的祖先（不是真班级），选它必然 403 */
+
   accessible?: boolean;
-  /** group 是分组而不是班级，拿它统计答卷永远是 0 */
+
   classKind?: 'group' | 'teaching';
   children?: ClassNode[];
 }
 
 interface ClassOption {
   value: string;
-  /** 下拉里显示的文案：多级班级带上级路径，避免两个「1 班」分不清 */
+
   label: string;
-  /** 写进 URL 的班级名：只存本班名字，页头才不用顶着一串路径 */
+
   name: string;
 }
 
@@ -51,7 +51,7 @@ interface ClassOption {
  * - accessible=false：后端为撑出树路径补的祖先节点，不是真班级；
  * - classKind=group：分组，不是能收答卷的班级；
  * - 还有可选下级的节点：它是「年级」这种父级，真正能统计的是下面的班。
- * 父节点不可选但子节点可选时把子节点提上来，不要整棵剪掉——否则有分组的树会一个班都选不到。
+
  */
 function flattenClassLeaves(nodes: ClassNode[], path: string[] = []): ClassOption[] {
   const options: ClassOption[] = [];
@@ -74,7 +74,7 @@ function flattenClassLeaves(nodes: ClassNode[], path: string[] = []): ClassOptio
  * <p>契约格式是 yyyy-MM-dd HH:mm:ss，但手改的链接 / 老书签可能带 'T' 或省掉秒，
  * 这里按数字段手工构造：不依赖 dayjs 的 customParseFormat 插件（少注册一个插件，
  * 也避开 Safari 对「空格分隔」的 Date 解析差异）。解不出来一律当「没传」，
- * 否则 RangePicker 会显示 Invalid Date。
+
  */
 function parseTime(raw?: string | null): Dayjs | undefined {
   const text = raw?.trim();
@@ -185,17 +185,17 @@ export default function SurveyReport() {
 
   const [report, setReport] = useState<ReportData>();
   const [answers, setAnswers] = useState<Answer[]>([]);
-  /**
-   * 问卷结构（题目清单）来自项目本身，不能只靠答卷快照。
-   *
-   * <p>线上答卷的 `survey` 字段普遍是 NULL（只有部分导入/历史数据带快照），
-   * 之前页面取 `answers[0].survey`，结果「题目区块 0 题、按题统计全空」——
-   * 报表最核心的那半页其实是残的。这里改成优先读项目结构，快照只做兜底。
-   */
+
+
+
+
+
+
+
   const [projectSurvey, setProjectSurvey] = useState<SurveySchema>();
   useEffect(() => {
     let alive = true;
-    // 只取结构：api 层的 ProjectView 类型没跟后端对齐（缺 survey），这里按需要的形状收窄
+
     void get<{ survey?: SurveySchema }>('/api/project', { id })
       .then((project) => {
         if (alive) setProjectSurvey(project?.survey);
@@ -206,45 +206,45 @@ export default function SurveyReport() {
     };
   }, [id]);
   const [loading, setLoading] = useState(true);
-  /**
-   * 当前这份数据是按哪套筛选条件拉的。筛选一变就整块显示加载中，
-   * 不让上一套条件的数字先闪一下（换到 A 班却先看到 B 班的数，比空白更糟）。
-   */
+
+
+
+
   const [loadedKey, setLoadedKey] = useState('');
   const reqSeq = useRef(0);
-  /**
-   * 答卷列表读取失败的原因。
-   *
-   * <p>必须和「这个口径下确实没有答卷」分开：请求挂了却显示「当前筛选下没有答卷」，
-   * 老师会以为筛选条件错了（或者班真的没交），而实际是接口出了问题。
-   */
+
+
+
+
+
+
   const [listError, setListError] = useState<string>();
   const [search, setSearch] = useState('');
 
-  /** 班级下拉候选：只有拿到 class:list（或管理员）才去拉树，没权限时连下拉都不渲染 */
+
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
   const [classLoading, setClassLoading] = useState(false);
   const [classError, setClassError] = useState<string>();
 
-  /** AI 学情总结（计划 §6.3 ④）：只吃统计数字，不发送学员原始答卷 */
+
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
-  /** 已生成的总结正文；undefined = 还没生成过 */
+
   const [aiText, setAiText] = useState<string>();
   const [aiError, setAiError] = useState<string>();
-  /** 点过按钮才渲染 AI 卡片，避免页面一打开就空占一块位置 */
+
   const [aiAsked, setAiAsked] = useState(false);
-  /** 当前总结对应的「项目 + 班级」：切走后旧请求的回包不许再覆盖新页面 */
+
   const aiKeyRef = useRef('');
-  /** 错题重练抽屉：除了点按钮，从 AI 侧栏带 ?ai=recommend 进来也要自动展开 */
+
   const [recommendOpen, setRecommendOpen] = useState(false);
 
   const filterKey = `${id}|${classId ?? ''}|${startTime ?? ''}|${endTime ?? ''}`;
-  /** 数据与当前筛选是否对得上；对不上就显示加载骨架，而不是旧数字 */
+
   const ready = loadedKey === filterKey;
 
   /**
-   * 拉数：报表与答卷列表必须同一口径，否则「总览/按题统计」和「答卷份数」会互相打架。
+
    *
    * <p>两个请求各自降级（报表挂了还能看答卷、反之亦然）。报表失败只弹一条提示（它没有专属卡片），
    * 答卷列表失败则常驻显示在内容区——不能把「接口挂了」说成「这个口径没有答卷」。
@@ -254,9 +254,9 @@ export default function SurveyReport() {
     const seq = ++reqSeq.current;
     const key = `${id}|${classId ?? ''}|${startTime ?? ''}|${endTime ?? ''}`;
     setLoading(true);
-    /** 报表这一次的失败原因：它没有专属卡片，只能弹提示 */
+
     let reportFailure: string | undefined;
-    /** 答卷列表这一次的失败原因；成功时为 undefined（两者互不影响） */
+
     let listFailure: string | undefined;
     const scope = { classId, startTime, endTime, includeAnonymous: true };
     try {
@@ -283,14 +283,14 @@ export default function SurveyReport() {
       if (seq !== reqSeq.current) return;
       setReport(nextReport);
       setAnswers(page.data);
-      // 只认这一次的失败：先前那次的错误不能挂在新结果上，也不能被「成功」顺手清掉
+
       setListError(listFailure);
       setLoadedKey(key);
-      // 列表失败已经在内容区里写明，这里只补报表那一条，避免同一件事弹两次
+
       if (reportFailure) message.error(reportFailure);
     } catch (e) {
       if (seq !== reqSeq.current) return;
-      // 兜底也要结束骨架：卡在加载中，还不如把「没有答卷」和错误原因一起给出来
+
       setLoadedKey(key);
       message.error((e as Error).message);
     } finally {
@@ -302,22 +302,22 @@ export default function SurveyReport() {
     void load();
   }, [load]);
 
-  // 权限闸门：没有 ai:use 就不渲染「AI 学情总结」，避免「看得见、点了 403」
+
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
   }, []);
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
-  // 追加进卷子走 /api/ai/paper/apply，后端还要 project:update；没有就只让预览，别给点了 403 的按钮
+
   const canUpdateProject = can(authorities, PERMISSION_CODES.projectUpdate);
-  // 班级树要 class:list（管理员走 ROLE_admin 兜底），与后端 @PreAuthorize 保持一致
+
   const canListClasses = can(authorities, PERMISSION_CODES.classList);
 
-  /**
-   * 班级候选：树只在需要时拉一次。
-   *
-   * <p>宁可等权限回来再拉：没权限的账号直接请求只会拿到 403，把红字挂在筛选条上更吓人。
-   * 读失败时保留空下拉 + 一行说明，不挡住报表本体（报表并不依赖班级树）。
-   */
+
+
+
+
+
+
   useEffect(() => {
     if (!canListClasses) return;
     let alive = true;
@@ -372,7 +372,7 @@ export default function SurveyReport() {
    * 选班级：classId 与 className 一起写、一起删。
    *
    * <p>className 只是给页头和 AI 抽屉做展示的冗余字段；只写 id 会让页头显示一串 id、
-   * 只写名字又会在换班后留下旧名字，所以两者必须同进同退。
+
    */
   const pickClass = useCallback(
     (nextClassId?: string) => {
@@ -402,8 +402,8 @@ export default function SurveyReport() {
     applyQuery({ classId: undefined, className: undefined, startTime: undefined, endTime: undefined });
   }, [applyQuery]);
 
-  // ?ai=recommend 进来就自动展开（AI 侧栏的「错题重练」快捷入口就是这个地址）
-  // 要等权限拉回来再判：没有 ai:use 的人不该看到这个抽屉（后端 @PreAuthorize 也是它）
+
+
   useEffect(() => {
     if (canUseAi && searchParams.get('ai') === 'recommend') setRecommendOpen(true);
   }, [canUseAi, searchParams]);
@@ -423,7 +423,7 @@ export default function SurveyReport() {
     }
   }, [searchParams, setSearchParams]);
 
-  // 换项目 / 换班级：上一份总结跟新数据没关系，顺手作废在途请求（见 aiKeyRef）
+
   useEffect(() => {
     aiKeyRef.current = '';
     setAiAsked(false);
@@ -437,8 +437,8 @@ export default function SurveyReport() {
    *
    * <p>请求体只带 projectId / classId，统计口径由后端自己取（计划 §6.3 ④，后端 `AiReportSummaryView`）：
    * 「只吃统计数字，不把学员原始答卷发给模型」——隐私与成本双赢。
-   * 也正因为后端不收时间参数，时间筛选不参与总结，卡片底部会写清楚这一点。
-   * 失败在卡片里给原因 + 重试入口，不弹 toast（重试按钮就在卡片右上角）。
+
+
    * 按项目约定这类调用应收敛到 `client/src/api/ai.ts`，那边归 AI 出卷/改题在改，先就地调。
    */
   const generateSummary = useCallback(async () => {
@@ -452,7 +452,7 @@ export default function SurveyReport() {
         projectId: id,
         classId,
       });
-      // 期间切到了别的项目/班级：这份回包作废，不能覆盖新页面的状态
+
       if (aiKeyRef.current !== key) return;
       setAiText((result?.text ?? '').trim());
     } catch (e) {
@@ -464,7 +464,7 @@ export default function SurveyReport() {
     }
   }, [id, classId]);
 
-  /** 问卷结构：优先项目当前结构，其次最新答卷的题目快照（老版本只写快照） */
+
   const survey = projectSurvey ?? (answers[0]?.survey as SurveySchema | undefined);
   const questions = useMemo(
     () => (survey ? flattenSchema(survey).filter(isDataQuestion) : []),
@@ -599,7 +599,7 @@ export default function SurveyReport() {
     [itemRows],
   );
 
-  /** 逐题抽屉当前打开的那道题 */
+
   const [detailQid, setDetailQid] = useState<string>();
 
   /**
@@ -665,7 +665,7 @@ export default function SurveyReport() {
     );
   }, [report, questions]);
 
-  /** 页头口径：把「按谁统计」说全，老师截图给同事时不用另附一句说明 */
+
   const totalAnswers = report?.total ?? answers.length;
   const timeText =
     startTime && endTime
@@ -679,7 +679,7 @@ export default function SurveyReport() {
 
   return (
     <div>
-      {/* 工具条多了「AI 学情总结」一个按钮：窄屏时允许换行，不要横向溢出 */}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <BackButton label="返回" fallback={'/survey/' + id} style={{ paddingLeft: 0 }} />
         <div>
@@ -708,7 +708,7 @@ export default function SurveyReport() {
             AI 学情总结
           </Button>
         ) : null}
-        {/* 错题重练：读完报表才能算薄弱考点，所以没答卷时不给点 */}
+
         {canUseAi ? (
           <Button
             icon={<ReadOutlined />}
@@ -724,10 +724,10 @@ export default function SurveyReport() {
         </Button>
       </div>
 
-      {/*
-        筛选条：班级 + 时间范围。两者都写进 URL（刷新/分享保持同一口径），
-        任一变都会重拉报表与答卷列表——两个请求必须同参数，否则总览与按题统计对不上。
-      */}
+
+
+
+
       <div
         style={{
           display: 'flex',
@@ -742,7 +742,7 @@ export default function SurveyReport() {
         <span className="bp-title" style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
           FILTER / 筛选
         </span>
-        {/* 没有 class:list 连树都拉不到，索性不渲染下拉，别给一个点了必然 403 的控件 */}
+
         {canListClasses ? (
           <Select
             allowClear
@@ -788,7 +788,7 @@ export default function SurveyReport() {
           {answers.length === 0 ? (
             listError ? (
               <Card className="bp-corners bp-card">
-                {/* 请求失败 ≠ 这个口径没有答卷：分开表述，否则老师会去改筛选条件而不是重试 */}
+
                 <Alert
                   type="error"
                   showIcon
@@ -798,7 +798,7 @@ export default function SurveyReport() {
               </Card>
             ) : (
               <Card className="bp-corners bp-card">
-                {/* 有筛选时不能只说「还没有答卷」：老师会以为自己选错了，其实是这个口径确实没数据 */}
+
                 <Empty description={hasFilter ? '当前筛选下没有答卷' : '还没有答卷，发布后收集到数据再看'} />
                 {hasFilter ? (
                   <div style={{ textAlign: 'center' }}>
@@ -824,7 +824,7 @@ export default function SurveyReport() {
                 </div>
               </Card>
 
-              {/* AI 学情总结（计划 §6.3 ④）：点按钮才生成，加载中 / 失败都有明确状态 */}
+
               {aiAsked && (
                 <Card
                   className="bp-corners bp-card"
@@ -869,13 +869,13 @@ export default function SurveyReport() {
                 </Card>
               )}
 
-              {/* 报表是「一屏看全局」的页面：卡片默认 16px 外边距在几十个区块叠加后会吃掉半屏 */}
+
               <style>{`
                 .bp-card { margin-bottom: 10px !important; }
                 .ant-card-body { padding: 10px 12px !important; }
               `}</style>
 
-              {/* 每日答卷趋势 */}
+
               {daily.entries.length > 0 && (
                 <Card
                   className="bp-corners bp-card"
@@ -898,7 +898,7 @@ export default function SurveyReport() {
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>SCORE / 分值分析</span>}
                 >
-                  {/* 关键指标条：一屏能看全整体水平，不用滚到下面找 */}
+
                   <div
                     style={{
                       display: 'grid',
@@ -930,7 +930,7 @@ export default function SurveyReport() {
                       </div>
                     ))}
                   </div>
-                  {/* 分数段明细：人数 + 占比，桶宽按满分自动选 */}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {scoreStats.buckets.map((bucket) => (
                       <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
@@ -955,7 +955,7 @@ export default function SurveyReport() {
                     size="small"
                     pagination={false}
                     dataSource={weakQuestions}
-                    // 7 列合计约 620px，手机上横滚而不是把题干压成一字一行
+
                     scroll={{ x: 620 }}
                     columns={[
                       { title: '#', dataIndex: 'number', width: 54, align: 'right' },
@@ -1047,7 +1047,7 @@ export default function SurveyReport() {
                 </Card>
               )}
 
-              {/* 逐题分析：一张可排序表，点行在右侧抽屉看选项分布 */}
+
               {itemRows.length > 0 && (
                 <Card
                   className="bp-corners bp-card"
@@ -1060,7 +1060,7 @@ export default function SurveyReport() {
                     bordered
                     pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
                     dataSource={itemRows}
-                    // 逐题表 9 列，窄屏必须横滚
+
                     scroll={{ x: 820 }}
                     onRow={(row: { id: string }) => ({ onClick: () => setDetailQid(row.id), style: { cursor: 'pointer' } })}
                     columns={[
@@ -1135,7 +1135,7 @@ export default function SurveyReport() {
                 </Card>
               )}
 
-              {/* 数值统计 */}
+
               {numeric.length > 0 && (
                 <Card
                   className="bp-corners bp-card"
@@ -1158,10 +1158,10 @@ export default function SurveyReport() {
         </Spin>
       )}
 
-      {/*
-        错题重练（计划 §6.3 ④）：入口放在页头，也可以从 AI 侧栏带 ?ai=recommend 直接展开。
-        生成只是预览，勾了「同时追加到本卷」还要再点一次才会写进卷子。
-      */}
+
+
+
+
       <Drawer
         open={Boolean(detailQid)}
         onClose={() => setDetailQid(undefined)}

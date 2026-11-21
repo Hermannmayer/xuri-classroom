@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, App, Modal, Radio, Space, Spin, TreeSelect } from 'antd';
 import { get, post } from '../../api';
 
-/** 与后端 delete-check 响应对齐 */
+
 interface DeleteCheck {
   id: string;
   name?: string;
@@ -11,11 +11,11 @@ interface DeleteCheck {
   primaryMemberCount?: number;
   extraMemberCount?: number;
   memberNames?: string[];
-  /** 是不是最后一个用户组：只提示，不阻止删除 */
+
   lastDept?: boolean;
 }
 
-/** /api/system/dept/list 的节点：后端可能返回扁平表（只有 parentId），也可能已经嵌套 */
+
 interface DeptNode {
   id: string;
   name?: string;
@@ -32,7 +32,7 @@ interface TreeOption {
 type MemberAction = 'UNASSIGN' | 'MOVE';
 
 function buildTree(list: DeptNode[]): DeptNode[] {
-  // 已经带 children 的按嵌套树处理，否则按 parentId 组装（父节点不在结果里时当根）
+
   if (list.some((node) => (node.children?.length ?? 0) > 0)) return list;
   const map = new Map<string, DeptNode & { children: DeptNode[] }>();
   list.forEach((node) => map.set(node.id, { ...node, children: [] }));
@@ -58,7 +58,7 @@ function collectSubtreeIds(node: DeptNode): string[] {
   return [node.id, ...(node.children ?? []).flatMap(collectSubtreeIds)];
 }
 
-/** 迁移目标不能是本组或它的子组，否则等于没迁移或成环 */
+
 function toTreeOptions(nodes: DeptNode[], exclude: Set<string>): TreeOption[] {
   return nodes
     .filter((node) => !exclude.has(node.id))
@@ -74,7 +74,7 @@ function toTreeOptions(nodes: DeptNode[], exclude: Set<string>): TreeOption[] {
  * 删除用户组 / 班级的统一弹窗。
  *
  * 打开时先调 delete-check 拿到子组与成员情况，再让用户决定成员去向：
- * - 有子组：后端会拒绝，这里直接禁用提交并说明原因；
+
  * - 有成员：必须二选一（移出分组 UNASSIGN / 迁移到其他组 MOVE），默认移出；
  * - 最后一个组：只提示「删除后大家会变成未分组」，不阻止。
  *
@@ -84,7 +84,7 @@ export default function DeleteDeptDialog({
   open,
   deptId,
   deptName,
-  /** 迁移目标只列同类型节点：用户组页传 org，班级页传 class；不传则列全部（兼容旧调用） */
+
   deptType,
   onClose,
   onDeleted,
@@ -108,7 +108,7 @@ export default function DeleteDeptDialog({
 
   useEffect(() => {
     if (!open || !deptId) return;
-    // 每次打开都重置：避免上一次删除的成员去向/目标组残留
+
     let alive = true;
     setCheck(undefined);
     setCheckError(undefined);
@@ -173,7 +173,7 @@ export default function DeleteDeptDialog({
     try {
       await post('/api/system/dept/delete', {
         id: deptId,
-        // 没有成员时按约定不传也行，这里统一带 UNASSIGN，语义等价且更稳
+
         memberAction: memberCount > 0 ? action : 'UNASSIGN',
         moveToDeptId: memberCount > 0 && action === 'MOVE' ? moveToDeptId : undefined,
       });

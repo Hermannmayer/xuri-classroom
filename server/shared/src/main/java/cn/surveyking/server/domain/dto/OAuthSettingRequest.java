@@ -2,7 +2,7 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
-/** Admin request for updating OAuth settings. */
+
 @Data
 public class OAuthSettingRequest {
 

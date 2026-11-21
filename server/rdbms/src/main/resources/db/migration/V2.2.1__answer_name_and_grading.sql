@@ -6,7 +6,7 @@
 --    是为了避免并发批改互相覆盖，也便于按 project_id 统计批改进度。
 SET NAMES utf8mb4;
 
--- ---------- 1. t_answer.answerer_name ----------
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'answerer_name'
@@ -18,7 +18,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- ---------- 2. t_answer.grade_status ----------
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'grade_status'
@@ -30,7 +30,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- ---------- 3. t_answer.graded_by ----------
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'graded_by'
@@ -42,7 +42,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- ---------- 4. t_answer.graded_at ----------
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'graded_at'
@@ -54,7 +54,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- ---------- 5. 待批改列表索引 ----------
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND INDEX_NAME = 'idx_answer_project_grade'
@@ -66,7 +66,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- ---------- 6. 批改明细表 ----------
+
 CREATE TABLE IF NOT EXISTS `t_answer_grade` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `answer_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 't_answer.id',
@@ -81,9 +81,9 @@ CREATE TABLE IF NOT EXISTS `t_answer_grade` (
   UNIQUE KEY `uk_answer_grade_answer_question` (`answer_id`,`question_id`),
   KEY `idx_answer_grade_project` (`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='主观题人工批改明细';
--- ---------- 7. 角色权限：给 admin / teacher 补 answer:grade ----------
--- 只追加一次（NOT LIKE 保证幂等）；学员没有 answer:export，不会被误加。
--- 自定义角色需要管理员在「权限」页自行勾选「批改答卷」。
+
+
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',answer:grade')
 WHERE code IN ('admin', 'teacher')

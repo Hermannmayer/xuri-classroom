@@ -1,10 +1,10 @@
 package cn.surveyking.server.core.constant;
 
-/**
- * 项目参与者
- * @author javahuang
- * @date 2022/6/11
- */
+
+
+
+
+
 public enum ProjectPartnerTypeEnum {
 
 	/**

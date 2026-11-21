@@ -26,7 +26,7 @@ export function setUnauthorizedHandler(fn: () => void) {
 }
 
 const CHINESE = /[\u4e00-\u9fa5]/;
-/** 内部异常的特征：SQL / 堆栈 / 英文异常类名，这类原文不能直出给用户 */
+
 const INTERNAL_ERROR = /exception|sql|stack\s*trace|caused by|syntaxerror|at\s+[\w$.]+\s*\(/i;
 
 /**
@@ -39,8 +39,8 @@ const INTERNAL_ERROR = /exception|sql|stack\s*trace|caused by|syntaxerror|at\s+[
 export function humanizeApiError(code: number, backendMessage?: string): string {
   if (code === 401) return '登录已过期，请重新登录';
   if (code === 403) {
-    // 业务层会给出更具体的中文原因（如「你对该班级只有查看权限，不能修改」）；
-    // 只有拿不到可读原因时才用通用文案，避免把所有 403 都盖成同一句话。
+
+
     if (backendMessage && CHINESE.test(backendMessage) && !INTERNAL_ERROR.test(backendMessage)) {
       return backendMessage;
     }
@@ -77,7 +77,7 @@ function statusError(status: number, url: string): ApiError {
   if (status === 403) return new ApiError(403, humanizeApiError(403));
   if (status === 404) return new ApiError(404, `接口不存在（${url}）`);
   if (status === 429) return new ApiError(4290, '请求过于频繁，请稍后再试');
-  // 带上接口地址：只有「服务暂时不可用」时，用户和排查的人都不知道是哪个功能坏了
+
   if (status >= 500) return new ApiError(status, `服务暂时不可用（HTTP ${status}：${url}），请稍后重试`);
   if (status >= 400) return new ApiError(status, humanizeApiError(status));
   return new ApiError(-1, `接口返回非 JSON（${url}），请检查后端是否已启动`);
@@ -89,8 +89,8 @@ function statusError(status: number, url: string): ApiError {
  * - 参数/业务拒绝 400，无权限 403，未登录 401，不存在 404，未预期异常 500；
  * - body 结构始终是 {code,message,data}，前端优先按 body.code 分支。
  *
- * 注意：这里不再自己弹 message——调用方统一 `catch` 后展示（错误文案已经过 humanize），
- * 否则 403 会同时出现「未授权访问」和后端原文两条提示。
+
+
  */
 export async function http<T>(method: string, url: string, data?: unknown): Promise<T> {
   const headers: Record<string, string> = {
@@ -103,7 +103,7 @@ export async function http<T>(method: string, url: string, data?: unknown): Prom
   if (method === 'GET' || method === 'DELETE') {
     full += qs(data as Record<string, unknown>);
   } else if (data instanceof FormData) {
-    body = data; // 浏览器自己带 boundary
+    body = data;
   } else if (data !== undefined) {
     headers['Content-Type'] = 'application/json';
     body = JSON.stringify(data);
@@ -116,7 +116,7 @@ export async function http<T>(method: string, url: string, data?: unknown): Prom
     throw new ApiError(-1, '无法连接后端服务，请确认后端已启动');
   }
 
-  // 非 JSON（网关 5xx HTML、未知路径兜底页）也要给出可读错误，而不是让 JSON.parse 抛原始异常
+
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
     throw statusError(res.status, url);
@@ -126,7 +126,7 @@ export async function http<T>(method: string, url: string, data?: unknown): Prom
   try {
     json = (await res.json()) as ApiResponse<T>;
   } catch {
-    // 空体 / 截断的 JSON（例如网关直接断开）同样按状态兜底
+
     throw statusError(res.status, url);
   }
   if (!json || typeof json.code !== 'number') {
@@ -214,6 +214,6 @@ export async function download(
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // 立刻 revoke 在部分浏览器会打断下载，延后释放
+
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }

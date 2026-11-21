@@ -29,7 +29,7 @@
 name: xuri-prod
 
 services:
-  # ---------------------------------------------------------------- 数据库
+
   db:
     image: mysql:8.0
     restart: unless-stopped
@@ -41,10 +41,10 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-surveyking}
       TZ: Asia/Shanghai
     volumes:
-      # 数据落在宿主机目录里（不是命名卷），便于飞牛文件夹备份 / 快照覆盖
+
       - ${XURI_DATA_DIR:-/vol2/1000/xuri/prod}/mysql:/var/lib/mysql
-      # 注意：这里刻意 **不** 挂 server/rdbms/.../init-mysql.sql。
-      # 那个文件含 22 处 DROP TABLE IF EXISTS，一旦数据目录非空被重复执行就是清库。
+
+
     mem_limit: 512m
     stop_grace_period: 30s
     healthcheck:
@@ -59,15 +59,15 @@ services:
         max-size: '10m'
         max-file: '3'
 
-  # ---------------------------------------------------------------- 后端
+
   app:
     image: ${XURI_APP_IMAGE:-xuri-classroom:latest}
-    # 想在 NAS 上本地构建（不推荐：4 核 8GB 上跑 gradle + node 构建很慢，容易把内存打满）
-    # 就把下面四行取消注释；正常流程是在开发机构建后 docker save/load 或推私有仓库。
-    # build:
-    #   context: ../../..
-    #   dockerfile: Dockerfile
-    #   target: app
+
+
+
+
+
+
     restart: unless-stopped
     environment:
       DB_HOST: db
@@ -75,31 +75,31 @@ services:
       DB_NAME: ${DB_NAME:-surveyking}
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
-      # 必填：题库字段加密密钥（Base64 的 32 字节）。丢了 = 已加密的题库全部解不开。
+
       SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?请在 .env 里设置 SK_CRYPTO_KEY（Base64 的 32 字节，务必备份到密码管理器）}
-      # 不填则每次重启随机生成 → 所有人被踢下线
+
       SK_JWT_SECRET: ${JWT_SECRET:-}
       TZ: Asia/Shanghai
-      # JVM 内存上限：这台机器还要留出旧 H2 进程（约 1.4GB）和系统本身
-      # 说明：仓库 Dockerfile 的 ENTRYPOINT 是 ["java","-jar",...]，不会展开 JAVA_OPTS；
-      #      真正生效的是 JVM 自动读取的 JAVA_TOOL_OPTIONS。两行都写，兼容改造过的镜像。
+
+
+
       JAVA_OPTS: ${JAVA_OPTS:--Xmx768m}
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
     expose:
-      # 只在 compose 内网可达，不发布到宿主机
+
       - '7007'
     volumes:
-      # 上传的图片 / 附件（容器内 /app/files，由 file-storage.local.root-path: ./files 决定）
+
       - ${XURI_DATA_DIR:-/vol2/1000/xuri/prod}/files:/app/files
-      # 想直接在 NAS 文件管理器里看应用日志时打开下面一行（先 mkdir -p 对应目录）
-      # - ${XURI_DATA_DIR:-/vol2/1000/xuri/prod}/logs:/app/logs
+
+
     mem_limit: 1g
     stop_grace_period: 30s
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      # 沿用仓库 Dockerfile 的探测方式：/api/system 能通才算起来
+
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:7007/api/system >/dev/null || exit 1']
       interval: 30s
       timeout: 5s
@@ -111,16 +111,16 @@ services:
         max-size: '10m'
         max-file: '3'
 
-  # ---------------------------------------------------------------- 前端 / 入口
+
   web:
     image: ${XURI_WEB_IMAGE:-xuri-classroom-web:latest}
-    # build:
-    #   context: ../../..
-    #   dockerfile: Dockerfile
-    #   target: web-final
+
+
+
+
     restart: unless-stopped
     ports:
-      # 沿用学校现在的访问端口 201：换端口意味着要重新通知全校，没必要
+
       - '${APP_PORT:-201}:80'
     depends_on:
       app:

@@ -14,48 +14,48 @@
 export interface NoticeView {
   id: string;
   title?: string;
-  /** 列表预览用的纯文本摘要（120 字内），列表接口只给这个 */
+
   summary?: string;
-  /** 正文富文本（已服务端消毒）；只有详情接口返回，前端渲染前 RichTextContent 还会再消毒一次 */
+
   content?: string;
-  /** notice 普通公告 / system_update 检查更新自动生成 / ai_result AI 任务完成 */
+
   type?: string;
-  /** all / admin / teacher / student */
+
   audience?: string;
-  /** null = 全站 / class = 某个班 / project = 预留（后端暂不接受写入） */
+
   scopeType?: string | null;
   scopeId?: string | null;
-  /** 范围名称：scopeType=class 时是班级名，列表直接展示 */
+
   scopeName?: string;
   pinned?: boolean;
-  /** 是否要求已读回执（4.3：管理员公告可以要求，班级公告一般不要求） */
+
   requireAck?: boolean;
-  /** draft / published / archived */
+
   status?: string;
-  /** 发布时间：epoch 毫秒 */
+
   publishAt?: string | number;
-  /** 过期时间：epoch 毫秒，空 = 长期有效 */
+
   expireAt?: string | number | null;
   createBy?: string;
-  /** 发布人显示名（后端补的，优先于 createBy 的 id） */
+
   createByName?: string;
   createAt?: string | number;
   updateAt?: string | number;
-  /** 当前用户是否已读 */
+
   read?: boolean;
   readAt?: string | number;
-  /** 当前用户能否编辑 / 发布 / 归档 / 删除这条公告（后端算好的，前端直接照着渲染按钮） */
+
   manageable?: boolean;
 }
 
-/** 公告类型文案：type 是后端固定枚举，未知值原样显示，便于排查 */
+
 export const NOTICE_TYPE_LABEL: Record<string, string> = {
   notice: '公告',
   system_update: '系统更新',
   ai_result: 'AI 任务',
 };
 
-/** 受众文案（4.4：受众可选 all / admin / teacher / student） */
+
 export const AUDIENCE_LABEL: Record<string, string> = {
   all: '全站所有人',
   admin: '仅管理员',
@@ -63,7 +63,7 @@ export const AUDIENCE_LABEL: Record<string, string> = {
   student: '仅学员',
 };
 
-/** 状态文案：草稿只有写公告的人能看到，已归档不再出现在默认列表里（4.7） */
+
 export const NOTICE_STATUS_LABEL: Record<string, string> = {
   draft: '草稿',
   published: '已发布',
@@ -102,17 +102,17 @@ export function noticeScopeText(notice: NoticeView): string {
   return '全站';
 }
 
-/**
- * 列表分类。
- *
- * <p>「全部 / 系统更新 / 未读」是 4.6 要求的三个，只读中心（/notice）只有这三个。
- * 草稿与已归档是写流程的一部分：后端 create 只落草稿、默认列表只回已发布
- * （NoticeServiceImpl#visibleQuery），没有「草稿」分类的话刚保存的草稿会凭空消失，
- * 归档后想找回也得有个入口——所以这两个只出现在公告管理台（/system/notice）。
- */
+
+
+
+
+
+
+
+
 export type NoticeCategory = 'all' | 'system_update' | 'unread' | 'draft' | 'archived';
 
-/** 分类定义：managerOnly 的分类只在管理台出现，只读中心一律不给 */
+
 export interface NoticeCategoryDef {
   key: NoticeCategory;
   label: string;
@@ -120,23 +120,23 @@ export interface NoticeCategoryDef {
   managerOnly: boolean;
 }
 
-/**
- * 公告页的两种形态。
- *
- * <p>read = 顶栏铃铛进的只读中心：只能看、只能标记已读；
- * manage = 系统管理 → 公告管理：全部写能力都在这里。两份界面共用一份列表实现。
- */
+
+
+
+
+
+
 export type NoticeMode = 'read' | 'manage';
 
-/**
- * 写公告时「受众」下拉的五个目标。
- *
- * <p>前四个本身就是后端 audience 列的值；class 不是——它对应 scopeType=class（发给某个班），
- * 分开写是因为把它们混进同一个枚举，会让人以为 audience 列能存 class。
- */
+
+
+
+
+
+
 export type NoticeAudienceTarget = 'all' | 'admin' | 'teacher' | 'student' | 'class';
 
-/** 受众目标文案：前四项与 AUDIENCE_LABEL 一致，另加「指定班级」 */
+
 export const NOTICE_TARGET_LABEL: Record<NoticeAudienceTarget, string> = {
   all: '全站所有人',
   admin: '仅管理员',

@@ -4,24 +4,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * MCP 工具清单（计划 §7.4）。
- *
- * <p>为什么把「工具定义」和「工具实现」（{@link McpTools}）分开：
- * <ul>
- * <li>协议层（{@code tools/list}）只关心名字 / 描述 / inputSchema / 权限，与业务实现无关；</li>
- * <li>白名单（{@code t_api_token.scopes}）要能在<b>不触碰业务代码</b>的前提下过滤清单；</li>
- * <li>单测可以直接断言「清单里有哪 10 个工具、哪些是写操作」，不会因为业务改签名而变红。</li>
- * </ul>
- *
- * <p><b>与计划文档的出入</b>：计划 §7.4 的表格是 9 行，但最后一行是
- * {@code sk_export_create} + {@code sk_export_get} 两个工具，所以实际暴露 10 个。
- * 导出必须拆成「建任务 + 查进度」两步（任务模型是异步的 jobId），塞进一个工具反而会让
- * {@code idempotencyKey} 的语义糊掉（建任务要幂等、查进度不需要）。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class McpToolCatalog {
 
-	/** tools/list 一次返回上限：客户端翻页用得着，这里给个明确数字而不是魔法值 */
+
 	public static final int PAGE_LIMIT = 100;
 
 	private static final String EMPTY_SCHEMA = "{\"type\":\"object\",\"properties\":{}}";

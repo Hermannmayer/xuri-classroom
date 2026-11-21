@@ -9,9 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
-/**
- * 国际化辅助，统一管理题库 Excel 模板的 sheet 名称和表头
- */
+
+
+
 public final class RepoTemplateI18n {
 
 	private static final ResourceBundleMessageSource MESSAGE_SOURCE = initMessageSource();
@@ -21,13 +21,13 @@ public final class RepoTemplateI18n {
 
 	private static final Map<String, Set<String>> ALIAS_CACHE = new ConcurrentHashMap<>();
 
-	/** 选项列后缀：选项 A ~ 选项 H */
+
 	private static final List<String> OPTION_SUFFIXES = Arrays.asList("A", "B", "C", "D", "E", "F", "G", "H");
 
-	/** 填空列序号：空 1 ~ 空 8 */
+
 	private static final List<String> BLANK_INDEXES = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8");
 
-	/** 矩阵行/列标题列数上限：行标题1 ~ 行标题10、列标题1 ~ 列标题10 */
+
 	private static final int MAX_MATRIX_TITLE_INDEX = 10;
 
 	private RepoTemplateI18n() {
@@ -45,7 +45,7 @@ public final class RepoTemplateI18n {
 		if (value == null) {
 			return null;
 		}
-		// 全角括号按半角处理：「选项树（JSON）」与「选项树(JSON)」视为同一列
+
 		return value.replace('（', '(').replace('）', ')').replaceAll("[\\s\\u00A0\\u3000]+", "")
 				.toLowerCase(Locale.ROOT);
 	}
@@ -190,9 +190,9 @@ public final class RepoTemplateI18n {
 
 	}
 
-	/**
-	 * 矩阵行/列标题：行标题1..10、列标题1..10（另外兼容短写「行1」「列1」）。
-	 */
+
+
+
 	private static class MatrixTitleHeader {
 
 		private static final Map<String, Integer> ROW_LABELS = build("repo.template.header.rowTitle", "行标题{0}",
@@ -268,7 +268,7 @@ public final class RepoTemplateI18n {
 			if (RepoTemplateI18n.matches(name, aliases)) {
 				return true;
 			}
-			// 兼容历史导出：Excel 把非法字符替换成 -，再把它换回 / 比一次（"True - False" → "True / False"）
+
 			String normalized = normalize(name);
 			return normalized != null && RepoTemplateI18n.matches(normalized.replace('-', '/'), aliases);
 		}
@@ -316,7 +316,7 @@ public final class RepoTemplateI18n {
 
 		private final BiConsumer<Map<String, Integer>, Integer> mapper;
 
-		/** 表头允许带 (JSON) 后缀：选项树(JSON) / 高级配置(JSON) */
+
 		private final boolean jsonTolerant;
 
 		HeaderLabel(String key, String defaultLabel, BiConsumer<Map<String, Integer>, Integer> mapper) {

@@ -21,7 +21,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 验证：应能看到 PRIMARY / key_answer_pid / key_answer_pid_user_time 三组
+
 SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME
 FROM information_schema.STATISTICS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer'

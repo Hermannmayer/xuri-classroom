@@ -32,30 +32,30 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * 9 个 MCP 工具的实现（计划 §7.4；导出拆成 create + get 两个，实际 10 个）。
- *
- * <p>为什么这层单独一个 Bean 而不是把逻辑塞进 {@code McpServer}：
- * <ul>
- * <li>{@code @PreAuthorize} 只在「经过 Spring 代理的跨 Bean 调用」上生效；
- * MCP 层把令牌用户塞进 SecurityContext 之后，由 {@code McpServer} 调这里的方法，
- * 权限判定就能 100% 复用现有注解口径，不用另写一套 if 判断；</li>
- * <li>单测可以直接 mock 这 6 个依赖（5 个 service + 项目级权限闸门）验证「调了谁、参数对不对」。</li>
- * </ul>
- *
- * <p>参数里的 {@code xxxId} 都要求显式传，不做「猜一个默认值」：MCP 的调用方是模型，
- * 猜错代价是改错项目 / 导出别班答卷。参数校验失败抛 {@link ValidationException}，
- * 由 {@code McpServer} 转成 {@code isError: true} 的工具结果（模型能看懂并改参数重试）。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class McpTools {
 
-	/** 单次统计允许的最大答卷数：超过就让调用方按班级 / 时间段分批，别把堆打满 */
+
 	static final int STAT_MAX_ANSWERS = 5000;
 
-	/** 及格线（占总分比例）：只在 view=exam 里用来算及格率，与前端成绩单口径一致 */
+
 	private static final double PASS_RATE = 0.6D;
 
 	private final ProjectService projectService;
@@ -68,19 +68,19 @@ public class McpTools {
 
 	private final ClassService classService;
 
-	/**
-	 * 项目级闸门（项目所有者 / 协作者 / 管理员）。
-	 *
-	 * <p>
-	 * 不选班级的导出没有 classId 可查，只能落到「能不能看这个项目的全部答卷」上；
-	 * 与 {@code AnswerExportApi#createPdfJob} 用同一个 Bean，口径不会分叉。
-	 */
+
+
+
+
+
+
+
 	private final AnswerAccessGuard answerAccessGuard;
 
-	// ---------- sk_capabilities
+
 
 	/**
-	 * 能力清单：不需要任何额外权限（否则新令牌连「我都能干什么」都问不出来）。
+
 	 *
 	 * <p>这里算的 {@code allowed} 只是**展示**用的近似值（管理员视为全通过），
 	 * 真正的闸门仍然是各方法上的 {@code @PreAuthorize}。
@@ -110,7 +110,7 @@ public class McpTools {
 			item.put("write", definition.write());
 			item.put("allowed", definition.permission() == null || SecurityContextUtils.isAdmin()
 					|| SecurityContextUtils.hasAuthority(definition.permission())
-					// project:list 的注解允许 exercise:list 兜底，这里跟着放宽，否则展示与实际不一致
+
 					|| ("project:list".equals(definition.permission())
 							&& SecurityContextUtils.hasAuthority("exercise:list")));
 			tools.add(item);
@@ -154,7 +154,7 @@ public class McpTools {
 		return result;
 	}
 
-	// ---------- sk_project_get
+
 
 	@PreAuthorize("hasAuthority('project:detail')")
 	public Map<String, Object> projectGet(String id) {
@@ -172,7 +172,7 @@ public class McpTools {
 		return result;
 	}
 
-	// ---------- sk_project_validate
+
 
 	@PreAuthorize("hasAuthority('project:detail')")
 	public Map<String, Object> projectValidate(String projectId, SurveySchema schema, ProjectModeEnum mode) {
@@ -194,7 +194,7 @@ public class McpTools {
 		return McpSchemaValidator.check(target, effectiveMode);
 	}
 
-	// ---------- sk_project_create
+
 
 	@PreAuthorize("hasAuthority('project:create')")
 	public Map<String, Object> projectCreate(ProjectRequest request) {
@@ -210,12 +210,12 @@ public class McpTools {
 		ProjectView created = projectService.addProject(request);
 		Map<String, Object> result = brief(created);
 		result.put("created", true);
-		// 不阻断保存（草稿要能边建边改），但把结构问题一并回给模型，省得它建完才发现到处漏配
+
 		appendSchemaCheck(result, request.getSurvey(), request.getMode());
 		return result;
 	}
 
-	// ---------- sk_project_update
+
 
 	@PreAuthorize("hasAuthority('project:update')")
 	public Map<String, Object> projectUpdate(ProjectRequest request) {
@@ -226,7 +226,7 @@ public class McpTools {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", request.getId());
 		result.put("updated", true);
-		// 与 sk_project_create 同一策略：保存不阻断（草稿要能边建边改），但把结构问题一并回给模型
+
 		if (request.getSurvey() != null) {
 			ProjectModeEnum mode = request.getMode();
 			if (mode == null) {
@@ -256,7 +256,7 @@ public class McpTools {
 		return result;
 	}
 
-	// ---------- sk_report_get
+
 
 	@PreAuthorize("hasAuthority('project:report')")
 	public Map<String, Object> reportGet(String projectId, String view, String classId) {
@@ -286,27 +286,27 @@ public class McpTools {
 		return result;
 	}
 
-	// ---------- sk_export_create
+
 
 	@PreAuthorize("hasAuthority('answer:export')")
 	public Map<String, Object> exportCreate(DownloadQuery query) {
 		if (query == null || !StringUtils.hasText(query.getProjectId())) {
 			throw new ValidationException("缺少 projectId");
 		}
-		// 导出范围与 HTTP 接口（AnswerExportApi#createPdfJob）保持一致：
-		// classId（按班）/ ids（勾选若干份）/ 时间范围三者都不传就是整场考试。
-		// 以前这里强制要 classId，MCP 就既导不了整卷也导不了勾选的那几份 —— 同一个后端两套口径，
-		// 模型照着网页端的说法调用只会一直报错。
-		//
-		// 导出密码在这里**不校验**：MCP 的凭据是「按用户签发的令牌 + answer:export 权限」，
-		// 再叠一层人手输入的密码会让自动化彻底不可用；密码是给浏览器端批量导出的二次确认。
+
+
+
+
+
+
+
 		if (StringUtils.hasText(query.getClassId())) {
-			// 班级可见性：老师只能导自己看得见的班（与 AnswerExportApi 同一口径）
+
 			classService.assertVisible(query.getClassId());
 		}
 		else {
-			// 不选班级 = 整卷，或按 ids / 时间范围收窄：没有班级可查，必须过项目级闸门，
-			// 否则任何持 answer:export 的令牌都能把整场答卷打包带走
+
+
 			answerAccessGuard.assertProjectAccess(query.getProjectId());
 		}
 		if (query.getType() == null) {
@@ -320,7 +320,7 @@ public class McpTools {
 		return result;
 	}
 
-	// ---------- sk_export_get
+
 
 	@PreAuthorize("hasAuthority('answer:export')")
 	public Map<String, Object> exportGet(String jobId) {
@@ -333,7 +333,7 @@ public class McpTools {
 	// ---------- 内部
 
 	private ReportData loadReport(String projectId, String classId) {
-		// 匿名答卷要算进去：老师看的是「实际收上来多少」，与报表页口径一致
+
 		return StringUtils.hasText(classId) ? reportService.getData(projectId, true, classId.trim())
 				: reportService.getData(projectId, true);
 	}

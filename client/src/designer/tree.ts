@@ -93,7 +93,7 @@ export interface OutlineItem {
  * 大纲里应该出现哪些节点。
  *
  * - 数据题（DATA_TYPES）：是题目，进大纲
- * - 题组（QuestionSet）：是容器，本身也要进大纲并展开子题，否则题组里的题在设计器里根本看不到
+
  * - 其余（Option 选项、填空空位、Pagination 等结构节点）：不是题目，跳过
  */
 function isOutlineNode(node: SurveySchema): boolean {

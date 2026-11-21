@@ -57,13 +57,13 @@ export default function SystemAccess() {
   if (tabs.length === 0) {
     return <Result status="403" title="没有访问权限" subTitle="当前账号没有用户、角色或用户组的管理权限。" />;
   }
-  /** ?tab= 只认这三个键；乱值（手敲的、旧链接的）一律按「用户」处理 */
+
   const asked: TabKey = TAB_ORDER.includes((requested ?? '') as TabKey) ? ((requested ?? '') as TabKey) : 'user';
   const active: TabKey = tabs.includes(asked) ? asked : tabs[0];
-  /**
-   * 明确从链接点进来、但那个页签自己没权限时，不要静默跳到别的 Tab：
-   * 用户会以为「权限配置」坏了。说清原因，再切到第一个能看的。
-   */
+
+
+
+
   const denied = requested && TAB_ORDER.includes(asked) && !tabs.includes(asked) ? asked : undefined;
 
   return (

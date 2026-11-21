@@ -36,7 +36,7 @@ settingsEvaluated { settings ->
     }
 }
 
-// 项目依赖解析走镜像。init 脚本在工程脚本之前执行，所以这里加的仓库排在列表前面。
+
 allprojects {
     buildscript {
         repositories {

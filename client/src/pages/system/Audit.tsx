@@ -17,12 +17,12 @@ interface AuditLog {
   createAt?: string;
 }
 
-/** GET /api/system/audit/retention 的返回 */
+
 interface AuditRetention {
-  /** 自动保留天数；0 表示关闭自动清理 */
+
   retentionDays: number;
   autoEnabled: boolean;
-  /** 手动/自动清理都不允许低于这个天数 */
+
   minKeepDays: number;
 }
 
@@ -96,7 +96,7 @@ export default function SystemAudit() {
     get<ActionOption[]>('/api/system/audit/actions')
       .then((list) => setActions(Array.isArray(list) ? list : []))
       .catch(() => setActions([]));
-    // 保留策略：只用于展示（自动清理是后端定时任务，页面不需要能改它）
+
     get<AuditRetention>('/api/system/audit/retention')
       .then((data) => setRetention(data))
       .catch(() => setRetention(undefined));
@@ -269,7 +269,7 @@ export default function SystemAudit() {
           size="small"
           loading={loading}
           dataSource={rows}
-          // 时间 / 人 / 动作 / 详情几列合计 730px，窄屏必须能横滚
+
           scroll={{ x: 740 }}
           locale={{ emptyText: <Empty description="还没有操作记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
           pagination={{

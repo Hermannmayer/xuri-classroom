@@ -12,10 +12,10 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/9/10
- */
+
+
+
+
 public interface FileService {
 
 	List<String> SUPPORT_IMAGE_LIST = Arrays.asList(AppConsts.SUPPORT_IMAGE_TYPE);
@@ -51,7 +51,7 @@ public interface FileService {
 	 *
 	 * <p>与 {@link #deleteByOwner} 的区别：那个是「逻辑删除项目（进回收站）」用的，
 	 * 会刻意跳过 {@code answer_id} 非空的答卷附件（答卷还在，附件当然不能删）；
-	 * 项目彻底删除时这些附件也不该留，否则整个项目的答卷没了、签名图还躺在磁盘上。
+
 	 * @param projectId 项目 id
 	 */
 	void purgeProjectFiles(String projectId);

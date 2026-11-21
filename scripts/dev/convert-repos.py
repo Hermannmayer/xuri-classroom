@@ -14,7 +14,7 @@ def read_source(src_path):
     rows = list(ws.iter_rows(min_row=1, values_only=True))
     if not rows: return {}
     header = [str(c).strip() if c else '' for c in rows[0]]
-    # 两种源格式：带「序号」列 → 题型在第 2 列；不带 → 题型在第 1 列
+
     base = 1 if (header and header[0] == '序号') else 0
     buckets = defaultdict(list)
     for row in rows[1:]:

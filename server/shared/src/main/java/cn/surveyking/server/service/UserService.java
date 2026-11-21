@@ -7,10 +7,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import java.util.List;
 import java.util.Set;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 public interface UserService extends UserDetailsService {
 
 	UserInfo loadUserById(String userId);

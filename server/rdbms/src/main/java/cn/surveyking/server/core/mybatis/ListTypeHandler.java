@@ -14,16 +14,16 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/9/17
- *
- * <p>
- * MyBatis-Plus 3.5.18 的 {@link AbstractJsonTypeHandler} 已经收紧了契约：
- * 只有 {@code (Class<?>)} / {@code (Class<?>, Field)} 两个构造器，{@code parse/toJson}
- * 是接口方法（必须 public），且异常一律是非受检的 {@link JacksonException}。
- * 原来那份按 3.5.0 写的老代码在升级后会直接编译不过，这里按新契约重写。
- */
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @MappedTypes({ List.class })
 @MappedJdbcTypes({ JdbcType.VARCHAR })
@@ -64,7 +64,7 @@ public abstract class ListTypeHandler<T> extends AbstractJsonTypeHandler<T> {
 
 	public static void setObjectMapper(ObjectMapper mapper) {
 		Assert.notNull(mapper, "ObjectMapper should not be null", new Object[0]);
-		// 原来是 objectMapper = objectMapper（自己赋给自己，等于没设），顺手修掉
+
 		ListTypeHandler.objectMapper = mapper;
 	}
 

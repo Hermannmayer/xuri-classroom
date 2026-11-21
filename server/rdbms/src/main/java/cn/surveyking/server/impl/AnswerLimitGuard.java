@@ -24,13 +24,13 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.UUID;
 
-/**
- * 答题限次与密码闸门：登录用户 / cookie / IP / 白名单四种限次，以及「本机已通过密码」的短时凭据。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 拆出的第二块。它只算窗口、数答卷、读写 cookie，不碰答案内容，
- * 因此答题页加载与交卷两条路径都能复用。
- */
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -55,7 +55,7 @@ public class AnswerLimitGuard {
 
 		Cookie limitCookie = WebUtils.getCookie(request, AppConsts.COOKIE_LIMIT_NAME);
 		if (limitCookie == null) {
-			// 添加 cookie
+
 			HttpServletResponse response = ContextHelper.getCurrentHttpResponse();
 
 			final Cookie cookie = new Cookie(AppConsts.COOKIE_LIMIT_NAME, UUID.randomUUID().toString());
@@ -88,7 +88,7 @@ public class AnswerLimitGuard {
 	public void validateWhitelistLimit(String projectId, ProjectSetting setting) {
 		AnswerQuery query = new AnswerQuery();
 		query.setProjectId(projectId);
-		// 如果白名单校验成功，导入用户获取partner表的id，系统用户是当前登录用户 id
+
 		String createBy = (String) ContextHelper.getCurrentHttpRequest().getAttribute("createBy");
 		if (createBy != null) {
 			query.setCreateBy(createBy);
@@ -97,7 +97,7 @@ public class AnswerLimitGuard {
 	}
 
 	private void doValidate(ProjectSetting setting, AnswerQuery query, ProjectSetting.UniqueLimitSetting limitSetting) {
-		// 通过 cron 计算时间窗
+
 		CronHelper helper = new CronHelper(limitSetting.getLimitFreq().getCron());
 		Tuple2<LocalDateTime, LocalDateTime> currentWindow = helper.currentWindow();
 		if (currentWindow != null) {
@@ -105,7 +105,7 @@ public class AnswerLimitGuard {
 			query.setEndTime(Date.from(currentWindow.getSecond().atZone(ZoneId.systemDefault()).toInstant()));
 		}
 		long total = answerService.count(query);
-		// 允许修改答案的话就获取最近一次的答案，不抛出异常
+
 		if (setting.getSubmittedSetting() != null
 				&& Boolean.TRUE.equals(setting.getSubmittedSetting().getEnableUpdate())) {
 			return;

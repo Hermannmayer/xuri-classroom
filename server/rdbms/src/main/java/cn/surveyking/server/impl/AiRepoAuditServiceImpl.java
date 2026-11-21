@@ -43,121 +43,121 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/**
-	* 题库体检：把「这个题库哪里不完整」变成一份可勾选的建议清单，再把老师勾中的那几项写回。
-	*
-	* <p>为什么是「先给建议、再应用」两步，而不是体检完直接改库：题库是全校共用的资产，
-	* 一道题的解析一旦被模型改写就再也回不去了；而体检的产出（难度、章节、标签、解析）恰恰都是
-	* 老师自己更有判断力的东西。所以这里只负责「挑出最该修的题 + 给出建议」，写回必须由老师勾选触发，
-	* 接口也拆成 {@code /repo/audit} 与 {@code /repo/audit/apply} 两条、权限口径不同。
-	*
-	* <p>检查分两层，原因不同：
-	* <ul>
-	* <li><b>确定性检查</b>（不花 token）：题干为空、选择题没有选项、没有标注正确答案——
-	* 这些是「组进卷子就会出事故」的硬伤，模型既判断不了也不该花钱去判断；</li>
-	* <li><b>模型检查</b>：补难度 / 章节 / 标签 / 解析、判定两道题是不是真的重复——
-	* 这是需要读懂题目内容才能做的事。</li>
-	* </ul>
-	*
-	* <p>三道成本闸门（这台机器只有 4 核、学生还在答题）：
-	* <ol>
-	* <li>一次最多体检 {@link #MAX_LIMIT} 道题，默认 {@link #DEFAULT_LIMIT} 道；</li>
-	* <li>每批最多 {@link #BATCH_SIZE} 道题发给模型，题目再多就多批，单批失败只丢一批；</li>
-	* <li>查重先做字面预筛，最多把 {@link #MAX_DUP_GROUPS} 组候选交给模型。</li>
-	* </ol>
-	*
-	* <p>写回时有三个「读源码才知道」的坑，实现里都处理了：
-	* <ol>
-	* <li>{@code TemplateBatchRequest} <b>没有</b> chapter 字段——章节只能走 {@code updateTemplate}；</li>
-	* <li>{@code batchPatchTemplate} 的 {@code appendTag} 默认是 true（追加），
-	* AI 给的是「这道题完整的标签集合」，所以要显式传 false 才是覆盖；</li>
-	* <li>题库编辑器的弹窗回填读的是 schema 里的 {@code chapter / difficulty / tags}，不是 t_template 的列，
-	* 所以只写列会出现「列表里是中等、点开编辑器却是未填写」——写回时两边一起对齐。</li>
-	* </ol>
-	*
-	* @author ai-actions
-	*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 
-	/** 提示词：逐题补全难度 / 章节 / 标签 / 解析 */
+
 	private static final String PROMPT_AUDIT = "repo-audit";
 
-	/** 提示词：重复题判定 */
+
 	private static final String PROMPT_DUP = "repo-audit-dup";
 
-	/** 默认一次体检多少题 */
+
 	private static final int DEFAULT_LIMIT = 40;
 
-	/** 一次最多体检多少题（成本闸门：每道题都要模型看一遍） */
+
 	private static final int MAX_LIMIT = 120;
 
-	/** 一次发给模型的题数上限 */
+
 	private static final int BATCH_SIZE = 20;
 
-	/** 自动挑题时最多扫多少道题：再大的题库请按章节体检 */
+
 	private static final int MAX_SCAN_TEMPLATES = 1000;
 
-	/** 扫描分页大小 */
+
 	private static final int SCAN_PAGE_SIZE = 200;
 
-	/** 一轮最多把多少组候选题交给模型判重 */
+
 	private static final int MAX_DUP_GROUPS = 30;
 
-	/** 一次发给模型的候选组数 */
+
 	private static final int DUP_BATCH_SIZE = 8;
 
-	/** 进提示词的题干最大长度 */
+
 	private static final int MAX_TITLE_CHARS = 400;
 
-	/** 进提示词的选项 / 参考答案最大长度 */
+
 	private static final int MAX_OPTION_CHARS = 400;
 
-	/** 建议解析的最大长度（提示词里也要求 200 字） */
+
 	private static final int MAX_ANALYSIS_CHARS = 200;
 
-	/** 建议章节的最大长度 */
+
 	private static final int MAX_CHAPTER_CHARS = 40;
 
-	/** 建议标签个数上限 */
+
 	private static final int MAX_TAG_COUNT = 5;
 
-	/** 单个标签的最大长度 */
+
 	private static final int MAX_TAG_CHARS = 20;
 
-	/** 建议理由的最大长度 */
+
 	private static final int MAX_REASON_CHARS = 200;
 
-	/** 前端列表里显示的题干摘要长度 */
+
 	private static final int MAX_PATCH_TITLE_CHARS = 60;
 
-	/** 查重时参与比对的题干最大长度：再长的题干截断，避免编辑距离退化成平方级开销 */
+
 	private static final int MAX_DUP_COMPARE_CHARS = 300;
 
-	/** 题干短于这个长度不参与查重（「1+1=？」这类短题字面接近是常态） */
+
 	private static final int MIN_DUP_TITLE = 8;
 
-	/** 字面相似度达到这个值才交给模型判重 */
+
 	private static final double NEAR_DUP_THRESHOLD = 0.82D;
 
-	/** 模型给出的相似度低于这个值、且没建议 merge 的组不展示 */
+
 	private static final double MIN_DUPLICATE_SIMILARITY = 0.6D;
 
-	/** 难度口径：DTO / 提示词里统一用 easy / medium / hard，题库列里存的是 易 / 中 / 难 */
+
 	private static final String DIFFICULTY_EASY = "easy";
 
 	private static final String DIFFICULTY_MEDIUM = "medium";
 
 	private static final String DIFFICULTY_HARD = "hard";
 
-	/** 判断题、选择题：必须有选项，且必须有选项标了正确答案 */
+
 	private static final Set<SurveySchema.QuestionType> CHOICE_TYPES = Set.of(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Judge,
 			SurveySchema.QuestionType.Select);
 
-	/** 填空 / 简答：标准答案存在 children 的 examCorrectAnswer 上 */
+
 	private static final Set<SurveySchema.QuestionType> BLANK_TYPES = Set.of(SurveySchema.QuestionType.FillBlank,
 			SurveySchema.QuestionType.MultipleBlank, SurveySchema.QuestionType.Textarea,
 			SurveySchema.QuestionType.HorzBlank);
@@ -178,8 +178,8 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "请先选择要体检的题库");
 		}
 		String repoId = request.getRepoId().trim();
-		// 题库读闸门：题库不存在、或当前账号看不到这个题库，都在建任务之前挡住——
-		// 任务线程里再抛 403，老师只会看到一条「任务失败」，不如当场告诉他
+
+
 		RepoView repo = repoService.getRpo(repoId);
 		if (repo == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "题库不存在或已被删除");
@@ -193,13 +193,13 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		String chapter = StringUtils.hasText(request.getChapter()) ? request.getChapter().trim() : null;
 		String userId = SecurityContextUtils.getUserId();
 		if (includeAnalysis || includeDuplicates) {
-			// 这两个开关都会调模型：提交时先判一次额度，别让老师等完一轮扫描才看到「今天用完了」
+
 			support.assertQuota(userId);
 		}
 		Options options = new Options(repoId, repo.getName(), chapter, templateIds, limit, includeAnalysis,
 				includeDuplicates, userId);
-		// 任务线程拿不到请求线程的登录态：这里抓一次，在任务里显式设置——
-		// 题库体检要逐题走 TemplateService 的读闸门，没有登录态会全部变成「没有权限」
+
+
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		return aiJobService.submit(AiUsageService.SCENE_REPO_AUDIT, userId, context -> {
 			SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -229,7 +229,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		}
 		Stats stats = Stats.of(candidates);
 		context.progress(20);
-		// 确定性检查先做：不花 token，而且「这道题根本没有答案」比「解析写得不好」紧急得多
+
 		checkStructure(candidates, view);
 		context.progress(30);
 		int failedBatches = 0;
@@ -256,7 +256,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 	private Scan loadCandidates(AiJobService.JobContext context, Options options) {
 		Set<String> wanted = new LinkedHashSet<>(options.templateIds());
 		if (!wanted.isEmpty()) {
-			// 老师点名要体检这几道：按给的顺序逐道读，读完就走，不去扫整个题库
+
 			List<Candidate> picked = new ArrayList<>();
 			int index = 0;
 			for (String templateId : wanted) {
@@ -274,11 +274,11 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				if (candidate == null) {
 					continue;
 				}
-				// 只体检本题库的题：账号可能同时能读好几个题库，传错 id 不该把别的库的题混进来
+
 				if (!Objects.equals(options.repoId(), template.getRepoId())) {
 					continue;
 				}
-				// 同时给了章节就再筛一道：只体检「这个章节里的这几道题」
+
 				if (StringUtils.hasText(options.chapter()) && !options.chapter().equals(candidate.chapter())) {
 					continue;
 				}
@@ -303,7 +303,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			query.setCurrent(Integer.valueOf(++page));
 			PaginationResponse<TemplateView> result;
 			try {
-				// listTemplate 里自带 assertReadableRepo 的读闸门，与我们上面那次 getRpo 同一口径
+
 				result = templateService.listTemplate(query);
 			}
 			catch (RuntimeException e) {
@@ -324,13 +324,13 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				break;
 			}
 		}
-		// 命中扫描上限：说明题库比一次体检能覆盖的更大，摘要里提示老师按章节分批
+
 		truncated = scanned.size() >= MAX_SCAN_TEMPLATES;
 		if (scanned.size() > MAX_SCAN_TEMPLATES) {
 			scanned = new ArrayList<>(scanned.subList(0, MAX_SCAN_TEMPLATES));
 		}
-		// 优先级：缺解析 → 缺难度 → 缺章节 → 缺标签 → 什么都不缺（用来凑够 limit，查重才有材料）
-		// 稳定排序：同一优先级内保持题号顺序，老师重新体检时看到的还是同一批题
+
+
 		scanned.sort(Comparator.comparingInt(Candidate::priority));
 		if (scanned.size() > options.limit()) {
 			return new Scan(new ArrayList<>(scanned.subList(0, options.limit())), truncated);
@@ -345,7 +345,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		}
 		SurveySchema schema = view.getTemplate();
 		SurveySchema.QuestionType type = view.getQuestionType() == null ? schema.getType() : view.getQuestionType();
-		// 分页 / 说明 / 分节这类空节点没有题干也没有答案，体检它们没有意义
+
 		if (type != null && SurveySchema.QuestionType.voidType().contains(type)) {
 			return null;
 		}
@@ -373,8 +373,8 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			return templateService.getTemplate(query);
 		}
 		catch (NullPointerException e) {
-			// TemplateServiceImpl#getTemplate 直接对 template 字段调用 setId()，schema 为空就会 NPE——
-			// 这是脏数据而不是程序 bug，跳过这道题比让整个体检 500 更有意义
+
+
 			log.warn("题目题面为空（schema 缺失），跳过：templateId={}", templateId);
 			return null;
 		}
@@ -435,7 +435,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		}
 	}
 
-	/* ====== 模型检查①：补难度 / 章节 / 标签 / 解析 ====== */
+
 
 	/** 逐批调模型补全建议；返回「模型没给出结果的批数」 */
 	private int collectPatches(AiJobService.JobContext context, Options options, List<Candidate> candidates,
@@ -456,7 +456,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				patches.addAll(askPatches(batch, byId, chapters, tags, options.userId()));
 			}
 			catch (ErrorCodeException e) {
-				// 额度用完（「今日…已达上限」）就别再一批批烧下去了：整单停下比继续调更负责
+
 				if (isQuotaExceeded(e)) {
 					throw e;
 				}
@@ -479,7 +479,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		vars.put("tags", tags);
 		AiRequest request = AiRequest.builder().systemPrompt(support.prompts().render(PROMPT_AUDIT, vars))
 				.userPrompt("请按上面的要求给出这批题目的补全建议，只输出 JSON。").temperature(Double.valueOf(0.3D))
-				// 后台任务：跳过「每分钟 N 次」的限流，否则一次体检几十道题会被自己卡死
+
 				.background(true).build();
 		AiCompletion completion = support.call(AiUsageService.SCENE_REPO_AUDIT, userId, request, true);
 		return parsePatches(completion == null ? null : completion.getText(), byId, batch);
@@ -526,7 +526,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		}
 		for (JsonNode node : array) {
 			String id = text(node, "id");
-			// 模型编出来的 id、或别的批次的题：一律丢掉（脏数据不能让整单 500，也不能串批）
+
 			if (id == null || !allowed.contains(id)) {
 				continue;
 			}
@@ -547,7 +547,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			patch.setReason(truncate(text(node, "reason"), MAX_REASON_CHARS));
 			if (patch.getDifficulty() == null && patch.getChapter() == null && patch.getAnalysis() == null
 					&& patch.getTags() == null) {
-				// 一个要改的字段都没有：这道题已经填全了，不放进建议列表
+
 				continue;
 			}
 			patches.add(patch);
@@ -575,7 +575,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			return duplicates;
 		}
 		catch (RuntimeException e) {
-			// 查重失败不能拖垮整单：退化成「字面完全相同」这一档，至少把最明显的重复列出来
+
 			log.warn("题库体检：AI 查重失败，退化为字面完全相同：{}", AiAssistSupport.messageOf(e));
 			return literalDuplicates(groups);
 		}
@@ -591,7 +591,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		Map<String, List<Candidate>> byText = new LinkedHashMap<>();
 		List<String> keys = new ArrayList<>(candidates.size());
 		for (Candidate candidate : candidates) {
-			// 归一化只做一次：后面两两比对用的是同一份结果（40~120 道题，别重复去标签）
+
 			String key = normalize(candidate.title());
 			keys.add(key);
 			if (key.length() < MIN_DUP_TITLE) {
@@ -605,7 +605,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			if (same.size() < 2) {
 				continue;
 			}
-			// 同一个字面文本下的 N 道题合并成一组（N=3 时不要退化成 3 对）
+
 			for (int left = 0; left < same.size(); left++) {
 				for (int right = left + 1; right < same.size(); right++) {
 					seenPairs.add(pairKey(same.get(left).id(), same.get(right).id()));
@@ -691,7 +691,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			for (JsonNode item : idNode) {
 				String id = item.asText("");
 				Candidate candidate = byId.get(id);
-				// 只认本次体检里的题：模型编出来的 id 直接丢掉
+
 				if (candidate == null || !added.add(id)) {
 					continue;
 				}
@@ -704,7 +704,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			double similarity = clamp(node.path("similarity").asDouble(0D), 0D, 1D);
 			String suggestion = normalizeSuggestion(text(node, "suggestion"));
 			if (similarity < MIN_DUPLICATE_SIMILARITY && !"merge".equals(suggestion)) {
-				// 模型自己都说不像：不要塞进「疑似重复」里浪费老师的注意力
+
 				continue;
 			}
 			AiRepoAuditView.Duplicate duplicate = new AiRepoAuditView.Duplicate();
@@ -750,7 +750,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "请先选择要写回的题库");
 		}
 		String repoId = request.getRepoId().trim();
-		// 题库读闸门：连题库都看不到，就谈不上「往这个题库写建议」
+
 		repoService.getRpo(repoId);
 		if (CollectionUtils.isEmpty(request.getPatches())) {
 			return 0;
@@ -764,7 +764,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				continue;
 			}
 			String templateId = patch.getId().trim();
-			// 同一道题传来多条：只认第一条，避免两份互相矛盾的难度打架
+
 			if (!handled.add(templateId)) {
 				continue;
 			}
@@ -774,7 +774,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				}
 			}
 			catch (RuntimeException e) {
-				// 单题失败继续，不让一条脏数据把整批回滚（这里刻意不开事务）
+
 				failed++;
 				if (firstFailure == null) {
 					firstFailure = e;
@@ -783,7 +783,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			}
 		}
 		if (updated == 0 && firstFailure != null) {
-			// 一条都没写成功：把第一条原因抛出去，否则前端只看到「更新 0 条」而不知道为什么
+
 			if (firstFailure instanceof ErrorCodeException || firstFailure instanceof AccessDeniedException) {
 				throw firstFailure;
 			}
@@ -813,7 +813,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		if (current == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "题目不存在、已被删除，或题面为空");
 		}
-		// 只能改本次体检的题库：账号同时有多个题库权限时，跨库写回一定是前端传错了
+
 		if (!Objects.equals(repoId, current.getRepoId())) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "这道题不属于该题库，已跳过");
 		}
@@ -826,7 +826,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		List<String> tags = cleanTags(patch.getTags());
 		String analysis = truncate(patch.getAnalysis(), MAX_ANALYSIS_CHARS);
 
-		// 列上的值与 schema 里的镜像分别比较：两者都可能单独缺失（历史导入/直接调接口都会造成漂移）
+
 		boolean columnDifficultyChanged = StringUtils.hasText(difficulty)
 				&& !difficulty.equals(trimToNull(current.getDifficulty()));
 		boolean schemaDifficultyChanged = StringUtils.hasText(difficulty)
@@ -841,11 +841,11 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				&& !analysis.equals(currentAnalysis(schema));
 		if (!columnDifficultyChanged && !schemaDifficultyChanged && !columnChapterChanged && !schemaChapterChanged
 				&& !columnTagsChanged && !schemaTagsChanged && !analysisChanged) {
-			// 建议值与库里一致：不算一次更新，避免「应用了 40 条」实际什么都没改
+
 			return false;
 		}
 
-		// ① 列：难度与标签走题库批量改（appendTag 不传等于 true=追加，AI 给的是完整集合，必须显式覆盖）
+
 		if (columnDifficultyChanged || columnTagsChanged) {
 			TemplateBatchRequest batch = new TemplateBatchRequest();
 			batch.setIds(List.of(templateId));
@@ -859,9 +859,9 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 			templateService.batchPatchTemplate(batch);
 		}
 
-		// ② 章节 + 整包 schema：解析只能这么写；顺便把 schema 里的章节/难度/标签对齐，
-		//    否则打开题库编辑器看到的是旧值（弹窗回填读 template.chapter / template.difficulty / template.tags）。
-		//    这一条会重写整包 JSON、还会触发题库级的附件引用回收，所以「只动了列」时不要白跑一趟。
+
+
+
 		if (schemaDifficultyChanged || schemaChapterChanged || schemaTagsChanged || analysisChanged
 				|| columnChapterChanged) {
 			SurveySchema next = schema;
@@ -1321,30 +1321,30 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return message != null && message.contains("上限");
 	}
 
-	/* ====== 内部数据结构 ====== */
 
-	/** 本次体检的参数（在请求线程里归一好，交给后台任务用，避免任务里再读 SecurityContext） */
+
+
 	private record Options(String repoId, String repoName, String chapter, List<String> templateIds, int limit,
 			boolean includeAnalysis, boolean includeDuplicates, String userId) {
 	}
 
-	/** 扫描结果：题目 + 是否因为题库太大被截断 */
+
 	private record Scan(List<Candidate> items, boolean truncated) {
 	}
 
-	/**
-	 * 一道待体检的题。
-	 * @param priority 缺什么：0 缺解析 / 1 缺难度 / 2 缺章节 / 3 缺标签 / 4 什么都不缺（只用来凑数）
-	 */
+
+
+
+
 	private record Candidate(String id, String title, SurveySchema schema, String chapter, String difficulty,
 			String[] tag, int priority) {
 	}
 
-	/** 一组字面相近的候选题：similarity 是字面相似度，literalEqual 表示去标点后完全相同 */
+
 	private record DupGroup(List<Candidate> items, double similarity, boolean literalEqual) {
 	}
 
-	/** 体检范围的统计（写进 summary，前端不用自己数） */
+
 	private static final class Stats {
 
 		private int noAnalysis;

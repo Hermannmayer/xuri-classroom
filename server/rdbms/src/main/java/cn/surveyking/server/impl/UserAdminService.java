@@ -38,18 +38,18 @@ import java.util.regex.Pattern;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 用户写操作：建号、改号、删号、岗位与界面偏好。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的管理块。缓存注解（{@code @CacheEvict}）仍然留在
- * {@code UserServiceImpl} 的入口方法上，事务也由该类上的 {@code @Transactional} 统一开启，
- * 组件只负责搬运过来的方法体。
- *
- * <p>
- * {@code evictUserAfterCommit} 原样搬到这里（含 afterCommit 注册方式），班级学员的删除/编辑
- * 也复用它，避免两处各写一份事务同步逻辑。
- */
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class UserAdminService {
@@ -91,20 +91,20 @@ public class UserAdminService {
 	 *                        目标是系统内置学员角色，不需要也不应该要求老师拥有学员的全部权限串。
 	 */
 	public void createUser(UserRequest request, boolean assertDeptRoles) {
-		// 内部入口没显式指定时按学员处理；用户管理（createSystemUser）会显式设 staff
+
 		if (!StringUtils.hasText(request.getUserType())) {
 			request.setUserType("student");
 		}
-		// 用户组（org）放教职工、班级（class）放学员：类型错位会让学员继承教职工角色，必须挡住
+
 		assertUserDeptTypes(request.getUserType(), request.getDeptId(), request.getDeptIds());
-		// 把用户放进某个组会连带获得该组（含祖先链）绑定的角色：非管理员必须先确认这些角色他能授予
+
 		if (assertDeptRoles) {
 			permissionGuard.assertDeptAssignmentAllowed(request.getDeptId(), request.getDeptIds());
 		}
 		User user = userViewMapper.fromRequest(request);
 		userMapper.insert(user);
 
-		// 创建登录账号
+
 		Account account = userViewMapper.toAccount(request);
 		account.setAuthType(AppConsts.AUTH_TYPE.PWD.name());
 		account.setUserType(AppConsts.USER_TYPE.SysUser.toString());
@@ -113,12 +113,12 @@ public class UserAdminService {
 		account.setStatus(request.getStatus());
 		accountMapper.insert(account);
 
-		// 添加用户角色
+
 		request.setId(user.getId());
 		addUserRoles(request);
-		// 添加用户岗位
+
 		addUserPositions(request);
-		// 添加附加组（主组已经在 t_user.dept_id 里）
+
 		deptService.saveUserDepts(user.getId(), user.getDeptId(), request.getDeptIds());
 	}
 
@@ -170,7 +170,7 @@ public class UserAdminService {
 		validateStrongPassword(request.getPassword(), null);
 		request.setUserType("staff");
 		permissionGuard.assertGrantableRoles(request.getRoles());
-		// 入口注解只认 system:user:create（能不能建用户），这里再按角色分「学员档 / 老师档」
+
 		permissionGuard.assertRoleGrantScope(request.getRoles());
 		createUser(request);
 	}
@@ -203,16 +203,16 @@ public class UserAdminService {
 		}
 		permissionGuard.assertManageableUser(request.getId());
 		permissionGuard.assertGrantableRoles(request.getRoles());
-		// 改角色和建用户同档：把学员改成老师也是「授予 system:* 角色」，必须持 teacher 档权限
+
 		permissionGuard.assertRoleGrantScope(request.getRoles());
 		User current = userMapper.selectById(request.getId());
-		// 改组同样守住「用户组放教职工、班级放学员」：没传的字段沿用用户现有值
+
 		assertUserDeptTypes(
 				StringUtils.hasText(request.getUserType()) ? request.getUserType()
 						: current == null ? null : current.getUserType(),
 				request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
 				request.getDeptIds() != null ? request.getDeptIds() : deptService.listExtraDeptIds(request.getId()));
-		// 组变更同样会改变「有效权限」：目标组链上绑定的角色必须都是自己能授予的，否则等于借改组提权
+
 		permissionGuard.assertDeptAssignmentAllowed(request.getDeptId() != null ? request.getDeptId() : current == null ? null : current.getDeptId(),
 				request.getDeptIds() != null ? request.getDeptIds() : deptService.listExtraDeptIds(request.getId()));
 		if (isNotBlank(request.getPassword())) {
@@ -222,7 +222,7 @@ public class UserAdminService {
 		userMapper.updateById(user);
 
 		if (request.getStatus() != null || isNotBlank(request.getPassword())) {
-			// 更新登录账号
+
 			Account account = accountMapper.selectOne(Wrappers.<Account>lambdaQuery()
 					.eq(Account::getUserId, request.getId()).eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()));
 			if (isNotBlank(request.getPassword()) && Objects.equals(request.getId(), SecurityContextUtils.getUserId())
@@ -246,18 +246,18 @@ public class UserAdminService {
 			accountMapper.updateById(account);
 		}
 
-		// 更新用户角色
+
 		if (request.getRoles() != null) {
 			userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, request.getId()));
 			addUserRoles(request);
 		}
-		// 更新用户岗位
+
 		if (request.getUserPositions() != null) {
 			userPositionMapper
 					.delete(Wrappers.<UserPosition>lambdaQuery().eq(UserPosition::getUserId, request.getId()));
 			addUserPositions(request);
 		}
-		// 更新附加组（deptIds 为 null 表示本次不改；空数组表示只保留主组）
+
 		if (request.getDeptIds() != null) {
 			String mainDeptId = request.getDeptId();
 			if (!StringUtils.hasText(mainDeptId)) {
@@ -303,8 +303,8 @@ public class UserAdminService {
 		if (request == null || request.getUiZoom() == null) {
 			return;
 		}
-		// 只允许 0.9 / 1 / 1.15 / 1.3 四个档位：越界值夹到区间内，
-		// 避免有人手工把 ui_zoom 改成 10 倍把界面撑爆
+
+
 		double zoom;
 		try {
 			zoom = Double.parseDouble(String.valueOf(request.getUiZoom()));
@@ -322,7 +322,7 @@ public class UserAdminService {
 		update.setId(SecurityContextUtils.getUserId());
 		update.setUiZoom(String.valueOf(zoom));
 		userMapper.updateById(update);
-		// currentUser 走 userCache，改完必须清掉，否则刷新还是旧档位
+
 		evictUserAfterCommit(SecurityContextUtils.getUserId());
 	}
 
@@ -330,7 +330,7 @@ public class UserAdminService {
 		if (request == null || request.getUiTheme() == null) {
 			return;
 		}
-		// 白名单：只接受 light / dark，其它值忽略，避免脏数据影响全站主题
+
 		String theme = "light".equals(request.getUiTheme()) ? "light" : "dark";
 		User update = new User();
 		update.setId(SecurityContextUtils.getUserId());
@@ -344,7 +344,7 @@ public class UserAdminService {
 		userMapper.deleteById(id);
 		accountMapper.physicallyDeleteExternalByUserId(id);
 		accountMapper.delete(Wrappers.<Account>lambdaQuery().eq(Account::getUserId, id));
-		// 用户没了，附加组/角色绑定也一起清掉
+
 		userDeptMapper.deleteByUserId(id);
 		userRoleMapper.delete(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, id));
 		evictUserAfterCommit(id);

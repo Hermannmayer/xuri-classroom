@@ -19,13 +19,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ValidationException;
 import java.util.LinkedHashMap;
 
-/**
- * 微信内打开问卷时的访问控制。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 抽出的第一块：只依赖「系统 OAuth 配置」与「微信 cookie 身份」，
- * 不碰答卷、不碰统计，是原类里耦合最少的一组职责。逻辑与原实现逐行一致，仅换了宿主类。
- */
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class WechatAccessGuard {

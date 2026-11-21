@@ -38,22 +38,22 @@ import java.util.stream.Collectors;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 公开侧的读接口：成绩单、历次作答列表、字典、关联题回填。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 拆出的第八块。这里保留 {@code AnswerServiceImpl} 而不是
- * {@code AnswerService}，是因为「历次作答」与「关联题取值」要用 MyBatis-Plus 的
- * {@code list(Wrappers)} / {@code getOne(Wrappers)}；接口上没有等价语义方法，
- * 而本轮重构不允许改 {@code AnswerServiceImpl} 的接口面。
- */
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class PublicSurveyExtrasService {
 
 	private final ProjectService projectService;
 
-	/** 见类注释：需要 IService 的 list/getOne */
+
 	private final AnswerServiceImpl answerService;
 
 	private final DictItemServiceImpl dictItemService;
@@ -66,7 +66,7 @@ public class PublicSurveyExtrasService {
 
 	private final ObjectMapper objectMapper;
 
-	/** 匿名浏览器的 sk-anon 主体：未登录时按 anonymous_subject_id 找回历次作答 */
+
 	private final AnonymousIdentityService anonymousIdentityService;
 
 	/**
@@ -76,8 +76,8 @@ public class PublicSurveyExtrasService {
 	 */
 	public PublicExamResult loadExamResult(PublicExamRequest request) {
 		ProjectView project = projectService.getProject(request.getId());
-		// 成绩单链接是公开接口：项目被删/链接拼错时以前会在这里 NPE，被兜成 500。
-		// 按「项目不存在」处理，前端能显示可读提示而不是「服务出了点问题」。
+
+
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
@@ -87,31 +87,31 @@ public class PublicSurveyExtrasService {
 		ProjectSetting.ExamSetting examSetting = project.getSetting().getExamSetting();
 		PublicExamResult result = new PublicExamResult();
 		result.setName(project.getName());
-		// 答题人姓名（交卷时快照）：成绩单抬头用；匿名且没填时为空，前端显示「未填写」
+
 		result.setAnswererName(answerView.getAnswererName());
-		// 可以查看正确答案和解析;
-		// 考试结束之后才可以查看正确答案和解析
+
+
 		if (Boolean.TRUE.equals(submittedSetting.getAnswerAnalysis()) && examControlService.examFinished(examSetting)) {
 			result.setAnswer(answerView.getAnswer());
 			result.setSchema(project.getSurvey());
 			result.setExamInfo(answerView.getExamInfo());
 		}
-		// 显示成绩单：只有批改完成（graded）才给分。
-		// pending 时主观题还没批，这里的 exam_score 只是客观题机器分，下发给学生会让人误以为是整卷得分；
-		// none（卷里没有 manual 题）与 graded 都正常下发。
+
+
+
 		if (Boolean.TRUE.equals(submittedSetting.getTranscriptVisible())
 				&& !AnswerGradeServiceImpl.GRADE_PENDING.equals(answerView.getGradeStatus())) {
 			result.setExamScore(answerView.getExamScore());
 		}
-		// 显示排名 TODO:显示排行榜
+
 		if (Boolean.TRUE.equals(submittedSetting.getRankVisible())) {
 			result.setRank(answerView.getRank());
 		}
-		// 随机问题：每个人拿到的题不同，必须用答卷上的快照
+
 		if (answerView.getSurvey() != null) {
-			// 但历史快照在保存时把 examCorrectAnswer 剥掉了（实测 378 个正确选项 → 0），
-			// 用它会让解析页永远显示「未设置正确答案」。这种情况下回退到项目 schema，
-			// 保证老答卷也能看到正确答案；只有快照里确实还带着答案时才优先用快照。
+
+
+
 			if (containsCorrectAnswer(answerView.getSurvey())) {
 				result.setSchema(answerView.getSurvey());
 			}
@@ -142,7 +142,7 @@ public class PublicSurveyExtrasService {
 		return false;
 	}
 
-	/** 切屏计数的按键锁：同一份答卷的读-改-写串行化，避免并发丢更新 */
+
 
 	/**
 	 * 当前浏览器/登录用户在这份试卷上的历次已提交答卷（按时间倒序）。
@@ -171,7 +171,7 @@ public class PublicSurveyExtrasService {
 		return answerService.list(wrapper.orderByDesc(Answer::getCreateAt)).stream().map(answer -> {
 			PublicAttemptView view = new PublicAttemptView();
 			view.setAnswerId(answer.getId());
-			// 待批改时不给分：主观题还没批，这里下发只是客观题机器分，学生会当成整卷成绩
+
 			view.setExamScore(AnswerGradeServiceImpl.GRADE_PENDING.equals(answer.getGradeStatus()) ? null
 					: answer.getExamScore());
 			view.setCreateAt(answer.getCreateAt() == null ? null : answer.getCreateAt().getTime());
@@ -235,8 +235,8 @@ public class PublicSurveyExtrasService {
 	private String buildLinkLikeCondition(SurveySchema.LinkSurvey linkSurvey, Object value) {
 		Map<String, Object> optionValue = new HashMap<>();
 		optionValue.put(linkSurvey.getLinkOptionId(), value);
-		// Map<String, Map<String, Object>> questionValue = new HashMap<>();
-		// questionValue.put(linkSurvey.getLinkQuestionId(), optionValue);
+
+
 		return StringUtils.substringBetween(objectMapper.writeValueAsString(optionValue), "{", "}");
 	}
 

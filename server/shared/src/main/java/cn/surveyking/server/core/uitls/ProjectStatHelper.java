@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * @author javahuang
- * @date 2022/3/23
- */
+
+
+
+
 public class ProjectStatHelper {
 
 	final SurveySchema schema;
@@ -37,17 +37,17 @@ public class ProjectStatHelper {
 
 		answers.forEach(answerView -> {
 			LinkedHashMap<String, Object> answer = answerView.getAnswer();
-			// 空答案（暂存被清空、历史脏数据、或查询只取了统计需要的列）不参与聚合，
-			// 否则下面 answer.containsKey 直接 NPE，整个统计接口 500。
+
+
 			if (answer == null) {
 				return;
 			}
 			questionStatistics.entrySet().forEach(entry -> {
 				String questionId = entry.getKey();
 				PublicStatisticsView.QuestionStatistics qStatistics = entry.getValue();
-				// 注意：containsKey 为 true 不代表值不为 null——填空题没作答、或前端提交了
-				// {"q2": null} 时，这里的 get 会拿到 null，直接强转 Map 就是 NPE，
-				// 会让整个统计接口 500（线上「有答卷的项目点统计就报错」的根因）。
+
+
+
 				Object questionValue = answer.get(questionId);
 				if (questionValue instanceof Map) {
 					qStatistics.setCount(qStatistics.getCount() + 1);
@@ -112,7 +112,7 @@ public class ProjectStatHelper {
 
 	private Map<String, PublicStatisticsView.QuestionStatistics> initQuestionStatistics() {
 		List<SurveySchema> flatSurveySchema = SchemaHelper.flatSurveySchema(schema);
-		// 只有问题配置了 statEnabled 和选项配置了 quota 属性的题才能进行统计
+
 		List<SurveySchema> canStatSchema = flatSurveySchema.stream().filter(ProjectStatHelper::isStatable)
 				.collect(Collectors.toList());
 

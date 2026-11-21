@@ -13,12 +13,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-/**
- * 捕获 spring security 认证失败异常，返回 application/json 类型的数据
- *
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
+
+
 @Component("restAuthenticationEntryPoint")
 @RequiredArgsConstructor
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -32,8 +32,8 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		ApiResponse<String> apiResponse = new ApiResponse(ResponseCode.UNAUTHORIZED.code,
 				authenticationException.getMessage());
 
-		// S3-7：未认证就是 401，不再伪装成 200。前端仍按 body.code 分支（json.code === 401
-		// 触发跳登录），状态码只用于网关 / 冒烟 / 浏览器开发者工具识别。
+
+
 		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 		response.getOutputStream().println(objectMapper.writeValueAsString(apiResponse));
 	}

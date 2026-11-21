@@ -7,12 +7,12 @@ import lombok.Data;
 
 import java.util.Date;
 
-/**
- * model 基础父类
- *
- * @author javahuang
- * @date 2021/10/10
- */
+
+
+
+
+
+
 @Data
 public class BaseModel {
 
@@ -31,9 +31,9 @@ public class BaseModel {
 	@TableField(fill = FieldFill.UPDATE)
 	private String updateBy;
 
-	/**
-	 * 默认逻辑删除标记，is_deleted=0有效
-	 */
+
+
+
 	@TableLogic
 	@JsonIgnore
 	@TableField(value = AppConsts.COLUMN_IS_DELETED, select = false)

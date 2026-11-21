@@ -45,7 +45,7 @@ export default function RichTextContent({ html, style, className }: RichTextCont
         try {
           katex.render(latex, element, { throwOnError: false, displayMode: false });
         } catch {
-          // 公式写错时保留源码，不要让整页渲染失败
+
           element.textContent = latex;
         }
       });

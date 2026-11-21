@@ -4,7 +4,7 @@ import ProjectList from '../project/List';
  * 问卷列表：独立成一级菜单。
  *
  * <p>问卷和考试在数据上是同一张表（t_project.mode），但使用场景不同：考试要批改、算分、看报表，
- * 问卷只收集反馈。混在一个列表里，老师每次都要先筛一遍，所以菜单上就分开。
+
  * 复用 ProjectList，只是把 mode 限定成 survey；新建、复制、回收站这些动作与考试完全一致。
  */
 export default function SurveyList() {

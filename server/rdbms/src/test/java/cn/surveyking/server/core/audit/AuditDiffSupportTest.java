@@ -24,12 +24,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * 快照内容的纯逻辑测试（Mapper 全部 mock，不连数据库）。
- *
- * <p>盯的是计划 §5.3 / §5.6 的口径：「批改一道题 8 分改 10 分」要能在 before/after 里看出 8 和 10，
- * 删除答卷要能看出「删之前查得到、删之后查不到」，并且快照里**没有**答案正文。
- */
+
+
+
+
+
+
 class AuditDiffSupportTest {
 
 	private final AnswerMapper answerMapper = mock(AnswerMapper.class);
@@ -59,7 +59,7 @@ class AuditDiffSupportTest {
 		request.setItems(List.of(item("q1", 10.0, "好")));
 
 		Map<String, Object> before = diffSupport.snapshot("ANSWER_GRADE", new Object[] { request });
-		// 改分之后：库里是 10 分、总分重算、状态变 graded
+
 		when(answerGradeMapper.selectList(any())).thenReturn(List.of(grade("q1", 10.0, "好")));
 		answer.setExamScore(84.0);
 		answer.setGradeStatus("graded");
@@ -71,9 +71,9 @@ class AuditDiffSupportTest {
 		assertEquals(82.0, before.get("examScore"));
 		assertEquals(84.0, after.get("examScore"));
 		assertEquals("graded", after.get("gradeStatus"));
-		// 快照里不能出现答案正文 / 姓名这类个人数据
+
 		assertTrue(!before.toString().contains("张三"));
-		// 批改的目标是答卷 id（不是请求里没有的 getId）
+
 		assertEquals("a1", diffSupport.targetIdOf("ANSWER_GRADE", new Object[] { request }));
 	}
 
@@ -87,7 +87,7 @@ class AuditDiffSupportTest {
 
 		Map<String, Object> before = diffSupport.snapshot("ANSWER_GRADE_RESET", new Object[] { request });
 
-		// 整卷撤销（不传 questionIds）也要把「改前的手工分」列出来，否则看不出撤掉了什么
+
 		List<?> items = (List<?>) before.get("items");
 		assertEquals(2, items.size());
 	}
@@ -108,7 +108,7 @@ class AuditDiffSupportTest {
 		assertEquals(true, before.get("visible"));
 		assertEquals(1, before.get("count"));
 
-		// 逻辑删除后 @TableLogic 会把行挡掉，这正是「已删除」的证据
+
 		when(answerMapper.selectById("a1")).thenReturn(null);
 		Map<String, Object> after = diffSupport.snapshot("ANSWER_DELETE", new Object[] { request });
 		assertEquals(false, after.get("visible"));
@@ -161,7 +161,7 @@ class AuditDiffSupportTest {
 		AnswerRequest request = new AnswerRequest();
 		request.setId("a1");
 
-		// ANSWER_UPDATE 不在 §5.3 清单里：不写快照，也不改写目标 id 的解析
+
 		assertNull(diffSupport.snapshot("ANSWER_UPDATE", new Object[] { request }));
 		assertNull(diffSupport.targetIdOf("ANSWER_UPDATE", new Object[] { request }));
 	}

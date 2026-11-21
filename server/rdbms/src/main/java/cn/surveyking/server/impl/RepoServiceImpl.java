@@ -58,10 +58,10 @@ import java.util.Arrays;
 import static cn.surveyking.server.impl.UserBookServiceImpl.BOOK_TYPE_WRONG;
 import static com.baomidou.mybatisplus.core.toolkit.StringUtils.isNotBlank;
 
-/**
- * @author javahuang
- * @date 2022/4/27
- */
+
+
+
+
 @Slf4j
 @Transactional(rollbackFor = Exception.class)
 @Service
@@ -82,12 +82,12 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private final RepoPartnerMapper repoPartnerMapper;
 
-	/** 题库分类（目录登记表，含空文件夹） */
+
 	private final RepoCategoryMapper repoCategoryMapper;
 
 	private final UserDeptScopeService userDeptScopeService;
 
-	/** 按班级分配的题库存取：可见性与读权限都要认 t_class_resource 上的 repo 分配 */
+
 	private final ClassResourceService classResourceService;
 
 	private final UserMapper userMapper;
@@ -98,18 +98,18 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@Lazy
 	private FileService fileService;
 
-	/** 分类列表里表示「题库没填分类」的节点名 */
+
 	private static final String UNCATEGORIZED_NAME = "未分类";
 
-	/** 分类路径分隔符 */
+
 	private static final String CATEGORY_PATH_SEPARATOR = "/";
 
-	/**
-	 * 「本班被分配了这个题库」的 EXISTS 条件（占位符 {0} = 当前用户 id）。
-	 *
-	 * <p>t_class_resource 有真实的 is_deleted 列，必须显式过滤；class_id 复用 DEPT_SCOPE_SQL
-	 * （主组 + 附加组 + 祖先链），与题库授权弹窗、考试可见性同一份口径。
-	 */
+
+
+
+
+
+
 	private static final String CLASS_REPO_ASSIGN_SQL = "EXISTS (SELECT 1 FROM t_class_resource cr"
 			+ " WHERE cr.resource_id = t_repo.id AND cr.resource_type = 'repo' AND cr.is_deleted = 0"
 			+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + "))";
@@ -123,25 +123,25 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String sortBy = query.getSortBy() == null ? "" : query.getSortBy();
 		switch (sortBy) {
 			case "name":
-				// 名称按「拼音」排：直接 ORDER BY name 用的是列排序规则（UCA 字根笔画序），
-				// 汉字顺序会看起来莫名其妙；转成 GBK 再排，GBK 的编码顺序基本等于拼音顺序。
+
+
 				wrapper.last("ORDER BY CONVERT(name USING gbk) " + (desc ? "DESC" : "ASC"));
 				break;
 			case "category":
-				// 分类同样是汉字，走 GBK 拼音序
+
 				wrapper.last("ORDER BY CONVERT(COALESCE(category, '') USING gbk) " + (desc ? "DESC" : "ASC"));
 				break;
 			case "mode":
-				// 类型是 exam / practice 这类英文枚举，直接排
+
 				wrapper.last("ORDER BY mode " + (desc ? "DESC" : "ASC"));
 				break;
 			case "tag":
-				// 标签是 varchar（逗号/JSON 串），按原串排；不做 GBK 转换，
-				// 避免标签里出现 GBK 不支持的字符时直接 500
+
+
 				wrapper.last("ORDER BY COALESCE(tag, '') " + (desc ? "DESC" : "ASC"));
 				break;
 			case "total":
-				// 题量不是 t_repo 的列，是每行实时统计出来的，排序用子查询才能跨页正确
+
 				wrapper.last("ORDER BY (SELECT COUNT(*) FROM t_template tt WHERE tt.repo_id = t_repo.id AND tt.is_deleted = 0) "
 						+ (desc ? "DESC" : "ASC"));
 				break;
@@ -160,8 +160,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper = Wrappers.<Repo>lambdaQuery()
 				.like(isNotBlank(query.getName()), Repo::getName, query.getName())
 				.eq(StringUtils.hasText(query.getCategory()), Repo::getCategory, query.getCategory());
-		// 管理员看全部题库；非管理员才按「自己创建 / 共享 / 被授权」收窄。
-		// 之前管理员也被 createBy 限制，题库是别人建的就看不到。
+
+
 		applyRepoVisibility(wrapper, currentUserId, Boolean.TRUE.equals(query.getMemberOnly()));
 		wrapper.eq(query.getIsPractice() != null, Repo::getIsPractice, query.getIsPractice())
 				.eq(query.getMode() != null, Repo::getMode, query.getMode());
@@ -172,9 +172,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		result.getList().forEach(repoView -> {
 			repoView.setTotal(
 					templateService.count(Wrappers.<Template>lambdaQuery().eq(Template::getRepoId, repoView.getId())));
-			// 获取每个标签对应的题的数量
+
 			repoView.setTemplateTags(this.getBaseMapper().selectRepoTemplateTags(repoView.getId()));
-			// 获取每个问题类型对应的题的数量
+
 			repoView.setRepoQuestionTypes(this.getBaseMapper().selectRepoQuestionTypes(repoView.getId()));
 		});
 		return result;
@@ -192,7 +192,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		if (SecurityContextUtils.isAdmin()) {
 			return;
 		}
-		// 学员：只通过班级分配看题库，不再走自己创建/共享/个人或用户组授权
+
 		User current = userMapper.selectById(currentUserId);
 		if (current != null && "student".equals(current.getUserType())) {
 			wrapper.apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
@@ -200,17 +200,17 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		}
 		wrapper.and(x -> {
 			if (memberOnly) {
-				// 自己创建的、共享的、逐个授权、或所在用户组被授权（主组 + 附加组，含祖先链）
+
 				x.eq(Repo::getCreateBy, currentUserId).or().eq(Repo::getShared, true).or().apply(
 						"EXISTS (SELECT 1 FROM t_repo_partner rp WHERE rp.repo_id = t_repo.id AND (rp.user_id = {0} OR (rp.dept_id IS NOT NULL AND rp.dept_id IN ("
 								+ UserDeptScopeService.DEPT_SCOPE_SQL + "))))",
 						currentUserId)
-						// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
+
 						.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
 			}
 			else {
 				x.eq(Repo::getCreateBy, currentUserId).or(y -> y.eq(Repo::getShared, true))
-						// 按班级分配：本班在 t_class_resource 上有这个题库就可见（学员练习入口）
+
 						.or().apply(CLASS_REPO_ASSIGN_SQL, currentUserId);
 			}
 		});
@@ -226,7 +226,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@Override
 	public List<RepoCategoryView> listRepoCategories() {
 		String currentUserId = SecurityContextUtils.getUserId();
-		// 1. 可见题库的分类（可见性与 listRepo 同源）
+
 		com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> repoWrapper = Wrappers
 				.<Repo>lambdaQuery().select(Repo::getId, Repo::getCategory);
 		applyRepoVisibility(repoWrapper, currentUserId, false);
@@ -238,7 +238,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			repoCounts.merge(normalizeCategoryPath(repo.getCategory()), 1, Integer::sum);
 		}
 
-		// 2. 目录登记表（空文件夹只存在这里）
+
 		Map<String, RepoCategory> registryByPath = new LinkedHashMap<>();
 		for (RepoCategory category : repoCategoryMapper.selectList(Wrappers.<RepoCategory>lambdaQuery())) {
 			if (category == null || !StringUtils.hasText(category.getPath())) {
@@ -247,7 +247,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			registryByPath.put(normalizeCategoryPath(category.getPath()), category);
 		}
 
-		// 3. 节点 = 登记表路径 ∪ 可见题库的分类路径，并逐层补齐祖先
+
 		Set<String> paths = new LinkedHashSet<>(registryByPath.keySet());
 		for (String path : repoCounts.keySet()) {
 			if (StringUtils.hasText(path)) {
@@ -276,7 +276,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				nodes.put(nodePath, view);
 			}
 		}
-		// 4. 登记表里的 id / name / parentId 覆盖回来（名称以登记表为准）
+
 		registryByPath.forEach((path, category) -> {
 			RepoCategoryView view = nodes.get(path);
 			if (view == null) {
@@ -287,7 +287,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			view.setParentId(category.getParentId());
 		});
 
-		// 5. count：从每个题库所在目录往上，累加到所有祖先
+
 		repoCounts.forEach((path, count) -> {
 			if (!StringUtils.hasText(path)) {
 				return;
@@ -303,7 +303,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			}
 		});
 
-		// 6. 「未分类」：只有真的存在没填分类的题库时才出现
+
 		Integer uncategorized = repoCounts.get("");
 		if (uncategorized != null && uncategorized > 0) {
 			RepoCategoryView view = new RepoCategoryView();
@@ -313,7 +313,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			nodes.put("", view);
 		}
 
-		// 7. 前序展开：父节点在前、子节点紧跟；同层按名称排序
+
 		Map<String, List<RepoCategoryView>> children = new LinkedHashMap<>();
 		List<RepoCategoryView> roots = new ArrayList<>();
 		for (RepoCategoryView view : nodes.values()) {
@@ -351,7 +351,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		if (name.contains(CATEGORY_PATH_SEPARATOR)) {
 			throw new ValidationException("分类名不能包含 /");
 		}
-		// 上级：优先 parentId（登记表行），其次 parentPath（给还没登记、只有路径的层级用）
+
 		RepoCategory parent = null;
 		if (StringUtils.hasText(request.getParentId())) {
 			parent = repoCategoryMapper.selectById(request.getParentId());
@@ -378,7 +378,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			repoCategoryMapper.insert(category);
 		}
 		catch (DuplicateKeyException e) {
-			// 并发建同一路径：唯一键兜底
+
 			throw new ValidationException("分类已存在");
 		}
 	}
@@ -404,8 +404,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	 * <p>练习答卷的判定：t_answer.repo_id 命中且 exam_exercise_type 非空。正式考试的答卷 repo_id 为空，不会混进来。
 	 */
 	public RepoReportView repoReport(String repoId) {
-		// 光有 repo:report 权限点不等于能看这个库：还得确认它对当前账号可读，
-		// 否则老师用任意 repoId 就能看到没授权给他的题库统计。
+
+
 		assertReadableRepo(repoId);
 		Repo repo = getById(repoId);
 		if (repo == null) {
@@ -452,8 +452,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	public void updateRepo(RepoRequest request) {
 		assertManageRepo(request.getId());
 		updateById(repoViewMapper.fromRequest(request));
-		// MyBatis-Plus 的 updateById 会跳过 null 字段，「清空全局开放期」（前端传 null）会静默不生效。
-		// 这两列显式 set 一次：题库编辑弹窗是整表单保存，总会带上这两个字段（不传=清空）。
+
+
 		getBaseMapper().update(null, Wrappers.<Repo>lambdaUpdate().eq(Repo::getId, request.getId())
 				.set(Repo::getOpenStartAt, request.getOpenStartAt()).set(Repo::getOpenEndAt, request.getOpenEndAt()));
 		tagService.batchAddTag(request.getId(), TagCategoryEnum.repo, request.getTag());
@@ -465,11 +465,11 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String id = request.getId();
 		fileService.deleteByOwner("repo", id);
 		removeById(id);
-		// 题库没了，按班级的分配也要清掉，否则 t_class_resource 留下指向已删题库的孤儿行
+
 		classResourceService.removeByResource(ClassResourceService.RESOURCE_TYPE_REPO, id);
-		// 删除题库下面的所有题
+
 		templateService.remove(Wrappers.<Template>lambdaUpdate().eq(Template::getRepoId, id));
-		// 取消题库标签
+
 		tagService.remove(Wrappers.<Tag>lambdaUpdate().eq(Tag::getEntityId, id));
 	}
 
@@ -483,7 +483,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				.list(Wrappers.<Template>lambdaQuery().eq(Template::getRepoId, request.getRepoId()));
 
 		request.getTemplates().forEach(template -> {
-			// 根据序号更新更新题库
+
 			templateListOfCurrentRepo.stream()
 					.filter(t -> StringUtils.hasText(t.getSerialNo()) && t.getSerialNo().equals(template.getSerialNo())
 							&& t.getQuestionType() == template.getQuestionType())
@@ -498,7 +498,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			else {
 				templatesUpdate.add(template);
 			}
-			// template 里面的 tags 冗余了
+
 			if (template.getTemplate().getTags() != null) {
 				template.setTag(template.getTemplate().getTags().toArray(new String[0]));
 			}
@@ -520,19 +520,19 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				templatesUpdate.stream().map(TemplateRequest::getId).collect(Collectors.toList()));
 
 		if (!templatesAdd.isEmpty()) {
-			// 添加模板的时候，需要添加题库与模板的关联关系
+
 			templatesAdd.forEach(x -> x.setRepoId(request.getRepoId()));
 			templateService.batchAddTemplate(templatesAdd);
 		}
 		if (!templatesUpdate.isEmpty()) {
 			templatesUpdate.forEach(x -> x.setRepoId(request.getRepoId()));
 			templateService.batchUpdateTemplate(templatesUpdate);
-			// 更新模板时需要删除之前的标签
+
 			tagService.remove(Wrappers.<Tag>lambdaUpdate().in(Tag::getEntityId,
 					templatesUpdate.stream().map(x -> x.getId()).collect(Collectors.toList())));
 		}
 
-		// 添加模板问题标签
+
 		if (!tagList.isEmpty()) {
 			tagService.saveBatch(tagList);
 		}
@@ -568,14 +568,14 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 							.in(!CollectionUtils.isEmpty(repo.getTypes()), Template::getQuestionType, repo.getTypes())
 							.in(!CollectionUtils.isEmpty(repo.getTags()), Template::getId, taggedTemplateIds));
 			if (repo.getQuestionsNum() != null) {
-				// 随机从问题里面挑选指定数量的题
+
 				Collections.shuffle(repoTemplates);
 				if (repoTemplates.size() > repo.getQuestionsNum()) {
 					repoTemplates = repoTemplates.subList(0, repo.getQuestionsNum());
 				}
 			}
 
-			// 给问题添加分值
+
 			repoTemplates.forEach(template -> {
 				if (templates.stream().filter(x -> x.getId().equals(template.getId())).findFirst().isPresent()) {
 					return;
@@ -589,7 +589,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 				templates.add(template);
 			});
 		});
-		// 相同类型的问题排放在一起
+
 		return templates.stream().map(x -> {
 			SurveySchema schema = x.getTemplate();
 			schema.setId(x.getId());
@@ -705,11 +705,11 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 						.eq(query.getType() != null, UserBook::getType, query.getType())
 						.ge(query.getStartDate() != null, UserBook::getCreateAt, query.getStartDate())
 						.le(query.getEndDate() != null, UserBook::getCreateAt, query.getEndDate())
-						// 出错次数下限：错题本里「错过 2 次以上」这类筛选
+
 						.ge(query.getWrongTimesMin() != null, UserBook::getWrongTimes, query.getWrongTimesMin())
-						// 标记状态：1 已掌握 / 2 重点标记
+
 						.eq(query.getStatus() != null, UserBook::getStatus, query.getStatus())
-						// 来源考试：只看某一场考试产生的错题（不传则不限）
+
 						.eq(isNotBlank(query.getProjectId()), UserBook::getProjectId, query.getProjectId())
 						.eq(UserBook::getCreateBy, SecurityContextUtils.getUserId()));
 		List<UserBookView> views = userBookViewMapper.toView(page.getRecords());
@@ -727,7 +727,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		if (CollectionUtils.isEmpty(views)) {
 			return;
 		}
-		// 同一道题可能同时有「错题」和「收藏」两条记录，按 templateId 缓存，避免重复查库
+
 		Map<String, String> reasonCache = new HashMap<>();
 		for (UserBookView view : views) {
 			String templateId = view.getTemplateId();
@@ -751,8 +751,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			template = templateService.getReadableTemplate(userBook.getTemplateId());
 		}
 		catch (RuntimeException ex) {
-			// 把「模板不存在 / 没有权限」翻译成用户看得懂的话：错题本里的记录可能来自试卷内现编的题，
-			// 也可能所属题库已经被取消分配。直接抛技术文案会让人以为是系统坏了。
+
+
 			throw new ValidationException("这道题现在打不开：" + ex.getMessage()
 					+ "。如果它是在试卷里临时编写的题目（没有进入题库），就不能单独练习。");
 		}
@@ -761,9 +761,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		}
 		SurveySchema schema = template.getTemplate().deepCopy();
 		schema.setId(template.getId());
-		// 默认剥掉答案：做题时不该看到正确答案。
-		// 错题本练习的结果页需要判分，此时前端传 withAnswer=1；
-		// 能取到的只有「本人错题本里的题」，不会因此泄漏整个题库。
+
+
+
 		if (!Boolean.TRUE.equals(withAnswer)) {
 			SchemaHelper.ignoreAttributes(schema, "examCorrectAnswer", "examScore", "examMatchRule", "examAnalysis");
 		}
@@ -834,10 +834,10 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		String name = request.getName();
 		String repoId = request.getRepoId();
 		if (StringUtils.hasText(request.getTemplateId())) {
-			// 只取名称与所属题库，不做权限校验：
-			// 这一步在收藏写入的事务里，用 getReadableTemplate 会在模板不存在/不可读时抛异常，
-			// 即使外层 catch 住，事务也已被标记 rollback-only，提交时变成 500
-			// （UnexpectedRollbackException）——「收藏一道题库里没有的自建题」就会踩到。
+
+
+
+
 			Template template = templateService.getById(request.getTemplateId());
 			if (template != null) {
 				name = StringUtils.hasText(template.getName()) ? template.getName() : name;
@@ -879,30 +879,30 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			userBook.setRepoId(template.getRepoId());
 			userBook.setName(template.getName());
 			userBook.setType(BOOK_TYPE_WRONG);
-			// 模板问题分值默认是没有分数的，需要手动设置一个分数用于正确和错误运算
+
 			template.getTemplate().getAttribute().setExamScore(5.0);
 			template.getTemplate().setId(template.getId());
 			AnswerScoreEvaluator answerScoreEvaluator = new AnswerScoreEvaluator(template.getTemplate(),
 					request.getAnswer());
 			Double qScore = answerScoreEvaluator.eval();
 			UserInfo userInfo = SecurityContextUtils.getUser();
-			// 回答正确
-			// 连续做对几次，自动移出错题/0代表永不移出
+
+
 			if (qScore > 0) {
 				userBook.setCorrectTimes(Optional.ofNullable(userBook.getCorrectTimes()).orElse(0) + 1);
-				// 正确几次之后会从错题本移除
+
 				if (Optional.ofNullable(userInfo.getCorrectTimes()).orElse(0) >= userBook.getCorrectTimes()) {
 					userBook.setWrongTimes(0);
 				}
 			}
 			else {
-				// 回答失败，只要做错一次就给正确次数置 0
+
 				userBook.setWrongTimes(Optional.ofNullable(userBook.getWrongTimes()).orElse(0) + 1);
 				userBook.setCorrectTimes(0);
 			}
 
 			result.setQscore(qScore);
-			// 保存临时答案
+
 			if (request.getAnswerId() != null) {
 				Answer answer = answerService.getOne(Wrappers.<Answer>lambdaQuery()
 						.select(Answer::getId, Answer::getRepoId, Answer::getTempAnswer, Answer::getExamInfo)
@@ -1002,9 +1002,9 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		result.forEach(repoView -> {
 			repoView.setTotal(
 					templateService.count(Wrappers.<Template>lambdaQuery().eq(Template::getRepoId, repoView.getId())));
-			// 获取每个标签对应的题的数量
+
 			repoView.setTemplateTags(this.getBaseMapper().selectRepoTemplateTags(repoView.getId()));
-			// 获取每个问题类型对应的题的数量
+
 			repoView.setRepoQuestionTypes(this.getBaseMapper().selectRepoQuestionTypes(repoView.getId()));
 		});
 		return result;
@@ -1013,7 +1013,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	@Override
 	@SneakyThrows
 	public void exportRepoQuestions(RepoRequest request) {
-		// 先拼内容再设响应头：拼装失败时才能走全局异常处理返回 JSON，而不是先声明成 attachment 再吐一个坏文件
+
 		byte[] content = exportRepoQuestionsBytes(request);
 		Repo repo = getById(request.getId());
 		String fileName = (repo != null && repo.getName() != null ? repo.getName() : "题库") + ".xlsx";
@@ -1036,13 +1036,13 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	 */
 	byte[] exportRepoQuestionsBytes(RepoRequest request) {
 		assertReadableRepo(request.getId());
-		// 只查能导出的题型：题库里还可能挂着设计器的其它节点（分页/说明等），导出来也导不回去
+
 		List<Template> questions = templateService.list(Wrappers.<Template>lambdaQuery()
 				.eq(Template::getRepoId, request.getId())
 				.in(Template::getQuestionType, RepoQuestionExcelExporter.EXPORTABLE_TYPES)
 				.orderByAsc(Template::getQuestionType, Template::getCreateAt));
 		if (CollectionUtils.isEmpty(questions)) {
-			// 以前会写出一个没有任何 sheet 的 xlsx：Excel 打不开，导入侧也只会报「没有可导入的题目」
+
 			throw new ValidationException("题库里没有可导出的题目");
 		}
 		return RepoQuestionExcelExporter.export(questions);
@@ -1082,7 +1082,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	private void assertManageRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
-		// 管理员可以维护任何题库（含共享题库）；其他人只能管自己创建的
+
 		if (SecurityContextUtils.isAdmin()) {
 			return;
 		}
@@ -1094,7 +1094,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		if (Objects.equals(repo.getCreateBy(), userId)) {
 			return;
 		}
-		// 被授到「可编辑」（access_level>=2）的老师（含用户组授权）也能维护题库
+
 		java.util.Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		boolean canEdit = repoPartnerMapper
 				.selectList(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId).and(w -> {
@@ -1112,7 +1112,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 	private void assertReadableRepo(String repoId) {
 		Repo repo = getRepoOrThrow(repoId);
 		String userId = SecurityContextUtils.getUserId();
-		// 学员：题库只能来自班级资源分配；共享/个人授权都不再作为学员入口
+
 		User current = userMapper.selectById(userId);
 		if (current != null && "student".equals(current.getUserType())) {
 			if (classResourceService.canStudentReadRepo(repoId)) {
@@ -1120,19 +1120,19 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			}
 			throw new AccessDeniedException("无权限访问该题库");
 		}
-		// 管理员全放行；共享题库对所有能进题库列表的人可读（与 TemplateServiceImpl#isReadableRepo、
-		// 列表的 shared 分支保持同一口径，否则列表能看到、点进去 403 空白）；
-		// 其余人只能读自己创建的、被逐个授权的、或所在用户组被授权的。
+
+
+
 		if (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())) {
 			return;
 		}
-		// 按班级分配：学生被分配到本班的题库也要能打开（否则列表能看到、点进去 403；练习 /repo/pick 也走这里）。
-		// 非学生一律 false，不会放宽教职工的口径。
+
+
 		if (classResourceService.canStudentReadRepo(repoId)) {
 			return;
 		}
-		// 可见组 = 主组 + 附加组 + 祖先链（一次解析，不在循环里查）
+
 		Set<String> deptScope = userDeptScopeService.resolveDeptScope(userId);
 		long authorized = repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery()
 				.eq(RepoPartner::getRepoId, repoId).and(w -> {

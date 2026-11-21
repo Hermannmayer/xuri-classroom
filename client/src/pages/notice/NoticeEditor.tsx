@@ -9,13 +9,13 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RichTextEditor from '../../components/RichTextEditor';
 import { NOTICE_TARGET_LABEL, type NoticeAudienceTarget, type NoticeView } from './types';
 
-/** 与后端 ClassNodeView 对齐（选班只用这几项） */
+
 interface ClassTreeNode {
   id: string;
   name?: string;
-  /** false = 只是路径祖先（后端为了让树有路径补出来的），点它会 403 */
+
   accessible?: boolean;
-  /** 当前登录人对本班是否有写权限；false 只能看不能发 */
+
   manageable?: boolean;
   children?: ClassTreeNode[];
 }
@@ -51,10 +51,10 @@ function toClassOptions(nodes: ClassTreeNode[]): ClassTreeOption[] {
 
 interface NoticeFormValues {
   title: string;
-  /** 班级 id：受众选「指定班级」时必填 */
+
   classId?: string;
   pinned?: boolean;
-  /** 过期时间，留空=长期有效 */
+
   expireAt?: Dayjs;
 }
 
@@ -62,7 +62,7 @@ interface NoticeFormValues {
  * 受众候选：只给「选了不会 403」的项。
  *
  * <p>后端 NoticeServiceImpl#applyRequest 的规则是 scopeType=class 要班级权限（持 notice:manage:system
- * 的人直接放行），其余范围要 notice:manage:system。所以：
+
  * - 有全站权限：五项都能选，class 表示发给某个班（管理员后端放行）；
  * - 只有班级权限：只能 class —— 给「全站」等于让人选了必然失败。
  */
@@ -127,12 +127,12 @@ export default function NoticeEditor({
   onSaved,
 }: {
   open: boolean;
-  /** 传了就是编辑已有公告，不传是新建 */
+
   notice?: NoticeView;
-  /** /api/system 的 aiEnabled：明确为 false（系统停用 AI）时连「AI 起草」都不出现 */
+
   aiEnabled?: boolean;
   onClose: () => void;
-  /** 保存成功后回调：publish=false 表示只存了草稿（父组件会切到「草稿」分类，免得找不到） */
+
   onSaved: (publish: boolean) => void;
 }) {
   const { message } = App.useApp();
@@ -143,10 +143,10 @@ export default function NoticeEditor({
   const [classOptions, setClassOptions] = useState<ClassTreeOption[]>([]);
   const [classLoading, setClassLoading] = useState(false);
   const [classError, setClassError] = useState<string>();
-  /** 受众目标：只有全站权限的人能改，没权限时按 class 渲染（见下面的 audienceTarget） */
+
   const [audience, setAudience] = useState<NoticeAudienceTarget>('all');
 
-  /** AI 起草：要点弹窗、生成中、失败原因、生成后的提醒 */
+
   const [draftOpen, setDraftOpen] = useState(false);
   const [points, setPoints] = useState('');
   const [drafting, setDrafting] = useState(false);
@@ -155,42 +155,42 @@ export default function NoticeEditor({
 
   const canManageSystem = can(authorities, PERMISSION_CODES.noticeManageSystem);
   const canManageClass = can(authorities, PERMISSION_CODES.noticeManageClass);
-  /**
-   * 「AI 起草」的显示条件：能管公告 + 有 ai:use（/api/ai/notice/draft 的注解要它，
-   * 自定义角色可能只有公告权限）+ AI 总开关没关。
-   */
+
+
+
+
   const canDraft =
     (canManageSystem || canManageClass) && can(authorities, PERMISSION_CODES.aiUse) && aiEnabled !== false;
 
   const targets = availableTargets(canManageSystem);
   const targetOptions = targets.map((value) => ({ value, label: NOTICE_TARGET_LABEL[value] }));
-  /**
-   * 实际生效的受众：
-   * - 有全站权限：按下拉里选的来；
-   * - 只有班级权限：恒为 class。表单里的值可能是回填出来的 'all'，
-   *   但后端只认 scopeType=class，这里统一按 class 处理，避免提交一个必然 403 的范围。
-   */
+
+
+
+
+
+
   const audienceTarget: NoticeAudienceTarget = canManageSystem ? audience : 'class';
   const classScoped = audienceTarget === 'class';
 
-  // 权限列表：抽屉打开时才拉，避免每个登录用户都多一次 /api/currentUser
+
   useEffect(() => {
     if (!open) return;
     void loadAuthorities().then(setAuthorities);
   }, [open]);
 
-  /**
-   * 每次打开都按「编辑对象」重置。
-   *
-   * <p>这里只依赖 open / notice：把 canManageSystem 也写进依赖的话，权限晚到会再跑一遍，
-   * 把用户已经敲进去的标题正文冲掉（受众的实际取值由 audienceTarget 在渲染时收敛）。
-   */
+
+
+
+
+
+
   useEffect(() => {
     if (!open) return;
     form.resetFields();
     setContent(notice?.content ?? '');
     setAudience(initialTarget(notice));
-    // AI 的提醒与错误不跨公告带：上一条的「建议补上考试地点」挂在新公告上会误导人
+
     setDraftOpen(false);
     setDraftError(undefined);
     setDraftTip(undefined);
@@ -202,10 +202,10 @@ export default function NoticeEditor({
     });
   }, [open, notice, form]);
 
-  // 班级候选：只有要发班级公告的人才拉；读不到时给提示，但不挡住「全站公告」
+
   useEffect(() => {
     if (!open || !classScoped) return;
-    // 权限还没回来时 canManageSystem 恒为 false，管理员会被当成「只发班」而白拉一次班级树
+
     if (authorities.length === 0) return;
     let alive = true;
     setClassLoading(true);
@@ -232,7 +232,7 @@ export default function NoticeEditor({
    *
    * <p>受众跟着表单当前的选择走，模型建议的 audience / classIds 一律不回写——
    * 若模型建议了用户无权发的范围，回写只会立刻换来一个 403。
-   * 后端失败时给的是中文原因（例如「只有管理员能给全站发通知」），原样展示在弹窗里。
+
    */
   const generateDraft = async () => {
     const raw = points.trim();
@@ -250,14 +250,14 @@ export default function NoticeEditor({
     try {
       const res = await draftAiNotice({
         points: raw,
-        // 与保存时同一套口径：班级公告传 class + classIds，其余直接传 audience 枚举值
+
         audience: classScoped ? 'class' : audienceTarget,
         classIds: classScoped && classId ? [classId] : undefined,
       });
       const title = (res?.title || '').trim();
       const html = plainTextToHtml(res?.content ?? '');
       if (!title && !html) {
-        // 模型偶尔只回一句提醒（放在 tip 里）：这时候什么都不填，别把用户已经写好的正文清空
+
         setDraftError('AI 没有返回可用的标题和正文，换个说法再试一次');
         return;
       }
@@ -265,7 +265,7 @@ export default function NoticeEditor({
       if (html) setContent(html);
       setDraftTip((res?.tip || '').trim() || undefined);
       setDraftOpen(false);
-      // 只填不发布：这一步之后还得人来核对，再点「发布」
+
       message.success('已填入标题和正文，核对后再点「发布」');
     } catch (e) {
       setDraftError((e as Error).message || 'AI 起草失败，请稍后再试');
@@ -278,7 +278,7 @@ export default function NoticeEditor({
    * 保存 / 发布。
    *
    * <p>4.5 把 create 与 publish 分成两个接口，后端 create 只落草稿（NoticeServiceImpl#create），
-   * 所以「发布」是 create(update) 之后再调一次 publish。publish 对已发布的公告是幂等的
+
    * （只把状态写回 published、保留首次 publishAt），重复点不会出问题。
    * 万一 create 什么 id 都没回，退化成「已保存为草稿，请到列表里点发布」，不假装发布成功。
    */
@@ -287,7 +287,7 @@ export default function NoticeEditor({
     try {
       values = await form.validateFields();
     } catch {
-      return; // 字段上的校验提示已经显示了
+      return;
     }
     if (classScoped && !values.classId) {
       message.warning('请选择要接收公告的班级');
@@ -301,10 +301,10 @@ export default function NoticeEditor({
       message.warning('过期时间要晚于当前时间');
       return;
     }
-    /**
-     * 班级公告的受众：编辑老公告时保留原来的 teacher / student，
-     * 别把「仅老师」的班级公告改成「仅学员」；新建时固定 student（4.3：老师公告只发本班学员）。
-     */
+
+
+
+
     const classAudience =
       notice?.scopeType === 'class' && (notice.audience === 'teacher' || notice.audience === 'student')
         ? notice.audience
@@ -312,20 +312,20 @@ export default function NoticeEditor({
     const body = {
       title: values.title.trim(),
       content,
-      /**
-       * system_update 只能由「检查更新」写入（后端 NoticeServiceImpl#normalizeType 会拒绝人工写），
-       * 公告管理台也不给系统更新公告提供「编辑」入口；这里只把 notice / ai_result 原样带回。
-       */
+
+
+
+
       type: notice?.type === 'ai_result' ? 'ai_result' : 'notice',
-      // 班级公告只用 classAudience；其余目标本身就是 audience 列的值
+
       audience: classScoped ? classAudience : audienceTarget,
-      // scopeType 为 null 表示全站（4.2 建表注释）；显式传 null 才能在「班级公告改成全站」时清掉 scope_id
+
       scopeType: classScoped ? 'class' : null,
       scopeId: classScoped ? (values.classId ?? null) : null,
       pinned: Boolean(values.pinned),
-      // 后端 update 是整行覆盖，不带上 requireAck 会把「要求已读」清成 false
+
       requireAck: Boolean(notice?.requireAck),
-      // expireAt 是 Long（epoch 毫秒）；传 'YYYY-MM-DD HH:mm:ss' 字符串后端直接 400
+
       expireAt: values.expireAt ? values.expireAt.valueOf() : null,
     };
 
@@ -335,7 +335,7 @@ export default function NoticeEditor({
       if (id) {
         await post('/api/notice/update', { id, ...body });
       } else {
-        // 后端 create 返回 {id}（NoticeApi.java）；兼容只回 id 字符串或什么都不回的实现
+
         const created = await post<{ id?: string } | string | null>('/api/notice/create', body);
         id = typeof created === 'string' ? created : (created?.id ?? undefined);
       }
@@ -349,7 +349,7 @@ export default function NoticeEditor({
       } else if (notice) {
         message.success('已保存');
       } else {
-        // 后端 create 只落草稿，默认列表也只回已发布：必须告诉用户去哪找它
+
         message.success('已保存为草稿，可在「草稿」分类里发布');
       }
       onSaved(publish);
@@ -421,7 +421,7 @@ export default function NoticeEditor({
           <Input placeholder="例如：关于期中考试安排的通知" maxLength={200} showCount />
         </Form.Item>
 
-        {/* 正文不进 Form：RichTextEditor 的 value/onChange 由本地 state 接管，避免受控冲突 */}
+
         <Form.Item label="正文" required extra="支持富文本与图片；服务端入库前会再白名单消毒一次，脚本类标签会被清掉">
           <RichTextEditor
             value={content}
@@ -431,7 +431,7 @@ export default function NoticeEditor({
           />
         </Form.Item>
 
-        {/* 受众用受控 Select：值取自 audienceTarget，只有班级权限的人只有一个选项且不可改 */}
+
         <Form.Item
           label="受众"
           extra={

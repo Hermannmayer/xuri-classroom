@@ -3,7 +3,7 @@ import { Alert, App, Button, Modal, Upload } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { download, post } from '../../api';
 
-/** 后端导入接口返回 { imported } */
+
 interface ImportResult {
   imported?: number;
 }
@@ -12,7 +12,7 @@ interface ImportResult {
  * 班级学员批量导入。
  *
  * 流程：下载 xlsx 模板 → 填好（姓名/手机号/初始密码/邮箱）→ 上传 → 看导入结果。
- * 手机号就是登录账号，所以模板里没有「登录账号」这一列。
+
  */
 export default function ImportMembersModal({
   open,
@@ -25,7 +25,7 @@ export default function ImportMembersModal({
   deptId: string;
   deptName?: string;
   onClose: () => void;
-  /** 导入成功后刷新成员列表与班级树（成员数会变） */
+
   onImported: () => void;
 }) {
   const { message } = App.useApp();
@@ -44,7 +44,7 @@ export default function ImportMembersModal({
 
   const downloadTemplate = async () => {
     try {
-      // 用带 cookie 的 download：后端报错会以 JSON 返回，download 会转成中文提示
+
       await download('/api/teaching/classes/member/template', undefined, '学员导入模板.xlsx');
     } catch (e) {
       message.error((e as Error).message);
@@ -98,7 +98,7 @@ export default function ImportMembersModal({
           disabled={importing || !deptId}
           beforeUpload={(file) => {
             void doImport(file);
-            // 阻止 antd 自己上传：这里走带 cookie 的 post
+
             return false;
           }}
         >

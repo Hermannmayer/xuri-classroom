@@ -6,21 +6,21 @@ import java.util.List;
 
 import lombok.Data;
 
-/**
- * 一次结构检查/升级的结果，也给 /api/system 用。
- */
+
+
+
 @Data
 public class SchemaUpgradeResult {
 
 	public enum Status {
 
-		/** 结构与程序版本一致，没动数据库 */
+
 		OK,
-		/** 库结构落后，已执行迁移 */
+
 		UPGRADED,
-		/** 库结构比程序还新（程序被回滚过），只告警不降级 */
+
 		AHEAD,
-		/** 显式关闭了自动升级 */
+
 		DISABLED
 
 	}

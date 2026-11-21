@@ -7,10 +7,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * @author javahuang
- * @date 2022/5/15
- */
+
+
+
+
 public class MapBeanUtils {
 
 	public static <T> Map<String, ?> beanToMap(T bean) {

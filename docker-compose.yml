@@ -13,7 +13,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - db-data:/var/lib/mysql
-      # 首次启动自动建表（只在数据卷为空时执行）
+
       - ./server/rdbms/src/main/resources/scripts/init-mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1']
@@ -34,19 +34,19 @@ services:
       DB_NAME: ${DB_NAME:-surveyking}
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:-123456}
-      # 生产必须提供 32 字节 Base64 密钥；Compose 缺失该变量时拒绝启动，避免静默明文存储。
-      # 注意：当前没有任何代码读取这个变量（Java 里零引用），加密尚未实现；
-      # 保留必填只是不破坏既有 .env 与部署脚本，填随机值不影响数据。
+
+
+
       SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?Set SK_CRYPTO_KEY to a base64-encoded 32-byte key}
-      # JWT 签名密钥（可选但强烈建议）：不配则每次重启随机生成 → 重启后所有人掉线、多实例无法共享会话。
-      # 生成：openssl rand -base64 48
+
+
       SK_JWT_SECRET: ${JWT_SECRET:-}
       TZ: Asia/Shanghai
-    # 只在 compose 内网可达，不 publish 到宿主机
+
     expose:
       - '7007'
     volumes:
-      # 上传的图片/附件，备份时打包这个卷
+
       - app-files:/app/files
     depends_on:
       db:
@@ -59,8 +59,8 @@ services:
       target: web-final
     restart: unless-stopped
     ports:
-      # 宿主机默认 9527（四位数，避开服务器上常见的 80/8080/3000）；容器内 nginx 仍监听 80。
-      # 想换端口改 .env 里的 APP_PORT，或部署时 APP_PORT=18080 docker compose up -d
+
+
       - '${APP_PORT:-9527}:80'
     depends_on:
       app:

@@ -18,22 +18,22 @@ import TableScrollRegion from '../../components/TableScrollRegion';
 import { createApiToken, listApiTokens, revokeApiToken } from '../../api/apiToken';
 import type { ApiTokenView, CreateApiTokenResult } from '../../api/apiToken';
 
-/**
- * 系统设置 → MCP / API 令牌（P5 · 计划文档 §7.3）。
- *
- * 后端只加了接口，产品上得有个能点的入口，所以放在设置页里当一个 Tab：
- * - 列表只有掩码（前后各 4 位），明文永远拿不回来；
- * - 新建成功后**只弹一次**明文，关掉就没了，只能撤销后重新签发；
- * - 撤销要二次确认，撤销后正在用它的客户端立刻 401。
- *
- * 三个接口都要 system:setting:update：没有权限时这里只显示一句说明、不发请求
- * （设置页对这类账号整体是只读的，见 Setting.tsx 的 canUpdate）。
- *
- * scopes（工具白名单）后端支持但这里不开放编辑：留空 = 按签发用户的权限放行全部工具，
- * 对「管理员给自己配 Claude Desktop」这个主场景足够；真要限制工具，走接口改库更直接。
- */
 
-/** 有效期快捷选项：值是天数；never=永不过期，custom=自己选到分钟 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const EXPIRE_OPTIONS = [
   { label: '30 天', value: '30' },
   { label: '90 天', value: '90' },
@@ -52,7 +52,7 @@ const fmt = (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm');
  * 令牌指纹：优先用后端拼好的 maskedToken，只给前后各 4 位时前端补「****」。
  *
  * 这 8 个字符取的是**哈希**的首尾，不是明文片段（表里只有 SHA-256，见 V2.2.5 迁移），
- * 所以它只用来在同一批令牌里区分谁是谁，辨认令牌还得靠名称。
+
  */
 function maskOf(row: ApiTokenView): string {
   if (row.maskedToken) return row.maskedToken;
@@ -76,12 +76,12 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [expirePreset, setExpirePreset] = useState<string>(DEFAULT_EXPIRE);
-  /** 刚签发的结果：token 只在这一份数据里出现，关掉弹窗就清空 */
+
   const [created, setCreated] = useState<CreateApiTokenResult>();
   const [revokingId, setRevokingId] = useState<string>();
 
   const load = useCallback(async () => {
-    if (!canManage) return; // 没权限不发请求
+    if (!canManage) return;
     setLoading(true);
     try {
       setRows(await listApiTokens());
@@ -112,7 +112,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
       const v = await form.validateFields(['name']);
       name = String(v.name ?? '').trim();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     if (!name) return;
 
@@ -130,7 +130,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
 
     setCreating(true);
     try {
-      // scopes 不传 = 按签发用户的权限放行全部工具
+
       const res = await createApiToken({ name, expiresAt });
       setCreated(res);
       setCreateOpen(false);
@@ -256,7 +256,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
               ),
             },
             {
-              // 显示的是哈希指纹：写清「指纹」避免用户拿它去和手里的 sk_ 明文比对
+
               title: <span title="服务端只存 SHA-256，这里显示哈希的首尾各 4 位，不是令牌片段">令牌指纹</span>,
               key: 'mask',
               width: 160,
@@ -280,7 +280,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
               key: 'expiresAt',
               width: 140,
               render: (_: unknown, row: ApiTokenView) =>
-                // 不返回 = 永不过期（后端 non_null，不会给 null）
+
                 row.expiresAt ? (
                   <span style={{ fontSize: 12 }}>{fmt(row.expiresAt)}</span>
                 ) : (
@@ -327,7 +327,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
         confirmLoading={creating}
         onOk={() => void submitCreate()}
         onCancel={() => setCreateOpen(false)}
-        // 提前把表单挂上去：否则第一次打开前调 resetFields，useForm 实例还没连上 Form 会告警
+
         forceRender
       >
         <Form form={form} layout="vertical" size="small" requiredMark={false} style={{ marginTop: 8 }}>
@@ -364,7 +364,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
         okText="我已保存，关闭"
         onOk={() => setCreated(undefined)}
         onCancel={() => setCreated(undefined)}
-        // 不允许点遮罩 / ESC / 右上角叉关掉：必须点「我已保存」，少一次手滑丢令牌
+
         closable={false}
         mask={{ closable: false }}
         keyboard={false}

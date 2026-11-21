@@ -49,10 +49,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
 @Slf4j
 @RestController
 @RequestMapping("${api.prefix}/system")
@@ -71,21 +71,21 @@ public class SystemApi {
 
 	private final MessageSource messageSource;
 
-	/** 诊断日志打包：用户在「系统设置」里下载后直接发给管理员 */
+
 	private final DiagnosticsExporter diagnosticsExporter;
 
-	/** 匿名答卷清理（手动触发） */
+
 	private final AnonymousCleanupService anonymousCleanupService;
 
 	private final ObjectMapper objectMapper;
 
-	/** 数据库结构自动升级（启动时执行，这里只读取结果用于展示） */
+
 	private final SchemaUpgradeService schemaUpgradeService;
 
-	/** 公告：发现新版本时往管理员公告里写一条系统消息 */
+
 	private final NoticeService noticeService;
 
-	/** 设置页「自动获取模型列表」：Key 只在服务端使用，不下发浏览器 */
+
 	private final AiGateway aiGateway;
 
 	@Value("${version}")
@@ -94,19 +94,19 @@ public class SystemApi {
 	@Value("${update.manifest-url:}")
 	private String manifestUrl;
 
-	/** GitHub 仓库（owner/repo）；与 manifest-url 二选一，配了 manifest-url 就优先用它 */
+
 	@Value("${update.github-repo:}")
 	private String githubRepo;
 
-	/** GitHub API 前缀；国内可换镜像，接口路径保持一致 */
+
 	@Value("${update.github-api-base:https://api.github.com}")
 	private String githubApiBase;
 
-	/** 服务端缓存小时数：默认一天查一次，避免频繁打 GitHub 触发限流 */
+
 	@Value("${update.check-interval-hours:24}")
 	private long checkIntervalHours;
 
-	/** 更新包落盘目录：挂在数据卷上，宿主机脚本从同一路径取走并应用 */
+
 	@Value("${file-storage.local.root-path:./files}")
 	private String fileRootPath;
 
@@ -114,14 +114,14 @@ public class SystemApi {
 
 	private volatile long updateCheckedAt;
 
-	/** 上次检查是否失败：失败只缓存 1 小时，网络恢复后能较快重试 */
+
 	private volatile boolean lastCheckFailed;
 
 	@GetMapping("/version")
 	public Map<String, Object> version() {
 		Map<String, Object> view = new LinkedHashMap<>();
 		view.put("version", currentVersion);
-		// 数据库结构版本：排查“程序换了但库没跟上”时第一眼要看的东西
+
 		SchemaUpgradeResult schema = schemaUpgradeService.getLastResult();
 		if (schema != null) {
 			view.put("schemaVersion", schema.getDbVersion());
@@ -149,16 +149,16 @@ public class SystemApi {
 		return result;
 	}
 
-	/**
-	 * 检查更新：只读远端版本信息，不下载、不执行任何升级动作。
-	 *
-	 * <p>
-	 * 两种来源，二选一：配了 update.manifest-url 就查自建清单，否则查 GitHub Releases
-	 * （update.github-repo）。结果在服务端缓存 update.check-interval-hours 小时（默认 24），
-	 * 避免频繁打 GitHub 触发未认证限流（60 次/小时/IP）；失败只缓存 1 小时，网络恢复后能较快重试，
-	 * 且失败只置 error、不打扰前端。
-	 * </p>
-	 */
+
+
+
+
+
+
+
+
+
+
 	@GetMapping("/update/check")
 	@PreAuthorize("isAuthenticated()")
 	public UpdateCheckView checkUpdate(@RequestParam(value = "force", defaultValue = "false") boolean force) {
@@ -216,7 +216,7 @@ public class SystemApi {
 		}
 		cachedUpdate = view;
 		updateCheckedAt = now;
-		// 「检查更新」与公告中心联动：发现新版本时写一条管理员公告（同版本只写一次，见 NoticeService）
+
 		recordUpdateNotice(view);
 		return view;
 	}
@@ -263,7 +263,7 @@ public class SystemApi {
 				view.setPublishedAt(asText(manifest.get("publishedAt")));
 				view.setChannel(asText(manifest.get("channel")));
 				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
-				// assets 与 Release 里的 update.json 同构：有它才能「下载到服务器」
+
 				Object rawAssets = manifest.get("assets");
 				if (rawAssets instanceof Map<?, ?> map) {
 					Map<String, UpdateCheckView.Asset> assets = new LinkedHashMap<>();
@@ -314,13 +314,13 @@ public class SystemApi {
 				String tag = asText(release.get("tag_name"));
 				String latest = tag == null ? null : tag.replaceFirst("^[vV]", "");
 				view.setLatestVersion(latest);
-				// Release 正文可能很长，截断到 800 字，避免横幅撑爆
+
 				view.setNotes(truncate(asText(release.get("body")), 800));
 				view.setDownloadUrl(asText(release.get("html_url")));
 				view.setPublishedAt(asText(release.get("published_at")));
 				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
-				// Release 里如果附了 update.json，就用它把「各平台资产 + sha256」补全；
-				// 没有就保持只有 html_url，客户端退回「手动下载」的老路。
+
+
 				String manifestUrl = findUpdateManifest(release);
 				if (manifestUrl != null) {
 					fillFromUpdateManifest(view, manifestUrl);
@@ -412,14 +412,14 @@ public class SystemApi {
 		}
 	}
 
-	/**
-	 * 查询「已下载但还没应用」的更新包。
-	 *
-	 * <p>下载与安装是两步：这里只报状态（有没有 apply.flag、包多大、什么时候下的），
-	 * 真正的替换由宿主机脚本完成，所以界面要能看出「已经下好了、还没装」。
-	 *
-	 * @return 待应用状态
-	 */
+
+
+
+
+
+
+
+
 	@GetMapping("/update/pending")
 	@PreAuthorize("hasAuthority('system:setting:update')")
 	public Map<String, Object> updatePending() {
@@ -449,15 +449,15 @@ public class SystemApi {
 		return result;
 	}
 
-	/**
-	 * 下载当前平台的最新安装包并校验 sha256。
-	 *
-	 * <p>只做到「下载 + 校验 + 落盘 + 写标记」，**不在这里替换 jar 或重启容器**：
-	 * 应用跑在容器里、jar 是只读 bind mount，自我替换等于让进程给自己做手术。
-	 * 真正的替换由宿主机脚本 scripts/nas/apply-update.sh 完成（读这个标记，备份旧 jar、替换、重启）。
-	 *
-	 * @return 下载结果（版本、路径、大小、sha256）
-	 */
+
+
+
+
+
+
+
+
+
 	@PreAuthorize("hasAuthority('system:setting:update')")
 	@PostMapping("/update/download")
 	public Map<String, Object> downloadUpdate() {
@@ -479,9 +479,9 @@ public class SystemApi {
 				throw new ValidationException("下载的包校验失败：sha256 对不上，已丢弃");
 			}
 			Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-			// 记录来源与校验值：出问题时能追到「这个包是从哪来的、sha256 是多少」。
-			// 自建清单被篡改是这个功能唯一的信任缺口（sha256 也来自同一份清单），
-			// 所以至少留下可审计的痕迹。
+
+
+
 			log.info("下载更新包成功 version={} url={} sha256={} size={}", view.getLatestVersion(), asset.getUrl(), actual,
 					Files.size(target));
 			if (asset.getUrl() != null && !asset.getUrl().startsWith("https://")) {
@@ -597,10 +597,10 @@ public class SystemApi {
 		return systemService.getSystemInfo();
 	}
 
-	/**
-	 * 获取系统AI设置
-	 * @return
-	 */
+
+
+
+
 	@GetMapping("/aiSetting")
 	@PreAuthorize("hasRole('admin')")
 	public SystemInfo.AiSetting getSystemAiSetting() {
@@ -609,21 +609,21 @@ public class SystemApi {
 			return null;
 		}
 
-		// 不要直接修改持久化对象。MyBatis 可能会复用缓存中的对象，直接脱敏会导致
-		// 后续 AI 调用也无法读取 API Key。
+
+
 		SystemInfo.AiSetting response = new SystemInfo.AiSetting();
 		response.setEnabled(storedSetting.getEnabled());
 		response.setBaseUrl(storedSetting.getBaseUrl());
 		response.setModels(storedSetting.getModels());
 		response.setDefaultModel(storedSetting.getDefaultModel());
 		response.setPrompt(storedSetting.getPrompt());
-		// 限额：库里没填时回落到默认值，管理员在设置页看到的就是真正生效的数字；
-		// 显式存 0 表示「不限」，原样返回 0（页面显示「不限」）
+
+
 		response.setDailyTokenLimit(storedSetting.getDailyTokenLimit() == null
 				? Integer.valueOf(AiUsageService.DEFAULT_DAILY_TOKEN_LIMIT) : storedSetting.getDailyTokenLimit());
 		response.setPerUserDailyLimit(storedSetting.getPerUserDailyLimit() == null
 				? Integer.valueOf(AiUsageService.DEFAULT_PER_USER_TOKEN_LIMIT) : storedSetting.getPerUserDailyLimit());
-		// 每对话上限与限流同样回落到默认值：设置页要显示「真正生效的数字」，而不是一个空框
+
 		response.setMaxChatTurns(storedSetting.getMaxChatTurns() == null
 				? Integer.valueOf(AiUsageService.DEFAULT_MAX_CHAT_TURNS) : storedSetting.getMaxChatTurns());
 		response.setMaxTurnChars(storedSetting.getMaxTurnChars() == null
@@ -660,18 +660,18 @@ public class SystemApi {
 		return result;
 	}
 
-	/**
-	 * 获取脱敏后的第三方登录配置。
-	 */
+
+
+
 	@GetMapping("/oauthSetting")
 	@PreAuthorize("hasRole('admin')")
 	public OAuthSettingView getOAuthSetting() {
 		return systemService.getOAuthSettingView();
 	}
 
-	/**
-	 * 更新第三方登录配置。
-	 */
+
+
+
 	@PostMapping("/oauthSetting")
 	@PreAuthorize("hasRole('admin')")
 	public void updateOAuthSetting(@RequestBody OAuthSettingRequest request) {
@@ -686,7 +686,7 @@ public class SystemApi {
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public void updateSystemInfo(@RequestBody SystemInfoRequest request) {
 		systemService.updateSystemInfo(request);
-		// 更新源配置变更后立即失效缓存，设置页点「立即检查」能看到新结果
+
 		cachedUpdate = null;
 		updateCheckedAt = 0;
 	}
@@ -701,11 +701,11 @@ public class SystemApi {
 		}
 	}
 
-	/**
-	 * 获取系统角色列表
-	 * @param query 角色查询请求
-	 * @return
-	 */
+
+
+
+
+
 	@RequestMapping("/role/list")
 	@PreAuthorize("hasAuthority('system:role:list')")
 	public PaginationResponse<RoleView> roles(RoleQuery query) {
@@ -725,30 +725,30 @@ public class SystemApi {
 		return systemService.getRoleOptions();
 	}
 
-	/**
-	 * 添加系统角色
-	 * @param request 角色信息
-	 */
+
+
+
+
 	@PostMapping("/role/create")
 	@PreAuthorize("hasAuthority('system:role:create')")
 	public void createRole(@RequestBody RoleRequest request) {
 		systemService.createRole(request);
 	}
 
-	/**
-	 * 更新系统角色
-	 * @param request 角色信息
-	 */
+
+
+
+
 	@PostMapping("/role/update")
 	@PreAuthorize("hasAuthority('system:role:update')")
 	public void updateRole(@RequestBody RoleRequest request) {
 		systemService.updateRole(request);
 	}
 
-	/**
-	 * 删除系统角色
-	 * @param request 角色信息
-	 */
+
+
+
+
 	@PostMapping("/role/delete")
 	@PreAuthorize("hasAuthority('system:role:delete')")
 	public void deleteRole(@RequestBody RoleRequest request) {
@@ -776,20 +776,20 @@ public class SystemApi {
 		return systemService.getPermissionCatalog();
 	}
 
-	/**
-	 * 比对数据库和代码里面配置的权限
-	 */
+
+
+
 	@GetMapping("/permission/diff")
 	@PreAuthorize("hasRole('admin')")
 	public void extractCodeDiffDbPermissions() {
 		systemService.extractCodeDiffDbPermissions();
 	}
 
-	/**
-	 * 系统用户列表
-	 * @param query 查询用户信息
-	 * @return
-	 */
+
+
+
+
+
 	@RequestMapping("/user/list")
 	@PreAuthorize("hasAuthority('system:user:list')")
 	public PaginationResponse<UserView> roles(UserQuery query) {
@@ -808,42 +808,42 @@ public class SystemApi {
 		return userService.listUserOptions(keyword, userType);
 	}
 
-	/**
-	 * 创建系统用户
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/user/create")
-	// 入口放行三档权限，具体能建学员还是老师由 UserServiceImpl#assertRoleGrantScope 判断；
-	// 否则只配 create:student 的角色连接口都进不来。
+
+
 	@PreAuthorize("hasAnyAuthority('system:user:create','system:user:create:student','system:user:create:teacher') or hasRole('admin')")
 	public void createUser(@RequestBody @Valid UserRequest request) {
 		userService.createSystemUser(request);
 	}
 
-	/**
-	 * 更新系统用户
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/user/update")
 	@PreAuthorize("hasAuthority('system:user:update')")
 	public void updateUser(@RequestBody @Valid UserRequest request) {
 		userService.updateUser(request);
 	}
 
-	/**
-	 * 更新用户岗位信息
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/user/updatePosition")
 	@PreAuthorize("hasRole('admin')")
 	public void updateUserPosition(@RequestBody @Valid UserRequest request) {
 		userService.updateUserPosition(request);
 	}
 
-	/**
-	 * 删除用户
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/user/delete")
 	@PreAuthorize("hasAuthority('system:user:delete')")
 	public void deleteUser(@RequestBody UserRequest request) {
@@ -879,58 +879,58 @@ public class SystemApi {
 		return userService.checkUsernameExist(username);
 	}
 
-	/**
-	 * 查询岗位列表
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/position/list")
 	@PreAuthorize("hasRole('admin')")
 	public PaginationResponse<PositionView> listPosition(PositionQuery query) {
 		return positionService.listPosition(query);
 	}
 
-	/**
-	 * 添加岗位
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/position/create")
 	@PreAuthorize("hasRole('admin')")
 	public void addPosition(@RequestBody PositionRequest request) {
 		positionService.addPosition(request);
 	}
 
-	/**
-	 * 更新岗位信息
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/position/update")
 	@PreAuthorize("hasRole('admin')")
 	public void updatePosition(@RequestBody PositionRequest request) {
 		positionService.updatePosition(request);
 	}
 
-	/**
-	 * 删除岗位信息
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/position/delete")
 	@PreAuthorize("hasRole('admin')")
 	public void deletePosition(@RequestBody PositionRequest request) {
 		positionService.deletePosition(request.getId());
 	}
 
-	/**
-	 * 获取组织节点列表（用户组 / 班级）。
-	 * @param deptType org=用户组(教职工) class=班级(学员)；为空返回全部（走缓存）
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/dept/list")
 	// org:list 是只读组织树：老师要在题库/考试授权弹窗里选组，但不应因此获得用户组管理菜单
 	@PreAuthorize("hasAnyAuthority('system:dept:list','org:list') or hasRole('admin')")
 	public List<DeptView> listDept(@RequestParam(required = false) String deptType) {
 		if (!StringUtils.hasText(deptType)) {
-			// 不带类型：仍是全量组织树，且命中 listDept 上的 @Cacheable（condition = "#p0 == null"）
+
 			return deptService.listDept(null);
 		}
 		SelectDeptRequest request = new SelectDeptRequest();
@@ -960,13 +960,13 @@ public class SystemApi {
 		return deptService.deleteCheck(id);
 	}
 
-	/**
-	 * 删除用户组。成员由 {@link DeptDeleteRequest} 的 memberAction 决定：
-	 * MOVE 迁到目标组，UNASSIGN 移出分组；只传 id 时仅在组内无成员时成功。
-	 *
-	 * <p>不再限制「系统里至少保留一个组」：最后一个组删掉后，成员会变成未分组，
-	 * 这是可接受的业务状态（旧限制会把「只剩一个组 + 组里还有人」永远卡死）。
-	 */
+
+
+
+
+
+
+
 	@PostMapping("/dept/delete")
 	@PreAuthorize("hasAuthority('system:dept:delete')")
 	public void deleteOrg(@RequestBody DeptDeleteRequest request) {
@@ -996,92 +996,92 @@ public class SystemApi {
 		return result;
 	}
 
-	/**
-	 * 获取字典项列表
-	 * @param query 字典项分页参数
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/dict/list")
 	@PreAuthorize("hasAuthority('system:dict:list')")
 	public PaginationResponse<CommDictView> listDict(CommDictQuery query) {
 		return dictService.listDict(query);
 	}
 
-	/**
-	 * 创建字典项
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dict/create")
 	@PreAuthorize("hasAuthority('system:dict:create')")
 	public void addDict(@RequestBody CommDictRequest request) {
 		dictService.addDict(request);
 	}
 
-	/**
-	 * 更新字典项
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dict/update")
 	@PreAuthorize("hasAuthority('system:dict:update')")
 	public void updateDict(@RequestBody CommDictRequest request) {
 		dictService.updateDict(request);
 	}
 
-	/**
-	 * 删除字典项
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dict/delete")
 	@PreAuthorize("hasAuthority('system:dict:delete')")
 	public void deleteDict(@RequestBody CommDictRequest request) {
 		dictService.deleteDict(request.getId());
 	}
 
-	/**
-	 * 获取字典条目列表
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/dictItem/list")
 	@PreAuthorize("hasAuthority('system:dictItem:list')")
 	public PaginationResponse<CommDictItemView> listDictItem(CommDictItemQuery query) {
 		return dictService.listDictItem(query);
 	}
 
-	/**
-	 * 添加或者修改字典条目
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dictItem/create")
 	@PreAuthorize("hasAuthority('system:dictItem:create')")
 	public void createDictItem(@RequestBody CommDictItemRequest request) {
 		dictService.saveOrUpdateDictItem(request);
 	}
 
-	/**
-	 * 添加或者修改字典条目
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dictItem/update")
 	@PreAuthorize("hasAuthority('system:dictItem:update')")
 	public void updateItem(@RequestBody CommDictItemRequest request) {
 		dictService.saveOrUpdateDictItem(request);
 	}
 
-	/**
-	 * 导入字典条目
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dictItem/import")
 	@PreAuthorize("hasAuthority('system:dictItem:import')")
 	public void importDictItem(CommDictItemRequest request) {
 		dictService.importDictItem(request);
 	}
 
-	/**
-	 * 删除字典条目
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/dictItem/delete")
 	@PreAuthorize("hasAuthority('system:dictItem:delete')")
 	public void deleteDictItem(@RequestBody CommDictItemRequest request) {
@@ -1089,13 +1089,13 @@ public class SystemApi {
 	}
 
 
-	/**
-	 * 导出诊断日志（zip）。
-	 *
-	 * <p>用户报障时往往只有一句「服务出了点问题」，管理员拿不到现场。这里把最近 N 天的应用日志
-	 * 与一份环境摘要打包下载，用户可以直接发出来；日志没有落盘时 zip 里仍会写明去哪里取。
-	 * @param days 最近多少天（1~30）
-	 */
+
+
+
+
+
+
+
 	@GetMapping("/logs/export")
 	@PreAuthorize("hasAuthority('system:log:list')")
 	public ResponseEntity<Resource> exportDiagnostics(@RequestParam(defaultValue = "7") int days) {

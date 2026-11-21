@@ -45,7 +45,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 log "开始：db=${DB_NAME}@${DB_HOST}:${DB_PORT} → ${BACKUP_DIR}"
 
-# ---------------------------------------------------------------- 1. 数据库
+
 log "导出数据库（--single-transaction，不锁表）"
 if ! mysqldump -h"$DB_HOST" -P"$DB_PORT" -uroot -p"$DB_PASSWORD" \
       --single-transaction --quick --routines --events --triggers --no-tablespaces \
@@ -56,16 +56,16 @@ then
   fail "mysqldump 失败"
 fi
 
-# 空库/空文件也算失败：备份出一个 0 字节文件比没有备份更危险
+
 [ -s "$WORK/db.sql.gz" ] || fail "dump 结果是空的（0 字节）"
 gzip -t "$WORK/db.sql.gz" || fail "gzip 校验不通过，文件可能损坏"
 mv "$WORK/db.sql.gz" "$DB_OUT"
 
-# 顺手证明这份 dump 不是空壳：数一下建表语句
+
 TABLE_COUNT="$(gzip -dc "$DB_OUT" | grep -c '^CREATE TABLE' || true)"
 [ "$TABLE_COUNT" -gt 0 ] || fail "dump 里没有 CREATE TABLE，内容可疑"
 
-# ---------------------------------------------------------------- 2. 附件
+
 log "打包附件 ${FILES_DIR}"
 if [ -d "$FILES_DIR" ]; then
   tar czf "$WORK/files.tar.gz" -C "$(dirname "$FILES_DIR")" "$(basename "$FILES_DIR")" || fail "附件打包失败"
@@ -75,7 +75,7 @@ else
   FILES_OUT="(跳过：目录不存在)"
 fi
 
-# ---------------------------------------------------------------- 3. manifest + 校验
+
 DB_SHA="$(sha256sum "$DB_OUT" | awk '{print $1}')"
 {
   echo "time=$(date '+%F %T %Z')"
@@ -96,8 +96,8 @@ DB_SHA="$(sha256sum "$DB_OUT" | awk '{print $1}')"
 
 log "完成：$(basename "$DB_OUT")（${TABLE_COUNT} 张表，${DB_SHA:0:12}…）"
 
-# ---------------------------------------------------------------- 4. 清理
-# 只删本脚本自己产出的三类文件，不碰目录里其他东西
+
+
 log "清理旧备份（保留最近 ${RETENTION} 份）"
 for prefix in db_ files_; do
   mapfile -t old < <(ls -1t "${BACKUP_DIR}/${prefix}"*.gz 2>/dev/null | tail -n +$((RETENTION + 1)) || true)

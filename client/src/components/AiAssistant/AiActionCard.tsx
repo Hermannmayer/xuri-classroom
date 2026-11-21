@@ -12,7 +12,7 @@ import type { AiChatAction, AiGradeBatchResult, AiJobView } from '../../api/ai';
  * <li>open_tool：给一个「打开」按钮，点了跳到对应页面并自动展开面板（?ai=xxx）；</li>
  * <li>grade_batch：带 jobId，卡片自己轮询进度，批完显示「批了几份 / 几题 / 几题要复核」，
  * 并给「去查看」与「撤销」（24 小时内有效）；</li>
- * <li>info：只有结论，例如批改进度、今日额度。</li>
+
  * </ol>
  *
  * <p>为什么撤销放在这里而不是藏在批改页：批改是 AI 替老师做的，最该有「反悔」的地方
@@ -25,7 +25,7 @@ export default function AiActionCard({ action }: { action: AiChatAction }) {
   const [undoing, setUndoing] = useState(false);
   const [undone, setUndone] = useState(false);
 
-  // 有 jobId 就每 2 秒问一次进度（与出卷、PDF 导出同一节奏）；完成/失败后停
+
   useEffect(() => {
     if (!action.jobId) {
       return;
@@ -48,7 +48,7 @@ export default function AiActionCard({ action }: { action: AiChatAction }) {
           }
         })
         .catch(() => {
-          // 任务过期（进程重启）不是错误：提示一下让用户重新发起即可
+
           if (alive) setJob({ status: 'failed', error: '任务已过期（后端重启过），请重新发起' });
           stop();
         });

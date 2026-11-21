@@ -6,10 +6,10 @@ import cn.surveyking.server.flow.domain.dto.FlowEntryNodeView;
 import cn.surveyking.server.flow.domain.model.FlowEntryNode;
 import org.mapstruct.Mapper;
 
-/**
- * @author javahuang
- * @date 2022/1/6
- */
+
+
+
+
 @Mapper(componentModel = "spring")
 public interface FlowEntryElementModelMapper
 		extends BaseModelMapper<FlowEntryNodeRequest, FlowEntryNodeView, FlowEntryNode> {

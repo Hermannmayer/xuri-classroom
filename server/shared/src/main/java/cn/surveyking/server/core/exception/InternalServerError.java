@@ -1,9 +1,9 @@
 package cn.surveyking.server.core.exception;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 public class InternalServerError extends RuntimeException {
 
 	public InternalServerError() {

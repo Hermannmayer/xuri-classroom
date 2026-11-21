@@ -7,19 +7,19 @@ import cn.surveyking.server.domain.dto.NoticeRequest;
 import cn.surveyking.server.domain.dto.NoticeView;
 import cn.surveyking.server.domain.dto.UpdateCheckView;
 
-/**
- * 通知公告（管理员全站公告 + 老师班级公告）。
- *
- * <p>边界（详见 docs/modules/notice.md）：
- * <ul>
- * <li>一张表 {@code t_notice} 装两类公告，靠 {@code audience}（给谁看）与
- * {@code scope_type/scope_id}（什么范围）两个维度区分；</li>
- * <li>权限在 Service 层再判一次，不只靠 {@code @PreAuthorize}：班级公告要
- * {@code notice:manage:class} + 班可见，其余范围要 {@code notice:manage:system}；</li>
- * <li>读接口按 audience + scope 过滤，正文入库前过 {@code RichTextSanitizer}；</li>
- * <li>「检查更新」发现新版本时，由 {@link #recordSystemUpdate} 往公告表写一条系统消息（同版本只写一次）。</li>
- * </ul>
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 public interface NoticeService {
 
 	/**

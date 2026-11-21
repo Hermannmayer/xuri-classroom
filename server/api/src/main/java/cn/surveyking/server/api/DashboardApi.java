@@ -17,21 +17,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/1/28
- *
- * <p>两条互不相干的线，别混：
- * <ul>
- * <li>{@code /list}：项目里内嵌的仪表盘组件（老的 surveyking 能力，只有列表查询）；</li>
- * <li>{@code /overview}、{@code /trend}、{@code /teacher}、{@code /teacher/trend}、{@code /student}：
- * 首页看板（task-34 / task-43），走 {@link DashboardStatsService}。{@code /overview} 与 {@code /trend}
- * 是系统级口径（管理员视角），其余三个按当前登录人的可见范围（老师=可见项目，学员=只看自己）。</li>
- * </ul>
- *
- * <p>五条首页接口的权限统一是 {@code project:detail} 或 admin：能进项目就被视为能看到看板；
- * 数据本身的裁剪（老师的班级/项目可见范围、学员只看自己）在服务层做，注解只做粗筛。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/dashboard")
 @RequiredArgsConstructor

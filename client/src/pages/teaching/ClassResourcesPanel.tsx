@@ -32,7 +32,7 @@ import TableScrollRegion from '../../components/TableScrollRegion';
 import ClassAnswersDrawer from './ClassAnswersDrawer';
 import ProjectBriefDrawer from './ProjectBriefDrawer';
 
-/** 与后端 RepoView 对齐（面板只用展示字段） */
+
 interface RepoView {
   id: string;
   name?: string;
@@ -47,10 +47,10 @@ interface ProjectTreeNode {
   children?: ProjectTreeNode[];
 }
 
-/** 资源类型：project=考试/问卷，repo=题库 */
+
 type ResourceKind = 'project' | 'repo';
 
-/** 与后端 ClassResourceView 对齐 */
+
 interface ClassResource {
   id: string;
   classId?: string;
@@ -61,9 +61,9 @@ interface ClassResource {
   settings?: ClassResourceSetting;
   resourceName?: string;
   resourceMode?: ProjectMode;
-  /** 0 关闭 / 1 开放 */
+
   status?: number | null;
-  /** 后端 Date 序列化为字符串；兼容以后可能的 epoch 毫秒 */
+
   startAt?: string | number;
   endAt?: string | number;
   globalStartAt?: string | number;
@@ -71,7 +71,7 @@ interface ClassResource {
   assignedBy?: string;
   assignedByName?: string;
   answerCount?: number;
-  /** 后端按全局窗口 + 本班窗口 + 开关算出的可见状态 */
+
   effectiveStatus?: 'CLOSED' | 'NOT_STARTED' | 'OPEN' | 'ENDED';
 }
 
@@ -134,12 +134,12 @@ export default function ClassResourcesPanel({
   manageable,
 }: {
   classId: string;
-  /** 当前用户对该班是否有写权限（后端 ClassNodeView.manageable） */
+
   manageable: boolean;
 }) {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  /** 当前资源类型：考试/问卷 or 题库 */
+
   const [kind, setKind] = useState<ResourceKind>('project');
   const [rows, setRows] = useState<ClassResource[]>([]);
   const [loading, setLoading] = useState(false);
@@ -158,7 +158,7 @@ export default function ClassResourcesPanel({
   const [linkQr, setLinkQr] = useState<string>();
   const [answersRow, setAnswersRow] = useState<ClassResource>();
   const [repoAnswersRow, setRepoAnswersRow] = useState<ClassResource>();
-  /** 点名称打开的「试卷速览」抽屉；题库没有这个概念，只有考试/问卷用 */
+
   const [briefRow, setBriefRow] = useState<ClassResource>();
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [batchOpen, setBatchOpen] = useState(false);
@@ -199,7 +199,7 @@ export default function ClassResourcesPanel({
     void load();
   }, [load]);
 
-  // 切换资源类型：清空上一类的列表/选项/弹窗，已分配缓存由新列表重算
+
   useEffect(() => {
     setRows([]);
     setProjects([]);
@@ -240,7 +240,7 @@ export default function ClassResourcesPanel({
   const loadProjects = useCallback(async () => {
     setProjectLoading(true);
     try {
-      // 用项目树而不是根级列表：文件夹里的考试/问卷也要能被选到
+
       const tree = await get<ProjectTreeNode[]>('/api/project/tree');
       const flat: ProjectView[] = [];
       const walk = (nodes: ProjectTreeNode[]) => {
@@ -266,7 +266,7 @@ export default function ClassResourcesPanel({
     try {
       const res = await getWithPagination<RepoView>('/api/repo/list', { current: 1, pageSize: 200 });
       const list = Array.isArray(res?.data) ? res.data : [];
-      // 过滤掉无 id / 空的脏数据，避免下拉出现无法提交的选项
+
       setRepos(list.filter((repo) => Boolean(repo?.id)));
     } catch (e) {
       message.error((e as Error).message);
@@ -276,7 +276,7 @@ export default function ClassResourcesPanel({
     }
   }, [message]);
 
-  // 打开添加弹窗后再拉候选：避免每次进班级都请求一遍全量项目/题库
+
   useEffect(() => {
     if (!assignOpen) return;
     assignForm.resetFields();
@@ -285,7 +285,7 @@ export default function ClassResourcesPanel({
     else void loadRepos();
   }, [assignOpen, kind, assignForm, loadProjects, loadRepos]);
 
-  // 编辑弹窗：等表单挂载后再回填，避免 destroyOnHidden 下 setFieldsValue 失效
+
   useEffect(() => {
     if (!editing) return;
     editForm.setFieldsValue({
@@ -325,7 +325,7 @@ export default function ClassResourcesPanel({
         classId,
         resourceType: kind,
         resourceIds: ids,
-        // 留空=继承全局；后端接收 epoch 毫秒
+
         startAt: from ? from.valueOf() : null,
         endAt: to ? to.valueOf() : null,
         status: values.status === false ? 0 : 1,
@@ -485,7 +485,7 @@ export default function ClassResourcesPanel({
       ellipsis: true,
       render: (value: string | undefined, row: ClassResource) => {
         const text = value || '—';
-        // 题库没有「一套卷」的概念，只有考试/问卷的名称能点开试卷速览
+
         if (kind === 'repo' || !row.resourceId) return text;
         return (
           <LinkAction title="查看试卷速览" onClick={() => setBriefRow(row)}>
@@ -558,12 +558,12 @@ export default function ClassResourcesPanel({
                 {kind === 'project' && (
                   <LinkAction onClick={() => setAnswersRow(row)}>查看答卷</LinkAction>
                 )}
-                {/* 批改入口直接摆在这一行：老师的动线是「看这个班 → 这个班还没批完的卷子」，
-                    让他先点进数据页再切筛选是绕路 */}
+
+
                 {kind === 'project' ? (
                   <LinkAction
-                    // 带上 classId：这里是「这个班」的待批改，不是全卷的。
-                    // 不带的话数据页会显示所有班的卷子，和这一行的语境对不上。
+
+
                     onClick={() =>
                       navigate(`/survey/${row.resourceId}/data?gradeStatus=pending&classId=${classId}`)
                     }
@@ -649,7 +649,7 @@ export default function ClassResourcesPanel({
       )}
 
       {isMobile ? (
-        // 手机端：表格 1180px 宽，横滚也点不准。改成卡片，整块是点击区。
+
         rows.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -747,8 +747,8 @@ export default function ClassResourcesPanel({
           loading={loading}
           dataSource={rows}
           columns={columns}
-          // 桌面不设 scroll.x：表格 100% 宽、随容器伸缩，宽屏下不会多出一条横向滚动条。
-          // 手机才按 1180 固定最小宽度让它横滚（列多、屏窄）。
+
+
           scroll={isMobile ? { x: 1180 } : undefined}
           rowSelection={
             manageable

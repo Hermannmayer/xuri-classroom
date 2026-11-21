@@ -50,21 +50,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * 教学工作台：老师视角的「我的试卷 + 班级作答情况」。
- *
- * <p>与学员的「我的任务」区分开：这里只看自己参与的考试和班级统计，不出现
- * 练习记录 / 我的成绩这类学员入口。
- *
- * <p>班级相关读写统一走 {@link ClassService} 接口；学员导入、授权级别等新方法都已声明在接口上，
- * 不要为了省事直接注入实现类（JDK 代理场景下会拿不到 Bean）。
- */
+
+
+
+
+
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/teaching")
 @RequiredArgsConstructor
 public class TeachingApi {
 
-	/** 班级学员导入模板：放在 api 模块的 resources/template 下 */
+
 	private static final String CLASS_MEMBER_TEMPLATE = "template/学员导入模板.xlsx";
 
 	private final TeachingService teachingService;
@@ -73,7 +73,7 @@ public class TeachingApi {
 
 	private final ClassResourceService classResourceService;
 
-	/** 按班查答卷（只读） */
+
 	private final AnswerService answerService;
 
 	@GetMapping("/projects")
@@ -105,7 +105,7 @@ public class TeachingApi {
 		query.setClassId(deptId);
 		query.setCurrent(current);
 		query.setPageSize(pageSize);
-		// 班级可见即可看本班全部：走 listAnswerByClass（不再套「非协作者只看自己」的行级过滤）
+
 		return answerService.listAnswerByClass(query);
 	}
 
@@ -122,7 +122,7 @@ public class TeachingApi {
 		return classService.listUnsubmittedStudents(projectId, deptId);
 	}
 
-	/* ------ 班级管理 */
+
 
 	/**
 	 * 当前用户能看到的班级树。
@@ -159,7 +159,7 @@ public class TeachingApi {
 		classService.updateClass(request);
 	}
 
-	/* ------ 班级资源分配（P1 考试/问卷、P2 题库，按班级开放窗口） */
+
 
 	/**
 	 * 某班已分配的资源面板。
@@ -173,13 +173,13 @@ public class TeachingApi {
 		return classResourceService.list(deptId, resourceType);
 	}
 
-	/**
-	 * 给班级分配考试/问卷。
-	 *
-	 * <p>body {@code {classId, resourceType:"project"|"repo", resourceIds, startAt?, endAt?, status?}}。
-	 * project 的班级窗口为空表示继承全局，非空必须落在项目全局窗口内（全局是硬上限）；
-	 * repo（题库）没有全局窗口，只校验开始不晚于结束。已存在是 upsert。
-	 */
+
+
+
+
+
+
+
 	/** 生成/读取班级 × 考试的专属公开链接 token；只有能管理该班的人可调用。 */
 	@PostMapping("/classes/resources/link")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
@@ -304,7 +304,7 @@ public class TeachingApi {
 	 * 修改某条已授权老师的级别。
 	 *
 	 * <p>body {@code {deptId, id, accessLevel}}，{@code accessLevel} 只能是 1（只读）或 2（可管理）；
-	 * {@code id} 必须是这个班自己的授权记录，否则拒绝。
+
 	 */
 	@PostMapping("/classes/partner/update")
 	@PreAuthorize("hasAuthority('class:grant') or hasRole('admin')")

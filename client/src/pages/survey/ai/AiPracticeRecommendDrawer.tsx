@@ -25,26 +25,26 @@ import {
 } from '../../../api/ai';
 import type { SurveySchema } from '../../../schema/types';
 
-/**
- * 错题重练（计划 §6.3 ④）。
- *
- * <p>口径：只用本卷报表的「每题得分率」找薄弱考点，再从题库抽一组同考点的题。
- * 学员原始答案不进提示词——和学情总结同一条隐私约定（后端 AiPracticeRecommendService 负责）。
- *
- * <p>三步：填条件（题库 / 题量 / 是否追加）→ 后台任务（2 秒轮询）→ 先预览再决定写不写库。
- * 「追加到本卷」是**第二次点击**：生成完绝不自动写库，老师看过题目和考点后再点才调 applyAiPaper。
- */
+
+
+
+
+
+
+
+
+
 
 type Phase = 'form' | 'job' | 'preview';
 
-/** 题库下拉只需要这三个字段（后端 RepoView 的其余字段这里用不到） */
+
 interface RepoOption {
   id: string;
   name?: string;
   total?: number;
 }
 
-/** 题型中文名：只列常见题型，其余直接显示枚举名，保证不会出现空标签 */
+
 const TYPE_LABEL: Record<string, string> = {
   Radio: '单选',
   Checkbox: '多选',
@@ -85,13 +85,13 @@ function rateText(rate?: number): string {
 
 export interface AiPracticeRecommendDrawerProps {
   open: boolean;
-  /** 来源试卷：用它的报表统计找薄弱考点（报表页正在看的那一场） */
+
   projectId: string;
-  /** 报表页当前的班级筛选；不传 = 按整场考试算 */
+
   classId?: string;
-  /** 班级名，只用于说明统计口径 */
+
   classLabel?: string;
-  /** 有没有 project:update：没有就只能预览，不能追加进卷子（后端 applyPaper 要它） */
+
   canAppend?: boolean;
   onClose: () => void;
 }
@@ -109,7 +109,7 @@ export default function AiPracticeRecommendDrawer({
   const [reposLoading, setReposLoading] = useState(false);
   const [repoId, setRepoId] = useState<string>();
   const [questionCount, setQuestionCount] = useState(20);
-  /** 默认不勾：多数时候老师只是想看看哪几个考点最弱 */
+
   const [appendTarget, setAppendTarget] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [jobId, setJobId] = useState<string>();
@@ -118,10 +118,10 @@ export default function AiPracticeRecommendDrawer({
   const [error, setError] = useState<string>();
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState<{ added?: number; total?: number }>();
-  /** 轮询防重入：上一轮还没回来就别再发一个 */
+
   const busyRef = useRef(false);
 
-  // 题库列表：复用题库中心那一条接口（与「从题库抽题」同一个数据源，口径一致）
+
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -131,7 +131,7 @@ export default function AiPracticeRecommendDrawer({
         if (!alive) return;
         const list = res.data ?? [];
         setRepos(list);
-        // 老师上次选的题库还在就保留（常连着推两批），否则默认第一个
+
         setRepoId((prev) => (prev && list.some((item) => item.id === prev) ? prev : list[0]?.id));
       })
       .catch((e: Error) => {
@@ -145,8 +145,8 @@ export default function AiPracticeRecommendDrawer({
     };
   }, [open]);
 
-  // 关掉再打开：参数（题库 / 题量）沿用上次，结果清空；
-  // 但上一轮还在跑时接着看进度——收起抽屉不该让老师以为要重来（轮询本身在关闭时已停）
+
+
   useEffect(() => {
     if (!open) return;
     if (jobId && job && (job.status === 'queued' || job.status === 'running')) {
@@ -162,7 +162,7 @@ export default function AiPracticeRecommendDrawer({
     // 只在「打开」这一刻判定一次；任务状态变化交给下面的轮询自己管
   }, [open]);
 
-  // 2 秒一轮：太密会把 4 核机器拖慢，太疏进度条看起来像卡住（与出卷 / PDF 导出同一节奏）
+
   useEffect(() => {
     if (!open || phase !== 'job' || !jobId) return;
     let alive = true;
@@ -177,7 +177,7 @@ export default function AiPracticeRecommendDrawer({
           setResult(view.result);
           setPhase('preview');
         } else if (view.status === 'failed' || view.status === 'canceled') {
-          // 后端给的是中文原因（额度、AI 未启用、模型报错），原样展示，不显示 code
+
           setError(view.error || (view.status === 'canceled' ? '推荐已取消' : '推荐失败，请稍后重试'));
           setPhase('form');
         }
@@ -434,7 +434,7 @@ export default function AiPracticeRecommendDrawer({
         />
       ) : canAppend ? (
         <div style={{ marginTop: 12 }}>
-          {/* 预览里也能改这个开关：不改的话「想追加」就只能重新推荐一次，题会变 */}
+
           <Checkbox checked={appendTarget} onChange={(e) => setAppendTarget(e.target.checked)}>
             同时追加到本卷
           </Checkbox>
@@ -517,7 +517,7 @@ export default function AiPracticeRecommendDrawer({
       open={open}
       onClose={onClose}
       size="min(560px, 100vw)"
-      // 关掉只是收起界面：任务和结果都留在这里，重新打开还能接着看（见上面的 effect）
+
       destroyOnHidden={false}
       styles={{ body: { paddingBottom: 8 } }}
       footer={<Space style={{ width: '100%', justifyContent: 'flex-end' }}>{footer()}</Space>}

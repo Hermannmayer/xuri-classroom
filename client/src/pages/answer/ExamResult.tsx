@@ -33,16 +33,16 @@ import '../../styles/exam-result.css';
 
 interface PublicExamResult {
   name?: string;
-  /** 答题人姓名：交卷时填/后端用登录账号补齐；匿名且没填时为空 */
+
   answererName?: string;
   schema?: SurveySchema;
   examScore?: number;
   rank?: number;
   answer?: Record<string, AnswerValue>;
-  /**
-   * 答卷状态：0=草稿、1=已提交。后端当前还没下发这个字段（前向兼容），
-   * 拿到就按它判断草稿；拿不到时下面用「没有作答内容 + 没有分数」兜底。
-   */
+
+
+
+
   tempSave?: number;
 }
 
@@ -86,10 +86,10 @@ const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-/** 答案里存的是文件 id 的题型：签名存 {空位: 'fileId'}，上传存 {空位: ['fileId']} */
+
 const FILE_TYPES = new Set<QuestionType>(['Signature', 'Upload', 'Barcode']);
 
-/** 从签名/上传题的答案里取出 fileId 列表（兼容字符串与数组两种存法） */
+
 function fileIdsOf(value: AnswerValue): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
   const out: string[] = [];
@@ -102,24 +102,24 @@ function fileIdsOf(value: AnswerValue): string[] {
   return out;
 }
 
-/** correct / wrong / unanswered = 判分结果；unknown = 这类题不参与判分 */
+
 type Status = 'correct' | 'wrong' | 'unanswered' | 'unknown' | 'manual';
 
 interface OptionView {
   id: string;
   label: string;
-  /** 标准答案里的正确项 */
+
   correct: boolean;
-  /** 用户选了这一项 */
+
   picked: boolean;
 }
 
 interface BlankPair {
   key: string;
-  /** 多空填空的空位标题 */
+
   label: string;
   mine: string;
-  /** 原始正确答案，可含换行分隔的多个可接受写法 */
+
   correct: string;
   ok?: boolean;
 }
@@ -128,15 +128,15 @@ export interface QuestionView {
   q: FlatQuestion;
   options: OptionView[];
   blanks: BlankPair[];
-  /** 非选择、非填空题的答案行（矩阵按行拆开） */
+
   answerLines: string[];
-  /** 非选择、非填空题的正确答案（一般没有） */
+
   correctText: string;
   analysis: string;
-  /** 签名/上传题的附件 id；其它题型为空数组 */
+
   files: string[];
   answered: boolean;
-  /** 这道题有标准答案、能判对错 */
+
   judgeable: boolean;
   status: Status;
 }
@@ -169,7 +169,7 @@ function trimmed(value?: string): string {
 
 /**
  * 不参与逐项解析的题目（NPS / 评分 / 级联 / 地址等）的答案文本。
- * 值是 true 的对象（NPS 的 { 分值: true }）要用 key 本身，否则只会显示 "true"。
+
  */
 function answerText(value: AnswerValue): string {
   if (value === null || value === undefined || value === '') return '';
@@ -233,7 +233,7 @@ function buildOptions(q: FlatQuestion, value: AnswerValue): OptionView[] {
   return rows;
 }
 
-/** 填空/简答的空位与答案：答案格式 { [空位id]: 文本 }，兼容早期直接存字符串 */
+
 function buildBlanks(q: FlatQuestion, value: AnswerValue): BlankPair[] {
   if (!BLANK.has(q.type)) return [];
   const record = asRecord(value);
@@ -243,7 +243,7 @@ function buildBlanks(q: FlatQuestion, value: AnswerValue): BlankPair[] {
 
   if (q.type !== 'MultipleBlank' && q.type !== 'HorzBlank') {
     const blank = children[0];
-    // 正常情况答案 key 就是空位 id；空位 id 变过的老答卷只剩一个值时直接用它
+
     const direct = blank ? asText(record[blank.id]) : '';
     const fallbackValues = Object.values(record).map(asText).filter(Boolean);
     const mine = direct || (fallbackValues.length === 1 ? fallbackValues[0] : asText(value));
@@ -265,7 +265,7 @@ function buildBlanks(q: FlatQuestion, value: AnswerValue): BlankPair[] {
   return blanks.map((blank, index) => {
     const mine = asText(record[blank.id]);
     const own = trimmed(blank.attribute?.examCorrectAnswer);
-    // 单空的老数据会把答案存在题目上，多空时不能张冠李戴
+
     const correct = own || (blanks.length === 1 ? questionLevel : '');
     return {
       key: blank.id,
@@ -332,13 +332,13 @@ export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
     }
   } else {
     answerLines = MATRIX.has(q.type) ? matrixLines(q, value) : [];
-    // 签名/上传题的答案是 fileId，不是给人看的文本：有图就只出图，否则会把一串 UUID 印在成绩单上
+
     const mine = answerLines.length || files.length ? '' : answerText(value);
     answered = answerLines.length > 0 || files.length > 0 || mine !== '';
     correctText = prettyCorrect(trimmed(q.schema.attribute?.examCorrectAnswer));
     answerLines = answerLines.length ? answerLines : mine ? [mine] : [];
-    // 主观题（manual 模式）后端没有 evaluator，恒 0 分：这里明确标成待人工评分，
-    // 避免学员把「没判」误解成「答错了」。
+
+
     status = !answered ? 'unanswered' : isManualGraded(q.schema.attribute) ? 'manual' : 'unknown';
   }
 
@@ -355,7 +355,7 @@ function statusBadge(view: QuestionView): { text: string; tone: string } | undef
     if (!view.answered) return { text: '未作答', tone: 'is-unanswered' };
     if (view.status === 'correct') return { text: '✓ 回答正确', tone: 'is-correct' };
     if (view.status === 'wrong') return { text: '✕ 回答错误', tone: 'is-wrong' };
-    // 只配置了部分空的正确答案：逐空标记已经有了，卡头不再下结论
+
     return undefined;
   }
   return view.answered ? undefined : { text: '未作答', tone: 'is-unanswered' };
@@ -516,7 +516,7 @@ export function QuestionCard({ view }: { view: QuestionView }) {
 
 export default function ExamResult() {
   const navigate = useNavigate();
-  // 匿名答卷（公开链接）没有登录态，按约定不给返回入口；登录用户才显示
+
   const [loggedIn, setLoggedIn] = useState(false);
   useEffect(() => {
     void loadAuthorities().then((list) => setLoggedIn((list ?? []).length > 0));
@@ -543,7 +543,7 @@ export default function ExamResult() {
     return flattenSchema(data.schema).map((q) => buildView(q, answers[q.id]));
   }, [data]);
 
-  /** 抬头显示的答题人姓名：后端已按「请求填的 → 账号姓名」补齐，这里只做 trim 兜底 */
+
   const answererName = (data?.answererName ?? '').trim();
 
   const stats = useMemo(() => {
@@ -611,7 +611,7 @@ export default function ExamResult() {
           <div className="sk-result-eyebrow">RESULT / 成绩单</div>
           <h1 className="sk-result-name">{data.name || '答卷'}</h1>
 
-          {/* 答题人：老师导出 PDF、学员自查都要能一眼对上人；没填就明说「未填写」，不要留空 */}
+
           <div className="sk-result-answerer">
             <span className="sk-result-answerer-label">答题人</span>
             <span className={`sk-result-answerer-name${answererName ? '' : ' is-empty'}`}>

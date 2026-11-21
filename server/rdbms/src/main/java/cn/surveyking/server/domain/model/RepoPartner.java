@@ -19,7 +19,7 @@ public class RepoPartner extends BaseModel {
 
 	private String deptId;
 
-	/** 授权级别：1 只读 / 2 可编辑（含只读，默认）/ 3 可授权（含编辑） */
+
 	@TableField(value = "access_level")
 	private Integer accessLevel;
 

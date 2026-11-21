@@ -21,10 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-/**
- * 审计写入的纯逻辑测试（不连数据库）：重点盯三处容易出错的口径——
- * 快照 2KB 截断后仍是合法 JSON、{@code source} 怎么判、{@code request_id} 从哪取。
- */
+
+
+
+
 class AuditRecorderTest {
 
 	private final AuditLogMapper auditLogMapper = mock(AuditLogMapper.class);
@@ -57,7 +57,7 @@ class AuditRecorderTest {
 
 	@Test
 	void truncatesOversizedSnapshotButKeepsItParsable() {
-		// 2000 个汉字 = 6000 字节，远超 2KB；按字符边界裁才不会切坏 UTF-8
+
 		String comment = "答".repeat(2000);
 		auditRecorder.recordWithDiff("ANSWER_GRADE", "answer-1", Map.of("comment", comment), null);
 
@@ -65,7 +65,7 @@ class AuditRecorderTest {
 		String beforeJson = entry.getBeforeJson();
 		assertTrue(beforeJson.getBytes(StandardCharsets.UTF_8).length <= AuditRecorder.SNAPSHOT_MAX_BYTES,
 				"截断后不应超过 2KB，实际 " + beforeJson.getBytes(StandardCharsets.UTF_8).length);
-		// 关键：截断后的仍然是合法 JSON（时间线接口和操作日志页都要直接解析它）
+
 		Map<?, ?> parsed = objectMapper.readValue(beforeJson, Map.class);
 		assertEquals(true, parsed.get("_truncated"));
 		assertTrue(((Number) parsed.get("_bytes")).intValue() > AuditRecorder.SNAPSHOT_MAX_BYTES);
@@ -108,7 +108,7 @@ class AuditRecorderTest {
 
 	@Test
 	void leavesSourceNullWithoutRequestContext() {
-		// 后台线程（没有请求上下文）不硬写 web，交给库里的默认值
+
 		auditRecorder.record("AUTO_PURGE_ANONYMOUS", null, null, true, null);
 
 		AuditLog entry = capture();

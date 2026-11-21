@@ -25,16 +25,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/**
- * Word（.docx）试卷解析：按「中文数字大题标题」切题组，组内复用文本解析器识别题目。
- *
- * <p>
- * 每段的文字被拍平成行；表格按单元格逐行展开。图片抽成 {@code [[IMG:n]]} token 插进题干（落库前由
- * ImportServiceImpl.applyAttachments 换成图片地址）；公式本版本只计数并给出提示。
- */
+
+
+
+
+
+
+
 public class WordQuestionParser {
 
-	/** 一、xxx / （一）xxx / (一) xxx */
+
 	private static final Pattern HEADING = Pattern
 			.compile("^\\s*(?:[一二三四五六七八九十]+\\s*[、.．]|[（(]\\s*[一二三四五六七八九十]+\\s*[）)]).*$");
 
@@ -80,7 +80,7 @@ public class WordQuestionParser {
 					}
 					String paragraphText = text.toString().trim();
 					if (paragraphText.matches("(\\[\\[IMG:\\d+\\]\\]\\s*)+") && !lines.isEmpty()) {
-						// 图片常常单独占一段：并回上一行，别让它变成“选项”
+
 						int last = lines.size() - 1;
 						lines.set(last, (lines.get(last) + " " + paragraphText).trim());
 					}
@@ -116,7 +116,7 @@ public class WordQuestionParser {
 		if (firstHeading > 0) {
 			String head = String.join("\n", lines.subList(0, firstHeading));
 			if (head.contains("导入说明") || head.contains("请删除")) {
-				// 模板顶部的使用说明整段跳过
+
 				start = firstHeading;
 			}
 		}

@@ -10,12 +10,12 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-/**
- * MCP 写操作幂等实现。
- *
- * <p>只做两件事：查一条、写一条。真正的「要不要执行」由 {@code McpServer} 判断——
- * 它必须在调用工具<b>之前</b>查，命中就直接回放，绝不能「先执行再查」。
- */
+
+
+
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -47,7 +47,7 @@ public class ApiIdempotencyServiceImpl implements ApiIdempotencyService {
 			apiIdempotencyMapper.insert(row);
 		}
 		catch (DuplicateKeyException e) {
-			// 两路几乎同时到达：另一路已经写了，回放它的即可，这里不算失败
+
 			log.debug("幂等记录已存在，忽略写入 user={} key={}", userId, key);
 		}
 	}

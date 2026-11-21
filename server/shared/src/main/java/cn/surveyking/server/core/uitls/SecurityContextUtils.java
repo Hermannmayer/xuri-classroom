@@ -6,10 +6,10 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-/**
- * @author javahuang
- * @date 2021/8/31
- */
+
+
+
+
 public class SecurityContextUtils {
 
 	public static UserInfo getUser() {

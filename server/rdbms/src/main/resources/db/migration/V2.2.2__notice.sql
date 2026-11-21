@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `t_notice_read` (
   KEY `idx_notice_read_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告已读记录';
 
--- ------ 新权限点：给已部署库的既有角色补上（幂等，只加不删） ------
+
 UPDATE `t_role` SET `authority` = CONCAT(`authority`, ',notice:list,notice:manage:system,notice:manage:class')
  WHERE `code` = 'admin' AND `authority` IS NOT NULL AND `authority` <> '' AND `authority` NOT LIKE '%notice:list%';
 

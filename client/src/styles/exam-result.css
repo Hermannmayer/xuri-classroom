@@ -25,7 +25,7 @@
   text-align: center;
 }
 
-/* ---------------------------------------------------------------- 成绩单头部 */
+
 
 .sk-result-head {
   position: relative;
@@ -50,7 +50,7 @@
   word-break: break-word;
 }
 
-/* 签名 / 上传题的附件图：白底 + 细边框，打印与暗色主题下都看得清 */
+
 .sk-file-list {
   display: flex;
   flex-wrap: wrap;
@@ -66,7 +66,7 @@
   object-fit: contain;
 }
 
-/* 答题人：抬头第一眼要能对上人，所以给左侧色条 + 淡底，不用灰色小字 */
+
 .sk-result-answerer {
   display: flex;
   align-items: baseline;
@@ -174,7 +174,7 @@
   color: var(--bp-text-soft);
 }
 
-/* ---------------------------------------------------------------- 工具条：只看错题 + 图例 */
+
 
 .sk-result-toolbar {
   display: flex;
@@ -234,7 +234,7 @@
   background: var(--bp-orange-weak);
 }
 
-/* antd Switch 默认是药丸形，这里压回直角并接上蓝图配色 */
+
 .sk-result .ant-switch {
   border-radius: 0;
   background: var(--bp-track);
@@ -251,7 +251,7 @@
   border-radius: 0;
 }
 
-/* antd 的 handle 颜色由运行时注入的样式决定，这里必须 !important 才盖得住 */
+
 .sk-result .ant-switch .ant-switch-handle::before {
   background: var(--bp-text-soft) !important;
   border-radius: 0 !important;
@@ -265,7 +265,7 @@
   opacity: 0.4;
 }
 
-/* ---------------------------------------------------------------- 题卡 */
+
 
 .sk-result-card {
   position: relative;
@@ -340,7 +340,7 @@
   word-break: break-word;
 }
 
-/* ---------------------------------------------------------------- 选项 */
+
 
 .sk-opt-list {
   display: flex;
@@ -441,7 +441,7 @@
   text-decoration-color: var(--bp-orange);
 }
 
-/* ---------------------------------------------------------------- 答案对照 */
+
 
 .sk-blank-list {
   display: flex;
@@ -550,7 +550,7 @@
   color: var(--bp-orange);
 }
 
-/* ---------------------------------------------------------------- 解析 */
+
 
 .sk-analysis {
   padding-top: 12px;
@@ -576,7 +576,7 @@
   color: var(--bp-hint);
 }
 
-/* ---------------------------------------------------------------- 空态 / 页脚 */
+
 
 .sk-result-note {
   margin: 0 0 14px;
@@ -602,7 +602,7 @@
   color: var(--bp-text-soft);
 }
 
-/* ---------------------------------------------------------------- 手机宽度：不溢出 */
+
 
 @media (max-width: 560px) {
   .sk-result {

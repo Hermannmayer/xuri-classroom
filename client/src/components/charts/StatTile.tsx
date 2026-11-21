@@ -2,31 +2,31 @@ import type { CSSProperties, ReactNode } from 'react';
 import { segments, smoothPath } from './util';
 
 export interface StatTileProps {
-  /** 左上角小标题（指标名） */
+
   label: string;
-  /** 主数字；null/undefined = 没有数据，显示 —；也允许直接传格式化好的字符串 */
+
   value: number | string | null | undefined;
-  /** 数字后缀：人 / 份 / 分… */
+
   unit?: string;
-  /** 副标题：补充口径或第二个数字，一行小字 */
+
   hint?: ReactNode;
-  /** 环比（正数向上、负数向下、0 或空不显示） */
+
   delta?: number | null;
-  /** 环比的单位，默认 % */
+
   deltaUnit?: string;
-  /** 右上角图标 */
+
   icon?: ReactNode;
-  /** 底部迷你走势（可选，最多取最后 20 个点） */
+
   spark?: ReadonlyArray<number | null>;
-  /** 左侧竖条与图标的强调色 */
+
   tone?: 'blue' | 'orange' | 'plain';
-  /** 请求中：主数字显示 … */
+
   loading?: boolean;
-  /** 请求失败的原因：主数字显示 —，原因作为小字提示 */
+
   error?: string | null;
-  /** 整块可点（跳转到明细页） */
+
   onClick?: () => void;
-  /** 可点时的悬浮提示 */
+
   title?: string;
 }
 

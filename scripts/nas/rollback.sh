@@ -137,7 +137,7 @@ ENV_FILE="$COMPOSE_DIR/.env"
 DC=(docker compose -f "$COMPOSE_FILE" --project-name "$PROJECT" --env-file "$ENV_FILE")
 compose_ps_q() { "${DC[@]}" ps -q "$1" 2>/dev/null || true; }
 
-# ---- --list：只读列出候选镜像 ----
+
 if [[ "$LIST_ONLY" -eq 1 ]]; then
   echo "本机镜像（app 仓库：${APP_REPO:-自动推导}）："
   docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}\t{{.Size}}' 2>/dev/null \
@@ -145,7 +145,7 @@ if [[ "$LIST_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-# ---- 当前运行的镜像（用于推导仓库名 / 记录回滚前版本）----
+
 CUR_APP_IMAGE=""
 CUR_WEB_IMAGE=""
 APP_CID="$(compose_ps_q app)"
@@ -169,7 +169,7 @@ if [[ -n "$WEB_IMAGE_OVERRIDE" ]]; then
 elif [[ -n "$WEB_TO_TAG" ]]; then
   TARGET_WEB="${WEB_REPO}:${WEB_TO_TAG}"
 elif [[ -n "$CUR_WEB_IMAGE" ]]; then
-  # 默认：web 跟着同一个 tag 回滚；若该 tag 不存在就不动 web
+
   if docker image inspect "${WEB_REPO}:${TO_TAG}" >/dev/null 2>&1; then
     TARGET_WEB="${WEB_REPO}:${TO_TAG}"
   else
@@ -177,7 +177,7 @@ elif [[ -n "$CUR_WEB_IMAGE" ]]; then
   fi
 fi
 
-# ---- 目标镜像必须存在，否则只报告、不改生产 ----
+
 if ! docker image inspect "$TARGET_APP" >/dev/null 2>&1; then
   err "目标 app 镜像不存在：$TARGET_APP"
   err "本机现有 app 镜像："

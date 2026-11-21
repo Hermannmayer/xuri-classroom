@@ -13,32 +13,32 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 @Data
 public class UserInfo implements UserDetails, Serializable {
 
-	/** 用户id */
+
 	private String userId;
 
-	/** 用户名 */
+
 	private String name;
 
 	private Boolean enabled;
 
-	/** 头像 */
+
 	private String avatar;
 
 	private String deptId;
 
 	private String deptName;
 
-	/** 附加组 id 列表（主组见 deptId）；用户最终所属组 = 主组 ∪ 附加组 */
+
 	private List<String> deptIds;
 
-	/** 附加组名称 */
+
 	private List<String> deptNames;
 
 	private String gender;
@@ -51,15 +51,15 @@ public class UserInfo implements UserDetails, Serializable {
 
 	private List<String> positionList;
 
-	/** 界面缩放（跟着账号走） */
+
 	private String uiZoom;
 
-	/** 主题 light/dark（跟着账号走） */
+
 	private String uiTheme;
 
 	private Integer status;
 
-	/** 登录账号 */
+
 	@JsonIgnore
 	private String username;
 

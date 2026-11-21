@@ -1,7 +1,7 @@
 -- 界面缩放跟随账号：加一列，登录后由前端套用
 SET NAMES utf8mb4;
 
--- MySQL 8 不支持 ADD COLUMN IF NOT EXISTS，用存储过程判断
+
 DROP PROCEDURE IF EXISTS add_ui_zoom;
 DELIMITER $$
 CREATE PROCEDURE add_ui_zoom()

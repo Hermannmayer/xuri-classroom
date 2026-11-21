@@ -13,7 +13,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. t_project_partner.access_level
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_project_partner' AND COLUMN_NAME = 'access_level'
@@ -25,7 +25,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. t_repo_partner.access_level
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_repo_partner' AND COLUMN_NAME = 'access_level'
@@ -37,12 +37,12 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. 所有者 = 可授权；答卷人只读：type=3（班级/学员）回填 1；外部导入答卷人（type=4）同样只读
+
 UPDATE t_project_partner SET access_level = 3 WHERE type = 1;
 UPDATE t_project_partner SET access_level = 1 WHERE type = 3;
 UPDATE t_project_partner SET access_level = 1 WHERE type = 4;
 
--- 4. 自检：两列各返回 1；只读答卷人都不高于 1（返回 0 行）
+
 SELECT COUNT(*) AS project_partner_access_level FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_project_partner' AND COLUMN_NAME = 'access_level';
 SELECT COUNT(*) AS repo_partner_access_level FROM information_schema.COLUMNS

@@ -42,26 +42,26 @@ public final class NanoIdUtils {
 	 * <code>NanoIdUtils.randomNanoId();</code>.
 	 */
 	private NanoIdUtils() {
-		// Do Nothing
+
 	}
 
-	/**
-	 * The default random number generator used by this class. Creates cryptographically
-	 * strong NanoId Strings.
-	 */
+
+
+
+
 	public static final SecureRandom DEFAULT_NUMBER_GENERATOR = new SecureRandom();
 
-	/**
-	 * The default alphabet used by this class. Creates url-friendly NanoId Strings using
-	 * 64 unique symbols. 去掉 l 避免和 1 产生视觉混淆
-	 */
+
+
+
+
 	public static final char[] DEFAULT_ALPHABET = "0123456789abcdefghijkmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 			.toCharArray();
 
-	/**
-	 * The default size used by this class. Creates NanoId Strings with slightly more
-	 * unique values than UUID v4.
-	 */
+
+
+
+
 	public static final int DEFAULT_SIZE = 21;
 
 	/**

@@ -30,28 +30,28 @@ import java.util.stream.Collectors;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 班级学员：班主任视角的建号 / 改号 / 删号。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的班级块。入口权限由 {@code class:member:*} 控制，
- * 这里只做「只碰学员账号、不改角色与组」的兜底校验；建号复用
- * {@link UserAdminService#createUser(UserRequest, boolean)}（不校验组绑定角色，由
- * {@code assertClassDeptRoleSafe} 单独把关）。
- *
- * <p>
- * 学员的登录账号就是手机号：建号时服务端强制 {@code username = phone}（不信任前端传来的
- * username），改号时手机号变化要同步 {@code t_account.auth_account}，否则学员改完手机号还能用
- * 旧号码登录。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class ClassStudentService {
 
-	/** 学员登录账号 = 手机号，11 位大陆手机号，与前端/接口契约保持同一份正则 */
+
 	public static final Pattern PHONE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
 
-	/** 手机号重复时的统一提示：建号、导入、改号三处口径一致 */
+
 	public static final String PHONE_EXISTS_MESSAGE = "该手机号已被其他账号使用";
 
 	private final UserMapper userMapper;
@@ -92,7 +92,7 @@ public class ClassStudentService {
 		String phone = normalizePhone(request.getPhone());
 		request.setPhone(phone);
 		request.setUsername(phone);
-		// 学员只能进班级：UserAdminService 里还有一层同样的校验，这里先给出班级场景的提示
+
 		assertStudentDeptIsClass(request.getDeptId());
 		userAdminService.validateStrongPassword(request.getPassword(), null);
 		Role studentRole = roleService

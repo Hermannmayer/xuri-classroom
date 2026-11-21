@@ -3,7 +3,7 @@
 -- 背景：错题本要支持「只练这一场考试的错题」，必须知道每条错题是哪场考试产生的；
 --       原来 t_user_book 只有 template_id / repo_id（题库维度），见 docs/research/exam-mode-audit.md C 节。
 -- 用法：mysql -u<user> -p<pwd> <db> < scripts/dev/add-userbook-project.sql
--- 注意：本脚本是 MySQL 版 —— MySQL 的 ADD COLUMN / ADD INDEX 没有 IF NOT EXISTS，
+
 --       所以用 information_schema 判重 + 预处理语句保证幂等。
 --       只支持 MySQL 8；H2 已停止支持。
 
@@ -19,7 +19,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. 加索引：错题本列表 / 练习页都按 (当前用户, 来源考试) 过滤
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_user_book' AND INDEX_NAME = 'idx_user_book_project'
@@ -30,7 +30,3 @@ SET @ddl := IF(@idx_exists = 0,
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
-
--- 3. 校验（执行后自检：应能看到 project_id 列与 idx_user_book_project 索引）
--- SHOW COLUMNS FROM `t_user_book` LIKE 'project_id';
--- SHOW INDEX FROM `t_user_book` WHERE Key_name = 'idx_user_book_project';

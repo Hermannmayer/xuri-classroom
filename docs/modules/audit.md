@@ -39,7 +39,6 @@ tables:
 tests:
   - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditRecorderTest.java
   - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditDiffSupportTest.java
-  - server/rdbms/src/test/java/cn/surveyking/server/impl/AnswerTimelineServiceImplTest.java
 last_verified: 2026-11-17
 verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---

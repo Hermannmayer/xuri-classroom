@@ -18,38 +18,38 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * 孤儿文件清理：把业务上再也指不到、但还占着磁盘的文件收掉。
- *
- * <p>为什么需要它（不指望业务删除路径永远不出错）：
- * <ul>
- * <li>**重签**：签名题每次保存都新传一个文件，旧 fileId 从答案里消失，但 t_file 行还在；</li>
- * <li>**上传后放弃**：学生传了签名/附件，最后没交卷，文件没有任何引用；</li>
- * <li>**历史数据**：`batchDestroyAnswer` 在本次改造之前物理删答卷时不清附件，
- *     这些行已经成了孤儿（answer_id 指向不存在的答卷）。</li>
- * </ul>
- *
- * <p>与业务删除的关系：答卷彻底删除走 {@code FileService#deleteByAnswers}、
- * 项目彻底删除走 {@code FileService#purgeProjectFiles}，都是**同步、精确**的；
- * 这里只是兜底，每天扫一次，分批处理，绝不一次性扫全表。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class FileOrphanCleanupService {
 
-	/** 每批处理条数：一次别扫太多，避免长事务把库锁住 */
+
 	private static final int BATCH = 200;
 
-	/** 单次任务最多处理多少批，防止极端情况下卡住调度线程 */
+
 	private static final int MAX_ROUNDS = 50;
 
-	/** 上传后一直没绑定答卷的附件保留天数：给「答题中途断了、过几天再来」留足余量 */
+
 	private static final int UNBOUND_RETENTION_DAYS = 7;
 
 	private final FileService fileService;
 
-	/** 只用来做批量查询（FileService 接口没有暴露 list(Wrapper)） */
+
 	private final FileMapper fileMapper;
 
 	private final AnswerMapper answerMapper;
@@ -123,7 +123,7 @@ public class FileOrphanCleanupService {
 			}
 			cursor = batch.get(batch.size() - 1).getId();
 			for (File file : batch) {
-				// 还没绑定答卷：可能学生正在答（超过 7 天的极端情况才可能命中），也可能是放弃了
+
 				fileService.purgeFile(file.getId());
 				removed += 1;
 			}

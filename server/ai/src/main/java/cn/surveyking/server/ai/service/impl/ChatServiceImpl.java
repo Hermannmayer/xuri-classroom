@@ -17,11 +17,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * 聊天服务实现类
- *
- * @author zzr
- */
+
+
+
+
+
 @Slf4j
 @Service
 public class ChatServiceImpl implements ChatService {
@@ -31,7 +31,7 @@ public class ChatServiceImpl implements ChatService {
 
 	@Override
 	public List<ModelType> getAllModelTypes() {
-		// 检查AI是否启用
+
 		if (!openAiCompatibleChatService.isEnabled()) {
 			log.warn("AI功能未启用，返回空模型列表");
 			return Collections.emptyList();
@@ -42,7 +42,7 @@ public class ChatServiceImpl implements ChatService {
 
 	@Override
 	public ConversationResponse createConversation(ConversationRequest conversationRequest, String model) {
-		// 检查AI是否启用
+
 		if (!openAiCompatibleChatService.isEnabled()) {
 			log.warn("AI功能未启用，无法创建对话");
 			throw new IllegalStateException("AI功能未启用");
@@ -59,9 +59,9 @@ public class ChatServiceImpl implements ChatService {
 
 	@Override
 	public Flux<StreamResponseEvent> createChatStream(ChatRequest chatRequest, String conversationId, String model) {
-		// 使用空的 consumer，因为当前系统没有实现消息持久化
+
 		Consumer<AiMessage> emptyConsumer = message -> {
-			// 这里可以添加消息保存逻辑，如果需要的话
+
 			log.debug("Received AI message: {}", message.getContent());
 		};
 

@@ -19,12 +19,12 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * schema的一些帮助方法
- *
- * @author javahuang
- * @date 2021/8/10
- */
+
+
+
+
+
+
 @Slf4j
 public class SchemaHelper {
 
@@ -34,7 +34,7 @@ public class SchemaHelper {
 
 	protected static ThreadLocal<Boolean> localWechatAvatar = new ThreadLocal<>();
 
-	// 常量定义
+
 	public static final String OPENID_COLUMN_NAME = "自定义字段";
 
 	public static final String WECHAT_NICKNAME_COLUMN_NAME = "微信昵称";
@@ -104,15 +104,15 @@ public class SchemaHelper {
 		List<String> result = new ArrayList<>();
 		result.add(i18n("schema.column.serialNumber", "序号"));
 
-		// 添加问题标题
+
 		schemaDataTypes.forEach(schemaType -> result.add(schemaType.getTitle()));
 
-		// 考试模式添加分数列
+
 		if (ProjectModeEnum.exam.equals(mode)) {
 			result.add(i18n("schema.column.score", "分数"));
 		}
 
-		// 添加固定的元数据列
+
 		result.addAll(Arrays.asList(getOpenIdColumnName(), getWechatNicknameColumnName(), getWechatAvatarColumnName(),
 				i18n("schema.column.submitter", "提交人"), i18n("schema.column.submitTime", "提交时间"),
 				i18n("schema.column.duration", "填写时长"), i18n("schema.column.device", "填写设备"),
@@ -137,7 +137,7 @@ public class SchemaHelper {
 	 */
 	public static List<SurveySchema> flatSurveySchemaWitchOption(SurveySchema schema, boolean withOption) {
 		List<SurveySchema> dataTypes = new ArrayList<>();
-		// 选项 schema 额类型为 Option 或者为空
+
 		if (SurveySchema.QuestionType.dataType().contains(schema.getType()) || (withOption
 				&& (SurveySchema.QuestionType.Option.equals(schema.getType()) || schema.getType() == null))) {
 			SurveySchema dataType = schema.deepCopy();
@@ -168,21 +168,21 @@ public class SchemaHelper {
 			List<Object> rowData = new ArrayList<>();
 			rowData.add(index);
 
-			// 转换问题答案
+
 			parseQuestionAnswers(answerInfo, dataTypes, rowData);
 
-			// 添加考试分数
+
 			if (ProjectModeEnum.exam.equals(mode)) {
 				rowData.add(answerInfo.getExamScore());
 			}
 
-			// 添加 openid 信息
+
 			parseOpenIdInfo(answer, rowData);
 
-			// 添加元数据信息
+
 			parseMetaData(answerInfo, rowData);
 
-			// 防止公式注入
+
 			avoidFormulaInjection(rowData);
 			return rowData;
 		}
@@ -318,7 +318,7 @@ public class SchemaHelper {
 	 * 解析选项值
 	 */
 	private static String parseOptionValue(SurveySchema schemaType, SurveySchema optionSchema, Object valueObj) {
-		// 评分等题型的答案直接是数值/字符串（没有选项键），强转 Map 会抛 ClassCastException 导致整份导出失败
+
 		if (!(valueObj instanceof Map)) {
 			return valueObj.toString();
 		}
@@ -329,27 +329,27 @@ public class SchemaHelper {
 
 		SurveySchema.DataType dataType = optionSchema.getAttribute().getDataType();
 
-		// 数据字典类型
+
 		if (SurveySchema.DataType.selectDict.equals(dataType)) {
 			return parseDictValue(optionValue.toString());
 		}
 
-		// 下拉选择类型
+
 		if (SurveySchema.DataType.select.equals(dataType)) {
 			return parseSelectValue(optionSchema, optionValue);
 		}
 
-		// 布尔类型（单选、多选题选中）
+
 		if (optionValue instanceof Boolean) {
 			return trimHtmlTag(optionSchema.getTitle());
 		}
 
-		// 横向填空类型
+
 		if (SurveySchema.DataType.horzBlank.equals(dataType)) {
 			return getHorzBlankValue(optionSchema, (Map<String, String>) optionValue);
 		}
 
-		// 单选或多选填空题
+
 		if (SurveySchema.QuestionType.Radio.equals(schemaType.getType())
 				|| SurveySchema.QuestionType.Checkbox.equals(schemaType.getType())) {
 			return String.format("%s(%s)", trimHtmlTag(optionSchema.getTitle()), optionValue);
@@ -366,7 +366,7 @@ public class SchemaHelper {
 		if (dictValueAndLabel.length > DICT_LABEL_INDEX) {
 			return dictValueAndLabel[DICT_LABEL_INDEX];
 		}
-		return dictValueAndLabel[0]; // 兼容历史版本
+		return dictValueAndLabel[0];
 	}
 
 	/**
@@ -484,18 +484,18 @@ public class SchemaHelper {
 	 * 解析元数据信息
 	 */
 	private static void parseMetaData(AnswerView answerInfo, List<Object> rowData) {
-		// 提交人信息：匿名答卷不写姓名（createBy 为空），统一显示「匿名」，
-		// 避免导出里出现空提交人，也避免把匿名答卷误读成「数据缺失」。
+
+
 		rowData.add(Boolean.TRUE.equals(answerInfo.getIsAnonymous()) ? "匿名" : answerInfo.getCreateByName());
 
-		// 提交时间
+
 		Format formatter = new SimpleDateFormat(DATE_TIME_FORMAT);
 		rowData.add(formatter.format(answerInfo.getCreateAt()));
 
-		// 填写时长
+
 		rowData.add(parseHumanReadableDuration(answerInfo));
 
-		// 客户端信息
+
 		if (answerInfo.getMetaInfo() == null || answerInfo.getMetaInfo().getClientInfo() == null) {
 			rowData.addAll(Arrays.asList("", "", "", "", "", ""));
 		}
@@ -528,18 +528,18 @@ public class SchemaHelper {
 		List<String> result = new ArrayList<>();
 		for (SurveySchema subOption : optionSchema.getChildren()) {
 			String subOptionValue = Optional.ofNullable(optionValue.get(subOption.getId())).orElse("");
-			// 数据字典
+
 			if (SurveySchema.DataType.selectDict.equals(subOption.getAttribute().getDataType())) {
 				String[] dictValueAndLabel = subOptionValue.split("\\|", 2);
 				if (dictValueAndLabel.length > 1) {
 					result.add(dictValueAndLabel[1]);
 				}
 				else {
-					// 兼容历史版本
+
 					result.add(dictValueAndLabel[0]);
 				}
 			}
-			// 下拉题
+
 			else if (SurveySchema.DataType.select.equals(subOption.getAttribute().getDataType())) {
 				Optional<SurveySchema.DataSource> findDataSource = subOption.getDataSource().stream()
 						.filter(x -> x.getValue().equals(subOptionValue)).findFirst();
@@ -579,10 +579,10 @@ public class SchemaHelper {
 			return;
 		}
 
-		// 移除隐藏的题目，设置只读权限
+
 		schema.getChildren().removeIf(child -> processChildPermission(child, fieldPermission));
 
-		// 递归处理子项
+
 		schema.getChildren().forEach(child -> updateSchemaByPermission(fieldPermission, child));
 	}
 
@@ -598,12 +598,12 @@ public class SchemaHelper {
 			return false;
 		}
 
-		// 隐藏题目
+
 		if (permValue.equals(FieldPermissionType.hidden)) {
 			return true;
 		}
 
-		// 设置为只读
+
 		if (permValue.equals(FieldPermissionType.visible)) {
 			ensureAttributeExists(child);
 			child.getAttribute().setReadOnly(true);

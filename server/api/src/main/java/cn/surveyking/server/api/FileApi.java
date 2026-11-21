@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/9/10
- */
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/file")
 @AllArgsConstructor
@@ -23,22 +23,22 @@ public class FileApi {
 
 	private final FileService fileService;
 
-	/**
-	 * 获取文件
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping
 	@PreAuthorize("hasAuthority('file:detail')")
 	public ResponseEntity<Resource> getFile(FileQuery query) {
 		return fileService.loadUserFile(query);
 	}
 
-	/**
-	 * 获取文件列表
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/list")
 	@PreAuthorize("hasAuthority('file:list')")
 	public List<FileView> listFiles(FileQuery query) {
@@ -67,21 +67,21 @@ public class FileApi {
 		return fileService.upload(request);
 	}
 
-	/**
-	 * 删除文件
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/delete")
 	@PreAuthorize("hasAuthority('file:delete')")
 	public void deleteImage(@RequestBody UploadFileRequest request) {
 		fileService.deleteFile(request.getId());
 	}
 
-	/**
-	 * 下载导入 Excel 模板
-	 * @param name 导入模板名称
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/downloadTemplate")
 	// 下载导入模板：凡是「能导入」的角色都应该能拿到模板（附件导入 / 题目导入 / 题库导入）
 	@PreAuthorize("hasAnyAuthority('file:import','template:import') or hasRole('admin')")

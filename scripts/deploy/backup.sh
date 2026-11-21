@@ -66,7 +66,7 @@ done
 
 [[ "$RETENTION" =~ ^[1-9][0-9]*$ ]] || die "保留份数必须是正整数：$RETENTION"
 
-# ---------------------------------------------------------------- 前置检查
+
 command -v docker >/dev/null 2>&1 || die "找不到 docker 命令，请先安装 Docker Engine / Docker Desktop"
 
 COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
@@ -75,7 +75,7 @@ ENV_FILE="${ENV_FILE:-$COMPOSE_DIR/.env}"
 [[ -f "$ENV_FILE" ]] || die "找不到 env 文件：$ENV_FILE（从 .env.example 复制一份并填好 DB_PASSWORD / SK_CRYPTO_KEY）"
 OUTPUT_DIR="${OUTPUT_DIR:-$COMPOSE_DIR/backups}"
 
-# docker compose（v2）优先，退回到 docker-compose（v1）
+
 if docker compose version >/dev/null 2>&1; then
   DC=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -84,12 +84,12 @@ else
   die "找不到 docker compose（v2）或 docker-compose（v1）"
 fi
 
-# 数据库服务必须在运行
+
 RUNNING="$("${DC[@]}" ps --services --filter status=running 2>/dev/null || true)"
 echo "$RUNNING" | grep -qx "$DB_SERVICE" \
   || die "服务 $DB_SERVICE 未运行。先在 $COMPOSE_DIR 执行：docker compose up -d"
 
-# ---------------------------------------------------------------- 读取连接信息
+
 # 不 source：.env 里的密码可能含 shell 特殊字符
 env_value() {
   local key="$1" line
@@ -110,10 +110,10 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/xuri_backup.XXXXXX")"
 cleanup() { rm -rf -- "$TMP_DIR"; }
 trap cleanup EXIT
 
-# ---------------------------------------------------------------- 1. 数据库
+
 log "从容器 $DB_SERVICE 导出数据库 $DB_NAME（mysqldump 在容器内执行）"
-# --no-tablespaces：非 root 账号没有 PROCESS 权限时 mysqldump 会报错，加它可避开
-# --single-transaction + --quick：大表导出不锁表、不把整表读进内存
+
+
 if ! "${DC[@]}" exec -T -e MYSQL_PWD="$DB_PASSWORD" "$DB_SERVICE" \
       mysqldump -u"$DB_USER" \
         --single-transaction --quick --routines --events --triggers \
@@ -124,7 +124,7 @@ if ! "${DC[@]}" exec -T -e MYSQL_PWD="$DB_PASSWORD" "$DB_SERVICE" \
 fi
 [[ -s "$TMP_DIR/db.sql" ]] || die "db.sql 是空文件，备份中止"
 
-# ---------------------------------------------------------------- 2. 附件
+
 log "从容器 $APP_SERVICE 打包 /app/files 上传目录"
 if "${DC[@]}" exec -T "$APP_SERVICE" tar -czf - -C /app files > "$TMP_DIR/files.tar.gz" 2>/dev/null; then
   [[ -s "$TMP_DIR/files.tar.gz" ]] || { rm -f "$TMP_DIR/files.tar.gz"; printf 'files directory empty\n' > "$TMP_DIR/files.missing"; }
@@ -134,14 +134,14 @@ else
   log "跳过附件打包（应用容器未运行或没有上传目录），归档内会记录 files.missing"
 fi
 
-# ---------------------------------------------------------------- 3. 脱敏 env
+
 log "生成脱敏 .env（所有密钥打码）"
 {
   echo "# .env 备份（密钥已打码，仅作参考；恢复时请用线上 .env）"
   sed -E 's/^([[:space:]]*(DB_PASSWORD|SK_CRYPTO_KEY|JWT_SECRET)[[:space:]]*=).*/\1***/' "$ENV_FILE"
 } > "$TMP_DIR/app.env"
 
-# ---------------------------------------------------------------- 4. manifest
+
 {
   echo "created=$TIMESTAMP"
   echo "database=$DB_NAME"
@@ -155,7 +155,7 @@ log "生成脱敏 .env（所有密钥打码）"
 log "生成归档 $ARCHIVE"
 tar -czf "$ARCHIVE" -C "$TMP_DIR" .
 
-# ---------------------------------------------------------------- 5. 保留策略
+
 mapfile -t OLD_BACKUPS < <(ls -1t "$OUTPUT_DIR"/backup_*.tar.gz 2>/dev/null | tail -n +$((RETENTION + 1)))
 if ((${#OLD_BACKUPS[@]} > 0)); then
   for old in "${OLD_BACKUPS[@]}"; do

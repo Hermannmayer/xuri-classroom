@@ -46,13 +46,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * API Token 的规则回归：明文只出现一次、库里只有哈希、撤销 / 过期立刻失效。
- *
- * <p>纯 Mockito，不启动 Spring、不连库，没配 {@code S2_TEST_DB_URL} 也会跑。
- * 这几条是 MCP 的安全底线，改动 {@code ApiTokenServiceImpl} 时必须先过这里：
- * 一旦有人为了「列表好看」把明文存回去，或者把撤销做成异步，测试会立刻红。
- */
+
+
+
+
+
+
+
 class ApiTokenServiceImplTest {
 
 	private final ApiTokenMapper apiTokenMapper = mock(ApiTokenMapper.class);
@@ -88,7 +88,7 @@ class ApiTokenServiceImplTest {
 		String plain = view.getToken();
 		assertNotNull(plain);
 		assertTrue(plain.startsWith("sk_"), plain);
-		// sk_ + 32 位十六进制
+
 		assertEquals(35, plain.length(), plain);
 		assertEquals(ApiTokenService.sha256(plain), saved.getTokenHash());
 		assertNull(saved.getExpiresAt());
@@ -184,7 +184,7 @@ class ApiTokenServiceImplTest {
 		when(apiTokenMapper.selectOne(any())).thenReturn(alive);
 		assertEquals("t1", service().authenticate("sk_alive").getId());
 
-		// 查库用的是哈希，不是明文：SQL 命中 token_hash 列，且参数值就是 SHA-256
+
 		ArgumentCaptor<Wrapper> captor = ArgumentCaptor.forClass(Wrapper.class);
 		verify(apiTokenMapper).selectOne(captor.capture());
 		String sql = captor.getValue().getCustomSqlSegment().toLowerCase(Locale.ROOT);

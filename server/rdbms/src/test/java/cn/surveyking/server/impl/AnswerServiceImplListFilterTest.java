@@ -4,11 +4,13 @@ import cn.surveyking.server.domain.dto.AnswerQuery;
 import cn.surveyking.server.domain.mapper.AnswerViewMapper;
 import cn.surveyking.server.domain.model.Answer;
 import cn.surveyking.server.domain.model.Project;
+import cn.surveyking.server.mapper.AnswerGradeMapper;
 import cn.surveyking.server.mapper.AnswerItemMapper;
 import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.mapper.ProjectMapper;
 import cn.surveyking.server.mapper.UserMapper;
 import cn.surveyking.server.service.AnonymousIdentityService;
+import cn.surveyking.server.service.AnswerGradeService;
 import cn.surveyking.server.service.AnswerPdfJobService;
 import cn.surveyking.server.service.ClassResourceService;
 import cn.surveyking.server.service.FileService;
@@ -41,21 +43,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * 答卷列表筛选（姓名模糊 + 分数段）的 SQL 形状回归。
- *
- * <p>为什么要断言 SQL 而不是造数据跑查询：这两个条件最容易出的错都不是「结果不对」，而是
- * 「条件没加」或「加错了层级」——比如把姓名两个分支的 OR 直接摊平，会连项目 / 班级 / 权限条件
- * 一起短路，变成「输入一个名字就能翻别人的答卷」。这类错只有看生成的 SQL 片段才看得出来，
- * 所以这里用 mock 的 Mapper 把 {@link AnswerServiceImpl#listAnswer} 真正生成的 Wrapper 抓下来检查。
- *
- * <p>纯 Mockito，不启动 Spring、不连库（与 {@code ApiTokenServiceImplTest} 同一套路）。
- */
+
+
+
+
+
+
+
+
+
+
 class AnswerServiceImplListFilterTest {
 
 	private final ProjectMapper projectMapper = mock(ProjectMapper.class);
 
 	private final UserMapper userMapper = mock(UserMapper.class);
+
+	private final AnswerGradeMapper answerGradeMapper = mock(AnswerGradeMapper.class);
 
 	private final AnswerViewMapper answerViewMapper = mock(AnswerViewMapper.class);
 
@@ -81,6 +85,8 @@ class AnswerServiceImplListFilterTest {
 
 	private final AnswerScoringService answerScoringService = mock(AnswerScoringService.class);
 
+	private final AnswerGradeService answerGradeService = mock(AnswerGradeService.class);
+
 	private final AnswerMetaEnricher answerMetaEnricher = mock(AnswerMetaEnricher.class);
 
 	private final ExerciseAnswerService exerciseAnswerService = mock(ExerciseAnswerService.class);
@@ -91,16 +97,16 @@ class AnswerServiceImplListFilterTest {
 
 	private final AnonymousIdentityService anonymousIdentityService = mock(AnonymousIdentityService.class);
 
-	/** Mapper 只用来接住 selectPage 的 Wrapper */
+
 	private final AnswerMapper answerMapper = mock(AnswerMapper.class);
 
-	private final AnswerServiceImpl service = new TestableAnswerService(projectMapper, userMapper, answerViewMapper,
-			answerAccessGuard, answerItemProjector, answerItemMapper, answerItemAnswerRebuilder, answerSchemaDecorator,
-			answerExporter, answerPdfJobService, fileService, answerSubmitIdempotency, answerUploadParser,
-			answerScoringService, answerMetaEnricher, exerciseAnswerService, answerAttemptAllocator,
-			classResourceService, anonymousIdentityService, answerMapper);
+	private final AnswerServiceImpl service = new TestableAnswerService(projectMapper, userMapper, answerGradeMapper,
+			answerViewMapper, answerAccessGuard, answerItemProjector, answerItemMapper, answerItemAnswerRebuilder,
+			answerSchemaDecorator, answerExporter, answerPdfJobService, fileService, answerSubmitIdempotency,
+			answerUploadParser, answerScoringService, answerGradeService, answerMetaEnricher, exerciseAnswerService,
+			answerAttemptAllocator, classResourceService, anonymousIdentityService, answerMapper);
 
-	/** 最近一次 listAnswer 生成的 Wrapper（SQL 与绑定参数都从这里读） */
+
 	private Wrapper<Answer> lastWrapper;
 
 	/**
@@ -133,7 +139,7 @@ class AnswerServiceImplListFilterTest {
 	void nameFilterFallsBackToUserTable() {
 		String sql = sqlOf(query(q -> q.setCreateByName("王小明")));
 
-		// 子查询必须钉在 create_by 上：答卷上没有姓名快照时，这是唯一的身份线索
+
 		assertTrue(sql.contains("create_by in (select id from t_user where name like"), sql);
 		assertTrue(params().containsValue("%王小明%"), params().toString());
 	}
@@ -145,7 +151,7 @@ class AnswerServiceImplListFilterTest {
 
 		int nameAt = sql.indexOf("answerer_name like");
 		assertTrue(nameAt > 0, sql);
-		// 名字条件前面必须紧跟一层左括号：否则 OR 会和外面的 AND 平铺，项目 / 班级 / 权限条件会被短路
+
 		String before = sql.substring(0, nameAt).trim();
 		assertEquals("(", before.substring(before.length() - 1), sql);
 		assertTrue(sql.toLowerCase(Locale.ROOT).contains(" or "), sql);
@@ -156,7 +162,7 @@ class AnswerServiceImplListFilterTest {
 	void nameFilterEscapesLikeWildcards() {
 		sqlOf(query(q -> q.setCreateByName("张_%")));
 
-		// 期望绑定值是「%张\_\%%」：_ 与 % 被反斜杠转义成字面量，两头的 % 仍是模糊匹配
+
 		assertTrue(params().containsValue("%张\\_\\%%"), params().toString());
 	}
 
@@ -170,7 +176,7 @@ class AnswerServiceImplListFilterTest {
 
 		assertTrue(sql.contains("exam_score >= "), sql);
 		assertTrue(sql.contains("exam_score <= "), sql);
-		// 写成 > / < 就成了开区间，60 分及格的人会被漏掉
+
 		assertFalse(sql.contains("exam_score > "), sql);
 		assertFalse(sql.contains("exam_score < "), sql);
 		assertTrue(params().containsValue(60.0), params().toString());
@@ -206,12 +212,12 @@ class AnswerServiceImplListFilterTest {
 		assertFalse(sql.contains("exam_score"), sql);
 	}
 
-	// ------ 辅助
+
 
 	/**
 	 * 跑一次 {@code listAnswer} 并把生成的 Wrapper 抓下来。
 	 *
-	 * <p>项目一律 mock 成「可管理」（{@code canManageProject=true}），否则 wrapper 里会多一条
+
 	 * {@code create_by = 当前用户}，把要断言的片段挤在一起。
 	 */
 	private String sqlOf(AnswerQuery query) {
@@ -239,24 +245,25 @@ class AnswerServiceImplListFilterTest {
 		return query;
 	}
 
-	/** 只为把 protected 的 baseMapper 传进去：ServiceImpl 没有公开 setter */
+
 	private static final class TestableAnswerService extends AnswerServiceImpl {
 
 		private TestableAnswerService(ProjectMapper projectMapper, UserMapper userMapper,
-				AnswerViewMapper answerViewMapper, AnswerAccessGuard answerAccessGuard,
-				AnswerItemProjector answerItemProjector, AnswerItemMapper answerItemMapper,
-				AnswerItemAnswerRebuilder answerItemAnswerRebuilder, AnswerSchemaDecorator answerSchemaDecorator,
-				AnswerExporter answerExporter, AnswerPdfJobService answerPdfJobService, FileService fileService,
+				AnswerGradeMapper answerGradeMapper, AnswerViewMapper answerViewMapper,
+				AnswerAccessGuard answerAccessGuard, AnswerItemProjector answerItemProjector,
+				AnswerItemMapper answerItemMapper, AnswerItemAnswerRebuilder answerItemAnswerRebuilder,
+				AnswerSchemaDecorator answerSchemaDecorator, AnswerExporter answerExporter,
+				AnswerPdfJobService answerPdfJobService, FileService fileService,
 				AnswerSubmitIdempotency answerSubmitIdempotency, AnswerUploadParser answerUploadParser,
-				AnswerScoringService answerScoringService, AnswerMetaEnricher answerMetaEnricher,
-				ExerciseAnswerService exerciseAnswerService, AnswerAttemptAllocator answerAttemptAllocator,
-				ClassResourceService classResourceService, AnonymousIdentityService anonymousIdentityService,
-				AnswerMapper answerMapper) {
-			super(projectMapper, userMapper, answerViewMapper, answerAccessGuard, answerItemProjector,
-					answerItemMapper, answerItemAnswerRebuilder, answerSchemaDecorator, answerExporter,
-					answerPdfJobService, fileService, answerSubmitIdempotency, answerUploadParser, answerScoringService,
-					answerMetaEnricher, exerciseAnswerService, answerAttemptAllocator, classResourceService,
-					anonymousIdentityService);
+				AnswerScoringService answerScoringService, AnswerGradeService answerGradeService,
+				AnswerMetaEnricher answerMetaEnricher, ExerciseAnswerService exerciseAnswerService,
+				AnswerAttemptAllocator answerAttemptAllocator, ClassResourceService classResourceService,
+				AnonymousIdentityService anonymousIdentityService, AnswerMapper answerMapper) {
+			super(projectMapper, userMapper, answerGradeMapper, answerViewMapper, answerAccessGuard,
+					answerItemProjector, answerItemMapper, answerItemAnswerRebuilder, answerSchemaDecorator,
+					answerExporter, answerPdfJobService, fileService, answerSubmitIdempotency, answerUploadParser,
+					answerScoringService, answerGradeService, answerMetaEnricher, exerciseAnswerService,
+					answerAttemptAllocator, classResourceService, anonymousIdentityService);
 			this.baseMapper = answerMapper;
 		}
 

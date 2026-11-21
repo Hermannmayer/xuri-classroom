@@ -39,23 +39,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * 导出筛选口径回归（task-41）：数据页 / 班级抽屉按「批改状态 / 姓名 / 分数段」筛完再导出，
- * PDF / 答题卷 / 长图 / 确认单必须拿到「同一批」答卷。
- *
- * <p>为什么要盯生成的 SQL 片段，而不是造数据查库：这类错不是「结果差一条」，而是
- * 「条件根本没加」——任务状态照样 done、ZIP 照样生成，只是里面多了几十份不该出现的答卷，
- * 老师把它当筛选结果发出去才发现。只有把取数的 Wrapper 抓下来看，才能证明条件真的进了 SQL。
- *
- * <p>做法：mock 掉 {@link AnswerMapper}，调用私有的 {@code countAnswers}（它与真正取数的
- * {@code queryAnswers} 共用同一个 {@code baseWrapper}），用 {@link ArgumentCaptor} 把交给
- * Mapper 的 Wrapper 拦下来，断言 SQL 片段与绑定参数。
- *
- * <p>纯 Mockito，不启动 Spring、不连库。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class AnswerPdfJobFilterScopeTest {
 
-	/** 只用来接住 selectCount 的 Wrapper：查询本身一律返回 0，不触发任何分页取数 */
+
 	private final AnswerMapper answerMapper = mock(AnswerMapper.class);
 
 	private final AnswerPdfJobServiceImpl service = new AnswerPdfJobServiceImpl(answerMapper,
@@ -63,7 +63,7 @@ class AnswerPdfJobFilterScopeTest {
 			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class),
 			mock(AnswerAccessGuard.class));
 
-	/** 最近一次生成的 Wrapper（SQL 与绑定参数都从这里读） */
+
 	private LambdaQueryWrapper<Answer> lastWrapper;
 
 	/** 单测不启动 MyBatis，Lambda 缓存是空的：{@code Answer::getGradeStatus} 解析不出列名 */
@@ -91,7 +91,7 @@ class AnswerPdfJobFilterScopeTest {
 		AnswerPdfJobServiceImpl.ExportSpec spec = AnswerPdfJobServiceImpl.specOf(query,
 				List.of(DownloadQuery.DownloadType.answerPdf));
 
-		// 漏拷一个字段，任务照样 done，只是导出的答卷不对 —— 这种错只能在这里拦住
+
 		assertEquals("pending", spec.getGradeStatus());
 		assertEquals(" 王小明 ", spec.getCreateByName());
 		assertEquals(Double.valueOf(60), spec.getMinScore());
@@ -99,7 +99,7 @@ class AnswerPdfJobFilterScopeTest {
 		assertEquals(Boolean.FALSE, spec.getIncludeAnonymous());
 		assertEquals("c1", spec.getClassId());
 		assertEquals(List.of(DownloadQuery.DownloadType.answerPdf), spec.getOutputs());
-		// includeImages 已废弃：无论请求怎么传，任务快照里永远是 true
+
 		assertTrue(spec.isIncludeImages());
 	}
 
@@ -127,15 +127,15 @@ class AnswerPdfJobFilterScopeTest {
 		String sql = sql(wrapperOf(spec -> spec.createByName("王小明")));
 
 		assertTrue(sql.contains("answerer_name like"), sql);
-		// 老答卷没有姓名快照，只能靠 t_user.name 反查 create_by
+
 		assertTrue(sql.contains("create_by in (select id from t_user where name like"), sql);
 		assertTrue(params().containsValue("%王小明%"), params().toString());
-		// 两个分支必须被一层括号包住：直接平铺的 OR 会把项目 / 班级条件一起短路
+
 		int nameAt = sql.indexOf("answerer_name like");
 		assertTrue(nameAt > 0, sql);
 		String before = sql.substring(0, nameAt).trim();
 		assertEquals("(", before.substring(before.length() - 1), sql);
-		// MyBatis-Plus 把 or() 写成大写 OR：比较前统一小写，别让断言依赖大小写
+
 		assertTrue(sql.toLowerCase(Locale.ROOT).contains(" or "), sql);
 	}
 
@@ -144,7 +144,7 @@ class AnswerPdfJobFilterScopeTest {
 	void createByNameEscapesLikeWildcards() throws Exception {
 		sql(wrapperOf(spec -> spec.createByName("张_%")));
 
-		// 期望绑定值是「%张\_\%%」：_ 与 % 被反斜杠转义，两头的 % 仍是模糊匹配
+
 		assertTrue(params().containsValue("%张\\_\\%%"), params().toString());
 	}
 
@@ -182,7 +182,7 @@ class AnswerPdfJobFilterScopeTest {
 		String excluded = sql(wrapperOf(spec -> spec.includeAnonymous(Boolean.FALSE)));
 		assertTrue(excluded.contains("is_anonymous = "), excluded);
 
-		// 不传 = 包含匿名（老调用方与「整卷导出」的行为不能变）
+
 		assertFalse(sql(wrapperOf(spec -> spec.includeAnonymous(null))).contains("is_anonymous"));
 		assertFalse(sql(wrapperOf(spec -> spec.includeAnonymous(Boolean.TRUE))).contains("is_anonymous"));
 	}
@@ -200,7 +200,7 @@ class AnswerPdfJobFilterScopeTest {
 		assertFalse(sql.contains("t_user"), sql);
 		assertFalse(sql.contains("exam_score"), sql);
 		assertFalse(sql.contains("is_anonymous"), sql);
-		// 基础范围仍在：本项目、有答案、已交卷
+
 		assertTrue(sql.contains("project_id"), sql);
 		assertTrue(sql.contains("temp_save"), sql);
 	}
@@ -211,14 +211,14 @@ class AnswerPdfJobFilterScopeTest {
 		String sql = sql(wrapperOf(spec -> spec.ids(List.of("a1")).attemptNo(Integer.valueOf(1))
 				.startTime(new Date(1_700_000_000_000L)).endTime(new Date(1_700_100_000_000L))));
 
-		// in() 生成的是大写 IN（apply 里手写的片段才保持原样），断言统一小写比较
+
 		assertTrue(sql.toLowerCase(Locale.ROOT).contains("id in "), sql);
 		assertTrue(sql.contains("attempt_no = "), sql);
 		assertTrue(sql.contains("create_at > "), sql);
 		assertTrue(sql.contains("create_at < "), sql);
 	}
 
-	/* ====== 辅助 ====== */
+
 
 	/**
 	 * 跑一次 {@code countAnswers}（私有）并把交给 Mapper 的 Wrapper 抓下来。

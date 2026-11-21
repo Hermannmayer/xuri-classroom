@@ -12,11 +12,11 @@ interface Partner {
   groupId?: string;
   type?: number;
   status?: number;
-  /** 1 查看 / 2 编辑（含查看）/ 3 授权（含查看+编辑）；班级授权为空 */
+
   accessLevel?: number;
 }
 
-/** 老师授权级别：3 同时包含 1 和 2 */
+
 const LEVEL_OPTIONS = [
   { value: 1, label: '1 · 可查看' },
   { value: 2, label: '2 · 可编辑（含查看）' },
@@ -35,16 +35,16 @@ interface SysUser {
   userId: string;
   name?: string;
   username?: string;
-  /** 所属组名，用于在协作者选择框里区分同名的人（后端 selectUser 会带回来） */
+
   deptName?: string;
 }
 
 interface Dept {
   id: string;
   name: string;
-  /** org=用户组（教师工作部）/ class=班级 */
+
   deptType?: 'org' | 'class';
-  /** 后端 /api/system/dept/list 返回的是树，这里补上子节点 */
+
   children?: Dept[];
 }
 
@@ -62,7 +62,7 @@ export default function PartnerPanel({
   canManage = false,
 }: {
   projectId: string;
-  /** project:partner：没有这个权限时只读（不渲染添加/授权/移除，只能看名单） */
+
   canManage?: boolean;
 }) {
   const [rows, setRows] = useState<Partner[]>([]);
@@ -80,7 +80,7 @@ export default function PartnerPanel({
   const [grantDept, setGrantDept] = useState<string>();
 
   const [saving, setSaving] = useState(false);
-  /** 新增协作者时的授权级别，默认 2（可编辑） */
+
   const [collabLevel, setCollabLevel] = useState(2);
   const [myId, setMyId] = useState<string>();
   const [updatingId, setUpdatingId] = useState<string>();
@@ -107,13 +107,13 @@ export default function PartnerPanel({
     get<Dept[]>('/api/system/dept/list')
       .then((list) => setDepts(Array.isArray(list) ? list : []))
       .catch(() => undefined);
-    // 教师工作部/用户组：只取 org，避免把班级当教师组授权
+
     get<Dept[]>('/api/system/dept/list', { deptType: 'org' })
       .then((list) => setTeacherGroups(Array.isArray(list) ? list : []))
       .catch(() => setTeacherGroups([]));
   }, [load]);
 
-  // 判断「我」在这份考试里的级别：level3 才能继续授权；owner/admin 没有协作者行，视为全量
+
   useEffect(() => {
     void get<UserInfo>('/api/currentUser')
       .then((user) => setMyId(user.userId))
@@ -131,9 +131,9 @@ export default function PartnerPanel({
     setCollabGroup(undefined);
     setCollabLevel(2);
     try {
-      // 改用 /api/project/selectUser 并带上 collaboratorOnly：
-      // 后端只返回「具备协作权限（默认 project:create）」的账号，学员不会再被列进来；
-      // 这个接口对老师也开放（/api/system/user/list 需要 system:user:list，老师没有）。
+
+
+
       const list = await post<SysUser[]>('/api/project/selectUser', { collaboratorOnly: true });
       setUsers(Array.isArray(list) ? list : []);
     } catch (e) {
@@ -268,7 +268,7 @@ export default function PartnerPanel({
         loading={loading}
         dataSource={rows}
         pagination={false}
-        // 对象 / 身份 / 权限 / 操作合计约 350px
+
         scroll={{ x: 360 }}
         locale={{ emptyText: <Empty description="还没有协作者或班级授权" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         columns={[
@@ -316,7 +316,7 @@ export default function PartnerPanel({
               );
             },
           },
-          // 移除是 project:partner 的写操作：没权限时整列不渲染，避免「看得见、点了 403」
+
           ...(canWrite
             ? [
                 {

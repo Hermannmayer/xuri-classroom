@@ -46,7 +46,7 @@ description: "新增页面/接口/权限/迁移/流程改动时，按这些清�
 2. 前端页面 + `client/src/schema`/`renderer`（如果涉及题目）。
 3. 后端 `ProjectApi`/`AnswerApi` + Service。
 4. 注意发布状态走 `/api/project/status`（`project:publish`），整包保存走 `/api/project/update`。
-5. 跑 `npm run test:rules` + 手工答题链路。
+5. 跑 `npm run check` + 手工答题链路。
 
 ## 6. 改部署/脚本
 
@@ -64,4 +64,3 @@ Docs-Impact: none
 ~~~
 
 否则请更新对应模块页。
-

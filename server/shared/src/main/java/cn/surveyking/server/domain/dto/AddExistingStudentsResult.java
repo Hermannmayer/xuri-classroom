@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 批量加入兼报班的结果：成功数 + 跳过原因（已达 3 个班/已在当前班/待审核等）。 */
+
 @Data
 public class AddExistingStudentsResult {
 

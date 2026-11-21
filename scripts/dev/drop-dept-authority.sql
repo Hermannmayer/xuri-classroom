@@ -7,7 +7,7 @@
 -- 所以先查 information_schema.COLUMNS，列存在才 DROP；重复执行只会打印 "already dropped"。
 --
 -- 用法：mysql -uroot -p surveyking < scripts/dev/drop-dept-authority.sql
--- 注意：只动 t_dept；t_role.authority 是角色权限串，不要删。
+
 
 SET @tbl_exists = (
   SELECT COUNT(*) FROM information_schema.TABLES
@@ -36,7 +36,7 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 自检：应只剩与角色/有效期相关的列，不再有 authority_mode / authority
+
 SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT
 FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_dept'

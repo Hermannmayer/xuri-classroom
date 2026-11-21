@@ -36,33 +36,33 @@ import {
   type PermissionKind,
 } from './permissionPresets';
 
-/**
- * 系统管理 → 权限配置。
- *
- * 页面结构：
- * 1. 选角色：一行角色卡，内置的 admin/teacher/student（或 xueyuan）标「预设」；
- * 2. 左右两栏：左边是全部权限树（可勾选、可搜索、可只看已选），
- *    右边是当前角色已有的权限（按分组列出，可逐条移除、可清空）；
- * 3. 保存：只提交当前角色的 authorities，保存后相关用户需重新登录才生效。
- *
- * 数据来源：
- * - 权限目录 GET /api/system/permission/list（后端 PermissionEnum 的权限点，按组返回）
- * - 角色列表 GET /api/system/role/list
- * - 新建角色 POST /api/system/role/create
- * - 保存角色 POST /api/system/role/update（body 只带 { id, authorities }）
- * - 删除角色 POST /api/system/role/delete
- *
- * 约定：
- * - admin 角色只读：左树永远显示「全部勾选 + 禁用」，后端也会拦截对它的权限修改；
- * - 勾选只改本地草稿：左树、右栏、底部保存条读的是同一份 draft，点保存才落库；
- * - t_role.authority 里还有 `system:role`、`position` 这类不在目录里的历史前缀串，
- *   它们不在页面上显示，但草稿里会原样保留，保存时不会误删；
- * - 「从现有角色复制」只改本地草稿：按角色 id 取该角色当前 authorities。
- *   不写死 teacher/student，也不依赖学员角色 code（student / xueyuan 都能作为复制源），
- *   以后新增的任何角色都可以直接复制。
- */
 
-// 学员内置角色在迁移数据里可能是 student，也可能是 xueyuan；两者都不允许改 code。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const BUILTIN_CODES = new Set(['admin', 'teacher', 'student', 'xueyuan']);
 const isBuiltin = (role: RoleView) => BUILTIN_CODES.has(role.code ?? '');
 
@@ -97,7 +97,7 @@ const KIND_TAG_STYLE: CSSProperties = {
   padding: '0 5px',
 };
 
-/** 左右两栏等高：面板自己滚动，页面不至于被 60+ 条权限拉得很长 */
+
 const PANEL_STYLE: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -186,11 +186,11 @@ type RoleFormValues = {
   name: string;
   code: string;
   remark?: string;
-  /** 复制源角色 id；空 = 空白角色 */
+
   presetRoleId?: string;
 };
 
-/** 草稿绑定到角色：roleId 与当前选中角色不一致时，直接回落到服务端数据 */
+
 type DraftState = {
   roleId?: string;
   codes: Set<string>;
@@ -209,13 +209,13 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
   const [saving, setSaving] = useState(false);
   const [activeRoleId, setActiveRoleId] = useState<string>();
   const [draftState, setDraftState] = useState<DraftState>({ codes: new Set<string>() });
-  /** 左树搜索：中文名 / 权限串；只影响左树的展示，不改草稿 */
+
   const [keyword, setKeyword] = useState('');
-  /** 左树「只看已选」：便于在一个分组里确认已经拿了哪些 */
+
   const [onlyChecked, setOnlyChecked] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 
-  // 只有管理员能新建角色（后端 system/role/create 是 hasRole('admin')），非管理员不显示入口
+
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     void loadAuthorities().then((list) => setIsAdmin(list.includes('ROLE_admin')));
@@ -224,7 +224,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
   const [editingRole, setEditingRole] = useState<RoleView | null>(null);
   const [savingRole, setSavingRole] = useState(false);
   const [roleForm] = Form.useForm<RoleFormValues>();
-  /** 工具栏「从现有角色复制」的当前选择 */
+
   const [copyRoleId, setCopyRoleId] = useState<string>();
 
   const load = useCallback(
@@ -257,7 +257,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
 
   const activeRole = useMemo(() => roles.find((role) => role.id === activeRoleId), [roles, activeRoleId]);
   const activeAuthorities = useMemo(() => authoritiesOf(activeRole), [activeRole]);
-  /** admin 只读：显示全部勾选并禁用 */
+
   const editorLocked = activeRole?.code === 'admin';
 
   const draft = useMemo(() => {
@@ -280,7 +280,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
     return allItems.filter((item) => draft.has(item.code)).length;
   }, [allItems, draft, editorLocked]);
 
-  /** 目录之外的旧权限串：页面不显示，但保存时保留，避免误删历史数据 */
+
   const dirty = useMemo(() => {
     if (editorLocked) return false;
     return !sameMembers(draft, new Set(activeAuthorities));
@@ -338,7 +338,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
           : (group.permissions ?? []).filter((item) => draft.has(item.code)).length;
         return {
           key: group.group,
-          // 分组标题只负责展开/收起：整组勾选交给左侧勾选框，避免点组名误加一整组权限
+
           title: (
             <div
               style={{ ...GROUP_TITLE_STYLE, cursor: 'pointer' }}
@@ -386,10 +386,10 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
     [visibleGroups, draft, editorLocked],
   );
 
-  /**
-   * 切角色 / 目录加载完成后：默认展开「已经有勾选」的分组；
-   * 一个都没勾的新角色展开第一组，避免左树看起来是空的。
-   */
+
+
+
+
   useEffect(() => {
     if (groups.length === 0) return;
     const role = roles.find((item) => item.id === activeRoleId);
@@ -401,11 +401,11 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
     setExpandedKeys(initial.map((group) => group.group));
   }, [groups, roles, activeRoleId]);
 
-  /**
-   * 搜索 / 只看已选打开时，自动展开所有可见分组，否则命中项藏在折叠节点里；
-   * 清空搜索后回到「展开有勾选的分组」，不至于把人留在只剩一个分组展开的状态。
-   * 只依赖两个筛选条件：勾选动作也会重算 visibleGroups，但不该把用户手动收起的分组再展开。
-   */
+
+
+
+
+
   useEffect(() => {
     if (!keywordNorm && !onlyChecked) {
       setExpandedKeys(
@@ -473,7 +473,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
       message.warning('这个角色没有可复制的权限');
       return;
     }
-    // 保留不在目录里的历史权限串，其余整体替换成复制源
+
     const next = new Set([...draft].filter((code) => !catalogCodes.has(code)));
     codes.forEach((code) => next.add(code));
     if (sameMembers(next, draft)) {
@@ -481,7 +481,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
       return;
     }
     setDraftState({ roleId: activeRoleId, codes: next });
-    // 复制后把有权限的分组展开，方便直接核对
+
     setExpandedKeys(
       groups
         .filter((group) => (group.permissions ?? []).some((item) => next.has(item.code)))
@@ -562,7 +562,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
     setSavingRole(true);
     try {
       if (editingRole) {
-        // 只改角色信息，不传 authorities，权限仍由下方编辑区维护
+
         await post('/api/system/role/update', {
           id: editingRole.id,
           name: values.name,
@@ -624,7 +624,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
 
   return (
     <div>
-      {/* 页头交给外层「用户与权限」：这里只在单独打开本页（旧链接）时显示标题与计数 */}
+
       {!embedded && (
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
@@ -639,7 +639,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
         </div>
       )}
 
-      {/* 1. 角色选择 */}
+
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, letterSpacing: '0.18em', color: 'var(--bp-text-soft)' }}>角色</span>
         <span style={HINT_STYLE}>内置角色带「预设」标签，选中后在下方左右两栏里调整</span>
@@ -728,7 +728,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
         </div>
       </div>
 
-      {/* 2. 权限编辑 */}
+
       {!activeRole ? (
         <div className="bp-card" style={{ marginTop: 18, padding: 40 }}>
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="先在上方选一个角色，或者新建一个" />
@@ -809,9 +809,9 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
             </span>
           </div>
 
-          {/* 2:3 = 40% : 60%（gap 的一半从各自宽度里扣，另留 2px 余量防亚像素换行）；窄屏自动上下堆叠 */}
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
-            {/* 左栏：全部权限树 */}
+
             <div className="bp-card" style={{ ...PANEL_STYLE, flex: '2 1 calc(40% - 8px)', minWidth: 260 }}>
               <div style={PANEL_HEAD_STYLE}>
                 <span className="bp-title" style={{ fontSize: 13 }}>
@@ -873,8 +873,8 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
               </div>
             </div>
 
-            {/* 右栏：当前角色已有的权限 */}
-            {/* minWidth 用 min() 夹住：窄屏时 340px 会直接溢出容器，变成整页横向滚动 */}
+
+
             <div className="bp-card" style={{ ...PANEL_STYLE, flex: '3 1 calc(60% - 8px)', minWidth: 'min(340px, 100%)' }}>
               <div style={PANEL_HEAD_STYLE}>
                 <span className="bp-title" style={{ fontSize: 13 }}>

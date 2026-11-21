@@ -14,14 +14,14 @@ import org.springframework.util.CollectionUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * 联动题回写：交卷时把当前答卷的答案同步到被联动问卷的答卷里。
- *
- * <p>
- * 从 {@code AnswerServiceImpl#updateLinkSurveyAnswer} 切出。原来用 {@code ServiceImpl} 的
- * {@code getOne/updateById/save}，这里改为等价的 {@code AnswerMapper.selectOne/updateById/insert}
- * （{@code ServiceImpl} 的实现本来就是这三者的一层包装），语义不变。
- */
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class LinkSurveyUpdater {
@@ -35,8 +35,8 @@ public class LinkSurveyUpdater {
 	 */
 	public void updateLinkSurveyAnswer(Answer answer, ProjectView project) {
 		SchemaHelper.flatSurveySchema(project.getSurvey()).stream()
-				// children 为空的题（填空/多行文本/评分/NPS/多空等）没有选项，取 get(0) 会越界，
-				// 导致「任何含填空题的问卷提交直接 500」，这里必须先判空
+
+
 				.filter(qSchema -> !CollectionUtils.isEmpty(qSchema.getChildren())
 						&& !CollectionUtils.isEmpty(qSchema.getChildren().get(0).getLinkSurveys()))
 				.forEach(qSchemaHasLinkSurvey -> {
@@ -55,7 +55,7 @@ public class LinkSurveyUpdater {
 											SchemaHelper.buildLinkLikeCondition(linkSurvey, optionValue))
 									.orderByDesc(Answer::getCreateAt).last("limit 1"));
 							if (linkedAnswer != null) {
-								// 修改
+
 								for (SurveySchema.LinkField linkField : linkSurvey.getLinkFields()) {
 									SchemaHelper.setQuestionValue(linkedAnswer.getAnswer(),
 											linkField.getLinkQuestionId(), linkField.getLinkOptionId(),
@@ -65,7 +65,7 @@ public class LinkSurveyUpdater {
 								answerMapper.updateById(linkedAnswer);
 							}
 							else {
-								// 添加
+
 								Answer addAnswer = new Answer();
 								BeanUtils.copyProperties(answer, addAnswer, "id", "examScore", "examInfo", "answer",
 										"projectId");

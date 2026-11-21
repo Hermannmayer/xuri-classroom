@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 组卷预览结果：只算不写 */
+
 @Data
 public class ComposePlan {
 

@@ -20,9 +20,9 @@ const NEEDS_OPTION = new Set(['CHECKED', 'UNCHECKED']);
 const NEEDS_VALUE = new Set(['>', '<', '==']);
 
 export interface RuleEditorProps {
-  /** RuleConfig 的 JSON 字符串；空串即无条件 */
+
   value?: string;
-  /** 可作为条件来源的题目（通常是当前题之前的题） */
+
   questions: FlatQuestion[];
   onChange: (next: string | undefined) => void;
 }

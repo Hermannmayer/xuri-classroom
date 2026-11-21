@@ -15,18 +15,18 @@ const { RangePicker } = DatePicker;
 export interface FilterBarProps {
   mobile: boolean;
   classOptions: ClassOption[];
-  /** 当前班级（URL 里的 ?classId=）；空 = 整份试卷 */
+
   classId?: string;
   onClassChange: (classId?: string) => void;
   value: FilterState;
-  /** 只带变化的字段，页面用一次 setState 合并 */
+
   onPatch: (patch: Partial<FilterState>) => void;
-  /** 姓名关键字：即时输入、防抖后才下推，所以单独受控 */
+
   nameValue: string;
   onNameChange: (value: string) => void;
-  /** 全部恢复默认（含清掉 URL 上的 classId） */
+
   onReset: () => void;
-  /** 有没有非默认条件：没有就不渲染「清空筛选」，免得页面多个没用的按钮 */
+
   resetVisible: boolean;
 }
 
@@ -85,7 +85,7 @@ export default function FilterBar({
         marginBottom: 12,
       }}
     >
-      {/* 没有班级可选的账号（缺 class:list / 一个班都没有）不渲染这一项，别给一个点不开的空下拉 */}
+
       {classOptions.length > 0 && (
         <Select
           allowClear

@@ -39,10 +39,10 @@ export interface RichTextEditorProps {
   placeholder?: string;
   disabled?: boolean;
   minHeight?: number;
-  /** editor=题库/试卷编辑；answer=学员答题（图片走公开上传） */
+
   mode?: 'editor' | 'answer';
   projectId?: string;
-  /** 图片归属：project / repo；不传则图片只上传不登记引用 */
+
   ownerType?: 'project' | 'repo';
   ownerId?: string;
   questionId?: string;
@@ -93,7 +93,7 @@ const FontSize = Extension.create({
   },
 });
 
-/** 行内公式：存 LaTeX，编辑态显示原始文本，阅读态由 RichTextContent 用 KaTeX 渲染。 */
+
 const Formula = Node.create({
   name: 'formula',
   group: 'inline',
@@ -118,7 +118,7 @@ const Formula = Node.create({
   },
 });
 
-/** 题目引用：存一个题目 id + 展示文本；不远程取题，避免把其他题答案带进编辑器。 */
+
 const QuestionRef = Node.create({
   name: 'questionRef',
   group: 'inline',
@@ -169,12 +169,12 @@ export default function RichTextEditor({
   const colorRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const editor = useEditor({
-    // tiptap 3 起 useEditor 默认不再「每次事务都重渲染」；工具栏高亮态是渲染时读
-    // editor.isActive() 得到的，关掉后移动光标/选中文字不会刷新，这里显式恢复 v2 的行为。
+
+
     shouldRerenderOnTransaction: true,
     extensions: [
-      // tiptap 3 的 StarterKit 已内置 link / underline，这里关掉内置的，
-      // 继续用下面自己 configure 过的版本（否则会报 Duplicate extension names）。
+
+
       StarterKit.configure({ heading: { levels: [2, 3, 4] }, link: false, underline: false }),
       Underline,
       Link.configure({
@@ -210,7 +210,7 @@ export default function RichTextEditor({
     if (!editor) return;
     const current = editor.getHTML();
     if (value !== current && !editor.isFocused) {
-      // tiptap 3 的 setContent 第二个参数改成了 options 对象，旧的布尔写法已移除
+
       editor.commands.setContent(value ?? '', { emitUpdate: false });
     }
   }, [editor, value]);

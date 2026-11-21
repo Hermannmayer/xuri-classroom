@@ -6,10 +6,10 @@ import lombok.Data;
 import java.util.Date;
 import java.util.LinkedHashMap;
 
-/**
- * @author javahuang
- * @date 2021/8/25
- */
+
+
+
+
 @Data
 public class ProjectView {
 
@@ -17,7 +17,7 @@ public class ProjectView {
 
 	private String name;
 
-	/** 分类名（如 保育员/养老护理员/育婴员）；为空表示未分类 */
+
 	private String category;
 
 	private ProjectModeEnum mode;
@@ -30,16 +30,16 @@ public class ProjectView {
 
 	private Long total;
 
-	/** 待批改答卷数（grade_status='pending' 且已正式交卷），列表据此显示「待批改 N」 */
+
 	private Integer pendingCount;
 
-	/** 今日答卷数量 */
+
 	private Integer totalOfToday;
 
-	/** 最近更新时间 */
+
 	private Long lastUpdate;
 
-	/** 平均填写时长 */
+
 	private Long averageDuration;
 
 	private Date createAt;

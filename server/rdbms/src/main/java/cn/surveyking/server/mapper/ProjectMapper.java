@@ -5,10 +5,10 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 public interface ProjectMapper extends BaseMapper<Project> {
 
 	List<Project> selectLogicDeleted(String userId);

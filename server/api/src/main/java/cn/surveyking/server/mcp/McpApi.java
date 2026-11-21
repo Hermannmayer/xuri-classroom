@@ -12,24 +12,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * MCP 端点：{@code POST /mcp}（计划 §7.2）。
- *
- * <p>刻意不用 {@code @RequestBody} + 返回对象的写法：
- * <ul>
- * <li>全站 {@code CustomResponseBodyAdvice} 会把任何返回体包成 {@code {code,message,data}}，
- * MCP 客户端要的是纯 JSON-RPC，包一层直接不认；</li>
- * <li>直接读写 servlet 请求/响应，也就不受内容协商（{@code Accept: application/json,
- * text/event-stream}）和 {@code Content-Type} 缺省值影响——MCP 客户端这两种头部写法都有。</li>
- * </ul>
- *
- * <p>路径就是 {@code /mcp}（不带 {@code /api} 前缀）：MCP 客户端的 {@code mcp.json} 里
- * 通常直接写 {@code https://host/mcp}；审计侧 {@code AuditRecorder} 已经把 {@code /mcp} 与
- * {@code /api/mcp} 都识别为 {@code source=mcp}。
- *
- * <p>这不是 {@code /api/**} 路径，所以 Spring Security 的 {@code authenticated()} 不覆盖它，
- * 鉴权完全由 {@link McpTokenResolver} 按 Bearer 令牌做——MCP 客户端不会带 Cookie。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @RestController
 @RequiredArgsConstructor
 public class McpApi {
@@ -64,7 +64,7 @@ public class McpApi {
 			write(response, result.status(), result.body());
 		}
 		catch (McpUnauthorizedException e) {
-			// 401 才会让 MCP 客户端提示「令牌需要更新」；500/400 会被当成服务端故障去重试
+
 			response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"invalid_token\"");
 			write(response, HttpServletResponse.SC_UNAUTHORIZED, mcpServer.unauthorizedBody(e.getMessage()));
 		}
@@ -92,7 +92,7 @@ public class McpApi {
 		response.setStatus(status);
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 		response.setContentType("application/json");
-		// 令牌与业务数据都不该被中间层缓存
+
 		response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
 		if (body != null && !body.isEmpty()) {
 			response.getWriter().write(body);

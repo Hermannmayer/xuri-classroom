@@ -296,7 +296,7 @@ export default function ComposePanel({
     active.forEach((type, index) => {
       const count = Number(effectiveCounts[type]);
       const isLast = index === active.length - 1;
-      // 最后一类吸收四舍五入的零头，保证总分正好等于目标
+
       const per = isLast
         ? (totalScore - spent) / count
         : (totalScore * Number(scoreWeights[type] ?? 0)) / sumWeight / count;

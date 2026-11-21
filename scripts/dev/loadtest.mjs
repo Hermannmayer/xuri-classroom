@@ -1,7 +1,7 @@
 // 生产压测：按真实场景分档，全程监控、异常自动中止。
 //   --scenario login  登录链路（RSA 解密 + 密码哈希 + 发 token）
 //   --scenario exam   开考瞬间（POST /api/public/projectOutline 拉整棵题树 + 静态资源）
-//   --scenario list   带登录的列表（注意 /api/project 有单用户 60 次/分钟的反爬限流，必然 429）
+
 // 用法：node scripts/dev/loadtest.mjs --conns 120 --seconds 30 --scenario exam
 import crypto from 'node:crypto';
 

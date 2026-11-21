@@ -14,37 +14,37 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 
-/**
- * 匿名答卷清理：每日定时 + 管理员手动。
- *
- * <p>规则（用户已确认）：
- * <ul>
- * <li>保留天数与开关存在系统设置 {@code SystemInfo.SystemSetting} 里，默认开启、保留 90 天；</li>
- * <li>定时任务每天 03:30 跑一次；管理员手动清理走 {@code POST /api/system/anonymous/cleanup}；</li>
- * <li>只清理 {@code t_answer.is_anonymous=1} 且创建时间早于 cutoff 的答卷，登录用户的答卷不碰；</li>
- * <li>清理完把「最近一次清理时间/条数」写回设置（只读展示字段）。</li>
- * </ul>
- *
- * <p>注意：写回设置后要手动失效 {@code commonCache}，否则 {@code GET /api/system} 最长要等缓存
- * TTL 才看得到新的 last 字段（与 SystemServiceImpl#updateProtection 同一个坑）。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AnonymousCleanupService {
 
-	/** 系统设置里默认保留天数 */
+
 	public static final int DEFAULT_RETENTION_DAYS = 90;
 
-	/** 保留天数范围，与 SystemServiceImpl 的 clamp 保持一致 */
+
 	public static final int MIN_RETENTION_DAYS = 1;
 
 	public static final int MAX_RETENTION_DAYS = 3650;
 
-	/** 进回收站后默认保留几天再物理清理 */
+
 	public static final int DEFAULT_PURGE_DELAY_DAYS = 7;
 
-	/** t_sys_info 只有一条记录 */
+
 	private static final String SYS_INFO_ID = "1";
 
 	private final SysInfoMapper sysInfoMapper;
@@ -60,7 +60,7 @@ public class AnonymousCleanupService {
 	public void cleanupDaily() {
 		SysInfo info = sysInfoMapper.selectById(SYS_INFO_ID);
 		SystemInfo.SystemSetting setting = info == null ? null : info.getSetting();
-		// 缺省视为开启：只有显式 false 才跳过
+
 		if (setting != null && Boolean.FALSE.equals(setting.getAnonymousCleanupEnabled())) {
 			log.info("匿名答卷自动清理已关闭，跳过");
 			return;
@@ -71,11 +71,11 @@ public class AnonymousCleanupService {
 			log.info("匿名答卷定时清理完成: retentionDays={}, deleted={}", retentionDays, deleted);
 		}
 		catch (Exception e) {
-			// 定时任务里抛异常会被调度器吞掉，这里显式记一笔，便于排查
+
 			log.error("匿名答卷定时清理失败", e);
 		}
-		// 第二步（默认关闭）：把进回收站够久的匿名答卷真正抹掉，连附件一起。
-		// 第一步只是逻辑删，不打开这个开关的话答卷和签名图会一直占着磁盘。
+
+
 		if (setting != null && Boolean.TRUE.equals(setting.getAnonymousPurgeEnabled())) {
 			int purgeDays = normalizeRetentionDays(
 					setting.getAnonymousPurgeDelayDays() == null ? DEFAULT_PURGE_DELAY_DAYS
@@ -108,7 +108,7 @@ public class AnonymousCleanupService {
 	public int runNow(int days) {
 		int retentionDays = normalizeRetentionDays(days);
 		int deleted = anonymousIdentityService.purgeOlderThan(retentionDays);
-		// 重新读一次再写回，减少覆盖并发保存的系统设置的概率（只改 setting 里的两个 last 字段）
+
 		SysInfo info = sysInfoMapper.selectById(SYS_INFO_ID);
 		boolean exists = info != null;
 		if (!exists) {

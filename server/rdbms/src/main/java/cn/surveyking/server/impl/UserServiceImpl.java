@@ -28,26 +28,26 @@ import jakarta.validation.ValidationException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * 用户服务入口：只保留接口方法、缓存注解与注册流程，方法体按职责拆到 impl 包下的组件。
- *
- * <p>
- * 拆分口径（2026-11 重构）：
- * <ul>
- * <li>{@link UserAuthService}：登录、{@code UserInfo} 组装、验证码、i18n；</li>
- * <li>{@link UserPermissionGuard}：能管谁 / 能授哪些角色 / 能放进哪些组；</li>
- * <li>{@link UserDeptMembershipService}：主组 + 附加组 + 祖先链、按组的数据范围；</li>
- * <li>{@link UserAdminService}：建号/改号/删号/岗位/界面偏好 + 事务提交后清缓存；</li>
- * <li>{@link UserImportService}：Excel 批量导入；</li>
- * <li>{@link ClassStudentService}：班级学员的增删改；</li>
- * <li>{@link UserQueryService}：列表、候选项、分组、我的任务。</li>
- * </ul>
- *
- * <p>
- * 这里刻意保留全部 {@code @Cacheable} / {@code @CacheEvict} 注解：缓存切面仍然挂在同一个
- * 入口 bean 上，key 与注解时机和拆分前完全一致。组件本身没有事务注解，
- * 仍由本类上的 {@code @Transactional} 开启事务，跨 bean 调用参与同一个事务。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -183,7 +183,7 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		if (Boolean.FALSE.equals(registerInfo.getRegisterEnabled())) {
 			throw new ErrorCodeException(ErrorCode.RegisterError);
 		}
-		// 注册账号 = 手机号：与班级管理里建学员保持同一套口径，避免「账号和手机号不是同一个」
+
 		String phone = StringUtils.hasText(request.getPhone()) ? request.getPhone().trim()
 				: StringUtils.hasText(request.getUsername()) ? request.getUsername().trim() : "";
 		if (!ClassStudentService.PHONE_PATTERN.matcher(phone).matches()) {
@@ -206,8 +206,8 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 		createUserRequest.setPassword(request.getPassword());
 		createUserRequest.setName(name);
 		createUserRequest.setPhone(phone);
-		// 注册目标班级由学员在注册页选择：必须是 dept_type=class 且该班开启了「开放注册」。
-		// 不再回退到组织树根（org），否则会被「学员只能加入班级」校验拒绝。
+
+
 		String registerDeptId = StringUtils.hasText(request.getDeptId()) ? request.getDeptId().trim() : null;
 		Dept registerDept = registerDeptId == null ? null : deptMapper.selectById(registerDeptId);
 		if (registerDept == null || !Dept.TYPE_CLASS.equals(registerDept.getDeptType())) {
@@ -220,11 +220,11 @@ public class UserServiceImpl extends BaseService<UserMapper, User> implements Us
 			throw new ValidationException("该班级未开放注册，请重新选择");
 		}
 		createUserRequest.setDeptId(registerDept.getId());
-		// 注册用户先进待审核状态（status=0），管理员审核通过后才能登录
+
 		createUserRequest.setStatus(0);
 		createUserRequest.setUserType("student");
-		// 注册只能是学员；老师/管理员只能由后台分配。没配置默认角色时兜底到系统内置学员角色，
-		// 否则审核通过后账号没有任何菜单权限。
+
+
 		List<String> registerRoles = registerInfo.getRoles() == null ? Collections.emptyList()
 				: registerInfo.getRoles().stream().filter(StringUtils::hasText).distinct().collect(Collectors.toList());
 		if (registerRoles.isEmpty()) {

@@ -19,12 +19,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 答卷视图的 schema 装饰：把答卷 JSON 里「人 / 部门 / 附件」三类题的 ID 展开成展示字段。
- *
- * <p>
- * 从 {@code AnswerServiceImpl} 切出。列表、详情、回收站三个入口共用同一份扁平 schema， 这里只做「按题型过滤 + 填充视图」，不读写答卷本身。
- */
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerSchemaDecorator {
@@ -71,7 +71,7 @@ public class AnswerSchemaDecorator {
 			String questionId = question.getId();
 			Object option2value = answers.get(questionId);
 			if (option2value != null && option2value instanceof Map) {
-				// 签名题前端存的是 {qId: {oId: fileId}} 需要转换成数组
+
 				((Map<String, Object>) option2value).values().stream().map(x -> {
 					if (x instanceof List) {
 						return (List<String>) x;
@@ -89,7 +89,7 @@ public class AnswerSchemaDecorator {
 						query.setIds(ids);
 						query.setProjectId(view.getProjectId());
 						query.setQuestionId(questionId);
-						// 图片上传和签名需要做一个合并
+
 						view.getAttachment().addAll(fileService.listFiles(query));
 					}
 					else if (questionType == SurveySchema.QuestionType.Dept) {

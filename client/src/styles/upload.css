@@ -8,7 +8,7 @@
   max-width: 720px;
 }
 
-/* 已传文件列表：卡片自动换行，手机上也不会横向溢出 */
+
 .sk-upload-list {
   display: flex;
   flex-wrap: wrap;
@@ -29,7 +29,7 @@
   border: 1px solid #c9c2b4;
 }
 
-/* 图片缩略图：限宽限高，长图不把整页撑开 */
+
 .sk-upload-image {
   display: block;
   max-width: 100%;
@@ -45,7 +45,7 @@
   width: 100%;
 }
 
-/* 文件名一行截断，完整名字在 title 里 */
+
 .sk-upload-caption {
   min-width: 0;
   overflow: hidden;
@@ -55,7 +55,7 @@
   white-space: nowrap;
 }
 
-/* 非图片附件（PDF / Word / Excel …）：图标 + 文件名下载链接 */
+
 .sk-upload-file {
   display: flex;
   align-items: center;
@@ -78,7 +78,7 @@
   overflow-wrap: anywhere;
 }
 
-/* 删除按钮：只在可作答态出现；上传中禁用，避免和「写回答案」抢同一份列表 */
+
 .sk-upload-remove {
   display: inline-flex;
   flex: none;
@@ -104,7 +104,7 @@
   opacity: 0.55;
 }
 
-/* 自定义按钮吃不到全局焦点样式，键盘用户要看得见焦点 */
+
 .sk-upload-remove:focus-visible {
   outline: 2px solid var(--bp-blue, #1f6feb);
   outline-offset: 1px;
@@ -123,7 +123,7 @@
   color: var(--bp-text-soft, #6b7280);
 }
 
-/* 原生 input 只作为选文件的入口，真正点的是上面的 antd 按钮 */
+
 .sk-upload-input {
   display: none;
 }

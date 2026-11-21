@@ -29,11 +29,11 @@ export default function TaskCenter() {
     });
   }, []);
 
-  // 教学视角 = portal:teacher 且 project:report：TeachingApi 要 report，
-  // 只配门户权限的账号进 /teaching 会 403，这里不能再把它当成教学视角。
+
+
   const teachingView = can(authorities, PERMISSION_CODES.portalTeacher) && can(authorities, PERMISSION_CODES.projectReport);
   if (teachingView || can(authorities, PERMISSION_CODES.portalAdmin)) {
-    // 没有 project:list 的教学角色去不了项目列表，退到班级学情（它同样要 report）
+
     return <Navigate to={can(authorities, PERMISSION_CODES.projectList) ? '/project' : '/teaching'} replace />;
   }
   const canExam = can(authorities, PERMISSION_CODES.projectList);
@@ -48,7 +48,7 @@ export default function TaskCenter() {
     if (canPractice) {
       tabs.push({ key: 'practice', label: '练习记录', children: <ExerciseList /> });
     }
-    // 我的成绩：只能看自己交过的卷子（后端按 createBy 过滤）
+
     if (canReport) {
       tabs.push({ key: 'report', label: '我的成绩', children: <MyReport /> });
     }

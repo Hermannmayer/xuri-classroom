@@ -12,14 +12,14 @@ FROM t_user_role
 GROUP BY user_id, role_id
 HAVING COUNT(*) > 1;
 
--- ② 去重：保留 id 最小的那条
+
 DELETE t1 FROM t_user_role t1
 JOIN t_user_role t2
   ON t1.user_id = t2.user_id
  AND t1.role_id = t2.role_id
  AND t1.id > t2.id;
 
--- ③ 幂等加唯一键（MySQL 不支持 ADD CONSTRAINT IF NOT EXISTS，先查 information_schema）
+
 SET @has_uk = (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_user_role' AND INDEX_NAME = 'uk_user_role'
@@ -31,5 +31,5 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 自检：应能看到 uk_user_role，且 Non_unique=0
+
 SHOW INDEX FROM t_user_role WHERE Key_name = 'uk_user_role';

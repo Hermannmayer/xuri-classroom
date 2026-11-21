@@ -31,40 +31,40 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * API Token 实现。
- *
- * <p>几个刻意的选择：
- * <ul>
- * <li>明文格式 {@code sk_ + 32 位十六进制}：前缀让人一眼看出是本站令牌，随机部分 128 bit 熵，
- * 不会被「猜」出来；</li>
- * <li>签发时不再二次加密：SHA-256 已经足够（令牌本身就是 128 bit 随机串，不存在字典攻击面）；</li>
- * <li>{@link #authenticate} 不缓存：撤销要「立刻 401」，缓存一秒钟都是漏洞；单条主键查询的代价可以忽略；</li>
- * <li>{@link #touchLastUsed} 失败只打日志：它只是排障信息，不该让 MCP 调用失败。</li>
- * </ul>
- */
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApiTokenServiceImpl implements ApiTokenService {
 
-	/** 明文前缀 */
+
 	static final String PLAIN_PREFIX = "sk_";
 
-	/** 随机部分字节数：16 字节 = 128 bit → 32 位十六进制 */
+
 	static final int SECRET_BYTES = 16;
 
-	/** 名称长度上限（与 t_api_token.name 的 varchar(100) 对齐） */
+
 	static final int NAME_MAX_LENGTH = 100;
 
-	/** 指纹保留位数（前/后各 4 位） */
+
 	static final int MASK_KEEP = 4;
 
 	private static final String MASK = "****";
 
 	private static final SecureRandom RANDOM = new SecureRandom();
 
-	/** 库里全是本地时间（dataSource 的 serverTimezone 也是 GMT+8），这里按同一时区解释入参 */
+
 	private static final ZoneId ZONE = ZoneId.of("GMT+8");
 
 	private final ApiTokenMapper apiTokenMapper;
@@ -98,7 +98,7 @@ public class ApiTokenServiceImpl implements ApiTokenService {
 		apiTokenMapper.insert(entity);
 
 		ApiTokenView view = toView(entity, null);
-		// 明文只在这里出现一次：实体里的 tokenHash 再也还原不出它
+
 		view.setToken(plain);
 		return view;
 	}
@@ -128,7 +128,7 @@ public class ApiTokenServiceImpl implements ApiTokenService {
 			throw new ValidationException("令牌不存在");
 		}
 		if (Boolean.TRUE.equals(token.getRevoked())) {
-			// 重复撤销按幂等处理：前端连点两次不该报错
+
 			return;
 		}
 		ApiToken patch = new ApiToken();
@@ -198,7 +198,7 @@ public class ApiTokenServiceImpl implements ApiTokenService {
 		return date;
 	}
 
-	/** 白名单规范化：空 → null（库里用 null 表示「按用户权限」），否则去重后用逗号拼回去 */
+
 	private String normalizeScopes(String scopes) {
 		List<String> list = ApiTokenService.parseScopes(scopes);
 		return list.isEmpty() ? null : String.join(",", list);

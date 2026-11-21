@@ -9,11 +9,11 @@ import reactor.core.publisher.Flux;
 
 import java.util.List;
 
-/**
- * 聊天服务
- *
- * @author zzr
- */
+
+
+
+
+
 public interface ChatService {
 
 	/**

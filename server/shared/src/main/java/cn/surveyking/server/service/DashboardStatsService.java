@@ -5,21 +5,21 @@ import cn.surveyking.server.domain.dto.DashboardTrendView;
 import cn.surveyking.server.domain.dto.StudentDashboardView;
 import cn.surveyking.server.domain.dto.TeacherDashboardView;
 
-/**
- * 首页统计（只读）。五个接口对应首页的几种视角，互不依赖，可以并发调用。
- *
- * <p>与 {@link DashboardService}（老仪表盘组件，只有 /api/dashboard/list）没有任何关系：
- * 那是项目内嵌的组件配置，这里是给首页看板用的聚合数字，所以单独一个服务，不往老接口里塞。
- *
- * <p>实现约定（见 {@code DashboardStatsServiceImpl}）：
- * <ul>
- * <li>只统计未删除数据；</li>
- * <li>每个子统计单独 catch：某个口径算不出来就退化成 0 并记一条 warn，绝不让首页整个 500；</li>
- * <li>numerator 全部走 SQL 聚合（selectCount / selectMaps），不把答卷明细拉进内存。</li>
- * </ul>
- *
- * @author be-stats
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public interface DashboardStatsService {
 
 	/**

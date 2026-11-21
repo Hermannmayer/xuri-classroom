@@ -30,12 +30,12 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import reactor.util.retry.Retry;
 
-/**
- * OpenAI-compatible chat service. The API base URL, key, model list and default model are
- * managed through system settings.
- *
- * @author zzr
- */
+
+
+
+
+
+
 @Slf4j
 @Service
 public class OpenAiCompatibleChatServiceImpl implements AiChatService {
@@ -105,12 +105,12 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 
 	@Override
 	public ConversationResponse createConversation(ConversationRequest conversationRequest) {
-		// 创建一个新的 ConversationResponse 对象
+
 		ConversationResponse response = new ConversationResponse();
 		response.setId(UUID.randomUUID().toString().replace("-", ""));
 		response.setCreatedAt(System.currentTimeMillis());
 
-		// 设置模型类型和ID
+
 		Map<String, String> metaData = new HashMap<>();
 		metaData.put("modelType", "openai-compatible");
 
@@ -128,7 +128,7 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 	public Flux<StreamResponseEvent> createChatStream(ChatRequest chatRequest, String conversationId, String model,
 			Consumer<AiMessage> consumer) {
 
-		// 检查AI是否启用
+
 		if (!isEnabled()) {
 			return Flux.just(new StreamResponseEvent(EventTypeEnum.error, "AI功能未启用"));
 		}
@@ -152,15 +152,15 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 			return Flux.just(new StreamResponseEvent(EventTypeEnum.error, e.getMessage()));
 		}
 
-		// 构建请求体
+
 		Map<String, Object> requestBody = new HashMap<>();
 		requestBody.put("model", selectedModel);
 		requestBody.put("stream", true);
 
-		// 构建消息列表
+
 		List<Map<String, String>> messages = new ArrayList<>();
 
-		// 添加系统 prompt 消息，题目解析等场景可覆盖默认提示词
+
 		String systemPromptContent = chatRequest.getSystemPrompt();
 		AiMessage prompt = StringUtils.hasText(systemPromptContent) ? null
 				: getPrompt("openai-compatible", selectedModel);
@@ -178,7 +178,7 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 			messages.add(systemMessage);
 		}
 
-		// 添加历史消息（最多10条）
+
 		List<ChatRequest.EnterMessage> historyMessages = chatRequest.getAdditionalMessages();
 		if (historyMessages != null) {
 			int startIndex = Math.max(0, historyMessages.size() - 10);
@@ -193,14 +193,14 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 
 		requestBody.put("messages", messages);
 
-		// 发送请求
+
 		List<String> contentList = new ArrayList<>();
 		return webClient.post().uri(chatCompletionsUrl).header("Authorization", "Bearer " + apiKey)
 				.header("Content-Type", "application/json").bodyValue(requestBody).retrieve().bodyToFlux(String.class)
 				.timeout(Duration.ofMinutes(5)).mapNotNull(original -> {
 					log.info("AI response: {}", original);
 					if ("[DONE]".equals(original)) {
-						// 将所有的 content 保存到 AiMessage
+
 						consumer.accept(new AiMessage(conversationId, "assistant", String.join("", contentList)));
 						return new StreamResponseEvent(EventTypeEnum.done, "");
 					}
@@ -208,7 +208,7 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 						JsonNode jsonObject = objectMapper.readTree(original);
 						JsonNode delta = jsonObject.path("choices").get(0).path("delta");
 
-						// 处理DeepSeek的推理内容（如果存在）
+
 						String reasoningData = delta.path("reasoning_content").asText(null);
 						if (StringUtils.hasText(reasoningData)) {
 							return new StreamResponseEvent(EventTypeEnum.in_progress, "", reasoningData);
@@ -246,11 +246,11 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 	public AiMessage getPrompt(String modelType, String modelId) {
 		SystemInfo.AiSetting aiSetting = getAiSetting();
 
-		// 创建一个新的消息对象
+
 		AiMessage message = new AiMessage();
 		message.setRole("system");
 
-		// 优先使用系统配置的提示词，如果没有则使用默认提示词
+
 		String prompt = aiSetting.getPrompt();
 		if (!StringUtils.hasText(prompt)) {
 			ClassPathResource resource = new ClassPathResource("prompt/openai-compatible.md");

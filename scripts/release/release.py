@@ -43,7 +43,7 @@ POM_FILE = ROOT / "server" / "pom.xml"
 APPLICATION_YML = ROOT / "server" / "api" / "src" / "main" / "resources" / "application.yml"
 MARKER = "<!-- version list -->"
 
-# 这个仓库从 2.0.0 起启用语义化发版；更早的 v0.x tag 是上游 2021 年的历史，不参与计算。
+
 MIN_TAG_VERSION = (2, 0, 0)
 
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")

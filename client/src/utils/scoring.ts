@@ -14,19 +14,19 @@
  * 1. 后端是严格 `String#equals` / `String#contains`：不去空白、大小写敏感；
  *    前端默认去掉每行首尾空白并折叠内部连续空白（`normalizeWhitespace`，默认开），
  *    大小写默认**不忽略**（`ignoreCase` 默认关，可用参数打开），因此绝大多数场景与后端一致；
- * 2. 后端按 `"\n"` 切分，答案里若存成 CRLF 会留下 `\r`；前端按 `/\r?\n/` 切分，顺手兼容这种情况。
+
  */
 import type { Attribute, ExamMatchRule } from '../schema/types';
 
-/** 空分/无效分统一显示为「—」，不要显示 0（0 分是有效成绩） */
+
 export const EMPTY_SCORE = '—';
 
 export interface TextMatchOptions {
-  /** 判分规则；后端为空时等价于「永远判错」，前端按 completeSame 处理更符合直觉 */
+
   rule?: ExamMatchRule | null;
-  /** 忽略大小写，默认 false（与后端一致） */
+
   ignoreCase?: boolean;
-  /** 去掉首尾空白、折叠内部空白，默认 true（后端不去空白，这里只为了粘贴场景） */
+
   normalizeWhitespace?: boolean;
 }
 

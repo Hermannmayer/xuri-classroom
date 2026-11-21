@@ -6,12 +6,12 @@ import lombok.Data;
 import java.util.Date;
 import java.util.LinkedHashMap;
 
-/**
- * 答卷页面
- *
- * @author javahuang
- * @date 2021/8/26
- */
+
+
+
+
+
+
 @Data
 public class PublicProjectView {
 
@@ -19,7 +19,7 @@ public class PublicProjectView {
 
 	private SurveySchema survey;
 
-	/** 逐题下发时返回的最小题目大纲；此模式下 survey 为 null。 */
+
 	private java.util.List<PublicQuestionOutline> outline;
 
 	private Integer status;
@@ -28,7 +28,7 @@ public class PublicProjectView {
 
 	private String name;
 
-	/** 通过班级专属链接进入时，服务端解析出的班级；普通链接为空 */
+
 	private String classId;
 
 	private ProjectModeEnum mode;
@@ -49,12 +49,12 @@ public class PublicProjectView {
 
 	private Boolean isAuthenticated;
 
-	/** 已配置微信公众号登录，但当前浏览器还没有完成本问卷的微信授权。 */
+
 	private Boolean wechatAuthorizationRequired;
 
 	private AnswerExamInfo examInfo;
 
-	/** 当前作答的元信息（切屏次数等）；刷新页面后前端用它恢复计数 */
+
 	private AnswerMetaInfo metaInfo;
 
 }

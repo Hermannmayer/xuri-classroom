@@ -9,10 +9,10 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 
-/**
- * @author javahuang
- * @date 2021/9/23
- */
+
+
+
+
 @Mapper
 public interface TemplateViewMapper extends BaseModelMapper<TemplateRequest, TemplateView, Template> {
 

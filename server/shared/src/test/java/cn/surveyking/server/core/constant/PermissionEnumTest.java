@@ -12,10 +12,10 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * 权限目录是唯一真源：前端常量、SQL 种子、文档都从这里生成。
- * 这些不变量一旦破坏，权限矩阵与后端校验会静默分叉。
- */
+
+
+
+
 class PermissionEnumTest {
 
 	@Test

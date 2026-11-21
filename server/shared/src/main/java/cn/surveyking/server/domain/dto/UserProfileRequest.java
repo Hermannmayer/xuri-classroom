@@ -2,11 +2,11 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
-/**
- * 当前用户可自行修改的个人资料。
- *
- * @author javahuang
- */
+
+
+
+
+
 @Data
 public class UserProfileRequest {
 

@@ -15,7 +15,7 @@ const BASE = process.env.SK_BASE || 'http://127.0.0.1:7007';
 async function loadPublicKey() {
   const sys = await fetch(BASE + '/api/system').then(r => r.json());
   const rawKey = sys.data.publicKey;
-  // 后端给的是不带 PEM 头的裸 Base64（X.509/SPKI），Node 需要包一层
+
   return rawKey.includes('-----')
     ? rawKey
     : '-----BEGIN PUBLIC KEY-----\n' + rawKey.replace(/(.{64})/g, '$1\n').trim() + '\n-----END PUBLIC KEY-----';
@@ -143,7 +143,7 @@ async function userCheck(publicKey, username, password) {
     groupRoleAuthorities: [...fromGroups].sort(),
     actualAuthorityCount: actual.size,
     actualAuthorityList: [...actual].sort(),
-    /** 组链角色应带来的权限里，currentUser 还没拿到的（应为空；非空说明鉴权没接上或缓存没失效） */
+
     missingFromCurrentUser: missing.sort(),
     verdict: missing.length
       ? `组角色有 ${missing.length} 个权限串没进 authorityList —— 鉴权未生效或 userCache 未失效`

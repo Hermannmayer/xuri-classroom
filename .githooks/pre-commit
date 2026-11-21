@@ -20,6 +20,6 @@ if ! "$PY" scripts/release/release.py sync >/dev/null 2>&1; then
   exit 0
 fi
 
-# 同步后的文件要跟着这次提交一起进，否则工作区会变脏
+
 git add client/package.json server/pom.xml 2>/dev/null || true
 exit 0

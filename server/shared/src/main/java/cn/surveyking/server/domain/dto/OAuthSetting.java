@@ -2,12 +2,12 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
-/**
- * OAuth client settings persisted with the system settings.
- *
- * Secrets in this object are server-side only and must never be returned by a public
- * endpoint.
- */
+
+
+
+
+
+
 @Data
 public class OAuthSetting {
 

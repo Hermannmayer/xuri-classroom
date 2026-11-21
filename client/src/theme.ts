@@ -1,13 +1,13 @@
 import { theme } from 'antd';
 import type { ThemeConfig } from 'antd';
 
-/** 蓝图风格：西文等宽优先，中文回退到系统黑体（中文等宽字体稀缺） */
+
 export const MONO =
   "'Cascadia Mono', 'JetBrains Mono', Consolas, 'SF Mono', 'Microsoft YaHei', monospace";
 
 export type ThemeMode = 'dark' | 'light';
 
-/** 暗色蓝图：深蓝底 + 白线 + 亮橙。与 global.css 的 --bp-* 保持一致 */
+
 export const BLUEPRINT = {
   bg: '#1e3a5f',
   bgDeep: '#152a44',
@@ -15,13 +15,13 @@ export const BLUEPRINT = {
   lineSoft: 'rgba(255,255,255,0.15)',
   grid: 'rgba(255,255,255,0.05)',
   text: '#ffffff',
-  // 次要文字：原来 #a0c4e8 在深蓝底上对比度只有 3:1 左右，中老年看不清，提亮到 8:1
+
   textSoft: '#cfe2f6',
   blue: '#4a90d9',
   orange: '#ff6b35',
 };
 
-/** 亮色图纸：米白底 + 深蓝线 + 深橙强调。与 global.css 的 light 变量保持一致 */
+
 export const PAPER = {
   bg: '#f7f5f0',
   bgDeep: '#efece4',
@@ -30,29 +30,29 @@ export const PAPER = {
   lineSoft: '#e6e1d6',
   grid: 'rgba(30,58,95,0.06)',
   text: '#1e3a5f',
-  // 米白底上的次要文字，原来 #5b6b7d 偏灰，压深一档保证对比度
+
   textSoft: '#3f4c5c',
   blue: '#2f5d8c',
   orange: '#e8590c',
 };
 
-/** 两套主题共用的骨架 token：直角、等宽、统一控件高度 */
+
 const SHARED_TOKEN: ThemeConfig['token'] = {
   borderRadius: 0,
   borderRadiusLG: 0,
   borderRadiusSM: 0,
   borderRadiusXS: 0,
   fontFamily: MONO,
-  /**
-   * 学员和老师里中老年人占多数，基准字号从 13 提到 15。
-   * 只动这一处就能让 antd 的表格/表单/菜单/按钮整体放大，
-   * 比逐个页面改 inline style 可靠得多。
-   */
+
+
+
+
+
   fontSize: 15,
   fontSizeSM: 13,
   fontSizeLG: 17,
   fontSizeXL: 19,
-  /** 标题/强调文字统一加粗，配合提亮后的次要文字色形成层次 */
+
   fontWeightStrong: 700,
   controlHeight: 36,
   wireframe: false,
@@ -194,7 +194,7 @@ const lightTheme: ThemeConfig = {
   algorithm: theme.defaultAlgorithm,
   token: {
     ...SHARED_TOKEN,
-    // 亮色把「强调/选中」交给深橙，深蓝留给信息与链接，错误用暗红避免与主色混淆
+
     colorPrimary: PAPER.orange,
     colorInfo: PAPER.blue,
     colorLink: PAPER.text,
@@ -327,5 +327,5 @@ export function buildTheme(mode: ThemeMode): ThemeConfig {
   return mode === 'light' ? lightTheme : darkTheme;
 }
 
-/** 旧入口：默认暗色，保留给还没接 buildTheme 的地方 */
+
 export const blueprintTheme: ThemeConfig = buildTheme('dark');

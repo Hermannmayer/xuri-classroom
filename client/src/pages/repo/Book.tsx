@@ -49,7 +49,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-/** 与后端 UserBookView 对齐 */
+
 export interface UserBookView {
   id: string;
   templateId?: string;
@@ -58,43 +58,43 @@ export interface UserBookView {
   note?: string;
   status?: number;
   type?: number;
-  /** 来源考试 id（题库练习 / 历史数据为空） */
+
   projectId?: string;
   createAt?: string;
-  /** 后端只在记录被更新时刷新，近似「最近一次错误时间」 */
+
   updateAt?: string;
   qscore?: number;
-  /** 这道题还能不能打开（后端按模板存在性 + 题库可读性判定） */
+
   available?: boolean;
-  /** available=false 时的中文原因 */
+
   unavailableReason?: string;
 }
 
-/** 错题本状态约定（后端 UserBook.status）：1 = 已掌握（标记为简单），2 = 重点标记，0/null = 普通 */
+
 export const BOOK_STATUS_MASTERED = 1;
 export const BOOK_STATUS_FOCUS = 2;
 
-/** UserBook.type：1 = 错题，2 = 收藏 */
+
 export const BOOK_TYPE_WRONG = 1;
 export const BOOK_TYPE_FAVORITE = 2;
 
-/**
- * 错题本筛选条件。列表页和练习页共用同一份定义，
- * 保证「按当前筛选结果练习」和列表看到的是同一批题。
- */
+
+
+
+
 export interface BookFilter {
   type?: number;
   name?: string;
-  /** 后端新增参数：错误次数下限（≥2 / ≥3） */
+
   wrongTimesMin?: number;
-  /** 后端新增参数：状态（2 = 只看重点） */
+
   status?: number;
-  /** yyyy-MM-dd，后端按 00:00 解析，结束日已 +1 天，包含当天 */
+
   startDate?: string;
   endDate?: string;
-  /** 姓名以外的笔记内容过滤：后端 UserBookQuery 还没有 note 字段，只能前端过滤 */
+
   note?: string;
-  /** 来源考试 id：只看某一场考试产生的错题（后端 UserBookQuery.projectId） */
+
   projectId?: string;
 }
 
@@ -114,7 +114,7 @@ export function bookListParams(filter: BookFilter): Record<string, unknown> {
 /**
  * 这几个条件是「新加的」：wrongTimesMin / status / projectId / note。
  * 后端可能还没上线（Query DTO 里没有字段时 Spring 会静默忽略），
- * 所以只要用到它们就改成拉全量再前端过滤，两种后端都能得到正确结果。
+
  * 错题本量级是「个人错题」，拉全量可以接受。
  */
 export function bookNeedsClientFilter(filter: BookFilter): boolean {
@@ -175,11 +175,11 @@ export function bookQueryString(filter: BookFilter, scope: 'filter' | 'all' | 'p
   return params.toString();
 }
 
-/**
- * 学员可见的考试列表（错题本的「来源考试」筛选与列展示都要用）。
- * 后端 UserBookView 只带 projectId 不带名字（避免为展示再给 RepoServiceImpl 加依赖），
- * 这里用学员本来就能访问的 /api/project/list 建一份映射；拿不到就退化显示 id 前缀。
- */
+
+
+
+
+
 export interface ProjectOption {
   id: string;
   name: string;
@@ -229,7 +229,7 @@ export default function RepoBook() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // 筛选区
+
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(initialType);
   const [timesMin, setTimesMin] = useState(0);
   const [rangePreset, setRangePreset] = useState<RangePreset>('all');
@@ -238,12 +238,12 @@ export default function RepoBook() {
   const [nameKeyword, setNameKeyword] = useState('');
   const [noteKeyword, setNoteKeyword] = useState('');
 
-  // 来源考试：可以由外部链接带进来（?projectId=xxx&projectName=xxx，例如交卷页的「练本场错题」）
+
   const projectParam = searchParams.get('projectId') || '';
   const nameParam = searchParams.get('projectName') || '';
   const [projectId, setProjectId] = useState<string | undefined>(projectParam || undefined);
   const [projectName, setProjectName] = useState<string | undefined>(nameParam || undefined);
-  /** 学员可见的考试（来源考试筛选的下拉项 + 名称展示） */
+
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const projectNames = useMemo(() => {
     const map: Record<string, string> = {};
@@ -251,19 +251,19 @@ export default function RepoBook() {
     return map;
   }, [projects]);
 
-  // 同一路由内换 projectId（SPA 跳转）时同步，别停留在上一场的筛选上
+
   useEffect(() => {
     setProjectId(projectParam || undefined);
     setProjectName(nameParam || undefined);
   }, [projectParam, nameParam]);
 
-  // 从练习首页带过来的 ?type=1（错题）/?type=2（收藏）要落到筛选上
+
   useEffect(() => {
     setTypeFilter(typeParam === '1' ? 'wrong' : typeParam === '2' ? 'favorite' : 'all');
     setPage(1);
   }, [typeParam]);
 
-  // 「来源考试」下拉与列展示要考试名；拿不到就退化显示 id 前缀
+
   useEffect(() => {
     let alive = true;
     void loadProjectOptions().then((list) => {
@@ -274,11 +274,11 @@ export default function RepoBook() {
     };
   }, []);
 
-  // 多选
+
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
 
   const [editing, setEditing] = useState<UserBookView | null>(null);
-  // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击重复保存笔记
+
   const [noteSaving, setNoteSaving] = useState(false);
   const [editForm] = Form.useForm<{ note?: string }>();
 
@@ -303,7 +303,7 @@ export default function RepoBook() {
     };
   }, [typeFilter, timesMin, focusOnly, nameKeyword, noteKeyword, rangePreset, customRange, projectId]);
 
-  // 改筛选会先按旧页码发一次请求、再按第 1 页发一次；用序号丢弃过期响应，避免旧数据盖掉新数据
+
   const requestSeq = useRef(0);
 
   const load = useCallback(async () => {
@@ -337,13 +337,13 @@ export default function RepoBook() {
     void load();
   }, [load]);
 
-  // 条件一变就回到第一页，并丢掉上一批选择，避免批量操作打到看不见的行
+
   useEffect(() => {
     setPage(1);
     setSelectedKeys([]);
   }, [filter]);
 
-  // Modal 关闭时会销毁 Form，等它挂载后再回填，避免 useForm 未连接警告
+
   useEffect(() => {
     if (editing) {
       editForm.setFieldsValue({ note: editing.note || '' });
@@ -357,7 +357,7 @@ export default function RepoBook() {
       const values = await editForm.validateFields();
       note = values.note;
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     setNoteSaving(true);
     try {
@@ -443,24 +443,24 @@ export default function RepoBook() {
   };
 
   const startPractice = (scope: 'filter' | 'all') => {
-    // 只看某一场考试时用 scope=project，练习页据此显示「本场考试错题」
+
     const practiceScope = scope === 'all' ? 'all' : projectId ? 'project' : 'filter';
     const query = bookQueryString(filter, practiceScope);
-    // 带上考试名，练习页顶部就能直接显示「来源考试：xxx」，不必再查一次
+
     const extra =
       practiceScope !== 'all' && projectId && projectName ? `&projectName=${encodeURIComponent(projectName)}` : '';
     navigate(`/repo/book/practice?${query}${extra}`);
   };
   const practiceOne = (row: UserBookView) => {
     if (row.available === false) {
-      // 列表已经标出来了，这里再拦一次：题面取不到时进去只会看到「加载失败」
+
       message.warning(row.unavailableReason || '这道题现在打不开');
       return;
     }
     navigate(`/repo/book/practice?scope=filter&ids=${encodeURIComponent(row.id)}`);
   };
 
-  /** 来源考试显示名：考试名 → id 前缀；历史/题库练习产生的错题显示「题库/历史」 */
+
   const projectLabel = (id?: string) => {
     if (!id) return '题库/历史';
     if (projectNames[id]) return projectNames[id];

@@ -15,7 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-/** 试卷导出：Word 版与打印页同源 */
+
 @RequiredArgsConstructor
 @RestController
 public class PaperExportApi {

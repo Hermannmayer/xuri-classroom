@@ -7,19 +7,19 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 进程内滑动窗口限流。
- *
- * <p>
- * 单实例部署足够；多实例时每个实例各自计数，实际配额是 实例数 × limit。
- * 要精确全局配额，换 Redis 实现即可（见 {@link RateLimiter}）。
- */
+
+
+
+
+
+
+
 @Component
 public class InMemoryRateLimiter implements RateLimiter {
 
 	private final Map<String, Deque<Long>> windows = new ConcurrentHashMap<>();
 
-	/** 避免 windows 无限增长：超过这个 key 数量时清一次过期窗口 */
+
 	private static final int CLEAN_THRESHOLD = 5_000;
 
 	@Override

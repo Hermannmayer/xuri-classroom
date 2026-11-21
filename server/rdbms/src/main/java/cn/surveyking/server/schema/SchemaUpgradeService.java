@@ -32,29 +32,29 @@ import tools.jackson.databind.ObjectMapper;
 import cn.surveyking.server.schema.SchemaUpgradeResult.Status;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * 数据库结构自动升级。
- *
- * <p>
- * 每次启动做三件事：
- * </p>
- * <ol>
- * <li>用 {@link SchemaProbe} 读出库里实际有哪些表/列/索引；</li>
- * <li>对照 db/schema.json 从高到低匹配，判断库走到了哪个版本；</li>
- * <li>如果库版本低于程序版本，按版本升序执行 db/migration/V版本__*.sql。</li>
- * </ol>
- *
- * <p>
- * 关键取舍：<b>不记录"哪些迁移跑过"来决定跳过</b>，而是每次都按结构判断。
- * 因为存量库（含学校现网）没有版本记录，任何"记账表 + baseline"方案都会在
- * "结构其实落后、但记账表说有"的库上静默漏迁。结构探测没有这个盲区。
- * </p>
- *
- * <p>
- * 迁移脚本必须幂等（重复执行不报错、不改坏数据）。t_schema_version 只用于
- * 可观测性（排查时知道哪次启动动过库），不参与判断。
- * </p>
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Service
 public class SchemaUpgradeService {
@@ -106,8 +106,8 @@ public class SchemaUpgradeService {
 		assertBaseline(spec, snapshot);
 		String dbVersion = detectVersion(spec, snapshot);
 		log.info("[schema] 程序版本 {}，数据库结构版本 {}", appVersion, dbVersion);
-		// fail-fast：迁移脚本比程序新、且库也还没升 → 这些脚本会被静默跳过，必然缺结构。
-		// 放在 AHEAD 判定之前：回滚场景（库比程序新）由 assertNoFutureScripts 内部的 dbVersion 条件放行。
+
+
 		assertNoFutureScripts(appVersion, dbVersion);
 
 		if (compare(dbVersion, appVersion) > 0) {
@@ -121,8 +121,8 @@ public class SchemaUpgradeService {
 
 		List<MigrationScript> pending = pendingScripts(dbVersion, appVersion);
 		if (pending.isEmpty()) {
-			// 没脚本可跑 ≠ 结构齐全：用户可能直接覆盖了程序、库停在更早的版本，
-			// 而探测把某个「requires 为空」的版本当成了兜底。这里逐个对象对照一遍再放行。
+
+
 			assertStructureComplete(spec, appVersion);
 			SchemaUpgradeResult result = SchemaUpgradeResult.of(appVersion, dbVersion, Status.OK,
 					"数据库结构已是最新，无需迁移");
@@ -146,8 +146,8 @@ public class SchemaUpgradeService {
 			result.getAppliedScripts().add(script.name);
 			recordVersion(script.version, script.name);
 		}
-		// 升级后必须复验：脚本可能因为权限/语法只跑了一半，也可能被并发实例抢先写坏了记录。
-		// 不复验的话，用户看到的是运行期「Unknown column」，而不是「哪个对象没补上」。
+
+
 		assertStructureComplete(spec, appVersion);
 		lastResult = result;
 		log.info("[schema] 结构升级完成：{} → {}", dbVersion, appVersion);
@@ -253,18 +253,18 @@ public class SchemaUpgradeService {
 
 	String detectVersion(SchemaSpec spec, Set<String> snapshot) {
 		snapshot = normalizeAll(snapshot);
-		// 优先信 t_schema_version：它是「真的执行过哪些脚本」的唯一凭据。
-		// 只看结构的话，「纯数据迁移」（requires 为空，例如 V2.3.2 回填批改状态）永远无法被证明执行过——
-		// 用户手工 ALTER 补过列、或换过一次发布包之后，回填脚本会被当成「已经跑过」而静默跳过。
-		String recorded = readRecordedVersion();
+
+
+
+		String recorded = dataSource == null ? null : readRecordedVersion();
 		if (recorded != null) {
 			return recorded;
 		}
 		List<SchemaSpec.VersionSpec> versions = new ArrayList<>(spec.getVersions());
 		versions.sort(Comparator.comparing(SchemaSpec.VersionSpec::getVersion, SchemaUpgradeService::compare));
-		// 「只改数据」的版本（requires 为空）无法从库结构上证明，不能拿它当探测结果：
-		// 否则它永远匹配，排在它前面的数据迁移（例如 V2.3.1 给角色补权限）会被当成「已经执行过」而静默跳过。
-		// 这里把空的当成候选兜底，优先用有结构要求的版本定位；找不到任何结构匹配时才退回兜底版本。
+
+
+
 		String fallback = null;
 		for (int i = versions.size() - 1; i >= 0; i--) {
 			SchemaSpec.VersionSpec candidate = versions.get(i);
@@ -337,7 +337,7 @@ public class SchemaUpgradeService {
 	 * 表现为答卷列表/成绩单/批改大面积 500 —— 比启动失败难排查得多。
 	 *
 	 * <p>判定条件刻意带上 {@code dbVersion}：**只拦「库也还没到这个版本」的情况**。
-	 * 程序回滚时（库结构已经比程序新）不该拦，否则回滚就起不来了——
+
 	 * 迁移只加不删，旧程序读新结构是安全的。
 	 * @param appVersion 当前程序版本（仓库根 VERSION）
 	 * @param dbVersion 当前数据库结构版本
@@ -384,7 +384,7 @@ public class SchemaUpgradeService {
 			}
 		}
 		catch (SQLException e) {
-			// 记账失败不影响升级结果（结构已经对了），只告警
+
 			log.warn("[schema] 写入 t_schema_version 失败（不影响升级）：{}", e.getMessage());
 		}
 	}

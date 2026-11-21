@@ -73,82 +73,82 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * 班级答卷批量导出 PDF：内存任务 + 受控线程池 + 进度轮询 + ZIP 产物。
- *
- * <p>
- * 为什么是内存任务而不是建表：一次导出是「老师点一下、几十秒、下载完就不要了」的短生命周期任务，
- * 建表要配迁移、清理、多实例一致性，收益不抵成本。进程重启后未完成的任务直接消失（前端轮询会拿到
- * 「任务不存在或已过期」，重新导出即可）。
- *
- * <p>
- * 一次任务可以产出多种格式（成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单 PDF），
- * 由 {@code DownloadQuery.outputs} 决定，ZIP 内按格式分子目录。为什么不拆成四个任务：
- * 同一批答卷要渲染四遍、前端要轮询四个任务、老师要下载四个 ZIP —— 在 4 核机器上纯属浪费。
- *
- * <p>
- * 资源约束（这台机器只有 4 核，学生可能还在答题）：
- * <ul>
- * <li>并发数从系统设置 {@code answerPdfConcurrency} 读（默认 1，上限 2），改了设置下次创建任务即生效；</li>
- * <li>等待队列只有 {@link #QUEUE_CAPACITY} 个，满了直接拒绝并给出中文提示，不把 JVM 拖死；</li>
- * <li>每份之间 {@link #INTERVAL_SLEEP_MILLIS} ms 的让出，避免持续吃满一个核；</li>
- * <li>逐份渲染、逐份写 ZIP，内存里只留一份 PDF（题目逐页写 content stream）。</li>
- * </ul>
- *
- * <p>
- * 考试期间暂停：系统设置 {@code pauseAnswerPdfDuringExam} 为真（默认）时，只要存在
- * {@code status=1} 且 examSetting 时间窗覆盖当前时刻的考试，就拒绝创建任务。Excel 明细导出不受影响
- * （它走的是另一条同步路径）。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
-	/** 排队中 */
+
 	public static final String STATUS_QUEUED = "queued";
 
-	/** 渲染中 */
+
 	public static final String STATUS_RUNNING = "running";
 
-	/** 完成，可以下载 */
+
 	public static final String STATUS_DONE = "done";
 
-	/** 失败（详情见 error/message） */
+
 	public static final String STATUS_FAILED = "failed";
 
-	/** 已取消 */
+
 	public static final String STATUS_CANCELED = "canceled";
 
-	/** 产物目录（相对 file-storage.local.root-path，与上传附件同一块盘） */
+
 	private static final String EXPORT_DIR = "export";
 
-	/** 产物保留 24 小时 */
+
 	private static final long ARTIFACT_TTL_MILLIS = 24L * 60L * 60L * 1000L;
 
-	/** 等待队列容量：2 个排队 + 1~2 个在跑，再多就拒绝 */
+
 	private static final int QUEUE_CAPACITY = 2;
 
 	private static final int MIN_CONCURRENCY = 1;
 
 	private static final int MAX_CONCURRENCY = 2;
 
-	/** 默认并发：4 核小机器上一次只渲染一份 */
+
 	private static final int DEFAULT_CONCURRENCY = 1;
 
-	/** 每页取多少份答卷（分页取，避免一次把整场答卷读进内存） */
+
 	private static final int PAGE_SIZE = 50;
 
-	/** 每份之间的让出时间 */
+
 	private static final long INTERVAL_SLEEP_MILLIS = 30L;
 
-	/** 内存里最多保留多少个任务记录（防止被刷爆） */
+
 	private static final int MAX_JOBS = 30;
 
-	/** t_sys_info 只有一条记录 */
+
 	private static final String SYS_INFO_ID = "1";
 
-	/** 任务表：进程内，不建库表 */
+
 	private static final ConcurrentHashMap<String, ExportJob> JOBS = new ConcurrentHashMap<>();
 
 	private final AnswerMapper answerMapper;
@@ -167,13 +167,13 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	private final StorageProperties storageProperties;
 
-	/** 取数范围要跟着权限走：班级级老师只能导自己带的班（见 {@link ExportSpec#getClassScope()}） */
+
 	private final AnswerAccessGuard answerAccessGuard;
 
-	/**
-	 * 渲染线程池：核心/最大线程数跟着系统设置走（见 {@link #applyConcurrency(int)}），
-	 * 守护线程，队列满直接抛 {@link RejectedExecutionException}（调用方翻译成中文提示）。
-	 */
+
+
+
+
 	private final ThreadPoolExecutor pool = new ThreadPoolExecutor(DEFAULT_CONCURRENCY, DEFAULT_CONCURRENCY, 60L,
 			TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_CAPACITY), runnable -> {
 				Thread thread = new Thread(runnable, "answer-pdf-export");
@@ -183,7 +183,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	@PostConstruct
 	public void init() {
-		// 空闲线程该回收就回收，别在这台 4 核机器上白占栈
+
 		pool.allowCoreThreadTimeOut(true);
 		if (!AnswerPdfExporter.isFontAvailable()) {
 			log.error("答卷 PDF 字体缺失（{}），导出接口会直接报错：{}", AnswerPdfExporter.FONT_RESOURCE,
@@ -191,7 +191,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/* ======================= 对外 API ======================= */
+
 
 	/**
 	 * 从导出请求创建任务（Controller 与 {@code AnswerServiceImpl#downloadPdfByClass} 共用）：
@@ -199,7 +199,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 *
 	 * <p>
 	 * 之所以把这段放在这里而不是 Controller：任务一旦创建就在后台线程里按 spec 取数，
-	 * 校验与取数必须用同一份范围定义，否则「建任务时校验 projectId、跑任务时却用别的 classId」
+
 	 * 这类漏洞迟早会出现。
 	 * <p>
 	 * classId 是可选的：不传 = 整个项目（可再用 ids / 时间范围收窄），对应「勾选若干份导出」和
@@ -248,11 +248,11 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				.minScore(query.getMinScore()).maxScore(query.getMaxScore())
 				.includeAnonymous(query.getIncludeAnonymous())
 				.includeAnalysis(Boolean.TRUE.equals(query.getIncludeAnalysis()))
-				// 签名/上传图片是学员作答的一部分，永远带上；DTO 的 includeImages 已废弃，传 false 不生效
+
 				.includeImages(true).outputs(outputs);
 	}
 
-	/** 导出任务能产出的四种格式（都是「每人一份」的答卷产物，全班一份的成绩册不在此列） */
+
 	private static final List<DownloadQuery.DownloadType> ANSWER_OUTPUT_TYPES = Collections
 			.unmodifiableList(Arrays.asList(DownloadQuery.DownloadType.answerPdf,
 					DownloadQuery.DownloadType.answerSheetPdf, DownloadQuery.DownloadType.answerImage,
@@ -270,7 +270,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	static List<DownloadQuery.DownloadType> resolveOutputs(DownloadQuery query) {
 		List<DownloadQuery.DownloadType> requested = query == null ? null : query.getOutputs();
 		if (requested == null || requested.isEmpty()) {
-			// 老调用方只传 type（McpTools / 按班导出入口）：按它走，type 也缺省时是线上的成绩单
+
 			DownloadQuery.DownloadType type = query == null || query.getType() == null
 					? DownloadQuery.DownloadType.answerPdf : query.getType();
 			assertAnswerOutput(type);
@@ -278,7 +278,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 		List<DownloadQuery.DownloadType> resolved = new ArrayList<>();
 		for (DownloadQuery.DownloadType output : requested) {
-			// null 混在数组里按脏数据拒掉：悄悄补一个默认值，前端就会以为「不就是没选吗」
+
 			assertAnswerOutput(output);
 			if (!resolved.contains(output)) {
 				resolved.add(output);
@@ -304,11 +304,11 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷需要项目 id");
 		}
 		if (spec.getOutputs() == null || spec.getOutputs().isEmpty()) {
-			// 直接调 createJob(ExportSpec) 的内部调用方可能没设格式：默认成绩单，和线上行为一致
+
 			spec.outputs(Collections.singletonList(DownloadQuery.DownloadType.answerPdf));
 		}
-		// 班级级老师（不是项目协作者，只是把这场考试分配给了自己带的班）导出时只能带本班答卷。
-		// 必须在这里算：任务跑在导出线程里，SecurityContext 已经不在，取不到当前用户。
+
+
 		if (spec.getClassScope() == null && !answerAccessGuard.canManageProject(spec.getProjectId())) {
 			Set<String> scope = answerAccessGuard.readableClassIds(spec.getProjectId());
 			spec.classScope(scope.isEmpty() ? Collections.emptyList() : new ArrayList<>(scope));
@@ -317,7 +317,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			assertAnswerOutput(output);
 		}
 		if (!AnswerPdfExporter.isFontAvailable()) {
-			// 部署问题：提前报错，别让老师等 30 秒才看到一堆失败
+
 			throw new InternalServerError(AnswerPdfExporter.FONT_MISSING_MESSAGE);
 		}
 		assertNotDuringExam();
@@ -374,7 +374,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			future.cancel(true);
 		}
 		if (STATUS_QUEUED.equals(job.getStatus())) {
-			// 还排在队列里没开始跑：直接落终态，否则前端会一直轮询一个永远不会变的 queued
+
 			job.setStatus(STATUS_CANCELED);
 			job.setMessage("已取消");
 			job.touchFinished();
@@ -431,7 +431,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		view.put("error", job.getError());
 		view.put("message", job.getMessage());
 		view.put("fileName", job.getFileName());
-		// 导出的是哪几种格式：审计要逐项记清（不能一律记成 answerPdf），前端也能按它显示「生成了什么」
+
 		view.put("outputs", outputNames(job.getSpec().getOutputs()));
 		int total = job.getTotal();
 		view.put("progress", Integer.valueOf(total <= 0 ? 0 : Math.min(100, job.getDone() * 100 / total)));
@@ -465,7 +465,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			job.setTotal(total);
 			if (total <= 0) {
 				job.setStatus(STATUS_FAILED);
-				// 不选班级时范围是整个项目（或一段时间 / 一批勾选的 id），说「这个班」会让人以为选错了班
+
 				job.setError(StringUtils.hasText(job.getSpec().getClassId())
 						? "这个班还没有可导出的答卷（暂存草稿不会生成导出文件）"
 						: "这个范围里还没有可导出的答卷（暂存草稿不会生成导出文件）");
@@ -476,11 +476,11 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			Files.createDirectories(dir);
 			temp = Files.createTempFile(dir, job.getId() + "-", ".part");
 			Set<String> usedNames = new HashSet<>();
-			// 成绩确认单是「整班一张表」：逐份循环里只攒数据，等全部答卷过完再画一次
+
 			boolean withRoster = hasOutput(job.getSpec(), DownloadQuery.DownloadType.confirmSheetPdf);
 			List<AnswerConfirmSheetExporter.Entry> rosterRows = new ArrayList<>();
 			AnswerConfirmSheetExporter.ConfirmOptions confirmOptions = new AnswerConfirmSheetExporter.ConfirmOptions();
-			// 整卷导出时每份答卷可能在不同班，页面上要显示班级名；一个班只查一次
+
 			Map<String, String> classLabels = new LinkedHashMap<>();
 			try (OutputStream fileOut = Files.newOutputStream(temp, StandardOpenOption.WRITE,
 					StandardOpenOption.TRUNCATE_EXISTING);
@@ -499,7 +499,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 						AnswerView view = views.get(i);
 						renderOne(zip, projectView, className, answer, view, usedNames, job);
 						if (withRoster) {
-							// 名册行在这里就算好：视图已经在手，不用再查一次库
+
 							rosterRows.add(AnswerConfirmSheetExporter.entryOf(projectView, view,
 									classLabelOf(answer, className, classLabels), confirmOptions));
 						}
@@ -517,8 +517,8 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			}
 			assertNotCanceled(job);
 			if (allFailed(job)) {
-				// 一份都没生成出来（通常是环境问题，例如字体之外还缺了渲染依赖）：
-				// 不发布一个空 ZIP，整任务按失败处理并给出能查的那部分原因，让前端直接显示 error
+
+
 				job.setStatus(STATUS_FAILED);
 				job.setError("全部 " + job.getTotal() + " 份答卷都生成失败：" + failedDetail(job));
 				job.touchFinished();
@@ -588,13 +588,13 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		boolean anyOk = false;
 		for (DownloadQuery.DownloadType output : job.getSpec().getOutputs()) {
 			if (output == DownloadQuery.DownloadType.confirmSheetPdf) {
-				// 确认单是一张名册，不逐份出文件：由整个任务末尾的 writeRoster 统一生成
+
 				continue;
 			}
 			try {
 				byte[] bytes = renderer.render(output, project, view, answer, className, job.getSpec());
-				// 统一放子目录：导出弹窗会按格式列出「成绩单/、答题卷/…」，单格式也保持一致，
-				// 免得多一种格式就多一套路径规则（外部脚本按子目录取即可）
+
+
 				String entryName = uniqueEntryName(usedNames, outputDir(output), output, entryBaseName(answer));
 				zip.putNextEntry(new ZipEntry(entryName));
 				zip.write(bytes);
@@ -603,8 +603,8 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				job.incWritten();
 			}
 			catch (Exception e) {
-				// ZipOutputStream 自己抛的 IOException 也会落到这里：那属于整包坏掉，
-				// 但让单份失败带走整任务不值得，记下来继续，最后由「全部失败」兜底
+
+
 				job.incFailed(displayName + "（" + outputDir(output) + "）");
 				log.warn("答卷导出失败，已跳过: answerId={}, name={}, output={}, {}", answer.getId(), displayName, output,
 						e.getMessage());
@@ -634,8 +634,8 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 			zip.write(pdf);
 			zip.closeEntry();
 			job.incWritten();
-			// 名册里每一份答卷都算「导出成功」：只勾确认单的任务没有逐份文件，
-			// 不在这里补 done，前端会看到 done=0 当成失败
+
+
 			job.incDone(job.getTotal() - job.getDone());
 		}
 		catch (Exception e) {
@@ -679,20 +679,20 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	/** 渲染单个格式的字节：四种格式对应四个导出器，这里只负责把选项装好 */
 	private byte[] renderOutput(DownloadQuery.DownloadType output, ProjectView project, AnswerView view, Answer answer,
 			String className, ExportSpec spec) {
-		// 每份答卷重建一次选项：图片加载回调与轮次是这份答卷私有的，跨答卷复用会串数据
+
 		AnswerPdfExporter.PdfOptions options = new AnswerPdfExporter.PdfOptions().attemptNo(answer.getAttemptNo())
 				.includeAnalysis(spec.isIncludeAnalysis())
-				// 签名/上传图片是作答的一部分，永远带上（DTO 的 includeImages 已废弃）
+
 				.includeImages(true).classLabel(className).imageLoader(this::loadFileBytes);
 		switch (output) {
 			case answerSheetPdf:
 				return AnswerPdfExporter.renderAnswer(project, view,
 						options.style(AnswerPdfExporter.Style.ANSWER_SHEET));
 			case answerImage:
-				// 长图内部一律按答题卷版式渲染（它会 copy 一份选项再强制 style），所以这里不用改 style
+
 				return AnswerImageExporter.renderAnswerImage(project, view, options);
 			case confirmSheetPdf:
-				// 逐份分支留作兜底：名册路径（writeRoster）不经过这里，正常不会调到
+
 				return AnswerConfirmSheetExporter.renderConfirmSheet(project, view, className,
 						new AnswerConfirmSheetExporter.ConfirmOptions().attemptNo(answer.getAttemptNo()));
 			case answerPdf:
@@ -702,10 +702,10 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/**
-	 * 渲染函数签名：生产实现是 {@link #renderOutput}，单测传假实现，
-	 * 这样「子目录 / 重名 / 失败统计」不用真的跑 PDFBox。
-	 */
+
+
+
+
 	interface OutputRenderer {
 
 		byte[] render(DownloadQuery.DownloadType output, ProjectView project, AnswerView view, Answer answer,
@@ -743,7 +743,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	private String summary(ExportJob job) {
 		StringBuilder text = new StringBuilder();
-		// 「份」是学员数，「个」是文件数：导了 10 份成绩单+长图，成功是 10 份 / 20 个文件
+
 		text.append("成功 ").append(job.getDone()).append(" 份（").append(job.getFilesWritten()).append(" 个文件）");
 		if (job.getFailed() > 0) {
 			text.append("，失败 ").append(job.getFailed()).append(" 个");
@@ -755,7 +755,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return text.toString();
 	}
 
-	/* ======================= 取数 ======================= */
+
 
 	/**
 	 * 导出取数条件：与数据页列表（{@code AnswerServiceImpl#listAnswer}）逐条同口径。
@@ -767,39 +767,39 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 * <li>字符串条件用 {@link StringUtils#hasText} 判空（null 与 "" 都算「不限」）；</li>
 	 * <li>分数段给的是闭区间 {@code >= / <=}（60 分及格的人不能被漏掉）；</li>
 	 * <li>姓名要同时命中「答卷上的姓名快照」与「账号名」两条路，且整组用 and 包起来，
-	 * 否则 OR 会把项目 / 班级条件一起短路（见 {@link #answererNameLike(String)} 的注释）；</li>
+
 	 * <li>布尔条件只在显式 false 时生效（{@code includeAnonymous=false} 才是「仅实名」）。</li>
 	 * </ul>
 	 */
 	private LambdaQueryWrapper<Answer> baseWrapper(ExportSpec spec) {
 		return Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, spec.getProjectId())
-				// 答题时所在班级：学员换班后历史答卷仍留在原班。
-				// classId 为空表示「不分班」：整卷导出 / 勾选 ids 导出 / 只按时间范围导出，
-				// 这里必须是有值才加条件，否则 eq(class_id, null) 永远查不到数据
+
+
+
 				.eq(StringUtils.hasText(spec.getClassId()), Answer::getClassId, spec.getClassId())
-				// 班级级老师的班级范围：空列表 = 没有班级级权限（或本来就是项目协作者），不加条件
+
 				.in(spec.getClassScope() != null && !spec.getClassScope().isEmpty(), Answer::getClassId,
 						spec.getClassScope())
 				.isNotNull(Answer::getAnswer)
-				// 只导已交卷的：暂存草稿没有成绩，生成成绩单没有意义
+
 				.and(wrapper -> wrapper.eq(Answer::getTempSave, 1).or().isNull(Answer::getTempSave))
 				.in(spec.getIds() != null && !spec.getIds().isEmpty(), Answer::getId, spec.getIds())
 				.eq(spec.getAttemptNo() != null, Answer::getAttemptNo, spec.getAttemptNo())
-				// 批改状态（pending / graded）：空串与 null 都表示不过滤
+
 				.eq(StringUtils.hasText(spec.getGradeStatus()), Answer::getGradeStatus, spec.getGradeStatus())
-				// 分数段含边界；exam_score 为 NULL（未判分 / 非考试卷）时比较恒为 UNKNOWN，
-				// 不会被 >= / <= 误命中，所以不需要额外的 is not null
+
+
 				.ge(spec.getMinScore() != null, Answer::getExamScore, spec.getMinScore())
 				.le(spec.getMaxScore() != null, Answer::getExamScore, spec.getMaxScore())
-				// 答题人姓名：快照列（新数据）与账号名（老数据没有快照）两头都要查；
-				// 整组用 and(...) 包起来，否则 OR 会把前面的项目 / 班级条件一并短路
+
+
 				.and(StringUtils.hasText(spec.getCreateByName()), filter -> {
 					String like = answererNameLike(spec.getCreateByName());
 					filter.apply("answerer_name like {0}", like).or()
 							.apply("create_by in (select id from t_user where name like {0})", like);
 				})
-				// 仅实名：数据页把「含匿名」取消勾选时，列表与 Excel 明细都只剩实名答卷，
-				// PDF 任务不能多出匿名卷（null / true 一律按「不限」处理，保持老调用方行为）
+
+
 				.eq(Boolean.FALSE.equals(spec.getIncludeAnonymous()), Answer::getIsAnonymous, false)
 				.gt(spec.getStartTime() != null, Answer::getCreateAt, spec.getStartTime())
 				.lt(spec.getEndTime() != null, Answer::getCreateAt, spec.getEndTime());
@@ -1033,7 +1033,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/* ======================= 图片加载 ======================= */
+
 
 	/** fileId -> 原图字节：签名题/上传题的图片要靠 FileService 从存储读 */
 	private byte[] loadFileBytes(String fileId) {
@@ -1098,7 +1098,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	 */
 	private void assertNotDuringExam() {
 		SystemInfo.SystemSetting setting = systemSetting();
-		// 缺省视为开启：只有管理员显式关掉才放开
+
 		if (setting != null && Boolean.FALSE.equals(setting.getPauseAnswerPdfDuringExam())) {
 			return;
 		}
@@ -1124,7 +1124,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/* ======================= 清理 ======================= */
+
 
 	/**
 	 * 每小时清理一次：JOBS 里超过 24h 的记录连同产物一起删掉；目录里超过 24h 的孤儿文件（进程重启后
@@ -1184,9 +1184,9 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/* ======================= 内部类型 ======================= */
 
-	/** 内部取消信号：只用于线程内跳出，不暴露给上层 */
+
+
 	private static final class CanceledException extends RuntimeException {
 
 		private static final long serialVersionUID = 1L;
@@ -1197,28 +1197,28 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	}
 
-	/**
-	 * 导出范围。字段和 {@code DownloadQuery} 对齐，但独立成一个类型，避免把 DTO 传进任务线程后
-	 * 被调用方继续改（线程里读的是快照）。
-	 *
-	 * <p>除了「选哪些答卷」（classId / ids / 时间范围 / 轮次），还带上屏幕上的筛选条件
-	 * （批改状态 / 姓名 / 分数段 / 仅实名）：导出文件与页面不一致时，老师会把整场导出当成
-	 * 筛选结果发出去，事后再也分不清哪份文件对应哪次筛选。
-	 */
+
+
+
+
+
+
+
+
 	public static final class ExportSpec {
 
 		private String projectId;
 
-		/** 班级 id；为空表示不按班限定（整卷 / 勾选 ids / 时间范围导出） */
+
 		private String classId;
 
-		/** 指定导出的答卷 id；为空表示不限（即整个范围内的全部答卷） */
+
 		private List<String> ids;
 
-		/**
-		 * 班级级权限范围（{@code t_class_resource} 分配给「我带的班」的班级 id）。
-		 * 为空/null 表示没有班级级限制（项目协作者、管理员，或压根没有班级级权限）。
-		 */
+
+
+
+
 		private List<String> classScope;
 
 		private Integer attemptNo;
@@ -1227,35 +1227,35 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		private Date endTime;
 
-		/**
-		 * 批改状态（none / pending / graded）；null 或空串表示不限。
-		 * <p>数据页与班级抽屉都按它筛，导出的 PDF 必须同一批答卷。
-		 */
+
+
+
+
 		private String gradeStatus;
 
-		/** 答题人姓名（模糊匹配：答卷上的姓名快照 + 账号名反查）；null 或空串表示不限 */
+
 		private String createByName;
 
-		/** 分数段下限（闭区间）；null 表示不限 */
+
 		private Double minScore;
 
-		/** 分数段上限（闭区间）；null 表示不限 */
+
 		private Double maxScore;
 
-		/**
-		 * 是否包含匿名答卷：null / true = 包含（不传的老调用方行为不变），
-		 * 显式 false 才只导实名答卷 —— 与数据页「含匿名」复选框同一个口径。
-		 */
+
+
+
+
 		private Boolean includeAnonymous;
 
 		private boolean includeAnalysis;
 
 		private boolean includeImages;
 
-		/**
-		 * 要产出哪些格式，按顺序渲染。为空时由 {@code createJob} 兜底成成绩单 PDF，
-		 * 保证直接 new ExportSpec() 的内部调用方也不会导出个空包。
-		 */
+
+
+
+
 		private List<DownloadQuery.DownloadType> outputs;
 
 		public ExportSpec projectId(String projectId) {
@@ -1395,7 +1395,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 	}
 
-	/** 一个导出任务的可变状态：字段是 volatile，轮询线程读到的进度不会因可见性问题停住 */
+
 	public static final class ExportJob {
 
 		private final String id;
@@ -1416,7 +1416,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 		private volatile int failed;
 
-		/** 成功写进 ZIP 的文件数（份 × 格式）：判断「是不是全灭」只能看它 */
+
 		private volatile int filesWritten;
 
 		private volatile long bytes;

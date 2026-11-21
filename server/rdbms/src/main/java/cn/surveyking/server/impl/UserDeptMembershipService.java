@@ -30,25 +30,25 @@ import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 用户与用户组的归属解析：主组（t_user.dept_id）+ 附加组（t_user_dept）+ 各自祖先链，
- * 以及「按组筛选 / 按当前用户数据范围收敛」的查询条件拼装。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的部门域组件。注意类名不能叫 UserDeptScopeService：
- * {@code cn.surveyking.server.service.UserDeptScopeService} 已经是 Spring bean，
- * 同名类会造成默认 bean 名冲突（ConflictingBeanDefinitionException）。
- *
- * <p>
- * 依赖只有 t_user / t_user_dept / t_dept 三张表，不反向依赖认证与权限断言组件，
- * 因此 {@code UserAuthService → UserDeptMembershipService}、{@code UserPermissionGuard → 两者}
- * 的依赖链没有循环。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class UserDeptMembershipService {
 
-	/** 组织树的根 parent_id（t_dept 里顶层节点的 parent_id 是 "0"） */
+
 	private static final String ROOT_DEPT_PARENT_ID = "0";
 
 	private final UserMapper userMapper;
@@ -235,16 +235,16 @@ public class UserDeptMembershipService {
 		}
 		String currentUserId = SecurityContextUtils.getUserId();
 		if (!StringUtils.hasText(currentUserId) || AppConsts.ANONYMOUS_USER_ID.equals(currentUserId)) {
-			// 用户列表接口本身要求登录；万一走到这里也绝不放成全量
+
 			wrapper.eq(User::getId, AppConsts.ANONYMOUS_USER_ID);
 			return;
 		}
-		// 主组 + 附加组 → 各自祖先链（组表整表取一次，与 loadUserById 同一套解析）
+
 		Map<String, Dept> deptMap = loadDeptMap();
 		List<String> ancestorChainIds = resolveDeptChainIds(resolveUserDeptIds(userMapper.selectById(currentUserId)), deptMap);
-		// 再向下扩展到子树：年级主任挂在「年级组」，也要能看到下属班级的学生。
-		// 只按祖先链会漏掉子组，这是 2026-11-07 评审时确认要补的语义。
-		// 用 final 变量给下面的 lambda 捕获（Java 8 要求 effectively final）
+
+
+
 		final List<String> deptChainIds = expandWithDescendants(ancestorChainIds, deptMap);
 		List<String> extraDeptUserIds = deptChainIds.isEmpty() ? Collections.emptyList()
 				: userDeptMapper.selectList(Wrappers.<UserDept>lambdaQuery().in(UserDept::getDeptId, deptChainIds))
@@ -252,7 +252,7 @@ public class UserDeptMembershipService {
 						.collect(Collectors.toList());
 		wrapper.and(scope -> {
 			if (deptChainIds.isEmpty()) {
-				// 没有任何组的人只剩「自己建的账号」这一条范围
+
 				scope.eq(User::getCreateBy, currentUserId);
 				return;
 			}

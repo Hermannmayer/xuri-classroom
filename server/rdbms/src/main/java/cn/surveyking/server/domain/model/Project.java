@@ -14,10 +14,10 @@ import org.apache.ibatis.type.JdbcType;
 
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 @Data
 @TableName(value = "t_project", autoResultMap = true)
 @EqualsAndHashCode(callSuper = false)
@@ -25,19 +25,19 @@ public class Project extends BaseModel {
 
 	private String name;
 
-	/**
-	 * 分类名（自由文本，如 保育员 / 养老护理员 / 育婴员）；为空表示未分类。
-	 */
+
+
+
 	private String category;
 
-	/**
-	 * 父id，0表示不存在父id
-	 */
+
+
+
 	private String parentId;
 
-	/**
-	 * 问卷模式 survey问卷 exam考试
-	 */
+
+
+
 	private ProjectModeEnum mode;
 
 	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
@@ -46,12 +46,12 @@ public class Project extends BaseModel {
 	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.LONGNVARCHAR)
 	private ProjectSetting setting;
 
-	// 1已发布 0未发布
+
 	private Integer status;
 
-	/**
-	 * 优先级，值越小优先级越高
-	 */
+
+
+
 	private Long priority;
 
 	@TableField(fill = FieldFill.INSERT)

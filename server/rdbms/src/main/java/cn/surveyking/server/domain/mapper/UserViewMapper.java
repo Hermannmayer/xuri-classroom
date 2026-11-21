@@ -13,10 +13,10 @@ import org.mapstruct.Mapping;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 @Mapper
 public interface UserViewMapper extends BaseModelMapper<UserRequest, UserView, User> {
 

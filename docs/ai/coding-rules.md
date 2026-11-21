@@ -126,8 +126,8 @@ for (const user of users) { ... }
 
 按 [docs/start/testing.md](../start/testing.md) 跑：
 
-- 前端：`npm run check`、`npm run build`、现有 `test:rules` / `test:tree`；
-- 后端：`./gradlew :api:compileJava`、`bootJar -x test`；
+- 前端：`npm run check`、`npm run build`；
+- 后端：`./gradlew :api:compileJava`、`./gradlew :shared:test :rdbms:test :api:test`、`bootJar -x test`；
 - 线上：`python scripts/nas/smoke-test.py`。
 
 结果写进交付说明。没有测试不等于不编译、不检查。

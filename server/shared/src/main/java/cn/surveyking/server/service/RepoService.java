@@ -5,10 +5,10 @@ import cn.surveyking.server.domain.dto.*;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/4/27
- */
+
+
+
+
 public interface RepoService {
 
 	/**
@@ -31,11 +31,11 @@ public interface RepoService {
 	 */
 	void createRepoCategory(RepoCategoryRequest request);
 
-	/**
-	 * 获取单个模板库
-	 * @param id
-	 * @return
-	 */
+
+
+
+
+
 	/**
 	 * 题库统计：题量、题型/难度分布、练习概况。
 	 *

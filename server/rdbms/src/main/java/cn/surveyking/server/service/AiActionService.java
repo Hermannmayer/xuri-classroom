@@ -3,18 +3,18 @@ package cn.surveyking.server.service;
 import cn.surveyking.server.ai.domain.AiChatAction;
 import cn.surveyking.server.ai.domain.AiChatRequest;
 
-/**
- * 对话 → 系统动作的路由。
- *
- * <p>为什么要在聊天前面加一层意图识别：老师说的话本身就是操作（「把这个班没批的卷子批了」），
- * 让模型只回一段文字等于把活儿又推回给人。这里的做法是——先用一次低温调用把话翻译成
- * {@code action + args}，能执行的直接执行（或打开对应工具），执行不了才回退成普通聊天。
- *
- * <p>安全边界：意图识别只产出「动作名 + 参数」，<b>参数里不接受任何自由文案</b>；
- * 真正的权限、数据范围、可写条件全部在具体动作实现里判（见 {@link AiGradeBatchService}）。
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
 public interface AiActionService {
 
 	/**

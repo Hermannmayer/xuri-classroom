@@ -35,14 +35,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * 匿名答题身份实现。
- *
- * <p>cookie 存 32 字节随机 token（Base64Url），库里只存 SHA-256；cookie 无效/过期就重新
- * 生成一个主体。匿名答卷的 create_by 为空，找回和登录认领都靠 anonymous_subject_id。
- *
- * @author surveyking
- */
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -63,16 +63,16 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 
 	private final ClassResourceService classResourceService;
 
-	/** claim 后同一用户在同一项目可能已有作答序号，重新分配避免撞唯一键 */
+
 	private final AnswerAttemptAllocator answerAttemptAllocator;
 
-	/** 物理清理匿名答卷时连附件（签名图/上传件）一起删 */
+
 	private final FileService fileService;
 
-	/** 物理清理每批处理条数 */
+
 	private static final int PURGE_BATCH = 200;
 
-	/** 物理清理单次最多处理多少批，防止极端情况卡住调度线程 */
+
 	private static final int MAX_PURGE_ROUNDS = 50;
 
 	@Override
@@ -135,10 +135,10 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 			return 0;
 		}
 		int claimed = 0;
-		// 同一项目内连续分配，避免多条匿名答卷认领到同一个用户时撞 attempt_no 唯一键
+
 		Map<String, Integer> nextAttemptByProject = new HashMap<>();
 		for (Answer answer : answers) {
-			// 认领后按「当前班级 + 班级资源」重算 class_id；没有有效分配就落 NULL
+
 			String classId = classResourceService.resolveForStudent(answer.getProjectId(), userId);
 			int attemptNo = nextAttemptByProject.computeIfAbsent(answer.getProjectId(),
 					projectId -> answerAttemptAllocator.next(projectId, userId));
@@ -171,7 +171,7 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 		if (subjectIds.isEmpty()) {
 			return;
 		}
-		// 答卷走 @TableLogic 的逻辑删除；主体表没有逻辑删除，直接物理删
+
 		answerMapper.delete(Wrappers.<Answer>lambdaQuery().in(Answer::getAnonymousSubjectId, subjectIds)
 				.eq(Answer::getIsAnonymous, true));
 		anonymousSubjectMapper.deleteBatchIds(subjectIds);
@@ -182,7 +182,7 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 	public int purgeOlderThan(int retentionDays) {
 		int days = Math.max(1, retentionDays);
 		Date cutoff = new Date(System.currentTimeMillis() - Duration.ofDays(days).toMillis());
-		// 先只取 id / 主体 id：一是拿到要检查的主体，二是删除后用来回收孤儿主体
+
 		List<Answer> expired = answerMapper.selectList(Wrappers.<Answer>lambdaQuery()
 				.select(Answer::getId, Answer::getAnonymousSubjectId).eq(Answer::getIsAnonymous, true)
 				.lt(Answer::getCreateAt, cutoff));
@@ -195,10 +195,10 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 				subjectIds.add(answer.getAnonymousSubjectId());
 			}
 		}
-		// 按同一条件删除（@TableLogic 逻辑删除），比 in(id...) 更省：匿名答卷可能很多
+
 		int deleted = answerMapper.delete(Wrappers.<Answer>lambdaQuery().eq(Answer::getIsAnonymous, true)
 				.lt(Answer::getCreateAt, cutoff));
-		// 主体下已经没有未删除的匿名答卷，就把主体也删掉（主体表无逻辑删除，物理删）
+
 		int removedSubjects = 0;
 		for (String subjectId : subjectIds) {
 			long remaining = answerMapper.selectCount(Wrappers.<Answer>lambdaQuery()
@@ -217,7 +217,7 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 		int days = Math.max(1, delayDays);
 		Date cutoff = new Date(System.currentTimeMillis() - Duration.ofDays(days).toMillis());
 		int total = 0;
-		// 分批物理删：一次锁太多行会拖慢库，且这些行可能带着几十 KB 的 answer JSON
+
 		for (int round = 0; round < MAX_PURGE_ROUNDS; round += 1) {
 			List<String> ids = answerMapper.selectPurgeableAnonymousIds(cutoff, PURGE_BATCH);
 			if (ids == null || ids.isEmpty()) {
@@ -225,13 +225,13 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 			}
 			int deleted = answerMapper.physicalDeleteByIds(ids);
 			total += deleted;
-			// 附件清理放到事务提交之后：物理文件删掉不能回滚，
-			// 先删答卷行再删附件 → 删行失败时文件还在（浪费空间），反了就是坏数据。
-			// 万一下面删文件失败，t_file.answer_id 变成孤儿，由 FileOrphanCleanupService 兜底。
+
+
+
 			final List<String> purgedIds = ids;
 			runAfterCommit(() -> fileService.deleteByAnswers(purgedIds));
 			if (deleted < ids.size()) {
-				// 有行没删掉（例如被并发恢复），下一轮再处理，避免死循环
+
 				break;
 			}
 		}

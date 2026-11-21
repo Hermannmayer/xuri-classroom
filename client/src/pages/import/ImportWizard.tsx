@@ -39,19 +39,19 @@ export interface ImportSubmitPayload {
 interface Props {
   open: boolean;
   target: 'paper' | 'repo';
-  /** 允许的来源；不传时只开放文本 */
+
   formats?: ImportFormat[];
-  /** 从列表新建时：要创建的试卷名 */
+
   paperName?: string;
-  /** 题库导入时：题库名 */
+
   repoName?: string;
-  /** 整份试卷导入：不选落点，直接把解析出的大题/题目追加进试卷 */
+
   wholePaper?: boolean;
-  /** 从某个题组进来时的预选值 */
+
   presetGroupId?: string;
-  /** 当前试卷已有题组，用于“导入到现有题组” */
+
   groups?: Array<{ id: string; title: string }>;
-  /** 嵌进「新建」弹窗：不渲染自己的 Modal，只出内容和按钮 */
+
   embedded?: boolean;
   onClose: () => void;
   onSubmit: (payload: ImportSubmitPayload) => Promise<void>;
@@ -206,7 +206,7 @@ export default function ImportWizard({
 
   const submit = async () => {
     if (!preview) return;
-    // 题库导入走服务端重新解析文本，逐题剔除无法传递，因此整批导入
+
     const finalPreview = selectable ? subsetPreview(preview, selected) : preview;
     if (!finalPreview.flat.length) {
       message.warning('请至少保留一道题');

@@ -5,7 +5,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { createProject, get } from '../../api';
 import ProjectCategoryTree from './ProjectCategoryTree';
 
-/** 与后端 ProjectTreeNode 对齐 */
+
 interface ProjectTreeNode {
   id: string;
   name?: string;
@@ -24,7 +24,7 @@ const ALL_KEY = '__all__';
 
 interface BuiltTree {
   data: TreeDataNode[];
-  /** 节点 id -> 从根到该文件夹的路径（用于面包屑） */
+
   paths: Map<string, Crumb[]>;
 }
 
@@ -74,11 +74,11 @@ export default function ProjectTree({
   selectedCategory?: string;
   onSelect: (parentId: string | undefined, path: Crumb[]) => void;
   onSelectCategory: (category?: string) => void;
-  /** 新建文件夹成功后回调，父级用它刷新列表（setTreeToken + load） */
+
   onFolderCreated?: () => void;
-  /** 是否有 project:create（没有就不显示「新建文件夹」） */
+
   canCreate?: boolean;
-  /** 父组件在新建/删除/重命名后递增，触发 counts 重新拉取 */
+
   refreshToken?: number;
 }) {
   const [nodes, setNodes] = useState<ProjectTreeNode[]>([]);
@@ -145,7 +145,7 @@ export default function ProjectTree({
     }
     setCreating(true);
     try {
-      // createProject 的类型只声明了 survey/exam，但后端支持 mode=folder
+
       await createProject({ name, mode: 'folder', parentId: selectedId } as unknown as Parameters<
         typeof createProject
       >[0]);
@@ -153,7 +153,7 @@ export default function ProjectTree({
       message.success('已创建文件夹');
       await load();
       onFolderCreated?.();
-      // 按分类筛选时新建的是根级文件夹：清掉分类，列表里才看得到它
+
       if (selectedCategory) {
         onSelectCategory(undefined);
         onSelect(undefined, []);
@@ -169,14 +169,14 @@ export default function ProjectTree({
     if (keys.length === 0) return;
     const key = String(keys[0]);
     if (key === ALL_KEY) {
-      // 根「全部」：文件夹与分类两个筛选都清空
+
       onSelectCategory(undefined);
       onSelect(undefined, []);
       return;
     }
     const path = built.paths.get(key);
     if (path) {
-      // 选文件夹时清空分类，避免两个条件叠加导致空列表
+
       onSelectCategory(undefined);
       onSelect(key, path);
     }
@@ -188,7 +188,7 @@ export default function ProjectTree({
         selectedCategory={selectedCategory}
         refreshToken={refreshToken}
         onSelect={(category) => {
-          // 分类与文件夹互斥：选分类时清空文件夹路径（根「全部」例外，由子组件传 undefined）
+
           onSelectCategory(category);
           onSelect(undefined, []);
         }}

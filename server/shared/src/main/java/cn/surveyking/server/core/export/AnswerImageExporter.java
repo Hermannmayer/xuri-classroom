@@ -20,42 +20,42 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Locale;
 
-/**
- * 单份答卷的「长图」导出：每人一张 PNG。
- *
- * <p>
- * 三步：先让 {@link AnswerPdfExporter} 按答题卷还原版式出一份 PDF（同一套排版，所以 PDF 与长图看到的
- * 是同一张卷子，不会出现「PDF 里有、长图里没有」）→ 用 {@link PDFRenderer} 逐页栅格化 →
- * 纵向拼成一张图再编码成 PNG。
- *
- * <p>
- * 两条必须守住的边界：
- * <ul>
- * <li><b>不能把堆打爆</b>：这台机器只有 ~6.8G 内存、4 核，还可能同时跑 1~2 个导出任务。拼图高度超过
- * {@link #MAX_HEIGHT_PX} 就按 150 → 120 → 100 DPI 依次降，还超就按比例继续降（下限 {@link #MIN_DPI}）。
- * 页数极多时宁可字小一点，也不能 OOM，更不能靠截断丢内容。</li>
- * <li><b>字体缺失报同样的错</b>：沿用 {@link AnswerPdfExporter#FONT_MISSING_MESSAGE}，
- * 免得运维收到两套说法。</li>
- * </ul>
- *
- * <p>
- * 失败语义：本类<b>不吞异常</b>。单份图失败由调用方（导出任务）catch 后记失败数、继续跑下一份，
- * 这样个别坏数据不会让整批 50 份导出全挂。线程安全：无可变静态状态，每份独立的 PDDocument。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class AnswerImageExporter {
 
 	private static final Logger log = LoggerFactory.getLogger(AnswerImageExporter.class);
 
-	/** 目标 DPI：A4 一页约 1240 x 1754 px，手机上放大看题干和作答都不糊 */
+
 	private static final float DEFAULT_DPI = 150f;
 
-	/** 页数多时的降级档位：先 120，再 100 */
+
 	private static final float[] FALLBACK_DPI = { 120f, 100f };
 
-	/** 长图高度上限（px）：20000 x 1240 已是 2400 万像素，再高 PNG 编码与手机相册都吃力 */
+
 	private static final int MAX_HEIGHT_PX = 20000;
 
-	/** DPI 下限：再低字就糊得没法看，那种情况该发 PDF 而不是长图 */
+
 	private static final float MIN_DPI = 60f;
 
 	private AnswerImageExporter() {
@@ -75,15 +75,15 @@ public final class AnswerImageExporter {
 		if (!AnswerPdfExporter.isFontAvailable()) {
 			throw new InternalServerError(AnswerPdfExporter.FONT_MISSING_MESSAGE);
 		}
-		// 1) 先出 PDF：长图与「答题卷」PDF 共用一套排版，老师拿到的两种格式才是同一张卷子
+
 		AnswerPdfExporter.PdfOptions sheetOptions = options == null ? new AnswerPdfExporter.PdfOptions()
 				: options.copy();
 		sheetOptions.style(AnswerPdfExporter.Style.ANSWER_SHEET);
-		// 长图是「一张图」，页脚「第 N 页」会落在拼接处，看起来像内容断了
+
 		sheetOptions.showPageFooter(false);
 		byte[] pdf = AnswerPdfExporter.renderAnswer(project, answer, sheetOptions);
 
-		// 2) 逐页栅格化 + 纵向拼接
+
 		try (PDDocument document = Loader.loadPDF(pdf)) {
 			int pageCount = document.getNumberOfPages();
 			if (pageCount <= 0) {
@@ -91,7 +91,7 @@ public final class AnswerImageExporter {
 			}
 			float dpi = chooseDpi(document);
 			int width = 0;
-			// 预估高度一律向上取整：PDFBox 的像素取整方式不保证等于 ceil，多留几像素总比切掉最后一行好
+
 			int height = 0;
 			for (int i = 0; i < pageCount; i++) {
 				PDRectangle box = pageBox(document.getPage(i));
@@ -104,14 +104,14 @@ public final class AnswerImageExporter {
 			BufferedImage canvas = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 			Graphics2D graphics = canvas.createGraphics();
 			try {
-				// 白底：签名图是透明底，不铺白会变黑块
+
 				graphics.setColor(Color.WHITE);
 				graphics.fillRect(0, 0, width, height);
 				PDFRenderer renderer = new PDFRenderer(document);
 				int top = 0;
 				for (int i = 0; i < pageCount; i++) {
 					BufferedImage pageImage = renderer.renderImageWithDPI(i, dpi, ImageType.RGB);
-					// 统一宽度=页宽、页间不留缝：按累计高度直接贴上去，用完即弃（一页就是 ~9MB）
+
 					graphics.drawImage(pageImage, 0, top, null);
 					top = top + pageImage.getHeight();
 				}
@@ -119,7 +119,7 @@ public final class AnswerImageExporter {
 			finally {
 				graphics.dispose();
 			}
-			// 3) 编码 PNG：返回字节而不是流，调用方直接塞进 ZIP
+
 			ByteArrayOutputStream out = new ByteArrayOutputStream(1024 * 1024);
 			if (!ImageIO.write(canvas, "png", out)) {
 				throw new InternalServerError("生成答卷长图失败：当前运行环境不支持 PNG 编码");

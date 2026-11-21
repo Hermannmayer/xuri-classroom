@@ -11,10 +11,10 @@ Write-Output ('VERSION ' + $ver.data.version + ' / schema ' + $ver.data.schemaVe
 $ret = Invoke-RestMethod -Uri "$Base/api/system/audit/retention" -WebSession $sess -TimeoutSec 20
 Write-Output ('RETENTION ' + ($ret | ConvertTo-Json -Compress))
 
-# 安全下限：只留 3 天必须被拒（并且不应该删任何东西）
+
 $r = Invoke-WebRequest -Uri "$Base/api/system/audit/clean" -Method Post -Body '{"beforeDays":3}' -ContentType 'application/json' -WebSession $sess -SkipHttpErrorCheck -TimeoutSec 30
 Write-Output ('CLEAN 3天 -> ' + $r.StatusCode + ' ' + $r.Content.Substring(0,[Math]::Min(160,$r.Content.Length)))
 
-# 正常清理：保留 180 天（生产日志还不满 180 天，预期删 0 条）
+
 $r2 = Invoke-WebRequest -Uri "$Base/api/system/audit/clean" -Method Post -Body '{"beforeDays":180}' -ContentType 'application/json' -WebSession $sess -SkipHttpErrorCheck -TimeoutSec 60
 Write-Output ('CLEAN 180天 -> ' + $r2.StatusCode + ' ' + $r2.Content.Substring(0,[Math]::Min(120,$r2.Content.Length)))

@@ -19,18 +19,18 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Excel 解析：复用题库的「按题型分 sheet」模板，输出可直接进试卷的题目树。
- *
- * <p>
- * 与题库导入共用一套表头（序号/章节/题干/选项/解析/分数/答案/标签/行标题/列标题/选项树/高级配置）；
- * 章节列可选，填了就把同一章节的题收进一个题组（QuestionSet），没填则平铺。
- *
- * <p>
- * 图片：fastexcel 不读图片，这里用 {@link ExcelRowImages}（POI）把同一个文件的字节再开一次，按
- * 「锚点左上角所在行」把图片挂到该行题目的题干末尾（token 形如 {@code [[IMG:n]]}，与 Word 导入一致；
- * 落库前由 ImportServiceImpl.applyAttachments 换成图片地址）。只支持 .xlsx。
- */
+
+
+
+
+
+
+
+
+
+
+
+
 public class ExcelQuestionParser {
 
 	private final MultipartFile file;
@@ -41,7 +41,7 @@ public class ExcelQuestionParser {
 
 	public ImportPreview parse() {
 		validateFile();
-		// 先用同一套 ZIP 资源限制过一遍，再交给 POI 打开图片（POI 会把整本 xlsx 读进内存）
+
 		ExcelImportSecurity.validateFile(file);
 		List<ImportPreview.Warning> warnings = new ArrayList<>();
 		ExcelRowImages rowImages = readRowImages(warnings);
@@ -86,7 +86,7 @@ public class ExcelQuestionParser {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "请上传 Excel 文件");
 		}
 		String name = file.getOriginalFilename();
-		// .xls 是 OLE2 老格式，fastexcel/POI 的 XSSF 都读不了；有人把 .xlsx 改名成 .xls 时按内容再确认一次
+
 		if (name != null && name.toLowerCase(Locale.ROOT).endsWith(".xls") && !isZipArchive()) {
 			throw new ErrorCodeException(ErrorCode.FileParseError,
 					"暂不支持 .xls 旧格式，请在 Excel 里另存为 .xlsx 后重试");
@@ -120,7 +120,7 @@ public class ExcelQuestionParser {
 			}
 			for (byte[] data : rowImages.imagesOf(template.getSourceSheet(), template.getSourceRow())) {
 				if (QuestionImageUploader.guessImageExtension(data) == null) {
-					// 文件头不像位图（比如伪装成 png 的其它格式），不往题干里塞坏 token
+
 					continue;
 				}
 				String token = "[[IMG:" + (++attached) + "]]";
@@ -206,7 +206,7 @@ public class ExcelQuestionParser {
 				&& type != SurveySchema.QuestionType.Judge && type != SurveySchema.QuestionType.Select) {
 			return;
 		}
-		// Excel 的单选题/多选题/判断题走 row2schema，本来就没有 dataSource；下拉题有，但表头缺列时要兜底
+
 		if (question.getDataSource() != null && !question.getDataSource().isEmpty()) {
 			return;
 		}

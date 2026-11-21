@@ -36,7 +36,7 @@ export type QuestionType =
   | 'Judge'
   | 'RandomSurvey';
 
-/** 会存答案的题型 */
+
 export const DATA_TYPES: ReadonlySet<QuestionType> = new Set<QuestionType>([
   'FillBlank',
   'Textarea',
@@ -64,7 +64,7 @@ export const DATA_TYPES: ReadonlySet<QuestionType> = new Set<QuestionType>([
   'Judge',
 ]);
 
-/** 空结构节点，不存答案 */
+
 export const VOID_TYPES: ReadonlySet<QuestionType> = new Set<QuestionType>([
   'Survey',
   'QuestionSet',
@@ -75,7 +75,7 @@ export const VOID_TYPES: ReadonlySet<QuestionType> = new Set<QuestionType>([
   'RandomSurvey',
 ]);
 
-/** 可自动计分 */
+
 export const EXAM_TYPES: ReadonlySet<QuestionType> = new Set<QuestionType>([
   'FillBlank',
   'Textarea',
@@ -141,7 +141,7 @@ export interface LinkSurvey {
   linkFields?: LinkField[];
 }
 
-/** 70+ 属性，只声明实际会读写到的字段；其余走索引签名透传 */
+
 export interface Attribute {
   display?: 'none' | 'visible' | 'hidden';
   hidden?: boolean;
@@ -184,7 +184,7 @@ export interface Attribute {
   npsTotalNum?: number;
   npsInvertSort?: boolean;
 
-  // 规则：全部是字符串表达式（后端只存不算）
+
   finishRule?: string;
   visibleRule?: string;
   requiredRule?: string;
@@ -201,7 +201,7 @@ export interface Attribute {
   examMatchRule?: ExamMatchRule;
   examCorrectAnswer?: string;
   examAnalysis?: string;
-  /** 题干含 HTML（Word 导入的图片等），渲染时按富文本消毒展示 */
+
   richTitle?: boolean;
   dateTimeFormat?: string;
   fieldInTitle?: boolean;
@@ -220,11 +220,11 @@ export interface Attribute {
 
 export interface RandomSurveyCondition {
   id?: string;
-  /** 题库 id */
+
   repoId?: string;
-  /** 题库选择题数 */
+
   questionsNum?: number;
-  /** 每题分数 */
+
   examScore?: number;
   tags?: string[];
   types?: string[];
@@ -241,8 +241,8 @@ export interface SurveySchema {
   row?: Row[];
   linkSurveys?: LinkSurvey[];
   tags?: string[];
-  /** 章节（题库/组卷筛选用） */
+
   chapter?: string;
-  /** 难度（易/中/难） */
+
   difficulty?: string;
 }

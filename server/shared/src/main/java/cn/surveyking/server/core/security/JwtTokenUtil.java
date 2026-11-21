@@ -17,10 +17,10 @@ import java.security.Key;
 import java.util.Collections;
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2021/8/23
- */
+
+
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -28,11 +28,11 @@ public class JwtTokenUtil {
 
 	private final ObjectMapper objectMapper;
 
-	/**
-	 * 从配置读取（sk.security.jwt.secret / 环境变量 SK_JWT_SECRET）；为空则随机生成。
-	 * 随机生成的后果是「每次重启所有客户端 token 失效」，多实例之间也无法互认，
-	 * 所以生产环境必须配置，启动时会打 WARN。
-	 */
+
+
+
+
+
 	@Value("${sk.security.jwt.secret:}")
 	private String configuredJwtSecret;
 
@@ -68,8 +68,8 @@ public class JwtTokenUtil {
 
 	public boolean validate(String token) {
 		try {
-			// 必须显式传反序列化器：去掉 jjwt-jackson 之后，jjwt 的 ServiceLoader 再也找不到默认实现，
-			// 只校验签名这条路径会抛 UnavailableImplementationException（表现为所有带 token 的请求 500）。
+
+
 			Jwts.parser()
 					.deserializeJsonWith(new JwtJsonCodec.Jackson3Deserializer(objectMapper, Collections.emptyMap()))
 					.verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())).build().parseClaimsJws(token);

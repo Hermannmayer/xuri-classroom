@@ -16,7 +16,7 @@ export function MatrixTable({
   columns: Option[];
   renderCell: (rowId: string, colId: string, label: string) => ReactNode;
 }) {
-  // 表格名只需题干 id，这里用便捷版 hook
+
   const labelId = useQuestionLabelId();
   if (rows.length === 0 || columns.length === 0) {
     return <div style={{ fontSize: 12, color: 'var(--bp-orange)' }}>未配置矩阵行/列（row 或 dataSource 为空）</div>;

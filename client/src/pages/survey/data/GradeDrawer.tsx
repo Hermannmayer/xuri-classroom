@@ -33,27 +33,27 @@ import { formatScore } from '../../../utils/scoring';
 import RichTextContent from '../../../components/RichTextContent';
 import { EMPTY, flattenText, formatAnswer } from './format';
 
-/**
- * 批改相关字段目前还没进 `schema/project.ts` 的 Answer 类型（那个文件归 Lead 维护），
- * 这里用交叉类型补上，避免为了两个展示字段去动公共类型。
- */
+
+
+
+
 export type GradableAnswer = Answer & {
-  /** none 无需批改 / pending 待批改 / graded 已批改 */
+
   gradeStatus?: string;
-  /** 答题人姓名（交卷时快照） */
+
   answererName?: string;
 };
 
 export interface GradeDrawerProps {
   open: boolean;
-  /** 要批改的答卷 id */
+
   answerId?: string;
   onClose: () => void;
-  /** 保存 / 撤销后让主列表重新拉一遍（总分与批改状态变了） */
+
   onChanged?: () => void;
 }
 
-/** 题型中文名：只列常见题型，其余直接显示枚举名，保证不会出现空标签 */
+
 const TYPE_LABEL: Record<string, string> = {
   Textarea: '简答题',
   FillBlank: '填空题',
@@ -76,39 +76,39 @@ const TYPE_LABEL: Record<string, string> = {
   RichText: '图文',
 };
 
-/** 操作记录折叠面板的 key：只有一个面板，用常量避免裸串 */
+
 const TIMELINE_KEY = 'timeline';
 
-/** 差异摘要里最多逐题列几条：超出的只报题数，避免一条记录撑满整个抽屉 */
+
 const MAX_QUESTION_PARTS = 4;
 
-/**
- * 答卷操作时间线的一行（对齐后端 AuditAnswerTimelineView）。
- *
- * <p>before / after 是后端解析好的 JSON 快照：正常是对象，历史半截 JSON（审计快照超 2KB 会截断）
- * 会被原样返回字符串，所以类型是 unknown，展示时按「对象 / 文本」两种形态处理。
- */
+
+
+
+
+
+
 interface AuditTimelineRow {
-  /** 操作时间：spring.jackson.date-format=yyyy-MM-dd HH:mm:ss；兼容数字时间戳 */
+
   at?: string | number;
   operator?: string;
-  /** 动作中文名，如「批改答卷」「撤销批改」；审计动作字典没收录时是动作码 */
+
   actionName?: string;
-  /** 只批改一道题时给出，整卷操作为空 */
+
   questionId?: string | null;
   before?: unknown;
   after?: unknown;
 }
 
-/** 批改快照里的单题项（后端 AuditDiffSupport#gradeSnapshot 的 items[]） */
+
 interface TimelineGradeItem {
   questionId?: string | null;
-  /** null = 还没给分，不是 0 分 */
+
   score?: number | null;
   comment?: string | null;
 }
 
-/** 快照里前端会用到的字段：批改类有 items/examScore，删除恢复类只有 visible */
+
 interface TimelineSnapshot {
   examScore?: number | null;
   gradeStatus?: string;
@@ -138,7 +138,7 @@ function gradeItemsOf(snapshot?: TimelineSnapshot): Map<string, TimelineGradeIte
 
 /**
  * 操作时间：后端 spring.jackson.date-format=yyyy-MM-dd HH:mm:ss，正常是字符串；
- * 兼容数字时间戳。解析不了就原样显示，不出现 Invalid Date。
+
  */
 function fmtAt(value?: string | number): string {
   if (value === null || value === undefined || value === '') return '时间未知';
@@ -171,7 +171,7 @@ function changeParts(
     return [text ? `快照文本：${text}` : '无改前/改后快照'];
   }
   if (before && !after) {
-    // 业务抛异常时只记改前；也可能是改后快照超 2KB 被截断，所以只陈述事实不下结论
+
     return ['只有改前快照（没有改后值）'];
   }
   const parts: string[] = [];
@@ -183,12 +183,12 @@ function changeParts(
     const prev = beforeItems.get(questionId)?.score ?? null;
     const next = afterItems.get(questionId)?.score ?? null;
     if (prev === next) continue;
-    // 单题动作的题号已经显示在行首的标签上，这里不再重复
+
     const prefix = row.questionId && row.questionId === questionId ? '' : `${labelOf(questionId)} `;
     parts.push(`${prefix}分数 ${scoreText(prev)} → ${scoreText(next)}`);
   }
   if (questionIds.length > shown.length) {
-    // 只列了前几条：报总数，别让人以为还剩 N 条（「等 5 题」在只显示 4 条时会被误读）
+
     parts.push(`…共 ${questionIds.length} 题`);
   }
   const prevTotal = before?.examScore;
@@ -204,7 +204,7 @@ function changeParts(
     parts.push(`可查看 ${before.visible ? '是' : '否'} → ${after.visible ? '是' : '否'}`);
   }
   if (parts.length === 0) {
-    // 快照里压根没有分数信息（非批改类动作）：如实说明，别硬说「分数没变」
+
     const hasGradeData =
       questionIds.length > 0 || typeof prevTotal === 'number' || typeof nextTotal === 'number';
     if (!hasGradeData) return ['快照里没有分数信息'];
@@ -217,33 +217,33 @@ function changeParts(
   return parts;
 }
 
-/* ------ AI 批改建议（计划 §6.3 ③）：只给建议、不落分 */
 
-/**
- * 单题 AI 建议的返回体（后端 `AiGradeSuggestView`）。
- *
- * <p>契约见计划 §6.3 ③：{ score, confidence, points: [{ point, hit }], reason }。
- * 字段一律按「可能缺省」处理——模型偶尔只给理由不给分，前端不能因此整块白掉。
- */
+
+
+
+
+
+
+
 interface GradeSuggestion {
-  /** 建议分；后端没算出分时为空 */
+
   score?: number;
-  /** 把握程度：0~1 的比例（兼容 >=1 时已经是百分数的口径，见 suggestionConfidence） */
+
   confidence?: number;
-  /** 评分点命中情况：point 是评分点描述，hit 表示学员答案有没有答到 */
+
   points?: Array<{ point?: string; hit?: boolean }>;
-  /** 一句话理由，展示给老师看 */
+
   reason?: string;
 }
 
-/** 单题 AI 建议的面板状态：加载中 / 拿到建议 / 失败，三者互斥 */
+
 interface AiSuggestionState {
   loading?: boolean;
   data?: GradeSuggestion;
   error?: string;
 }
 
-/** 置信度低于这个值就提示「建议人工复核」（后端 AiGradeSuggestView#confidence 口径：0~1） */
+
 const LOW_CONFIDENCE = 0.6;
 
 /**
@@ -251,14 +251,14 @@ const LOW_CONFIDENCE = 0.6;
  *
  * <p>请求体就是 `{ answerId, questionId }`。按项目约定这类调用应该收敛到
  * `client/src/api/ai.ts`，但那个文件现在归 AI 出卷/改题那边改（同文件并发容易冲突），
- * 所以这里先就地调 `post`，等两条线合流再搬过去。
+
  */
 const requestGradeSuggestion = (data: { answerId: string; questionId: string }) =>
   post<GradeSuggestion>('/api/ai/grade/suggest', data);
 
 /** 建议分归一：后端已把分数夹到 0~满分，这里只挡 null / 非法值（取不出来就当「这次没给分」） */
 function suggestionScore(value?: number): number | undefined {
-  // null 要单独挡：Number(null) === 0，会被当成「建议 0 分」静悄悄填进去
+
   if (value === null || value === undefined) return undefined;
   const num = Number(value);
   return Number.isFinite(num) ? num : undefined;
@@ -276,23 +276,23 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
   const [detail, setDetail] = useState<GradeDetail>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  /** 本地待保存的人工分 / 评语：questionId → 值 */
+
   const [scores, setScores] = useState<Record<string, number | null>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
-  /** 当前聚焦的题（只在「可人工给分」的题之间切换） */
+
   const [active, setActive] = useState(0);
   const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const inputRefs = useRef<Array<{ focus: () => void } | null>>([]);
-  /** 操作记录（计划 §5.4）：展开时才拉，读不到不影响批改 */
+
   const [timeline, setTimeline] = useState<AuditTimelineRow[]>();
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState<string>();
-  /** 已经加载过哪份答卷的时间线：同一条反复收起展开不重复请求 */
+
   const [timelineFor, setTimelineFor] = useState<string>();
   const [timelineKeys, setTimelineKeys] = useState<string[]>([]);
-  /** AI 批改建议（计划 §6.3 ③）：questionId → 状态，两道题同时请求也不会互相覆盖 */
+
   const [aiSuggest, setAiSuggest] = useState<Record<string, AiSuggestionState>>({});
-  /** 没有 ai:use 就不渲染「AI 建议」按钮，避免「看得见、点了 403」 */
+
   const [authorities, setAuthorities] = useState<string[]>([]);
 
   useEffect(() => {
@@ -309,7 +309,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
       const nextComments: Record<string, string> = {};
       for (const item of data.items ?? []) {
         if (!item.editable) continue;
-        // 没批改过是 null（待批改），不要落成 0 分
+
         nextScores[item.questionId] = typeof item.score === 'number' ? item.score : null;
         nextComments[item.questionId] = item.comment ?? '';
       }
@@ -324,7 +324,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
 
   useEffect(() => {
     if (!open) {
-      // 关掉之后清掉上一份答卷，避免下次打开先闪一下旧数据
+
       setDetail(undefined);
       return;
     }
@@ -332,13 +332,13 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     void load();
   }, [open, load]);
 
-  // 换答卷 / 关抽屉：清掉上一条的操作记录，避免串台（下次展开再拉）
+
   useEffect(() => {
     setTimeline(undefined);
     setTimelineFor(undefined);
     setTimelineError(undefined);
     setTimelineKeys([]);
-    // AI 建议是按题存的，换一份答卷/重新打开时也不能留着上一份的建议
+
     setAiSuggest({});
   }, [answerId, open]);
 
@@ -374,7 +374,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
 
   /**
    * 批改 / 撤销之后审计里刚多了一条：面板开着就立刻重拉，没开就标记成未加载，
-   * 下次展开时再拉——否则会一直显示批改前的旧时间线。
+
    */
   const refreshTimeline = useCallback(() => {
     setTimelineFor(undefined);
@@ -402,7 +402,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
   const items = useMemo(() => detail?.items ?? [], [detail]);
   const editableItems = useMemo(() => items.filter((item) => item.editable), [items]);
   const unanswered = editableItems.filter((item) => typeof scores[item.questionId] !== 'number').length;
-  /** 权限闸门：AI 建议按钮只在有 ai:use 时出现（后端 @PreAuthorize 也是它） */
+
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
 
   const move = useCallback(
@@ -415,14 +415,14 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     [editableItems.length],
   );
 
-  // 焦点不在输入框时，←/→ 也能切题（键盘批改不用来回点鼠标）
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      // 输入框里保留光标语义：分数框自己处理左右键，评语框交给浏览器
+
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
       event.preventDefault();
       move(event.key === 'ArrowRight' ? 1 : -1);
@@ -431,7 +431,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [open, move]);
 
-  // 切题后滚到可视区并聚焦分数框，键盘批改才能连续进行
+
   useEffect(() => {
     if (!open) return;
     cardRefs.current[active]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -468,7 +468,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
       message.success('已保存');
       await load();
       onChanged?.();
-      // 这次批改已经进了审计：操作记录面板要能看到刚写的这一条
+
       refreshTimeline();
       if (options?.next && index >= 0) {
         setActive(Math.min(index + 1, Math.max(editableItems.length - 1, 0)));
@@ -545,12 +545,12 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     const score = suggestionScore(ai.data?.score);
     const confidence = suggestionConfidence(ai.data?.confidence);
     const points = ai.data?.points ?? [];
-    /** 把握不高：后端建议「置信度偏低时提示人工复核」，别让老师直接照抄 */
+
     const lowConfidence =
       typeof ai.data?.confidence === 'number' &&
       ai.data.confidence > 0 &&
       ai.data.confidence < LOW_CONFIDENCE;
-    // 后端已夹到 0~满分；这里仍留一道，防老版本或模型直出的异常分
+
     const outOfRange =
       typeof score === 'number' && typeof item.maxScore === 'number' && score > item.maxScore;
     return (
@@ -689,7 +689,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
           <Empty description="没有可批改的答卷" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
           <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-            {/* 汇总：三块分数都来自后端同一个评估器，和成绩单口径一致 */}
+
             <Card size="small" style={{ background: 'var(--bp-panel-strong)' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
                 <span>
@@ -732,7 +732,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                 : -1;
               const graded = typeof item.score === 'number';
               const scored = typeof scores[item.questionId] === 'number';
-              /** 这道题的 AI 建议状态（没请求过就是 undefined） */
+
               const ai = aiSuggest[item.questionId];
               return (
                 <div
@@ -764,13 +764,13 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                         ) : (
                           <Tag>机器判分</Tag>
                         )}
-                        {/* 分数来源：AI 预批改的题要明确标出来，老师才知道自己是在复核机器给的分 */}
+
                         {(item as { source?: string }).source === 'ai' && (
                           <Tag color="purple" style={{ marginInlineEnd: 0, fontSize: 10 }}>
                             AI 给分
                           </Tag>
                         )}
-                        {/* AI 建议入口：放在题头右侧，面板在分数框下面展开（不挡输入） */}
+
                         {item.editable && canUseAi ? (
                           <span style={{ marginLeft: 'auto' }}>
                             <Button
@@ -829,7 +829,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                             }
                             onPressEnter={() => void save({ questionId: item.questionId, next: true })}
                             onKeyDown={(event) => {
-                              // 左右键在数字输入框里没有光标语义，直接用来切题
+
                               if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
                                 event.preventDefault();
                                 move(event.key === 'ArrowRight' ? 1 : -1);
@@ -859,7 +859,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                               撤销
                             </Button>
                           )}
-                          {/* 建议面板独占一行（flex 换行），填分时不会把输入框挤走 */}
+
                           {canUseAi && ai && (ai.loading || ai.data || ai.error)
                             ? renderAiPanel(item, ai)
                             : null}
@@ -875,7 +875,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
               );
             })}
 
-            {/* 操作记录（计划 §5.4）：放在最后，展开时才拉一次，失败不挡批改 */}
+
             <Collapse
               ghost
               size="small"
@@ -908,7 +908,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
                       ) : !timeline || timeline.length === 0 ? (
                         <div style={{ color: 'var(--bp-text-soft)' }}>暂无操作记录</div>
                       ) : (
-                        // 后端按 create_at 正序返回（AuditLogMapper#selectByTarget），这里不再倒序
+
                         <Timeline
                           items={timeline.map((row, index) => {
                             const parts = changeParts(row, questionLabel);

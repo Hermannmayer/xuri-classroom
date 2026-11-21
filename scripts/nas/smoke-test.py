@@ -30,7 +30,7 @@ import sys
 import urllib.error
 import urllib.request
 
-# Windows 控制台默认 GBK，打印 ✅/❌ 会 UnicodeEncodeError。强制 UTF-8（失败就算了）。
+
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding='utf-8', errors='replace')
@@ -108,7 +108,7 @@ def main():
         return f'{m.group().decode()} → {len(js)//1024} KB'
     check('前端产物', c2)
 
-    # 3. 系统信息
+
     state = {}
 
     def c3():

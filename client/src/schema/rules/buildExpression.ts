@@ -20,7 +20,7 @@ export interface RuleConfig {
 
 /**
  * 输出形如 `AND(AND(#{q1.o1} ,#{q1.o2}) ,NOT(#{+q2}))`。
- * 注意分隔符是 " ,"（空格+逗号），求值器按此切分，不要改成 ","。
+
  */
 export function buildExpression(rule: RuleConfig): string {
   const parts: string[] = [];
@@ -47,7 +47,7 @@ export function buildExpression(rule: RuleConfig): string {
   return rule.conditionLogic === 'AND' ? `AND(${parts.join(' ,')})` : `OR(${parts.join(' ,')})`;
 }
 
-/** 设计器里存的是 JSON 字符串；兼容已经解析过的对象 */
+
 export function parseRule(raw?: string | RuleConfig | null): RuleConfig | undefined {
   if (!raw) return undefined;
   if (typeof raw !== 'string') return raw;

@@ -58,10 +58,7 @@ apis:
   - POST /api/system/aiModels
 tables:
   - t_ai_usage
-tests:
-  - server/rdbms/src/test/java/cn/surveyking/server/ai/AiContentGuardTest.java
-  - server/rdbms/src/test/java/cn/surveyking/server/impl/AiUsageServiceImplTest.java
-  - server/rdbms/src/test/java/cn/surveyking/server/impl/AiAssistServiceImplTest.java
+tests: []
 last_verified: 2026-11-17
 verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
 ---

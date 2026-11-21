@@ -14,10 +14,10 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 
-/**
- * @author javahuang
- * @date 2022/5/25
- */
+
+
+
+
 public class BarcodeReader {
 
 	@SneakyThrows

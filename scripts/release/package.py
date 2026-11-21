@@ -27,8 +27,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_JAR = ROOT / "server" / "api" / "build" / "libs"
 INIT_SQL = ROOT / "server" / "rdbms" / "src" / "main" / "resources" / "scripts" / "init-mysql.sql"
-# 增量迁移脚本：随 jar（classpath:db/migration）自动执行，同时原样放进发布包 migrations/，
-# 供 migrate.sh / migrate.cmd 在"应用起不来但要先补库"的排障场景手工执行。
+
+
 MIGRATIONS = ROOT / "server" / "rdbms" / "src" / "main" / "resources" / "db" / "migration"
 WINDOWS_TEMPLATE = ROOT / "scripts" / "release" / "windows"
 LINUX_TEMPLATE = ROOT / "scripts" / "release" / "linux"
@@ -62,7 +62,7 @@ def copy_tree(src: Path, dst: Path) -> None:
     for item in src.rglob("*"):
         if item.is_dir():
             continue
-        # 打包模板里的维护者文件不进用户包
+
         if item.name in (".gitattributes", ".gitkeep", "PACKAGING.md"):
             continue
         target = dst / item.relative_to(src)

@@ -3,15 +3,15 @@ package cn.surveyking.server.service;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/**
- * 公开问卷的匿名答题身份。
- *
- * <p>cookie 名 {@code sk-anon}，HttpOnly + SameSite=Lax + 90 天；服务端只保存 token 的
- * SHA-256。匿名主体用于「未登录也能找回自己的历次作答」，登录后可通过 {@link #claim(String)}
- * 把当前浏览器下的匿名答卷认领到账号。
- *
- * @author surveyking
- */
+
+
+
+
+
+
+
+
+
 public interface AnonymousIdentityService {
 
 	/**

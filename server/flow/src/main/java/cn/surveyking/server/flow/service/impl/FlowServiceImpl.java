@@ -44,10 +44,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * @author javahuang
- * @date 2022/1/5
- */
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
@@ -95,16 +95,16 @@ public class FlowServiceImpl implements FlowService {
 			return;
 		}
 		FlowEntryNode node = entryNodeService.getById(schema.getId());
-		// 未设置流程
+
 		if (node == null) {
 			return;
 		}
-		// 流程申请人为空
+
 		if (node.getIdentity() == null) {
 			SchemaHelper.updateSchemaByPermission(node.getFieldPermission(), schema);
 			return;
 		}
-		// 需要登录，如开启了工作流或者设置了成员/部门题都需要登录才能答卷
+
 		if (!SecurityContextUtils.isAuthenticated()) {
 			projectView.setLoginRequired(true);
 			projectView.setSurvey(null);
@@ -118,7 +118,7 @@ public class FlowServiceImpl implements FlowService {
 				return;
 			}
 		}
-		// 用户没有发起流程权限
+
 		projectView.setSurvey(null);
 	}
 
@@ -162,14 +162,14 @@ public class FlowServiceImpl implements FlowService {
 			flowEntry.setProjectId(projectId);
 			entryService.updateById(flowEntry);
 
-			// 更新之前版本为历史版本
+
 			FlowEntryPublish entryPublished = new FlowEntryPublish();
 			entryPublished.setMainVersion(false);
 			entryPublished.setActiveStatus(false);
 			entryPublishService.update(entryPublished,
 					Wrappers.<FlowEntryPublish>lambdaUpdate().eq(FlowEntryPublish::getEntryId, flowEntry.getId()));
 
-			// 发布新版本
+
 			FlowEntryPublish entryPublish = new FlowEntryPublish();
 			entryPublish.setId(deployment.getId());
 			entryPublish.setEntryId(flowEntry.getId());
@@ -181,10 +181,10 @@ public class FlowServiceImpl implements FlowService {
 			entryPublish.setActiveStatus(true);
 			entryPublishService.save(entryPublish);
 
-			// 更新流程节点
+
 			saveFlowElement(flowEntry);
 
-			// 更新流程信息
+
 			flowEntry.setProcessDefinitionId(pd.getId());
 			flowEntry.setStatus(FlowEntryStatus.PUBLISHED);
 			entryService.updateById(flowEntry);
@@ -234,7 +234,7 @@ public class FlowServiceImpl implements FlowService {
 	private PaginationResponse<FlowTaskView> getTodo(FlowTaskQuery query) {
 		TaskQuery taskQuery = taskService.createTaskQuery().active();
 		String userId = SecurityContextUtils.getUserId();
-		// https://forum.flowable.org/t/sql-exception-with-task-query-after-upgrade-to-6-7-0/8334
+
 		taskQuery.processDefinitionKey(query.getProjectId()).or().taskCandidateUser(userId).taskAssignee(userId).endOr()
 				.includeProcessVariables().orderByTaskCreateTime().desc();
 		int firstResult = (query.getCurrent() - 1) * query.getPageSize();
@@ -320,7 +320,7 @@ public class FlowServiceImpl implements FlowService {
 		List<FlowOperationView> operationViews = flowOperationModelMapper.toView(operations);
 		FlowInstance flowInstance = flowInstanceService.getById(processInstanceId);
 		if (FlowInstanceStatus.APPROVING == flowInstance.getStatus()) {
-			// 当前任务正在审批，设置审批人
+
 			Execution execution = runtimeService.createExecutionQuery().processInstanceId(processInstanceId)
 					.onlyChildExecutions().singleResult();
 			if (execution != null) {
@@ -339,13 +339,13 @@ public class FlowServiceImpl implements FlowService {
 						waitAuditUserIds.add(link.getUserId());
 					});
 				});
-				// 设置等待审核用户列表
+
 				runningOperationView.setWaitAuditUserList(waitAuditUserIds.stream()
 						.map(uid -> userService.loadUserById(uid)).collect(Collectors.toList()));
 			}
 		}
 		else if (FlowInstanceStatus.SUSPENDED == flowInstance.getStatus()) {
-			// 需要申请人完善
+
 			FlowOperationView runningOperationView = new FlowOperationView();
 			runningOperationView.setActivityId(FlowConstant.STARTER_ACTIVITY_ID);
 			runningOperationView.setActivityName(FlowConstant.STARTER_ACTIVITY_NAME);
@@ -355,7 +355,7 @@ public class FlowServiceImpl implements FlowService {
 			operationViews.add(runningOperationView);
 		}
 
-		// 添加历史节点
+
 		operationViews.forEach(view -> {
 			if (view.getCreateBy() != null) {
 				view.setAuditUser(userService.loadUserById(view.getCreateBy()));
@@ -401,20 +401,20 @@ public class FlowServiceImpl implements FlowService {
 	@Override
 	public FlowStaticsView statics() {
 		FlowStaticsView statics = new FlowStaticsView();
-		// 获取我的待办
+
 		TaskQuery taskQuery = taskService.createTaskQuery().active();
 		String userId = SecurityContextUtils.getUserId();
 		taskQuery.or().taskCandidateUser(userId).taskAssignee(userId).endOr().orderByTaskCreateTime().desc();
 		statics.setTodo(taskQuery.count());
-		// 获取我的已办
+
 		statics.setFinished(flowOperationService
 				.count(Wrappers.<FlowOperation>lambdaQuery().eq(FlowOperation::getTaskType, FlowTaskType.userTask)
 						.ne(FlowOperation::getApprovalType, FlowApprovalType.SAVE)));
-		// 获取我能发起的，任务在审批中的
+
 		statics.setSelfCreated(flowInstanceService.count(
 				Wrappers.<FlowInstance>lambdaQuery().eq(FlowInstance::getCreateBy, SecurityContextUtils.getUserId())
 						.eq(FlowInstance::getStatus, FlowInstanceStatus.APPROVING)));
-		// 获取抄送给我的
+
 		return statics;
 	}
 
@@ -466,7 +466,7 @@ public class FlowServiceImpl implements FlowService {
 	 * @param flowEntry
 	 */
 	private void saveFlowElement(FlowEntry flowEntry) {
-		// 不能直接删除当前项目下面的所有流程节点，因为多次部署，旧的部署版本可能需要之前的流程节点
+
 		entryNodeService
 				.removeBatchByIds(flowEntry.getNodes().stream().map(x -> x.getId()).collect(Collectors.toList()));
 		if (flowEntry.getNodes() != null) {

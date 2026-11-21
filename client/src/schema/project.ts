@@ -20,7 +20,7 @@ export interface PublicQuery {
   description?: string;
   password?: string;
   conditionQuestion?: string;
-  /** 查询字段权限 0隐藏 1读 2写 */
+
   fieldPermission?: Record<string, number>;
   enableUpdate?: boolean;
   linkValidityPeriod?: string[];
@@ -30,13 +30,13 @@ export interface AnswerSetting {
   password?: string;
   progressBar?: boolean;
   loginRequired?: boolean;
-  /** 答题人姓名是否必填（默认 false = 选填） */
+
   answererNameRequired?: boolean;
   questionNumber?: boolean;
   autoSave?: boolean;
   initialValues?: Record<string, unknown>;
   maxAnswers?: number;
-  /** 截止回收时间（时间戳） */
+
   endTime?: number;
   wechatOnly?: boolean;
   wechatUserInfo?: boolean;
@@ -63,7 +63,7 @@ export interface SubmittedSetting {
 }
 
 export interface ExamSetting {
-  /** 是否计分；缺省按模式：考试 true，问卷 false */
+
   scoringEnabled?: boolean;
   startTime?: number;
   endTime?: number;
@@ -77,12 +77,12 @@ export interface ExamSetting {
   randomSurvey?: import('./types').RandomSurveyCondition[];
   randomSurveyWrong?: boolean;
   maxSwitchScreenTimes?: number;
-  /** 是否允许收藏题目；缺省 true */
+
   favoriteEnabled?: boolean;
 }
 
 export interface ProjectSetting {
-  /** 1 开启 0 停止 */
+
   status?: number;
   mode?: ProjectModeEnum;
   answerSetting?: AnswerSetting;
@@ -90,7 +90,7 @@ export interface ProjectSetting {
   examSetting?: ExamSetting;
 }
 
-/** 列表/详情视图 */
+
 export interface Project {
   id: string;
   name: string;
@@ -100,7 +100,7 @@ export interface Project {
   setting?: ProjectSetting;
   status?: number;
   priority?: number;
-  /** 答卷数 */
+
   total?: number;
   totalOfToday?: number;
   lastUpdate?: number;
@@ -111,7 +111,7 @@ export interface Project {
   tempAnswer?: boolean;
 }
 
-/** 写入用 */
+
 export interface ProjectRequest {
   id?: string;
   name?: string;
@@ -126,7 +126,7 @@ export interface ProjectRequest {
   ids?: string[];
 }
 
-/** 答卷：answer 是 questionId → 值 的扁平 map，survey 是答卷时的快照 */
+
 export interface Answer {  id: string;
   projectId: string;
   repoId?: string;
@@ -137,17 +137,17 @@ export interface Answer {  id: string;
   examScore?: number;
   rank?: number;
   examInfo?: Record<string, unknown>;
-  /** 0 暂存 / 1 已完成 */
+
   tempSave?: number;
   createAt?: string;
   createBy?: string;
   createByName?: string;
-  /** 匿名答卷：无 createBy，管理端据此显示「匿名」标识 */
+
   isAnonymous?: boolean;
   updateAt?: string;
 }
 
-/** 逐题下发时首屏只返回的安全大纲，绝不包含题干/选项/题目属性 */
+
 export interface PublicQuestionOutline {
   id: string;
   type: import('./types').QuestionType;
@@ -155,7 +155,7 @@ export interface PublicQuestionOutline {
   required: boolean;
 }
 
-/** 公开答题：POST /api/public/projectOutline 的返回 */
+
 export interface PublicProjectView {
   id: string;
   survey?: SurveySchema;
@@ -164,22 +164,22 @@ export interface PublicProjectView {
   setting?: ProjectSetting;
   name?: string;
   mode?: ProjectModeEnum;
-  /** 通过班级专属链接进入时，后端解析出的班级 */
+
   classId?: string;
   passwordRequired?: boolean;
   loginRequired?: boolean;
   createAt?: string;
   submittedHtml?: string;
-  /** 当前会话对应的答卷 id（续答用） */
+
   answerId?: string;
-  /** 允许修改且已识别身份时，后端回填的旧答案 */
+
   answer?: Record<string, unknown>;
   isAuthenticated?: boolean;
   wechatAuthorizationRequired?: boolean;
   examInfo?: Record<string, unknown>;
 }
 
-/** 公开答题：POST /api/public/saveAnswer 的返回 */
+
 export interface PublicAnswerView {
   answerId?: string;
   examScore?: number;

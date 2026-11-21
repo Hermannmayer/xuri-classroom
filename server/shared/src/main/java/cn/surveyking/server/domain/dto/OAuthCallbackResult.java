@@ -2,7 +2,7 @@ package cn.surveyking.server.domain.dto;
 
 import lombok.Data;
 
-/** Internal result used by the OAuth callback controller. */
+
 @Data
 public class OAuthCallbackResult {
 

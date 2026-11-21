@@ -3,10 +3,10 @@ package cn.surveyking.server.core.common;
 import cn.surveyking.server.core.uitls.JSONUtil;
 import lombok.Data;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 @Data
 public class ApiResponse<T> {
 

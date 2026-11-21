@@ -17,10 +17,10 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/8/3
- */
+
+
+
+
 public interface AnswerService {
 
 	PaginationResponse<AnswerView> listAnswer(AnswerQuery filter);
@@ -30,7 +30,7 @@ public interface AnswerService {
 	 *
 	 * <p>必须同时带 {@code projectId} 与 {@code classId}；可见性由调用方先校验（
 	 * {@code ClassService#assertVisible}），这里**不套**「非协作者只看自己」的行级过滤，
-	 * 否则不是项目所有者/协作者的班主任只能看到自己的答卷。非班级入口仍走 {@link #listAnswer}。
+
 	 */
 	PaginationResponse<AnswerView> listAnswerByClass(AnswerQuery query);
 
@@ -97,11 +97,11 @@ public interface AnswerService {
 		if (!CollectionUtils.isEmpty(query.getIds())) {
 			query.setPageSize(query.getIds().size());
 		}
-		// 下载问卷答案
+
 		if (query.getType() == DownloadQuery.DownloadType.answer) {
 			download = downloadSurvey(query);
 		}
-		// 下载附件
+
 		else if (query.getType() == DownloadQuery.DownloadType.answerAttachment
 				|| query.getType() == DownloadQuery.DownloadType.attachment) {
 			download = downloadAttachment(query);

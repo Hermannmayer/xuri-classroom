@@ -27,19 +27,19 @@ import org.springframework.web.filter.CorsFilter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 @EnableWebSecurity
 @EnableMethodSecurity(securedEnabled = true, prePostEnabled = true)
 @Configuration
 @ConfigurationProperties("sk.security")
 public class WebSecurityConfig {
 
-	/**
-	 * 开启 url token 认证
-	 */
+
+
+
 	private final UrlTokenAuthentication urlTokenAuthentication = new UrlTokenAuthentication();
 
 	private final Cors cors = new Cors();
@@ -50,7 +50,7 @@ public class WebSecurityConfig {
 
 	private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
-	/** 题库类接口限流，防止脚本刷题/爬库 */
+
 	private final RateLimitFilter rateLimitFilter;
 
 	public WebSecurityConfig(JwtTokenFilter jwtTokenFilter, UserService userService,
@@ -59,7 +59,7 @@ public class WebSecurityConfig {
 		this.userService = userService;
 		this.authenticationEntryPoint = authenticationEntryPoint;
 		this.rateLimitFilter = rateLimitFilter;
-		// 允许在 @Async 方法里面获取 SecurityContext
+
 		SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
 	}
 
@@ -70,12 +70,12 @@ public class WebSecurityConfig {
 	 * 迁移到 Spring Security 7 之前这里是 {@code configure(AuthenticationManagerBuilder)} 里的一句
 	 * {@code auth.userDetailsService(...)}：框架会自动挑一个 {@code PasswordEncoder} Bean 装进
 	 * DaoAuthenticationProvider。适配器被移除后这个「自动挑」不再发生，必须显式装配，
-	 * 否则登录会在运行期报「没有 PasswordEncoder」。
+
 	 */
 	@Bean
 	public AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
-		// Spring Security 7 只剩 DaoAuthenticationProvider(UserDetailsService) 这一个构造器，
-		// 无参构造 + setUserDetailsService 的写法已被删除。
+
+
 		DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userService);
 		provider.setPasswordEncoder(passwordEncoder);
 		return provider;
@@ -91,23 +91,23 @@ public class WebSecurityConfig {
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		// 设置允许 iframe 引用
+
 		http.headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable));
 		http.cors(corsConfigurer -> {
 		});
 		http.csrf(csrf -> csrf.disable());
 		http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 		http.exceptionHandling(handling -> handling.authenticationEntryPoint(authenticationEntryPoint));
-		// 所有请求都放行，目的是单 jar 部署，输入任意路由也能跳转到对应的页面，权限拦截通过注解配置
 
-		// /api/system/version 也放行：升级脚本、监控、排障都要在"还没登录"时确认程序版本与库结构版本，
-		// 里面只有版本号（README/Release 页本来就公开），不含任何密钥或用户数据。
+
+
+
 		http.authorizeHttpRequests(registry -> registry.requestMatchers("/api/public/**").permitAll()
 				.requestMatchers("/api/system").permitAll().requestMatchers("/api/system/version").permitAll()
 				.requestMatchers("/captcha/get", "/captcha/check").permitAll().requestMatchers("/api/**")
 				.authenticated().anyRequest().permitAll());
 		http.addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
-		// 限流放在 JWT 之后：要先知道是谁，才能按用户计数
+
 		http.addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 		return http.build();
 	}
@@ -137,9 +137,9 @@ public class WebSecurityConfig {
 
 	public static class UrlTokenAuthentication {
 
-		/**
-		 * 是否开启 token 认证
-		 */
+
+
+
 		private boolean enabled = false;
 
 		public boolean isEnabled() {

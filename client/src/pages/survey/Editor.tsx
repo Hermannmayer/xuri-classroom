@@ -91,7 +91,7 @@ function collectScoreGroups(root?: SurveySchema): ScoreGroup[] {
 /** 左侧 ADD 面板可拖拽的题型集合 */
 const PALETTE_TYPES = new Set<QuestionType>(QUESTION_META.map((m) => m.type));
 
-/** 无标题的结构节点在大纲里的显示名 */
+
 const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
   SplitLine: '分割线',
   QuestionSet: '题组',
@@ -235,7 +235,7 @@ function OutlineList({
 export default function SurveyEditor() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  /** ?ai=pick|check|rewrite：对话里的「打开工具」就是靠这个参数把面板直接弹出来的 */
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
@@ -300,19 +300,19 @@ export default function SurveyEditor() {
   });
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  /* ---- AI 组卷 / 质检 / 改题：入口全部按 ai:use 门控 ---- */
-  /** 权限列表：没回来之前不渲染 AI 入口（判定统一走 auth/permissions 的 can()） */
+
+
   const [authorities, setAuthorities] = useState<string[]>();
   const [aiOpen, setAiOpen] = useState(false);
-  /** 试卷质检抽屉：读的是服务端已保存的卷子 */
+
   const [aiCheckOpen, setAiCheckOpen] = useState(false);
-  /** ?ai= 只处理一次：同一个参数下选来选去不该反复重开面板 */
+
   const handledAiParamRef = useRef<string | null>(null);
-  /** 正在做 AI 优化的题目 id；undefined = 侧栏关着 */
+
   const [aiRewriteId, setAiRewriteId] = useState<string>();
-  /** AI 改题前的题干快照：同一道题只记第一次改之前的样子，「恢复原题干」用它 */
+
   const [aiBefore, setAiBefore] = useState<Record<string, { title: string; description?: string }>>({});
-  /** 选中卡片上「AI 优化」浮标的位置（视口坐标，跟着卡片滚动） */
+
   const [aiChip, setAiChip] = useState<{ top: number; left: number } | null>(null);
 
   /**
@@ -361,7 +361,7 @@ export default function SurveyEditor() {
     };
   }, [id, reset]);
 
-  // 选中高亮：渲染器内部不认识 selectedId，渲染后补 class
+
   useEffect(() => {
     const root = canvasRef.current;
     if (!root) return;
@@ -370,14 +370,14 @@ export default function SurveyEditor() {
     });
   }, [selectedId, survey, preview]);
 
-  // 选中（尤其从左侧拖入的新题）后滚动到可见
+
   useEffect(() => {
     if (!selectedId) return;
     const el = canvasRef.current?.querySelector(`[data-qid="${selectedId}"]`);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [selectedId]);
 
-  /** 画布内拖拽排序：渲染器不感知 dnd，这里给每个题目节点挂上 draggable */
+
   useEffect(() => {
     const root = canvasRef.current;
     if (!root || preview) return;
@@ -393,10 +393,10 @@ export default function SurveyEditor() {
 
   const selected = useMemo(() => (selectedId ? findNode(survey, selectedId) : undefined), [survey, selectedId]);
 
-  /**
-   * AI 入口的权力判定：没有 ai:use 就完全不渲染（不是灰掉），和权限页同一份数据。
-   * 只有数据题（不是分割线 / 说明这类结构节点）才有题干可改。
-   */
+
+
+
+
   const canAi = can(authorities ?? [], PERMISSION_CODES.aiUse);
   const aiTarget = selected && DATA_TYPES.has(selected.type) ? selected : undefined;
   /** 右键菜单里的 AI 入口：同样只认数据题 */
@@ -422,17 +422,17 @@ export default function SurveyEditor() {
     setRightTab(selectedId ? 'question' : 'quick');
   }, [selectedId]);
 
-  // 权限列表：和 Overview / Data 一样，页面自己拉一次
+
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  /**
-   * 选中题目的「AI 优化」浮标。
-   *
-   * 题目卡片由共享渲染器 SchemaRenderer 画（答题页也在用），不能往里塞编辑器专属按钮；
-   * 这里按卡片在视口中的位置放一个 fixed 定位的小按钮，跟着画布滚动/窗口缩放重新贴位。
-   */
+
+
+
+
+
+
   useEffect(() => {
     if (!canAi || !aiTarget) {
       setAiChip(null);
@@ -447,7 +447,7 @@ export default function SurveyEditor() {
     const update = () => {
       const rect = el.getBoundingClientRect();
       const canvasRect = canvas.getBoundingClientRect();
-      // 卡片滚出画布可视区就收起，别让按钮飘在别的面板上
+
       if (rect.bottom < canvasRect.top + 4 || rect.top > canvasRect.bottom - 4) {
         setAiChip(null);
         return;
@@ -598,7 +598,7 @@ export default function SurveyEditor() {
     return index < 0 ? flatQuestions : flatQuestions.slice(0, index);
   }, [flatQuestions, selectedId]);
 
-  /** 预览态才应用显隐规则；编辑态全部显示，否则隐藏题在设计器里会消失 */
+
   const displays = useMemo(() => {
     const rules: Record<string, string | undefined> = {};
     const titles: Record<string, string> = {};
@@ -612,7 +612,7 @@ export default function SurveyEditor() {
   const addQuestion = useCallback(
     (type: QuestionType) => {
       const node = createQuestion(type);
-      // 选中容器 → 加进去；选中题目 → 加在同级末尾；否则加根末尾
+
       let parentId: string | undefined;
       if (selectedId) {
         const sel = findNode(survey, selectedId);
@@ -706,13 +706,13 @@ export default function SurveyEditor() {
   /**
    * 保存指定的树。
    *
-   * 单独抽出来是因为 setSurvey 是异步的，拿不到下一棵树的 state：
+
    * 调用方把算好的树传进来，落库和 baseline 都用同一份，避免「保存的是旧的、画布是新的」。
    */
   const persist = async (tree: SurveySchema, hint = '已保存') => {
     setSaving(true);
     try {
-      // 保存前补齐 children：后端提交链路会直接取每道题的 children.get(0)
+
       await updateProject({ id, name, survey: normalizeSchema(tree), setting });
       baselineRef.current = JSON.stringify({ name, survey: tree });
       message.success(hint);
@@ -753,7 +753,7 @@ export default function SurveyEditor() {
   /**
    * 打开 AI 优化侧栏。
    *
-   * 题干随请求带给后端（后端支持可选的 title/type），所以**不用**先保存：
+
    * 老师刚改完的题干也能立刻让 AI 改。
    */
   const openAiRewrite = (nodeId: string) => {
@@ -783,7 +783,7 @@ export default function SurveyEditor() {
     );
     setSurvey(updateNode(survey, nodeId, () => ({ title: text })));
     if (node.attribute?.richTitle) {
-      // AI 只回纯文本：带图的题干换成建议后图片会丢，提醒一句（快照能恢复）
+
       message.warning('这道题题干里有富文本/图片，换成 AI 建议后图片会丢，需要时点「恢复原题干」');
       return;
     }
@@ -803,13 +803,13 @@ export default function SurveyEditor() {
     message.success('已恢复 AI 修改前的题干');
   };
 
-  /**
-   * 外部链接直接打开 AI 面板：/survey/:id/edit?ai=pick|check|rewrite。
-   *
-   * 参数只认一次：同一份卷子里反复点选题目不该把面板重开一遍；
-   * 面板关闭时各自调 clearAiParam 把参数摘掉（见下面的 onClose）。
-   * canAi 到位之前先按兵不动——权限接口回来后会再跑一次，那时才知道能不能给入口。
-   */
+
+
+
+
+
+
+
   useEffect(() => {
     if (!canAi) return;
     const ai = searchParams.get('ai');
@@ -828,7 +828,7 @@ export default function SurveyEditor() {
       return;
     }
     if (ai === 'rewrite') {
-      // 改题必须有题目：URL 里没有题目 id，只能借用当前选中的那道题
+
       const target = selectedId ? findNode(survey, selectedId) : undefined;
       if (target && DATA_TYPES.has(target.type)) setAiRewriteId(target.id);
       else {
@@ -837,13 +837,13 @@ export default function SurveyEditor() {
       }
       return;
     }
-    // 不认识的取值（老链接、手改的 URL）直接摘掉，别让参数一直挂在地址栏上
+
     clearAiParam();
     // openAiCheck 每次渲染都是新函数，放进依赖会让整个 effect 空转；它只读 dirty 与 setState
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAi, searchParams, selectedId, survey, dirty, clearAiParam]);
 
-  // 刷新/关标签页时也拦一下，避免手快丢改动
+
   useEffect(() => {
     if (!dirty) return;
     const handler = (event: BeforeUnloadEvent) => {
@@ -932,15 +932,15 @@ export default function SurveyEditor() {
   const grouped = ['choice', 'input', 'structure'] as const;
 
   return (
-    // 高度用 dvh：移动端浏览器地址栏收放时 100vh 会把底部内容顶到可视区之外。
-    // 手机上的编辑只保证「工具栏能换行、保存点得到、面板不被底栏盖」，不做移动版设计器。
+
+
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100dvh - 88px)', minHeight: 0 }}>
-      {/* 工具栏 */}
+
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          // 1500px 的工具栏在手机上不换行，保存/发布会被挤到屏幕外
+
           flexWrap: 'wrap',
           rowGap: 8,
           gap: 12,
@@ -1003,13 +1003,13 @@ export default function SurveyEditor() {
         >
           JSON
         </Button>
-        {/* AI 入口：没有 ai:use 的老师看不到。组卷 = 从题库抽题；质检 = 体检已保存的这份卷子 */}
+
         {canAi && (
           <>
             <Button icon={<RobotOutlined />} onClick={() => setAiOpen(true)}>
               AI 组卷
             </Button>
-            {/* 按钮名跟「AI 组卷」成套，悬停写清楚它就是文档里的「试卷质检」 */}
+
             <Tooltip title="试卷质检：查重复题、缺分值、缺答案、难度分布与考点覆盖">
               <Button icon={<AuditOutlined />} onClick={openAiCheck}>
                 AI 质检
@@ -1053,7 +1053,7 @@ export default function SurveyEditor() {
         </Button>
       </div>
 
-      {/* 选中卡片上的「AI 优化」浮标：fixed 定位跟着卡片走，点它不会冒泡到画布（避免触发拖拽/重选） */}
+
       {canAi && aiChip && aiTarget && (
         <Button
           size="small"
@@ -1079,7 +1079,7 @@ export default function SurveyEditor() {
       )}
 
       <div className="sk-designer" style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
-        {/* 左栏：题型 + 大纲 */}
+
         <div
           style={{
             width: 220,
@@ -1182,7 +1182,7 @@ export default function SurveyEditor() {
           />
         </div>
 
-        {/* 画布 */}
+
         <Card
           style={{
             flex: 1,
@@ -1198,7 +1198,7 @@ export default function SurveyEditor() {
             className="sk-canvas"
             style={{ maxWidth: 760 }}
             onMouseDown={(e) => {
-              // 点题目卡片任意区域都先选中，再交给拖拽/输入框处理
+
               const el = (e.target as HTMLElement).closest('[data-qid]');
               setSelectedId(el ? el.getAttribute('data-qid') ?? undefined : undefined);
             }}
@@ -1208,7 +1208,7 @@ export default function SurveyEditor() {
               if (el) setSelectedId(el.getAttribute('data-qid') ?? undefined);
             }}
             onContextMenu={(e) => {
-              // 手机端没有右键菜单
+
               if (window.matchMedia('(max-width: 767.98px)').matches) return;
               const el = (e.target as HTMLElement).closest('[data-qid]');
               if (!el) return;
@@ -1266,7 +1266,7 @@ export default function SurveyEditor() {
                       : insertNode(survey, undefined, node),
                   );
                 } else {
-                  // 空白处追加到末尾
+
                   setSurvey(insertNode(survey, undefined, node));
                 }
                 setSelectedId(node.id);
@@ -1276,7 +1276,7 @@ export default function SurveyEditor() {
               if (to && from && from !== to) setSurvey(moveBefore(survey, from, to));
             }}
             onDragEnd={() => {
-              // 拖拽结束后下一帧再清，避免 click 抢在 dragend 之前
+
               window.setTimeout(() => {
                 dragFromRef.current = undefined;
                 dragTypeRef.current = undefined;
@@ -1306,7 +1306,7 @@ export default function SurveyEditor() {
           </div>
         </Card>
 
-        {/* 右栏：手机预览 + 属性 */}
+
         <div
           style={{
             width: 340,
@@ -1507,7 +1507,7 @@ export default function SurveyEditor() {
         </div>
       </div>
 
-      {/* JSON 视图：树结构出问题时的手动兜底 */}
+
       <Modal
         title="Schema JSON"
         open={jsonOpen}
@@ -1659,7 +1659,7 @@ export default function SurveyEditor() {
         </div>
       </Modal>
 
-      {/* AI 组卷：预览后才写画布；关闭时摘掉 ?ai=，刷新不会再弹 */}
+
       {canAi && (
         <AiPaperModal
           open={aiOpen}
@@ -1672,7 +1672,7 @@ export default function SurveyEditor() {
         />
       )}
 
-      {/* AI 质检：只读已保存的卷子；点题号定位复用编辑器自己的选中逻辑 */}
+
       {canAi && (
         <AiPaperCheckDrawer
           open={aiCheckOpen}
@@ -1686,7 +1686,7 @@ export default function SurveyEditor() {
         />
       )}
 
-      {/* AI 改题：采纳后留 before 快照 */}
+
       {canAi && (
         <AiRewriteDrawer
           open={Boolean(aiRewriteId)}
@@ -1721,7 +1721,7 @@ export default function SurveyEditor() {
         onSubmit={handleImportSubmit}
       />
 
-      {/* 主题 + 逻辑总览 */}
+
       <Drawer
         title="主题 / 逻辑"
         open={themeOpen}
@@ -1902,9 +1902,9 @@ export default function SurveyEditor() {
         {previewOpen && (
           <iframe
             title="答题页预览"
-            // preview=1：让后端放行未发布/未到时间/未分配班级的卷子——
-            // 预览只要求「能看」（管理员/所有者/协作者），不要求「能答」。
-            // 不带这个参数时，刚建好还没发布的试卷点预览会被「问卷已暂停回收」挡住。
+
+
+
             src={'/s/' + id + '?preview=1'}
             style={{ width: '100%', height: '85vh', border: 0, display: 'block' }}
           />

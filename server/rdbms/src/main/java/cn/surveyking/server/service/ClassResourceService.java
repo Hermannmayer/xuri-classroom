@@ -53,43 +53,43 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * 班级资源分配（P1 考试/问卷，P2 题库）。
- *
- * <p>规则（用户已确认）：
- * <ul>
- * <li>project：项目上的 {@code examSetting.startTime/endTime} 是**全局窗口，也是硬上限**；
- * 班级窗口（t_class_resource.start_at/end_at）为空表示继承全局，非空必须落在全局窗口内；</li>
- * <li>repo：题库有全局开放期（t_repo.open_start_at/open_end_at），是班级窗口的硬上限；
- * 班级窗口为空表示继承全局，非空时必须落在全局开放期内；</li>
- * <li>没有分配到某个班的考试/题库，该班学生完全看不到（连 ProjectNotFound 都不该区分出来）；</li>
- * <li>学生同时在多个班时，任一班的分配有效即可参加，解析时主组优先。</li>
- * </ul>
- *
- * <p>写操作统一走 {@link ClassService#assertManage(String)}（管理员 / class:grant / 班主任 /
- * access_level=2 授权），读面板也要求可管理：资源面板只对能管理这个班的老师开放。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClassResourceService {
 
-	/** 学生视角的状态：手动关闭，或项目全局停用 */
+
 	public static final String STATUS_CLOSED = "CLOSED";
 
-	/** 还没到开始时间 */
+
 	public static final String STATUS_NOT_STARTED = "NOT_STARTED";
 
-	/** 可以参加 */
+
 	public static final String STATUS_OPEN = "OPEN";
 
-	/** 已经过了结束时间 */
+
 	public static final String STATUS_ENDED = "ENDED";
 
-	/**
-	 * 资源类型 repo（题库）。t_class_resource 已预留这个类型，但 ClassResource 模型不归本任务管，
-	 * 先在服务里放一份常量，避免跨文件改模型。
-	 */
+
+
+
+
 	public static final String RESOURCE_TYPE_REPO = "repo";
 
 	private final ClassResourceMapper classResourceMapper;
@@ -106,7 +106,7 @@ public class ClassResourceService {
 
 	private final UserDeptMapper userDeptMapper;
 
-	/** 班级写权限判定的唯一出口；这里注入接口，不注入 ClassServiceImpl */
+
 	private final ClassService classService;
 
 	private final ObjectMapper objectMapper;
@@ -157,7 +157,7 @@ public class ClassResourceService {
 			view.setGlobalEndAt(toDate(globalEnd(project)));
 			AnswerStat stat = answerStats.get(resource.getResourceId());
 			view.setAnswerCount(stat == null ? 0L : stat.count);
-			// 平均分：没有带分数的答卷就是 null（题库行不会走到这里，天然为 null）
+
 			view.setAvgScore(stat == null ? null : stat.average());
 			view.setEffectiveStatus(effectiveStatus(resource, project));
 			result.add(view);
@@ -179,10 +179,10 @@ public class ClassResourceService {
 			ClassResourceView view = baseView(classId, dept, resource, assigners);
 			if (repo != null) {
 				view.setResourceName(repo.getName());
-				// repo.mode 是自由字符串，转不进 ProjectModeEnum 就留空；前端按 resourceType 显示「题库」
+
 				view.setResourceMode(toProjectMode(repo.getMode()));
 			}
-			// 题库的全局开放期（硬上限）；题库不存在时为空
+
 			view.setGlobalStartAt(repo == null ? null : repo.getOpenStartAt());
 			view.setGlobalEndAt(repo == null ? null : repo.getOpenEndAt());
 			AnswerStat stat = answerStats.get(resource.getResourceId());
@@ -233,11 +233,11 @@ public class ClassResourceService {
 		if (resourceIds.isEmpty()) {
 			throw new ValidationException(RESOURCE_TYPE_REPO.equals(type) ? "请选择要分配的题库" : "请选择要分配的考试");
 		}
-		// 前端传 epoch 毫秒，统一转 Date；空 = 继承全局 / 不限
+
 		Date startAt = toDate(request.getStartAt());
 		Date endAt = toDate(request.getEndAt());
 		if (RESOURCE_TYPE_REPO.equals(type)) {
-			// 题库：全局开放期是硬上限，班级窗口非空时必须落在里面
+
 			Map<String, Repo> repos = loadRepos(resourceIds);
 			if (repos.size() != resourceIds.size()) {
 				throw new ValidationException("部分题库不存在，请刷新后重试");
@@ -266,7 +266,7 @@ public class ClassResourceService {
 				resource.setClassId(classId);
 				resource.setResourceType(type);
 				resource.setResourceId(resourceId);
-				// 新建 project 分配时直接生成班级专属链接；repo 不需要
+
 				if (ClassResource.TYPE_PROJECT.equals(type)) {
 					resource.setShareToken(NanoIdUtils.randomNanoId(24));
 				}
@@ -278,7 +278,7 @@ public class ClassResourceService {
 				classResourceMapper.insert(resource);
 				continue;
 			}
-			// 已分配过：只更新窗口与开关；扩展设置不传时保持原值
+
 			updateWindow(exist.getId(), startAt, endAt, status);
 			if (request.getSettings() != null) {
 				classResourceMapper.update(null, Wrappers.<ClassResource>lambdaUpdate().eq(ClassResource::getId, exist.getId())
@@ -301,7 +301,7 @@ public class ClassResourceService {
 		Date startAt = toDate(request.getStartAt());
 		Date endAt = toDate(request.getEndAt());
 		if (RESOURCE_TYPE_REPO.equals(record.getResourceType())) {
-			// 题库：全局开放期是硬上限，班级窗口非空时必须落在里面
+
 			assertRepoAssignable(repoMapper.selectById(record.getResourceId()), startAt, endAt);
 		}
 		else {
@@ -324,7 +324,7 @@ public class ClassResourceService {
 		}
 		ClassResource record = classResourceMapper.selectById(request.getId().trim());
 		if (record == null) {
-			// 已经删掉的再删一次：幂等返回
+
 			return;
 		}
 		classService.assertManage(record.getClassId());
@@ -390,7 +390,7 @@ public class ClassResourceService {
 	 */
 	public String resolveForStudent(String projectId, String userId) {
 		if (!StringUtils.hasText(projectId) || ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId.trim())) {
-			// 练习模式是伪项目（没有 t_project 行），不参与班级分配
+
 			return null;
 		}
 		User student = loadStudent(userId);
@@ -424,7 +424,7 @@ public class ClassResourceService {
 		if (project == null || !StringUtils.hasText(project.getId())) {
 			return;
 		}
-		// 练习模式（题库练习/错题本）走的是伪项目 id，没有 t_project 行，也没有班级分配，直接放行
+
 		if (ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
 			return;
 		}
@@ -632,7 +632,7 @@ public class ClassResourceService {
 		Long globalStartAt = globalStart(project);
 		Long globalEndAt = globalEnd(project);
 		assertWindowOrder(startAt, endAt);
-		// 全局窗口是硬上限：班级窗口只能在它里面，不能借班级设置把窗口放宽
+
 		if (startAt != null && globalStartAt != null && startAt.getTime() < globalStartAt) {
 			throw new ValidationException("班级开放时间必须在全局开放时间内");
 		}
@@ -761,7 +761,7 @@ public class ClassResourceService {
 		return stats;
 	}
 
-	/** 单个项目的班级答卷统计：答卷数 + 有分数的答卷数与总分 */
+
 	private static final class AnswerStat {
 
 		private long count;
@@ -850,7 +850,7 @@ public class ClassResourceService {
 		long now = System.currentTimeMillis();
 		Long globalStart = safeTime(repo.getOpenStartAt());
 		Long globalEnd = safeTime(repo.getOpenEndAt());
-		// 先判题库全局开放期：它是硬上限，班级窗口只能在里面
+
 		if (globalStart != null && now < globalStart) {
 			return ErrorCode.ExamUnStarted;
 		}

@@ -41,12 +41,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * 班级级答卷权限：老师把考试分配给自己的班之后，应该能看这个班的答卷与未交名单，
- * 但不能顺着 projectId 看别的班。
- *
- * <p>纯 Mockito，不启动 Spring、不连库。
- */
+
+
+
+
+
+
 class AnswerAccessGuardScopeTest {
 
 	private final AnswerMapper answerMapper = mock(AnswerMapper.class);

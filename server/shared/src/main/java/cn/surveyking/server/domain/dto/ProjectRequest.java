@@ -5,10 +5,10 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/10/6
- */
+
+
+
+
 @Data
 public class ProjectRequest {
 
@@ -16,7 +16,7 @@ public class ProjectRequest {
 
 	private String name;
 
-	/** 分类名（如 保育员/养老护理员/育婴员）；空串表示清空分类 */
+
 	private String category;
 
 	private ProjectModeEnum mode;
@@ -25,7 +25,7 @@ public class ProjectRequest {
 
 	private ProjectSetting setting;
 
-	// 1已发布 0未发布
+
 	private Integer status;
 
 	private String belongGroup;

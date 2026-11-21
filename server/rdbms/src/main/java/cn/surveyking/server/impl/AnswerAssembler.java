@@ -8,14 +8,14 @@ import cn.surveyking.server.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * 答卷视图装配。
- *
- * <p>
- * 从 {@code AnswerServiceImpl} 切出的第一小步：只包含「补齐作答人姓名」。
- * 这块的取舍是手工搬、一次一个方法——上一轮批量脚本搬迁因为
- * {@code parseSurveySchemaByType} 有重载而失败，教训是这里不适合脚本。
- */
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerAssembler {

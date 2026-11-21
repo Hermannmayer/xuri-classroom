@@ -12,11 +12,11 @@ import cn.surveyking.server.ai.domain.AiMessage;
 import cn.surveyking.server.ai.domain.ModelType;
 import reactor.core.publisher.Flux;
 
-/**
- * AI 聊天服务
- *
- * @author zzr
- */
+
+
+
+
+
 public interface AiChatService {
 
 	/**
@@ -56,7 +56,7 @@ public interface AiChatService {
 	 * @return 支持的模型ID列表
 	 */
 	default List<ModelType> getSupportedModels() {
-		// 默认情况下，返回一个空列表，具体实现类需要覆盖此方法
+
 		return Collections.emptyList();
 	}
 

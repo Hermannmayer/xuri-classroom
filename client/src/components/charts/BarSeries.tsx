@@ -4,32 +4,32 @@ import { ChartEmpty } from './State';
 import { fmtInt, labelStep, niceScale, num, tickValues } from './util';
 
 export interface BarSeriesProps {
-  /** 主序列（null = 当天没有数据） */
+
   data: ReadonlyArray<number | null | undefined>;
-  /** 横轴标签，与 data 一一对应 */
+
   labels?: string[];
-  /** 对比序列（可选，画在主柱右侧、颜色更淡），例如「已批改」 */
+
   compare?: ReadonlyArray<number | null | undefined>;
-  /** 主序列图例名 / hover 提示里的名字 */
+
   seriesLabel?: string;
-  /** 对比序列图例名 */
+
   compareLabel?: string;
-  /** 绘图区高度（px） */
+
   height?: number;
-  /** 主色，默认 var(--bp-blue) */
+
   color?: string;
-  /** 对比色，默认 var(--bp-orange) */
+
   compareColor?: string;
-  /** 数值单位：份 / 人… */
+
   unit?: string;
   format?: (value: number) => string;
-  /** tooltip 第一行用更长/更可读的名字（缺省用 labels） */
+
   tooltipLabels?: string[];
   loading?: boolean;
   error?: string | null;
 }
 
-// top 留 24px 给图例（图例画在绘图区上方，不会被柱子挡住，也不会被裁掉）
+
 const PAD = { top: 24, right: 8, bottom: 24, left: 42 };
 const SOFT = 'var(--bp-text-soft)';
 const LINE_SOFT = 'var(--bp-line-soft)';

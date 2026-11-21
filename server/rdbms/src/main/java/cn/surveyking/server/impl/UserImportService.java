@@ -32,14 +32,14 @@ import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-/**
- * 用户批量导入（Excel）。
- *
- * <p>
- * 从 {@code UserServiceImpl} 切出的导入块，方法体逐行搬运。建号仍然走
- * {@link UserAdminService#createUser(UserRequest)}，权限校验仍然走 {@link UserPermissionGuard}，
- * 因此导入路径与手工建号的校验口径完全一致。
- */
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class UserImportService {
@@ -96,12 +96,12 @@ public class UserImportService {
 						if (!usernameSet.add(userRequest.getUsername())) {
 							throw new InternalServerError(userAuthService.i18n("user.import.usernameDuplicate", rowNum[0]));
 						}
-						// 密码列可以留空，留空时用默认密码 12345678，学员首次登录后自行修改
+
 						String password = getCellValue(r, 2).orElse("12345678");
 						userAdminService.validateStrongPassword(password, rowNum[0]);
 						userRequest.setPassword(password);
 						userRequest.setStatus(AppConsts.USER_STATUS.VALID);
-						// 用户管理里的批量导入是教职工入口；学员导入不在这个页面
+
 						userRequest.setUserType("staff");
 						userRequest.setPhone(getCellValue(r, 3).orElse(null));
 						userRequest.setEmail(getCellValue(r, 4).orElse(null));
@@ -129,7 +129,7 @@ public class UserImportService {
 							List<String> roleIds = roleNames.stream().map(roleName2Id::get).distinct()
 									.collect(Collectors.toList());
 							permissionGuard.assertGrantableRoles(roleIds);
-							// 导入是「批量建用户」的入口：每行角色同样要过学员/老师两档校验
+
 							permissionGuard.assertRoleGrantScope(roleIds);
 							userRequest.setRoles(roleIds);
 						}
@@ -140,8 +140,8 @@ public class UserImportService {
 					if (e instanceof InternalServerError) {
 						throw (InternalServerError) e;
 					}
-					// 权限类异常不能被改写成「第 N 行解析失败」：否则学员档账号导入老师角色时，
-					// 看到的是文件格式错误，根本不知道是权限不足。原样抛给上层（会回滚整批）。
+
+
 					if (e instanceof AccessDeniedException) {
 						throw (AccessDeniedException) e;
 					}

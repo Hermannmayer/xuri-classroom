@@ -13,12 +13,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 轻量级 excel 导出工具，换成 poi 打的包会多出十几 M，不能接受，-_-||
- *
- * @author javahuang
- * @date 2021/2/1
- */
+
+
+
+
+
+
 public class ExcelExporter {
 
 	private Workbook workbook;
@@ -29,15 +29,15 @@ public class ExcelExporter {
 
 	private final ByteArrayOutputStream os = new ByteArrayOutputStream();
 
-	/**
-	 * 这个实例最终把工作簿写到哪里。
-	 *
-	 * <p>
-	 * 无参构造写内部缓冲（配合 {@link #export()} 取字节）；带参构造写调用方给的流（配合
-	 * {@link #exportToStream()}）。早期两个入口混用时会静默拿到空字节——{@code export()} 读的是内部
-	 * 缓冲，而 Workbook 写的是外部流。现在 {@code export()} 发现目标不是内部缓冲会直接报错，
-	 * 不再返回 0 字节。
-	 */
+
+
+
+
+
+
+
+
+
 	private final OutputStream target;
 
 	ThreadLocal<Worksheet> localSheet = new ThreadLocal<>();

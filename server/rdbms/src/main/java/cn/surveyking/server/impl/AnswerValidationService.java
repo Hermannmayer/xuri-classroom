@@ -9,18 +9,18 @@ import cn.surveyking.server.service.AnswerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * 交卷前的准入校验：问卷是否停用、是否过截止时间、是否超过回收上限。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 抽出的第四块。它只读项目设置 + count 一次答卷，
- * 不碰答案内容、不碰统计，是最容易独立出来的一段交卷逻辑。
- *
- * <p>
- * 同文件里的另外三个校验方法（validateAnswer / validateAndMergeAnswer / validateAnswerGate）没有一起搬：
- * 前者要调 statProject（会造成构造器循环依赖），后者依赖 getAnswerForProject 与三个限次方法，
- * 而那几处方法同时被别的入口复用，搬迁需要先给交卷链路补测试。
- */
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerValidationService {

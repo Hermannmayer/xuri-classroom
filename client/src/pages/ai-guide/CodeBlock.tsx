@@ -27,9 +27,9 @@ export default function CodeBlock({
   language,
 }: {
   code: string;
-  /** 左上角显示：文件名、用途或说明 */
+
   label: string;
-  /** 右上角语言角标（json / toml / bash） */
+
   language?: string;
 }) {
   const { message } = App.useApp();

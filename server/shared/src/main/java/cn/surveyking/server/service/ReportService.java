@@ -4,10 +4,10 @@ import cn.surveyking.server.domain.dto.ReportData;
 
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2021/8/3
- */
+
+
+
+
 public interface ReportService {
 
 	/**

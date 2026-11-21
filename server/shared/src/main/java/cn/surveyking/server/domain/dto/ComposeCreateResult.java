@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 组卷落库结果：直接创建 N 个考试项目 */
+
 @Data
 public class ComposeCreateResult {
 

@@ -15,9 +15,9 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * 结构探测与版本匹配的纯逻辑测试（不连数据库）。
- */
+
+
+
 class SchemaUpgradeServiceTest {
 
 	private SchemaUpgradeService newService() {
@@ -57,7 +57,7 @@ class SchemaUpgradeServiceTest {
 				version("2.3.1")));
 		Set<String> withColumn = new HashSet<>(Arrays.asList("table:t_user", "column:t_template.chapter"));
 		assertEquals("2.1.0", newService().detectVersion(spec, withColumn));
-		// 什么都不匹配时才退回最高空版本，保持老行为
+
 		assertEquals("2.3.1", newService().detectVersion(spec, new HashSet<>(Collections.singletonList("table:t_user"))));
 	}
 

@@ -6,10 +6,10 @@ import org.apache.ibatis.annotations.Param;
 
 import java.util.Map;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 public interface UserMapper extends BaseMapper<User> {
 
 	User getUser(String name, String authAccount);

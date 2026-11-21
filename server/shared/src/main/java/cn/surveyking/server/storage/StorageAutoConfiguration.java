@@ -8,10 +8,10 @@ import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
 
-/**
- * @author javahuang
- * @date 2021/9/6
- */
+
+
+
+
 @Configuration
 @ConfigurationPropertiesScan("cn.surveyking.server.storage")
 public class StorageAutoConfiguration {

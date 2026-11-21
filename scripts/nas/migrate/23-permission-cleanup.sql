@@ -9,7 +9,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1) 老师：保留删除自己创建的考试；收回删除/恢复答卷
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',project:delete'),
     update_at = NOW()
@@ -27,8 +27,8 @@ SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',answer
 WHERE code = 'teacher' AND is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') LIKE '%,answer:restore,%';
 
--- 2) 导入权限合并 + 内置角色补串
--- 2a) 历史自定义角色如果还有 repo:import，先补等价的 template:import
+
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',template:import'),
     update_at = NOW()
@@ -36,15 +36,15 @@ WHERE is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') LIKE '%,repo:import,%'
   AND CONCAT(',', authority, ',') NOT LIKE '%,template:import,%';
 
--- 2b) 线上 admin/teacher 本来就没有 repo:import，显式补导入权限
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',template:import'),
     update_at = NOW()
 WHERE code IN ('admin', 'teacher') AND is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') NOT LIKE '%,template:import,%';
 
--- 2c) 管理员 = 管理权限全集：把只在运行时注入、库里缺的 7 个管理点补进 DB，
---     让权限矩阵/导出与 init-mysql.sql 一致（学员专属仍然不补）
+
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',repo:export'),
     update_at = NOW()
@@ -87,14 +87,14 @@ SET authority = CONCAT(authority, ',content:protect'),
 WHERE code = 'admin' AND is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') NOT LIKE '%,content:protect,%';
 
--- 2d) 删除旧导入权限
+
 UPDATE t_role
 SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',repo:import,', ',')),
     update_at = NOW()
 WHERE is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') LIKE '%,repo:import,%';
 
--- 3) 历史前缀清理（逐个 token，按逗号边界匹配，不会误删 project:list 这类真权限）
+
 UPDATE t_role
 SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',project,', ',')),
     update_at = NOW()
@@ -257,7 +257,7 @@ SET authority = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', authority, ','), ',system
 WHERE is_deleted = 0 AND authority IS NOT NULL
   AND CONCAT(',', authority, ',') LIKE '%,system:user:updatePosition,%';
 
--- 4) 校验：老师不应再有删除/恢复答卷，任何角色不应再有 repo:import；project:delete 允许保留
+
 SELECT code, name,
        LENGTH(authority) - LENGTH(REPLACE(authority, ',', '')) + 1 AS token_count,
        (CONCAT(',', authority, ',') LIKE '%,project:delete,%')  AS has_project_delete,

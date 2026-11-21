@@ -31,27 +31,27 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * 班级学员 Excel 批量导入。
- *
- * <p>模板只有一张表：第 1 行表头，数据列依次是 0 姓名（必填）、1 手机号（必填，同时是登录账号）、
- * 2 初始密码（可空，默认 12345678）、3 邮箱（可空）。逐行校验后调用
- * {@link UserService#createClassStudent(UserRequest)} 建号，角色/状态/组的安全校验与手工建号完全一致。
- *
- * <p>事务由调用方 {@code ClassServiceImpl#importClassMembers} 开启（{@code @Transactional(rollbackFor =
- * Exception.class)}）：任一行失败整批回滚，异常信息统一成「第 N 行：原因」。本组件刻意不依赖
- * {@code ClassServiceImpl}（只依赖 {@link UserService}），避免构造器循环依赖；「能不能管理这个班」由调用方
- * 在进入导入之前用 {@code assertClassManage} 判定。
- */
+
+
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ClassStudentImportService {
 
-	/** 初始密码留空时的默认值，与用户导入保持一致 */
+
 	private static final String DEFAULT_PASSWORD = "12345678";
 
-	/** 初始密码长度口径与 UserAdminService#validateStrongPassword 一致（8~32 位） */
+
 	private static final int MIN_PASSWORD_LENGTH = 8;
 
 	private static final int MAX_PASSWORD_LENGTH = 32;
@@ -93,7 +93,7 @@ public class ClassStudentImportService {
 			throw e;
 		}
 		catch (Exception e) {
-			// 文件损坏 / 不是 xlsx：不要让用户看到「服务出了点问题」
+
 			log.error("班级学员导入解析失败 deptId={}", deptId, e);
 			throw new ValidationException("Excel 文件解析失败，请确认使用模板且文件未损坏");
 		}
@@ -102,7 +102,7 @@ public class ClassStudentImportService {
 	@SneakyThrows
 	private ClassMemberImportResult doImport(String deptId, MultipartFile file) {
 		ExcelImportSecurity.RowGuard rowGuard = ExcelImportSecurity.newRowGuard();
-		// 手机上已存在的登录账号一次性取出来：逐行查 t_account 会变成 N 次全表扫描
+
 		Set<String> existingPhones = loadExistingPhones();
 		Set<String> seenPhones = new HashSet<>();
 		int[] imported = { 0 };
@@ -111,7 +111,7 @@ public class ClassStudentImportService {
 			try (Stream<Row> rows = sheet.openStream()) {
 				rows.forEach(row -> {
 					rowGuard.validate(row);
-					// 第 1 行是表头
+
 					if (row.getRowNum() == 1) {
 						return;
 					}
@@ -120,7 +120,7 @@ public class ClassStudentImportService {
 					String phone = normalizePhoneCell(getCellText(row, COL_PHONE));
 					String passwordCell = normalizeNumberCell(getCellText(row, COL_PASSWORD));
 					String email = getCellText(row, COL_EMAIL);
-					// 整行空白（Excel 常见的尾部空行）直接跳过，不报错
+
 					if (!StringUtils.hasText(name) && !StringUtils.hasText(phone) && !StringUtils.hasText(passwordCell)
 							&& !StringUtils.hasText(email)) {
 						return;
@@ -147,7 +147,7 @@ public class ClassStudentImportService {
 					UserRequest userRequest = new UserRequest();
 					userRequest.setName(name);
 					userRequest.setPhone(phone);
-					// 登录账号 = 手机号（ClassStudentService 也会再强制一次）
+
 					userRequest.setUsername(phone);
 					userRequest.setPassword(password);
 					userRequest.setEmail(email);
@@ -157,7 +157,7 @@ public class ClassStudentImportService {
 						userService.createClassStudent(userRequest);
 					}
 					catch (AccessDeniedException e) {
-						// 权限类异常不能被改写成「第 N 行解析失败」，否则用户根本看不出是权限不足
+
 						throw e;
 					}
 					catch (DuplicateKeyException e) {

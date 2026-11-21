@@ -14,7 +14,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. 加列（MySQL 8 不支持 ADD COLUMN IF NOT EXISTS，先查 information_schema）
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -28,10 +28,10 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. 兜底：把非法值（含空）夹回 1，重复执行无副作用
+
 UPDATE t_class_partner
 SET access_level = 1
 WHERE access_level IS NULL OR access_level NOT IN (1, 2);
 
--- 3. 自检：期望只出现 1 / 2 两行
+
 SELECT access_level, COUNT(*) AS cnt FROM t_class_partner GROUP BY access_level ORDER BY access_level;

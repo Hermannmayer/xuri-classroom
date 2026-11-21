@@ -122,8 +122,8 @@ def check_requires_format(schema: dict) -> None:
 
 
 def check_init_has_requires(sql: str, schema: dict) -> None:
-    # 先剥注释再解析：早期版本直接拿原文正则匹配，导致「注释里写了一句 KEY idx_xxx」
-    # 也能让索引检查通过（实测：删掉真的索引、只在注释里留名字，检查仍然绿）。
+
+
     sql = strip_comments(sql)
     tables = parse_init_tables(sql)
     blocks = parse_init_blocks(sql)
@@ -150,7 +150,7 @@ def check_init_has_requires(sql: str, schema: dict) -> None:
                 if detail not in tables[table]:
                     fail("schema.json 要求列 " + table + "." + str(detail) + "，但 init-mysql.sql 的建表语句里没有")
             elif kind == "index":
-                # 只在该表的建表语句里找，且要求后面跟着 "("（真的声明了索引列）
+
                 block = blocks.get(table, "")
                 if not re.search(r"\bKEY\s+`?" + re.escape(str(detail)) + r"`?\s*\(", block):
                     fail("schema.json 要求索引 " + str(detail) + "，但 init-mysql.sql 的 " + table

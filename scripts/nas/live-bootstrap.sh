@@ -24,9 +24,9 @@ SRC="${XURI_SRC:-${REPO_ROOT}}"
 DATA_DIR="${XURI_DATA_DIR:-/vol2/1000/xuri/live}"
 BUILD_DIR="${XURI_BUILD_DIR:-${DATA_DIR}/build}"
 RUNTIME_IMAGE="${XURI_RUNTIME_IMAGE:-xuri-runtime:25}"
-# 运行时底座镜像（与 deploy/nas/live/Dockerfile.runtime 的 FROM 保持一致）
+
 BASE_IMAGE="eclipse-temurin:25-jre-alpine"
-# 这台机器连不上 Docker Hub，基础镜像统一走国内镜像再打回本名
+
 DOCKER_MIRROR="${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}"
 APP_PORT="${APP_PORT:-201}"
 APP_EXTRA_PORT="${APP_EXTRA_PORT:-1201}"
@@ -54,7 +54,7 @@ else
   echo "  · 已存在 .env，沿用"
 fi
 
-# .env 里两个必填项还是占位符就停下，别让容器带着占位密码起来
+
 if grep -q '^DB_PASSWORD=change-me' "${COMPOSE_DIR}/.env" 2>/dev/null \
    || grep -q '^SK_CRYPTO_KEY=$' "${COMPOSE_DIR}/.env" 2>/dev/null \
    || ! grep -q '^SK_CRYPTO_KEY=' "${COMPOSE_DIR}/.env" 2>/dev/null; then

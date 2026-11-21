@@ -5,12 +5,12 @@ import cn.surveyking.server.core.uitls.ContextHelper;
 import cn.surveyking.server.domain.dto.AnswerMetaInfo;
 import org.springframework.stereotype.Component;
 
-/**
- * 答卷来源信息补齐：从 {@code AnswerServiceImpl#enrichMetaInfo} 切出。
- *
- * <p>
- * 无依赖、不读写数据库，取不到请求上下文时原样返回。
- */
+
+
+
+
+
+
 @Component
 public class AnswerMetaEnricher {
 
@@ -41,7 +41,7 @@ public class AnswerMetaEnricher {
 			}
 		}
 		catch (Exception ignored) {
-			// 补齐失败不影响提交
+
 		}
 		return meta;
 	}

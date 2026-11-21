@@ -34,7 +34,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 const CARD_STYLE = { border: '1px solid var(--bp-line)', height: '100%' };
 
-/** 学员题库练习首页：顺序/随机/题型/错题/收藏/历史。 */
+
 export default function RepoPracticeHome() {
   const { repoId = '' } = useParams();
   const navigate = useNavigate();

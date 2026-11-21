@@ -9,14 +9,14 @@
 --   mysql -uroot -p surveyking < scripts/dev/add-indexes.sql
 --   （Windows 也可）& "C:\path\mysql.exe" -uroot -p surveyking -e "source scripts/dev/add-indexes.sql"
 --
--- 注意：只对**已存在**的表生效；空库请直接用 init-mysql.sql。
+
 -- =============================================================================
 
 SET @db := DATABASE();
 
--- ---------------------------------------------------------------------------
--- 1. 补列：t_repo_partner.dept_id（按用户组授权题库）
--- ---------------------------------------------------------------------------
+
+
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.columns
    WHERE table_schema = @db AND table_name = 't_repo_partner' AND column_name = 'dept_id') = 0,
@@ -24,9 +24,9 @@ SET @sql := IF(
   'SELECT ''t_repo_partner.dept_id already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- ---------------------------------------------------------------------------
--- 2. 补列：t_dept.valid_from / valid_to（组有效期）
--- ---------------------------------------------------------------------------
+
+
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.columns
    WHERE table_schema = @db AND table_name = 't_dept' AND column_name = 'valid_from') = 0,
@@ -41,10 +41,10 @@ SET @sql := IF(
   'SELECT ''t_dept.valid_to already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- ---------------------------------------------------------------------------
--- 3. 补索引（存在即跳过）
--- ---------------------------------------------------------------------------
--- t_template.repo_id：题库题目列表的主过滤条件（大表，关键）
+
+
+
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.statistics
    WHERE table_schema = @db AND table_name = 't_template' AND index_name = 'idx_template_repo') = 0,
@@ -52,7 +52,7 @@ SET @sql := IF(
   'SELECT ''idx_template_repo already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- t_project.create_by：我的考试/我的项目列表
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.statistics
    WHERE table_schema = @db AND table_name = 't_project' AND index_name = 'idx_project_create_by') = 0,
@@ -60,7 +60,7 @@ SET @sql := IF(
   'SELECT ''idx_project_create_by already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- t_project_partner：每次权限判断都会按 project_id / user_id / group_id 查
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.statistics
    WHERE table_schema = @db AND table_name = 't_project_partner' AND index_name = 'idx_pp_project') = 0,
@@ -82,7 +82,7 @@ SET @sql := IF(
   'SELECT ''idx_pp_group already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- t_repo_partner：题库授权的三种主体
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.statistics
    WHERE table_schema = @db AND table_name = 't_repo_partner' AND index_name = 'idx_repo_partner_repo') = 0,
@@ -104,7 +104,7 @@ SET @sql := IF(
   'SELECT ''idx_repo_partner_dept already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- t_user.dept_id：按组查人 / 组内成员列表
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.statistics
    WHERE table_schema = @db AND table_name = 't_user' AND index_name = 'idx_user_dept') = 0,
@@ -112,7 +112,7 @@ SET @sql := IF(
   'SELECT ''idx_user_dept already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- t_dept.parent_id：用户组树 / 递归祖先链的入口
+
 SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.statistics
    WHERE table_schema = @db AND table_name = 't_dept' AND index_name = 'idx_dept_parent') = 0,
@@ -120,9 +120,9 @@ SET @sql := IF(
   'SELECT ''idx_dept_parent already exists'' AS skipped');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- ---------------------------------------------------------------------------
--- 4. 结果自检：列出本脚本关心的列与索引
--- ---------------------------------------------------------------------------
+
+
+
 SELECT 'columns' AS kind, table_name, column_name AS name
 FROM information_schema.columns
 WHERE table_schema = @db

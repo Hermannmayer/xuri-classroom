@@ -25,7 +25,7 @@ const BASE = process.env.SK_BASE || 'http://127.0.0.1:7007';
 const ADMIN = { username: process.env.SK_USER || 'admin', password: process.env.SK_PASS || '123456' };
 const TAG = 'zz-concurrency-' + Date.now().toString(36);
 
-/* ------------------------------------------------------------------ 基础工具 */
+
 
 let adminCookie = '';
 
@@ -141,8 +141,8 @@ function buildSurvey(title) {
 
 /**
  * 建临时项目。
- * 注意：必须一次性把 setting 带全（status / mode / answerSetting / examSetting），
- * 因为 addProject 不会补默认 ProjectSetting；setting 为 null 时后续 /project/update
+
+
  * 与 /public/loadProject 都会 NPE 500（这是一个独立的健壮性问题，另见报告）。
  */
 async function createProject(suffix, settingPatch = {}) {
@@ -237,7 +237,7 @@ async function t1DuplicateSubmit() {
 
 /** T2：maxAnswers = 1，10 个不同匿名身份并发提交 —— 看是否穿透上限 */
 async function t2MaxAnswersBypass() {
-  // 对照：先确认「顺序提交第 2 次会被拒」，否则并发穿透的结论不成立
+
   const ctl = await createProject('t2ctl', { answerSetting: { maxAnswers: 1 } });
   let control;
   try {
@@ -381,7 +381,7 @@ async function t5ConcurrentGrading() {
   }
 }
 
-/* ------------------------------------------------------------------ 主流程 */
+
 
 (async () => {
   console.log(`[并发实测] 目标服务 ${BASE}`);

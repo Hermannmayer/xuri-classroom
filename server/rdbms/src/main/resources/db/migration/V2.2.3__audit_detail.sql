@@ -3,7 +3,7 @@
 --   before_json / after_json：只给高危动作写快照，序列化后超过 2KB 截断
 --   source：web / mcp / api，区分入口
 --   request_id：同一次请求关联 id（X-Request-Id，可空）
--- 注意：真实表名是 t_audit_log（计划文档里写的 t_audit 是笔误）。
+
 SET NAMES utf8mb4;
 
 SET @col_exists := (
@@ -50,7 +50,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 按目标 id 查某份答卷的审计时间线（批改抽屉「操作记录」用）
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_audit_log' AND INDEX_NAME = 'idx_audit_target'

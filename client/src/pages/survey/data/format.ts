@@ -27,7 +27,7 @@ const MATRIX = new Set([
 ]);
 const BLANK = new Set(['FillBlank', 'Textarea', 'MultipleBlank', 'HorzBlank']);
 
-/** 纯展示节点，不产生答案，不占列；RichText 是答题者输入的答案，必须占列 */
+
 const NON_DATA = new Set<string>();
 
 export function isDataQuestion(q: FlatQuestion): boolean {
@@ -77,10 +77,10 @@ export function formatAnswer(q: FlatQuestion, value: AnswerValue): string {
   const record = value as Record<string, AnswerValue>;
 
   if (CHOICE.has(q.type)) {
-    // 必须用 optionsOf 而不是 toOptions：Excel 导入的题没有 dataSource，
-    // 选项只写在 children 里。只读 dataSource 会让整列答案退化成 optionId（界面上就是 6fb8e4 这种串）。
+
+
     const options = optionsOf(q.schema);
-    // 选项被删掉的老答卷回退成 id，别静默丢答案
+
     return Object.keys(record)
       .map((id) => options.find((o) => o.value === id)?.label ?? id)
       .join('、');
@@ -96,7 +96,7 @@ export function formatAnswer(q: FlatQuestion, value: AnswerValue): string {
 
   if (q.type === 'Address') return addressText(record, q.id) || EMPTY;
 
-  // NPS 存 { 分值: true }，评分存数字或 { 选项id: 数字 }
+
   if (q.type === 'Nps') return firstSelectedId(record) ?? EMPTY;
   if (q.type === 'Score') return flattenText(record) || EMPTY;
 
@@ -104,7 +104,7 @@ export function formatAnswer(q: FlatQuestion, value: AnswerValue): string {
     return Object.values(blankValues(record)).filter(Boolean).join('，') || flattenText(record) || EMPTY;
   }
 
-  // 上传/签名/用户/部门等：把值摊平，至少不丢
+
   return flattenText(record) || EMPTY;
 }
 

@@ -8,7 +8,7 @@
 #   CSV 是两边都能读的中立格式，再用 Python 做列映射最稳。
 #
 # 关键细节：H2 的 CSVWRITE 默认把 NULL 写成空字段，和「空字符串」长得一模一样。
-# 实测会踩坑（t_dept.short_name 是 NOT NULL，上游存的是空串，NULL 化后导入直接报错）。
+
 # 所以这里显式用 null=##NULL## 把 NULL 标出来，空串仍然是空串。
 #
 # 输出：/vol2/1000/xuri/work/csv/<表名>.csv（UTF-8，带表头）

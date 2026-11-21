@@ -17,10 +17,10 @@ import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-/**
- * @author javahuang
- * @date 2021/8/4
- */
+
+
+
+
 @Service
 @RequiredArgsConstructor
 public class ReportServiceImpl implements ReportService {
@@ -45,7 +45,7 @@ public class ReportServiceImpl implements ReportService {
 				Wrappers.<Answer>lambdaQuery().select(Answer::getAnswer, Answer::getCreateAt, Answer::getProjectId)
 						.eq(Answer::getProjectId, shortId).eq(!includeAnonymous, Answer::getIsAnonymous, false)
 						.eq(org.springframework.util.StringUtils.hasText(classId), Answer::getClassId, classId)
-						// 时间范围（含边界）：统计与 dailyCountStat 都基于这份列表，过滤一次两处同时生效
+
 						.ge(startTime != null, Answer::getCreateAt, startTime)
 						.le(endTime != null, Answer::getCreateAt, endTime)
 						.orderByAsc(Answer::getCreateAt));

@@ -455,7 +455,7 @@ GROUP BY r.option_id, c.option_id;
 ### 6.5 自动化
 
 - 后端单测：`AnonymousVisibilityTest`、`ReportOverviewTest`、`CrossAnalysisTest`、`AnswerFilterTest`。
-- 前端：`npm run check`；现有 `test:rules` / `test:tree` 不能回归。
+- 前端：`npm run check`；发布前手工回归关键链路。
 - 集成：扩展 `scripts/nas/smoke-test.py`，加“匿名问卷提交 → 数据页可见 → 导出”一条。
 
 ---

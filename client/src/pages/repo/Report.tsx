@@ -16,7 +16,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 /**
  * 题库统计。
  *
- * <p>和考试报表的区别：练习没有「整卷分数」的概念（可以只练 5 道），所以这里不放分数段、区分度，
+
  * 只看「这个库有多少题、被练了多少次、哪些题最容易错」。
  */
 export default function RepoReport() {

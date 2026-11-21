@@ -1,8 +1,8 @@
 /**
  * 首页统计接口：/api/dashboard/{overview,trend,teacher,teacher/trend,student}。
  *
- * 后端是并行开发的（契约已冻结，见任务卡 task-34），所以这一层刻意做两件事：
- * 1. **每个请求独立兜底**：任何失败都收敛成 `{ data: null, error: '原因' }`，
+
+
  *    不往外抛，页面才能「失败的那块显示 —，其余照常渲染」。
  * 2. **把后端字段揉成页面能直接用的形状**：字段缺失/null/字符串数字都归一，
  *    趋势序列按 days 对齐（短了在前面补 null，长了取最后几项），日期缺失时自己补。
@@ -11,7 +11,7 @@ import dayjs from 'dayjs';
 import { get } from './request';
 import { num } from '../components/charts/util';
 
-/** 一个统计块的取数结果：成功给数据，失败给可展示的原因 */
+
 export interface DashboardSection<T> {
   data: T | null;
   error: string | null;
@@ -22,7 +22,7 @@ export interface DashboardUsers {
   teacher?: number;
   admin?: number;
   total?: number;
-  /** 近 7 天交过卷的去重人数 */
+
   active7d?: number;
 }
 
@@ -39,7 +39,7 @@ export interface DashboardProjects {
   survey?: number;
   folder?: number;
   published?: number;
-  /** 已发布且当前在开放时间内的考试 */
+
   running?: number;
 }
 
@@ -59,7 +59,7 @@ export interface DashboardQuestions {
 
 export interface DashboardScores {
   avg?: number;
-  /** 及格率；后端未明确 0~1 还是 0~100，展示层两种都认（见 fmtPercent） */
+
   passRate?: number;
   max?: number;
   min?: number;
@@ -96,7 +96,7 @@ export interface TeacherRecentRow {
   answerCount?: number;
   avgScore?: number | null;
   pendingGrading?: number;
-  /** 后端 Date 序列化成 'yyyy-MM-dd HH:mm:ss'；历史上也有毫秒时间戳 */
+
   lastAnswerAt?: string | number | null;
 }
 
@@ -130,7 +130,7 @@ export interface StudentDashboard {
   recent?: StudentRecentRow[] | null;
 }
 
-/** 对齐后的趋势序列（长度 = 天数，缺的日期是 null 而不是 0） */
+
 export interface TrendSeries {
   days: string[];
   answers: Array<number | null>;
@@ -181,7 +181,7 @@ function alignSeries(
 ): Array<number | null> {
   const source = (series ?? []).map((value) => num(value));
   if (source.length === length) return source;
-  // 少了：认为缺的是最早的几天，在前面补 null；多了：保留最后几天
+
   if (source.length > length) return source.slice(source.length - length);
   return [...Array<number | null>(length - source.length).fill(null), ...source];
 }
@@ -227,7 +227,7 @@ function toMillis(value: string | number | null | undefined): number | null {
  * 时间字段格式化。
  *
  * 后端 Date 按 application.yml 的 spring.jackson.date-format 序列化成 'yyyy-MM-dd HH:mm:ss'，
- * 但历史上有的接口给的是毫秒时间戳，这里两种都认，避免表格里直接打印一串数字。
+
  */
 export function fmtDateTime(value: string | number | null | undefined, fallback = '—'): string {
   if (value === null || value === undefined || value === '') return fallback;
@@ -241,16 +241,16 @@ export function fmtDateTime(value: string | number | null | undefined, fallback 
 export interface ScoreTrend {
   labels: string[];
   values: Array<number | null>;
-  /** tooltip 首行：优先用考试名 */
+
   tooltips: string[];
 }
 
-/**
- * 学员首页成绩走势最多画几个点：与后端 StudentDashboardView.recent 的 20 条对齐。
- *
- * 首页只画趋势（一个点 = 一次作答），20 个点足够看出起伏；逐次明细在「我的任务 / 我的成绩」里翻，
- * 首页不做第二份成绩列表，所以这里不再往上加。
- */
+
+
+
+
+
+
 export const STUDENT_RECENT_LIMIT = 20;
 
 /**

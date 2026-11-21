@@ -15,13 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-/**
- * {@code source} 判定：{@code /mcp} 与 {@code /api/mcp} 都要记成 {@code mcp}。
- *
- * <p>为什么单独一份测试：P5 的 MCP 端点最终落在**不带 /api 前缀**的 {@code POST /mcp} 上
- * （MCP 客户端的 {@code mcp.json} 通常直接写 {@code https://host/mcp}），而审计里的归一化
- * 只对 {@code /api/**} 做了截断，很容易出现「端点换了、审计还在记 web」的静默回归。
- */
+
+
+
+
+
+
+
 class McpAuditSourceTest {
 
 	private final AuditLogMapper auditLogMapper = mock(AuditLogMapper.class);

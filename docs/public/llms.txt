@@ -47,7 +47,7 @@
 - [路由表（生成）](https://hermannmayer.github.io/xuri-classroom/reference/routes)
 - [本地开发环境](https://hermannmayer.github.io/xuri-classroom/start/dev-setup): JDK/Node/MySQL、启动顺序、端口与构建命令
 - [文档维护流程](https://hermannmayer.github.io/xuri-classroom/start/docs-workflow): 改代码时如何更新模块页、生成参考和刷新核对锚点
-- [检查与测试](https://hermannmayer.github.io/xuri-classroom/start/testing): 前端类型检查、构建、规则测试、后端编译与线上冒烟
+- [检查与测试](https://hermannmayer.github.io/xuri-classroom/start/testing): 前端类型检查、构建、关键不变量测试、后端编译与线上冒烟
 
 ## 机器索引
 

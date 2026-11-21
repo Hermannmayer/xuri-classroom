@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
  * 不然用户只能靠浏览器后退，手机端全屏时甚至退不出去。
  *
  * - 传了 to：直接跳到该路径（用于跨层级跳转，例如题目页固定回题库列表）
- * - 没传 to：优先 navigate(-1) 回上一页；直接打开链接没有站内历史时退到 fallback
+
  */
 export default function BackButton({
   to,

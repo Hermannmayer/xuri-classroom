@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/4/27
- */
+
+
+
+
 @RequestMapping("${api.prefix}/repo")
 @RequiredArgsConstructor
 @RestController
@@ -27,13 +27,13 @@ public class RepoApi {
 
 	private final RepoPartnerService repoPartnerService;
 
-	/** 导出密码校验 + 审计记录 */
+
 	private final cn.surveyking.server.service.ExportGuardService exportGuardService;
 
-	/**
-	 * @param query
-	 * @return
-	 */
+
+
+
+
 	@GetMapping("/list")
 	@PreAuthorize("hasAnyAuthority('repo:list', 'exercise:list')")
 	public PaginationResponse<RepoView> listRepo(RepoQuery query) {
@@ -66,15 +66,15 @@ public class RepoApi {
 		repoService.createRepoCategory(request);
 	}
 
-	/**
-	 * 题库统计（题量/题型/难度/练习概况）。
-	 *
-	 * <p>学员不可见：这份数据暴露的是「别人练得怎么样」，所以单独开 repo:report，
-	 * 没有挂在 repo:detail（学员也有）上。
-	 *
-	 * @param repoId 题库 id。
-	 * @return 统计结果。
-	 */
+
+
+
+
+
+
+
+
+
 	@PreAuthorize("hasAuthority('repo:report')")
 	@GetMapping("/report")
 	public RepoReportView report(@RequestParam String repoId) {
@@ -82,7 +82,7 @@ public class RepoApi {
 	}
 
 	@GetMapping("/detail")
-	// 学员用 repo:questions:read / repo:book 进练习页，也要能读到题库详情（读闸门仍在 RepoServiceImpl#assertReadableRepo）
+
 	@PreAuthorize("hasAnyAuthority('repo:detail','repo:questions:read')")
 	public RepoView getRpo(@RequestParam String id) {
 		return repoService.getRpo(id);
@@ -148,20 +148,20 @@ public class RepoApi {
 		repoService.batchUnBindTemplate(request);
 	}
 
-	/**
-	 * 从题库里面挑选试题
-	 * @param repos
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/pick")
-	// 随机练习从题库抽题：学员只有 repo:book，也要能抽题，否则练习页直接 403
+
 	@PreAuthorize("hasAnyAuthority('repo:detail','repo:book','repo:practice') or hasRole('admin')")
 	public List<SurveySchema> pickQuestionFromRepo(@RequestBody List<ProjectSetting.RandomSurveyCondition> repos) {
 		return repoService.pickQuestionFromRepo(repos);
 	}
 
 	@PostMapping("/import")
-	// 只往已存在题库里加题目：统一用 template:import（原 repo:import 已合并到这里）。
+
 	// 两者差异是「能不能新建题库」，导入题目本身是同一个动作。
 	@PreAuthorize("hasAuthority('template:import') or hasRole('admin')")
 	public void importFromTemplate(RepoTemplateRequest request) {
@@ -178,11 +178,11 @@ public class RepoApi {
 		}
 	}
 
-	/**
-	 * 我的笔记
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/book/list")
 	@PreAuthorize("hasAnyAuthority('repo:book','repo:practice')")
 	public PaginationResponse<UserBookView> listUserBook(UserBookQuery query) {
@@ -202,14 +202,14 @@ public class RepoApi {
 		repoService.createUserBook(request);
 	}
 
-	/** 当前用户收藏的题目 id；答题页一次拉回，避免逐题查询。 */
+
 	@GetMapping("/book/favorites")
 	@PreAuthorize("hasAnyAuthority('repo:book','repo:practice')")
 	public List<String> listFavorites() {
 		return repoService.listFavoriteTemplateIds();
 	}
 
-	/** 收藏/取消收藏一道题；考试可在设置里禁止收藏。 */
+
 	@PostMapping("/book/favorite")
 	@PreAuthorize("hasAuthority('repo:book')")
 	public boolean toggleFavorite(@RequestBody UserBookRequest request) {
@@ -222,28 +222,28 @@ public class RepoApi {
 		return repoService.updateUserBook(request);
 	}
 
-	/**
-	 * 我的笔记
-	 * @param request
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/book/delete")
 	@PreAuthorize("hasAuthority('repo:book')")
 	public void deleteUserBook(@RequestBody UserBookRequest request) {
 		repoService.deleteUserBook(request);
 	}
 
-	/**
-	 * 导出题库题目
-	 * @param request
-	 */
+
+
+
+
 	@GetMapping("/export")
 	@PreAuthorize("hasAuthority('repo:export')")
 	public void exportRepoQuestions(RepoRequest request,
 			@RequestParam(value = "exportToken", required = false) String exportToken,
 			@RequestParam(value = "exportPassword", required = false) String exportPassword) {
-		// 导出题库是最容易带走资产的动作：优先用一次性 token（密码不出现在 URL），
-		// 仍保留 exportPassword 兼容旧调用
+
+
 		if (exportToken != null && !exportToken.isEmpty()) {
 			exportGuardService.assertTokenAllowed(exportToken);
 		}
@@ -251,7 +251,7 @@ public class RepoApi {
 			exportGuardService.assertExportAllowed(exportPassword);
 		}
 		repoService.exportRepoQuestions(request);
-		// 题库导出口径（题库 id / 名称 / 分类 / 模式）同样是「范围」，不记录导出的题目内容
+
 		exportGuardService.record(cn.surveyking.server.service.ExportGuardService.EXPORT_REPO, request.getId(),
 				request.getName(), "导出题库题目",
 				cn.surveyking.server.service.ExportGuardService.repoExportScope(request));

@@ -9,10 +9,10 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/10/6
- */
+
+
+
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -21,73 +21,73 @@ public class TemplateRequest {
 
 	private String id;
 
-	/**
-	 * 序号，模板可以增量更新
-	 */
+
+
+
 	private String serialNo;
 
-	/**
-	 * 章节（Excel 可选列），导入试卷时可用来拆大题；题库导入不消费
-	 */
+
+
+
 	private String chapter;
 
-	/**
-	 * 难度（易/中/难）
-	 */
+
+
+
 	private String difficulty;
 
-	/**
-	 * 模板标题
-	 */
+
+
+
 	private String name;
 
-	/**
-	 * 问题类型
-	 */
+
+
+
 	private SurveySchema.QuestionType questionType;
 
-	/**
-	 * 问题模板
-	 */
+
+
+
 	private SurveySchema template;
 
-	/**
-	 * 模板模式
-	 */
+
+
+
 	private ProjectModeEnum mode;
 
-	/**
-	 * 标签
-	 */
+
+
+
 	private String[] tag;
 
-	/**
-	 * 模板分类
-	 */
+
+
+
 	private String category;
 
-	/**
-	 * 预览地址
-	 */
+
+
+
 	private String previewUrl;
 
-	/**
-	 * 排序优先级，值越小优先级越高
-	 */
+
+
+
 	private Integer priority;
 
-	/**
-	 * 与其他用户共享
-	 */
+
+
+
 	private Integer shared;
 
 	private String repoId;
 
 	private List<String> ids;
 
-	/**
-	 * Excel 导入时的来源定位（sheet 名 + 1 基行号），供调用方按行取内嵌图片；不下发前端。
-	 */
+
+
+
 	@JsonIgnore
 	private String sourceSheet;
 

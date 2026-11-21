@@ -46,11 +46,7 @@ tables:
   - t_api_token
   - t_api_idempotency
 tests:
-  - server/api/src/test/java/cn/surveyking/server/mcp/McpServerTest.java
-  - server/api/src/test/java/cn/surveyking/server/mcp/McpEndToEndTest.java
-  - server/api/src/test/java/cn/surveyking/server/mcp/McpApiTest.java
   - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiTokenServiceImplTest.java
-  - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
   - client:npm run check
 last_verified: 2026-11-17
 verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de

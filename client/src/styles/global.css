@@ -11,16 +11,16 @@
   --bp-line-soft: rgba(255, 255, 255, 0.15);
   --bp-grid: rgba(255, 255, 255, 0.05);
   --bp-text: #ffffff;
-  /* 次要文字提亮：原来的 #a0c4e8 在深蓝底上对比度约 3:1，中老年学员读不清 */
+
   --bp-text-soft: #cfe2f6;
   --bp-blue: #4a90d9;
   --bp-orange: #ff6b35;
 
-  /* 表面：卡片 / 次级面板 / 侧栏 / 顶栏 / 底栏 / 手机预览 / 遮罩 */
+
   --bp-panel: rgba(30, 58, 95, 0.55);
   --bp-panel-soft: rgba(30, 58, 95, 0.35);
   --bp-panel-strong: rgba(21, 42, 68, 0.7);
-  /* 弹层（Modal / message / Popover）用不透明底色，避免叠在内容上看不清 */
+
   --bp-modal-bg: #1b3352;
   --bp-toolbar: rgba(21, 42, 68, 0.85);
   --bp-nav: rgba(21, 42, 68, 0.92);
@@ -29,7 +29,7 @@
   --bp-phone: rgba(21, 42, 68, 0.9);
   --bp-mask: rgba(21, 42, 68, 0.6);
 
-  /* 蓝色系 / 强调 */
+
   --bp-blue-weak: rgba(74, 144, 217, 0.22);
   --bp-blue-strong: rgba(74, 144, 217, 0.55);
   --bp-orange-line: rgba(255, 107, 53, 0.5);
@@ -40,12 +40,12 @@
   --bp-handle-bg: rgba(74, 144, 217, 0.55);
   --bp-handle-bg-idle: rgba(74, 144, 217, 0.35);
 
-  /* 控件 */
+
   --bp-control-border: rgba(255, 255, 255, 0.4);
   --bp-hover-border: rgba(255, 255, 255, 0.6);
   --bp-primary-bg: rgba(74, 144, 217, 0.18);
   --bp-primary-bg-hover: rgba(74, 144, 217, 0.3);
-  /* 选中行/列表项：柔和底色 + 明确前景，避免主按钮的实心底色被误用 */
+
   --bp-selected-bg: rgba(74, 144, 217, 0.22);
   --bp-selected-text: #ffffff;
   --bp-primary-border: #4a90d9;
@@ -54,7 +54,7 @@
   --bp-primary-hover-text: #ffffff;
   --bp-on-primary: #ffffff;
 
-  /* 填充 / 轨道 / 滚动条 / 选中 */
+
   --bp-fill-weak: rgba(255, 255, 255, 0.03);
   --bp-fill-soft: rgba(255, 255, 255, 0.06);
   --bp-hint: rgba(207, 226, 246, 0.8);
@@ -80,7 +80,7 @@
   --bp-blue: #2f5d8c;
   --bp-orange: #e8590c;
 
-  /* 米白面板：卡片纯色，次级面板略深一档；导航/底栏与卡片同色；弹层用不透明纯色 */
+
   --bp-panel: #fffdf8;
   --bp-panel-soft: #f4f1e8;
   --bp-panel-strong: #f2efe6;
@@ -102,12 +102,12 @@
   --bp-handle-bg: #e8590c;
   --bp-handle-bg-idle: rgba(232, 89, 12, 0.8);
 
-  /* 亮色的按钮用实心深蓝（纸面上的墨），选中/强调交给深橙 */
+
   --bp-control-border: #c9c2b4;
   --bp-hover-border: #a89f8c;
   --bp-primary-bg: #1e3a5f;
   --bp-primary-bg-hover: #2f5d8c;
-  /* 亮色下主按钮是实心深蓝；选中行必须用浅色底，否则深蓝字看不见 */
+
   --bp-selected-bg: rgba(30, 58, 95, 0.1);
   --bp-selected-text: #1e3a5f;
   --bp-primary-border: #1e3a5f;
@@ -138,7 +138,7 @@ body,
   padding: 0;
 }
 
-/* 蓝图底：底色 + 20px 网格（亮色是米白纸上的淡蓝细线） */
+
 body {
   background-color: var(--bp-bg);
   background-image:
@@ -170,7 +170,7 @@ body {
   color: var(--bp-selection-text);
 }
 
-/* 角标记：容器四角的白线，图纸感（亮色是深蓝角标） */
+
 .bp-corners {
   position: relative;
 }
@@ -195,31 +195,31 @@ body {
   border-right: 1px solid var(--bp-text);
 }
 
-/* 蓝图卡片底板：统一页面 Card/容器的边框与半透明底色，避免每页重复 inline style */
+
 .bp-card {
   border: 1px solid var(--bp-line);
   background: var(--bp-panel);
 }
 
-/* 亮色：页面里还留着 inline 的深蓝卡片底，统一压回米白面板（暗色不动，避免回归） */
+
 :root[data-theme='light'] .ant-card {
   background: var(--bp-panel) !important;
 }
 
-/* 标题：大写 + 字距，工程图标注感 */
+
 .bp-title {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-/* 辅助标注：虚线段 + 端点 */
+
 .bp-dim {
   border: 0;
   border-top: 1px dashed var(--bp-line);
   position: relative;
 }
 
-/* 橙色标注块（编号 / 坐标） */
+
 .bp-tag {
   display: inline-block;
   padding: 1px 6px;
@@ -230,7 +230,7 @@ body {
   line-height: 16px;
 }
 
-/* antd 细节修正：输入框/按钮去掉柔和过渡与阴影 */
+
 .ant-btn {
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -266,7 +266,7 @@ body {
 .ant-menu-vertical {
   border-inline-end: 0 !important;
 }
-/* 子菜单展开后 antd 会给一层 colorBgContainer，这里压回透明，保持蓝图底 */
+
 .ant-menu-inline .ant-menu-sub.ant-menu-inline,
 .ant-menu-dark .ant-menu-sub {
   background: transparent !important;
@@ -275,7 +275,7 @@ body {
 .ant-menu-item {
   letter-spacing: 0.02em;
 }
-/* 设计器画布：可点选题目的反馈 */
+
 .sk-canvas [data-qid] {
   cursor: pointer;
   outline: 1px dashed transparent;
@@ -290,7 +290,7 @@ body {
   background: var(--bp-orange-weak);
 }
 
-/* 手机预览外框：直角 + 听筒 + home 键，不用圆角 */
+
 .bp-phone {
   position: relative;
   border: 1px solid var(--bp-line);
@@ -319,7 +319,7 @@ body {
   border: 1px solid var(--bp-line);
 }
 
-/* 小屏：选项竖排，避免挤成一行溢出 */
+
 @media (max-width: 480px) {
   .ant-radio-group,
   .ant-checkbox-group {
@@ -332,7 +332,7 @@ body {
   }
 }
 
-/* 设计器三栏在窄屏下改为上下堆叠 */
+
 @media (max-width: 900px) {
   .sk-designer {
     flex-direction: column !important;
@@ -348,7 +348,7 @@ body {
   }
 }
 
-/* 规则字段的 JSON 示例：换行不溢出 */
+
 .bp-hint {
   margin: 6px 0 0;
   font-size: 10px;
@@ -372,9 +372,9 @@ body {
   border-bottom: 1px solid var(--bp-line-soft);
 }
 
-/* 设置页的分区按钮（仅手机）：一排可横滑，五个分区一眼看全 */
+
 .sk-settings-chips {
-  /* 等分整宽：手机缩放到 115%/130% 时也不会出现「系统与更新」被裁掉一半 */
+
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
@@ -390,7 +390,7 @@ body {
   background: transparent;
   color: var(--bp-text-soft);
   cursor: pointer;
-  /* 长标签允许折行，宁可两行也不要被裁 */
+
   white-space: normal;
   word-break: break-word;
 }
@@ -400,9 +400,9 @@ body {
   background: var(--bp-orange-tint);
 }
 
-/* 手机端班级卡片：整块可点，名字 + 人数 + 标签一行放得下 */
+
 .sk-class-card {
-  /* 竖排两行（名字 / 人数+标签），不再是又扁又挤的一行 */
+
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -421,7 +421,7 @@ body {
   background: var(--bp-orange-tint);
 }
 
-/* 班级详情的两个页签：等分整宽、整块可点，和教学页的页签同一套观感 */
+
 .sk-class-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -443,19 +443,19 @@ body {
   background: var(--bp-orange-tint);
 }
 
-/* 设置页的吸底保存条：桌面贴底，手机再上移到底部导航之上 */
+
 .sk-settings-savebar {
   position: sticky;
   bottom: 0;
   z-index: 5;
   margin-top: 12px;
   padding: 10px 0;
-  /* 底色跟页面走（不用 --bp-chrome 的纯色），否则会在内容上方形成一条白色横带 */
+
   background: transparent;
   backdrop-filter: blur(2px);
 }
 
-/* 手机端底栏：固定 5 Tab，56px + 安全区；蓝图直角 + 橙色选中短线 */
+
 .sk-mobile-tabbar {
   position: fixed;
   left: 0;
@@ -534,10 +534,10 @@ body {
   outline-offset: -2px;
 }
 
-/* 编辑器手机端：三栏 → 纵向堆叠（大纲在上、画布在中、属性在下） */
+
 @media (max-width: 767.98px) {
-  /* 教学页的「考试/问卷 · 班级」两个 Tab：默认宽度按文字，右边留一大片空白且点击区小。
-     等分整宽、整块可点。 */
+
+
   .sk-teaching-tabs > .ant-tabs-nav .ant-tabs-nav-list {
     width: 100%;
   }
@@ -548,8 +548,8 @@ body {
     padding: 10px 0 !important;
   }
 
-  /* 班级/文件夹树：节点名 + 人数 + 标签（容器/教学班/开放注册）挤在一行，390px 下横向溢出、名字被截。
-     允许换行，标题占满剩余宽度。 */
+
+
   .ant-tree .ant-tree-node-content-wrapper {
     min-width: 0;
     flex: 1 1 auto;
@@ -562,12 +562,12 @@ body {
     word-break: break-word;
   }
 
-  /* 保存条再抬 56px：底部导航是 fixed 的，贴底会被它盖住 */
+
   .sk-settings-savebar {
     bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* 设置页在手机上改用下拉选分区（见 Setting.tsx），页签栏整个隐藏，内容独占整行 */
+
   .sk-settings-tabs > .ant-tabs-nav {
     display: none;
   }
@@ -577,29 +577,29 @@ body {
     overflow: hidden;
   }
 
-  /* 注册页的三步说明：三列在手机上每列只剩 100px，文字被压成四行，改成单列竖排 */
+
   .sk-register-steps {
     grid-template-columns: 1fr !important;
   }
 
-  /* 权限页的保存条原本 sticky bottom:0，被底部 56px 的导航栏整个盖住：
-     上移到底栏之上，并按安全区再加一点，iPhone 横条不会压住按钮 */
+
+
   .sk-perm-savebar {
     bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* 公告中心：三栏定高（190 / 34% / 40%，每栏 clamp 360~860px）在手机上会竖成 1000px+ 的双层滚动，
-     这里让每栏占满一行、高度跟着内容走，页面只保留一层滚动 */
+
+
   .sk-notice-panel {
     flex: 1 1 100% !important;
     min-width: 0 !important;
     height: auto !important;
-    /* 手机上不要再给每栏单独限高：三栏竖排时每栏都限高 = 三个内部滚动区，页面自己还能滚，
-       层级一多就找不到自己在哪。让内容自然展开，整页只留一层滚动。 */
+
+
     max-height: none !important;
   }
 
-  /* 分类在手机上一行横排、可左右滑，不再占掉整个第一屏 */
+
   .sk-notice-cats {
     display: flex !important;
     flex-direction: row !important;
@@ -612,9 +612,9 @@ body {
     width: auto !important;
   }
 
-  /* 窄屏兜底（与 docs/work/ui-redesign-plan.md 第 0 步对应） */
 
-  /* Word/富文本导入的大图、宽表会撑破整页（题库题干里很常见） */
+
+
   .rich-text-content img {
     max-width: 100% !important;
     height: auto !important;
@@ -625,7 +625,7 @@ body {
     overflow-x: auto;
   }
 
-  /* 小号图标按钮在手机上是「点不准」的主要来源：抬到 32px 触控高 */
+
   .ant-btn-sm {
     min-height: 32px;
   }
@@ -648,17 +648,17 @@ body {
     width: 100% !important;
     flex: none !important;
   }
-  /* 编辑器工具栏：按钮换行，不横向挤出屏幕 */
+
   .sk-editor-toolbar {
     flex-wrap: wrap;
     gap: 8px !important;
   }
 }
 
-/* ------------------------------------------------------------ 缩放档位控件
- * 原来是下拉框，老师根本找不到入口；改成档位平铺，所有档位一眼可见、点一下即切换。
- * 主界面、答题页、练习页共用同一组件（client/src/components/ZoomControl.tsx）。
- */
+
+
+
+
 .sk-zoom {
   display: inline-flex;
   align-items: center;
@@ -710,11 +710,11 @@ body {
   }
 }
 
-/* ------------------------------------------------------------------ 可读性
- * 学员和老师以中老年为主：小号等宽字在低对比背景上会发虚。
- * 字号基准走 theme.ts 的 antd token（13 → 15），对比度走上面的 --bp-text-soft / --bp-hint，
- * 这里补字重：表头、表单标签、按钮用 600~700，正文保持常规字重（长文本整段加粗反而更难读）。
- */
+
+
+
+
+
 .ant-table {
   font-size: 14px;
 }
@@ -737,20 +737,20 @@ body {
 .bp-dim {
   font-weight: 500;
 }
-/* 说明性小字不再允许掉到 10px 以下 */
+
 .bp-small,
 .bp-hint {
   font-size: 12px;
 }
 
-/* -------------------------------------------------------------- 静态弹层主题
- * antd 的 message.xxx / Modal.confirm / notification 是「静态方法」，
- * 渲染在 ConfigProvider 之外，拿不到我们的 buildTheme token，
- * 深色主题下会变成白底浅字（截图里那个白色对话框就是）。
- *
- * 这里用主题变量统一兜住：只要挂在 body 上的弹层，无论从哪个上下文弹出都跟随主题。
- * 用 !important 是因为 antd 的样式是运行时注入的，注入顺序晚于本文件。
- */
+
+
+
+
+
+
+
+
 .ant-modal-content,
 .ant-modal-header,
 .ant-modal-body,
@@ -802,8 +802,8 @@ body {
 
 
 
-/* 排序后的列：antd 默认给这些单元格加一层底色，在蓝图暗色主题下会显示成整行发黑。
-   排序只是交互状态，不需要视觉底色。 */
+
+
 .ant-table-thead > tr > th.ant-table-column-sort,
 .ant-table-tbody > tr > td.ant-table-column-sort,
 .ant-table-tbody > tr.ant-table-row:hover > td.ant-table-column-sort {
@@ -811,16 +811,16 @@ body {
 }
 
 
-/* 排序列底色归零（加强版）：antd 在暗色主题下给排序列的 td 上了 rgb(5,5,5)、
-   th 上了 rgb(15,15,15)，看起来就是整列/整行发黑。这里用最宽的选择器压掉，
-   不依赖 thead/tbody 层级，避免 antd 换结构后失效。 */
+
+
+
 .ant-table-column-sort,
 .ant-table-thead > tr > th.ant-table-column-sort,
 .ant-table-tbody > tr > td.ant-table-column-sort,
 .ant-table-tbody > tr.ant-table-row:hover > td.ant-table-column-sort {
   background: transparent !important;
 }
-/* 富文本编辑器（题目描述 / 说明题） */
+
 .rich-text-editor {
   border: 1px solid var(--bp-line);
   background: var(--bp-panel, transparent);
@@ -880,15 +880,15 @@ body {
 .rich-text-editor .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
 .rich-text-content .rt-formula { color: var(--bp-blue); }
 .rich-text-content .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
-/* 只读富文本（题库列表、批改抽屉、通知详情）里的图片：Word 导入的原图动辄上千像素，
-   不夹住宽度会把表格列/卡片撑破，手机上还会横向滚动。 */
+
+
 .rich-text-content img { max-width: 100%; height: auto; }
-/* ------ 无障碍基线
- * 1) .sk-sr-only：只给读屏的文字（必填提示等），视觉上不占位、不撑开布局
- * 2) 键盘焦点：深蓝/米白自定义底色上浏览器默认焦点环几乎看不见（WCAG 2.4.7），
- *    这里只覆盖答题页与渲染器（设计器画布、预览、练习页）；后台表格、菜单等 antd
- *    区域保留原有焦点样式，避免视觉回归。答题页在 styles/answer.css 里再按控件细化。
- */
+
+
+
+
+
+
 .sk-sr-only {
   position: absolute;
   width: 1px;
@@ -907,7 +907,7 @@ body {
   outline-offset: 2px;
 }
 
-/* ------ 移动端通用兜底（页面级卡片布局之外的表格/弹窗/表单） */
+
 @media (max-width: 767.98px) {
   .bp-title { font-size: 16px !important; line-height: 1.45; }
   h1.bp-title, h2.bp-title { font-size: 18px !important; }

@@ -5,11 +5,11 @@ import RichTextContent from '../../components/RichTextContent';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import type { AnswerValue, QuestionComponentProps } from '../types';
 
-/**
- * 题目标记（只给答题页用）：答题页用 Provider 注入，设计器 / 预览页没有 Provider，
- * QuestionFrame 就不渲染标记按钮 —— 共用组件的默认行为完全不变。
- * 标记状态本身存在答题页（localStorage），这里只负责渲染与回调。
- */
+
+
+
+
+
 export interface QuestionMarkApi {
   isMarked: (questionId: string) => boolean;
   toggle: (questionId: string) => void;
@@ -17,10 +17,10 @@ export interface QuestionMarkApi {
 
 export const QuestionMarkContext = createContext<QuestionMarkApi | null>(null);
 
-/** 题目收藏：答题页 / 练习页注入；null 时不渲染收藏按钮。 */
+
 export interface QuestionFavoriteApi {
   enabled: boolean;
-  /** 一页一题模式由底部操作条渲染，题干旁不重复 */
+
   showInline: boolean;
   isFavorite: (questionId: string) => boolean;
   toggleFavorite: (schema: SurveySchema) => void;
@@ -53,16 +53,16 @@ function optionRoleOf(type: QuestionType): 'radio' | 'checkbox' {
   return type === 'Checkbox' || type === 'MatrixCheckbox' ? 'checkbox' : 'radio';
 }
 
-/**
- * 题干 → 子控件的无障碍上下文，由 QuestionFrame 提供。
- * 外壳的子组件（选项列表、矩阵格子）从这里拿题干 id，不用把 id 一层层往下传。
- */
+
+
+
+
 export interface QuestionA11y {
-  /** 题干 span 的 id，控件用 aria-labelledby 指过来 */
+
   labelId: string;
-  /** 描述节点的 id，控件用 aria-describedby 指过来；题目没有描述时不提供 */
+
   descId?: string;
-  /** 选项应有的 ARIA 角色：多选题为 checkbox，其余为 radio */
+
   optionRole: 'radio' | 'checkbox';
 }
 
@@ -122,9 +122,9 @@ export function QuestionFrame({
   const favoriteApi = useContext(QuestionFavoriteContext);
   const marked = markApi?.isMarked(schema.id) ?? false;
   const favorited = favoriteApi?.isFavorite(schema.id) ?? false;
-  // 题干 / 描述各挂一个稳定 id：控件用 aria-labelledby / aria-describedby 指过来，读屏才会念题目
+
   const { labelId, descId } = questionA11yIds(schema);
-  // 题干 id / 选项角色一次算好，传给外壳内层的选项列表与矩阵格子
+
   const a11y: QuestionA11y = { labelId, descId, optionRole: optionRoleOf(schema.type) };
   return (
     <QuestionA11yContext.Provider value={a11y}>
@@ -137,7 +137,7 @@ export function QuestionFrame({
           >
             {schema.attribute?.required && (
               <>
-                {/* 星号对读屏只是一个符号，用 sr-only 文字补一句「必填」 */}
+
                 <span aria-hidden="true" style={{ color: 'var(--bp-orange)', marginRight: 4 }}>*</span>
                 <span className="sk-sr-only">（必填）</span>
               </>
@@ -205,7 +205,7 @@ export function useAnswerState(props: QuestionComponentProps) {
   const { value, onChange, mode, schema } = props;
   const [draft, setDraft] = useState<AnswerValue>(value);
 
-  // 设计器/预览里切题时清掉上一题残留；答题态本来就是受控的
+
   useEffect(() => {
     if (mode !== 'answer') setDraft(value);
   }, [value, schema.id, mode]);

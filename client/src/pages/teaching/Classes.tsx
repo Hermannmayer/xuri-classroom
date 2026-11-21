@@ -32,7 +32,7 @@ import DeleteDeptDialog from './DeleteDeptDialog';
 import ImportMembersModal from './ImportMembersModal';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
-/** 与后端 ClassNodeView 对齐 */
+
 interface ClassNode {
   id: string;
   name: string;
@@ -40,24 +40,24 @@ interface ClassNode {
   managerId?: string;
   managerName?: string;
   memberCount?: number;
-  /** group=容器班 / teaching=教学班 */
+
   classKind?: 'group' | 'teaching';
-  /** 是否开放学员自助注册（班级设置里打开后，注册页会出现这个班） */
+
   allowRegister?: boolean;
-  /** 班级设置回显：有效期 */
+
   validFrom?: string;
   validTo?: string;
-  /** false = 只是路径祖先（后端为了显示被授权的子班补出来的），点它会 403 */
+
   accessible?: boolean;
-  /**
-   * 当前登录人对本班是否有写权限（后端按「本人对这个班的授权」下发）。
-   * false = 只有查看权限，不能用全局 class:member:* 代替。
-   */
+
+
+
+
   manageable?: boolean;
   children?: ClassNode[];
 }
 
-/** 与后端 ClassMemberView 对齐：学员的手机号就是登录账号，username 与 phone 同值 */
+
 interface ClassMember {
   id: string;
   name?: string;
@@ -65,10 +65,10 @@ interface ClassMember {
   status?: number | null;
   deptId?: string;
   deptName?: string;
-  /** 主班 */
+
   primaryDeptId?: string;
   primaryDeptName?: string;
-  /** 兼报班 */
+
   extraDeptIds?: string[];
   extraDeptNames?: string[];
   primary?: boolean;
@@ -80,18 +80,18 @@ interface ClassMember {
   roleNames?: string[];
 }
 
-/** 与后端 ClassTeacherView 对齐：id 是 t_class_partner.id（取消授权用），userId 才是用户 */
+
 interface ClassTeacher {
   id: string;
   userId?: string;
   userName?: string;
   deptName?: string;
-  /** 1 = 只读，2 = 可管理 */
+
   accessLevel?: number;
   createAt?: string;
 }
 
-/** 与后端 UserOptionView 对齐：id 就是用户 id，授权时直接作为 userIds 提交 */
+
 interface TeacherOption {
   id: string;
   name?: string;
@@ -101,7 +101,7 @@ interface TeacherOption {
 
 interface MemberFormValues {
   name: string;
-  /** 手机号即登录账号，必填 */
+
   phone: string;
   password: string;
   email?: string;
@@ -158,7 +158,7 @@ function findNode(nodes: ClassNode[], id: string): ClassNode | undefined {
 /**
  * 自动选中第一个叶子班。
  * 树里可能有「只是路径」的祖先节点（后端为了让被授权的班有路径可显示补出来的），
- * 点这种节点成员接口会 403，所以默认落到叶子班。
+
  */
 function firstSelectable(nodes: ClassNode[]): ClassNode | undefined {
   for (const node of nodes) {
@@ -181,7 +181,7 @@ function filterTree(nodes: ClassNode[], keyword: string): ClassNode[] {
 
   const walk = (list: ClassNode[]): ClassNode[] =>
     list.flatMap((node) => {
-      // 命中的班保留完整子树，方便继续点下级班
+
       if ((node.name || '').toLowerCase().includes(kw)) return [node];
       const children = walk(node.children ?? []);
       return children.length > 0 ? [{ ...node, children }] : [];
@@ -193,7 +193,7 @@ function filterTree(nodes: ClassNode[], keyword: string): ClassNode[] {
 function toTreeData(nodes: ClassNode[]): TreeDataNode[] {
   return nodes.map((node) => ({
     key: node.id,
-    // 只是路径的祖先节点不能选：点它查成员会 403
+
     selectable: node.accessible !== false,
     title: (
       <span
@@ -260,10 +260,10 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   const { message } = App.useApp();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
-  /** ?create=1 只处理一次：ref 防重复，参数用 replace 去掉，避免刷新再弹 */
+
   const createFromQuery = useRef(false);
 
-  /* ---------------- 按钮级权限 ---------------- */
+
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [authoritiesReady, setAuthoritiesReady] = useState(false);
   useEffect(() => {
@@ -271,28 +271,28 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
       .then((list) => setAuthorities(list))
       .finally(() => setAuthoritiesReady(true));
   }, []);
-  // 班级页入口权限：老师有 class:list 就能自己建班（不再要求 system:dept:create）
+
   const canList = can(authorities, PERMISSION_CODES.classList);
   const canDetail = can(authorities, PERMISSION_CODES.classDetail);
   const canGrant = can(authorities, PERMISSION_CODES.classGrant);
   const canCreateMember = can(authorities, PERMISSION_CODES.classMemberCreate);
   const canApprove = can(authorities, PERMISSION_CODES.classMemberApprove);
   const canAssign = can(authorities, PERMISSION_CODES.classMemberAssign);
-  // 组织设置权限（system:dept:*）留给管理员：设置弹窗可见性、删除分组
+
   const canDeptUpdate = can(authorities, PERMISSION_CODES.systemDeptUpdate);
   const canDeptDelete = can(authorities, PERMISSION_CODES.systemDeptDelete);
   const canMemberUpdate = can(authorities, PERMISSION_CODES.classMemberUpdate);
   const canMemberDelete = can(authorities, PERMISSION_CODES.classMemberDelete);
 
-  /* ---------------- 班级树 ---------------- */
+
   const [tree, setTree] = useState<ClassNode[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
   const [globalRegisterEnabled, setGlobalRegisterEnabled] = useState<boolean>();
   const [keyword, setKeyword] = useState('');
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-  // 初始选中项优先取 URL 的 ?classId=：这一页会被 Tab 卸载重挂，只有 URL 能跨重挂活下来；
-  // 从旧链接 /teaching/classes?classId=xxx 进来也应当停在那个班，而不是一律跳回第一个
-  // 班级详情路由 /teaching/classes/:classId：直达某个班；没带就退回 ?classId= 或列表
+
+
+
   const routeParams = useParams<{ classId?: string }>();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => routeParams.classId || searchParams.get('classId') || undefined,
@@ -300,9 +300,9 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   useEffect(() => {
     setSelectedMemberKeys([]);
   }, [selectedId]);
-  // loadTree 里要判断「当前选中项还在不在」，用 ref 读：把 selectedId 写进依赖会让每次选班都重新拉一次树
+
   const selectedIdRef = useRef<string | undefined>(undefined);
-  /** loadTree 的 useCallback 依赖里没有 isMobile，用 ref 读当前值 */
+
   const isMobileRef = useRef(isMobile);
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -311,13 +311,13 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     isMobileRef.current = isMobile;
   }, [isMobile]);
 
-  /**
-   * 选中班级镜像到 URL（?classId=），选班只改状态、URL 统一由这里写，避免两处各写一遍。
-   *
-   * <p>为什么要进 URL：本页嵌在「教学」的 Tab 里，切 Tab / 刷新都会重挂组件，本地 state 留不住。
-   * 为什么要函数式更新：外层维护 tab、本页还维护 create，整串覆盖 URL 会把它们的参数冲掉。
-   * 树加载完再写：那之前还判断不出这个 id 是否还有效（班可能已被删或不再授权）。
-   */
+
+
+
+
+
+
+
   useEffect(() => {
     if (treeLoading) return;
     const inTree = selectedId && findNode(tree, selectedId) ? selectedId : undefined;
@@ -340,8 +340,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
       const nodes = normalizeTree(Array.isArray(list) ? list : []);
       setTree(nodes);
       const keep = selectedIdRef.current;
-      // 桌面是「左树 + 右详情」，自动选中第一个班省一次点击；
-      // 手机是「列表 → 详情」两级，自动选中会导致一进页面就直接落在某个班的详情里、看不到列表
+
+
       const nextId = keep && findNode(nodes, keep) ? keep : isMobileRef.current ? undefined : firstSelectable(nodes)?.id;
       setSelectedId(nextId);
       return nextId;
@@ -404,16 +404,16 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
 
   const selected = useMemo(() => (selectedId ? findNode(tree, selectedId) : undefined), [tree, selectedId]);
 
-  /**
-   * 后端按「本人对这个班的授权」下发 manageable；false 时只读。
-   * 不能拿全局 class:member:* 代替：老师可能对整个模块有写权限，但只被授予了某个班的查看权。
-   */
+
+
+
+
   const readOnlyClass = selected?.manageable === false;
 
-  /* ---------------- 班级成员 ---------------- */
+
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [selectedMemberKeys, setSelectedMemberKeys] = useState<string[]>([]);
-  /** 班级详情分两页：成员 / 试卷（考试与题库分配）——手机上不再一条长龙往下堆 */
+
   const [detailTab, setDetailTab] = useState<'members' | 'exams'>('members');
   const [batchAction, setBatchAction] = useState<'transfer' | 'add' | 'delete'>();
   const [batchTarget, setBatchTarget] = useState<string>();
@@ -449,15 +449,15 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   const refreshAll = async () => {
     const before = selectedId;
     const nextId = await loadTree();
-    // 选中项没变时上面的 effect 不会重跑，这里手动刷新成员；变了就交给 effect
+
     if (nextId && nextId === before) await loadMembers(nextId);
   };
 
-  /* ---------------- 待审核学员 ---------------- */
+
   const [pendingOpen, setPendingOpen] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [pending, setPending] = useState<ClassMember[]>([]);
-  /** 每行审核通过后进入的班级；默认沿用注册时选的班，允许管理员改 */
+
   const [pendingDept, setPendingDept] = useState<Record<string, string>>({});
   const [approvingId, setApprovingId] = useState<string>();
 
@@ -467,7 +467,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
       nodes.forEach((node) => {
         const name = node.name || '(未命名班级)';
         const label = prefix ? `${prefix} / ${name}` : name;
-        // 容器班只做层级，不能收学员/开放注册/分资源；下拉里只列教学班
+
         if (node.classKind !== 'group') result.push({ value: node.id, label });
         if (node.children?.length) walk(node.children, label);
       });
@@ -512,7 +512,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
 
   const approvePending = async (row: ClassMember) => {
     if (!canApprove) return;
-    // 历史申请的 deptId 可能指向容器班（不在教学班下拉里）：必须让管理员重新选教学班
+
     const currentValid = classOptions.some((option) => option.value === row.deptId);
     const deptId = pendingDept[row.id] || (currentValid ? row.deptId : undefined);
     if (!deptId) {
@@ -610,7 +610,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   ];
 
 
-  /* ---------------- 班级归属（主班 + 兼报班） ---------------- */
+
   const [assignTarget, setAssignTarget] = useState<ClassMember | null>(null);
   const [assignPrimary, setAssignPrimary] = useState<string>();
   const [assignExtras, setAssignExtras] = useState<string[]>([]);
@@ -666,13 +666,13 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     }
   };
 
-  /* ---------------- 班级设置 ---------------- */
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMode, setSettingsMode] = useState<'create' | 'edit'>('create');
   const [settingsNode, setSettingsNode] = useState<ClassNode | null>(null);
-  /** 新建时的默认上级：页头按钮沿用「挂在当前选中组下」，从用户管理 ?create=1 进来时默认根级 */
+
   const [settingsParentId, setSettingsParentId] = useState<string>();
-  /** 统一删除弹窗：本页 / 班级设置 / 用户组页三个入口共用 DeleteDeptDialog */
+
   const [deleteTarget, setDeleteTarget] = useState<ClassNode | null>(null);
 
   const openCreateClass = (parentId?: string) => {
@@ -689,17 +689,17 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     setSettingsOpen(true);
   };
 
-  /**
-   * 从其它入口带 ?create=1 进来：首次加载完成后自动打开新建弹窗。
-   * 等 authoritiesReady（canList 依赖它）和 treeLoading（首次树加载）都结束再判断，
-   * 否则会在权限还没拉到时就误判成「无权限」。
-   */
+
+
+
+
+
   useEffect(() => {
     if (createFromQuery.current) return;
     if (searchParams.get('create') !== '1') return;
     if (!authoritiesReady || treeLoading) return;
     createFromQuery.current = true;
-    // 函数式更新：同一轮里 ?classId= 的同步 effect 也在写 URL，整串覆盖会把刚写进去的 classId 抹掉
+
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -716,13 +716,13 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     void refreshAll();
   };
 
-  /* ---------------- 添加学员 / 批量导入 ---------------- */
+
   const [memberOpen, setMemberOpen] = useState(false);
   const [memberSaving, setMemberSaving] = useState(false);
   const [memberForm] = Form.useForm<MemberFormValues>();
   const [importOpen, setImportOpen] = useState(false);
 
-  /* ---------------- 编辑/删除学员 ---------------- */
+
   const [editingMember, setEditingMember] = useState<ClassMember | null>(null);
   const [memberEditSaving, setMemberEditSaving] = useState(false);
   const [deleteMemberTarget, setDeleteMemberTarget] = useState<ClassMember | null>(null);
@@ -738,7 +738,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
 
   // 弹窗里的 Form 要等 open=true 才会挂载；在挂载之前 resetFields 既会触发 antd 的
   // 「Instance created by useForm is not connected to any Form element」告警，也清不掉上一轮的残留值。
-  // 所以先开弹窗，挂载后再重置。
+
   const openMemberModal = () => {
     setMemberOpen(true);
   };
@@ -755,14 +755,14 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     try {
       values = await memberForm.validateFields();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     setMemberSaving(true);
     try {
       await post('/api/teaching/classes/member/create', {
         deptId: selected.id,
         name: values.name.trim(),
-        // 手机号即登录账号：后端不再接收 username
+
         phone: values.phone.trim(),
         password: values.password,
         email: values.email?.trim() || undefined,
@@ -778,7 +778,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   };
 
 
-  /* ------ 从其他班级添加（兼报班） ------ */
+
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [candidateSource, setCandidateSource] = useState<string>();
   const [candidateKeyword, setCandidateKeyword] = useState('');
@@ -938,7 +938,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     }
   };
 
-  /* ---------------- 任课老师 ---------------- */
+
   const [grantOpen, setGrantOpen] = useState(false);
   const [grantSaving, setGrantSaving] = useState(false);
   const [teachers, setTeachers] = useState<ClassTeacher[]>([]);
@@ -946,7 +946,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
   const [options, setOptions] = useState<TeacherOption[]>([]);
   const [optionLoading, setOptionLoading] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  /** 本次授权使用的级别：1 只读（默认）/ 2 可管理 */
+
   const [grantAccessLevel, setGrantAccessLevel] = useState<number>(1);
   const optionTimer = useRef<number | undefined>(undefined);
 
@@ -1175,7 +1175,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
 
   const memberColumns: ColumnsType<ClassMember> = [
     { title: '姓名', dataIndex: 'name', width: 120, render: (v?: string) => v || '—' },
-    // 手机号即登录账号，两列同值：合并成一列，避免重复展示
+
     {
       title: '手机号 / 登录账号',
       key: 'account',
@@ -1293,7 +1293,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
 
   return (
     <div>
-      {/* 嵌进 Tab 后外层已经有页头：这里只留工具条并靠右，避免叠出两层「班级管理」 */}
+
       <div
         style={{
           display: 'flex',
@@ -1358,7 +1358,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
         style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          // 桌面两栏等高：右栏高时左栏跟着拉伸，两个卡片的上下边才能对齐
+
           alignItems: isMobile ? 'flex-start' : 'stretch',
           gap: 12,
         }}
@@ -1371,22 +1371,22 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
               我的班级
             </span>
           }
-          // 手机上选中班级后把树收起来：树竖排在最上面会占满首屏，成员列表要滚很久才看到
+
           style={{
-            // 260 宽时「演示班 · 2026春养老五级」会被截成「演示班 · 2026春养老…」，放宽到 320
+
             width: isMobile ? '100%' : 320,
             flex: isMobile ? '1 1 100%' : '0 0 320px',
-            // 手机上撑满剩余可视高度（实测：卡片顶部 353，底部导航顶 788，差 475）
+
             minHeight: isMobile ? 'calc(100dvh - 475px)' : undefined,
-            // Card 自己必须是纵向 flex，「body 吃满剩余高度」才成立；
-            // 否则 body 里的 flex:1 无处可依，列表区只按内容高度撑开，滚动条就卡在中间不上不下。
+
+
             display: isMobile && selectedId ? 'none' : 'flex',
             flexDirection: 'column',
           }}
           styles={{
             body: {
               padding: '10px 8px',
-              // 卡片内部纵向排布：搜索框固定，列表区吃掉剩余高度并自己滚动
+
               display: 'flex',
               flexDirection: 'column',
               minHeight: 0,
@@ -1404,8 +1404,8 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             onChange={(event) => setKeyword(event.target.value)}
             style={{ marginBottom: 8 }}
           />
-          {/* 手机上是「列表 → 详情」整页切换：列表不再限高；桌面跟着卡片高度走，内部自己滚 */}
-          {/* 横向滚动条保留（树节点带缩进和标签，窄栏放不下），关键是它现在贴在卡片底部而不是夹在中间 */}
+
+
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             {treeLoading && tree.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center' }}>
@@ -1448,7 +1448,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                         if (node.accessible !== false) setSelectedId(node.id);
                       }}
                     >
-                      {/* 上下两行：名字一行，人数/标签一行。原来全挤在一行，卡片又扁又窄，手机上扫一眼分不清 */}
+
                       <span
                         style={{
                           display: 'flex',
@@ -1500,7 +1500,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                 onExpand={(keys) => setExpandedKeys(keys.map(String))}
                 selectedKeys={selectedId ? [selectedId] : []}
                 onSelect={(keys) => {
-                  // 再点一次同一个节点会取消选中，这里保持选中不丢；URL 由上面的 ?classId= 同步 effect 统一写
+
                   if (keys.length > 0) setSelectedId(String(keys[0]));
                 }}
               />
@@ -1515,7 +1515,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
             width: isMobile ? '100%' : undefined,
             flex: '1 1 auto',
             minWidth: 0,
-            // 手机上没选班级时整块不显示：列表本身就是整页，再挂一个「从左侧选择一个班级」的空态只是浪费一屏
+
             display: isMobile && !selected ? 'none' : undefined,
           }}
           styles={{ body: { padding: 14 } }}
@@ -1571,10 +1571,10 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
                 </div>
               </div>
 
-              {/*
-                页签提到操作按钮之前：原来「一堆按钮中间夹着两个页面标签」，
-                看不出这两个标签是切换整块内容的。现在顺序是 班级名 → 页签 → 该页的操作。
-              */}
+
+
+
+
               <div className="sk-class-tabs">
                 <button
                   type="button"
@@ -2214,7 +2214,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
           />
         )}
         {isMobile ? (
-          // 手机端：表格 720px 宽，横滑着看名字和按钮太别扭。改成一人一张卡，班级下拉 + 通过就在下面。
+
           pending.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待审核学员" />
           ) : (

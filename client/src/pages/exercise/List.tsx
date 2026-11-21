@@ -6,7 +6,7 @@ import TableScrollRegion from '../../components/TableScrollRegion';
 import { getWithPagination, post } from '../../api';
 import { pager, TABLE_COMPONENTS } from '../repo/table';
 
-/** 与后端 ExerciseView 对齐 */
+
 interface ExerciseView {
   id: string;
   projectName?: string;
@@ -30,7 +30,7 @@ const TYPE_COLOR: Record<string, string> = {
   W: 'orange',
 };
 
-/** 后端按 Answer.tempSave 过滤：0 暂存/进行中，1 已完成 */
+
 type StatusFilter = 'all' | '0' | '1';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
@@ -82,8 +82,8 @@ function PracticeRecords() {
   }, [load]);
 
   const enter = (row: ExerciseView) => {
-    // 练习记录来自题库时进练习页（/exercise/practice/:repoId）；
-    // 原来的 /exercise/:repoId 只是占位页，点进去是空白。
+
+
     if (row.repoId) {
       navigate(`/exercise/practice/${row.repoId}?mode=${row.tempSave === 1 ? 'full' : 'resume'}`, {
         state: { repoName: row.projectName },
@@ -326,6 +326,6 @@ function PracticeRecords() {
 }
 
 export default function ExerciseList() {
-  // 练习记录只看本人真正做过的题；考试安排在「考试安排」页，两边不再重复
+
   return <PracticeRecords />;
 }

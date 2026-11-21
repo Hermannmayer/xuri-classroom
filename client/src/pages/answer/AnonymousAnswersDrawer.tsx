@@ -3,7 +3,7 @@ import { App, Button, Drawer, Empty, List, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { get, post } from '../../api';
 
-/** 与后端 PublicAttemptView 对齐 */
+
 interface PublicAttempt {
   answerId: string;
   examScore?: number | null;
@@ -28,7 +28,7 @@ export default function AnonymousAnswersDrawer({
   open: boolean;
   projectId: string;
   projectName?: string;
-  /** 登录态（由 PublicAnswer 现有的探测结果传入） */
+
   loggedIn: boolean;
   onClose: () => void;
   onPick: (answerId: string) => void;
@@ -60,7 +60,7 @@ export default function AnonymousAnswersDrawer({
     if (claiming) return;
     setClaiming(true);
     try {
-      // 后端当前返回裸数字；契约写的是 { count }，两种都兼容
+
       const res = await post<{ count?: number } | number>('/api/public/anonymous/claim');
       const count = typeof res === 'number' ? res : (res?.count ?? 0);
       message.success('已绑定 ' + count + ' 份答卷');

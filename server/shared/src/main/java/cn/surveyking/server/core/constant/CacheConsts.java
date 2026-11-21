@@ -1,9 +1,9 @@
 package cn.surveyking.server.core.constant;
 
-/**
- * @author javahuang
- * @date 2021/10/15
- */
+
+
+
+
 public final class CacheConsts {
 
 	public static final String projectCache = "projectCache";

@@ -34,52 +34,52 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 批量 AI 批改：把「未批改」答卷里还没给分的主观题一次性批掉。
- *
- * <p>这是全站唯一一条「AI 直接写业务数据」的路径，所以闸门写得比别处都多：
- * <ol>
- * <li><b>范围</b>：只取 {@code grade_status=pending} 的正式答卷，只补 {@code score == null} 的主观题——
- * 老师已经给过的分<b>绝不覆盖</b>；</li>
- * <li><b>依据</b>：题目必须有参考答案（没有就跳过并计入 skipped，不猜）、必须有分值；</li>
- * <li><b>写入</b>：走 {@link AnswerGradeService#submit}，与人工批改同一条路径，
- * 审计 AOP 自动记 {@code ANSWER_GRADE}，操作人就是发起人；</li>
- * <li><b>可撤销</b>：返回 24 小时有效的 undoToken，撤销时按「答卷 + 题」调 {@code reset}；</li>
- * <li><b>限额</b>：提交时先判一次每日 token 限额；每次运行最多 {@link #MAX_ITEMS_PER_RUN} 条，
- * 避免一次点错烧掉整月的额度。</li>
- * </ol>
- *
- * <p>为什么必须在请求线程里抓 {@link Authentication} 再交给后台线程：{@code submit} 里
- * 既有行级权限判断（{@code AnswerAccessGuard}），也会用 {@code SecurityContextUtils.getUserId()}
- * 记「谁批的」。{@code ai-job} 线程池是启动时创建的，拿不到请求线程的登录态，
- * 不显式传就会变成匿名 → 403。
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 
-	/** 与单题建议共用一份提示词：口径必须一致，否则「AI 建议」和「AI 批改」会给两种分 */
+
 	private static final String PROMPT_GRADE = "grade-suggest";
 
-	/** 默认一次处理多少份答卷 */
+
 	private static final int DEFAULT_MAX_ANSWERS = 30;
 
-	/** 一次最多处理多少份答卷（再多就是「批一个年级」，该分批了） */
+
 	private static final int MAX_ANSWERS_LIMIT = 100;
 
-	/** 一次运行最多给多少条打分（成本闸门） */
+
 	private static final int MAX_ITEMS_PER_RUN = 200;
 
-	/** 低于该置信度仍然写分，但列进「需复核」 */
+
 	private static final double DEFAULT_MIN_CONFIDENCE = 0.6D;
 
-	/** 学员答案进提示词的最大长度 */
+
 	private static final int MAX_ANSWER_CHARS = 2000;
 
-	/** 撤销令牌有效期 */
+
 	private static final long UNDO_TTL_MILLIS = 24L * 60L * 60L * 1000L;
 
 	private final AiAssistSupport support;
@@ -88,7 +88,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 
 	private final AnswerGradeService answerGradeService;
 
-	/** undoToken → 本次写入的「答卷 → 题号」 */
+
 	private final Map<String, UndoRecord> undoRecords = new ConcurrentHashMap<>();
 
 	@Override
@@ -96,14 +96,14 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 		if (request == null || !StringUtils.hasText(request.getProjectId())) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "请先选择要批改的试卷");
 		}
-		// 权限：与 /api/answer/grade 同一口径（管理员兜底）
+
 		if (!SecurityContextUtils.isAdmin() && !SecurityContextUtils.hasAuthority("answer:grade")) {
 			throw new AccessDeniedException("没有批改答卷的权限");
 		}
 		String projectId = request.getProjectId();
 		support.readableProject(projectId);
 		String userId = SecurityContextUtils.getUserId();
-		// 提交时就判一次额度：批改要跑几分钟，让老师等完才看到「今天用完了」是最差体验
+
 		support.assertQuota(userId);
 
 		int maxAnswers = request.getMaxAnswers() == null ? DEFAULT_MAX_ANSWERS
@@ -123,7 +123,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 		boolean dryRun = Boolean.TRUE.equals(request.getDryRun());
 		double minConfidence = request.getMinConfidence() == null ? DEFAULT_MIN_CONFIDENCE
 				: Math.max(0D, Math.min(1D, request.getMinConfidence().doubleValue()));
-		// 后台线程拿不到请求线程的登录态：这里抓一次，任务里显式设置（见类注释）
+
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		String scene = AiUsageService.SCENE_GRADE_BATCH;
 		return aiJobService.submit(scene, userId, context -> {
@@ -188,7 +188,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 					gradeItem.setQuestionId(item.getQuestionId());
 					gradeItem.setScore(Double.valueOf(suggestion.score()));
 					gradeItem.setComment(suggestion.comment());
-					// 标明这块分是 AI 给的：老师复核时能区分「自己改过的」与「AI 预批的」，审计也查得到来源
+
 					gradeItem.setSource("ai");
 					pending.add(gradeItem);
 					if (suggestion.confidence() < minConfidence) {
@@ -205,7 +205,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 					}
 				}
 				catch (ErrorCodeException e) {
-					// 额度和内容都被拦：整单停下比继续烧 token 更负责
+
 					if (e.getMessage() != null && e.getMessage().contains("上限")) {
 						throw e;
 					}
@@ -229,7 +229,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 				AnswerGradeRequest gradeRequest = new AnswerGradeRequest();
 				gradeRequest.setAnswerId(answer.getId());
 				gradeRequest.setItems(pending);
-				// submit=true：本次补完之后若整卷主观题都给了分，答卷直接变成 graded
+
 				gradeRequest.setSubmit(Boolean.TRUE);
 				answerGradeService.submit(gradeRequest);
 				List<String> questionIds = new ArrayList<>();
@@ -294,7 +294,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 				? AiAssistSupport.oneLine(stringify(item.getAnswer()), MAX_ANSWER_CHARS) : "（学员未作答）");
 		AiRequest request = AiRequest.builder().systemPrompt(support.prompts().render(PROMPT_GRADE, vars))
 				.userPrompt("请给出建议分、置信度、采分点命中情况与理由，只输出 JSON。")
-				// 后台任务：跳过「每分钟 N 次」的限流，否则一次批改 30 份卷子会被自己卡死
+
 				.temperature(Double.valueOf(0.2D)).background(true).build();
 		AiCompletion completion = support.call(AiUsageService.SCENE_GRADE_BATCH, userId, request, true);
 		return parse(completion == null ? null : completion.getText(), maxScore);
@@ -338,11 +338,11 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 		return text.toString();
 	}
 
-	/** 一条建议分：分数 / 置信度 / 写进评语的说明 / 原始理由 */
+
 	private record Suggestion(double score, double confidence, String comment, String reason) {
 	}
 
-	/** 撤销记录：谁发起的、改了哪些答卷的哪些题、什么时候过期（懒清理，不需要定时任务） */
+
 	private record UndoRecord(String userId, Map<String, List<String>> answers, long expiresAt) {
 	}
 

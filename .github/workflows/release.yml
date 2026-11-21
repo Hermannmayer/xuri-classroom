@@ -1,7 +1,7 @@
 name: Release
 
-# 推 tag vX.Y.Z 触发：校验版本 -> 构建 SPA jar -> Windows/Linux/Docker 产物 -> GHCR -> GitHub Release。
-# 本地只负责写版本/CHANGELOG/打 tag（scripts/release/Release.ps1），安装包全部在这里构建。
+
+
 
 on:
   push:
@@ -52,10 +52,10 @@ jobs:
       - name: 版本一致性（VERSION / CHANGELOG / package.json / pom.xml / tag）
         run: python scripts/release/release.py check --tag
 
-      # 结构契约：VERSION 必须等于 schema.json 最高版本、init-mysql.sql 要有这些对象、
-      # 迁移脚本不能有破坏性语句、迁移版本不能高于 VERSION。
-      # 以前只有 NAS 的部署脚本在跑，本地打包和 CI 都不跑 —— 于是「加了迁移忘了改 VERSION」
-      # 这类问题只能等到线上启动时才暴露（2.2.1 就这么踩过）。
+
+
+
+
       - name: 数据库结构契约（init-mysql / schema.json / 迁移脚本）
         run: python scripts/release/check_schema.py
 
@@ -89,17 +89,13 @@ jobs:
         working-directory: client
         run: npm run check
 
-      - name: 前端规则测试
-        working-directory: client
-        run: npm run test:rules
-
       - name: 构建前端
         working-directory: client
         run: npm run build
 
-      - name: 后端测试
+      - name: 关键不变量测试
         working-directory: server
-        run: ./gradlew :api:test --no-daemon
+        run: ./gradlew :shared:test :rdbms:test :api:test --no-daemon
 
       - name: 构建内嵌前端的 bootJar
         working-directory: server

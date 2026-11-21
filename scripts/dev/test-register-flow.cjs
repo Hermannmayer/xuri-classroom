@@ -21,7 +21,7 @@ async function login(username, password) {
 }
 
 (async () => {
-  // 1. 管理员登录，开启注册 + 指定学员角色
+
   const admin = await login('admin', '123456');
   if (admin.json.code !== 200) throw new Error('管理员登录失败: ' + JSON.stringify(admin.json));
 
@@ -36,7 +36,7 @@ async function login(username, password) {
   const sys = await (await fetch(`${BASE}/api/system`)).json();
   console.log('   registerInfo =', JSON.stringify(sys.data.registerInfo));
 
-  // 2. 注册
+
   const reg = await fetch(`${BASE}/api/public/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -45,7 +45,7 @@ async function login(username, password) {
   const regJson = await reg.json();
   console.log('2. 注册:', JSON.stringify(regJson).slice(0, 160));
 
-  // 3. 登录
+
   const stu = await login(USERNAME, PASSWORD);
   console.log('3. 新用户登录:', stu.json.code === 200 ? 'OK' : JSON.stringify(stu.json).slice(0, 160));
 

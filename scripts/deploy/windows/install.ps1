@@ -111,7 +111,7 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
     Write-Host "[INFO] 已生成 app.env 模板（请修改 DB_PASSWORD）"
 }
 else {
-    # 不覆盖已有数据库配置，只更新端口，保证重复执行时端口参数生效
+
     $lines = @(Get-Content -LiteralPath $EnvFile)
     $portFound = $false
     $merged = foreach ($line in $lines) {
@@ -130,7 +130,7 @@ else {
     Write-Host "[INFO] app.env 已存在，保留数据库配置并更新 SERVER_PORT"
 }
 
-# 用一个 cmd 包装器加载 app.env，再启动 Java；Windows 服务本身没有 EnvironmentFile
+
 $WrapperPath = Join-Path $InstallDir 'start-service.cmd'
 $Wrapper = @"
 @echo off
@@ -140,7 +140,7 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%~dp0app.env") do set "%%A=
 "@
 Set-Content -LiteralPath $WrapperPath -Value $Wrapper -Encoding Ascii
 
-# 幂等：先停掉并删除同名服务
+
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
     Write-Host "[INFO] 服务已存在，停止并重建：$ServiceName"
@@ -154,7 +154,7 @@ if ($existing) {
 
 $createdBySc = $false
 try {
-    # binPath 要传：cmd.exe /c ""C:\...\start-service.cmd""
+
     $binPath = '"{0}" /c ""{1}""' -f $env:ComSpec, $WrapperPath
     & sc.exe create $ServiceName binPath= $binPath start= auto DisplayName= $ServiceName | Out-Null
     if ($LASTEXITCODE -ne 0) {
@@ -194,7 +194,7 @@ sc.exe 创建服务失败，且系统未安装 nssm。
     Write-Host "[INFO] 已通过 nssm 注册服务：$ServiceName"
 }
 
-# 防火墙放行（重复执行时先删旧规则）
+
 $RuleName = "$ServiceName HTTP $Port"
 Get-NetFirewallRule -DisplayName $RuleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
 New-NetFirewallRule `
@@ -206,7 +206,7 @@ New-NetFirewallRule `
     -Profile Any | Out-Null
 Write-Host "[INFO] 已放行防火墙 TCP $Port"
 
-# 启动服务
+
 if ($createdBySc) {
     Start-Service -Name $ServiceName
 }

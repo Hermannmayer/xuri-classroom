@@ -55,7 +55,7 @@ def main():
     encrypted = base64.b64encode(key.encrypt(args.password.encode(), padding.PKCS1v15())).decode()
     _, raw = http(base + '/api/public/login', {'username': args.user, 'password': encrypted})
     cookie = None
-    # 登录响应不带 Set-Cookie 时需要单独取：urllib 不暴露；这里用第二次请求的 header 兜底
+
     with urllib.request.urlopen(urllib.request.Request(
             base + '/api/public/login',
             data=json.dumps({'username': args.user, 'password': encrypted}).encode(),

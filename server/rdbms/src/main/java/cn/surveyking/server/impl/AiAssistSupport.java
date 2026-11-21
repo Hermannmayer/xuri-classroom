@@ -29,36 +29,36 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * AI 场景共用的地基：限额 → 调模型 → 记账，外加项目权限、schema 读取、结果统计。
- *
- * <p>为什么单独抽一个类：2026-11 之后 AI 场景从 4 个涨到 9 个（组卷 / 质检 / 题库体检 /
- * 错题推荐 / 公告草稿 / 批量批改…），如果每个场景各抄一遍「判限额、调网关、写 t_ai_usage」，
- * 迟早会出现「某个场景忘了记账」——而账单类问题最难事后补。这里只做<b>不涉及业务判断</b>的事，
- * 具体场景的数据范围与写权限仍然在各自实现里判。
- *
- * <p>记账口径（与 {@code AiAssistServiceImpl} 一致）：
- * <ul>
- * <li>调用成功 → {@code ok}；</li>
- * <li>限额被拦 / 内容被 {@code AiContentGuard} 拒收 → {@code rejected}（token 照样算进用量）；</li>
- * <li>模型报错、超时、解析失败 → {@code error}；</li>
- * <li>记账本身失败不会影响业务（{@link AiUsageService#record} 内部吞异常）。</li>
- * </ul>
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiAssistSupport {
 
-	/** 项目授权级别：1 只读（{@code ProjectPartnerService#accessLevel} 的口径） */
+
 	public static final int ACCESS_LEVEL_VIEW = 1;
 
-	/** 项目授权级别：2 可编辑 */
+
 	public static final int ACCESS_LEVEL_EDIT = 2;
 
-	/** 单条文本进提示词的最大长度：再长既贵也没用 */
+
 	public static final int MAX_PROMPT_TEXT_CHARS = 2000;
 
 	private final AiGateway aiGateway;
@@ -82,10 +82,10 @@ public class AiAssistSupport {
 		return objectMapper;
 	}
 
-	/* ====== 调模型 + 记账 ====== */
+
 
 	/**
-	 * 调一次模型并记账；被限额拦住时一次模型都不调（也记 rejected，否则「今天怎么没额度」查不出来）。
+
 	 *
 	 * @param scene 场景（{@link AiUsageService} 里的 SCENE_*）
 	 * @param userId 调用人（后台线程里没有登录态，必须显式传）
@@ -135,7 +135,7 @@ public class AiAssistSupport {
 		aiUsageService.assertQuota(userId);
 	}
 
-	/* ====== 项目 / 题库 ====== */
+
 
 	/** 项目只读闸门：管理员、所有者、任意级别协作者都能过（0 表示完全没有授权） */
 	public void assertProjectReadable(String projectId) {
@@ -185,7 +185,7 @@ public class AiAssistSupport {
 		return flat == null ? List.of() : flat;
 	}
 
-	/* ====== 结果统计 / 文本 ====== */
+
 
 	/** 题量 / 总分 / 题型分布：预览表与前端展示共用同一份口径 */
 	public AiPaperJobView.Stats summarize(List<SurveySchema> questions) {

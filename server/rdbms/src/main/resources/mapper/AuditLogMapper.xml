@@ -2,8 +2,8 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.surveyking.server.mapper.AuditLogMapper">
 
-    <!-- 显式 resultMap：2.2.3 新增的 before_json / after_json / source / request_id 必须列出来，
-         否则换用 resultType 自动映射时漏字段（字段名对不上驼峰规则）会静默变成 null。 -->
+
+
     <resultMap id="auditLogResultMap" type="cn.surveyking.server.domain.model.AuditLog">
         <id column="id" property="id"/>
         <result column="action" property="action"/>
@@ -22,8 +22,8 @@
         <result column="is_deleted" property="deleted"/>
     </resultMap>
 
-    <!-- 答卷操作时间线：target_id + create_at 命中 idx_audit_target。
-         不筛 before_json 是否为空——「提交答卷」「删除答卷」这类没有快照的动作也要算操作记录。 -->
+
+
     <select id="selectByTarget" resultMap="auditLogResultMap">
         SELECT id, action, target_id, target_name, detail, before_json, after_json, source, request_id, ip,
                create_at, create_by, update_at, update_by, is_deleted
@@ -34,9 +34,9 @@
         LIMIT #{limit}
     </select>
 
-    <!-- 清理：按 create_at 分批硬删（走 idx_audit_create_at）。
-         用 LIMIT 而不是一次删完：几十万行的一条 DELETE 会长时间持锁、撑大 undo。
-         注意这里是物理删除——审计的"清理"语义就是真的清掉，不是逻辑删除。 -->
+
+
+
     <delete id="deleteBefore">
         DELETE FROM t_audit_log
         WHERE create_at &lt; #{cutoff}

@@ -20,10 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/report")
 @RequiredArgsConstructor
@@ -61,13 +61,13 @@ public class ReportApi {
 		return reportService.getData(shortId, includeAnonymous, classId, startTime, endTime);
 	}
 
-	/**
-	 * 项目报表。classId / startTime / endTime 都可选。
-	 *
-	 * <p>classId 这里只做窄化，不再单独校验班级可见性：能走到这里的人已经由 {@code @EnableDataPerm}
-	 * 保证「看得到整个项目」，按班筛选不会比全项目看到更多；需要「班级可见即可看」的入口是
-	 * {@code /report/class/{shortId}}，那里才有 {@link ClassService#assertVisible(String)}。
-	 */
+
+
+
+
+
+
+
 	@GetMapping("/{shortId}")
 	@PreAuthorize("hasAuthority('project:report')")
 	@EnableDataPerm(key = "#shortId")

@@ -4,9 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 微信问卷授权身份。该对象只保存在服务端签名的 HttpOnly Cookie 中。
- */
+
+
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

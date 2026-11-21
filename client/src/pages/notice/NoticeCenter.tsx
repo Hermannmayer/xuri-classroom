@@ -23,16 +23,16 @@ import {
   type NoticeView,
 } from './types';
 
-/** 每页条数：公告通常标题短、条数少，10 条一页够看 */
+
 const PAGE_SIZE = 10;
 
-/**
- * 左栏分类：4.6 要求的是「全部 / 系统更新 / 未读」。
- *
- * <p>草稿与已归档是写流程的一部分（后端 create 只落草稿、列表默认只回已发布，
- * 见 NoticeServiceImpl#visibleQuery），所以标成 managerOnly，只在公告管理台出现：
- * 只读中心是「看通知」的地方，不该出现刚保存却没发布的东西。
- */
+
+
+
+
+
+
+
 const CATEGORIES: NoticeCategoryDef[] = [
   { key: 'all', label: '全部公告', hint: '我能看到的全部已发布公告，置顶在前', managerOnly: false },
   { key: 'system_update', label: '系统更新', hint: '检查更新发现新版本时自动生成的系统公告', managerOnly: false },
@@ -41,7 +41,7 @@ const CATEGORIES: NoticeCategoryDef[] = [
   { key: 'archived', label: '已归档', hint: '归档后不再出现在列表里，可在这里重新发布', managerOnly: true },
 ];
 
-/** 三栏等高：每栏自己滚动，页面不至于被几十条公告拉得很长 */
+
 const PANEL_STYLE: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -71,7 +71,7 @@ const MUTED_STYLE: CSSProperties = {
   color: 'var(--bp-text-soft)',
 };
 
-/** 列表项：整块可点，选中项用橙色边 + 浅橙底，和权限页的角色卡同一套视觉 */
+
 const ITEM_STYLE: CSSProperties = {
   display: 'block',
   width: '100%',
@@ -83,7 +83,7 @@ const ITEM_STYLE: CSSProperties = {
   marginBottom: 6,
 };
 
-/** 左栏分类按钮：与列表项同一套选中样式，但更矮 */
+
 const CATEGORY_STYLE: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -97,7 +97,7 @@ const CATEGORY_STYLE: CSSProperties = {
   textAlign: 'left',
 };
 
-/** 与其它列表接口一致：{ total, list }；后端直接返回数组时也兼容 */
+
 interface NoticeListResponse {
   total?: number;
   list?: NoticeView[];
@@ -150,24 +150,24 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
   const [detail, setDetail] = useState<NoticeView>();
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string>();
-  /** 本次会话里已经读掉的公告：列表里立刻显示成已读，不用等下次刷新 */
+
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   const [editorOpen, setEditorOpen] = useState(false);
-  /** 编辑对象：undefined = 新建 */
+
   const [editing, setEditing] = useState<NoticeView>();
   const [markingRead, setMarkingRead] = useState(false);
 
-  /** 权限列表：没回来之前不渲染写入口，也不发写请求 */
+
   const [authorities, setAuthorities] = useState<string[]>([]);
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  /**
-   * AI 总开关（/api/system 的 aiEnabled）：只有管理台要用它决定「AI 起草」出不出现。
-   * 只在管理台查一次，只读中心不为这一颗按钮多花一次请求。
-   */
+
+
+
+
   const [aiEnabled, setAiEnabled] = useState<boolean>();
   useEffect(() => {
     if (!isManage) return;
@@ -183,13 +183,13 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     };
   }, [isManage]);
 
-  // notice:manage:system 管全站/按角色，notice:manage:class 只管班级（4.3 / 4.4）
+
   const canManageSystem = can(authorities, PERMISSION_CODES.noticeManageSystem);
   const canManageClass = can(authorities, PERMISSION_CODES.noticeManageClass);
-  /**
-   * 写入口只在管理台出现：只读中心即使有权限也不给，
-   * 免得「铃铛里能发通知」和「系统管理 → 公告管理」变成两个都要维护的写界面。
-   */
+
+
+
+
   const canWrite = isManage && (canManageSystem || canManageClass);
 
   /**
@@ -208,7 +208,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     [canManageSystem, canWrite],
   );
 
-  /** 详情接口的并发保护：连点两条公告时只认最后一次的结果 */
+
   const detailSeq = useRef(0);
 
   const loadUnread = useCallback(async () => {
@@ -229,9 +229,9 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         current: page,
         pageSize: PAGE_SIZE,
         onlyUnread: category === 'unread' ? true : undefined,
-        // 后端已支持 type 过滤（p2-backend 契约）
+
         type: category === 'system_update' ? 'system_update' : undefined,
-        // 默认只回已发布：草稿 / 已归档必须显式传 status，且只对持 notice:manage:* 的人生效
+
         status: category === 'draft' || category === 'archived' ? category : undefined,
       });
       const list = Array.isArray(res) ? res : (res?.list ?? []);
@@ -240,7 +240,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         category === 'system_update' ? list.filter((item) => item.type === 'system_update') : list;
       setRows(filtered);
       setTotal(Number.isFinite(serverTotal) ? serverTotal : filtered.length);
-      // 归档/删除掉本页最后一条时自动退回上一页，避免停在空白页
+
       if (filtered.length === 0 && serverTotal > 0 && page > 1) {
         setPage((prev) => Math.max(1, prev - 1));
       }
@@ -266,7 +266,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
   }, [loadList, loadUnread]);
 
   /**
-   * 读详情：4.5 规定这个接口顺带 mark read，所以打开即已读。
+
    * markRead=false 用于「编辑/发布后回读」，那次不该重复广播未读数变化。
    */
   const loadDetail = useCallback(
@@ -287,16 +287,16 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
             next.add(id);
             return next;
           });
-          /**
-           * 4.5 是「详情接口顺带 mark read」，NoticeApi.java 的 detail 也会强制回读 read=true，
-           * 所以正常情况下这里不用再打一次写请求。只有后端回读仍是未读时才补一次批量已读
-           * （t_notice_read 有 uk_notice_read 唯一键，重复标记是幂等的），失败也不打扰用户。
-           */
+
+
+
+
+
           if (res.read === false) {
             void post('/api/notice/read', { ids: [id] }).catch(() => undefined);
           }
           void loadUnread();
-          // 顶栏铃铛靠这个事件立即刷新，不用等 60 秒轮询
+
           notifyNoticeUnreadChanged();
         }
       } catch (e) {
@@ -320,7 +320,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     if (next === category) return;
     setCategory(next);
     setPage(1);
-    // 换分类时清空详情，避免右边还挂着上一条（它可能已经不在新列表里）
+
     setActiveId(undefined);
     setDetail(undefined);
     setDetailError(undefined);
@@ -339,7 +339,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
 
   const unreadIds = useMemo(
     () => rows.filter((row) => isUnread(row)).map((row) => row.id),
-    // isUnread 依赖 readIds 与 category，这里直接用它们做依赖
+
     [rows, readIds, category],
   );
 
@@ -439,13 +439,13 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
    * 保存成功：刷新列表；编辑过的那条回读一次，保证右边是新正文。
    *
    * <p>新建公告只落草稿（后端 create 不发布），而默认列表只回已发布，
-   * 所以「存成草稿」之后直接把左栏切到「草稿」，不然用户会以为没保存上。
+
    */
   const handleSaved = async (publish: boolean) => {
     const editedId = editing?.id;
     setEditorOpen(false);
     if (!publish && !editedId && category !== 'draft') {
-      // 切分类会触发列表 effect，这里只需要把未读数补上
+
       setCategory('draft');
       setPage(1);
       await loadUnread();
@@ -459,7 +459,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
 
   return (
     <div>
-      {/* 页头：只读中心说清「这里只负责看」，管理台说清谁能发给谁 */}
+
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>
@@ -485,7 +485,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
           <Button size="small" icon={<ReloadOutlined />} loading={listLoading} onClick={() => void refresh()}>
             刷新
           </Button>
-          {/* 只读中心给有写权限的人留一个跳板，不用自己翻菜单 */}
+
           {!isManage && (canManageSystem || canManageClass) && (
             <Button size="small" type="primary" icon={<EditOutlined />} onClick={() => navigate('/system/notice')}>
               去公告管理
@@ -500,7 +500,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
-        {/* 左栏：分类 */}
+
         <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '0 0 190px', minWidth: 156 }}>
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
@@ -538,7 +538,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
           </div>
         </div>
 
-        {/* 中栏：列表 */}
+
         <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '2 1 calc(34% - 8px)', minWidth: 260 }}>
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
@@ -602,7 +602,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      {/* 小橙点只是视觉提示，未读状态用读屏可读的文字交代 */}
+
                       {unreadRow && <span className="sk-sr-only">未读</span>}
                       {unreadRow && (
                         <span
@@ -625,7 +625,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
                         {row.title || '（无标题）'}
                       </span>
                     </div>
-                    {/* 列表不下发正文，只给 120 字摘要，够用户判断要不要点开 */}
+
                     {row.summary ? (
                       <div
                         style={{
@@ -679,17 +679,17 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
           )}
         </div>
 
-        {/* 右栏：详情 */}
+
         <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '3 1 calc(40% - 8px)', minWidth: 300 }}>
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               公告详情
             </span>
-            {/* 只读中心没有写入口：编辑 / 发布 / 归档 / 删除一律只在管理台出现 */}
+
             {canWrite && detail && canEdit(detail) && (
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {/* 系统更新公告的正文由「检查更新」生成，后端也拒绝人工写入该类型
-                    （NoticeServiceImpl#normalizeType），所以只给归档 / 删除，不给编辑 */}
+
+
                 {detail.type !== 'system_update' && (
                   <LinkAction style={{ fontSize: 11 }} onClick={() => openEdit(detail)}>
                     编辑
@@ -766,7 +766,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
                     margin: '8px 0 12px',
                   }}
                 >
-                  {/* 草稿还没有 publishAt：显示创建时间，不要假装已发布 */}
+
                   {detail.publishAt ? (
                     <span>发布：{fmtTime(detail.publishAt)}</span>
                   ) : (
@@ -778,7 +778,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
                   {detail.expireAt && <span>过期：{fmtTime(detail.expireAt)}</span>}
                 </div>
                 <div style={{ borderTop: '1px dashed var(--bp-line-soft)', paddingTop: 12 }}>
-                  {/* 正文渲染前 RichTextContent 会再消毒一次；服务端入库时已经消毒过一遍 */}
+
                   <RichTextContent
                     html={detail.content}
                     className="rich-text-content"
@@ -791,7 +791,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         </div>
       </div>
 
-      {/* 写公告：只在管理台挂载，没有权限的人连组件都不出现 */}
+
       {canWrite && (
         <NoticeEditor
           open={editorOpen}

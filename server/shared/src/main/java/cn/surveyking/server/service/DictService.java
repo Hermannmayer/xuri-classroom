@@ -5,10 +5,10 @@ import cn.surveyking.server.domain.dto.*;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/7/19
- */
+
+
+
+
 public interface DictService {
 
 	PaginationResponse<CommDictView> listDict(CommDictQuery query);

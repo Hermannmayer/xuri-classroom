@@ -11,7 +11,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. 匿名主体表（IF NOT EXISTS，可重复执行）
+
 CREATE TABLE IF NOT EXISTS `t_anonymous_subject` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `token_hash` varchar(128) NOT NULL COMMENT '匿名 cookie token 的 SHA-256 十六进制',
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `t_anonymous_subject` (
   KEY `idx_anonymous_expires` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='匿名答题主体';
 
--- 2. t_answer.anonymous_subject_id（先查 information_schema.COLUMNS）
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -37,7 +37,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. t_answer.is_anonymous（NOT NULL DEFAULT 0，存量行自动为 0）
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -51,7 +51,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 4. 索引：主体查答卷、项目报表按匿名过滤
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -78,7 +78,7 @@ PREPARE stmt_idx FROM @ddl_idx;
 EXECUTE stmt_idx;
 DEALLOCATE PREPARE stmt_idx;
 
--- 5. 自检
+
 SELECT COUNT(*) AS anonymous_subject_rows FROM t_anonymous_subject;
 SELECT COUNT(*) AS answer_anon_subject_column FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_answer' AND COLUMN_NAME = 'anonymous_subject_id';

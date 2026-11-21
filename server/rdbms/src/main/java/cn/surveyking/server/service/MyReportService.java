@@ -18,12 +18,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-/**
- * 「我的成绩」：按考试聚合当前用户已交卷的答卷。
- *
- * <p>只查当前登录用户自己的答卷（createBy = 当前用户），所以不需要额外的数据权限切面；
- * 管理员看自己的成绩也是同一口径。
- */
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 public class MyReportService {
@@ -37,7 +37,7 @@ public class MyReportService {
 		if (userId == null) {
 			return new ArrayList<>();
 		}
-		// tempSave = 1 表示已交卷；逻辑删除由 @TableLogic 自动过滤
+
 		List<Answer> answers = answerMapper.selectList(
 				Wrappers.<Answer>lambdaQuery().eq(Answer::getCreateBy, userId).eq(Answer::getTempSave, 1));
 		Map<String, List<Answer>> byProject = answers.stream().filter(a -> a.getProjectId() != null)

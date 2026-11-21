@@ -10,7 +10,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. chapter
+
 SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_template' AND COLUMN_NAME = 'chapter');
 SET @ddl := IF(@col_exists = 0,
@@ -20,7 +20,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. difficulty
+
 SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_template' AND COLUMN_NAME = 'difficulty');
 SET @ddl := IF(@col_exists = 0,
@@ -30,7 +30,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. idx_template_chapter
+
 SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_template' AND INDEX_NAME = 'idx_template_chapter');
 SET @ddl := IF(@idx_exists = 0,
@@ -40,7 +40,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 4. idx_template_difficulty
+
 SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_template' AND INDEX_NAME = 'idx_template_difficulty');
 SET @ddl := IF(@idx_exists = 0,

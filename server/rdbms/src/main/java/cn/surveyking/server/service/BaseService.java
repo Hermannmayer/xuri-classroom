@@ -7,10 +7,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 
-/**
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
 public class BaseService<M extends BaseMapper<T>, T> extends ServiceImpl<M, T> {
 
 	public <E extends IPage<T>> Page<T> pageByQuery(PageQuery pageQuery) {

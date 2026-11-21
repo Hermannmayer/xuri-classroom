@@ -11,19 +11,19 @@ import AiActionCard from './AiActionCard';
 import { AI_TOOL_SHORTCUTS } from './tools';
 import { formatTokens, limitText } from './format';
 
-/**
- * AI 对话框本体：头部 + 上下文行 + 对话区 + 工具快捷入口 + 输入框。
- *
- * <p>与旧版「左侧停靠侧栏」的区别不只是位置：
- * <ul>
- * <li>助手回复可以带「动作结果卡」（真的批改了答卷 / 打开了工具 / 给出了统计），
- * 见 {@link AiActionCard}；</li>
- * <li>底部多了一排工具按钮，点一下直接打开对应面板，不必先跟 AI 说一句话；</li>
- * <li>整块是浮层（桌面右下、手机全屏抽屉），不再挤压正文宽度。</li>
- * </ul>
- */
 
-/** 空会话时的示例问题：点一下填进输入框，给不知道能问什么的人一个起点 */
+
+
+
+
+
+
+
+
+
+
+
+
 const EXAMPLES = [
   '把这个班没批改的卷子批了吧',
   '这份卷子有什么问题？',
@@ -39,10 +39,10 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<ComponentRef<typeof Input.TextArea>>(null);
   const navigate = useNavigate();
 
-  /** 状态还没拿到时不拦用户（网络抖动不该让人以为 AI 坏了），明确 false 才禁用输入 */
+
   const ready = status?.ready !== false;
 
-  // 新消息 / 正在思考时贴到底部：一屏放不下几轮，不自动滚就会以为没反应
+
   useEffect(() => {
     const list = listRef.current;
     if (list) {
@@ -50,7 +50,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
     }
   }, [messages.length, sending]);
 
-  // 用量随每轮回复刷新：让老师知道这一问问掉了多少额度
+
   useEffect(() => {
     if (!ready) {
       return;
@@ -87,7 +87,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bp-panel)' }}>
-      {/* 头部 */}
+
       <div
         style={{
           flex: '0 0 auto',
@@ -121,8 +121,8 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
             size="small"
             aria-label="AI 使用说明"
             icon={<BookOutlined />}
-            // 原来在同窗口跳转：手机上和「收起」只隔 6px，误触直接把对话页顶掉。
-            // 改新标签打开，既不会丢失当前对话，也把两个按钮的误触代价降下来
+
+
             style={{ marginInlineEnd: 10 }}
             onClick={() => window.open('/system/setting?tab=ai', '_blank', 'noopener')}
           />
@@ -142,7 +142,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
         </Tooltip>
       </div>
 
-      {/* 上下文行：发送之前就让用户知道 AI 会看到哪份试卷/哪个班 */}
+
       <div
         style={{
           flex: '0 0 auto',
@@ -159,7 +159,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
         {context.label ? '上下文：' + context.label : '当前页面没有可用的上下文，可以直接问通用问题'}
       </div>
 
-      {/* 未配置模型：直接给引导，而不是让用户打完字才收到 400 */}
+
       {status && !status.ready && (
         <div style={{ flex: '0 0 auto', padding: '10px 12px 0' }}>
           <Alert
@@ -179,7 +179,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* 对话区 */}
+
       <div
         ref={listRef}
         style={{
@@ -235,7 +235,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {/* 工具快捷入口 + 输入 */}
+
       <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--bp-line-soft)', padding: '8px 10px 10px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {AI_TOOL_SHORTCUTS.map((tool) => {
@@ -288,7 +288,7 @@ export default function AiAssistantPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** 一条消息：用户靠右、助手靠左；出错时只显示错误原因（红色 Alert） */
+
 function Bubble({ bubble }: { bubble: AiChatBubble }) {
   if (bubble.error) {
     return <Alert type="error" showIcon title={bubble.error} />;

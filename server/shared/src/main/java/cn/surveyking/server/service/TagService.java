@@ -5,10 +5,10 @@ import cn.surveyking.server.domain.dto.SelectTagRequest;
 
 import java.util.Set;
 
-/**
- * @author javahuang
- * @date 2022/4/28
- */
+
+
+
+
 public interface TagService {
 
 	void batchAddTag(String entityId, TagCategoryEnum category, String[] tagArr);

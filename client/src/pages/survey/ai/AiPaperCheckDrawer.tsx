@@ -3,18 +3,18 @@ import { Alert, Button, Drawer, Empty, Progress, Space, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { checkAiPaper, getAiJob, type AiPaperCheckResult, type AiPaperIssue } from '../../../api/ai';
 
-/**
- * AI 试卷质检：考前一键体检一份已经编好的卷子。
- *
- * 为什么放在编辑器侧栏而不是单独页面：老师改完卷子顺手就该体检，
- * 有 blocker（没分值、没答案、重复题）当场就能回画布改掉，不必来回跳页。
- *
- * 数据链条：POST /ai/paper/check 拿 jobId → 每 2 秒 GET /ai/paper/job/{jobId}
- * （与组卷、PDF 导出同一套轮询节奏）→ status=done 展示 score / summary / advice / issues。
- * 体检查的是**服务端那份**卷子：画布上没保存的改动不参与，面板里写明这一点。
- */
 
-/** 问题类型 → 中文名：后端给的是 no_score / no_answer / duplicate… 这类码 */
+
+
+
+
+
+
+
+
+
+
+
 const KIND_LABEL: Record<string, string> = {
   no_score: '缺分值',
   no_answer: '缺答案',
@@ -25,7 +25,7 @@ const KIND_LABEL: Record<string, string> = {
   type_mix: '题型配比',
 };
 
-/** 一条问题最多摆几个题号：超出的折成「+N 题」，否则一条难度问题能铺满整个抽屉 */
+
 const MAX_QUESTION_TAGS = 8;
 
 /** 分数配色：走主题蓝/橙，只有「不及格」才用红色，避免整屏红字 */
@@ -37,12 +37,12 @@ function scoreColor(score: number): string {
 
 export interface AiPaperCheckDrawerProps {
   open: boolean;
-  /** 要体检的试卷 id；试卷还没保存到服务端时为空 */
+
   projectId?: string;
   onClose: () => void;
-  /** 点「第 N 题」跳到画布上的那道题（编辑器已有选中机制）；不传就只显示题号 */
+
   onLocate?: (questionId: string) => void;
-  /** 题目 id → 题号：体检结果里只有 id，题号要按当前卷子算 */
+
   questionNumberOf?: (questionId: string) => number | undefined;
 }
 
@@ -58,7 +58,7 @@ export default function AiPaperCheckDrawer({
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<AiPaperCheckResult>();
   const [error, setError] = useState<string>();
-  /** 轮询防重入：上一轮还没回来就别再发一个 */
+
   const busyRef = useRef(false);
 
   /** 重新体检：清掉旧报告再建一个新任务（旧任务自己会在后端跑完，不用取消） */
@@ -78,19 +78,19 @@ export default function AiPaperCheckDrawer({
       if (!created?.jobId) throw new Error('后端没有返回任务号，请稍后重试');
       setJobId(created.jobId);
     } catch (e) {
-      // 后端原因（没权限、AI 未启用、额度用完）已经是中文，原样展示
+
       setStatus('failed');
       setError((e as Error).message);
     }
   }, [projectId]);
 
-  // 每次打开都重新体检：关闭期间卷子可能已经改过，旧报告会误导人
+
   useEffect(() => {
     if (!open) return;
     void start();
   }, [open, start]);
 
-  // 关闭时把旧报告丢掉：下次打开的第一帧不该闪一眼上一轮的结果
+
   useEffect(() => {
     if (open) return;
     setStatus('idle');
@@ -100,7 +100,7 @@ export default function AiPaperCheckDrawer({
     setProgress(0);
   }, [open]);
 
-  // 2 秒一轮；关闭抽屉时 cleanup 把定时器清掉，不再打后端
+
   useEffect(() => {
     if (!open || !jobId) return;
     let alive = true;
@@ -152,7 +152,7 @@ export default function AiPaperCheckDrawer({
   const warnings = issues.filter((issue) => issue.severity !== 'blocker');
   const score = typeof result?.score === 'number' ? Math.max(0, Math.min(100, Math.round(result.score))) : undefined;
 
-  /** 一条问题涉及的题号：最多摆 MAX_QUESTION_TAGS 个，再多就折成「+N 题」，否则一条难度问题能铺满整个抽屉 */
+
   const numbersOf = (issue: AiPaperIssue) => {
     const ids = issue.questionIds ?? [];
     const shown = ids.slice(0, MAX_QUESTION_TAGS);
@@ -222,7 +222,7 @@ export default function AiPaperCheckDrawer({
       open={open}
       onClose={onClose}
       size="min(560px, 100vw)"
-      // 不加遮罩：报告要能一边看一边改，点「第 N 题」定位到画布时也得看得见选中效果
+
       mask={false}
       destroyOnHidden
       styles={{ body: { paddingTop: 12 } }}

@@ -1,10 +1,10 @@
 package cn.surveyking.server.core.uitls;
-/*
- * Slightly modified version of the com.ibatis.common.jdbc.ScriptRunner class
- * from the iBATIS Apache project. Only removed dependency on Resource class
- * and a constructor
- * GPSHansl, 06.08.2015: regex for delimiter, rearrange comment/delimiter detection, remove some ide warnings.
- */
+
+
+
+
+
+
 
 /*
  *  Copyright 2004 Clinton Begin
@@ -27,9 +27,9 @@ import java.text.SimpleDateFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Tool to run database scripts
- */
+
+
+
 public class ScriptRunner {
 
 	private static final String DEFAULT_DELIMITER = ";";
@@ -37,10 +37,10 @@ public class ScriptRunner {
 	private static final Pattern SOURCE_COMMAND = Pattern.compile("^\\s*SOURCE\\s+(.*?)\\s*$",
 			Pattern.CASE_INSENSITIVE);
 
-	/**
-	 * regex to detect delimiter. ignores spaces, allows delimiter in comment, allows an
-	 * equals-sign
-	 */
+
+
+
+
 	public static final Pattern delimP = Pattern.compile("^\\s*(--)?\\s*delimiter\\s*=?\\s*([^\\s]+)+\\s*.*$",
 			Pattern.CASE_INSENSITIVE);
 
@@ -181,7 +181,7 @@ public class ScriptRunner {
 				String trimmedLine = line.trim();
 				final Matcher delimMatch = delimP.matcher(trimmedLine);
 				if (trimmedLine.length() < 1 || trimmedLine.startsWith("//")) {
-					// Do nothing
+
 				}
 				else if (delimMatch.matches()) {
 					setDelimiter(delimMatch.group(2), false);
@@ -190,7 +190,7 @@ public class ScriptRunner {
 					println(trimmedLine);
 				}
 				else if (trimmedLine.length() < 1 || trimmedLine.startsWith("--")) {
-					// Do nothing
+
 				}
 				else if (!fullLineDelimiter && trimmedLine.endsWith(getDelimiter())
 						|| fullLineDelimiter && trimmedLine.equals(getDelimiter())) {
@@ -288,7 +288,7 @@ public class ScriptRunner {
 			statement.close();
 		}
 		catch (Exception e) {
-			// Ignore to workaround a bug in Jakarta DBCP
+
 		}
 	}
 

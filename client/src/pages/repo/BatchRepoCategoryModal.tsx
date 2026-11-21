@@ -101,7 +101,7 @@ export default function BatchRepoCategoryModal({
     [categories],
   );
 
-  // 根节点用 sentinel 显示，提交时映射为空字符串（后端=未分类）
+
   const targetValue = customPath.trim() || (selected === ROOT_VALUE ? '' : selected || '');
 
   const submit = async () => {

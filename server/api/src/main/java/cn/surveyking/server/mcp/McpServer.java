@@ -32,43 +32,43 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * 手写的 MCP Server（JSON-RPC 2.0 over Streamable HTTP，计划 §7.1 / §7.2）。
- *
- * <p><b>为什么手写而不是用 spring-ai-starter-mcp-server-webmvc</b>（2026-11 实测结论）：
- * 那个 starter 2.0.2 在本项目栈上**依赖是通的**（POM 直接钉 Boot 4.1.2，Jackson 3.1.7，
- * 实测 {@code :api:dependencies} 能解析、无版本冲突），但适配成本高于收益：
- * <ul>
- * <li>工具注册走 {@code ToolCallbackProvider}，而我们要的三件事它都不管：按令牌 scopes 过滤、
- * 写工具包幂等、把 Bearer 换成 SecurityContext 复用 {@code @PreAuthorize}——这三块得自己写，
- * 加起来和协议层本身差不多；</li>
- * <li>为了 300 行协议额外引入 io.modelcontextprotocol.sdk + spring-ai-model + victools
- * jsonschema 等近 20 个 jar；</li>
- * <li>协议只有三类请求（initialize / tools/list / tools/call），普通 JSON 响应即可，
- * 自己实现反而能把「错误码、审计、幂等」放在一眼能看全的地方。</li>
- * </ul>
- *
- * <p>协议约定：
- * <ul>
- * <li>{@code POST /mcp}，{@code Authorization: Bearer <token>}；</li>
- * <li>成功一律 HTTP 200（JSON-RPC 的 error 也是 200，这是 MCP 客户端的普遍预期）；</li>
- * <li>令牌无效 → HTTP 401 + {@code WWW-Authenticate: Bearer}；</li>
- * <li>工具执行失败 → 结果里 {@code isError: true}（模型能读懂并改参数重试），
- * 参数/协议错误 → JSON-RPC error；</li>
- * <li>写工具必须带 {@code idempotencyKey}，命中幂等表直接回放上次结果，**不会**再执行一次。</li>
- * </ul>
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class McpServer {
 
-	/** 支持的协议版本（MCP 2025-03-26） */
+
 	public static final String PROTOCOL_VERSION = "2025-03-26";
 
 	public static final String SERVER_NAME = "xuri-classroom";
 
-	/** JSON-RPC 标准错误码 */
+
 	static final int PARSE_ERROR = -32700;
 
 	static final int INVALID_REQUEST = -32600;
@@ -79,22 +79,22 @@ public class McpServer {
 
 	static final int INTERNAL_ERROR = -32603;
 
-	/** 自定义：令牌没有这个工具的权限（白名单外） */
+
 	static final int FORBIDDEN = -32001;
 
-	/** 请求体上限：一份整卷 schema 通常几十 KB，8MB 已经非常宽松 */
+
 	static final int MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 	private static final ZoneId ZONE = ZoneId.of("GMT+8");
 
 	private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-	/**
-	 * 解析专用 mapper：宽容未知字段。
-	 *
-	 * <p>模型给的 schema 很容易多带一个字段（比如把 {@code sk_project_get} 返回的某个只读字段
-	 * 原样塞回来），用严格 mapper 会让整次调用 fail，代价太大。
-	 */
+
+
+
+
+
+
 	private static final ObjectMapper LENIENT = JsonMapper.builder()
 			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
@@ -106,10 +106,10 @@ public class McpServer {
 
 	private final AuditRecorder auditRecorder;
 
-	/** 序列化用容器里的 mapper：与其它接口保持同一套日期格式（yyyy-MM-dd HH:mm:ss / GMT+8） */
+
 	private final ObjectMapper objectMapper;
 
-	/** 程序版本（application.yml 的 {@code version}）：initialize 的 serverInfo 里回给客户端，便于排查「谁的版本不对」 */
+
 	@Value("${version:}")
 	private String serverVersion = "";
 
@@ -125,7 +125,7 @@ public class McpServer {
 			return dispatch(body, caller);
 		}
 		finally {
-			// 线程会回池，凭据绝不能留在 ThreadLocal 里
+
 			SecurityContextHolder.clearContext();
 		}
 	}
@@ -138,7 +138,7 @@ public class McpServer {
 		return toJson(error);
 	}
 
-	/** HTTP 结果：状态码 + 响应体（body 为空表示没有内容，例如 202） */
+
 	public record HttpResult(int status, String body) {
 	}
 
@@ -154,7 +154,7 @@ public class McpServer {
 			return error(null, PARSE_ERROR, "请求体不是合法 JSON");
 		}
 		if (root == null || root.isNull() || !root.isObject()) {
-			// 批量数组虽然协议允许，但没有客户端会这么用；明确拒绝比半支持更安全
+
 			return error(null, INVALID_REQUEST, "只接受单个 JSON-RPC 对象（不支持批量数组）");
 		}
 		JsonNode id = root.get("id");
@@ -171,7 +171,7 @@ public class McpServer {
 				case "tools/call" -> ok(id, callTool(root.path("params"), caller));
 				default -> {
 					if (notification && method.startsWith("notifications/")) {
-						// initialized / cancelled 这类通知不需要响应体
+
 						yield new HttpResult(202, "");
 					}
 					yield error(id, METHOD_NOT_FOUND, "不支持的方法：" + method);
@@ -215,7 +215,7 @@ public class McpServer {
 			item.put("inputSchema", readJson(definition.inputSchema()));
 			Map<String, Object> annotations = new LinkedHashMap<>();
 			annotations.put("title", definition.title());
-			// readOnlyHint 帮客户端决定要不要弹二次确认；写工具一律 false
+
 			annotations.put("readOnlyHint", !definition.write());
 			annotations.put("destructiveHint", false);
 			item.put("annotations", annotations);
@@ -229,7 +229,7 @@ public class McpServer {
 	/**
 	 * {@code tools/call} 的实现：白名单 → 幂等 → 执行 → 审计。
 	 *
-	 * <p>顺序很关键：幂等查询必须在执行<b>之前</b>，否则重复调用会真的重复建项目。
+
 	 */
 	private Object callTool(JsonNode params, McpCaller caller) {
 		if (params == null || !params.isObject()) {
@@ -277,12 +277,12 @@ public class McpServer {
 			return toolResult(json, false);
 		}
 		catch (McpInvalidParamsException e) {
-			// 参数错不是业务失败：按协议错误返回，让客户端知道该改参数
+
 			throw e;
 		}
 		catch (AccessDeniedException e) {
-			// 两种 403 要分开说：@PreAuthorize 拦下来的（英文、几乎没信息）换成「缺哪个权限」；
-			// 业务层拦下来的（如「无权访问该班级」）保留原文，别把它盖成权限点问题
+
+
 			String message = reasonOf(e, definition);
 			auditRecorder.record(action, targetId, detail, false, message);
 			return toolResult("执行失败：" + message, true);
@@ -317,7 +317,7 @@ public class McpServer {
 	private ProjectQuery projectQuery(JsonNode args) {
 		ProjectQuery query = new ProjectQuery();
 		query.setMode(projectMode(args));
-		// 对外叫 keyword，对内是 name 模糊匹配（ProjectQuery 的既有字段）
+
 		query.setName(text(args, "keyword"));
 		query.setCategory(text(args, "category"));
 		Integer current = integer(args, "current");
@@ -365,8 +365,8 @@ public class McpServer {
 	private DownloadQuery downloadQuery(JsonNode args) {
 		DownloadQuery query = new DownloadQuery();
 		query.setProjectId(requiredText(args, "projectId"));
-		// classId 可空：不传就是整卷 / 按 ids 勾选导出（与 HTTP 导出接口同一套范围语义），
-		// 权限由 McpTools#exportCreate 按「有班级查班级、没班级查项目」分派
+
+
 		query.setClassId(text(args, "classId"));
 		query.setAttemptNo(integer(args, "attemptNo"));
 		query.setIncludeAnalysis(bool(args, "includeAnalysis"));
@@ -571,7 +571,7 @@ public class McpServer {
 		if (!StringUtils.hasText(message)) {
 			message = e.getClass().getSimpleName();
 		}
-		// 业务异常的 message 已经面向用户；反射 / SQL 类的长串只留第一行，避免把栈信息回给模型
+
 		int index = message.indexOf('\n');
 		return index > 0 ? message.substring(0, index) : message;
 	}

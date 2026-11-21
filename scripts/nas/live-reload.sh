@@ -20,10 +20,10 @@ SRC="${XURI_SRC:-/vol2/1000/xuri/src}"
 BUILD_DIR="${XURI_BUILD_DIR:-/vol2/1000/xuri/live/build}"
 COMPOSE_DIR="${XURI_COMPOSE_DIR:-${SRC}/deploy/nas/live}"
 GRADLE_CACHE_VOLUME="${XURI_GRADLE_CACHE_VOLUME:-xuri-live-gradle-cache}"
-# 构建镜像必须和产物目标 JDK 一致：server/build.gradle 用 toolchain 25，
-# 跑在一个低版本 JDK 的 gradle 镜像里会因为找不到 25 工具链直接失败。
+
+
 GRADLE_IMAGE="${XURI_GRADLE_IMAGE:-gradle:9.9.1-jdk25}"
-# 这台机器连不上 Docker Hub，镜像统一走国内镜像再打回本名
+
 DOCKER_MIRROR="${XURI_DOCKER_MIRROR:-docker.m.daocloud.io/library/}"
 APP_SERVICE="app"
 HEALTH_URL_IN_CONTAINER="http://127.0.0.1:7007/api/system"
@@ -108,7 +108,7 @@ done
 printf '\n❌ 后端 120 秒内没起来。看日志：\n   cd %s && docker compose logs --tail=80 %s\n\n' "${COMPOSE_DIR}" "${APP_SERVICE}" >&2
 docker compose logs --tail=40 "${APP_SERVICE}" >&2 || true
 
-# 自动回滚：有上一版 jar 就换回去并重启，别把站点留在宕机状态等人工处理。
+
 if [ -f "${BUILD_DIR}/app.jar.prev" ]; then
   printf '↩ 正在回滚到上一版 jar……\n' >&2
   cp -f "${BUILD_DIR}/app.jar.prev" "${BUILD_DIR}/app.jar"

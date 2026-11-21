@@ -37,11 +37,9 @@ docs/      文档站与机器索引源
 cd client
 npm run check        # tsc --noEmit
 npm run build        # tsc + vite build
-npm run test:rules   # 规则引擎断言
-npm run test:tree    # 树操作断言
 ~~~
 
-后端没有本地 JDK 时，可在构建机或容器里编译；发布脚本会执行 :api:bootJar。
+本机 JDK 在 `%LOCALAPPDATA%\jdk25`；如果 `java` 不在 PATH，按 `AGENTS.md` 0.5 显式设置 `JAVA_HOME`。发布脚本会执行 :api:bootJar。
 
 ## 端口与代理
 
@@ -61,4 +59,3 @@ npm run test:tree    # 树操作断言
 
 - 改功能前：读 [文档维护流程](docs-workflow.md)，并用 `npm run docs:where -- "关键词"` 定位模块。
 - 改完：跑 [检查与测试](testing.md)，再按 [文档维护流程](docs-workflow.md) 更新文档。
-

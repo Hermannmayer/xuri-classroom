@@ -65,23 +65,23 @@ def main():
         _, _, text = http(base + path, cookie=cookie)
         return json.loads(text)['data']
 
-    # 1. 演示班答卷数
+
     answers = get('/api/answer/list?projectId=%s&classId=%s&pageSize=-1&includeAnonymous=true' % (PROJECT, CLASS_ID))
     rows = answers.get('list') or []
     print('演示班答卷：%d 份（期望 12）' % len(rows))
     scores = sorted({r.get('examScore') for r in rows if r.get('examScore') is not None})
     print('分数档：', scores)
 
-    # 2. 未交卷名单
+
     try:
         roster = get('/api/teaching/classes/unsubmitted?projectId=%s&deptId=%s' % (PROJECT, CLASS_ID))
-        # total 是班级人数、submitted 是已交人数，未交 = total - submitted（与 list 长度一致）
+
         unsubmitted = int(roster.get('total') or 0) - int(roster.get('submitted') or 0)
         print('未交卷：%s 人（期望 3，名单 %s 条）' % (unsubmitted, len(roster.get('list') or [])))
-    except Exception as exc:  # 旧版本没有这个接口
+    except Exception as exc:
         print('未交卷接口不可用（旧版本？）：', exc)
 
-    # 3. 按班级导出 PDF → ZIP
+
     _, _, text = http(base + '/api/answer/export/token', {}, cookie=cookie)
     token = json.loads(text)['data'].get('exportToken')
     _, _, created = http(base + '/api/answer/export/pdf-job?exportToken=' + urllib.parse.quote(token or ''),
@@ -105,7 +105,7 @@ def main():
         print('ZIP 太小，可能没有内容')
         return 1
 
-    # 4. 只传 ids（勾选批量导出）——旧版本会 400「需要班级 id」，2.3.x 起才支持
+
     ids = [r['id'] for r in rows[:3]]
     try:
         _, _, created = http(base + '/api/answer/export/pdf-job?exportToken=' + urllib.parse.quote(token or ''),
@@ -134,7 +134,7 @@ def main():
     print('姓名过滤「演示学员01」：%d 份（期望 1）' % count('createByName=%E6%BC%94%E7%A4%BA%E5%AD%A6%E5%91%9801'))
     print('分数段 >=86：%d 份' % count('minScore=86'))
 
-    # 6. 报表时间过滤
+
     report = get('/api/report/class/%s?classId=%s&startTime=2026-11-10%%2000%%3A00%%3A00&endTime=2026-11-18%%2000%%3A00%%3A00'
                  % (PROJECT, CLASS_ID))
     print('报表（含时间范围）答卷数：%s' % report.get('total'))

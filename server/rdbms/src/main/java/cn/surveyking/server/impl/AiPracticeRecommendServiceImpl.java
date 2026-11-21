@@ -44,86 +44,86 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * 错题重练推荐：按一场考试（可限定班级）的得分率找薄弱考点，再从题库里挑一组同类题。
- *
- * <p>整条链路只回答一个问题——「这场考试哪些考点没掌握，下一组练习该练什么」。
- * 为此有四个取舍：
- * <ol>
- * <li><b>异步</b>：模型要在上百道候选题里挑 20 道，30~90 秒是常态，同步接口在弱网下会被浏览器当超时。
- * 任务走 {@link AiJobService}，前端轮询 {@code GET /api/ai/paper/job/{jobId}}；</li>
- * <li><b>取数在请求线程，只有调模型在任务线程</b>：报表、题库列表、项目 schema 都受行级权限约束，
- * 而 {@code ai-job} 线程没有登录态。把取数留在请求线程，既不用在后台线程里伪造 SecurityContext，
- * 也能让「这场考试还没有答卷」「题库里没有题」这类问题<b>立刻</b>以 400 反馈——让老师等 40 秒
- * 才在轮询结果里看到失败是最差的体验；</li>
- * <li><b>隐私红线</b>：进提示词的只有「考点名 + 得分率 + 原卷题数 + 题干 + 分值」这些统计数字。
- * 学员姓名、账号、原始作答内容<b>一个字都不发</b>；本类唯一能碰到 {@link Answer} 的地方是
- * {@link #scoreRates}，它只读 {@code exam_info.question_score}，读完只留下每题的合计分与作答数；</li>
- * <li><b>不写库</b>：结果只是预览（题目原样带 id / 答案 / 分值），老师点「采纳」时走既有的
- * {@code POST /api/ai/paper/apply}，与 AI 组卷同一条路径——AI 挑错题最多多看一眼，不会把卷子改坏。
- * 请求里的 {@code targetProjectId} 只用来<b>提前</b>校验目标项目的写权限（老师预览完就会点采纳，
- * 晚一步报 403 不如早一步），本服务不往任何项目里写题。</li>
- * </ol>
- *
- * <p><b>得分率为什么要读两个口径</b>：报表 {@link ReportData#getStatistics()} 的平均分只对「答案是数字」的题
- * （评分题、打分题）存在；考试卷的逐题得分落在 {@code t_answer.exam_info.question_score} 里
- * （{@link Answer} 的 {@code examInfo}），选择题的 answer 只有「选项 id → 是否选中」。
- * 所以先用考试口径聚合逐题得分，再用报表口径补那些没有 exam_info 的数值型题；两条口径都算不出就明确报错，
- * 绝不拿「0 分」冒充「没答」。
- *
- * <p>另外一条防坑：含主观题且还有答卷处于 {@code grade_status=pending} 时，主观题按 0 分入库
- * （{@link AnswerScoreEvaluator#isManual} 的口径），直接参与排名会把「还没批改」误判成「错得最多」，
- * 所以这种情况下主观题整体不参与薄弱点排名。
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendService {
 
-	/** 提示词模板 id（{@code server/ai/src/main/resources/prompts/practice-recommend.md}） */
+
 	private static final String PROMPT_PRACTICE = "practice-recommend";
 
-	/** 默认抽多少道重练题 */
+
 	private static final int DEFAULT_QUESTION_COUNT = 20;
 
-	/** 一次最多抽多少道：再多就不是「补练」而是「重考」了 */
+
 	private static final int MAX_QUESTION_COUNT = 50;
 
-	/** 最多看几个薄弱考点：8 个已经够铺满一次课后练习，再散就抓不住重点 */
+
 	private static final int MAX_WEAK_QUESTIONS = 8;
 
-	/** 每个考点最多贡献几道候选题 */
+
 	private static final int PER_FOCUS_CANDIDATES = 20;
 
-	/** 进提示词的候选题总上限（与 AI 组卷的 maxCandidates 默认值保持一致） */
+
 	private static final int MAX_CANDIDATES = 120;
 
-	/** 题干进提示词的长度：够模型认出考点，又不至于把提示词撑爆 */
+
 	private static final int MAX_TITLE_CHARS = 80;
 
-	/** 没有章节也没有标签时，用题干前几个字当考点名 */
+
 	private static final int FOCUS_TITLE_CHARS = 20;
 
-	/** 按题名做关键词匹配的最短长度：两个字的关键词几乎能命中一切 */
+
 	private static final int TITLE_MATCH_MIN_CHARS = 4;
 
-	/** 摘要长度上限（前端是一行提示，不是小作文） */
+
 	private static final int MAX_SUMMARY_CHARS = 400;
 
-	/** 题库题没配分值时按「总分 100 / 题数」平均分配 */
+
 	private static final double DEFAULT_TOTAL_SCORE = 100D;
 
-	/** 答卷的「待批改」状态（{@code Answer#gradeStatus}；主观题此时按 0 分入库，不能当薄弱点） */
+
 	private static final String GRADE_STATUS_PENDING = "pending";
 
-	/** 模型爱给 id 加的包装：剥一层再比对，剥完不在候选里就丢弃 */
+
 	private static final String[] WRAPPER_PREFIX = { "`", "\"", "「", "'" };
 
 	private static final String[] WRAPPER_SUFFIX = { "`", "\"", "」", "'" };
 
-	/** 题型中文名：与 {@code AiPaperSpec} 的标签保持一致（那份是私有常量，不值得为了复用把它公开） */
+
 	private static final Map<SurveySchema.QuestionType, String> TYPE_LABELS = new EnumMap<>(
 			SurveySchema.QuestionType.class);
 
@@ -165,7 +165,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		}
 		String classId = trim(request.getClassId());
 		int questionCount = normalizeCount(request.getQuestionCount());
-		// 闸门顺序：先项目（顺带给出「项目不存在」），再题库（getRpo 内部判可读性），最后目标项目与额度
+
 		ProjectView project = support.readableProject(sourceProjectId);
 		RepoView repo = repoService.getRpo(repoId);
 		if (repo == null) {
@@ -176,7 +176,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 			support.assertProjectEditable(targetProjectId);
 		}
 		String userId = SecurityContextUtils.getUserId();
-		// 提交时就判一次额度：这个任务要跑几十秒，让老师等完才看到「今天用完了」比直接拒绝更糟
+
 		support.assertQuota(userId);
 
 		List<SurveySchema> questions = support.questions(project);
@@ -219,9 +219,9 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		vars.put("perFocus", String.valueOf(Math.max(1, Math.min(PER_FOCUS_CANDIDATES, plan.questionCount()))));
 		AiRequest request = AiRequest.builder().systemPrompt(support.prompts().render(PROMPT_PRACTICE, vars))
 				.userPrompt("请从候选题里挑出 " + plan.questionCount() + " 道重练题，只输出 JSON。")
-				// 挑题是「按考点匹配」，不需要发散：温度压低，模型的挑选理由也更稳定
+
 				.temperature(Double.valueOf(0.3D))
-				// 后台任务：跳过「每用户每分钟 N 次」的限流，否则一次重练会被自己卡死
+
 				.background(true).build();
 		context.progress(10);
 		AiCompletion completion = support.call(scene, userId, request, true);
@@ -252,7 +252,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 			throw new ErrorCodeException(ErrorCode.ValidationError, "错题重练结果解析失败：模型返回了空内容，请重试");
 		}
 		List<String> ids = new ArrayList<>();
-		// 模型偶尔直接给一个数组：两种形状都认，别为格式问题让老师重试
+
 		JsonNode picks = root.isArray() ? root : root.path("picks");
 		if (picks.isArray()) {
 			for (JsonNode node : picks) {
@@ -267,7 +267,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 			}
 		}
 		if (ids.isEmpty()) {
-			// 模型没挑出可用题（或挑的 id 都不在候选里）：按考点随机补齐，至少让老师看到结果
+
 			log.warn("AI 错题重练：模型没有给出可用的候选题 id，改为按考点随机补齐");
 		}
 		String summary = root.path("summary").asText("");
@@ -335,7 +335,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 	private SurveySchema toQuestion(Candidate candidate, double defaultScore) {
 		SurveySchema schema;
 		try {
-			// 与 ComposeServiceImpl#toQuestion 同一条转换：走 JSON 复制一份，避免把题库实体对象带进项目 schema
+
 			schema = support.json().convertValue(candidate.schema(), SurveySchema.class);
 		}
 		catch (RuntimeException e) {
@@ -406,7 +406,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		}
 	}
 
-	/* ====== 取数：得分率 / 薄弱点 ====== */
+
 
 	/**
 	 * 每题得分率（0~1）：{@code questionId → 得分率}，只含有分值且能算出平均分的题。
@@ -525,7 +525,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 			focus.setQuestions(Integer.valueOf(group.size()));
 			focus.setRecommended(Integer.valueOf(0));
 			focuses.add(focus);
-			// 进提示词的只有「考点名 / 得分率 / 题量 / 主要题型」这类统计数字，不带任何学员信息
+
 			focusLines.add("考点「" + group.point() + "」 | 得分率 " + Math.round(group.rate() * 100D) + "% | 原卷 "
 					+ group.size() + " 题 | 主要题型："
 					+ typeLabel(group.first().question().getType()));
@@ -548,7 +548,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return StringUtils.hasText(keyword) ? keyword : "未标注考点";
 	}
 
-	/* ====== 题库候选 ====== */
+
 
 	/**
 	 * 按考点从题库捞候选题。
@@ -567,7 +567,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 			List<TemplateView> hits = match(pool, focus.getPoint());
 			boolean fallback = hits.isEmpty();
 			if (fallback) {
-				// 整池打乱再取：不打乱的话「题库里没有这个考点」的每一次推荐都会抽到最前面那几道题
+
 				List<TemplateView> shuffled = new ArrayList<>(pool);
 				Collections.shuffle(shuffled, new Random());
 				hits = shuffled;
@@ -595,11 +595,11 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		TemplateQuery query = new TemplateQuery();
 		query.setRepoId(repoId);
 		query.setCurrent(1);
-		// 全量读（pageSize=-1）：与组卷 {@code AiPaperPickServiceImpl} 和 ComposeServiceImpl 同一口径——
-		// 一个题库的题量按「能整份读进内存」设计。截断反而更糟：某个考点的题刚好排在后面，
-		// 就会被当成「题库里没有这个考点」，推荐的题直接跑偏。
+
+
+
 		query.setPageSize(-1);
-		// 走 TemplateService 而不是直接查表：题库可读性（共享 / 授权 / 班级分配）那一层判断在它里面
+
 		PaginationResponse<TemplateView> page = templateService.listTemplate(query);
 		if (page == null || CollectionUtils.isEmpty(page.getList())) {
 			return List.of();
@@ -632,7 +632,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 				}
 			}
 		}
-		// 题干关键词兜底：短词匹配会命中一切，至少 4 个字才按「题名包含」算
+
 		return point.length() >= TITLE_MATCH_MIN_CHARS && containsIgnoreCase(template.getName(), point);
 	}
 
@@ -644,8 +644,8 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		if (schema == null || schema.getType() == null) {
 			return null;
 		}
-		// 只挑能自动判分的题型（与组卷共用同一份 SUPPORTED_TYPES）：重练题会被采纳进项目，
-		// 判不出分的题进了卷子，交卷时就会变成「永远拿不到分」的那道题
+
+
 		if (!AiPaperSpec.SUPPORTED_TYPES.contains(schema.getType())) {
 			return null;
 		}
@@ -799,20 +799,20 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return Math.round(value * 1000D) / 1000D;
 	}
 
-	/* ====== 内部数据结构（请求线程构建、任务线程只读） ====== */
 
-	/** 一次推荐任务的全部输入：在请求线程准备好，任务线程不再碰任何受权限约束的服务 */
+
+
 	private record Plan(int questionCount, List<Candidate> candidates, Map<String, Candidate> byId,
 			List<AiPracticeRecommendView.Focus> focuses, String focusText, String candidateText,
 			String sourceProjectId, String repoId) {
 	}
 
-	/** 一道候选题：id / 展示字段 / 原始 schema（转换前的题库副本） */
+
 	private record Candidate(String id, String type, String chapter, String tags, String difficulty, double score,
 			String title, SurveySchema schema, String focus) {
 	}
 
-	/** 一个薄弱考点：名称 + 成员（用于加权算整体得分率） */
+
 	private static final class Group {
 
 		private final String point;
@@ -859,15 +859,15 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 
 	}
 
-	/** 一道薄弱题：题目 + 得分率 + 满分 */
+
 	private record Weak(SurveySchema question, double rate, double full) {
 	}
 
-	/** 模型挑的 id 与摘要 */
+
 	private record Picks(List<String> ids, String summary) {
 	}
 
-	/** 最终选中的候选题：模型挑了几道、随机补了几道 */
+
 	private record Selection(List<Candidate> chosen, int fromModel, int randomFilled) {
 	}
 

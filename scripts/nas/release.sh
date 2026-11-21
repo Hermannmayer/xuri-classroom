@@ -56,7 +56,7 @@ HEALTH_URL="${XURI_HEALTH_URL:-http://127.0.0.1:201/api/system}"
 HEALTH_TIMEOUT="${XURI_HEALTH_TIMEOUT:-120}"
 TARGET_PORT="${XURI_APP_PORT:-201}"
 BACKUP_DIR="${BACKUP_DIR:-/vol2/1000/xuri/backup}"
-BACKUP_MODE="auto"        # auto | compose | legacy | none
+BACKUP_MODE="auto"
 BACKUP_RETENTION=14
 BACKUP_SCRIPT="$SCRIPT_DIR/backup.sh"
 PREFLIGHT_SCRIPT="$SCRIPT_DIR/preflight.sh"
@@ -97,7 +97,7 @@ usage() {
 USAGE
 }
 
-# ---------------------------------------------------------------- 参数解析
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --image) [[ $# -ge 2 ]] || die "$1 需要镜像名"; IMAGE_INPUT="$2"; shift 2 ;;
@@ -128,12 +128,12 @@ done
 case "$BACKUP_MODE" in auto|compose|legacy|none) ;; *) die "--backup-mode 只能是 auto|compose|legacy|none" ;; esac
 
 # ---------------------------------------------------------------- 工具函数
-image_repo() {   # repo:tag / registry:5000/repo:tag → repo（去掉 tag 部分）
+image_repo() {
   local img="$1" last="${1##*/}"
   if [[ "$last" == *:* ]]; then printf '%s' "${img%:*}"; else printf '%s' "$img"; fi
 }
 
-resolve_image() {   # <输入> <tag> → 完整镜像引用（输入没有 tag 时补 :tag）
+resolve_image() {
   local in="$1" tag="$2" last="${1##*/}"
   if [[ "$last" == *:* ]]; then printf '%s' "$in"; else printf '%s:%s' "$in" "$tag"; fi
 }
@@ -164,7 +164,7 @@ wait_health() {
   return 1
 }
 
-# ---------------------------------------------------------------- 前置校验
+
 command -v docker >/dev/null 2>&1 || die "找不到 docker 命令"
 docker info >/dev/null 2>&1 || die "docker 守护进程不可用：systemctl status docker"
 docker compose version >/dev/null 2>&1 || die "需要 docker compose v2（docker compose version 失败）"
@@ -199,7 +199,7 @@ else
   log "未指定 --web-image：web 服务沿用 compose 里的默认镜像，不做版本切换"
 fi
 
-# 当前版本（可能为空：首次发布）
+
 CUR_APP_IMAGE=""
 CUR_WEB_IMAGE=""
 APP_CID="$(compose_ps_q app)"
@@ -213,12 +213,12 @@ fi
 STACK_RUNNING=0
 [[ -n "$APP_CID" ]] && STACK_RUNNING=1
 
-# 备份工具选择
+
 if [[ "$BACKUP_MODE" == "auto" ]]; then
   if [[ "$STACK_RUNNING" -eq 1 ]]; then BACKUP_MODE="compose"; else BACKUP_MODE="legacy"; fi
 fi
 
-# ---------------------------------------------------------------- 计划打印
+
 echo
 log "================ 发布计划 ================"
 log "compose 项目  : $PROJECT（$COMPOSE_DIR）"
@@ -254,7 +254,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-# ---------------------------------------------------------------- 1. preflight
+
 echo
 log "---- 步骤 1/5：preflight 体检（只读） ----"
 PREFLIGHT_ARGS=(--compose-dir "$COMPOSE_DIR" --port "$TARGET_PORT" --health-url "$HEALTH_URL" --backup-dir "$BACKUP_DIR")
@@ -262,8 +262,8 @@ PREFLIGHT_ARGS=(--compose-dir "$COMPOSE_DIR" --port "$TARGET_PORT" --health-url 
 if [[ "$STACK_RUNNING" -eq 0 ]]; then
   warn "目标栈当前未运行：preflight 会检查旧生产容器 surveyking 的健康状态（切换前的正确检查对象）"
 fi
-# 本脚本已经做过确认（CONFIRM=yes 或 --yes）时，把确认透传给 preflight，
-# 否则 preflight 会因为「无法自动判断是否在考试中」而阻塞整个发布流程。
+
+
 set +e
 if [[ "$ASSUME_CONFIRM" -eq 1 || "${CONFIRM:-}" == "yes" ]]; then
   CONFIRM=yes bash "$PREFLIGHT_SCRIPT" "${PREFLIGHT_ARGS[@]}"
@@ -282,7 +282,7 @@ case "$PREFLIGHT_RC" in
     ;;
 esac
 
-# ---------------------------------------------------------------- 2. 确认
+
 echo
 log "---- 步骤 2/5：确认 ----"
 cat >&2 <<EOF
@@ -304,7 +304,7 @@ else
   exit 1
 fi
 
-# ---------------------------------------------------------------- 3. 备份
+
 echo
 log "---- 步骤 3/5：发布前备份（模式 ${BACKUP_MODE}） ----"
 if [[ "$BACKUP_MODE" == "none" ]]; then
@@ -337,7 +337,7 @@ else
   log "备份完成"
 fi
 
-# ---------------------------------------------------------------- 4. 记录 previous
+
 echo
 log "---- 步骤 4/5：记录当前版本为 previous ----"
 PREV_APP="${APP_REPO}:previous"
@@ -366,10 +366,10 @@ if [[ -n "$NEW_WEB_IMAGE" ]]; then
   fi
 fi
 
-# ---------------------------------------------------------------- 5. 切换 + 健康
+
 echo
 log "---- 步骤 5/5：切换镜像并等健康检查 ----"
-up_with() {   # up_with <app_image> [web_image]
+up_with() {
   local app="$1" web="${2:-}"
   if [[ -n "$web" ]]; then
     env XURI_APP_IMAGE="$app" XURI_WEB_IMAGE="$web" "${DC[@]}" up -d
@@ -397,7 +397,7 @@ set -e
 if [[ "$UP_RC" -ne 0 ]]; then
   err "docker compose up -d 失败（退出码 $UP_RC）"
   dump_logs
-  # 走自动回滚路径
+
 else
   if wait_health; then
     echo
@@ -414,7 +414,7 @@ else
   dump_logs
 fi
 
-# ---------------------------------------------------------------- 自动回滚
+
 echo
 warn "开始自动回滚到上一版"
 if [[ -z "$PREV_APP" ]] || ! docker image inspect "$PREV_APP" >/dev/null 2>&1; then

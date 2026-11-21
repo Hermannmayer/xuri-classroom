@@ -1,7 +1,7 @@
 /**
  * 全站平铺水印：内容可在「系统设置 → 内容与隐私保护」里配置
  *
- * 挂载点是 main.tsx 里 RouterProvider 的兄弟节点（路由之外），所以这里只做纯 DOM 覆盖层：
+
  * 1. 只在登录后的页面（AUTH_PREFIXES 白名单）拉 /api/currentUser；匿名页（登录 / 注册 / 公开答题）
  *    不拉也不渲染——公开答题页去拉 currentUser 必然 401，会被全局 401 处理踢回登录页。
  * 2. 用 canvas 画一块倾斜 -25° 的文字砖，转 dataURL 当 repeat 背景，不引任何第三方依赖。
@@ -18,28 +18,28 @@ import { useEffect, useMemo, useState } from 'react';
 import { getCurrentUser, getSystem } from '../api';
 import type { UserInfo } from '../api';
 
-/** 水印内容模式：姓名 + 手机号 / 仅姓名 / 仅手机号 */
+
 export type WatermarkMode = 'name_phone' | 'name' | 'phone';
 
-/** 系统设置页保存水印开关/内容后广播的窗口事件名 */
+
 export const WATERMARK_EVENT = 'sk:watermark-changed';
 
-/** 需要水印的登录后路由前缀；不在白名单里的（/user/login、/s/*、/setup、未知路径）一律不渲染 */
+
 const AUTH_PREFIXES = ['/home', '/project', '/teaching', '/survey', '/repo', '/exercise', '/system', '/account'];
 
-/** 手机号中间四位打码：改成 false 就显示完整号码（便于截图外流后精确定位到人） */
+
 const MASK_PHONE = true;
 
-/** 是否在水印里带日期：带日期能推断截图时间，代价是水印每天变一次 */
+
 const WITH_DATE = false;
 
-/** 水印砖尺寸（CSS px）：砖小了太密会压住正文，大了又容易漏出大片空白 */
+
 const TILE_WIDTH = 300;
 const TILE_HEIGHT = 170;
 const ROTATE_DEG = -25;
 const OPACITY = 0.06;
 
-/** antd Modal / Drawer / 手机底栏都是 1000，水印必须压在它们下面 */
+
 const WATERMARK_Z_INDEX = 900;
 
 const FONT = "12px 'Cascadia Mono', 'JetBrains Mono', Consolas, 'Microsoft YaHei', monospace";
@@ -55,7 +55,7 @@ function normalizeMode(value?: string | null): WatermarkMode {
 
 function maskPhone(phone: string) {
   if (!MASK_PHONE) return phone;
-  // 只打码中间四位：姓名 + 后四位足够定位，又不至于把完整号码留在截图里
+
   return phone.length >= 11 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : phone;
 }
 
@@ -82,7 +82,7 @@ function themeTextColor() {
 
 /** 画一块倾斜文字砖并转成 dataURL；作为背景 repeat 后就是满屏水印 */
 function buildTile(text: string, color: string) {
-  // 高分屏按 dpr 放大画布，再按 CSS 尺寸铺，文字才不糊
+
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(TILE_WIDTH * dpr);
@@ -103,7 +103,7 @@ function buildTile(text: string, color: string) {
 
 /**
  * 路由变化感知：本组件在 RouterProvider 之外，用不了 useLocation，
- * 所以包一层 history.pushState/replaceState 并监听 popstate，卸载时还原原函数。
+
  */
 function usePathname() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -139,18 +139,18 @@ export default function Watermark() {
   const authed = isAuthedPath(pathname);
   const [user, setUser] = useState<UserInfo>();
   const [color, setColor] = useState(themeTextColor);
-  // 缺省：开启 + 姓名+手机号（与后端契约一致）；拉取失败也按缺省渲染
+
   const [enabled, setEnabled] = useState(true);
   const [mode, setMode] = useState<WatermarkMode>('name_phone');
 
-  // 切主题（html[data-theme]）时重画：白字水印铺在米白纸上等于没有
+
   useEffect(() => {
     const observer = new MutationObserver(() => setColor(themeTextColor()));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => observer.disconnect();
   }, []);
 
-  // 读水印设置，并监听系统设置页的广播（改完即时生效）
+
   useEffect(() => {
     let alive = true;
     getSystem()
@@ -173,7 +173,7 @@ export default function Watermark() {
     };
   }, []);
 
-  // 只在登录后的页面拉用户信息；退出登录或走到匿名页时清空
+
   useEffect(() => {
     if (!authed) {
       setUser(undefined);

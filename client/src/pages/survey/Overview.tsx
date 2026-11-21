@@ -169,7 +169,7 @@ export default function SurveyOverview() {
   const { id = '' } = useParams();
   const [form] = Form.useForm();
 
-  // category 是后端 Project 新增字段，schema 暂未包含，这里用局部交叉类型
+
   const [project, setProject] = useState<Project & { category?: string }>();
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [folderNodes, setFolderNodes] = useState<ProjectTreeNode[]>([]);
@@ -179,7 +179,7 @@ export default function SurveyOverview() {
   const [qr, setQr] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  /** 已加载的 setting：保存时用它与表单合并，避免丢掉本页没展示的字段 */
+
   const [current, setCurrent] = useState<ProjectSetting>({});
   const [scoreDraft, setScoreDraft] = useState<Record<string, number | null>>({});
   const [scoreSaving, setScoreSaving] = useState(false);
@@ -187,10 +187,10 @@ export default function SurveyOverview() {
   const [scoreWeights, setScoreWeights] = useState<Record<string, number>>({});
   const targetTouched = useRef(false);
 
-  /**
-   * 权限列表：没回来之前既不渲染管理入口，也不发需要权限的请求。
-   * 判断统一走 auth/permissions 的 can()，与后端 authorityList 同源。
-   */
+
+
+
+
   const [authorities, setAuthorities] = useState<string[]>();
 
   useEffect(() => {
@@ -287,7 +287,7 @@ export default function SurveyOverview() {
     [folderNodes, project],
   );
 
-  /** 把后端 setting 铺进表单；「交卷后显示排名」兼容旧数据里只写了 rankVisible 的情况 */
+
   const applySetting = useCallback(
     (value: ProjectSetting) => {
       setCurrent(value);
@@ -339,14 +339,14 @@ export default function SurveyOverview() {
       const [p, setting, r, classStat, list] = await Promise.all([
         get<Project & { category?: string }>('/api/project', { id }),
         get<ProjectSetting>('/api/project/setting', { id }).catch(() => ({}) as ProjectSetting),
-        // 没有 project:report 就不请求报表，免得每次都拿一个必 403 的请求去刷错误提示
+
         canReport
           ? get<ReportData>(`/api/report/${id}`, { includeAnonymous: true }).catch(() => undefined)
           : Promise.resolve(undefined),
         canReport
           ? get<ProjectClassAnonymousStats>('/api/project/class-anonymous-stats', { projectId: id }).catch(() => undefined)
           : Promise.resolve(undefined),
-        // 没有 answer:list 就不请求答卷列表
+
         canViewAnswers
           ? getWithPagination<Answer>('/api/answer/list', {
               projectId: id,
@@ -361,7 +361,7 @@ export default function SurveyOverview() {
       setClassStats(classStat);
       setAnswers(list.data);
       applySetting(setting ?? {});
-      // 基本信息不在 setting 里，单独回填；根目录统一为 '0'
+
       form.setFieldsValue({ name: p.name, category: p.category ?? '', parentId: p.parentId || '0' });
     } catch (e) {
       message.error((e as Error).message);
@@ -371,7 +371,7 @@ export default function SurveyOverview() {
   }, [id, applySetting, canReport, canViewAnswers, form]);
 
   useEffect(() => {
-    // 等权限落地再发请求：否则会先按「无权限」跑一遍，拿到权限后又跑一遍
+
     if (authorities) void load();
   }, [authorities, load]);
 
@@ -381,8 +381,8 @@ export default function SurveyOverview() {
       .catch(() => undefined);
   }, [shareUrl]);
 
-  // 分类候选：可自由输入，拿不到候选项也不影响保存
-  // 文件夹候选：失败不影响保存，表单仍可只改名称/分类
+
+
   useEffect(() => {
     get<ProjectTreeNode[]>('/api/project/tree')
       .then((list) => setFolderNodes(Array.isArray(list) ? list : []))
@@ -424,12 +424,12 @@ export default function SurveyOverview() {
   };
 
   const onSave = async () => {
-    if (!canEdit) return; // 没有 project:update 不渲染保存按钮，这里再兜一层
+    if (!canEdit) return;
     let v: Record<string, unknown>;
     try {
       v = await form.validateFields();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
 
     const name = String(v.name ?? '').trim();
@@ -445,11 +445,11 @@ export default function SurveyOverview() {
       onePageOneQuestion: Boolean(v.onePageOneQuestion),
       answerSheetVisible: Boolean(v.answerSheetVisible),
       questionNumber: Boolean(v.questionNumber),
-      // 答题人姓名必填：默认 false（匿名投票/问卷强制填姓名会劝退答题人）
+
       answererNameRequired: Boolean(v.answererNameRequired),
       copyEnabled: Boolean(v.copyEnabled),
       maxAnswers: (v.maxAnswers as number | undefined) ?? undefined,
-      // schema 里的 AnswerFreqEnum 只覆盖了部分频率，后端实际存字符串（only/hour/day/week/month）
+
       ipLimit: v.ipLimitEnabled
         ? {
             limitNum: Number(v.ipLimitNum ?? 1),
@@ -475,7 +475,7 @@ export default function SurveyOverview() {
       redirectUrl: (v.redirectUrl as string) || undefined,
       contentHtml: (v.contentHtml as string) || undefined,
       transcriptVisible: Boolean(v.transcriptVisible),
-      // 去重：与「交卷后显示排名」共用同一个开关，两个字段一起写，后端行为不变
+
       rankVisible: Boolean(v.rankingEnabled),
       answerAnalysis: Boolean(v.answerAnalysis),
     };
@@ -499,7 +499,7 @@ export default function SurveyOverview() {
 
     const setting: ProjectSetting = {
       ...current,
-      // 没有 project:publish 时不提交 status：整包保存不能顺手把发布开关写回 0
+
       ...(canPublish ? { status: v.status ? 1 : 0 } : {}),
       answerSetting,
       submittedSetting,
@@ -508,11 +508,11 @@ export default function SurveyOverview() {
 
     setSaving(true);
     try {
-      // 分类空串=清空（未分类）；parentId '0'=根目录；名称在本页可编辑，一并保存
+
       await updateProject({ id, name, category, parentId, setting });
-      // 发布开关走独立端点 POST /api/project/status（project:publish）；
-      // 整包 setting 不会同步 t_project.status 列，所以状态变了要单独补一次。
-      // 没有 project:publish 的人不碰这个端点，状态保持后端原值。
+
+
+
       const nextStatus = v.status ? 1 : 0;
       if (canPublish && (current.status ?? 0) !== nextStatus) {
         await updateProjectStatus({ id, status: nextStatus });
@@ -567,10 +567,10 @@ export default function SurveyOverview() {
 
   return (
     <div className="survey-overview" style={{ maxWidth: 1200 }}>
-      {/* 统一本页 Form.Item 间距：左右两列标签/控件节奏一致，避免一张卡松一张卡紧 */}
+
       <style>{'.survey-overview .ant-form-item{margin-bottom:14px}'}</style>
       <BackButton label="返回上一级" fallback="/project" style={{ marginBottom: 4 }} />
-      {/* 页头：编辑 / 数据 / 项目列表 + 保存（发布设置已并入本页，不再有第二个「设置」入口） */}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>OVERVIEW / 概述</div>
@@ -618,7 +618,7 @@ export default function SurveyOverview() {
         initialValues={{ progressBar: true, autoSave: true }}
       >
         <Row gutter={[14, 14]} align="stretch">
-          {/* ① 基本信息：名称 + 分类（分类不再只藏在列表里） */}
+
           <Col xs={24} lg={16}>
             <Card
               className="bp-corners bp-card"
@@ -666,7 +666,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ② 概览：收集趋势（与基本信息同排；无数据时紧凑） */}
+
           <Col xs={24} lg={8}>
             <Card
               className="bp-corners bp-card"
@@ -674,13 +674,13 @@ export default function SurveyOverview() {
               style={{ height: '100%' }}
               styles={{ body: { padding: 16 } }}
             >
-              {/* 每日收集来自 /api/report，最近答卷来自 /api/answer/list；缺任一权限都不渲染数据 */}
+
               {!canReport || !canViewAnswers ? (
                 <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>没有查看答卷数据的权限</div>
               ) : (
                 <>
                   {daily.entries.length === 0 ? (
-                    // 无数据时只占两行，不再撑出一大块空白
+
                     <div style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
                       <div>还没有答卷数据</div>
                       <div style={{ marginTop: 6, fontSize: 11 }}>共 0 份</div>
@@ -753,7 +753,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ③ 题型分值：按题型统一改所有题的分值，不用逐题设置（问卷不判分，不展示） */}
+
           {scoringEnabled && <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
@@ -845,7 +845,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>}
 
-          {/* ④ 答题显示（「自动暂存」取代旧概述页的「自动保存」，只此一处） */}
+
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
@@ -870,7 +870,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ④ 回收限制 */}
+
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
@@ -929,7 +929,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ⑤ 考试控制（问卷模式不展示） */}
+
           {!isSurvey && <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
@@ -978,7 +978,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>}
 
-          {/* ⑥ 投放与分享：链接/二维码 + 发布状态（取代旧概述页的「开启收集」） */}
+
           <Col xs={24} lg={12}>
             <Card
               className="bp-corners bp-card"
@@ -1056,7 +1056,7 @@ export default function SurveyOverview() {
             </Card>
           </Col>
 
-          {/* ⑦ 协作者 */}
+
           <Col span={24}>
             <Card
               className="bp-corners bp-card"

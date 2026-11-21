@@ -13,7 +13,7 @@ import zlib
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 
-# 1x1 红点 PNG，够 POI 识别成图片（ImageIO 能读）
+
 PNG = (
     b'\x89PNG\r\n\x1a\n' + struct.pack('>I', 13) + b'IHDR' +
     struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0) +
@@ -32,12 +32,12 @@ def main():
     wb = Workbook()
     wb.remove(wb.active)
 
-    # 下拉题：答案列写字母
+
     ws = wb.create_sheet('下拉题')
     ws.append(['序号', '章节', '题干', '分数', '答案', '选项A', '选项B', '选项C'])
     ws.append([1, '第一章', '养老护理员应具备的职业素养是？', 5, 'B', '只看技能', '技能与职业道德并重', '只服务熟人'])
 
-    # 矩阵单选：行标题在 8-17 列，列标题在 18-27 列（模板约定）
+
     ws = wb.create_sheet('矩阵单选题')
     header = ['序号', '章节', '题干', '分数', '答案', '解析', '标签']
     header += ['行标题%d' % i for i in range(1, 11)]
@@ -48,17 +48,17 @@ def main():
     row += ['满意', '一般', '不满意'] + [None] * 7
     ws.append(row)
 
-    # 评分题 + 高级配置(JSON) 兜底
+
     ws = wb.create_sheet('评分题')
     ws.append(['序号', '题干', '分数', '高级配置(JSON)'])
     ws.append([3, '请为本次培训打分', 5, '{"attribute":{"required":true}}'])
 
-    # 上传题
+
     ws = wb.create_sheet('上传题')
     ws.append(['序号', '题干', '分数', '答案'])
     ws.append([4, '请上传实操现场照片', 5, '单张正面照'])
 
-    # 简答题：第 2 行贴一张图片，验证按行归属
+
     ws = wb.create_sheet('简答题')
     ws.append(['序号', '题干', '分数', '答案'])
     ws.append([5, '简述老年人跌倒后的处理流程', 10, '先评估意识与呼吸，再呼救'])
@@ -66,7 +66,7 @@ def main():
     with open(img_path, 'wb') as fh:
         fh.write(PNG)
     picture = XLImage(img_path)
-    picture.anchor = 'E2'  # 落在第 2 行
+    picture.anchor = 'E2'
     ws.add_image(picture)
 
     wb.save(args.out)

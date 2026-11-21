@@ -22,7 +22,7 @@ import './ai-guide.css';
  * 权限口径：链接按目标页面的守卫逐个判权，没权限就不渲染，避免「点进去 403」。
  */
 export function AiCapabilityGuide({
-  /** 当前账号的权限串（设置页已经从 /api/currentUser 取过一次，这里不重复请求） */
+
   authorities,
 }: {
   authorities: string[];
@@ -202,8 +202,8 @@ export function AiCapabilityGuide({
                     );
                   })}
                 </div>
-                {/* 另一条「不经过页面」的路：外部客户端走 MCP。这里只指点令牌在哪，
-                    具体客户端配置片段属于运维细节，放在令牌页旁边比塞进使用说明更合适。 */}
+
+
                 <p className="ai-note">
                   另外还有一条给外部客户端的路：MCP（让 Codex / Cursor / VS Code 里的 AI 直接读写本站）。
                   令牌在「系统与更新 → MCP / API 令牌」里签发，端点是本站的 <code>/mcp</code>，
@@ -230,7 +230,7 @@ export default AiCapabilityGuide;
 function entryLink(item: Capability, authorities: string[]): { to: string; label: string } | undefined {
   if (!item.target) return undefined;
   if (item.target === 'notice') {
-    // 公告管理对管理员（全站）与带班老师（班级）都开放，两个权限任一命中即可
+
     const allowed =
       can(authorities, PERMISSION_CODES.noticeManageSystem) || can(authorities, PERMISSION_CODES.noticeManageClass);
     return allowed ? { to: AI_ENTRY_PATHS.noticeAdmin, label: '去公告管理' } : undefined;
@@ -241,7 +241,7 @@ function entryLink(item: Capability, authorities: string[]): { to: string; label
       : undefined;
   }
   if (!can(authorities, PERMISSION_CODES.projectList)) return undefined;
-  // 老师 / 管理员走「教学 → 考试」；只有 project:list 的协作者与学员视角没有这个菜单，退回 /project
+
   const to = can(authorities, PERMISSION_CODES.portalTeacher)
     ? AI_ENTRY_PATHS.projectList
     : AI_ENTRY_PATHS.projectListShared;

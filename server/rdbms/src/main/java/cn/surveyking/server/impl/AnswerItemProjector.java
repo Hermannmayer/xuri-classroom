@@ -17,26 +17,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * 把答卷的 answer JSON 展开成 t_answer_item（统计投影）。
- *
- * <p>
- * 真源永远是 {@code t_answer.answer}，这张投影表随时可以重建；交卷与回填都走同一个实现，
- * 保证两条路径产出的行完全一致。
- */
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class AnswerItemProjector {
 
-	/** 单次多值 INSERT 的行数上限：太大容易撞 max_allowed_packet，太小又起不到批量效果 */
+
 	private static final int BATCH_SIZE = 500;
 
 	private final AnswerItemMapper answerItemMapper;
 
 	private final AnswerMapper answerMapper;
 
-	/** 导出要用「值本身」重建 answer，用 JSON 存可以保留布尔/数字/数组等类型 */
+
 	private final ObjectMapper objectMapper;
 
 	/** 先删后插：重复提交、修改答案、回填重跑都会得到与真源一致结果 */

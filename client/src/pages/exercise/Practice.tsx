@@ -18,7 +18,7 @@ import { readMarks, writeMarks } from '../../utils/answerStorage';
 import { flattenSchema } from '../../schema/flatten';
 import type { SurveySchema } from '../../schema/types';
 
-/** 与 TemplateView 对齐 */
+
 interface TemplateView {
   id: string;
   name?: string;
@@ -30,10 +30,10 @@ const FONT_KEY = 'sk-font-scale';
 const PRACTICE_TYPES = ['Radio', 'Checkbox', 'Judge', 'FillBlank', 'Textarea'] as const;
 type Layout = 'single' | 'scroll';
 
-/**
- * 懒加载每页题数：首屏 10 题，瀑布流滚到底（或点「加载更多」）再追加 10 题。
- * 题库动辄几百题，一次性拉全量会让首屏发卡，也方便脚本把整个题库抓走。
- */
+
+
+
+
 const PAGE_SIZE = 20;
 
 interface PracticeProgress {
@@ -44,7 +44,7 @@ interface PracticeProgress {
   index: number;
   layout: Layout;
   updatedAt: number;
-  /** 懒加载：题库总题数与「是否还有下一页」。旧进度没有这两个字段，按「已全部加载」恢复 */
+
   total?: number;
   paged?: boolean;
 }
@@ -136,16 +136,16 @@ export default function Practice() {
     (location.state as { repoName?: string } | null)?.repoName || '题库练习';
   const mode = search.get('mode') || 'full';
 
-  /** 已加载的题目（始终是整份题库的前缀，按题库顺序追加） */
+
   const [questions, setQuestions] = useState<SurveySchema[]>([]);
-  /** 题库总题数（后端分页返回的 total） */
+
   const [total, setTotal] = useState(0);
-  /** 是否支持继续向后分页追加：随机练习、旧进度是一次性给全的，不再分页 */
+
   const [paged, setPaged] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  /** 正在为跳题补加载的序号（0 基），用于按钮禁用与提示 */
+
   const [jumpingTo, setJumpingTo] = useState<number>();
-  /** 瀑布流里补加载完成后要滚动到的题目 id */
+
   const [scrollTarget, setScrollTarget] = useState<string>();
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
   const [index, setIndex] = useState(0);
@@ -158,12 +158,12 @@ export default function Practice() {
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set());
   const [marks, setMarks] = useState<Record<string, boolean>>(() => readMarks(repoId));
 
-  /** 异步流程（滚动追加、跳题补加载、提交前补齐）要读最新值，state 闭包会过期，这里镜像一份 */
+
   const questionsRef = useRef<SurveySchema[]>([]);
   const totalRef = useRef(0);
   const pagedRef = useRef(false);
   const loadingMoreRef = useRef(false);
-  /** 跳题补加载是异步的，连点会重复触发，这里串行化 */
+
   const jumpLockRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -218,7 +218,7 @@ export default function Practice() {
       }
       const added = merged.length - questionsRef.current.length;
       if (added > 0) commitQuestions(merged);
-      // 后端只按 priority 排序、没有次级排序，翻页理论上可能重复；本页没有新题就认为到头了
+
       if (!rows.length || added === 0) {
         pagedRef.current = false;
         totalRef.current = merged.length;
@@ -310,11 +310,11 @@ export default function Practice() {
           const items = saved.root?.children ?? [];
           if (!items.length) throw new Error('上次练习进度已损坏');
           if (!alive) return;
-          // 旧进度没有 total/paged：按「已经全部加载」恢复，不再去翻页
+
           const savedTotal = Math.max(saved.total ?? items.length, items.length);
-          // 上次进度可能来自题数更多的题库（题目被删过），此时 saved.index 会超出当前题数，
-          // 表现为「第 55 题加载失败，请重试」但页面只有 11 题。
-          // 规则：分页进度才信 savedTotal，否则总数就是已加载的题数；下标一律夹在有效范围内。
+
+
+
           const resumedPaged = Boolean(saved.paged) && savedTotal > items.length;
           const displayTotal = resumedPaged ? savedTotal : items.length;
           const safeIndex = Math.min(Math.max(saved.index ?? 0, 0), items.length - 1);
@@ -340,7 +340,7 @@ export default function Practice() {
           const items = picked ?? [];
           if (!items.length) throw new Error('这个题库还没有可练习的题目');
           if (!alive) return;
-          // 随机练习是用户显式抽题，后端一次抽好给全，不再分页
+
           applyQuestions(items, items.length, false);
           setValues({});
           setIndex(0);
@@ -348,7 +348,7 @@ export default function Practice() {
           return;
         }
 
-        // 顺序练习：首屏只取第 1 页，滚到底再追加
+
         const { rows, total: serverTotal } = await fetchPage(1);
         const items = rows.map(rowToQuestion);
         if (!items.length) throw new Error('这个题库还没有可练习的题目');
@@ -376,7 +376,7 @@ export default function Practice() {
   );
 
   const flat = useMemo(() => (root ? flattenSchema(root) : []), [root]);
-  /** 答题卡按题库总题数展示；服务器计数异常时至少覆盖已加载的部分 */
+
   const sheetTotal = Math.max(total, flat.length);
   const hasMore = paged && questions.length < total;
   const answeredIds = useMemo(() => {
@@ -390,16 +390,16 @@ export default function Practice() {
   const currentIndex = Math.min(index, Math.max(sheetTotal - 1, 0));
   const currentQuestion = flat[currentIndex];
 
-  // 兜底：序号不能落在还没加载的范围里（正常路径下 goTo 会先补加载），否则会一直转圈
+
   useEffect(() => {
     if (!flat.length) return;
     if (index > flat.length - 1) setIndex(flat.length - 1);
   }, [flat.length, index]);
 
-  // 每次答题/切题/追加题目都把进度写回 localStorage；刷新后「继续练习」可恢复
+
   useEffect(() => {
     if (!initialized || !root) return;
-    // SPA 内从一个题库直接切到另一个题库时，旧题库的题目不能写进新题库的进度
+
     if (root.id !== `practice-${repoId}`) return;
     const progress: PracticeProgress = {
       repoId,
@@ -423,8 +423,8 @@ export default function Practice() {
     if (questions.length) setInitialized(true);
   }, [questions.length]);
 
-  // 瀑布流：哨兵进入视口就追加下一页；同时监听滚动容器（capture=true），
-  // 避免 IntersectionObserver 在内部滚动容器里不触发导致只加载一页。
+
+
   useEffect(() => {
     if (layout !== 'scroll' || !hasMore) return;
     const sentinel = sentinelRef.current;
@@ -460,7 +460,7 @@ export default function Practice() {
     };
   }, [layout, hasMore, loadMore, flat.length]);
 
-  // 瀑布流跳题：等这一页渲染出来再滚过去
+
   useEffect(() => {
     if (!scrollTarget) return;
     const element = document.querySelector(`[data-qid="${scrollTarget}"]`);
@@ -478,8 +478,8 @@ export default function Practice() {
     if (!root) return;
     setSubmitting(true);
     try {
-      // 还有没加载的题就先补齐：提交的 survey 必须和改动前一样是整份题卷，
-      // 否则后端存的练习快照会少题（补齐是一次性的，按页追加，不会一次拉全量）。
+
+
       let guard = 0;
       while (pagedRef.current && questionsRef.current.length < totalRef.current && guard < 200) {
         const ok = await loadMore();
@@ -490,8 +490,8 @@ export default function Practice() {
         throw new Error('题目还没加载完，请检查网络后重试');
       }
       const finalRoot = buildRoot(`practice-${repoId}`, repoName, questionsRef.current);
-      // 后端练习答案存在特殊项目 id "exercise" 下；AnswerRequest 没有 examExerciseType 字段，
-      // 因此不会出现在 /api/exercise/list 的练习记录里（见汇报）。
+
+
       await post('/api/public/saveAnswer', {
         projectId: 'exercise',
         repoId,
@@ -636,7 +636,7 @@ export default function Practice() {
         <ZoomControl value={fontScale} onChange={setFont} hideLabel />
       </div>
 
-      {/* 答题卡：未加载的序号是灰色虚线，点它先取题再跳转 */}
+
       {sheetTotal > 1 && (
         <div className="bp-card" style={{ padding: 12, marginBottom: 14 }}>
           <div

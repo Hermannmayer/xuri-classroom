@@ -5,10 +5,10 @@ import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/6/12
- */
+
+
+
+
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class ProjectPartnerQuery extends PageQuery {

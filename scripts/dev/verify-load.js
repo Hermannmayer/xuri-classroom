@@ -107,7 +107,7 @@ async function load(label, concurrency, task, duration) {
 (async () => {
   const adminCookie = await login(process.env.SK_USER || 'admin', process.env.SK_PASS || '123456');
 
-  // 造一个临时项目 + 一次提交，拿到 projectOutline / question 需要的参数
+
   const survey = {
     id: '',
     title: TAG,
@@ -160,7 +160,7 @@ async function load(label, concurrency, task, duration) {
   for (const [name, task] of tasks) {
     for (const level of LEVELS) {
       let r = await load(name, level, task, DURATION);
-      // 错误率超 20% 自动降并发重跑一次，避免把抖动当结论
+
       if (r.errorRate > 0.2 && level > 10) {
         console.log(`  ${name} @${level} 错误率 ${(r.errorRate * 100).toFixed(1)}%，降并发重测`);
         r = await load(name, 10, task, DURATION);
@@ -172,7 +172,7 @@ async function load(label, concurrency, task, duration) {
     }
   }
 
-  // 清理
+
   try {
     await call('/api/answer/destroy', { method: 'POST', cookie: adminCookie, body: { projectId, ids: [answerId] } });
   } catch { /* ignore */ }

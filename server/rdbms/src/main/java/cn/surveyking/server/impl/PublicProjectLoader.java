@@ -41,14 +41,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * 公开答卷页的读取：首屏 schema、题目大纲、单题下发、以及「打开问卷」时的访问校验。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 拆出的第六块，也是最大的一块。它只负责「读」，写入都委托给
- * {@link PublicAnswerSubmitter}；登录表单校验、问卷级校验、答卷归属分别交给
- * {@link LoginFormValidator}、{@link ProjectAnswerValidator}、{@link AnswerLookup}。
- */
+
+
+
+
+
+
+
+
 @Component
 @Transactional
 @RequiredArgsConstructor
@@ -56,12 +56,12 @@ public class PublicProjectLoader {
 
 	private final ProjectService projectService;
 
-	/** 预览模式判定「能不能看这个项目」用（含用户组授权链） */
+
 	private final cn.surveyking.server.service.ProjectPartnerService projectPartnerService;
 
 	private final ProjectViewMapper projectViewMapper;
 
-	/** 题库练习要直接读写答卷（getOne / save），只能用实现类 */
+
 	private final AnswerServiceImpl answerService;
 
 	private final RepoServiceImpl repoService;
@@ -84,7 +84,7 @@ public class PublicProjectLoader {
 
 	private final AnswerLookup answerLookup;
 
-	/** 白名单参与人：按白名单名取最近一份答卷时要用 */
+
 	private final ProjectPartnerMapper projectPartnerMapper;
 
 	private final MessageSource messageSource;
@@ -101,7 +101,7 @@ public class PublicProjectLoader {
 		}
 		PublicProjectView projectView = projectViewMapper.toPublicProjectView(project);
 		if (StringUtils.isNotBlank(query.getClassToken())) {
-			// 班级链接先校验 token，再把 classId 回给前端做提示；真正写答卷时服务端会再解析一次
+
 			projectView.setClassId(classResourceService.resolveShareToken(project.getId(), query.getClassToken()));
 		}
 		if (wechatAccessGuard.wechatAccessRequired(project)) {
@@ -112,7 +112,7 @@ public class PublicProjectLoader {
 			return projectView;
 		}
 		SurveySchema loginFormSchema = null;
-		// 题库练习，从题库加载题目
+
 		if (query.getRepoId() != null) {
 			RepoView repo = repoService.getRpo(query.getRepoId());
 			if (repo == null || !Boolean.TRUE.equals(repo.getIsPractice())) {
@@ -132,15 +132,15 @@ public class PublicProjectLoader {
 			if (answer != null) {
 				projectView.setAnswerId(answer.getId());
 				projectView.setAnswer(Optional.ofNullable(answer.getAnswer()).orElse(answer.getTempAnswer()));
-				// 用于前端判断题目是否已答，及是否正确或者失败
+
 				projectView.setExamInfo(answer.getExamInfo());
 				if (answer.getSurvey() != null) {
 					projectView.setSurvey(answer.getSurvey());
 				}
 			}
 			else {
-				// 创建一条答案数据
-				// 题库顺序练习
+
+
 				List<SurveySchema> questionList = new ArrayList<>();
 				if (query.getExamExerciseType() == ExamExerciseTypeEnum.O
 						|| query.getExamExerciseType() == ExamExerciseTypeEnum.R) {
@@ -182,38 +182,38 @@ public class PublicProjectLoader {
 			return projectView;
 		}
 		else if (query.getAnswerId() == null) {
-			// 表单需要验证
+
 			loginFormSchema = loginFormValidator.convertAndValidateLoginFormIfNeeded(project, null);
-			// 校验问卷；预览模式只验「能不能看」，跳过发布状态/时间窗口/班级分配
+
 			if (!isPreviewAllowed(query, project.getId())) {
 				projectAnswerValidator.validateProject(project);
 			}
 		}
 		else {
-			// 直接根据答案加载出 schema
+
 			AnswerView answerView = answerLookup.getAnswerForProject(project.getId(), query.getAnswerId());
 			if (answerView != null) {
 				projectView.setAnswerId(answerView.getId());
 				projectView.setMetaInfo(answerView.getMetaInfo());
 				projectView.setAnswer(answerView.getAnswer());
 				if (answerView.getSurvey() != null) {
-					// 随机问题
+
 					projectView.setSurvey(answerView.getSurvey());
 				}
 			}
 			return projectView;
 		}
 
-		// 如果需要登录，将问卷 schema 替换成登录表单的 schema
+
 		if (loginFormSchema != null) {
 			projectView.setSurvey(loginFormSchema);
 			projectView.setLoginRequired(true);
 		}
 		else {
-			// 随机问题
+
 			randomSurveyProcessor.processRandomSurvey(project, projectView);
-			// replaceSchemaIfRandomSchema(project, projectView);
-			// 允许修改答案
+
+
 			projectView.setAnswer(getLatestAnswer(projectView, null));
 		}
 		projectView.setIsAuthenticated(SecurityContextUtils.isAuthenticated());
@@ -253,7 +253,7 @@ public class PublicProjectLoader {
 	}
 
 	private PublicProjectView toOutlineView(PublicProjectView view) {
-		// 登录表单本身不是考试题目，保留它以支持原有用户名/白名单交互。
+
 		if (view == null || view.getSurvey() == null || Boolean.TRUE.equals(view.getLoginRequired())) {
 			return view;
 		}
@@ -301,8 +301,8 @@ public class PublicProjectLoader {
 			throw new AccessDeniedException("题目不属于当前问卷");
 		}
 		SurveySchema question = match.deepCopy();
-		// 练习模式（选完即判）：下发标准答案与解析给前端即时判题；分值仍然不下发。
-		// 其它模式一律剥离答案与解析，避免考前泄题。
+
+
 		boolean exerciseMode = view.getSetting() != null && view.getSetting().getExamSetting() != null
 				&& Boolean.TRUE.equals(view.getSetting().getExamSetting().getExerciseMode());
 		if (exerciseMode) {
@@ -311,7 +311,7 @@ public class PublicProjectLoader {
 		else {
 			SchemaHelper.ignoreAttributes(question, "examCorrectAnswer", "examScore", "examMatchRule", "examAnalysis");
 		}
-		// 闯关模式：把「本题限时秒数」下发，前端据此倒计时；超时判分在交卷时由服务端裁决
+
 		if (view.getSetting() != null && view.getSetting().getExamSetting() != null
 				&& Boolean.TRUE.equals(view.getSetting().getExamSetting().getPassMode())) {
 			question.setTimeLimitSeconds(view.getSetting().getExamSetting().getPassModePerSeconds());
@@ -346,12 +346,12 @@ public class PublicProjectLoader {
 		String projectId = query.getId();
 		ProjectView project = projectService.getProject(projectId);
 		wechatAccessGuard.requireWechatAccess(project);
-		// 登录验证
+
 		loginFormValidator.convertAndValidateLoginFormIfNeeded(project, query.getAnswer());
 		PublicProjectView projectView = projectViewMapper.toPublicProjectView(project);
-		// 随机问题
+
 		randomSurveyProcessor.processRandomSurvey(project, projectView);
-		// 校验问卷；预览模式（设计器「预览答题页」）只验「能不能看」，跳过发布状态等「能不能答」的限制
+
 		if (!isPreviewAllowed(query, projectId)) {
 			projectAnswerValidator.validateProject(project);
 		}
@@ -366,7 +366,7 @@ public class PublicProjectLoader {
 	 * @return
 	 */
 	private LinkedHashMap<String, Object> getLatestAnswer(PublicProjectView projectView, String whitelistName) {
-		// 打开了答案允许修改开关
+
 		ProjectSetting projectSetting = projectView.getSetting();
 		if (projectSetting == null || projectSetting.getSubmittedSetting() == null
 				|| !Boolean.TRUE.equals(projectSetting.getSubmittedSetting().getEnableUpdate())) {
@@ -383,13 +383,13 @@ public class PublicProjectLoader {
 				answerQuery.setCreateBy(partner.getId());
 			}
 		}
-		// 通过白名单或者答卷人来获取最近一次的答卷记录
+
 		if (SecurityContextUtils.isAuthenticated() || answerQuery.getCreateBy() != null) {
 			AnswerView latest = answerService.getAnswer(answerQuery);
 			if (latest == null) {
 				return null;
 			}
-			// 把这份答卷的 id / metaInfo 一并带给前端：刷新后恢复切屏计数，也能精确指向这份成绩
+
 			projectView.setAnswerId(latest.getId());
 			projectView.setMetaInfo(latest.getMetaInfo());
 			return latest.getAnswer();

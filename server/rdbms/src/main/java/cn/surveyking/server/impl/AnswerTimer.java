@@ -10,19 +10,19 @@ import cn.surveyking.server.domain.dto.ProjectSetting;
 
 import java.util.Objects;
 
-/**
- * 答卷计时：本轮作答开始时间、时间戳落库、考试模式的客户端快照剔除。
- *
- * <p>
- * 从 {@code AnswerServiceImpl} 切出的纯计算块（139 行、无任何 Service 依赖），
- * 搬走后 {@code beforeSaveAnswer} 的职责只剩「取项目、校验、算分、绑附件」。
- */
+
+
+
+
+
+
+
 public final class AnswerTimer {
 
-	/** 客户端时钟允许的偏差上限 */
+
 	private static final long CLOCK_SKEW_MS = 60 * 1000L;
 
-	/** 单轮作答允许跨越的最大时长（超过视为异常，回退到服务端时间） */
+
 	private static final long MAX_ATTEMPT_SPAN_MS = 24 * 60 * 60 * 1000L;
 
 	private AnswerTimer() {
@@ -48,7 +48,7 @@ public final class AnswerTimer {
 		if (!ProjectModeEnum.exam.equals(project.getMode())) {
 			return;
 		}
-		// 题库练习的答卷快照要用来算「做了几题」，不能丢（且练习不判分）
+
 		if (ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
 			return;
 		}
@@ -79,8 +79,8 @@ public final class AnswerTimer {
 		if (clientStart != null) {
 			return new AttemptStart(clientStart, "client", false);
 		}
-		// 既没有库里的答卷、客户端也没给开始时间：服务端无法证明考生是什么时候开始的。
-		// 用「现在」当起点——最长交卷不会因此误判，最短交卷在这种情况只能记录不能拦截（见 assertWithinTimeLimit）。
+
+
 		return new AttemptStart(now, "estimated", true);
 	}
 
@@ -101,7 +101,7 @@ public final class AnswerTimer {
 	 * <li>不能早于 24 小时；</li>
 	 * <li>项目设置了考试开始时间时，不能早于开考时间。</li>
 	 * </ul>
-	 * 注意：客户端仍可以「谎称更早开始」来让最短交卷提前满足，这是没有服务端计时器时的固有上限；
+
 	 * 谎称越早，最长交卷越容易被自己触发，属于自伤方向。
 	 */
 	public static Long clientStartedAt(Answer answer, ProjectView project, long now) {
@@ -155,7 +155,7 @@ public final class AnswerTimer {
 	}
 
 
-	/** 本轮作答的开始时间：at=服务端认定的起点，estimated=是否为「拿不到开始时间」时的估算值 */
+
 	public static final class AttemptStart {
 
 		public final long at;

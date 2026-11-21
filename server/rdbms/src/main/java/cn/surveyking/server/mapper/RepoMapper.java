@@ -7,9 +7,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 import java.util.List;
 
-/**
- * @Entity cn.surveyking.server.domain.model.Repo
- */
+
+
+
 public interface RepoMapper extends BaseMapper<Repo> {
 
 	/**

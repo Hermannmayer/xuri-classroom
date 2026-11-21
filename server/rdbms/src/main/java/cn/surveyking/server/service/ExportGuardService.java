@@ -10,36 +10,36 @@ import org.springframework.util.StringUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * 导出管控：密码校验 + 审计记录。
- *
- * <p>用户明确选择用「导出密码 + 审计日志」替代数据库字段加密：
- * 加密对「能读服务器文件」的人无效，而导出才是题目外流的主要路径。
- *
- * <p>密码存在系统设置 {@code setting.exportPassword}，为空表示不启用；
- * 无论是否启用密码，具备导出权限的人导出成功都会留下一条审计记录。
- */
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExportGuardService {
 
-	/** 动作常量 */
+
 	public static final String EXPORT_REPO = "EXPORT_REPO";
 
 	public static final String EXPORT_ANSWER = "EXPORT_ANSWER";
 
 	public static final String IMPORT_REPO = "IMPORT_REPO";
 
-	/**
-	 * 审计统一走 {@link AuditRecorder}：导出这条链路和 AOP 那条链路必须用同一套口径，
-	 * 否则「操作日志」里同一动作会出现一半有 source/操作人、一半没有的情况。
-	 */
+
+
+
+
 	private final AuditRecorder auditRecorder;
 
 	private final cn.surveyking.server.mapper.SysInfoMapper sysInfoMapper;
 
-	/** 一次性导出令牌：token -> 令牌信息（60 秒有效、用一次即失效、绑定用户） */
+
 	private static final java.util.concurrent.ConcurrentHashMap<String, ExportToken> TOKENS = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private static final long TOKEN_TTL_MS = 60_000L;
@@ -47,7 +47,7 @@ public class ExportGuardService {
 	/**
 	 * 校验导出密码。设置里没配密码时直接放行（仍受权限注解约束）。
 	 *
-	 * <p>注意：这里必须直接读 SysInfo 原始记录，不能走 {@code systemService.getSystemInfo()}——
+
 	 * 后者为了安全会把密码置空（公开接口不回显），走它会导致密码校验永远通过。
 	 */
 	public void assertExportAllowed(String provided) {
@@ -76,7 +76,7 @@ public class ExportGuardService {
 		assertExportAllowed(password);
 		String token = java.util.UUID.randomUUID().toString().replace("-", "");
 		TOKENS.put(token, new ExportToken(currentUser(), System.currentTimeMillis() + TOKEN_TTL_MS));
-		// 顺手清掉过期令牌，避免内存里越积越多
+
 		TOKENS.entrySet().removeIf(e -> e.getValue().expiresAt < System.currentTimeMillis());
 		java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
 		result.put("exportToken", token);

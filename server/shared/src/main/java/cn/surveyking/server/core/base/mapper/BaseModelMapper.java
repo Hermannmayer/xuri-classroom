@@ -9,15 +9,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Model对象到Domain类型对象的相互转换。实现类通常声明在Model实体类中。
- *
- * @param <R> Request请求实体对象，通常用于新增和修改。
- * @param <V> View视图对象。
- * @param <M> Model数据库实体对象类型。
- * @author Jerry
- * @date 2021-06-06
- */
+
+
+
+
+
+
+
+
+
 public interface BaseModelMapper<R, V, M> {
 
 	/**

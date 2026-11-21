@@ -5,41 +5,41 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-/**
- * 组织机构（t_dept 一棵树，靠 dept_type 分成两类节点）。
- *
- * <p>{@link #TYPE_ORG} 用户组：教职工的组织单位，可以绑定角色、放 staff；
- * {@link #TYPE_CLASS} 班级：学员的教学单位，不绑角色、只放 student。
- *
- * @author javahuang
- * @date 2021/11/2
- */
+
+
+
+
+
+
+
+
+
 @Data
 @TableName(value = "t_dept", autoResultMap = true)
 @EqualsAndHashCode(callSuper = false)
 public class Dept extends BaseModel {
 
-	/** 用户组：教职工的组织单位，可绑定角色，可放 staff */
+
 	public static final String TYPE_ORG = "org";
 
-	/** 班级：学员的教学单位，不绑角色，只放 student */
+
 	public static final String TYPE_CLASS = "class";
 
-	/** 容器班：只做层级/可见范围，不收学员、不开放注册、不分配资源 */
+
 	public static final String CLASS_KIND_GROUP = "group";
 
-	/** 教学班：真实班级，可收学员、开放注册、分配考试/题库 */
+
 	public static final String CLASS_KIND_TEACHING = "teaching";
 
 	private String parentId;
 
-	/** org=用户组(教职工) class=班级(学员)；历史数据为空时按 org 处理 */
+
 	private String deptType;
 
-	/** 是否开放学员自助注册（只对 teaching 班有意义；1=开放，0/空=不开放） */
+
 	private Boolean allowRegister;
 
-	/** class 节点类型：group=容器班 / teaching=教学班；历史数据按 group 处理 */
+
 	private String classKind;
 
 	private String name;
@@ -48,27 +48,27 @@ public class Dept extends BaseModel {
 
 	private String code;
 
-	/** 负责人id */
+
 	private String managerId;
 
 	private Integer sortCode;
 
-	/** 拓展属性 */
+
 	private String propertyJson;
 
 	private String status;
 
 	private String remark;
 
-	/**
-	 * 有效期开始（含）。为空表示不限制开始时间。
-	 * 组员只有在 [validFrom, validTo] 内才允许登录并作答/看课。
-	 */
+
+
+
+
 	private java.util.Date validFrom;
 
-	/**
-	 * 有效期结束（含）。为空表示**永久有效**。
-	 */
+
+
+
 	private java.util.Date validTo;
 
 }

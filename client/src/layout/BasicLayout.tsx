@@ -72,7 +72,7 @@ export default function BasicLayout() {
         if (u?.uiZoom != null && Number.isFinite(Number(u.uiZoom))) {
           setZoom(snapZoom(Number(u.uiZoom)));
         }
-        // 主题也跟着账号：账号里存过就用账号的，否则用本机上次的
+
         if (u?.uiTheme === 'light' || u?.uiTheme === 'dark') {
           setMode(u.uiTheme);
         }
@@ -82,10 +82,10 @@ export default function BasicLayout() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  /**
-   * AI 总开关是全站配置：管理员在「系统设置 → AI」刚打开时，已经打开的页面不该还要强刷才看到悬浮按钮。
-   * 这里在窗口重新获得焦点时、以及每 2 分钟轻量重查一次，只同步 aiEnabled 一个字段。
-   */
+
+
+
+
   useEffect(() => {
     const syncAiFlag = () => {
       void get<{ aiEnabled?: boolean }>('/api/system', { _: Date.now() })
@@ -110,21 +110,21 @@ export default function BasicLayout() {
     const authorities = user?.authorityList ?? [];
     const isAdmin = authorities.includes('ROLE_admin');
     // 用和路由守卫完全一致的 can() 判定（精确权限或显式 domain:*），
-    // 不再用 startsWith 前缀——否则有 system:log:list 的人会看到「用户管理」，
+
     // 点进去被 router 的精确守卫拦成 403。
     const allow = (perm: string) => can(authorities, perm);
 
     const menu: NonNullable<MenuProps['items']> = [{ key: '/home', icon: <HomeOutlined />, label: t('menu.home', '首页') }];
 
-    // 三个视角分开：
-    // - 老师/管理员：教学（考试/问卷 + 班级，已经合并成一页两个 Tab）；不做题，所以没有「我的任务」
-    // - 学员：只有「我的任务」（考试安排 / 练习记录 / 我的成绩）
-    // 入口按「能上课（project:list）」或「能带班（class:list）」任一命中，与 router.tsx 的守卫一致；
-    // 只带班不带课的班主任也有入口，合并之后他不会反而进不去。
+
+
+
+
+
     const canTeach = allow(PERMISSION_CODES.projectList) || allow(PERMISSION_CODES.classList);
     if (canTeach) {
-      // 教学拆成两个子项（原来是一页两个 Tab，入口藏在页面里，左侧看不出来）：
-      // 有 project:list 才给「试卷」，有 class:list 才给「班级」；只带班不带课的班主任只看到「班级」。
+
+
       const teachingChildren: NonNullable<MenuProps['items']> = [];
       if (allow(PERMISSION_CODES.projectList)) {
         teachingChildren.push({ key: '/teaching/exam', label: '试卷' });
@@ -134,19 +134,19 @@ export default function BasicLayout() {
       }
       menu.push({ key: '/teaching', icon: <ProjectOutlined />, label: '教学', children: teachingChildren });
     }
-    // 问卷是独立的一级入口：它和考试共用同一张项目表，但用途不同（只收反馈、不批改算分）
+
     if (allow(PERMISSION_CODES.projectList)) {
       menu.push({ key: '/survey/list', icon: <FileTextOutlined />, label: '问卷' });
     }
-    // 管理/教学视角优先：账号同时拥有 portal:student（管理员默认全有）时，
-    // 不再显示「我的任务」——管理员和老师不做题。
+
+
     if (!canTeach && !isAdmin && allow(PERMISSION_CODES.portalStudent)) {
       menu.push({ key: '/tasks', icon: <ProjectOutlined />, label: '我的任务' });
     }
 
-    // 「题库中心」是一个可直接点的入口（点进去就是题库列表），不再往下挂「题库列表」子项：
-    // 父子结构对只有一个子项的菜单只是多一次点击。练习册是学员能力（repo:book），
-    // 管理员不自动拥有，所以它单独成项，谁有权限谁看到。
+
+
+
     if (allow(PERMISSION_CODES.repoList)) {
       menu.push({ key: '/repo/index', icon: <DatabaseOutlined />, label: t('menu.repo', '题库中心') });
     }
@@ -154,8 +154,8 @@ export default function BasicLayout() {
       menu.push({ key: '/repo/book', icon: <ReadOutlined />, label: t('menu.repo.book', '练习册') });
     }
 
-    // 系统管理：4 项（用户与权限 / 系统设置 / 公告管理 / 操作日志）。
-    // 原来 5 项：用户、用户组、系统设置、权限配置、日志——前三个合并成「用户与权限」一页三 Tab。
+
+
     const systemChildren: NonNullable<MenuProps['items']> = [];
     if (
       allow(PERMISSION_CODES.systemUserList) ||
@@ -167,7 +167,7 @@ export default function BasicLayout() {
     if (allow(PERMISSION_CODES.systemRoleList)) {
       systemChildren.push({ key: '/system/setting', label: t('menu.system.setting', '系统设置') });
     }
-    // 公告管理：管理员发全站（notice:manage:system），老师发自己带的班（notice:manage:class）
+
     if (allow(PERMISSION_CODES.noticeManageSystem) || allow(PERMISSION_CODES.noticeManageClass)) {
       systemChildren.push({ key: '/system/notice', label: '公告管理' });
     }
@@ -176,9 +176,9 @@ export default function BasicLayout() {
       menu.push({ key: '/system', icon: <SettingOutlined />, label: t('menu.system', '系统管理'), children: systemChildren });
     }
 
-    // 注意：这里**不再**给「没有角色的用户」强塞「我的练习」。
-    // 之前那段兜底会和 router.tsx 的 exercise:list 守卫打架：菜单能点、进去 403。
-    // 真正的兜底是：给用户配一个角色（学员预设），而不是在界面上假装他有权限。
+
+
+
     return menu;
   }, [user]);
 
@@ -191,10 +191,10 @@ export default function BasicLayout() {
   }
 
   const siderWidth = 208;
-  // AI 悬浮入口的显示条件（两条都要）：
-  // 1. 账号有 ai:use（admin / teacher 默认有，学员没有——学员侧的 AI 只有答题解析）；
-  // 2. 系统设置里 AI 总开关是开着的（/api/system 的 aiEnabled）——停用后按钮直接不出现，
-  //    而不是出现一个点开就说「未启用」的按钮。
+
+
+
+
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse) && system?.aiEnabled !== false;
 
   return (
@@ -269,11 +269,11 @@ export default function BasicLayout() {
         </Sider>
       )}
 
-      {/*
-        AI 助手（右下角悬浮对话框）：挂在布局里而不是每页各写一份，所以换页时对话历史不丢、
-        上下文自动跟着路由变。provider 放在这一层，是因为它是「全站唯一一份状态」的宿主
-        （见 components/AiAssistant/AiAssistantContext.tsx）。
-      */}
+
+
+
+
+
       {canUseAi && (
         <AiAssistantProvider>
           <AiAssistantFloat isMobile={isMobile} />
@@ -332,7 +332,7 @@ export default function BasicLayout() {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
-            {/* 公告铃铛：未读数走 60 秒轮询 + window focus 立即刷新（实施计划 4.6） */}
+
             <NoticeBell authorities={authorities} />
             <ZoomControl value={zoom} onChange={changeZoom} hideLabel={isMobile} />
             <Button
@@ -353,7 +353,7 @@ export default function BasicLayout() {
                 onClick: async ({ key }) => {
                   if (key === 'logout') {
                     await logout().catch(() => undefined);
-                    // 清掉权限缓存并广播给其它标签页，避免下一位登录者继承当前账号的菜单/按钮
+
                     notifyAuthChanged();
                     navigate('/user/login', { replace: true });
                   } else {
@@ -382,11 +382,11 @@ export default function BasicLayout() {
               : { margin: 16, paddingBottom: 8 }
           }
         >
-          {/**
-           * 这里原来挂着 UpdateBanner（「发现新版本」横幅），按实施计划 4.1 / 4.7 撤掉：
-           * 更新检查发现新版本后由后端写成一条 type=system_update 的公告，
-           * 管理员在公告中心里查看与归档，不再单独渲染一条独立提示。
-           */}
+
+
+
+
+
           <Outlet context={{ user, system }} />
         </Content>
       </Layout>

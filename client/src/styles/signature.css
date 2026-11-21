@@ -17,7 +17,7 @@
   overflow: hidden;
 }
 
-/* 只读（设计器 / 预览 / 禁用）：底色调灰，让人一眼看出这里不能写 */
+
 .sk-sign-pad.locked {
   background: #fbfaf7;
 }
@@ -26,7 +26,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  /* 关键：移动端手写时不要触发页面滚动/缩放，否则笔画被浏览器抢走 */
+
   touch-action: none;
   cursor: crosshair;
 }
@@ -35,7 +35,7 @@
   cursor: default;
 }
 
-/* 空画布时的占位提示，不拦指针事件 */
+
 .sk-sign-hint {
   position: absolute;
   inset: 0;
@@ -79,7 +79,7 @@
   border: 1px solid #c9c2b4;
 }
 
-/* 原图取不到（签名文件非公开）时的兜底：不留破图图标 */
+
 .sk-sign-broken {
   padding: 10px 12px;
   font-size: 12px;

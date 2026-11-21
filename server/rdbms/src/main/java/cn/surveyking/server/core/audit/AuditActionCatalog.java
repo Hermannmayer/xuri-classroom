@@ -7,21 +7,21 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * 操作日志「动作码 → 中文名」字典。
- *
- * <p>动作码由 {@link AuditRecorder#actionOf(String)} 从 URI 生成（如
- * {@code /api/system/dept/delete → SYSTEM_DEPT_DELETE}），少量是代码里手写的固定码
- * （{@code AUTH_LOGIN}、{@code EXPORT_REPO}…）。这里只负责展示，不参与权限判定：
- *
- * <ul>
- * <li>常用动作走 {@link #EXACT}，保证中文准确、可读；</li>
- * <li>新接口没来得及收录时按 {@code _} 拆 token 翻译，至少要能看出「哪个域 + 哪个动作」；</li>
- * <li>完全翻译不了就回退原始动作码，绝不返回空白。</li>
- * </ul>
- *
- * @author backend-ops
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class AuditActionCatalog {
 
 	private static final Map<String, String> EXACT = buildExact();
@@ -63,18 +63,18 @@ public final class AuditActionCatalog {
 
 	private static Map<String, String> buildExact() {
 		Map<String, String> map = new LinkedHashMap<>();
-		// 登录（不走切面，UserApi 手写记录）
+
 		map.put("AUTH_LOGIN", "登录成功");
 		map.put("AUTH_LOGIN_FAILED", "登录失败");
-		// 系统设置
+
 		map.put("SYSTEM_UPDATE", "修改系统设置");
 		map.put("SYSTEM_OAUTHSETTING", "修改第三方登录设置");
 		map.put("SYSTEM_PROTECTION", "修改内容保护设置");
-		// 角色
+
 		map.put("SYSTEM_ROLE_CREATE", "新增角色");
 		map.put("SYSTEM_ROLE_UPDATE", "修改角色");
 		map.put("SYSTEM_ROLE_DELETE", "删除角色");
-		// 用户
+
 		map.put("SYSTEM_USER_CREATE", "新增用户");
 		map.put("SYSTEM_USER_UPDATE", "修改用户");
 		map.put("SYSTEM_USER_UPDATEPOSITION", "修改用户岗位");
@@ -83,7 +83,7 @@ public final class AuditActionCatalog {
 		map.put("USER", "修改个人资料");
 		map.put("USER_UI_ZOOM", "修改界面缩放");
 		map.put("USER_UI_THEME", "切换主题");
-		// 用户组 / 班级
+
 		map.put("SYSTEM_DEPT_CREATE", "新增用户组");
 		map.put("SYSTEM_DEPT_UPDATE", "修改用户组");
 		map.put("SYSTEM_DEPT_DELETE", "删除用户组");
@@ -95,7 +95,7 @@ public final class AuditActionCatalog {
 		map.put("TEACHING_CLASSES_MEMBER_UPDATE", "修改班级学员");
 		map.put("TEACHING_CLASSES_MEMBER_DELETE", "删除班级学员");
 		map.put("TEACHING_CLASSES_MEMBER_IMPORT", "导入班级学员");
-		// 岗位 / 字典
+
 		map.put("SYSTEM_POSITION_CREATE", "新增岗位");
 		map.put("SYSTEM_POSITION_UPDATE", "修改岗位");
 		map.put("SYSTEM_POSITION_DELETE", "删除岗位");
@@ -106,13 +106,13 @@ public final class AuditActionCatalog {
 		map.put("SYSTEM_DICTITEM_UPDATE", "修改字典项");
 		map.put("SYSTEM_DICTITEM_DELETE", "删除字典项");
 		map.put("SYSTEM_DICTITEM_IMPORT", "导入字典项");
-		// 文件 / 模板
+
 		map.put("FILE_CREATE", "上传文件");
 		map.put("FILE_DELETE", "删除文件");
 		map.put("TEMPLATE_CREATE", "新增题目模板");
 		map.put("TEMPLATE_UPDATE", "修改题目模板");
 		map.put("TEMPLATE_DELETE", "删除题目模板");
-		// 题库
+
 		map.put("REPO_CREATE", "新增题库");
 		map.put("REPO_UPDATE", "修改题库");
 		map.put("REPO_DELETE", "删除题库");
@@ -129,7 +129,7 @@ public final class AuditActionCatalog {
 		map.put("EXPORT_REPO", "导出题库");
 		map.put("IMPORT_REPO", "导入题库");
 		map.put("IMPORT_PROJECT", "导入试卷");
-		// 考试
+
 		map.put("PROJECT_CREATE", "新增考试");
 		map.put("PROJECT_UPDATE", "修改考试");
 		map.put("PROJECT_STATUS", "发布 / 停止考试");
@@ -147,15 +147,15 @@ public final class AuditActionCatalog {
 		map.put("PROJECT_SELECTTEMPLATE", "查询模板候选");
 		map.put("PROJECT_SELECTREPO", "查询题库候选");
 		map.put("PROJECT_SELECTTAG", "查询标签候选");
-		// 答卷 / 练习 / 报表
+
 		map.put("ANSWER_CREATE", "新增答卷");
 		map.put("ANSWER_UPDATE", "修改答卷");
 		map.put("ANSWER_DELETE", "删除答卷");
 		map.put("ANSWER_DESTROY", "彻底删除答卷");
 		map.put("ANSWER_RESTORE", "恢复答卷");
 		map.put("ANSWER_UPLOAD", "上传答卷附件");
-		// 人工批改：URI 生成的动作码是 ANSWER_GRADE / ANSWER_GRADE_RESET；
-		// 不收录会落到 token 兜底，显示成「答卷GRADE」这种半中半英
+
+
 		map.put("ANSWER_GRADE", "批改答卷");
 		map.put("ANSWER_GRADE_RESET", "撤销批改");
 		map.put("ANSWER_GRADE_LIST", "查看待批改答卷");

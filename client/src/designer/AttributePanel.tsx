@@ -7,13 +7,13 @@ import OptionEditor from './OptionEditor';
 
 export interface AttributePanelProps {
   schema: SurveySchema;
-  /** 只回传被改动的字段，由调用方合并进 schema.attribute */
+
   onChange: (patch: Partial<Attribute>) => void;
-  /** 规则条件可选的题目（通常传当前题之前的题） */
+
   questions?: FlatQuestion[];
-  /** 改非 attribute 的节点字段（选项等），由设计器传入 patchNode */
+
   onPatchNode?: (patch: Partial<SurveySchema>) => void;
-  /** 是否显示分值/正确答案/解析；问卷默认关闭 */
+
   scoring?: boolean;
 }
 
@@ -295,7 +295,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode, scori
 
 const MATRIX_TYPES = new Set(['MatrixRadio', 'MatrixCheckbox', 'MatrixFillBlank', 'MatrixScore', 'MatrixNps']);
 
-/** 矩阵题：行/列标题必须能编辑，否则导入/新建矩阵题只能显示默认的“矩阵行1/选项一”。 */
+
 function MatrixEditor({
   schema,
   onPatch,

@@ -3,9 +3,9 @@ package cn.surveyking.server.service;
 import java.util.Collection;
 import java.util.Set;
 
-/**
- * 富文本图片与项目/题库的引用关系。
- */
+
+
+
 public interface FileRefService {
 
 	/** 绑定一次引用（幂等）。ownerType 只接受 project / repo。 */

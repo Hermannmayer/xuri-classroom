@@ -31,16 +31,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-/**
- * 答卷 PDF 导出「范围」的回归：不选班级时不能再按 class_id 过滤。
- *
- * <p>修的是这样一个坑：{@code baseWrapper} 原来无条件 {@code .eq(Answer::getClassId, spec.getClassId())}，
- * 不选班级时就是 {@code class_id = null}，SQL 里恒假 —— 整卷导出、勾选 ids 导出都会一个任务都跑不出来
- * （表现是任务 failed：「还没有可导出的答卷」）。所以这里直接盯生成的 SQL：
- * 有 classId 才有 {@code class_id}，没有就一条都不加。
- *
- * <p>纯 Mockito，不启动 Spring、不连库。
- */
+
+
+
+
+
+
+
+
+
+
 class AnswerPdfJobServiceImplScopeTest {
 
 	private final AnswerPdfJobServiceImpl service = new AnswerPdfJobServiceImpl(mock(AnswerMapper.class),
@@ -85,7 +85,7 @@ class AnswerPdfJobServiceImplScopeTest {
 				.toLowerCase(Locale.ROOT);
 		assertTrue(with.contains("id in "), with);
 
-		// 空数组与不传等价：前端「一份都没勾」把 [] 传上来时不能变成「一份都不要」
+
 		String empty = baseWrapper(spec -> spec.projectId("p1").ids(List.of())).getSqlSegment().toLowerCase(Locale.ROOT);
 		assertFalse(empty.contains("id in "), empty);
 	}
@@ -110,7 +110,7 @@ class AnswerPdfJobServiceImplScopeTest {
 		assertTrue(sql.contains("temp_save = "), sql);
 	}
 
-	// ------ 辅助
+
 
 	/**
 	 * {@code baseWrapper} 是私有的（对外只暴露 createJob，任务建完就丢进线程池，没法从外面观察范围）。

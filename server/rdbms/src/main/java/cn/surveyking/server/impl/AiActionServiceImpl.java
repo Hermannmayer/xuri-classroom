@@ -33,21 +33,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 把老师的一句话翻译成系统动作。
- *
- * <p>设计取舍：
- * <ul>
- * <li><b>先识别、再执行、最后才聊天</b>：模型在这里只做「分类 + 抽参数」，不做业务判断；
- * 每个动作的权限、数据范围、可写条件全在具体服务里判（例如批量批改的闸门在
- * {@code AiGradeBatchServiceImpl}）；</li>
- * <li><b>识别失败不能挡聊天</b>：模型不返回合法 JSON 时直接放弃，回退成普通问答；</li>
- * <li><b>不花冤枉钱</b>：没有上下文、也不像指令的消息（{@link #ACTION_HINTS} 全不命中）直接跳过识别；</li>
- * <li><b>写操作只有一条</b>：批改。其余动作只打开对应工具，真正写库仍由老师在界面上确认。</li>
- * </ul>
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -55,14 +55,14 @@ public class AiActionServiceImpl implements AiActionService {
 
 	private static final String PROMPT_INTENT = "assistant-intent";
 
-	/** 允许从模型 args 里透传的参数（只放 id、数字、枚举与用户原话要点） */
+
 	private static final List<String> ARG_WHITELIST = List.of("maxAnswers", "questionCount", "difficulties", "chapters",
 			"repoIds", "points", "audience", "classIds");
 
-	/**
-	 * 便宜的门槛：消息里出现这些字才值得花一次模型调用去做意图识别。
-	 * 宁可漏判（退化成普通聊天，用户再点一下工具入口），也不要为每句闲聊多烧一次调用。
-	 */
+
+
+
+
 	private static final List<String> ACTION_HINTS = List.of("批", "出题", "组卷", "抽题", "体检", "检查", "质检", "通知",
 			"公告", "额度", "还剩", "配额", "整理", "推荐", "重练", "错题", "统计", "进度", "没交", "没批", "改题", "改写",
 			"考得", "分析");
@@ -94,7 +94,7 @@ public class AiActionServiceImpl implements AiActionService {
 			root = support.json().readTree(support.call(AiUsageService.SCENE_CHAT_INTENT, userId, request, true).getText());
 		}
 		catch (Exception e) {
-			// 识别失败不该挡住聊天：这里只记日志，交给上层走普通问答
+
 			log.warn("AI 意图识别失败，按普通问答处理：{}", e.getMessage());
 			return null;
 		}
@@ -116,7 +116,7 @@ public class AiActionServiceImpl implements AiActionService {
 			};
 		}
 		catch (RuntimeException e) {
-			// 动作执行不了（没权限、没有待批答卷…）也要给用户一句人话，而不是静默变回聊天
+
 			log.info("AI 动作未执行: action={}, reason={}", action, e.getMessage());
 			return info("动作没执行", e.getMessage() == null ? "这个操作现在做不了。" : e.getMessage());
 		}
@@ -139,7 +139,7 @@ public class AiActionServiceImpl implements AiActionService {
 		if (args != null && args.path("maxAnswers").isNumber()) {
 			request.setMaxAnswers(Integer.valueOf(Math.max(1, args.path("maxAnswers").asInt(30))));
 		}
-		// 先数一下会批多少：这段数字是老师判断「要不要现在批」的唯一依据
+
 		long pending = countAnswers(projectId, classId, "pending");
 		if (pending <= 0) {
 			return info("没有待批改的答卷", "这份试卷的主观题都已经批完了，没有需要 AI 补分的答卷。");
@@ -273,7 +273,7 @@ public class AiActionServiceImpl implements AiActionService {
 		return info("AI 额度", text.toString());
 	}
 
-	/* ====== 上下文 / 工装 ====== */
+
 
 	/**
 	 * 值不值得做一次意图识别：消息里出现动作关键词，或者这是本轮第一句且页面有可操作对象。
@@ -391,7 +391,7 @@ public class AiActionServiceImpl implements AiActionService {
 
 	private long countAnswers(String projectId, String classId, String gradeStatus) {
 		try {
-			// 先过项目只读闸门：统计数字也是信息，不能让「拿别人的 projectId 问一句」拿到
+
 			support.assertProjectReadable(projectId);
 			AnswerQuery query = new AnswerQuery();
 			query.setProjectId(projectId);

@@ -16,18 +16,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
-/**
- * 交卷前的服务端处理：计时裁决、附件绑定、考试判分、联动题更新。
- *
- * <p>
- * 从 {@code AnswerServiceImpl#beforeSaveAnswer} 切出。库里已有的答卷（previousAnswer）
- * 由调用方先查好传进来，避免组件反过来依赖 {@code AnswerService} 造成构造器循环。
- */
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class AnswerScoringService {
 
-	/** 交卷宽限：到点后留 60 秒给网络延迟与自动交卷，避免边界误杀 */
+
 	private static final long SUBMIT_GRACE_MS = 60 * 1000L;
 
 	private final ProjectService projectService;
@@ -36,10 +36,10 @@ public class AnswerScoringService {
 
 	private final LinkSurveyUpdater linkSurveyUpdater;
 
-	/**
-	 * 交卷后重置人工批改状态（卷内含 manual 题 → pending，重新提交作废旧人工分）。
-	 * <p>只依赖 AnswerGradeService，而它的实现只依赖 Mapper，不会和 {@code AnswerServiceImpl} 形成循环。
-	 */
+
+
+
+
 	private final AnswerGradeService answerGradeService;
 
 	/**
@@ -50,7 +50,7 @@ public class AnswerScoringService {
 	 */
 	public Answer beforeSaveAnswer(Answer answer, Answer previousAnswer) {
 		ProjectView project = projectService.getProject(answer.getProjectId());
-		// 考试模式下客户端递交的 schema 一律不落库（可伪造 examCorrectAnswer 刷分）
+
 		AnswerTimer.dropClientSnapshotForExam(answer, project);
 		AnswerTimer.AttemptStart attemptStart = AnswerTimer.resolveAttemptStart(answer, project, previousAnswer);
 		assertWithinTimeLimit(answer, project, attemptStart);
@@ -63,7 +63,7 @@ public class AnswerScoringService {
 		sanitizeRichTextAnswers(answerSurvey, answer.getAnswer());
 		sanitizeRichTextAnswers(answerSurvey, answer.getTempAnswer());
 		computeExamScore(answer, project, previousAnswer);
-		// 人工批改：卷内有 examAnswerMode=manual 的题就进入待批改；学员重新提交会把旧的人工分整卷作废
+
 		answerGradeService.onSubmitted(answer, trustedScoreSchema(project, previousAnswer));
 		linkSurveyUpdater.updateLinkSurveyAnswer(answer, project);
 		return answer;
@@ -104,7 +104,7 @@ public class AnswerScoringService {
 		if (maxMinutes != null && maxMinutes > 0 && now > attemptStart.at + maxMinutes * 60_000L + SUBMIT_GRACE_MS) {
 			throw new AccessDeniedException("本次考试已超过最长答题时间（" + maxMinutes + " 分钟），无法再提交");
 		}
-		// 最短交卷：只对「正式提交」生效，暂存草稿不受限；时间到点自动交卷也不该被挡，所以只判 tempSave=1
+
 		boolean finalSubmit = Integer.valueOf(1).equals(answer.getTempSave());
 		if (finalSubmit && minMinutes != null && minMinutes > 0 && !attemptStart.estimated) {
 			long earliest = attemptStart.at + minMinutes * 60_000L;
@@ -121,7 +121,7 @@ public class AnswerScoringService {
 	 *
 	 * <p>
 	 * 判分用的 schema **只能来自服务端**：库里已存的快照（随机卷由 loadProject 时的服务端逻辑写入） → 项目
-	 * schema。绝不使用请求体/请求映射出来的 {@code answer.getSurvey()}，否则客户端伪造 {@code examCorrectAnswer}
+
 	 * 就能刷满分。
 	 *
 	 * <p>
@@ -150,7 +150,7 @@ public class AnswerScoringService {
 	}
 
 	/**
-	 * 判分 schema 的唯一出口：服务端快照优先（随机卷），否则项目 schema。
+
 	 * @param project 服务端项目视图
 	 * @param previousAnswer 库里已存的答卷（可能带随机卷快照），可空
 	 */

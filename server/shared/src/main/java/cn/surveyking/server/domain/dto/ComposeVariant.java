@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 一套卷子 */
+
 @Data
 public class ComposeVariant {
 
@@ -22,7 +22,7 @@ public class ComposeVariant {
 
 	private Map<String, Integer> byDifficulty = new LinkedHashMap<>();
 
-	/** 与上一套重复的题数 */
+
 	private int repeated;
 
 	private List<String> templateIds;

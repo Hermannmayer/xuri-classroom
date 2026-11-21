@@ -24,7 +24,7 @@ Write-Output ('  head: ' + $txt.Substring(0, [Math]::Min(180, $txt.Length)))
 $plist = Invoke-RestMethod -Uri "$Base/mcp" -Method Post -Headers $h -ContentType 'application/json' -Body '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sk_project_list","arguments":{"mode":"survey","pageSize":3}}}' -TimeoutSec 40
 Write-Output ('SK_PROJECT_LIST isError=' + $plist.result.isError + ' head=' + $plist.result.content[0].text.Substring(0,[Math]::Min(160, $plist.result.content[0].text.Length)))
 
-# 撤销后立刻 401
+
 $null = Invoke-RestMethod -Uri "$Base/api/system/api-token/revoke" -Method Post -Body (@{id=$created.data.id}|ConvertTo-Json -Compress) -ContentType 'application/json' -WebSession $sess -TimeoutSec 30
 $after = Invoke-WebRequest -Uri "$Base/mcp" -Method Post -Headers $h -ContentType 'application/json' -Body '{"jsonrpc":"2.0","id":4,"method":"tools/list"}' -SkipHttpErrorCheck -TimeoutSec 30
 Write-Output ('AFTER_REVOKE http=' + $after.StatusCode + ' body=' + $after.Content.Substring(0,[Math]::Min(120,$after.Content.Length)))

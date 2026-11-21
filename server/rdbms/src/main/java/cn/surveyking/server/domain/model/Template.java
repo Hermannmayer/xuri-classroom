@@ -11,85 +11,85 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.apache.ibatis.type.JdbcType;
 
-/**
- * 问题模板表
- *
- * @author javahuang
- * @date 2021/9/23
- */
+
+
+
+
+
+
 @Data
 @TableName(value = "t_template", autoResultMap = true)
 @EqualsAndHashCode(callSuper = false)
 public class Template extends BaseModel {
 
-	/**
-	 * 题库ID
-	 */
+
+
+
 	private String repoId;
 
-	/**
-	 * 序号
-	 */
+
+
+
 	private String serialNo;
 
-	/**
-	 * 模板标题
-	 */
+
+
+
 	private String name;
 
-	/**
-	 * 问题类型
-	 */
+
+
+
 	private SurveySchema.QuestionType questionType;
 
-	/**
-	 * 问题模板
-	 */
+
+
+
 	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.LONGVARCHAR)
 	private SurveySchema template;
 
-	/**
-	 * 标签
-	 */
+
+
+
 	@TableField(typeHandler = Jackson3TypeHandler.class, jdbcType = JdbcType.VARCHAR)
 	private String[] tag;
 
-	/**
-	 * 章节（可空），组卷按章节筛题
-	 */
+
+
+
 	private String chapter;
 
-	/**
-	 * 难度（易/中/难，可空）
-	 */
+
+
+
 	private String difficulty;
 
-	/**
-	 * 模板模式 survey问卷 exam考试
-	 */
+
+
+
 	private ProjectModeEnum mode;
 
-	/**
-	 * 模板分类，主要用于模板广场
-	 */
+
+
+
 	private String category;
 
-	/**
-	 * 预览地址
-	 */
+
+
+
 	private String previewUrl;
 
-	/**
-	 * 排序优先级，值越小优先级越高
-	 */
+
+
+
 	private Integer priority;
 
 	@TableField(fill = FieldFill.INSERT)
 	private String createBy;
 
-	/**
-	 * 与其他用户共享
-	 */
+
+
+
 	private Integer shared;
 
 }

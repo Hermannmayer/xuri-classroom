@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** 组卷：题库统计、规则预览、批量生成、卷内选题 */
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("${api.prefix}/compose")

@@ -29,7 +29,7 @@ const TYPE_NAME: Record<string, string> = {
   HorzBlank: '横向填空题',
 };
 
-/** 沿用旧版配色，深蓝底上对比度够 */
+
 const PALETTE = ['#5398ff', '#39d2d9', '#f16b79', '#b18160', '#94ed8c', '#ffb878', '#99a4ff', '#808bea', '#c36cff'];
 
 type ChartKind = 'bar' | 'column' | 'pie';
@@ -69,7 +69,7 @@ function buildRows(q: FlatQuestion, answers: Answer[]) {
   const entries =
     isChoice && declared.length
       ? declared.map((o) => ({ key: o.value, label: o.label, count: counts.get(o.value) ?? 0 }))
-      : // ponytail: 文本题按答案计数只列前 50 项，出现上千种答案再上服务端聚合
+      :
         [...counts]
           .sort((a, b) => b[1] - a[1])
           .slice(0, 50)
@@ -214,15 +214,15 @@ export default function QuestionBlock({
 }: {
   q: FlatQuestion;
   answers: Answer[];
-  /** true：不带 Card 外壳与折叠头，直接渲染明细（报表的抽屉里用） */
+
   bare?: boolean;
   defaultOpen?: boolean;
 }) {
   const [kind, setKind] = useState<ChartKind>('bar');
-  /**
-   * 默认收起：一页几十道题时，每题都摊开图表 + 明细表会让页面长到没法对比。
-   * 收起态保留「题号 / 题干 / 答题人数 / 正确率」，需要细节再点开。
-   */
+
+
+
+
   const [open, setOpen] = useState(defaultOpen);
   const { rows, answered } = useMemo(() => buildRows(q, answers), [q, answers]);
   const isChoice = CHOICE.has(q.type);
@@ -305,10 +305,10 @@ export default function QuestionBlock({
     },
   ];
 
-  /**
-   * 单题明细：图表三态 + 选项表 + 判定/错选列。
-   * <p>抽成变量是为了让「表格 + 抽屉」那条路径能直接复用它（bare=true 时连 Card 都不渲染）。
-   */
+
+
+
+
   const detail = (
     <>
       <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>

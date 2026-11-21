@@ -20,7 +20,7 @@ export interface AttributeField {
   control: AttributeControl;
   group: AttributeGroup;
   options?: AttributeOption[];
-  /** 字段下方说明 */
+
   hint?: string;
 }
 
@@ -59,29 +59,29 @@ const EXAM_MODE_OPTIONS: AttributeOption[] = [
 const RULE_HINT = 'JSON：{"conditionLogic":"AND","conditionItem":[{"qId":"…","condition":"CHECKED","oId":["…"]}]}';
 
 export const attributeSchema: AttributeField[] = [
-  // 基础
+
   { key: 'display', label: '显示状态', control: 'select', group: '基础', options: DISPLAY_OPTIONS },
   { key: 'required', label: '必填', control: 'switch', group: '基础' },
   { key: 'placeholder', label: '占位提示', control: 'text', group: '基础' },
 
-  // 数据
+
   { key: 'dataType', label: '数据类型', control: 'select', group: '数据', options: DATA_TYPE_OPTIONS },
   { key: 'columns', label: '选项列数', control: 'number', group: '数据' },
   { key: 'rows', label: '行数', control: 'number', group: '数据' },
   { key: 'scope', label: '范围强校验', control: 'text', group: '数据', hint: '超出范围禁止提交' },
   { key: 'softScope', label: '范围软校验', control: 'text', group: '数据', hint: '超出范围仅警告' },
   { key: 'dictCode', label: '字典编码', control: 'text', group: '数据' },
-  // 文件类（上传 / 签名）：后端 Attribute 里 fileAccept / maxFileSize / maxFileCount 都已支持
+
   { key: 'fileAccept', label: '允许的文件类型', control: 'text', group: '数据', hint: '如 png,jpg；留空按系统白名单' },
   { key: 'maxFileSize', label: '单文件大小上限(MB)', control: 'number', group: '数据' },
   { key: 'maxFileCount', label: '文件数量上限', control: 'number', group: '数据' },
 
-  // 校验
+
   { key: 'textLimit', label: '文字长度限制', control: 'text', group: '校验', hint: '形如 [1,2] [,5]' },
   { key: 'answerLimit', label: '答案数量限制', control: 'text', group: '校验', hint: '形如 [1,2] [,3]' },
   { key: 'numericScale', label: '数值精度', control: 'number', group: '校验' },
 
-  // 考试
+
   { key: 'examScore', label: '分值', control: 'number', group: '考试' },
   {
     key: 'examAnswerMode',
@@ -92,7 +92,7 @@ export const attributeSchema: AttributeField[] = [
   },
   { key: 'examAnalysis', label: '答案解析', control: 'textarea', group: '考试' },
 
-  // 规则：P2 先存原始 JSON，可视条件编辑器后续再做
+
   { key: 'visibleRule', label: '显隐规则', control: 'textarea', group: '规则', hint: RULE_HINT },
   { key: 'requiredRule', label: '必填规则', control: 'textarea', group: '规则', hint: RULE_HINT },
   { key: 'jumpRule', label: '跳转规则', control: 'textarea', group: '规则', hint: RULE_HINT },

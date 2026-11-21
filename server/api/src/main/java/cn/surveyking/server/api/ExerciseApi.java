@@ -22,21 +22,21 @@ public class ExerciseApi {
 
 	private final AnswerService answerService;
 
-	/**
-	 * 历史练习列表。
-	 * @param query 查询参数。
-	 * @return 当前答案。
-	 */
+
+
+
+
+
 	@GetMapping("/list")
 	@PreAuthorize("hasAuthority('exercise:list')")
 	public PaginationResponse<ExerciseView> historyExercise(@Valid HistoryExerciseQuery query) {
 		return answerService.historyExercise(query);
 	}
 
-	/**
-	 * 删除当前用户自己的练习记录。
-	 * @param request 练习记录 id 列表。
-	 */
+
+
+
+
 	@PostMapping("/delete")
 	@PreAuthorize("hasAuthority('exercise:list')")
 	public void deleteExercise(@RequestBody AnswerRequest request) {

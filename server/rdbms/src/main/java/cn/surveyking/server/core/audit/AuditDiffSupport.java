@@ -27,36 +27,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * 高危动作的「改前 / 改后」快照（计划 §5.3）。
- *
- * <p>做成由 {@link AuditAspect} 在业务执行前后各调一次 {@link #snapshot(String, Object[])}，
- * 而不是在每个 ServiceImpl 里手写：同一个动作只要在清单里就自动带上快照，
- * 新加接口不用改第二处，也避免业务代码里散落一堆审计调用。
- *
- * <p>三条硬约束（不遵守会出事）：
- * <ul>
- * <li><b>只给清单里的动作写</b>：全量写会把 t_audit_log 撑爆，普通增删改没有回溯价值；</li>
- * <li><b>不存答案正文与个人身份信息</b>：只放分数、状态、权限串、导出范围、答卷/项目/角色 id 与提交人账号 id；</li>
- * <li><b>解析失败不能影响业务</b>：任何异常都吞掉只打 debug 日志，快照拿不到就退化成普通审计。</li>
- * </ul>
- *
- * <p>「改前」必须在业务执行前采集：删除类动作执行完目标行已经查不到了（逻辑删除后
- * {@code @TableLogic} 会把它挡在查询之外），这正是 {@code visible} 字段的含义。
- *
- * @author audit
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuditDiffSupport {
 
-	/** 要写快照的动作码，与计划 §5.3 的表格一一对应；不在表里的动作不要加 */
+
 	private static final Set<String> ACTIONS = Set.of("ANSWER_GRADE", "ANSWER_GRADE_RESET", "ANSWER_DELETE",
 			"ANSWER_DESTROY", "ANSWER_RESTORE", "PROJECT_DELETE", "PROJECT_DESTROY", "PROJECT_RESTORE", "PROJECT_STATUS",
 			"SYSTEM_ROLE_UPDATE");
 
-	/** 一次快照最多列多少份答卷：批量删除可能上千条，快照本身也要受 2KB 限制 */
+
 	private static final int MAX_ANSWERS = 20;
 
 	private final AnswerMapper answerMapper;
@@ -141,8 +141,8 @@ public class AuditDiffSupport {
 	}
 
 	private static boolean isProjectAction(String action) {
-		// destroy / restore 与 delete 同属「考试没了 / 回来了」，快照口径一致；
-		// 计划文档 §5.3 只写了 PROJECT_DELETE，属于漏列。
+
+
 		return "PROJECT_DELETE".equals(action) || "PROJECT_DESTROY".equals(action) || "PROJECT_RESTORE".equals(action)
 				|| "PROJECT_STATUS".equals(action);
 	}
@@ -151,7 +151,7 @@ public class AuditDiffSupport {
 	 * 批改快照：逐题的分数与评语 + 整卷 {@code exam_score} 与批改状态。
 	 *
 	 * <p>撤销批改（reset）不带题目 id 表示整卷清空，这时要取库里现存的全部人工分，
-	 * 否则「改前」是空的，看上去像什么都没撤。
+
 	 */
 	private Map<String, Object> gradeSnapshot(String action, AnswerGradeRequest request) {
 		String answerId = trimToNull(request.getAnswerId());
@@ -176,13 +176,13 @@ public class AuditDiffSupport {
 				}
 			}
 		}
-		// 去重但保留顺序：一次请求里同一题出现多次只记一条，快照看的是「改前/改后」，不需要重复项
+
 		List<Map<String, Object>> items = new ArrayList<>();
 		for (String questionId : new LinkedHashSet<>(questionIds)) {
 			AnswerGrade grade = grades.get(questionId);
 			Map<String, Object> item = new LinkedHashMap<>();
 			item.put("questionId", questionId);
-			// 没批改过是 null，不是 0：前端要能区分「0 分」和「还没打分」
+
 			item.put("score", grade == null ? null : grade.getScore());
 			item.put("comment", grade == null ? null : grade.getComment());
 			items.add(item);
@@ -216,7 +216,7 @@ public class AuditDiffSupport {
 			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("answerId", answer.getId());
 			row.put("projectId", answer.getProjectId());
-			// 提交人只记账号 id：审计要能追到人，但不把姓名/联系方式复制进长期保留的表
+
 			row.put("submitter", answer.getCreateBy());
 			row.put("gradeStatus", answer.getGradeStatus());
 			row.put("tempSave", answer.getTempSave());
@@ -238,7 +238,7 @@ public class AuditDiffSupport {
 		snapshot.put("visible", project != null);
 		if (project != null) {
 			snapshot.put("name", project.getName());
-			// 发布开关的真源是 t_project.status（setting.status 是它的副本），这里只记列上的值
+
 			snapshot.put("status", project.getStatus());
 		}
 		return snapshot;

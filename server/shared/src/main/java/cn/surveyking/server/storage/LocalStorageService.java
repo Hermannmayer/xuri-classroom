@@ -10,10 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/**
- * @author javahuang
- * @date 2021/9/6
- */
+
+
+
+
 public class LocalStorageService extends AbstractStorageService {
 
 	private Path rootLocation;
@@ -57,7 +57,7 @@ public class LocalStorageService extends AbstractStorageService {
 		}
 		Path destinationPath = this.rootLocation.resolve(normalizedPath).toAbsolutePath().normalize();
 
-		// Ensure the destination path is within the root location
+
 		if (!destinationPath.startsWith(this.rootLocation)) {
 			throw new ErrorCodeException(ErrorCode.FileUploadError);
 		}

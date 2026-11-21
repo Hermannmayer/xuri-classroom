@@ -15,20 +15,20 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * 文本题目解析：把「一行标题 + 若干道题」的纯文本解析成 {@link ImportPreview}。
- *
- * <p>
- * 约定（与导入模板说明一致）：
- * <ul>
- * <li>首个非空行是试卷标题（若它本身带题型标记/题号，则不当作标题）；</li>
- * <li>题目之间用空行分隔；题型用【单选题】【多选题】【判断题】【填空题】【多项填空】【简答题】【下拉题】【评分题】
- * 【NPS】【上传题】【矩阵单选题】【矩阵多选题】【矩阵填空题】【欢迎语】标记；</li>
- * <li>矩阵题在标记之后用若干行「行：xxx」「列：xxx」定义行/列，答案按行写、行之间用 {@code |}；</li>
- * <li>分值写法：（10分）；正确答案：（正确答案）标在选项后，或写「答案：A」；</li>
- * <li>解析写「解析：」「答案解析：」；标签写「标签：」；难度写「难度：」（本版本只提示不保存）。</li>
- * </ul>
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public class TextQuestionParser {
 
 	private static final Pattern MARKER = Pattern.compile("【\\s*([^】]{1,12}?)\\s*】");
@@ -45,10 +45,10 @@ public class TextQuestionParser {
 
 	private static final Pattern BLANK_TOKEN = Pattern.compile("_{2,}|＿{2,}");
 
-	/** 矩阵题的行：行：xxx */
+
 	private static final Pattern MATRIX_ROW = Pattern.compile("^行\\s*[:：]\\s*(.*)$");
 
-	/** 矩阵题的列：列：xxx */
+
 	private static final Pattern MATRIX_COLUMN = Pattern.compile("^列\\s*[:：]\\s*(.*)$");
 
 	private final String rawText;
@@ -197,13 +197,13 @@ public class TextQuestionParser {
 					.examCorrectAnswer(answer == null ? "" : answer).build()).build());
 		}
 		else if (type == SurveySchema.QuestionType.Score) {
-			// 评分题没有选项也没有答案：星数由 attribute.scope 决定（见 buildAttribute）
+
 		}
 		else if (type == SurveySchema.QuestionType.Nps || type == SurveySchema.QuestionType.Upload) {
-			// 设计器给 NPS / 上传题各留一个空 children：后端有取 getChildren().get(0) 的地方
+
 			children.add(emptyChild());
 			if (type == SurveySchema.QuestionType.Upload && StringUtils.hasText(answer)) {
-				// 上传题没有机器答案：答案列当「参考答案/示例说明」保留
+
 				setUploadReference(children, answer);
 			}
 		}
@@ -223,7 +223,7 @@ public class TextQuestionParser {
 				.children(children).dataSource(dataSources.isEmpty() ? null : dataSources).row(rows)
 				.tags(parseTags(tags)).chapter(chapter).difficulty(difficulty).build();
 		if (isMatrix(type) && StringUtils.hasText(answer)) {
-			// 矩阵题不参与自动判分（前端 EXAM_TYPES 也不含矩阵）：答案原样保留，行之间 |，行内多选 ,
+
 			question.getAttribute().setExamCorrectAnswer(answer.trim());
 		}
 
@@ -318,7 +318,7 @@ public class TextQuestionParser {
 		}
 		for (int i = 0; i < blanks; i++) {
 			String value = i < parts.length ? parts[i].trim() : "";
-			// 同一空允许多个可接受答案：按判分器的约定用换行分隔
+
 			value = value.replace("&", "\n").replace("＆", "\n");
 			children.add(SurveySchema.builder().id(newId())
 					.attribute(SurveySchema.Attribute.builder().examCorrectAnswer(value).build()).build());
@@ -415,7 +415,7 @@ public class TextQuestionParser {
 		if (StringUtils.hasText(marker)) {
 			String value = marker.replace("题", "").trim();
 			String lower = value.toLowerCase(Locale.ROOT);
-			// 矩阵题必须先判：矩阵单选里也含「单选」
+
 			if (value.contains("矩阵")) {
 				if (value.contains("单选") || value.contains("单项")) {
 					return SurveySchema.QuestionType.MatrixRadio;
@@ -518,7 +518,7 @@ public class TextQuestionParser {
 				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.manual);
 				break;
 			case Score:
-				// 前端 Score 组件的星数取 scope 上限
+
 				attribute.setScope("[0," + (int) Math.round(score) + "]");
 				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
 				break;
@@ -533,7 +533,7 @@ public class TextQuestionParser {
 				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
 				break;
 			case Upload:
-				// 与设计器默认值一致；前端 Upload 组件读的是 maxFileCount / maxFileSize
+
 				attribute.setMaxFileCount(1);
 				attribute.setMaxFileSize(5D);
 				attribute.setExamAnswerMode(SurveySchema.ExamScoreMode.none);
@@ -668,7 +668,7 @@ public class TextQuestionParser {
 		warnings.add(ImportPreview.Warning.builder().level(level).code(code).message(message).build());
 	}
 
-	// ------------------------------------------------------------------ 内部结构
+
 
 	private static final class Option {
 

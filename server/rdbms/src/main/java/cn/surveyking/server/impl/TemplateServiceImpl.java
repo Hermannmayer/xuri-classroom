@@ -41,10 +41,10 @@ import java.util.stream.Collectors;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.springframework.util.StringUtils.hasText;
 
-/**
- * @author javahuang
- * @date 2021/9/23
- */
+
+
+
+
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -54,7 +54,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 
 	private final RepoMapper repoMapper;
 
-	/** 按班级分配的题库：学生被分配到本班也要能读题目/模板 */
+
 	private final ClassResourceService classResourceService;
 
 	private final RepoPartnerMapper repoPartnerMapper;
@@ -87,7 +87,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		Page<Template> templatePage = pageByQuery(query, Wrappers.<Template>lambdaQuery()
 				.like(isNotEmpty(query.getName()), Template::getName, query.getName())
 				.eq(query.getQuestionType() != null, Template::getQuestionType, query.getQuestionType())
-				// 默认查询额是普通题型
+
 				.ne(query.getQuestionType() == null, Template::getQuestionType, SurveySchema.QuestionType.Survey)
 				.in(!query.getCategories().isEmpty(), Template::getCategory, query.getCategories())
 				.eq(query.getRepoId() != null, Template::getRepoId, query.getRepoId())
@@ -217,7 +217,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 			fileRefService.syncHtml("repo", repoId, objectMapper.writeValueAsString(schema));
 		}
 		catch (Exception ignored) {
-			// 引用登记失败不能阻断题目保存
+
 		}
 	}
 
@@ -250,14 +250,14 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 						html.append(objectMapper.writeValueAsString(template.getTemplate()));
 					}
 					catch (tools.jackson.core.JacksonException ignored) {
-						// 单个模板序列化失败不影响其它模板的引用回收
+
 					}
 				}
 			});
 			fileService.replaceOwnerRefs("repo", repoId, html.toString());
 		}
 		catch (Exception ignored) {
-			// 引用回收失败不能阻断题目保存
+
 		}
 	}
 
@@ -333,7 +333,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 	}
 
 	/**
-	 * 这道题还能不能打开：null = 可读，否则返回给用户看的中文原因。
+
 	 * <p>错题本/收藏只存了 template_id 快照，题目被删、题库取消分配、窗口关闭都会让记录变成死链。
 	 * 列表页用它在打开之前就把「练这题」置灰。
 	 */
@@ -381,7 +381,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 
 	private void assertManageRepo(String repoId) {
 		Repo repo = repoMapper.selectById(repoId);
-		// 与 RepoServiceImpl#assertManageRepo 一致：管理员可以维护任何题库
+
 		if (repo == null || (!SecurityContextUtils.isAdmin()
 				&& !Objects.equals(repo.getCreateBy(), SecurityContextUtils.getUserId()))) {
 			throw new AccessDeniedException("无权管理该题库的模板");
@@ -398,14 +398,14 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		Repo repo = repoMapper.selectById(repoId);
 		String userId = SecurityContextUtils.getUserId();
 		User current = userMapper.selectById(userId);
-		// 学员只认班级分配，不能靠共享/个人/用户组授权读题库
+
 		if (current != null && "student".equals(current.getUserType())) {
 			return repo != null && classResourceService.canStudentReadRepo(repoId);
 		}
-		// 与 RepoServiceImpl#assertReadableRepo 保持一致：管理员 / 创建者 / 逐个授权 / 所在用户组（主组 + 附加组，含祖先链）授权
+
 		return repo != null && (SecurityContextUtils.isAdmin() || Objects.equals(repo.getCreateBy(), userId)
 				|| Boolean.TRUE.equals(repo.getShared())
-				// 按班级分配：本班有 repo 分配就放行（只对 student 生效）
+
 				|| classResourceService.canStudentReadRepo(repoId)
 				|| repoPartnerMapper.selectCount(Wrappers.<RepoPartner>lambdaQuery().eq(RepoPartner::getRepoId, repoId)
 						.and(w -> w.eq(RepoPartner::getUserId, userId).or().apply(

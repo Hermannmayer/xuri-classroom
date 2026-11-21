@@ -23,9 +23,9 @@ export default function McpGuide({
   canManageToken,
   canOpenSettings,
 }: {
-  /** system:setting:update：能签发 / 撤销令牌 */
+
   canManageToken: boolean;
-  /** system:role:list：能打开「系统设置」这一页 */
+
   canOpenSettings: boolean;
 }) {
   const [clientKey, setClientKey] = useState<McpClientKey>('generic');

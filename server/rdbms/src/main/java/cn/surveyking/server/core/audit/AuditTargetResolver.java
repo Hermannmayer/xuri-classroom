@@ -26,29 +26,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-/**
- * 审计日志的「目标名称」解析：把 targetId（一串数字 id）翻译成人能看懂的名称。
- *
- * <p>由 {@link AuditAspect} 在 {@code joinPoint.proceed()} <b>之前</b>调用，因为删除类接口
- * 执行完以后对象已经不在了。约定：
- *
- * <ul>
- * <li>按 URI 前缀选择实体：{@code /system/dept/*} 与 {@code /teaching/classes/*} 都是
- * {@code t_dept}（班级就是用户组）；{@code /system/user/*} → 用户；{@code /system/role/*} → 角色；
- * {@code /project/*} → 考试；{@code /repo/*} → 题库；</li>
- * <li>班级成员类动作（create/update/delete member）优先取「学员」：新增取请求里的 name，
- * 改/删按 id 查 t_user；其它班级动作取班级名；</li>
- * <li>创建类请求还没有 id，退回请求 DTO 里的 {@code name} 字段；</li>
- * <li>参数里没 {@code getId()} 时再试 {@code getDeptId()} / {@code getProjectId()} / {@code getRepoId()}
- * （授权、成员类请求的目标是「组 / 考试 / 题库」，不是被授权人）；</li>
- * <li>解析任何异常都吞掉，只留 debug 日志——审计不能影响业务。</li>
- * </ul>
- *
- * <p>这里刻意用逐个 {@code selectById} 而不是泛型 {@code selectBatchIds}：后者的通配符签名
- * 在运行期拿不到稳定的实体类型，曾导致 target_name 全是 null。
- *
- * @author backend-ops
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -76,9 +76,9 @@ public class AuditTargetResolver {
 			if (!StringUtils.hasText(path)) {
 				return null;
 			}
-			// 班级 = 用户组：teaching 的成员/老师授权请求携带的是 deptId
+
 			if (path.startsWith("/teaching/classes/member")) {
-				// 成员的「对象」是学员本人：新增取请求 name，改/删按 id 查 t_user
+
 				String memberName = nameFromArgs(args);
 				if (StringUtils.hasText(memberName)) {
 					return memberName;
@@ -99,7 +99,7 @@ public class AuditTargetResolver {
 				return resolveRoleName(args);
 			}
 			if (path.startsWith("/project")) {
-				// select* 是候选查询，本身不产生「目标对象」，不要拿 SelectUserRequest 的模糊查询词当名称
+
 				if (path.contains("/select")) {
 					return null;
 				}
@@ -217,7 +217,7 @@ public class AuditTargetResolver {
 					continue;
 				}
 				try {
-					// 调用方传的是属性名（id / deptId / getName），反射需要 getId / getDeptId / getName
+
 					String methodName = getter.startsWith("get") ? getter
 							: "get" + Character.toUpperCase(getter.charAt(0)) + getter.substring(1);
 					Method method = arg.getClass().getMethod(methodName);
@@ -231,7 +231,7 @@ public class AuditTargetResolver {
 					}
 				}
 				catch (Exception ignored) {
-					// 参数没有这个 getter 是常态，继续找下一个
+
 				}
 			}
 		}

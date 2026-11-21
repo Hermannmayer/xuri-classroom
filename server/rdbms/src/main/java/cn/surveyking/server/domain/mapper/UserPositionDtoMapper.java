@@ -8,10 +8,10 @@ import org.mapstruct.Mapper;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/11/2
- */
+
+
+
+
 @Mapper
 public interface UserPositionDtoMapper extends BaseModelMapper<UserPositionRequest, UserPositionView, UserPosition> {
 

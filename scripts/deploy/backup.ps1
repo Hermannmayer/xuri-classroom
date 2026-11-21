@@ -9,7 +9,7 @@
     - files.zip       <InstallDir>\files 上传目录
     - app.env         app.env 的脱敏副本（DB_PASSWORD 替换为 ***）
     - manifest.txt    备份说明
-  注意：app.env 是脱敏参考，恢复脚本不会用它覆盖线上配置。
+
 
 .PARAMETER InstallDir
   安装目录，默认 C:\xuri-classroom（应包含 app.env、files\）。

@@ -17,10 +17,10 @@ import ProjectTree from './ProjectTree';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 type Crumb = { id: string; name: string };
-/** category 是后端 ProjectView 新增字段（api 层类型暂未包含，这里补在行类型上） */
+
 type ProjectRow = ProjectView & { setting?: ProjectSetting; category?: string };
 
-/** /api/project/categories 的返回项 */
+
 interface CategoryCount {
   name?: string;
   count?: number;
@@ -38,7 +38,7 @@ const MODE_COLOR: Record<ProjectMode, string> = {
   folder: 'default',
 };
 
-/** 新建考试/问卷时给后端的初始 ProjectSetting，与旧前端一致 */
+
 const DEFAULT_SETTING = {
   status: 0,
   answerSetting: { progressBar: true, autoSave: true },
@@ -62,9 +62,9 @@ function useIsMobile() {
   return isMobile;
 }
 
-/** 学员视图一次取多少条：见 load 里的说明 */
+
 const STUDENT_PAGE_SIZE = 200;
-/** 兜底上限，避免授权项目异常多时无限翻页 */
+
 const STUDENT_MAX_PAGES = 10;
 
 /**
@@ -82,13 +82,13 @@ function StudentProjectList({
 }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  // 开始答题是独立权限：没有 project:answer 的账号（比如误配的只读协作者）不再看到入口
+
   const canAnswer = can(authorities, PERMISSION_CODES.projectAnswer);
 
   const [rows, setRows] = useState<ProjectView[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  // 学员视图一次性拉全量后前端分页，所以排序也放前端（服务端分页会跨页错序）
+
   const [sortKey, setSortKey] = useState<'name' | 'status' | 'createAt'>();
   const [sortDesc, setSortDesc] = useState(false);
   const [keyword, setKeyword] = useState('');
@@ -96,7 +96,7 @@ function StudentProjectList({
 
   /**
    * 列表接口只能在服务端按名称/父级/类型过滤，没法排除文件夹；而且后端把文件夹排在
-   * 最前面。所以不能用「服务端分页 + 前端丢掉文件夹」：一页 20 条可能全是文件夹，
+
    * 学员会看到空白页、页码也对不上。这里按 200 条一页把授权范围内的项目取全，
    * 再在前端过滤文件夹、自行分页（练习中心「我的任务」也是这个套路）。
    */
@@ -105,10 +105,10 @@ function StudentProjectList({
     try {
       const all: ProjectView[] = [];
       for (let current = 1; current <= STUDENT_MAX_PAGES; current += 1) {
-        // 学员任务列表要所有层级：班级分配的考试可能放在文件夹里
+
         const res = await listProjects({ current, pageSize: STUDENT_PAGE_SIZE, flat: true });
         all.push(...res.data);
-        // 本页不满 200 条、或已拿到 total 条，都说明没有下一页了
+
         if (res.data.length < STUDENT_PAGE_SIZE || all.length >= res.total) break;
       }
       setRows(all.filter((row) => row.mode !== 'folder'));
@@ -333,19 +333,19 @@ function ManagerProjectList({
 }: {
   authorities: string[];
   embedded?: boolean;
-  /** 限定项目类型：问卷独立成页时只看 mode=survey，教学页的「试卷」只看 mode=exam */
+
   mode?: 'exam' | 'survey';
 }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  // 统一走 auth/permissions 的 can()：与后端 authorityList / @PreAuthorize 同源
+
   const canCreate = can(authorities, PERMISSION_CODES.projectCreate);
   const canUpdate = can(authorities, PERMISSION_CODES.projectUpdate);
   const canDelete = can(authorities, PERMISSION_CODES.projectDelete);
   const canPublish = can(authorities, PERMISSION_CODES.projectPublish);
   const canData = can(authorities, PERMISSION_CODES.answerList);
-  /** 统计（报表）是独立权限：能看答卷不等于能看分析 */
+
   const canReport = can(authorities, PERMISSION_CODES.projectReport);
   const canDetail = can(authorities, PERMISSION_CODES.projectDetail);
   const canPartner = can(authorities, PERMISSION_CODES.projectPartner);
@@ -360,11 +360,11 @@ function ManagerProjectList({
   const [batchSettingOpen, setBatchSettingOpen] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
-  /** 分类筛选（与文件夹 parentId 互斥）；__UNCATEGORIZED__ = 未分类 */
+
   const [category, setCategory] = useState<string>();
-  /** 新建/重命名表单里的分类候选（来自 /api/project/categories，可自由输入） */
+
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
-  /** 新建/删除/重命名后递增，让左侧分类树重新拉 counts */
+
   const [treeToken, setTreeToken] = useState(0);
   const parentId = crumbs.length ? crumbs[crumbs.length - 1].id : undefined;
 
@@ -377,9 +377,9 @@ function ManagerProjectList({
   }>({ open: false, name: '' });
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
-  /** 手机上的文件夹树默认收起：它竖排在最上面，会把列表整个推到首屏之外 */
+
   const [treeOpen, setTreeOpen] = useState(false);
-  // 声明式 Modal 的 onOk 不会自动锁按钮：自己控制 loading，防止双击创建两个同名项目/重复改名
+
   const [creating, setCreating] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
   const [createForm] = Form.useForm<{
@@ -396,7 +396,7 @@ function ManagerProjectList({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // listProjects 的 query 类型还没加 category（api 层不在本任务范围），这里按可变参数传入
+
       const query = { current: page, pageSize, name: keyword, parentId, category, mode };
       const res = await listProjects(query as Parameters<typeof listProjects>[0]);
       setRows(res.data);
@@ -412,12 +412,12 @@ function ManagerProjectList({
     void load();
   }, [load]);
 
-  // 翻页/搜索/进文件夹后旧选中项可能已不在当前列表，直接清空避免误操作
+
   useEffect(() => {
     setSelectedKeys([]);
   }, [page, pageSize, keyword, parentId, category]);
 
-  // 分类候选取自服务端（已含未分类，但「未分类」不是可选分类名，过滤掉）
+
   useEffect(() => {
     get<CategoryCount[]>('/api/project/categories')
       .then((list) =>
@@ -439,7 +439,7 @@ function ManagerProjectList({
       name: '',
       mode: 'exam',
       source: 'blank',
-      // 当前正按某个分类筛选时，新建默认沿用该分类
+
       category: category && category !== '__UNCATEGORIZED__' ? category : '',
     });
     setCreateOpen(true);
@@ -456,10 +456,10 @@ function ManagerProjectList({
     try {
       v = await createForm.validateFields();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     if (v.mode === 'exam' && v.source === 'compose') {
-      // 组卷在教学页抽屉里完成，不跳页、不叠弹窗
+
       setCreateOpen(false);
       setComposeCtx({ open: true, name: v.name.trim(), category: v.category?.trim(), parentId });
       return;
@@ -472,10 +472,10 @@ function ManagerProjectList({
         category: v.category?.trim() || undefined,
         parentId,
         setting: { ...DEFAULT_SETTING, examSetting: { scoringEnabled: v.mode === 'exam' } },
-        // 先给一份空表，设计器打开时不会拿到 null
+
         survey: { title: v.name, type: 'Survey', attribute: { mode: v.mode }, children: [] },
       };
-      // CreateProjectRequest 类型还没加 category（api 层不在本任务范围）
+
       const created = await createProject(payload as Parameters<typeof createProject>[0]);
       setCreateOpen(false);
       message.success('已创建');
@@ -516,15 +516,15 @@ function ManagerProjectList({
     try {
       values = await renameForm.validateFields();
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     const { name, category: nextCategory } = values;
     setRenameSaving(true);
     try {
-      // 空串表示清空分类（未分类）；undefined 会被后端当成「不改」
+
       await updateProject({ id: renaming.id, name, category: nextCategory?.trim() ?? '' });
       message.success('已重命名');
-      // 当前面包屑可能正停在这个文件夹上，同步改名，避免继续显示旧名称
+
       setCrumbs((prev) => prev.map((crumb) => (crumb.id === renaming.id ? { ...crumb, name } : crumb)));
       setRenaming(null);
       setTreeToken((token) => token + 1);
@@ -569,7 +569,7 @@ function ManagerProjectList({
     const ids = [...selectedKeys];
     setBatchDeleting(true);
     try {
-      // ProjectApi#delete 只按单个 id 删除，前端循环调用
+
       for (const id of ids) {
         await deleteProject(id);
       }
@@ -586,7 +586,7 @@ function ManagerProjectList({
 
   const enterFolder = (row: ProjectView) => {
     setCrumbs((prev) => [...prev, { id: row.id, name: row.name || '未命名文件夹' }]);
-    // 文件夹与分类互斥：进文件夹时清掉分类筛选
+
     setCategory(undefined);
     setPage(1);
   };
@@ -622,7 +622,7 @@ function ManagerProjectList({
   const copyLinkLabel = (row: ProjectRow) =>
     row.setting?.answerSetting?.loginRequired === true ? '复制链接（需登录）' : '复制链接';
 
-  /** 批量操作（批量设置 / 批量删除）至少要有一个权限，否则选择框没有意义 */
+
   const canBatch = canUpdate || canDelete;
 
   /** 移动端卡片同样逐项 gate：一个动作都没有时整行按钮不渲染 */
@@ -639,13 +639,13 @@ function ManagerProjectList({
         .survey-project-table .ant-table-tbody > tr { height: 42px; }
       `}</style>
 
-      {/* 工具条全宽放在两栏上方：左树与右侧表格从同一 y 开始，表头不再被压下去 */}
+
       <div
         style={{
           marginBottom: embedded ? 12 : 18,
           display: 'flex',
           alignItems: isMobile ? 'flex-start' : 'flex-end',
-          // embedded 时页头（标题区）隐藏，只留「回收站 / 新建」工具条，靠右排列
+
           justifyContent: embedded ? 'flex-end' : 'space-between',
           flexWrap: 'wrap',
           gap: 10,
@@ -763,7 +763,7 @@ function ManagerProjectList({
               setPage(1);
             }}
             onFolderCreated={() => {
-              // 新建文件夹后树 counts 与右侧列表都要刷新
+
               setTreeToken((token) => token + 1);
               void load();
             }}
@@ -910,8 +910,8 @@ function ManagerProjectList({
                           </>
                         ) : (
                           <>
-                            {/* 原来六个按钮挤成一行（设置/关闭/编辑/待批改/统计/授权），手指根本点不准。
-                                手机上只留「数据 / 统计 / 更多」，其余收进下拉。 */}
+
+
                             {canData &&
                               (() => {
                                 const pending = Number((row as { pendingCount?: number }).pendingCount ?? 0);
@@ -1287,7 +1287,7 @@ function ManagerProjectList({
         onUpdated={() => {
           setBatchSettingOpen(false);
           setSelectedKeys([]);
-          // 批量改分类后左侧分类树也要刷新，否则新分类/计数不出现
+
           setTreeToken((token) => token + 1);
           void load();
         }}
@@ -1334,7 +1334,7 @@ export default function ProjectList({
   mode,
 }: {
   embedded?: boolean;
-  /** 限定项目类型（exam / survey）：问卷独立成页、教学页的「试卷」各取所需 */
+
   mode?: 'exam' | 'survey';
 }) {
   const [authorities, setAuthorities] = useState<string[]>();
@@ -1343,7 +1343,7 @@ export default function ProjectList({
     void loadAuthorities().then(setAuthorities);
   }, []);
 
-  // 权限没回来之前先给骨架，避免管理视图闪一下再被替换成学员视图
+
   if (!authorities) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>

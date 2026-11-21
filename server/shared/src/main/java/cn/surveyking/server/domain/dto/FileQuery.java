@@ -6,10 +6,10 @@ import org.springframework.http.HttpHeaders;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/2/2
- */
+
+
+
+
 @Data
 public class FileQuery {
 
@@ -28,9 +28,9 @@ public class FileQuery {
 
 	String questionId;
 
-	/**
-	 * 文件id
-	 */
+
+
+
 	String id;
 
 	AppConsts.DispositionTypeEnum dispositionType;

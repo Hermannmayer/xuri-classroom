@@ -1,7 +1,7 @@
 /**
  * 手写 SVG 图表的共用小工具。
  *
- * 这里的函数全部是纯函数（不碰 window / document），所以能在 node 里直接冒烟验证
+
  * （见 client/scripts/smoke-charts.tsx）；组件里只负责把坐标算出来交给 SVG。
  */
 

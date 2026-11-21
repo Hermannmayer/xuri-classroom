@@ -5,10 +5,10 @@ import lombok.Data;
 
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2024/4/6
- */
+
+
+
+
 @Data
 public class ExerciseView {
 
@@ -18,14 +18,14 @@ public class ExerciseView {
 
 	private String projectName;
 
-	/**
-	 * 0：暂存，1：已完成
-	 */
+
+
+
 	private Integer tempSave;
 
-	/**
-	 * 答题进度
-	 */
+
+
+
 	private Long percent;
 
 	private Date createAt;

@@ -16,12 +16,12 @@ interface UpdateInfo {
   error?: string;
 }
 
-/** 上次检查时间（localStorage），避免每次打开页面都打后端 */
+
 const LAST_CHECK_KEY = 'sk-update-last-check';
-/**
- * 前端节流：服务端已经按 24 小时缓存，这里再兜一层 12 小时。
- * 目的：管理员一天开很多次页面、或开多个标签页时，不要重复请求。
- */
+
+
+
+
 const MIN_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 /**

@@ -1,4 +1,4 @@
-﻿#requires -version 5.1
+#requires -version 5.1
 <#
   旭日云课堂 · Windows 便携版启动器
   ---------------------------------------------------------------------------
@@ -17,9 +17,9 @@
 
 $ErrorActionPreference = 'Stop'
 
-# ===========================================================================
-# 0. 路径与全局状态
-# ===========================================================================
+
+
+
 
 $script:ScriptDir = $PSScriptRoot
 if ([string]::IsNullOrEmpty($script:ScriptDir)) {
@@ -234,9 +234,9 @@ function ConvertTo-NativeArgs([string[]]$Parts) {
 }
 
 # 调用原生 exe 并捕获输出。
-# 注意：Windows PowerShell 5.1 在 $ErrorActionPreference='Stop' 时，会把原生命令写到
+
 # stderr 的内容包装成 NativeCommandError 终止错误（java -version / mysqld --version
-# 都会写 stderr），所以这里必须临时改成 Continue，否则 catch 会吞掉正常输出。
+
 function Invoke-NativeCapture([string]$ExePath, [string[]]$Arguments) {
   $previous = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
@@ -351,7 +351,7 @@ function Test-ProcessIsChildOf([int]$ChildProcessId, [int]$ParentProcessId) {
 }
 
 # 端口是不是“我们的进程”在监听。
-# 注意：Windows 上 mysqld 会再拉起一个子进程，真正持有监听 socket 的往往是子进程，
+
 # 所以不能只比较 PID，还要看父子关系。
 function Test-PortOwnedByTrackedProcess([int]$Port, [int]$TrackedProcessId) {
   $owner = Get-ListeningProcessId $Port
@@ -502,7 +502,7 @@ function Test-FileIntegrity([string]$Path, [string]$Sha256, [long]$Size, [switch
   if (-not (Test-Path -LiteralPath $Path)) { return $false }
   $file = Get-Item -LiteralPath $Path
   if ([string]::IsNullOrWhiteSpace($Sha256)) {
-    # 没有 SHA256 时才用大小兜底（大小只当参考，不轻易判死）
+
     if ($Size -gt 0 -and $file.Length -ne $Size) {
       if (-not $Quiet) {
         Out-Warn ('文件大小不符：' + $file.Name)
@@ -512,7 +512,7 @@ function Test-FileIntegrity([string]$Path, [string]$Sha256, [long]$Size, [switch
     }
     return $true
   }
-  # 有 SHA256 时以 SHA256 为准：它是唯一可靠的完整性依据
+
   $actual = Get-Sha256 $Path
   if ($actual -ne $Sha256.ToLowerInvariant()) {
     if (-not $Quiet) {
@@ -893,7 +893,7 @@ function Parse-CommandLine([string[]]$ArgList) {
           }
         }
         'json' {
-          # GUI 控制台用：把状态输出成 JSON，不再解析人读文本
+
           $opts.Json = $true
         }
         'timeout' {
@@ -942,7 +942,7 @@ function Parse-CommandLine([string[]]$ArgList) {
       $opts.Explicit = $true
     }
     if ($positional.Count -gt 1) {
-      # 允许简写：setup jre / setup db（等价于 setup --step jre）
+
       if ($command -eq 'setup' -and $positional.Count -eq 2) {
         $shortStep = ([string]$positional[1]).ToLowerInvariant()
         if ((Get-StepList) -contains $shortStep) {
@@ -1181,7 +1181,7 @@ function Invoke-ComponentDownload {
       continue
     }
 
-    # 允许手动下载后按固定别名放进 cache（jre25.zip / mysql8.zip），方便用户自救
+
     $cachedFile = ''
     foreach ($alias in $CacheAliases) {
       if ([string]::IsNullOrEmpty($alias)) { continue }
@@ -1287,8 +1287,8 @@ function Test-Java25Version([string]$Version) {
 }
 
 function Ensure-JreInstalled {
-  # 从旧版本升级上来的机器可能还留着 runtime\jre8（旧运行时），本版本只用 runtime\jre25。
-  # 不自动删（不动用户的文件），只提示可以手动清理。
+
+
   $legacyJre = Join-Path $script:Root 'runtime\jre8'
   if (Test-Path -LiteralPath $legacyJre) {
     Out-Warn ('检测到旧版本遗留的运行时目录 runtime\jre8，本版本已不再使用（可手动删除以释放空间）：' + $legacyJre)
@@ -1362,8 +1362,8 @@ function Get-MySqlVersionText([string]$MySqldPath) {
   $result = Invoke-NativeCapture $MySqldPath @('--version')
   $text = ([string]$result.Text).Trim()
   if (-not [string]::IsNullOrWhiteSpace($text)) {
-    # 输出形如 “C:\...\mysqld.exe  Ver 8.0.28 for Win64 ...”。去掉前面的路径：
-    # 路径里有中文时，原生命令输出按 OEM 代码页解码会变成乱码，去掉更干净。
+
+
     $text = [regex]::Replace($text, '^.*?mysqld\.exe\s*', '')
     if ([string]::IsNullOrWhiteSpace($text)) { $text = '版本未知' }
     return $text
@@ -1543,8 +1543,8 @@ function Ensure-MySqlDataInitialized {
   $outputFile = Join-Path $script:P.Logs ('mysql-init-' + $stamp + '.out.log')
   $errorFile = Join-Path $script:P.Logs ('mysql-init-' + $stamp + '.err.log')
   Out-Info '初始化 MySQL 数据目录（首次约 10~30 秒，请不要关闭窗口）…'
-  # PowerShell 5.1 的坑：在参数位置写 @('a' + $x, 'b') 会塌成一个字符串，
-  # 所以先显式拼数组，再交给 ConvertTo-NativeArgs 逐个加引号。
+
+
   $mysqlInitArgs = @()
   $mysqlInitArgs += ('--defaults-file=' + $script:P.MyIni)
   $mysqlInitArgs += '--initialize-insecure'
@@ -1564,8 +1564,8 @@ function Ensure-MySqlDataInitialized {
 }
 
 function Get-MySqlProcess {
-  # Windows 上 mysqld 会有一个父进程和一个真正监听端口的子进程；
-  # 以“持有本程序 my.ini 端口”的进程为准，避免 status/doctor 认错 PID。
+
+
   try {
     $config = Get-AppConfig
     $portOwner = Get-ListeningProcessId ([int]$config.DbPort)
@@ -1677,9 +1677,9 @@ function Stop-MySqlServer {
   Ensure-Directory $script:P.Tmp
   $outputFile = Join-Path $script:P.Tmp 'mysqladmin-shutdown.out'
   $errorFile = Join-Path $script:P.Tmp 'mysqladmin-shutdown.err'
-  # 口令用 --password= 直接传：实测 MySQL 8.0.28 的 Windows 客户端读 MYSQL_PWD
-  # 会把口令算错（同样的口令用 --password= 能登录，用 MYSQL_PWD 就 Access denied），
-  # 所以这里不用环境变量。参数由 ConvertTo-NativeArgs 负责加引号。
+
+
+
   $shutdownArgs = @()
   $shutdownArgs += '-protocol=tcp'
   $shutdownArgs += '-h'
@@ -1746,9 +1746,9 @@ function Invoke-SqlClient {
   $arguments = @('--protocol=tcp', '-h', '127.0.0.1', '-P', [string]$config.DbPort, '-u', $User, '--connect-timeout=5', '--default-character-set=utf8mb4')
   if ($NoHeaders) { $arguments = @('-N', '-B') + $arguments }
   if (-not [string]::IsNullOrWhiteSpace($Database)) { $arguments += $Database }
-  # 口令用 --password= 传（原因见 Stop-MySqlServer 里的注释：MYSQL_PWD 在这个
-  # MySQL 8.0.28 Windows 客户端上会算错口令）。ConvertTo-NativeArgs 会给含空格
-  # 的参数整体加引号，所以口令里有空格也不会被拆开。
+
+
+
   if (-not [string]::IsNullOrEmpty($Password)) { $arguments += ('--password=' + [string]$Password) }
 
   $process = $null
@@ -1893,7 +1893,7 @@ function Get-AppJar {
   if ($jars.Count -eq 1) { return $jars[0] }
   $preferred = @($jars | Where-Object { $_.Name -like 'xuri-classroom-*.jar' })
   if ($preferred.Count -eq 1) { return $preferred[0] }
-  # 覆盖解压升级后 app 目录会同时留着旧版和新版 jar：按根目录 VERSION 选新版
+
   if (Test-Path -LiteralPath $script:P.Version) {
     $want = (Get-Content -LiteralPath $script:P.Version -Raw).Trim()
     $matched = @($preferred | Where-Object { $_.Name -eq ('xuri-classroom-' + $want + '.jar') })
@@ -1919,7 +1919,7 @@ function Resolve-JavaRuntime {
     $info = Get-JavaVersionInfo $path
     if (-not $info.Ok) { continue }
     if (-not (Test-Java25Version $info.Version)) {
-      # 版本太低（例如机器上只装了旧版 Java）不能用：跳过，继续看下一个候选
+
       Out-Warn ('跳过 Java ' + $info.Version + '（' + [string]$candidate.Source + '）：本项目需要 Java 25 及以上')
       continue
     }
@@ -1965,8 +1965,8 @@ function Wait-AppReady([int]$Port, [int]$TimeoutSec, [int]$ProcessId) {
   while ((Get-Date) -lt $deadline) {
     $probe = Invoke-HttpProbe $url 3
     if ($probe.Ok -and $probe.StatusCode -ge 200 -and $probe.StatusCode -lt 400) {
-      # 关键：必须确认应答的是“我们刚启动的进程”，否则同机别的程序占着 8080
-      # 也会返回 200，看上去启动成功，实际我们的进程根本没起来。
+
+
       $ownerProcessId = Get-ListeningProcessId $Port
       $ownedByUs = $true
       if ($ownerProcessId -gt 0 -and $ProcessId -gt 0) {
@@ -2067,7 +2067,7 @@ function Ensure-AppStarted {
   $outputFile = Join-Path $script:P.Logs ('app-' + $stamp + '.out.log')
   $errorFile = Join-Path $script:P.Logs ('app-' + $stamp + '.err.log')
 
-  # Spring Boot 通过环境变量接收数据库与端口配置（宽松绑定，全大写）
+
   $env:SPRING_PROFILES_ACTIVE = 'pro'
   $env:SPRING_DATASOURCE_URL = Get-JdbcUrl $config
   $env:SPRING_DATASOURCE_USERNAME = [string]$config.DbUser
@@ -2075,7 +2075,7 @@ function Ensure-AppStarted {
   $env:SERVER_PORT = [string]$port
   $env:SK_JWT_SECRET = [string]$config.JwtSecret
   $env:SK_WEB_SPA_ENABLED = 'true'
-  # 两个名字都设置：规范写法给未来版本；_ROOTPATH 是 Spring 宽松绑定实际识别的名字
+
   $env:FILE_STORAGE_LOCAL_ROOT_PATH = [string]$config.FilesPath
   $env:FILE_STORAGE_LOCAL_ROOTPATH = [string]$config.FilesPath
 
@@ -2089,7 +2089,7 @@ function Ensure-AppStarted {
   [void]$argumentList.Add('-Duser.timezone=Asia/Shanghai')
   [void]$argumentList.Add('-jar')
   [void]$argumentList.Add($jar.FullName)
-  # 命令行参数优先级最高，避免 application-pro.yml 里写死的端口覆盖配置
+
   [void]$argumentList.Add('--server.port=' + [string]$port)
   [void]$argumentList.Add('--file-storage.local.root-path=' + [string]$config.FilesPath)
 
@@ -2132,8 +2132,8 @@ function Ensure-AppStarted {
     Out-Ok ('应用已就绪：/api/system HTTP ' + $wait.StatusCode + '（PID ' + $process.Id + '）')
   }
 
-  # 前端是打进 jar 的（-PwithSpa）：根路径和任意深链接都应该返回 index.html
-  # 变量不能叫 $home：它是 PowerShell 的只读自动变量 HOME
+
+
   $homePage = Invoke-HttpProbe ($url + '/') 5
   if ($homePage.Ok -and $homePage.StatusCode -eq 200 -and $homePage.Body -match '(?i)(id="root"|<!doctype html)') {
     Out-Ok '前端首页：HTTP 200（index.html）'
@@ -2312,7 +2312,7 @@ function Assert-Environment {
   } catch { }
   $osText = 'Windows ' + $osVersion.Major + '.' + $osVersion.Minor + ' build ' + $osVersion.Build
   if ($productName -ne '') { $osText = $productName + '（build ' + $osVersion.Build + '）' }
-  # Win11 的注册表 ProductName 仍写着 "Windows 10"，用 build 号纠正，免得报告看着奇怪
+
   if ($osVersion.Build -ge 22000) { $osText = $osText.Replace('Windows 10', 'Windows 11') }
   if (-not [System.Environment]::Is64BitOperatingSystem) {
     Out-Fail ('操作系统：' + $osText + '，32 位系统不受支持')
@@ -2654,7 +2654,7 @@ function Invoke-UpgradeCommand {
   $newVersion = Get-PackageVersion
   Out-Header ('旭日云课堂 · 升级到 ' + $newVersion)
 
-  # ---- 1) 身份检测：确认"已经装过"
+
   if (-not (Test-SetupDone)) {
     Out-Warn '当前目录还没有安装过旭日云课堂。'
     Out-Info '全新安装请双击 setup.cmd（或 start.cmd，会自动进入引导安装）。'
@@ -2668,7 +2668,7 @@ function Invoke-UpgradeCommand {
     return 2
   }
 
-  # ---- 2) 版本清点
+
   $jars = @(Get-JarInventory)
   $matched = @($jars | Where-Object { $_.Version -eq $newVersion })
   if ($matched.Count -eq 0) {
@@ -2724,11 +2724,11 @@ function Invoke-UpgradeCommand {
     }
   }
 
-  # ---- 3) 停应用（MySQL 继续跑，备份要用）
+
   Out-Step '停止应用'
   Stop-AppOnly
 
-  # ---- 4) 备份
+
   Out-Step '备份数据库与配置'
   New-Item -ItemType Directory -Path $backup -Force | Out-Null
   Backup-DatabaseTo $backup
@@ -2772,7 +2772,7 @@ function Invoke-UpgradeCommand {
     ('install_dir=' + $script:Root)
   ) | Set-Content -LiteralPath (Join-Path $backup 'manifest.txt') -Encoding UTF8
 
-  # ---- 5) 换 jar
+
   Out-Step '切换程序文件'
   foreach ($j in $oldJars) {
     Remove-Item -LiteralPath $j.Path -Force -ErrorAction SilentlyContinue
@@ -2780,7 +2780,7 @@ function Invoke-UpgradeCommand {
   }
   Out-Ok ('当前使用：' + $newJar.Name)
 
-  # ---- 6) 启动 + 校验
+
   Out-Step '启动新版本'
   $config = Get-AppConfig
   $started = $false
@@ -2807,7 +2807,7 @@ function Invoke-UpgradeCommand {
     return 0
   }
 
-  # ---- 7) 回滚
+
   Out-Step '校验未通过，回滚'
   Stop-AppOnly
   $oldDir = Join-Path $backup 'old-jars'
@@ -2931,8 +2931,8 @@ function Get-StatusSnapshot {
 
 function Invoke-StatusCommand {
   if ($script:Opts.Json) {
-    # 只吐一行 JSON：GUI 与脚本都靠它，不再解析人读文本。
-    # 必须走 [Console]::Out.WriteLine 而不是管道输出——走管道会被 $exitCode = Invoke-StatusCommand 一起捕获成数组。
+
+
     $json = (Get-StatusSnapshot) | ConvertTo-Json -Depth 6 -Compress
     [Console]::Out.WriteLine($json)
     return 0
@@ -3086,7 +3086,7 @@ function Invoke-DoctorCommand {
   } catch { }
   $osText = 'Windows ' + $osVersion.Major + '.' + $osVersion.Minor + ' build ' + $osVersion.Build
   if ($productName -ne '') { $osText = $productName + '（build ' + $osVersion.Build + '）' }
-  # Win11 的注册表 ProductName 仍写着 "Windows 10"，用 build 号纠正，免得报告看着奇怪
+
   if ($osVersion.Build -ge 22000) { $osText = $osText.Replace('Windows 10', 'Windows 11') }
   if ($osVersion.Major -lt 10) {
     Add-DoctorResult '失败' 'Windows 版本' ($osText + '，只支持 Windows 10 / 11') '升级系统，或改用 Linux 安装包'
@@ -3309,7 +3309,7 @@ function Invoke-DoctorCommand {
         }
       }
       Out-Info '修复动作已执行，下面自动复查一次（复查只读，不会再改动任何东西）。'
-      # 复查：关闭 --fix 再跑一遍，让最终退出码反映修复后的真实状态
+
       $script:Opts.Fix = $false
       return (Invoke-DoctorCommand)
     }
@@ -3441,9 +3441,9 @@ function Show-FailureBlock {
   Add-LogText $bar
 }
 
-# ===========================================================================
-# 16. 主入口
-# ===========================================================================
+
+
+
 
 $script:RawArgs = @()
 if ($null -ne $args) { $script:RawArgs = @($args) }

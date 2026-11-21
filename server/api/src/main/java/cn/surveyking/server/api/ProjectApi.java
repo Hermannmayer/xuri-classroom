@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * @author javahuang
- * @date 2021/8/6
- */
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/project")
 @RequiredArgsConstructor
@@ -77,11 +77,11 @@ public class ProjectApi {
 		return projectService.tree();
 	}
 
-	/**
-	 * 获取项目信息
-	 * @param id 项目 id
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping
 	@PreAuthorize("hasAuthority('project:detail')")
 	@EnableDataPerm(key = "#id")
@@ -97,11 +97,11 @@ public class ProjectApi {
 		return projectStatisticsService.statClassAnonymous(projectId);
 	}
 
-	/**
-	 * 获取项目设置
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/setting")
 	@PreAuthorize("hasAuthority('project:detail')")
 	@EnableDataPerm(key = "#query.id")
@@ -109,21 +109,21 @@ public class ProjectApi {
 		return projectService.getSetting(query);
 	}
 
-	/**
-	 * 添加项目
-	 * @param project
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/create")
 	@PreAuthorize("hasAuthority('project:create')")
 	public ProjectView addProject(@RequestBody ProjectRequest project) {
 		return projectService.addProject(project);
 	}
 
-	/**
-	 * 更新项目
-	 * @param project
-	 */
+
+
+
+
 	@PostMapping("/update")
 	@PreAuthorize("hasAuthority('project:update')")
 	@EnableDataPerm(key = "#project.id")
@@ -142,10 +142,10 @@ public class ProjectApi {
 		projectService.updateProjectStatus(request);
 	}
 
-	/**
-	 * 删除项目
-	 * @param project
-	 */
+
+
+
+
 	@PostMapping("/delete")
 	@PreAuthorize("hasAuthority('project:delete')")
 	@EnableDataPerm(key = "#project.id")
@@ -153,11 +153,11 @@ public class ProjectApi {
 		projectService.deleteProject(project);
 	}
 
-	/**
-	 * 获取项目参与者列表
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/partner/list")
 	@PreAuthorize("hasAuthority('project:detail')")
 	@EnableDataPerm(key = "#query.projectId")
@@ -173,8 +173,8 @@ public class ProjectApi {
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void addProjectPartner(@RequestBody ProjectPartnerRequest request) {
-		// 授权闸门在 service（owner / admin / access_level=3 的协作者），这里不再限定 owner，
-		// 否则「可授权」的协作者没法把自己的班/学员继续加进来
+
+
 		projectPartnerService.addProjectPartner(request);
 	}
 
@@ -201,10 +201,10 @@ public class ProjectApi {
 		projectPartnerService.updateProjectPartner(request);
 	}
 
-	/**
-	 * 下载项目参与者列表
-	 * @param query
-	 */
+
+
+
+
 	@GetMapping("/partner/download")
 	// 名单里有手机号等个人信息，从 project:detail（所有能看到项目的人）收紧到 project:partner
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
@@ -221,91 +221,91 @@ public class ProjectApi {
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
 	public void importPartner(@RequestBody WhiteListRequest request) {
-		// 与 create/delete 对齐：只有项目所有者能导入名单，避免协作者给自己扩权
+
 		projectPartnerService.assertProjectOwner(request.getProjectId());
 		projectPartnerService.importPartner(request);
 	}
 
-	/**
-	 * 获取回收站里的项目列表
-	 * @param query
-	 * @return
-	 */
+
+
+
+
+
 	@GetMapping("/trash")
 	@PreAuthorize("hasAuthority('project:list')")
 	public List<ProjectView> getDeleted(ProjectQuery query) {
 		return projectService.getDeleted(query);
 	}
 
-	/**
-	 * 从回收站彻底移除项目
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/destroy")
-	// 彻底删除与「新建/恢复」分开：老师可以建、可以恢复，但不能物理清空回收站。
+
 	@PreAuthorize("hasAuthority('project:delete')")
 	public void batchDestroyProject(@RequestBody ProjectRequest request) {
 		projectService.batchDestroyProject(request);
 	}
 
-	/**
-	 * 从回收站里面恢复项目
-	 * @param request
-	 */
+
+
+
+
 	@PostMapping("/restore")
 	@PreAuthorize("hasAuthority('project:create')")
 	public void restoreProject(@RequestBody ProjectRequest request) {
 		projectService.restoreProject(request);
 	}
 
-	/**
-	 * 编辑器里面获取用户信息
-	 * @param request
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/selectUser")
 	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<UserInfo> selectUser(@RequestBody SelectUserRequest request) {
 		return userService.selectUsers(request);
 	}
 
-	/**
-	 * 编辑器里面获取部门信息
-	 * @param request
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/selectDept")
 	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<DeptView> selectDept(@RequestBody SelectDeptRequest request) {
 		return deptService.listDept(request);
 	}
 
-	/**
-	 * 编辑器里面获取角色信息
-	 * @param request
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/selectRole")
 	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<RoleView> selectRole(@RequestBody SelectRoleRequest request) {
 		return roleService.selectRoles(request);
 	}
 
-	/**
-	 * 编辑器里面获取岗位信息
-	 * @param request
-	 * @return
-	 */
+
+
+
+
+
 	@PostMapping("/selectPosition")
 	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<PositionView> selectPosition(@RequestBody SelectPositionRequest request) {
 		return positionService.selectPositions(request);
 	}
 
-	/**
-	 * 编辑器里面获取字典
-	 * @return
-	 */
+
+
+
+
 	@PostMapping("/selectDict")
 	@PreAuthorize("hasAnyAuthority('project:detail','project:create','project:update')")
 	public List<CommDictView> selectDict() {

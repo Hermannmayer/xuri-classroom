@@ -60,115 +60,115 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-/**
- * 首页统计实现（task-34）。
- *
- * <p><b>为什么单独一个服务</b>：老 {@code DashboardServiceImpl} 是「项目里内嵌的仪表盘组件」，
- * 只有 /api/dashboard/list 一条列表查询；首页看板要的是跨表的聚合数字，两件事的数据源、
- * 性能预算、失败兜底都不一样，所以不往老服务里加方法。
- *
- * <p><b>实现纪律</b>（与需求口径一一对应）：
- * <ul>
- * <li>只统计未删除数据：实体上的 {@code @TableLogic} 会自动补 {@code is_deleted = 0}；
- * 少数没有这一列的表（t_user_role / t_project_partner / t_answer_item / t_ai_usage）
- * 本来就没有逻辑删除，也不硬加条件；</li>
- * <li>一律 {@code selectCount} / {@code selectMaps} 走 SQL 聚合，不把答卷明细拉进内存做循环；
- * 跨表地方用「一次查询 + 内存拼装」或者 EXISTS 子查询，不做 N+1；</li>
- * <li>每个子统计单独 try/catch（{@link #safe}）：某个口径算不出来就退化成 0 或 null 并记 warn，
- * 首页不会因为一个统计 500；</li>
- * <li>答卷口径统一 {@link #FORMAL}（temp_save=1）并排除练习伪项目（见 {@link #EXERCISE_PROJECT_ID}）。</li>
- * </ul>
- *
- * <p><b>两处「没有现成字段」的口径，选择与理由写在这里</b>：
- * <ol>
- * <li>「进行中的考试」：t_project <b>没有</b> start_time / end_time 列，开放时间是
- * {@code t_project.setting} JSON 里的 {@code examSetting.startTime/endTime}（epoch 毫秒）。
- * 所以 running 只能把「已发布的考试」的 setting 取回来解析时间窗再判断；解析失败的
- * 项目按「不限时间」处理（宁可多算一个进行中，也不因为一条脏 JSON 让首页少算一片）；</li>
- * <li>「开班中」：t_dept 没有班级状态字段（只有 dept_type 与 class_kind 两个维度，开班/结班是
- * 业务动作）。这里按需求给的近似口径：教学班（class_kind≠group）+ 有在册学员 + 至少分配了一个
- * 「已发布」考试/问卷的班级资源。三个条件都能在库里直接观测到，不依赖人工维护的状态位。</li>
- * </ol>
- *
- * @author be-stats
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardStatsServiceImpl implements DashboardStatsService {
 
-	/** 趋势窗口默认天数 */
+
 	private static final int DEFAULT_DAYS = 14;
 
-	/** 趋势窗口上限：再多首页也画不下，且逐日补空后响应体线性变大 */
+
 	private static final int MAX_DAYS = 90;
 
-	/** 「近 7 天」窗口：滚动 7×24 小时（不是 7 个自然日，自然日只在趋势图里用） */
+
 	private static final int RECENT_DAYS = 7;
 
-	/** 「近 30 天」窗口：同上，滚动 30×24 小时 */
+
 	private static final int MONTH_DAYS = 30;
 
-	/** 正式交卷：t_answer.temp_save=1（0 是未提交草稿） */
+
 	private static final int FORMAL = 1;
 
-	/** 批改状态：主观题都批完了 */
+
 	private static final String GRADE_GRADED = "graded";
 
-	/** 批改状态：还有主观题等老师批 */
+
 	private static final String GRADE_PENDING = "pending";
 
-	/** 及格线（分）：系统级面板跨卷统计，无法逐卷还原满分，按绝对 60 分判及格 */
+
 	private static final int PASS_SCORE = 60;
 
-	/** 练习记录写在 t_answer 里的伪项目 id（没有 t_project 行） */
+
 	private static final String EXERCISE_PROJECT_ID = ExerciseProjectTemplate.EXERCISE_PROJECT_ID;
 
-	/** 老师首页「最近项目」条数 */
+
 	private static final int RECENT_PROJECT_LIMIT = 8;
 
-	/**
-	 * 学员首页「最近答卷」条数。
-	 *
-	 * <p>原来是 8 条，走势图只有 8 个点，看不出起伏。放到 20 条：一个学期考 20 次已经算多，
-	 * 图上足够看出趋势；再大就没意义了 —— 首页只画趋势，逐次的明细在「我的任务 / 我的成绩」里翻，
-	 * 首页再拉长只是把响应体和项目名查询一起放大，还是没人会在首页逐条读。
-	 */
+
+
+
+
+
+
+
 	private static final int RECENT_ANSWER_LIMIT = 20;
 
-	/**
-	 * 管理员判定（SQL 片段，作用于外层的 t_user 行）。
-	 *
-	 * <p>口径与 {@code SecurityContextUtils.isAdmin()} 对齐：那里判断的是权限集合里有没有
-	 * {@code ROLE_admin}，而 {@code ROLE_admin} 来自角色 code='admin'。所以这里认两种情况：
-	 * 直挂 admin 角色（t_user_role → t_role.code='admin'），或登录账号就是 admin（种子账号）。
-	 *
-	 * <p>两个已知边界，都写在返回说明里：
-	 * <ul>
-	 * <li>通过用户组绑定的 admin 角色（t_dept_role + 祖先链）<b>不</b>计入管理员数：那要按
-	 * {@code UserDeptScopeService} 的递归组链逐人展开，首页不值得为一个几乎不用的配置付这个代价，
-	 * 这类账号会落在「老师」里；</li>
-	 * <li>t_user_role 没有 is_deleted 列，所以只对 t_role / t_account 加逻辑删除条件。</li>
-	 * </ul>
-	 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	private static final String ADMIN_USER_SQL = "EXISTS (SELECT 1 FROM t_user_role ur JOIN t_role r ON r.id = ur.role_id "
 			+ "WHERE ur.user_id = t_user.id AND r.code = 'admin' AND r.is_deleted = 0) "
 			+ "OR EXISTS (SELECT 1 FROM t_account a WHERE a.user_id = t_user.id "
 			+ "AND a.auth_account = 'admin' AND a.is_deleted = 0)";
 
-	/**
-	 * 班级资源里「这个资源是已发布项目」的条件（一个 EXISTS，避免把 t_project 全表拉回来再比对）。
-	 *
-	 * <p>t_class_resource 的 resource_type 除了 project 还有 repo，repo 行的 resource_id 指向
-	 * t_repo，天然不会命中这里。
-	 */
+
+
+
+
+
+
 	private static final String PUBLISHED_RESOURCE_SQL = "EXISTS (SELECT 1 FROM t_project p "
 			+ "WHERE p.id = t_class_resource.resource_id AND p.is_deleted = 0 AND p.status = 1)";
 
-	/** 趋势图日期轴格式：11-04 */
+
 	private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("MM-dd");
 
-	// ------ 依赖（顺序即构造参数顺序，单测按这个顺序 new）
+
 
 	private final AnswerMapper answerMapper;
 
@@ -192,21 +192,21 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 
 	private final AiUsageMapper aiUsageMapper;
 
-	/** 组链可见范围（协作者按用户组授权时用） */
+
 	private final UserDeptScopeService userDeptScopeService;
 
-	/** 班级可见性只认 ClassService 那一套，不在这里重写 */
+
 	private final ClassService classService;
 
-	/** 只用来解析 project.setting 里的考试时间窗 */
+
 	private final ObjectMapper objectMapper;
 
 	// ------ 总览
 
 	@Override
 	public DashboardOverviewView overview(int days) {
-		// days 只做夹取，不参与总览口径：总览的窗口是固定的（今天 / 7 天 / 30 天）。
-		// 保留这个参数是为了前端四个首页接口能用同一套调用签名。
+
+
 		normalizeDays(days);
 		DashboardOverviewView view = new DashboardOverviewView();
 		fillUsers(view.getUsers());
@@ -236,8 +236,8 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		users.setStudent(students);
 		users.setTeacher(teachers);
 		users.setTotal(admins + students + teachers);
-		// 活跃人数按「人」去重：同一个人交 10 份卷只算 1 个活跃用户；
-		// 匿名答卷没有 create_by（COUNT DISTINCT 天然忽略 NULL），教职工答卷也算活跃。
+
+
 		users.setActive7d(safeCount("users.active7d", () -> {
 			List<Map<String, Object>> rows = answerMapper.selectMaps(formalAnswers()
 					.select("COUNT(DISTINCT create_by) AS cnt").isNotNull("create_by").ge("create_at", daysAgo(RECENT_DAYS)));
@@ -343,7 +343,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 				teachingIds.add(id);
 			}
 		}
-		// 主班人数：t_user.dept_id 是主组，学员一定有一个主班
+
 		Map<String, Long> primaryMembers = safe("classes.members", () -> {
 			Map<String, Long> counts = new HashMap<>();
 			for (Map<String, Object> row : userMapper.selectMaps(new QueryWrapper<User>().select("dept_id", "COUNT(*) AS cnt")
@@ -352,12 +352,12 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 			}
 			return counts;
 		}, Collections.emptyMap());
-		// 兼报班人数：只用来判「这个班有没有人」，不参与 students（否则一个人会被数两次）
+
 		Map<String, Long> extraMembers = safe("classes.extraMembers", () -> {
 			Map<String, Long> counts = new HashMap<>();
 			for (Map<String, Object> row : userDeptMapper.selectMaps(new QueryWrapper<UserDept>()
 					.select("dept_id", "COUNT(*) AS cnt")
-					// 兼报表里也可能绑着老师；「在册学员」只认学员
+
 					.apply("user_id IN (SELECT id FROM t_user WHERE user_type = 'student' AND is_deleted = 0)")
 					.groupBy("dept_id"))) {
 				counts.merge(asString(row.get("dept_id")), asLong(row.get("cnt")), Long::sum);
@@ -393,9 +393,9 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 				() -> answerMapper.selectCount(formalAnswers().ge("create_at", daysAgo(RECENT_DAYS)))));
 		answers.setLast30d(safeCount("answers.last30d",
 				() -> answerMapper.selectCount(formalAnswers().ge("create_at", daysAgo(MONTH_DAYS)))));
-		// 已批改 = 有分数且不在「待批改」里。
-		// 只认 grade_status='graded' 会把两类答卷漏掉：迁移后默认值 'none'（纯客观题，系统自动判分、无需人工批改）
-		// 与 2.2.1 之前的老数据（grade_status 为空但有分）。漏掉的后果是首页批改进度恒为 0%。
+
+
+
 		answers.setGraded(safeCount("answers.graded",
 				() -> answerMapper.selectCount(formalAnswers().isNotNull("exam_score").ne("grade_status", GRADE_PENDING))));
 		answers.setPending(safeCount("answers.pending",
@@ -411,8 +411,8 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 	 * {@code TableInfo.isWithLogicDelete()=false}，User/Dept/Project/Answer/ClassResource 都是 true）。
 	 */
 	private void fillQuestions(DashboardOverviewView.Questions questions) {
-		// t_repo 没有软删列（删除是物理删），加 where 反而会 1054 Unknown column 被 safe() 吞成 0，
-		// 首页就会显示「题库 0 个」而实际上有 46 个
+
+
 		questions.setRepos(safeCount("questions.repos", () -> repoMapper.selectCount(null)));
 		questions.setTemplates(safeCount("questions.templates", () -> templateMapper.selectCount(new QueryWrapper<Template>())));
 	}
@@ -498,12 +498,12 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		LocalDate today = LocalDate.now();
 		LocalDate from = today.minusDays(window - 1L);
 		Date since = Date.from(from.atStartOfDay(ZoneId.systemDefault()).toInstant());
-		// 不逐日循环查 14 次，也不把答卷拉进内存按日期桶排：按自然日分组，缺的日期在下面补 0 / null。
+
 		Map<String, Map<String, Object>> byDay = new HashMap<>();
 		if (scope != null) {
 			List<Map<String, Object>> rows = safe(block, () -> answerMapper.selectMaps(scope
 				.select("DATE(create_at) AS stat_day", "COUNT(*) AS cnt",
-						// 与 overview 的 graded 同一口径：有分数且不是待批改（含 none / 空 / graded）
+
 						"SUM(CASE WHEN exam_score IS NOT NULL AND (grade_status IS NULL OR grade_status <> '"
 								+ GRADE_PENDING + "') THEN 1 ELSE 0 END) AS graded_cnt",
 						"AVG(exam_score) AS avg_score", "COUNT(DISTINCT create_by) AS active_cnt")
@@ -524,7 +524,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 			if (row == null) {
 				view.getAnswers().add(0L);
 				view.getGraded().add(0L);
-				// 当天没有带分数的答卷：null 而不是 0，折线在那里断开
+
 				view.getAvgScores().add(null);
 				view.getActiveUsers().add(0L);
 				continue;
@@ -537,7 +537,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return view;
 	}
 
-	// ------ 老师视角
+
 
 	/**
 	 * 当前老师可见范围内的首页数字。
@@ -558,7 +558,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		view.setClasses(classIds.size());
 		view.setStudents(classIds.isEmpty() ? 0L : safe("teacher.students", () -> countStudentsInClasses(classIds), 0L));
 		Set<String> projectIds = safe("teacher.projectIds", () -> visibleProjectIds(userId, classIds), Collections.emptySet());
-		// 文件夹不是可作答的项目：不参与 projects / published，也不出现在 recent 里
+
 		List<Map<String, Object>> realProjects = visibleProjectRows(projectIds);
 		List<String> ids = projectIdList(realProjects);
 		view.setProjects(ids.size());
@@ -616,7 +616,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 				.stream().filter(Objects::nonNull).map(String::valueOf).forEach(ids::add);
 		userDeptMapper
 				.selectObjs(new QueryWrapper<UserDept>().select("DISTINCT user_id").in("dept_id", classIds)
-						// 兼报表里也会绑老师，学员去重只认 student
+
 						.apply("user_id IN (SELECT id FROM t_user WHERE user_type = 'student' AND is_deleted = 0)"))
 				.stream().filter(Objects::nonNull).map(String::valueOf).forEach(ids::add);
 		return ids.size();
@@ -637,7 +637,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 			partnerQuery.eq("user_id", userId);
 		}
 		else {
-			// 按用户组授权：自己直挂，或者授权在他所在的任一组（组链已在 scope 里展开）
+
 			partnerQuery.and(wrapper -> wrapper.eq("user_id", userId).or().in("group_id", deptScope));
 		}
 		projectPartnerMapper.selectObjs(partnerQuery).stream().filter(Objects::nonNull).map(String::valueOf)
@@ -734,7 +734,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 	public StudentDashboardView student() {
 		String userId = SecurityContextUtils.getUserId();
 		StudentDashboardView view = new StudentDashboardView();
-		// 匿名/无上下文：全 0 返回，不查库（首页对匿名用户不开放，但接口不该 500）
+
 		if (!StringUtils.hasText(userId) || AppConsts.ANONYMOUS_USER_ID.equals(userId)) {
 			return view;
 		}
@@ -831,7 +831,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		if (candidates.isEmpty()) {
 			return 0;
 		}
-		// 已经交过的（正式答卷）从待考里去掉：temp_save=0 的草稿不算交卷
+
 		Set<String> submitted = answerMapper
 				.selectObjs(new QueryWrapper<Answer>().select("DISTINCT project_id").eq("create_by", userId)
 						.eq("temp_save", FORMAL).in("project_id", candidates))
@@ -865,7 +865,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return recent;
 	}
 
-	// ------ 公共小工具
+
 
 	/**
 	 * 单个子统计的失败兜底：任何 RuntimeException 都只让这一块变成默认值，其余块照常返回。
@@ -937,7 +937,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 			window[1] = epochMillis(examSetting.get("endTime"));
 		}
 		catch (RuntimeException e) {
-			// 脏 JSON 不能让「进行中」整块变 0：按不限时间处理，宁可多算一个
+
 			log.warn("解析项目设置的考试时间窗失败，按不限时间处理", e);
 		}
 		return window;
@@ -1045,7 +1045,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return Math.round(value * 10D) / 10D;
 	}
 
-	/** 建 recent 行时用的中间结构（排序要 createAt / lastAnswerAt，DTO 里没有 createAt） */
+
 	private static final class ProjectBrief {
 
 		private String id;

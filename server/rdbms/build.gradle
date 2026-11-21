@@ -10,32 +10,32 @@ repositories {
 
 dependencies {
     implementation project(':shared')
-    // AI 内核（AiGateway / PromptRegistry / AiJobService / AiContentGuard）。
-    // 方向是 rdbms → ai → shared，ai 不依赖任何 DB 模块，所以不会成环；
-    // 四个场景的实现必须在 rdbms（要读项目 schema / 答卷 / 报表，还要过答卷行级权限）。
+
+
+
     implementation project(':ai')
-    // Spring Boot 4 / Jakarta 对应的是 spring-boot4-starter 这一支
+
     implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.18'
-    // 3.5.9 起 PaginationInnerInterceptor 被拆到 jsqlparser 适配构件里，starter 默认不带
+
     implementation 'com.baomidou:mybatis-plus-jsqlparser-4.9:3.5.18'
-    // 审计切面需要 AspectJ：shared 里是 implementation，不会传递到本模块
-    // Spring Boot 4 把 spring-boot-starter-aop 改名成 spring-boot-starter-aspectj
+
+
     implementation 'org.springframework.boot:spring-boot-starter-aspectj'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.security:spring-security-oauth2-jose'
-    // Spring Boot 4 把 RestTemplateBuilder 从 spring-boot-web 拆到独立模块 spring-boot-restclient，
-    // 包名也从 org.springframework.boot.web.client 变成 org.springframework.boot.restclient。
+
+
     implementation 'org.springframework.boot:spring-boot-restclient'
     implementation 'org.dhatim:fastexcel:0.20.2'
     implementation 'org.dhatim:fastexcel-reader:0.20.2'
-    
+
     runtimeOnly 'com.mysql:mysql-connector-j'
 }
 
 test {
     useJUnitPlatform {
-        // 默认跳过 @Tag("slow")：渲染 PDF/Word、起 Spring 上下文、跑 ArchUnit 这类慢用例，
-        // 日常 gradle test 只跑业务规则（秒级）；发版/CI 用 -PwithSlow 全跑。
+
+
         if (!project.hasProperty("withSlow")) {
             excludeTags "slow"
         }

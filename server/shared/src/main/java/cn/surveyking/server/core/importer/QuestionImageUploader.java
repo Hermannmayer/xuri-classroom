@@ -12,17 +12,17 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 
-/**
- * 导入时把题目里抽出来的图片落成文件，并把 {@code <img>} 追加到题干末尾。
- *
- * <p>
- * 试卷导入（ImportServiceImpl）走的是 token 替换那一套；题库导入（RepoServiceImpl）没有 token，
- * 直接按行把图片挂到题干上——两边的上传口径（QUESTION_IMAGE + publicRead + 公开预览地址）这里统一。
- */
+
+
+
+
+
+
+
 @Slf4j
 public final class QuestionImageUploader {
 
-	/** 公开预览地址前缀 + 后缀（用拼接而不是 String.format：串里有 %，format 会把它当格式符） */
+
 	private static final String IMG_PREFIX = "<img src=\"/api/public/preview/";
 
 	private static final String IMG_SUFFIX = "\" style=\"max-width:100%;\" />";
@@ -59,7 +59,7 @@ public final class QuestionImageUploader {
 				attached++;
 			}
 			catch (Exception e) {
-				// 单张图片失败不影响整份导入
+
 				log.warn("导入图片上传失败，已跳过该图片：{}", e.getMessage());
 			}
 		}

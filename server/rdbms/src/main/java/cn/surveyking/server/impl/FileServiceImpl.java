@@ -64,10 +64,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.surveyking.server.core.constant.ErrorCode.FileUploadError;
 
-/**
- * @author javahuang
- * @date 2021/9/10
- */
+
+
+
+
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -84,7 +84,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 
 	private static final int DEFAULT_MAX_FILE_COUNT = 20;
 
-	/** imageQuality 配置写错（<=0 或 >1）时的兜底 JPEG 质量 */
+
 	private static final float DEFAULT_IMAGE_QUALITY = 0.85f;
 
 	private final StorageService storageService;
@@ -124,7 +124,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 	public void deleteByOwner(String ownerType, String ownerId) {
 		Set<String> fileIds = new java.util.LinkedHashSet<>(fileRefService.deleteByOwner(ownerType, ownerId));
 		if ("project".equals(ownerType)) {
-			// 富文本答案图片在 t_file.project_id 上，不一定有 t_file_ref；一起纳入清理
+
 			list(Wrappers.<File>lambdaQuery().eq(File::getProjectId, ownerId)).forEach(file -> fileIds.add(file.getId()));
 		}
 		for (String fileId : fileIds) {
@@ -132,7 +132,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			if (file == null || StringUtils.isNotBlank(file.getAnswerId())) {
 				continue;
 			}
-			// 还被别的项目/题库引用时保留物理文件
+
 			if (fileRefService.countByFile(fileId) > 0) {
 				continue;
 			}
@@ -146,7 +146,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		if (answerIds == null || answerIds.isEmpty()) {
 			return;
 		}
-		// 只认 ANSWER_ATTACHMENT：题面富文本图片挂在 project 上，不是答卷的附属物
+
 		List<File> files = list(Wrappers.<File>lambdaQuery().in(File::getAnswerId, answerIds)
 				.eq(File::getStorageType, StorageTypeEnum.ANSWER_ATTACHMENT.getType()));
 		for (File file : files) {
@@ -162,8 +162,8 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		if (StringUtils.isBlank(projectId)) {
 			return;
 		}
-		// 与 deleteByOwner 的关键区别：这里不跳过 answer_id 非空的行——项目都彻底删了，
-		// 答卷附件（签名/上传件）留着只会变成永远没人认领的孤儿文件。
+
+
 		List<File> files = list(Wrappers.<File>lambdaQuery().eq(File::getProjectId, projectId));
 		for (File file : files) {
 			fileRefService.deleteByFile(file.getId());
@@ -232,13 +232,13 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		String fileId = NanoIdUtils.randomNanoId();
 		SurveySchema uploadSchema = null;
 
-		// 通过问卷页面上传需要校验题型、文件类型、大小、频率和项目容量
+
 		if (Boolean.TRUE.equals(request.getPublicUpload())) {
 			if (StringUtils.isEmpty(request.getProjectId()) || StringUtils.isEmpty(request.getQuestionId())) {
 				throw new ErrorCodeException(FileUploadError);
 			}
 			ProjectView projectView = projectService.getProject(request.getProjectId());
-			// 校验对应项目状态
+
 			surveyService.validateProject(projectView);
 
 			uploadSchema = SchemaHelper.flatSurveySchema(projectView.getSurvey()).stream()
@@ -250,7 +250,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			SurveySchema.Attribute attribute = getUploadAttribute(uploadSchema);
 			String fileAccept = attribute.getFileAccept();
 			if (StringUtils.isNotEmpty(fileAccept)) {
-				// 只允许上传指定格式的文件
+
 				boolean notAllowExtension = Arrays.stream(fileAccept.split(","))
 						.map(type -> type.trim().replaceFirst("\\.", ""))
 						.noneMatch(type -> type.equalsIgnoreCase(extName));
@@ -259,7 +259,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 				}
 			}
 			else {
-				// 默认文件类型白名单限制
+
 				boolean notAllowExtension = Arrays.stream(FileUtils.ALLOWED_EXTENSIONS)
 						.noneMatch(ext -> ext.equalsIgnoreCase(extName));
 				if (notAllowExtension) {
@@ -294,7 +294,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		}
 
 		if (isSupportImage(originalName)) {
-			// 不能只信扩展名：解码确认是图片，再把 JPEG/PNG/BMP/WBMP 重新编码，剥掉 EXIF/尾部附加数据
+
 			uploadFile = sanitizeImage(uploadFile, originalName);
 			request.setFile(uploadFile);
 		}
@@ -506,10 +506,10 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			if (!Arrays.asList("jpeg", "png", "gif", "bmp", "wbmp").contains(format)) {
 				throw new ErrorCodeException(FileUploadError);
 			}
-			// 先用 reader 校验尺寸，避免解码图片炸弹；顺序必须在缩放之前，不能削弱
+
 			assertImageDimensions(uploadFile, format);
 			if ("gif".equals(format)) {
-				// GIF 可能带动画，保留原文件；尺寸/解码校验已经挡住伪造图片
+
 				return uploadFile;
 			}
 			long originalBytes = uploadFile.getSize();
@@ -521,11 +521,11 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 			int originalHeight = image.getHeight();
 			int maxImageWidth = storageProperties.getMaxImageWidth();
 			if (maxImageWidth > 0 && originalWidth > maxImageWidth) {
-				// 只缩超宽的图：签名画布 1280、手机竖拍 1080 宽都不动，4K 截图才真正变小
+
 				image = scaleToWidth(image, maxImageWidth);
 			}
-			// 格式策略：png 保持 png（截图/签名常带透明或大片纯色，转 JPEG 会出噪点），
-			// bmp/wbmp 是无压缩格式、原样落盘太大，统一转 png；jpeg 按配置质量重编码
+
+
 			String targetFormat = "jpeg".equals(format) ? "jpeg" : "png";
 			ByteArrayOutputStream output = new ByteArrayOutputStream();
 			if (!writeImage(image, targetFormat, output)) {
@@ -585,7 +585,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 				throw new ErrorCodeException(FileUploadError);
 			}
 		}
-		// JPEG 不认 alpha 通道，直接写会抛 Bogus input colorspace，先铺一层白底
+
 		BufferedImage opaque = image.getColorModel().hasAlpha() ? flattenAlpha(image) : image;
 		ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
 		ImageWriteParam param = writer.getDefaultWriteParam();
@@ -666,10 +666,10 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 	public List<FileView> listFiles(FileQuery query) {
 		List<File> files = list(
 				Wrappers.<File>lambdaQuery().eq(query.getType() != null, File::getStorageType, query.getType())
-						// 默认只能查询自己的
+
 						.eq(CollectionUtils.isEmpty(query.getIds()), File::getCreateBy,
 								SecurityContextUtils.getUserId())
-						// 可以根据 ids 查询已知文件
+
 						.in(!CollectionUtils.isEmpty(query.getIds()), File::getId, query.getIds()));
 		if (StringUtils.isNotBlank(query.getProjectId())) {
 			files.removeIf(file -> StringUtils.isNotBlank(file.getProjectId())
@@ -837,7 +837,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		headers.add("X-Content-Type-Options", "nosniff");
 		boolean safeInline = query.getDispositionType() == AppConsts.DispositionTypeEnum.inline && isSafeInline(file);
 		if (safeInline && isSupportImage(file.getOriginalName())) {
-			// 图片响应再补一层 CSP；PDF/下载文件不加 sandbox，避免影响内置阅读器
+
 			headers.add("Content-Security-Policy", "default-src 'none'; sandbox");
 		}
 		MediaType responseMediaType = safeInline ? mediaType.orElse(MediaType.APPLICATION_OCTET_STREAM)
@@ -848,7 +848,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		if (StringUtils.isBlank(filePath)) {
 			throw new ErrorCodeException(ErrorCode.FileNotExists);
 		}
-		// FIXME: 在线预览 mp4 文件会报错，但不影响使用
+
 		return ResponseEntity.ok().contentType(responseMediaType).headers(headers)
 				.header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
 				.body(new InputStreamResource(storageService.downloadAsStream(filePath)));
@@ -859,13 +859,13 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		return StringUtils.isNotBlank(extName) && SAFE_INLINE_EXTENSIONS.contains(extName.toLowerCase(Locale.ROOT));
 	}
 
-	/**
-	 * 导入模板白名单：请求里的 name → classpath {@code template/} 下的真实文件名（不带 .xlsx）。
-	 *
-	 * <p>前端只传固定常量；这里用白名单而不是「name 拼路径」，既修正历史别名
-	 * （{@code 用户导入模板} 实际资源叫 {@code 旭日云课堂用户导入模板.xlsx}），也避免任意串
-	 * 拼进 classpath 造成路径穿越 / 资源探测。
-	 */
+
+
+
+
+
+
+
 	private static final Map<String, String> TEMPLATE_WHITELIST = buildTemplateWhitelist();
 
 	private static Map<String, String> buildTemplateWhitelist() {
@@ -881,7 +881,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 
 	@Override
 	public ResponseEntity<Resource> downloadTemplate(String name) {
-		// name 只用于白名单查表，绝不拼进 classpath 路径
+
 		String templateName = StringUtils.isBlank(name) ? null : TEMPLATE_WHITELIST.get(name.trim());
 		if (StringUtils.isBlank(templateName)) {
 			throw new ErrorCodeException(ErrorCode.FileNotExists);
@@ -889,7 +889,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		String location = "template/" + templateName;
 		ClassPathResource resource = new ClassPathResource(location);
 		if (!resource.exists()) {
-			// 直接返回不存在的 Resource 会在消息转换阶段抛 IOException，最终变成 500；这里按 404 处理
+
 			log.warn("导入模板不存在: {}", location);
 			throw new ErrorCodeException(ErrorCode.FileNotExists);
 		}
@@ -930,7 +930,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 
 	}
 
-	/** 重新编码后的图片：只带安全字节，不带原文件名之外的元数据。 */
+
 	private static final class ByteArrayMultipartFile implements MultipartFile {
 
 		private final String name;

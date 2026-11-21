@@ -10,21 +10,21 @@ import cn.surveyking.server.domain.model.Answer;
 
 import java.util.List;
 
-/**
- * 主观题人工批改。
- *
- * <p>边界：
- * <ul>
- * <li>只有 {@code attribute.examAnswerMode = manual} 的题允许人工给分，其它题传分一律拒绝；</li>
- * <li>客观题机器分不可覆盖，批改只影响 manual 题；</li>
- * <li>批改后 {@code t_answer.exam_score}、{@code t_answer.exam_info.question_score}、
- * {@code t_answer_item.score} 三处一起更新；</li>
- * <li>状态机：卷内含 manual 题 → pending；所有 manual 题都给分 → graded；
- * 学员重新提交 → 回到 pending 并清空旧的人工分。</li>
- * </ul>
- *
- * @author grading
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public interface AnswerGradeService {
 
 	/**
@@ -58,7 +58,7 @@ public interface AnswerGradeService {
 	/**
 	 * 交卷 / 重新提交时的批改状态重置（由评分流程调用，不对外暴露成接口）。
 	 *
-	 * <p>只有 temp_save=1（正式交卷）才生效：卷内含 manual 题 → pending，否则 none；
+
 	 * 同时清空该答卷的全部人工分（答卷内容已经变了，旧分不再对应当前答案）。
 	 */
 	void onSubmitted(Answer answer, SurveySchema schema);

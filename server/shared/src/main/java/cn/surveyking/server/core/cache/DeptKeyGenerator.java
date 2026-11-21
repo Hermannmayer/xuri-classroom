@@ -5,10 +5,10 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 
-/**
- * @author javahuang
- * @date 2022/2/8
- */
+
+
+
+
 @Component("deptKeyGenerator")
 public class DeptKeyGenerator implements KeyGenerator {
 

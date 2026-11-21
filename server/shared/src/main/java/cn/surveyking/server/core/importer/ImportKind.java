@@ -4,9 +4,9 @@ import org.springframework.util.StringUtils;
 
 import java.util.Locale;
 
-/**
- * 导入来源格式。
- */
+
+
+
 public enum ImportKind {
 
 	word, excel, text, json, auto;

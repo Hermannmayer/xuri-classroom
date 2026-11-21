@@ -44,13 +44,13 @@ import RichTextContent from '../../components/RichTextContent';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
-/**
- * 题干里是否真的带 HTML 标签（Word / Excel 导入的带图题干，形如 `<img src="...">`）。
- *
- * 为什么不能只判断 `includes('<')`：数学写法「若 x<3，则…」里的裸小于号会被 DOMPurify
- * 当成半截标签吃掉，题干直接缺字。所以只认「< + 字母」起头的真正标签，
- * 纯文本仍然走原来的纯文本渲染（不做无谓的 sanitize 与 DOM 嵌套）。
- */
+
+
+
+
+
+
+
 const HTML_TAG = /<[a-zA-Z][^>]*>/;
 
 function hasHtmlMarkup(text?: string): boolean {
@@ -69,7 +69,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-/** 与后端 TemplateView 对齐（题库题目列表走 /api/template/list?repoId=） */
+
 interface TemplateView {
   id: string;
   name?: string;
@@ -152,9 +152,9 @@ export default function RepoQuestions() {
   const { repoId = '', mode = 'normal' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  // 题库名称的取法（刷新后 location.state 会丢）：
-  // 1) 列表页跳转时的 state；2) URL 上的 ?repoName=（可分享/可刷新）；
-  // 3) GET /api/repo/detail?id= 兜底（需要 repo:detail）；4) 都没有就显示「题库题目」。
+
+
+
   const stateRepoName = (location.state as { repoName?: string } | null)?.repoName;
   const queryRepoName = new URLSearchParams(location.search).get('repoName') || undefined;
   const [repoDetail, setRepoDetail] = useState<{ id?: string; name?: string }>({});
@@ -181,7 +181,7 @@ export default function RepoQuestions() {
   const [pageSize, setPageSize] = useState(20);
   const [keyword, setKeyword] = useState('');
   const [questionType, setQuestionType] = useState<string>();
-  // 默认给任务要求的 5 种题型；加载后把当前页出现的新题型并进来
+
   const [typeOptions, setTypeOptions] = useState<string[]>([
     'Radio',
     'Checkbox',
@@ -198,28 +198,28 @@ export default function RepoQuestions() {
   const [batchScore, setBatchScore] = useState<number | null>(null);
   const [batchSaving, setBatchSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  // 接口失败/无权限 ≠ 题库没题目：失败时单独展示错误说明，不再显示误导性的「题库还没有题目」
+
   const [loadError, setLoadError] = useState<string>();
   const [importing, setImporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [authorities, setAuthorities] = useState<string[]>([]);
-  // 导出：列表页与题目页共用 RepoExportModal
+
   const [exportTarget, setExportTarget] = useState<RepoExportTarget | null>(null);
 
   useEffect(() => {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  // 权限细分：导入统一用 template:import（原 repo:import 已合并），导出要 repo:export
+
   const canImport = can(authorities, PERMISSION_CODES.templateImport);
   const canExport = can(authorities, PERMISSION_CODES.repoExport);
   const canEdit = can(authorities, PERMISSION_CODES.templateUpdate);
   const canDelete = can(authorities, PERMISSION_CODES.templateDelete);
 
-  // AI 体检：入口只认 ai:use（拿不到权限就整块不显示，不用「点了才知道没权限」）；
-  // 应用建议是写题库，后端另要 repo:update 或 template:update，这里提前对齐，免得按钮点了才 403
+
+
   const canUseAi = can(authorities, PERMISSION_CODES.aiUse);
   const canApplyAiAudit =
     can(authorities, PERMISSION_CODES.templateUpdate) || can(authorities, PERMISSION_CODES.repoUpdate);
@@ -227,13 +227,13 @@ export default function RepoQuestions() {
   const [searchParams, setSearchParams] = useSearchParams();
   const aiParam = searchParams.get('ai');
 
-  // AI 助手 / 对话框里的「题库体检」快捷入口会带 ?ai=audit 跳进来，读到就自动展开；
-  // 其它 ai 值（pick / check / recommend…）属于别的页面，这里不认识也不处理
+
+
   useEffect(() => {
     if (aiParam === 'audit' && canUseAi) setAuditOpen(true);
   }, [aiParam, canUseAi]);
 
-  /** 关闭抽屉：顺手用 replace 把 ?ai= 去掉，否则刷新又会弹一次；repoName 等其它参数保持不动 */
+
   const closeAudit = useCallback(() => {
     setAuditOpen(false);
     if (!aiParam) return;
@@ -252,7 +252,7 @@ export default function RepoQuestions() {
   const [editDescription, setEditDescription] = useState('');
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [correct, setCorrect] = useState<string | string[]>('');
-  // 多空填空逐空答案，下标与 schema.children 一一对应
+
   const [blanks, setBlanks] = useState<string[]>([]);
   const [editForm] = Form.useForm<{
     title: string;
@@ -283,8 +283,8 @@ export default function RepoQuestions() {
       setTypeOptions((prev) => Array.from(new Set([...prev, ...nextTypes])));
       setTagOptions((prev) => Array.from(new Set([...prev, ...nextTags])));
     } catch (e) {
-      // 403/网络失败都落到这里：单独记状态，让页面显示「加载失败 + 返回题库」而不是空题库。
-      // 顺便带上错误码，403 时给一句贴合本页的说明（通用 403 文案会误导成导出密码问题）。
+
+
       const err = e as Error & { code?: number };
       const base = err.code === 403 ? '没有权限查看这个题库的题目' : err.message || '读取题目列表失败';
       setLoadError(err.code ? `${base}（错误码 ${err.code}）` : base);
@@ -298,7 +298,7 @@ export default function RepoQuestions() {
     void load();
   }, [load]);
 
-  // 翻页/筛选后旧选中项可能已不在当前列表，直接清空避免误删
+
   useEffect(() => {
     setSelectedKeys([]);
   }, [repoId, page, pageSize, keyword, questionType]);
@@ -310,10 +310,10 @@ export default function RepoQuestions() {
   const isJudge = editType === 'Judge';
   const isMulti = editType === 'Checkbox';
   const isMultipleBlank = editType === 'MultipleBlank';
-  // 多空填空的空位就是 children，title 是给用户看的提示
+
   const editChildren = editing?.template?.children ?? [];
 
-  // Modal 关闭时会销毁 Form，等它挂载后再回填
+
   useEffect(() => {
     if (!editing) return;
     const template = editing.template;
@@ -337,7 +337,7 @@ export default function RepoQuestions() {
     }
     setOptions(opts);
     setCorrect(templateCorrect(template, type, opts));
-    // 多空填空逐空回填；没有空位时留一个空输入框，保存时再补 children
+
     setBlanks(
       type === 'MultipleBlank'
         ? (template?.children ?? []).length
@@ -386,7 +386,7 @@ export default function RepoQuestions() {
     const count = selectedKeys.length;
     setDeleting(true);
     try {
-      // TemplateApi#deleteTemplate(TemplateRequest)，批量 id 走 ids
+
       await post<void>('/api/template/delete', { ids: selectedKeys });
       message.success(`已删除 ${count} 道题`);
       setSelectedKeys([]);
@@ -516,7 +516,7 @@ export default function RepoQuestions() {
           }));
         }
       } else {
-        // 单空填空/简答：正确答案写第一个空位；其余 children 原样保留
+
         const correctText = typeof correct === 'string' ? correct.trim() : '';
         if (children.length) {
           children = children.map((child, index) =>
@@ -556,7 +556,7 @@ export default function RepoQuestions() {
         dataSource,
       };
 
-      // 回传完整 TemplateRequest：后端 updateById 忽略 null，但 template 是整包 JSON，必须带全
+
       await post<void>('/api/template/update', {
         id: editing.id,
         name: values.title.trim(),
@@ -580,7 +580,7 @@ export default function RepoQuestions() {
     }
   };
 
-  // 没有 repoId（路由参数丢失/链接不完整）时直接给提示：不发请求，也不显示「题库还没有题目」
+
   if (!repoId) {
     return (
       <div className="bp-card" style={{ padding: 32 }}>
@@ -709,7 +709,7 @@ export default function RepoQuestions() {
         </Space>
       </div>
 
-      {/* Excel 走的是直接上传、没有预览步骤，所以把「支持哪些题型」放在导入按钮下面 */}
+
       {canImport && <ImportHelp formats={['excel']} />}
 
       <hr className="bp-dim" style={{ margin: '0 0 16px' }} />
@@ -726,10 +726,10 @@ export default function RepoQuestions() {
           }}
           options={typeOptions.map((t) => ({ value: t, label: TYPE_LABEL[t] ?? t }))}
         />
-        {/* TODO 标签筛选暂时隐藏：/api/template/list 的 tag 过滤走 t_tag 表
-            （TemplateServiceImpl#getTaggedTemplateIds），但本页编辑标签只写 t_template.tag，t_tag 不落库；
-            /api/template/listTag 又硬编码 question_type=Survey，题库题型（Radio/FillBlank…）永远查不到。
-            等后端把过滤改成 t_template.tag（或在保存模板时同步 t_tag）再恢复这个下拉。 */}
+
+
+
+
         <Input.Search
           allowClear
           placeholder="搜索题干"
@@ -933,8 +933,8 @@ export default function RepoQuestions() {
             dataIndex: 'name',
             render: (_: unknown, row) =>
               hasHtmlMarkup(row.template?.title) ? (
-                // 带图题干：交给 RichTextContent 消毒渲染，否则页面上是一串 <img src="...">
-                // className 跟通知中心一致：公式/题引用的配色靠这个类，图片宽度也由它兜底
+
+
                 <RichTextContent className="rich-text-content" html={row.template?.title} />
               ) : (
                 <span style={{ whiteSpace: 'pre-wrap' }}>{row.template?.title || row.name || '(无题干)'}</span>

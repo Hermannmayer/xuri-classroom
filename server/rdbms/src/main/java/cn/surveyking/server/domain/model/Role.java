@@ -9,10 +9,10 @@ import lombok.EqualsAndHashCode;
 
 import java.util.Date;
 
-/**
- * @author javahuang
- * @date 2021/8/24
- */
+
+
+
+
 @Data
 @TableName(value = "t_role", autoResultMap = true)
 @EqualsAndHashCode(callSuper = false)
@@ -24,15 +24,15 @@ public class Role extends BaseModel {
 
 	private String remark;
 
-	/** 用户权限列表，以逗号分割 */
+
 	private String authority;
 
 	@TableField(fill = FieldFill.INSERT)
 	private Date createAt;
 
-	/**
-	 * 0失活 1 激活
-	 */
+
+
+
 	private Integer status;
 
 }

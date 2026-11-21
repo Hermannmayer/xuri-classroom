@@ -10,14 +10,14 @@ import { EMPTY } from './format';
 export interface AnswerCardsProps {
   rows: Answer[];
   questions: FlatQuestion[];
-  /** rowId → questionId → 单元格文本 */
+
   cells: Map<string, Record<string, string>>;
   selected: string[];
   onSelect: (ids: string[]) => void;
   onDetail: (row: Answer) => void;
   onEdit: (row: Answer) => void;
   onDelete: (row: Answer) => void;
-  /** 按钮级权限：没有对应权限时不渲染「编辑」/「删除」，默认 true 保持原行为 */
+
   canEdit?: boolean;
   canDelete?: boolean;
 }

@@ -12,12 +12,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
-/**
- * 提取所有的 PreAuthorize 注解值
- *
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
+
+
 @Slf4j
 public class PreAuthorizeAnnotationExtractor {
 
@@ -40,12 +40,12 @@ public class PreAuthorizeAnnotationExtractor {
 		for (Object obj : controllerList) {
 			Class controllerClass = AopProxyUtils.ultimateTargetClass(obj);
 			String title = null;
-			// 提取类信息
+
 			String codePrefix = null;
-			// 注解
+
 			PreAuthorize bindPermission = AnnotationUtils.findAnnotation(controllerClass, PreAuthorize.class);
 			if (bindPermission != null) {
-				// 当前资源权限
+
 				parseAnnotationValue(bindPermission.value());
 			}
 			extractAnnotationMethods(controllerClass, PreAuthorize.class).forEach(method -> {
@@ -88,7 +88,7 @@ public class PreAuthorizeAnnotationExtractor {
 		while (clazz != null) {
 			Method[] methods = clazz.getDeclaredMethods();
 			if (methods != null) {
-				// 被重写属性，以子类override的为准
+
 				Arrays.stream(methods).forEach((method) -> {
 					if (AnnotationUtils.getAnnotation(method, annotationClass) != null) {
 						methodList.add(method);

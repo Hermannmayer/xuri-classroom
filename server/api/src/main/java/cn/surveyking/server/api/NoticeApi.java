@@ -18,16 +18,16 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Collections;
 import java.util.Map;
 
-/**
- * 通知公告接口（计划 §4.5）。
- *
- * <p>读接口只要 {@code notice:list}；写接口的入口注解放行 {@code notice:manage:*}，真正的范围判定在
- * {@code NoticeServiceImpl}（班级公告要班可见、全站公告要 {@code notice:manage:system}），
- * 这样老师能进写接口但发不了全站公告，不会出现「注解挡在前面、错误信息说不清」的情况。
- *
- * <p>管理员按仓库既有惯例直接用 {@code hasRole('admin')} 兜底（同 {@code AnswerGradeApi}），
- * 避免角色还没勾新权限点时管理员自己也进不去。
- */
+
+
+
+
+
+
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/notice")
 @RequiredArgsConstructor

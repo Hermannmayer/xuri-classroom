@@ -6,13 +6,13 @@ import org.owasp.html.PolicyFactory;
 
 import java.util.regex.Pattern;
 
-/**
- * 富文本白名单消毒：服务端最后一道防线。
- *
- * <p>前端 TipTap + DOMPurify 只能保护浏览器；Word 导入、旧数据、直接调接口都可能把
- * HTML 带进来，所以保存 schema 时统一走这里。只允许题目描述需要的基础标签，图片 src
- * 限定为站内预览地址，链接只允许 http/https/mailto。
- */
+
+
+
+
+
+
+
 public final class RichTextSanitizer {
 
 	private static final Pattern PREVIEW_SRC = Pattern.compile("^/api/public/preview/[A-Za-z0-9_-]{1,64}$");

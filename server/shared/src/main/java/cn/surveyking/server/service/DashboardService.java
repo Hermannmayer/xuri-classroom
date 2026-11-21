@@ -6,10 +6,10 @@ import cn.surveyking.server.domain.dto.DashboardView;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/1/28
- */
+
+
+
+
 public interface DashboardService {
 
 	List<DashboardView> listDashboard(DashboardQuery query);

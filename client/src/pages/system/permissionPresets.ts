@@ -1,14 +1,14 @@
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
-/**
- * 权限配置页的静态元数据：分组说明、看/改判定、菜单入口映射。
- *
- * 预设权限串不在这里维护：页面「从现有角色复制」直接按角色 id 取当前 authorities，
- * 不再写死 teacher/student，也不依赖学员角色的 code 是 student 还是 xueyuan。
- * 后续新增的任何角色都可以直接作为复制源。
- */
 
-/* ------ 看 / 改 */
+
+
+
+
+
+
+
+
 
 export type PermissionKind = 'read' | 'write' | 'basic';
 
@@ -18,16 +18,16 @@ export const KIND_META: Record<PermissionKind, { label: string; color: string }>
   basic: { label: '基础', color: 'default' },
 };
 
-/** 鼠标悬停时的解释，配合编辑区顶部的图例，避免「看/改」被误读成别的动作 */
+
 export const KIND_HINT: Record<PermissionKind, string> = {
   read: '只读：查看、导出，不会改数据',
   write: '写操作：新增、修改、删除、导入等',
   basic: '基础能力：默认页等，不属于具体的读或写动作',
 };
 
-/** 只读动词：导出也算看 */
+
 const READ_ACTIONS = new Set(['list', 'detail', 'book', 'report', 'export', 'read']);
-/** 写动词 */
+
 const WRITE_ACTIONS = new Set([
   'create',
   'update',
@@ -43,10 +43,10 @@ const WRITE_ACTIONS = new Set([
   'approve',
   'assign',
 ]);
-/**
- * 这些串整体是「基础能力」，最后一个词恰好会命中上面的动词表：
- * - user:update 是「改自己的资料」，三个角色都应具备，标成「改」会让人误以为能改别人。
- */
+
+
+
+
 const BASIC_CODES = new Set<string>([PERMISSION_CODES.userUpdate]);
 
 /**
@@ -68,9 +68,9 @@ export function permissionKind(code: string): PermissionKind {
   return 'basic';
 }
 
-/* ------ 分组与菜单 */
 
-/** 分组说明：后端只给组名，这里补一句「这一组管什么」，减少逐个点开才能理解的成本 */
+
+
 export const GROUP_DESCRIPTIONS: Record<string, string> = {
   考试: '考试的创建、编辑、发布与报表',
   答卷: '答卷数据的查看、导出与批改',
@@ -85,10 +85,10 @@ export const GROUP_DESCRIPTIONS: Record<string, string> = {
   其它: '默认页等零散权限',
 };
 
-/**
- * 权限点 → 前端菜单入口（静态映射，不查后端）。
- * 只列真正会决定菜单是否出现的权限；没有列出的说明它影响的是按钮或接口，不是菜单。
- */
+
+
+
+
 export const PERMISSION_MENU: Record<string, string> = {
   [PERMISSION_CODES.projectList]: '我的考试 / 教学管理',
   [PERMISSION_CODES.projectAnswer]: '我的任务 / 开始答题',
@@ -109,12 +109,12 @@ export const PERMISSION_MENU: Record<string, string> = {
 };
 
 
-/**
- * 后端没有任何 @PreAuthorize 消费方的权限点：它们只控制前端入口/菜单，勾选不会改变服务端行为。
- *
- * 与 PermissionEnum.studentOnly 的区别：studentOnly 是"管理员默认不注入"，这组是"后端根本不校验"。
- * 目前是 5 个：3 个视角开关 + 开始答题 + 开始练习。
- */
+
+
+
+
+
+
 export const FRONTEND_ONLY_CODES = new Set<string>([
   PERMISSION_CODES.portalAdmin,
   PERMISSION_CODES.portalStudent,

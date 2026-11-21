@@ -4,25 +4,25 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Usage:
- * <li>String msg = Ansi.Red.and(Ansi.BgYellow).format("Hello %s", name)</li>
- * <li>String msg = Ansi.Blink.colorize("BOOM!")</li>
- *
- * Or, if you are adverse to that, you can use the constants directly:
- * <li>String msg = new Ansi(Ansi.ITALIC, Ansi.GREEN).format("Green money")</li> Or, even:
- * <li>String msg = Ansi.BLUE + "scientific"</li>
- *
- * NOTE: Nothing stops you from combining multiple FG colors or BG colors, but only the
- * last one will display.
- *
- * @author dain
- *
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class Ansi {
 
-	// Color code strings from:
-	// http://www.topmudsites.com/forums/mud-coding/413-java-ansi.html
+
+
 	public static final String SANE = "\u001B[0m";
 
 	public static final String HIGH_INTENSITY = "\u001B[1m";

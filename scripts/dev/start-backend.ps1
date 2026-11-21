@@ -38,7 +38,7 @@ $errLog = "$logDir\backend.err.log"
 if (-not $java) { throw "找不到 JDK 25：请安装 JDK 25（或设 JAVA_HOME 指向它）。本项目 2.2.3 起要求 Java 25。" }
 if (-not $jar) { throw "jar not found (run server\gradlew.bat :api:bootJar first)" }
 
-# 只清理自己占用的那个端口，别误杀别的 80/7007 进程
+
 $busy = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
 if ($busy) {
   Write-Host "Port $Port is in use (pid=$($busy[0].OwningProcess)), stopping it"
@@ -54,7 +54,7 @@ Start-Process -FilePath $java `
   -RedirectStandardOutput $outLog `
   -RedirectStandardError $errLog | Out-Null
 
-# 等端口就绪再返回，方便调用方立刻验证
+
 for ($i = 0; $i -lt 90; $i++) {
   Start-Sleep -Milliseconds 1000
   if (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue) {

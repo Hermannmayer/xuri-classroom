@@ -13,17 +13,17 @@ import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-/**
- * MCP / API 访问令牌（计划 §7.3）。
- *
- * <p>边界：
- * <ul>
- * <li>签发只返回一次明文，库里只有 SHA-256；列表永远拿不到明文；</li>
- * <li>令牌不是「另一套权限」：它绑定一个用户，MCP 调用时把该用户塞进 SecurityContext，
- * 权限判定仍然走现有 {@code @PreAuthorize}；{@code scopes} 只是在权限之上再收一层工具白名单；</li>
- * <li>撤销立刻生效：{@link #authenticate} 每次都读库（不缓存），撤销后下一次调用就是 401。</li>
- * </ul>
- */
+
+
+
+
+
+
+
+
+
+
+
 public interface ApiTokenService {
 
 	/**
@@ -65,7 +65,7 @@ public interface ApiTokenService {
 			return HexFormat.of().formatHex(digest.digest(raw.getBytes(StandardCharsets.UTF_8)));
 		}
 		catch (NoSuchAlgorithmException e) {
-			// 每个 JVM 都必须带 SHA-256，缺了说明运行环境损坏，直接失败比静默降级安全
+
 			throw new IllegalStateException("JVM 不支持 SHA-256", e);
 		}
 	}

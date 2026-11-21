@@ -2,8 +2,8 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.surveyking.server.mapper.AnswerMapper">
 
-    <!-- 显式 resultMap：answer / survey / temp_answer / meta_info / exam_info 是 JSON 大字段，
-         必须交给 Jackson3TypeHandler，不能用默认的 resultType 自动映射。 -->
+
+
     <resultMap id="answerResultMap" type="cn.surveyking.server.domain.model.Answer">
         <id column="id" property="id"/>
         <result column="project_id" property="projectId"/>
@@ -30,7 +30,7 @@
         <result column="is_deleted" property="deleted"/>
     </resultMap>
 
-    <!-- 回收站：逻辑删除的行只能绕过 @TableLogic 用原生 SQL 查 -->
+
     <select id="selectLogicDeleted" resultMap="answerResultMap">
         select * from t_answer where is_deleted = 1 and project_id = #{projectId}
     </select>
@@ -59,7 +59,7 @@
         </foreach>
     </update>
 
-    <!-- 匿名答卷物理清理：只处理「已逻辑删除」的行，按进回收站的时间（update_at）排序取批 -->
+
     <select id="selectPurgeableAnonymousIds" resultType="java.lang.String">
         SELECT id FROM t_answer
         WHERE is_anonymous = 1
@@ -78,8 +78,8 @@
         </foreach>
     </delete>
 
-    <!-- S1-3：分配下一次作答序号。刻意不加 is_deleted 过滤：唯一索引覆盖已删除的行，
-         重新分配时要避开它们，否则会撞唯一键。 -->
+
+
     <select id="selectMaxAttemptNo" resultType="java.lang.Integer">
         SELECT COALESCE(MAX(attempt_no), -1) FROM t_answer
         WHERE project_id = #{projectId}

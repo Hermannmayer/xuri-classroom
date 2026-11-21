@@ -31,19 +31,19 @@ import java.util.Map;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * 问卷级校验：能不能答（状态/截止时间/回收上限/限次/考试时间窗）、答案是否合法（唯一性/配额）、
- * 公开查询修改答案的合并，以及提交路径上的二次闸门。
- *
- * <p>
- * 从 {@code SurveyServiceImpl} 拆出的第四块。原来的 {@code validateProject(ProjectView)} 是
- * {@code SurveyService} 的接口方法（{@code FileServiceImpl} 也在调），这里保持 public 并逐行搬入。
- */
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class ProjectAnswerValidator {
 
-	/** 这里要读答卷计数与配额统计，注入的是接口而不是实现类 */
+
 	private final AnswerService answerService;
 
 	private final AnswerLookup answerLookup;
@@ -52,10 +52,10 @@ public class ProjectAnswerValidator {
 
 	private final ProjectStatisticsService projectStatisticsService;
 
-	/** 按班级分配：学生只能参加分配给自己班的考试 */
+
 	private final ClassResourceService classResourceService;
 
-	/** 只有 validateAnswer 的提示文案用到 i18n */
+
 	private final MessageSource messageSource;
 
 	/**
@@ -67,8 +67,8 @@ public class ProjectAnswerValidator {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
 		}
-		// 按班级分配：没分配到学生所在班 → 当作不存在（不泄露标题）；未开始/已结束/关闭分别报对应错误。
-		// 教职工、管理员、匿名公开问卷在这里直接放行。
+
+
 		classResourceService.assertStudentCanAnswer(project);
 
 		ProjectSetting setting = project.getSetting();
@@ -78,7 +78,7 @@ public class ProjectAnswerValidator {
 		}
 
 		Long maxAnswers = setting.getAnswerSetting().getMaxAnswers();
-		// 校验最大答案条数限制
+
 		if (maxAnswers != null) {
 			AnswerQuery answerQuery = new AnswerQuery();
 			answerQuery.setProjectId(project.getId());
@@ -87,27 +87,27 @@ public class ProjectAnswerValidator {
 				throw new ErrorCodeException(ErrorCode.ExceededMaxAnswers);
 			}
 		}
-		// 校验问卷是否已到结束时间
+
 		Long endTime = setting.getAnswerSetting().getEndTime();
 		if (endTime != null) {
 			if (new Date().getTime() > endTime) {
 				throw new ErrorCodeException(ErrorCode.ExceededEndTime);
 			}
 		}
-		// 如果需要登录，则使用账号进行限制
+
 		if (setting.getAnswerSetting().getLoginLimit() != null
 				&& Boolean.TRUE.equals(setting.getAnswerSetting().getLoginRequired())) {
 			answerLimitGuard.validateLoginLimit(projectId, setting);
 		}
-		// cookie 限制
+
 		if (setting.getAnswerSetting().getCookieLimit() != null) {
 			answerLimitGuard.validateCookieLimit(projectId, setting);
 		}
-		// ip 限制
+
 		if (setting.getAnswerSetting().getIpLimit() != null) {
 			answerLimitGuard.validateIpLimit(projectId, setting);
 		}
-		// 白名单限制
+
 		if (setting.getAnswerSetting().getWhitelistLimit() != null) {
 			answerLimitGuard.validateWhitelistLimit(projectId, setting);
 		}
@@ -124,7 +124,7 @@ public class ProjectAnswerValidator {
 				true);
 		SchemaHelper.TreeNode treeNode = SchemaHelper.SurveySchema2TreeNode(project.getSurvey());
 		uniqueSchemaList.forEach(optionSchema -> {
-			// 支持数值和字符串
+
 			String questionId = treeNode.getTreeNodeMap().get(optionSchema.getId()).getParent().getData().getId();
 			Object questionValue = request.getAnswer().get(questionId);
 			if (questionValue == null) {
@@ -146,7 +146,7 @@ public class ProjectAnswerValidator {
 			}
 		});
 
-		// 选项配额校验
+
 		List<SurveySchema> hasQuotaSchemaList = SchemaHelper.findSchemaHasAttribute(project.getSurvey(), "quota");
 		if (hasQuotaSchemaList.size() > 0) {
 			ProjectQuery query = new ProjectQuery();
@@ -182,11 +182,11 @@ public class ProjectAnswerValidator {
 		if (examSetting == null || !ProjectModeEnum.exam.equals(project.getMode())) {
 			return;
 		}
-		// 校验考试开始时间
+
 		if (examSetting.getStartTime() != null && new Date(examSetting.getStartTime()).compareTo(new Date()) > 0) {
 			throw new ErrorCodeException(ErrorCode.ExamUnStarted);
 		}
-		// 校验考试结束时间
+
 		if (examSetting.getEndTime() != null && new Date(examSetting.getEndTime()).compareTo(new Date()) < 0) {
 			throw new ErrorCodeException(ErrorCode.ExamFinished);
 		}
@@ -202,7 +202,7 @@ public class ProjectAnswerValidator {
 			throw new ErrorCodeException(ErrorCode.QueryResultUpdateError);
 		}
 		try {
-			// 公开查询设置必须存在，并且包含可编辑字段
+
 			ProjectSetting.PublicQuery query = project.getSetting().getSubmittedSetting().getPublicQuery().stream()
 					.filter(x -> x.getId().equals(answer.getQueryId())).findFirst().orElseGet(() -> {
 						ProjectSetting.PublicQuery publicQuery = new ProjectSetting.PublicQuery();
@@ -232,33 +232,33 @@ public class ProjectAnswerValidator {
 	 * 这里把同一套条件在提交路径上再判一次；回收上限不在此列（会挡住正常修改答案）。
 	 */
 	public void validateAnswerGate(ProjectView project, boolean newAnswer) {
-		// 提交路径也要判一次班级分配：否则拿到 projectId 直接 POST saveAnswer 就能绕开班级窗口
+
 		classResourceService.assertStudentCanAnswer(project);
 		if (project == null || project.getSetting() == null || project.getSetting().getAnswerSetting() == null) {
 			return;
 		}
 		ProjectSetting.AnswerSetting answerSetting = project.getSetting().getAnswerSetting();
-		// 需要登录
+
 		if (Boolean.TRUE.equals(answerSetting.getLoginRequired()) && !SecurityContextUtils.isAuthenticated()) {
 			throw new AccessDeniedException("该问卷需要登录后才能作答");
 		}
-		// 需要密码：必须已通过密码校验（见 markPasswordPassed）
+
 		if (answerSetting.getPassword() != null
 				&& !answerLimitGuard.isPasswordPassed(project.getId(), answerSetting.getPassword())) {
 			throw new AccessDeniedException("该问卷需要密码，请先在答题页输入正确密码");
 		}
-		// 白名单
+
 		if (answerSetting.getWhitelistType() != null) {
 			answerLimitGuard.validateWhitelistLimit(project.getId(), project.getSetting());
 		}
-		// 开始时间（配置在考试设置里）
+
 		ProjectSetting.ExamSetting examSetting = project.getSetting().getExamSetting();
 		Long startTime = examSetting == null ? null : examSetting.getStartTime();
 		if (startTime != null && System.currentTimeMillis() < startTime) {
 			throw new ErrorCodeException(ErrorCode.SurveySuspend);
 		}
-		// 每 IP / 每台设备限次：此前只在「打开问卷」时校验，直接 POST saveAnswer 可绕过；
-		// 只在新建答卷时校验，否则调用方自己的那份答卷会把额度算进去、导致改答案被拦。
+
+
 		if (Boolean.TRUE.equals(newAnswer)) {
 			if (answerSetting.getCookieLimit() != null) {
 				answerLimitGuard.validateCookieLimit(project.getId(), project.getSetting());

@@ -16,9 +16,9 @@
 -- =============================================================================
 SET NAMES utf8mb4;
 
--- ---------------------------------------------------------------------------
--- 1. 老师：配考试、管题库、看答卷与报表，但进不了系统管理
--- ---------------------------------------------------------------------------
+
+
+
 INSERT INTO t_role (id, name, code, remark, authority, status, is_deleted, create_at)
 VALUES (
   'teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据',
@@ -29,18 +29,18 @@ ON DUPLICATE KEY UPDATE
   name = VALUES(name), code = VALUES(code), remark = VALUES(remark),
   authority = VALUES(authority), status = 1, is_deleted = 0, update_at = NOW();
 
--- ---------------------------------------------------------------------------
--- 2. 学员：只做题 + 刷题库，没有任何管理权限
---    关键：必须有 repo:book（错题/收藏）和 repo:practice（开始练习）；
---    不再给 repo:detail/repo:questions:read，避免学员直接浏览题库全部题目。
--- ---------------------------------------------------------------------------
+
+
+
+
+
 UPDATE t_role
 SET authority = 'home,exercise:list,repo:list,repo:practice,repo:book,project:list,project:detail,user:update,answer:list,answer:detail,answer:upload',
     remark = '只能做题、刷题库，无任何管理权限',
     status = 1, is_deleted = 0, update_at = NOW()
 WHERE code IN ('xueyuan', 'student') AND is_deleted = 0;
 
--- 如果连学员角色都没有（极端情况），补一条
+
 INSERT INTO t_role (id, name, code, remark, authority, status, is_deleted, create_at)
 SELECT 'student', '学员', 'student', '只能做题、刷题库，无任何管理权限',
        'home,exercise:list,repo:list,repo:practice,repo:book,project:list,project:detail,user:update,answer:list,answer:detail,answer:upload',
@@ -48,9 +48,9 @@ SELECT 'student', '学员', 'student', '只能做题、刷题库，无任何管�
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM (SELECT id FROM t_role WHERE code IN ('xueyuan','student') AND is_deleted = 0) x);
 
--- ---------------------------------------------------------------------------
--- 3. 自检：把三个角色的权限点数量打出来（老师应为 40+，学员应为 10）
--- ---------------------------------------------------------------------------
+
+
+
 SELECT id, name, code, CHAR_LENGTH(authority) AS len,
        (CHAR_LENGTH(authority) - CHAR_LENGTH(REPLACE(authority, ',', '')) + 1) AS perm_count
 FROM t_role

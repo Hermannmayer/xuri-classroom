@@ -45,7 +45,7 @@ public class FileRefServiceImpl implements FileRefService {
 			fileRefMapper.insert(ref);
 		}
 		catch (DuplicateKeyException ignored) {
-			// 并发上传/保存：唯一索引兜底，已有引用即可
+
 		}
 	}
 

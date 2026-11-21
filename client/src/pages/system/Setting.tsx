@@ -17,13 +17,13 @@ import type { RegisterOptions } from '../../api';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import AiCapabilityGuide from '../ai-guide/AiGuide';
 import ApiTokenPanel from './ApiTokenPanel';
-// MCP 三步接入引导：/ai 导览页下线后，这份「照抄就能用」的客户端配置片段挂到令牌面板下面
+
 import McpGuide from '../ai-guide/McpGuide';
 
-/**
- * 对齐后端 SystemInfo.AiSetting；GET /api/system/aiSetting 不回显 apiKey（服务端脱敏）。
- * 五个限额字段默认 null 时由后端回落到「真正生效的数字」，所以这里拿到的一定是生效值。
- */
+
+
+
+
 interface AiSetting {
   enabled?: boolean;
   baseUrl?: string;
@@ -31,26 +31,26 @@ interface AiSetting {
   models?: string[];
   defaultModel?: string;
   prompt?: string;
-  /** 全站每日 token，默认 200 万；0 表示不限 */
+
   dailyTokenLimit?: number;
-  /** 单用户每日 token，默认 20 万；0 表示不限 */
+
   perUserDailyLimit?: number;
-  /** 一次对话最多带几条历史，默认 20（2~100） */
+
   maxChatTurns?: number;
-  /** 单条消息最多多少字，默认 4000（200~20000） */
+
   maxTurnChars?: number;
-  /** 每用户每分钟最多调用几次，默认 10（1~600） */
+
   rateLimitPerMinute?: number;
 }
 
-/** 对齐后端 RoleView；registerInfo.roles 存的是角色 id */
+
 interface Role {
   id: string;
   name?: string;
   code?: string;
 }
 
-/** 基本 Tab 里的水印/防复制三项：都是即时保存，缺省全部开启（与后端契约一致） */
+
 interface ProtectionSetting {
   watermarkEnabled: boolean;
   watermarkMode: WatermarkMode;
@@ -63,24 +63,24 @@ const DEFAULT_PROTECTION: ProtectionSetting = {
   copyProtected: true,
 };
 
-/** 匿名答卷清理：SystemInfo.setting 的新增字段（api 层类型还没跟上，这里局部声明） */
+
 interface AnonymousCleanupSetting {
   anonymousCleanupEnabled?: boolean;
   anonymousRetentionDays?: number;
-  /** 上次清理时间：后端 Date 序列化，字符串或 epoch 毫秒 */
+
   anonymousLastCleanupAt?: string | number;
   anonymousLastCleanupCount?: number;
-  /** 是否把进回收站够久的匿名答卷物理删掉（含附件），默认关闭 */
+
   anonymousPurgeEnabled?: boolean;
-  /** 进回收站后保留几天再物理清理（1~3650，默认 7） */
+
   anonymousPurgeDelayDays?: number;
 }
 
-/** 答卷 PDF 导出：SystemInfo.setting 的新增字段（api 层类型还没跟上，这里局部声明） */
+
 interface ExportPdfSetting {
-  /** 渲染并发数：1~2，缺省 1（4 核小机器，别开大） */
+
   answerPdfConcurrency?: number;
-  /** 考试进行中暂停 PDF 导出，缺省开启 */
+
   pauseAnswerPdfDuringExam?: boolean;
 }
 
@@ -91,15 +91,15 @@ function normalizeMode(value?: string | null): WatermarkMode {
 
 type TabKey = 'basic' | 'access' | 'content' | 'ai' | 'system';
 
-/** Tab 顺序即页面顺序：基本 → 登录与注册 → 内容与导出 → AI → 系统与更新 */
+
 const TAB_KEYS: TabKey[] = ['basic', 'access', 'content', 'ai', 'system'];
 
-/**
- * 每个 Tab 要校验/提交的字段。
- *
- * 这张表与下面的 save(key) 分支必须同步改：错位的表现是「改完点保存没反应」或者
- * 「保存的其实是另一个 Tab 的值」，而且报错信息完全看不出来。
- */
+
+
+
+
+
+
 const TAB_FIELDS: Record<TabKey, string[]> = {
   basic: ['name', 'description', 'avatar', 'copyright', 'recordNum', 'favicon'],
   access: [
@@ -128,10 +128,10 @@ const TAB_FIELDS: Record<TabKey, string[]> = {
   system: ['updateCheckEnabled', 'updateGithubRepo', 'updateApiBase', 'updateManifestUrl', 'updateCheckIntervalHours'],
 };
 
-/**
- * 7 Tab 时代的老 key：书签、聊天记录里的链接还按老名字直达。
- * 不知道名字就直接掉回「基本」，比渲染空白页强。
- */
+
+
+
+
 const LEGACY_TAB_ALIAS: Record<string, TabKey> = {
   privacy: 'basic',
   anonymous: 'access',
@@ -145,7 +145,7 @@ function normalizeTab(value: string): TabKey {
   return TAB_KEYS.includes(mapped) ? mapped : 'basic';
 }
 
-/** 单个平台的安装包（来自 Release 里附带的 update.json） */
+
 interface UpdateAsset {
   file?: string;
   url?: string;
@@ -161,9 +161,9 @@ interface UpdateCheckInfo {
   notes?: string;
   downloadUrl?: string;
   error?: string;
-  /** stable（正式版）/ nightly */
+
   channel?: string;
-  /** 各平台资产；有 jar 才能「下载到服务器」 */
+
   assets?: Record<string, UpdateAsset>;
 }
 
@@ -192,31 +192,31 @@ interface UpdateCheckInfo {
  */
 export default function SystemSetting() {
   const [form] = Form.useForm();
-  // 检查更新不再自己渲染「新版本说明」：发现新版本后跳公告中心看系统公告（实施计划 4.7）
+
   const navigate = useNavigate();
-  /** 当前 Tab 跟着 ?tab= 走：/ai 与 AI 对话框的「去设置」都靠这个参数落到 AI 页签 */
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<TabKey>();
-  /** 「从服务商获取模型列表」的加载态：请求期间按钮 loading，避免连点把服务商打出 429 */
+
   const [fetchingModels, setFetchingModels] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [roleOptions, setRoleOptions] = useState<Role[]>([]);
-  /** 已开放注册的教学班数量：全局开但为 0 时提示老师去开班级 */
+
   const [openClassCount, setOpenClassCount] = useState(0);
   const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
   const logo = Form.useWatch<string | undefined>('avatar', form);
   const registerEnabled = Form.useWatch<boolean | undefined>('registerEnabled', form);
   const aiEnabled = Form.useWatch<boolean | undefined>('aiEnabled', form);
   const roles = Form.useWatch<string[] | undefined>('roles', form) ?? [];
-  // 基本里的水印 / 防复制三项不进 Form，改完即存
+
   const [protection, setProtection] = useState<ProtectionSetting>(DEFAULT_PROTECTION);
   const [savingProtection, setSavingProtection] = useState(false);
-  // 导出密码只写不读：GET /api/system 不回显明文，hasExportPassword 仅用于提示「已设置」
+
   const [exportPassword, setExportPassword] = useState('');
   const [hasExportPassword, setHasExportPassword] = useState(false);
   const [savingExportPassword, setSavingExportPassword] = useState(false);
-  // 匿名答卷清理：上次清理时间/条数由 load 从 SystemInfo.setting 读入；立即清理时单独 loading
+
   const [lastCleanupAt, setLastCleanupAt] = useState<string | number>();
   const [lastCleanupCount, setLastCleanupCount] = useState<number>();
   const [cleaning, setCleaning] = useState(false);
@@ -226,9 +226,9 @@ export default function SystemSetting() {
   const [downloaded, setDownloaded] = useState<{ version?: string; file?: string; size?: number; sha256?: string }>();
   const [pendingInfo, setPendingInfo] = useState<{ pending?: boolean; version?: string; size?: number }>();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  /** 诊断日志导出中：导出要现打包日志，几秒到十几秒，按钮要有 loading */
+
   const [exportingDiag, setExportingDiag] = useState(false);
-  /** 数据库结构状态：用户「覆盖程序没跑迁移」时，这里是唯一能一眼看到的地方 */
+
   const [schemaInfo, setSchemaInfo] = useState<{
     version?: string;
     schemaVersion?: string;
@@ -237,9 +237,9 @@ export default function SystemSetting() {
     schemaMessage?: string;
   }>();
   const [upgradingSchema, setUpgradingSchema] = useState(false);
-  /** AI 现状：ready=false 时页面直接给出「还差哪几步」，而不是让人对着开关猜 */
+
   const [aiStatus, setAiStatus] = useState<AiStatus>();
-  /** 今日用量：管理员据此判断要不要调限额 */
+
   const [usage, setUsage] = useState<AiUsageToday>();
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageError, setUsageError] = useState<string>();
@@ -249,25 +249,25 @@ export default function SystemSetting() {
   /** 点开过的 Tab：令牌面板只在真正进过「系统与更新」后才挂载（见下面的注释） */
   const [visitedTabs, setVisitedTabs] = useState<TabKey[]>(() => [activeTab]);
 
-  /**
-   * 路由守卫只要求 system:role:list，所以「能进页面」不等于「能保存」。
-   * 保存动作统一要 system:setting:update（SystemApi.java 的 /update），没有就当只读页。
-   */
+
+
+
+
   const [authorities, setAuthorities] = useState<string[]>([]);
   const canUpdate = can(authorities, PERMISSION_CODES.systemSettingUpdate);
-  /**
-   * 「内容与隐私」是独立权限点：content:protect（SystemProtectionApi.java 的 @PreAuthorize）。
-   * can() 对 ROLE_admin 直接放行，所以这里等价于「content:protect || 管理员」。
-   * 注意这里**不能**再并上 canUpdate：新接口只认 content:protect / admin，只有
-   * system:setting:update 的角色点了保存会 403，不如直接置灰。
-   * 反过来，只有 content:protect 的角色本页其它页签仍是只读（canUpdate 为 false）。
-   */
+
+
+
+
+
+
+
   const canProtect = can(authorities, PERMISSION_CODES.contentProtect);
-  /** 有没有公告中心入口：检查更新发现新版本时引导过去看系统公告（没有就不给按钮） */
+
   const canSeeNotice = can(authorities, PERMISSION_CODES.noticeList);
-  /** Logo 上传走 /api/file/create，后端认 file:upload 或 file:import（FileApi.java 的 /create），与改系统设置分开 */
+
   const canUploadLogo = can(authorities, PERMISSION_CODES.fileUpload) || can(authorities, PERMISSION_CODES.fileImport);
-  /** /api/ai/status 与 /api/ai/usage/today 都要求 ai:use（AiApi.java）；没有就压根不请求 */
+
   const canAiUse = can(authorities, PERMISSION_CODES.aiUse);
 
   useEffect(() => {
@@ -300,7 +300,7 @@ export default function SystemSetting() {
     setLastCleanupAt(anonymous.anonymousLastCleanupAt);
     setLastCleanupCount(anonymous.anonymousLastCleanupCount);
     setCurrentVersion(sys?.version);
-    // 顺便拿一次数据库结构状态：/api/system（系统信息）不带这些字段，只有 /version 有
+
     void get<{
       version?: string;
       schemaVersion?: string;
@@ -319,15 +319,15 @@ export default function SystemSetting() {
       favicon: sys?.setting?.favicon,
       captchaEnabled: Boolean(sys?.setting?.captchaEnabled),
       registerEnabled: sys?.registerInfo?.registerEnabled !== false,
-      // 注册默认角色存的是角色 id；没配置时是空数组
+
       roles: sys?.registerInfo?.roles ?? [],
-      // 缺省与后端一致：开启 + 90 天；只有显式 false 才关闭
+
       anonymousCleanupEnabled: anonymous.anonymousCleanupEnabled !== false,
       anonymousRetentionDays: anonymous.anonymousRetentionDays ?? 90,
-      // 物理清理默认关闭（能恢复比省空间重要），只有显式 true 才开
+
       anonymousPurgeEnabled: anonymous.anonymousPurgeEnabled === true,
       anonymousPurgeDelayDays: anonymous.anonymousPurgeDelayDays ?? 7,
-      // PDF 导出：缺省 1 并发 + 考试期间暂停（与后端默认一致，只有显式 false 才关）
+
       answerPdfConcurrency: ((sys?.setting ?? {}) as unknown as ExportPdfSetting).answerPdfConcurrency ?? 1,
       pauseAnswerPdfDuringExam:
         ((sys?.setting ?? {}) as unknown as ExportPdfSetting).pauseAnswerPdfDuringExam !== false,
@@ -342,20 +342,20 @@ export default function SystemSetting() {
       models: ai?.models ?? [],
       defaultModel: ai?.defaultModel,
       prompt: ai?.prompt,
-      // 限额：后端已经把 null 回落成生效值，这里再兜一层默认值只是为了请求失败时不留空框
+
       dailyTokenLimit: ai?.dailyTokenLimit ?? 2000000,
       perUserDailyLimit: ai?.perUserDailyLimit ?? 200000,
       maxChatTurns: ai?.maxChatTurns ?? 20,
       maxTurnChars: ai?.maxTurnChars ?? 4000,
       rateLimitPerMinute: ai?.rateLimitPerMinute ?? 10,
     });
-    // 水印 / 防复制缺省都开启：后端没返回这些字段（旧版本）时也按「开着 + 姓名+手机号」显示
+
     setProtection({
       watermarkEnabled: sys?.setting?.watermarkEnabled !== false,
       watermarkMode: normalizeMode(sys?.setting?.watermarkMode),
       copyProtected: sys?.setting?.copyProtected !== false,
     });
-    // 导出密码：后端只回显 exportPasswordEnabled（不回显明文），据此提示「是否已设置」
+
     setHasExportPassword(Boolean(sys?.setting?.exportPasswordEnabled));
     setExportPassword('');
   }, [form]);
@@ -423,7 +423,7 @@ export default function SystemSetting() {
    * 水印 / 防复制：单项改完立即保存，只提交改动的那一个字段。
    * 走独立接口 POST /api/system/protection（只认 content:protect / admin）：后端只接受
    * setting.copyProtected / setting.watermarkEnabled / setting.watermarkMode 三个字段，
-   * 其余字段一律忽略，所以这里也只发这三项。
+
    * 先乐观更新界面，失败回滚到改动前并给出错误提示。
    */
   const saveProtection = async (patch: Partial<ProtectionSetting>) => {
@@ -434,7 +434,7 @@ export default function SystemSetting() {
     try {
       await post('/api/system/protection', { setting: patch });
       message.success('已保存');
-      // 广播给全局的水印 / 防复制组件，立即按新设置生效，不用刷新整页
+
       window.dispatchEvent(
         new CustomEvent(COPY_PROTECT_EVENT, { detail: { copyProtected: next.copyProtected } }),
       );
@@ -444,7 +444,7 @@ export default function SystemSetting() {
         }),
       );
     } catch (e) {
-      setProtection(prev); // 失败回滚，避免界面显示成「已生效」而后端没存上
+      setProtection(prev);
       message.error((e as Error).message);
     } finally {
       setSavingProtection(false);
@@ -474,7 +474,7 @@ export default function SystemSetting() {
     try {
       await post('/api/system/update', { setting: { exportPassword: value } });
       setHasExportPassword(Boolean(value));
-      setExportPassword(''); // 输入框回到空白，不保留明文
+      setExportPassword('');
       message.success(value ? '导出密码已保存' : '已关闭导出密码保护');
     } catch (e) {
       message.error((e as Error).message);
@@ -488,7 +488,7 @@ export default function SystemSetting() {
     if (cleaning) return;
     setCleaning(true);
     try {
-      // 后端契约是 { deleted }；返回裸数字时也兼容
+
       const res = await post<{ deleted?: number } | number>('/api/system/anonymous/cleanup');
       const deleted = typeof res === 'number' ? res : (res?.deleted ?? 0);
       message.success('已清理 ' + deleted + ' 份匿名答卷');
@@ -552,7 +552,7 @@ export default function SystemSetting() {
       } else if (res.error) {
         message.error(res.error);
       } else if (res.hasUpdate) {
-        // 4.6：发现新版本不再只提示版本号，直接引导到公告中心的系统公告
+
         message.info('发现新版本 v' + res.latestVersion + '，请到公告中心查看');
       } else {
         message.success('当前已是最新版本');
@@ -596,7 +596,7 @@ export default function SystemSetting() {
     try {
       v = await form.validateFields(TAB_FIELDS[key]);
     } catch {
-      return; // 校验提示已经在字段上
+      return;
     }
     const baseUrl = String(v.baseUrl ?? '').trim();
     if (key === 'ai' && v.aiEnabled && !baseUrl) {
@@ -619,8 +619,8 @@ export default function SystemSetting() {
           setting: { copyright: v.copyright, recordNum: v.recordNum, favicon: v.favicon },
         });
       } else if (key === 'access') {
-        // registerEnabled 和 roles 一起提交；roles 传空数组会清空后端配置（merge 按非 null 覆盖）。
-        // 匿名答卷清理与「谁能注册」是同一件事的两面：都决定「陌生人能不能往系统里写东西」。
+
+
         await post('/api/system/update', {
           setting: {
             captchaEnabled: Boolean(v.captchaEnabled),
@@ -635,7 +635,7 @@ export default function SystemSetting() {
           },
         });
       } else if (key === 'content') {
-        // 导出密码是只写字段（不走这个表单），这里只提交 PDF 导出的两个设置
+
         await post('/api/system/update', {
           setting: {
             answerPdfConcurrency: Number(v.answerPdfConcurrency ?? 1),
@@ -658,8 +658,8 @@ export default function SystemSetting() {
           // localStorage 不可用时忽略
         }
       } else {
-        // AI：模型配置与五个限额一起提交。限额漏提交的表现很隐蔽——页面显示新值、
-        // 后端其实还在用默认值，所以这一段必须和 TAB_FIELDS.ai 一一对应。
+
+
         await post('/api/system/update', {
           aiSetting: {
             enabled: Boolean(v.aiEnabled),
@@ -678,7 +678,7 @@ export default function SystemSetting() {
       }
       message.success('已保存');
       await load();
-      // 保存后模型可能从「未就绪」变成「已就绪」，顶部的状态条要跟着变
+
       if (key === 'ai') await loadAiOverview();
     } catch (e) {
       message.error((e as Error).message);
@@ -732,8 +732,8 @@ export default function SystemSetting() {
 
       <Card
         className="bp-corners"
-        // 手机上不要再套一层描边 + 半透明底：那会在页面四周形成一圈「白框」，
-        // 和网格背景之间多出一条边。窄屏直接铺平，桌面保持卡片感。
+
+
         style={
           isMobile
             ? { border: 'none', background: 'transparent' }
@@ -742,10 +742,10 @@ export default function SystemSetting() {
         styles={isMobile ? { body: { padding: 0 } } : undefined}
       >
         <Form form={form} layout="vertical" size="small" requiredMark={false} disabled={!canUpdate}>
-          {/* 手机上不用页签：竖排太占宽（表单被挤成「威海市旭日职业培训学」），横排又会折进「»」。
-              改成下拉选分区，内容区独占整行。桌面端仍是页签。 */}
-          {/* 手机上不用页签也不用下拉：页签竖排太占宽，下拉要先点开才知道有哪几个分区。
-              改成一排可横滑的按钮，五个分区一眼看全，当前项高亮。 */}
+
+
+
+
           {isMobile && (
             <div className="sk-settings-chips">
               {[
@@ -770,7 +770,7 @@ export default function SystemSetting() {
             className="sk-settings-tabs"
             activeKey={activeTab}
             onChange={changeTab}
-            // 5 个页签在手机上会折进「»」，最后两个（AI / 系统与更新）根本点不到；竖排后全部可见
+
             size={isMobile ? 'small' : 'middle'}
             items={[
               {
@@ -793,8 +793,8 @@ export default function SystemSetting() {
                       <Input placeholder="https://… 或 /api/public/preview/<id>" allowClear />
                     </Form.Item>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: -10, marginBottom: 18 }}>
-                      {/* 上传只认文件权限（file:upload / file:import），不再要求 system:setting:update；
-                          没有改设置权限时按钮仍会显示但置灰（antd Form disabled 会把按钮一起禁用） */}
+
+
                       {canUploadLogo && (
                         <Upload
                           accept="image/*"
@@ -843,9 +843,9 @@ export default function SystemSetting() {
                         description="需要 content:protect 权限（管理员默认拥有）。"
                       />
                     )}
-                    {/* 这一整块在 <Form disabled> 里：表单的禁用态会把 Switch / Segmented 一起变灰，
-                        但水印与防复制认的是 content:protect，不是 system:setting:update。
-                        用 ConfigProvider 把禁用态重置掉，能不能点只由 canProtect 决定。 */}
+
+
+
                     <ConfigProvider componentDisabled={false}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <ProtectionRow
@@ -1076,8 +1076,8 @@ export default function SystemSetting() {
                 forceRender: true,
                 children: (
                   <>
-                    {/* 状态与用量放在最前面：管理员进这个页签首先想知道「现在能用吗、今天烧了多少」，
-                        这两件事决定下面的模型配置与限额要不要动。 */}
+
+
                     <div
                       className="bp-card"
                       style={{ padding: 12, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}
@@ -1233,7 +1233,7 @@ export default function SystemSetting() {
                     >
                       使用说明
                     </div>
-                    {/* 说明是只读文档，里面的链接与切换不该跟着表单的禁用态一起变灰 */}
+
                     <ConfigProvider componentDisabled={false}>
                       <AiCapabilityGuide authorities={authorities} />
                     </ConfigProvider>
@@ -1253,8 +1253,8 @@ export default function SystemSetting() {
                       给外部 AI 客户端（Claude Desktop、Cursor 等）用的访问令牌。签发后它可以你的身份读写本站，
                       权限与当前账号一致，不用了就撤销。
                     </div>
-                    {/* 令牌面板会拉一次列表：forceRender 会连它一起挂载，所以只在真正点进过「AI」页签后才渲染
-                        （列表、签发、撤销本来就是即时生效的独立接口，与底部「保存」无关） */}
+
+
                     {visitedTabs.includes('ai') ? (
                       <>
                         <ApiTokenPanel canManage={canUpdate} />
@@ -1268,15 +1268,15 @@ export default function SystemSetting() {
               {
                 key: 'system',
                 label: '系统与更新',
-                // 这一页有要参与校验的更新字段，必须 forceRender；令牌面板另见 visitedTabs 的懒挂载
+
                 forceRender: true,
                 children: (
                   <>
-                    {/*
-                      更新做成常驻区块：以前只有「发现新版本且 Release 带 update.json」时才冒出一个按钮，
-                      其余时间整块是空的，用户以为根本没有更新功能。
-                      现在无论什么状态都给出版本、通道、检查结果和下一步该做什么。
-                    */}
+
+
+
+
+
                     <Card
                       className="bp-corners bp-card"
                       style={{ marginBottom: 16 }}
@@ -1457,8 +1457,8 @@ export default function SystemSetting() {
                           updateInfo.error ? (
                             updateInfo.error
                           ) : !updateInfo.hasUpdate ? undefined : (
-                            // 实施计划 4.7：新版本信息落成 type=system_update 的公告，
-                            // 这里只负责「指路」，不再自己渲染一套更新说明
+
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                               <span style={{ whiteSpace: 'pre-wrap' }}>
                                 {updateInfo.notes || '有新版本可用。'}
@@ -1483,7 +1483,7 @@ export default function SystemSetting() {
                     )}
                     {canUpdate && <SaveBar loading={saving === 'system'} onSave={() => void save('system')} />}
 
-                    {/* 数据库结构：用「直接覆盖程序、没跑迁移」时，这里能一眼看出库和程序对不上 */}
+
                     <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
                     <div
                       className="bp-card"
@@ -1531,7 +1531,7 @@ export default function SystemSetting() {
                       )}
                     </div>
 
-                    {/* 诊断日志：用户报障时先下载这个再发出来，比截一句「服务出了点问题」有用得多 */}
+
                     <hr className="bp-dim" style={{ margin: '18px 0 12px' }} />
                     <div
                       className="bp-card"
@@ -1566,7 +1566,7 @@ export default function SystemSetting() {
                       )}
                     </div>
 
-                    {/* MCP / API 令牌已挪到「AI」页签：它是给外部 AI 客户端用的，和模型配置放一起更好找 */}
+
                   </>
                 ),
               },

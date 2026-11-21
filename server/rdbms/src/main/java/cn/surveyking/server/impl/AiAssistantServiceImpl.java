@@ -45,48 +45,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * 侧栏 AI 助手的实现：把「历史消息 + 当前页面上下文」拼成一次多轮对话调用。
- *
- * <p>四条与其它 AI 场景一致的硬口径：
- * <ol>
- * <li><b>系统提示只由后端生成</b>：前端传的 {@code system} 消息在这里被丢掉，
- * 上下文里的试卷名/题干也是按 id 查库得到的，不接受前端直接给的自由文本；</li>
- * <li><b>上下文要过权限</b>：带 projectId 就走项目只读闸门、带 answerId 就走答卷闸门，
- * 拿不到权限直接 403，而不是「悄悄少给一段上下文」（那会让用户以为 AI 看不到是因为没这功能）；</li>
- * <li><b>每次调用都记账</b>（{@code t_ai_usage}，场景 {@code chat}），超限额不调模型；</li>
- * <li><b>回复先过 {@link AiContentGuard#checkChatReply} 再返回</b>，空回复与提示词泄露一律拒。</li>
- * </ol>
- *
- * @author ai-sidebar
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiAssistantServiceImpl implements AiAssistantService {
 
-	/** 提示词模板 id（{@code prompts/assistant-chat.md}） */
+
 	private static final String PROMPT_CHAT = "assistant-chat";
 
-	/** 项目授权级别：1 只读（与 AiAssistServiceImpl 同一口径） */
+
 	private static final int ACCESS_LEVEL_VIEW = 1;
 
-	/**
-	 * 最多带多少条历史给模型的默认值（系统设置里可改，见 {@code AiSetting.maxChatTurns}）。
-	 * 20 条 ≈ 最近 10 轮；再多既贵又容易超出上下文窗口，而侧栏的问题大多是「接着上一句问」。
-	 */
+
+
+
+
 	private static final int DEFAULT_MAX_HISTORY_TURNS = AiUsageService.DEFAULT_MAX_CHAT_TURNS;
 
-	/** 单条消息最多带多少字的默认值（系统设置里可改）：整份答卷粘进来时不能让提示词无限膨胀 */
+
 	private static final int DEFAULT_MAX_TURN_CHARS = AiUsageService.DEFAULT_MAX_TURN_CHARS;
 
-	/** 题干最多带多少字进上下文（已经由 AiPageContext 再截一次，这里控制得更松一些） */
+
 	private static final int MAX_QUESTION_TITLE_CHARS = 300;
 
-	/**
-	 * 对话温度：0.6 比出卷（0.4）活一点、比改题（0.7）稳一点。
-	 * 太低会复读用户原话，太高容易答着答着跑题。
-	 */
+
+
+
+
 	private static final Double TEMPERATURE = Double.valueOf(0.6D);
 
 	private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("MM-dd HH:mm");
@@ -105,17 +105,17 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
 	private final AnswerAccessGuard answerAccessGuard;
 
-	/** 意图识别 / 动作执行（「把这个班没批的卷子批了」这类话由它落地） */
+
 	private final AiActionService aiActionService;
 
-	/** 读 AI 设置里的「每对话上限 / 单条消息上限」 */
+
 	private final SystemService systemService;
 
 	@Override
 	public AiStatusView status() {
 		AiReadiness readiness = aiGateway.readiness();
 		AiStatusView view = new AiStatusView();
-		// enabled=false 时前端连悬浮按钮都不显示；ready=false 但 enabled=true 时才提示「还差哪一步」
+
 		view.setEnabled(Boolean.valueOf(aiGateway.isEnabled()));
 		view.setReady(Boolean.valueOf(readiness.isReady()));
 		view.setReason(readiness.getReason());
@@ -133,17 +133,17 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "请先输入要问 AI 的问题");
 		}
 		if (!history.get(history.size() - 1).isUser()) {
-			// 最后一条是助手的回复说明前端没把这一问追加上，直接发给模型等于让它自问自答
+
 			throw new ErrorCodeException(ErrorCode.ValidationError, "请把你的问题写在最后一条消息里再发送");
 		}
 
 		String userId = SecurityContextUtils.getUserId();
 		ContextFacts facts = collectContext(request.getContext());
 
-		// 先看这句话是不是「让我干一件事」：能执行就直接执行，不执行就回退成普通问答。
-		// 顺序很重要——「把这个班没批的卷子批了」如果先走聊天，模型只会回一段「好的，我来帮你」的废话。
+
+
 		String lastMessage = history.get(history.size() - 1).content();
-		// firstTurn：这轮对话的第一句（历史里只有这一条 user 消息）才允许「无关键词也识别一次」
+
 		AiChatAction action = aiActionService.handle(lastMessage, request.getContext(), userId, history.size() == 1);
 		if (action != null) {
 			AiChatReply acted = new AiChatReply();
@@ -165,7 +165,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 			reply = AiContentGuard.checkChatReply(completion.getText());
 		}
 		catch (ErrorCodeException e) {
-			// 模型已经烧了 token，只是内容不合规：记 rejected（用量照样算）
+
 			record(userId, completion, AiUsage.STATUS_REJECTED, completion.getCostMs(), e.getMessage());
 			throw e;
 		}
@@ -186,11 +186,11 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		return view;
 	}
 
-	/* ====== 历史消息 ====== */
+
 
 	/**
 	 * 只保留 user / assistant 两种角色，去掉空消息，截断超长内容，并只留最近 {@link #MAX_HISTORY_TURNS} 条。
-	 * <p><b>system 一律丢弃</b>：否则在浏览器控制台里加一条 system 就能改写 AI 的行为。
+
 	 */
 	private List<AiChatTurn> sanitize(List<AiChatRequest.Message> messages) {
 		int maxTurns = configuredMaxTurns();
@@ -292,7 +292,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 			if (StringUtils.hasText(context.getAnswerId())) {
 				appendAnswer(lines, labels, context.getAnswerId());
 			}
-			// 班级 / 题库只带 id 与一句说明：名称留白比编一个「某班」更安全
+
 			if (StringUtils.hasText(context.getClassId())) {
 				lines.put("班级", "当前按班级筛选（id " + AiAssistSupport.oneLine(context.getClassId(), 40) + "）");
 				labels.add("按班级筛选");
@@ -310,7 +310,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound, "项目不存在");
 		}
-		// 同一道闸门与 AI 改题一致：能看这份试卷的人才能让 AI 看见它
+
 		if (projectPartnerService.accessLevel(project.getId()) < ACCESS_LEVEL_VIEW) {
 			throw new AccessDeniedException("没有权限访问该项目");
 		}
@@ -362,7 +362,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		if (answer == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "答卷不存在或已删除");
 		}
-		// 行级权限：本人、项目所有者/协作者、管理员可看（与批改建议同一套规则）
+
 		answerAccessGuard.assertAnswerAccess(answer);
 		StringBuilder text = new StringBuilder();
 		int attempt = answer.getAttemptNo() == null ? 0 : answer.getAttemptNo().intValue();
@@ -391,7 +391,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		};
 	}
 
-	/* ====== 调用与记账 ====== */
+
 
 	/** 调模型（含限额闸门与失败记账）；成功时的记账由调用方在校验通过后做 */
 	private AiCompletion converse(List<AiChatTurn> turns, String model, String userId) {
@@ -400,7 +400,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 			aiUsageService.assertQuota(userId);
 		}
 		catch (ErrorCodeException e) {
-			// 被限额拦下也要记账，否则「今天怎么没额度」查不出来
+
 			record(userId, null, AiUsage.STATUS_REJECTED, System.currentTimeMillis() - start, e.getMessage());
 			throw e;
 		}
@@ -446,7 +446,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 				: String.valueOf(Math.round(value * 100D) / 100D);
 	}
 
-	/** 上下文facts：给提示词用的行 + 给用户看的摘要 */
+
 	private record ContextFacts(LinkedHashMap<String, String> lines, String label) {
 	}
 

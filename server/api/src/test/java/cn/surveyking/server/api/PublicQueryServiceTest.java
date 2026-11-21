@@ -18,18 +18,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * 公开查询链接的失败路径回归。
- *
- * <p>
- * 2026-11-09 修掉的 bug：{@code getProjectAndQueryThenValidate} 直接对
- * {@code project.getSetting().getSubmittedSetting()} 解引用，项目不存在（或历史数据没有设置）时
- * 抛 NPE，被全局兜底成 HTTP 500「服务出了点问题」。公开查询应该统一回 7000「链接已失效」，
- * 既不泄露项目是否存在，也给前端一句可读提示。
- *
- * <p>
- * 纯 Mockito，不启动 Spring、不连库，因此没有 {@code S2_TEST_DB_URL} 也会跑。
- */
+
+
+
+
+
+
+
+
+
+
+
+
 class PublicQueryServiceTest {
 
 	private PublicQueryService service(ProjectView project) {

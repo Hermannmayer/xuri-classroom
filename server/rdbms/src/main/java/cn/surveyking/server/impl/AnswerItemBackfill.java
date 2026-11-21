@@ -11,16 +11,16 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/**
- * 一次性回填：把历史答卷展开成 t_answer_item。
- *
- * <p>
- * 默认不跑（否则每次启动都全量扫一遍）。需要时在 compose 里加环境变量
- * {@code SURVEY_KING_ANSWER_ITEMS_BACKFILL=true} 启动一次，日志出现 [backfill] 完成后再去掉。
- *
- * <p>
- * 幂等：{@link AnswerItemProjector#rebuild} 先删后插，可以重复执行。
- */
+
+
+
+
+
+
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j

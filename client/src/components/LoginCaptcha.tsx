@@ -5,15 +5,15 @@ import CryptoJS from 'crypto-js';
 import LinkAction from './LinkAction';
 import { post } from '../api';
 
-/**
- * anji-plus 滑块验证码（blockPuzzle）：
- * POST /captcha/get   → { repData: { token, secretKey, originalImageBase64, jigsawImageBase64 } }
- * POST /captcha/check → repCode === '0000' 即通过
- * 登录时 captchaVerification = AES(secretKey, token + '---' + JSON.stringify({ x, y: 5 }))，
- * 注意拼的是明文坐标 JSON（旧前端与后端 verification 的实际约定），不是 check 用的密文 pointJson。
- */
+
+
+
+
+
+
+
 const CAPTCHA_TYPE = 'blockPuzzle';
-/** 后端底图设计尺寸 310×155，pointJson 的 x 用这个坐标系（与实际渲染宽度无关） */
+
 const BG_WIDTH = 310;
 const HANDLE = 40;
 const MIN_DRAG = 10;
@@ -112,7 +112,7 @@ export default function LoginCaptcha({
       setImages({ bg: data.originalImageBase64, piece: data.jigsawImageBase64 });
       setPhase('ready');
     } catch (e) {
-      // 网络/网关异常：不要直接把 fetch failed 这类英文错误丢给学员
+
       console.error('captcha get failed', e);
       setPhase('fail');
       setMsg('验证码加载失败，请检查网络后重试');
@@ -132,7 +132,7 @@ export default function LoginCaptcha({
 
   const check = async () => {
     const barWidth = bgRef.current?.clientWidth ?? BG_WIDTH;
-    // 实际渲染宽度换算回 310 设计坐标；拼图块 y 固定为 5（后端 fixed 模式只比对 x）
+
     const x = Math.round((leftRef.current * BG_WIDTH) / barWidth);
     const pointJson = aesEncrypt(JSON.stringify({ x, y: 5 }), secretRef.current);
     setPhase('checking');
@@ -146,14 +146,14 @@ export default function LoginCaptcha({
       if (res?.repCode === '0000') {
         setPhase('ok');
         setMsg('验证成功');
-        // 后端 BlockPuzzleCaptchaServiceImpl#check 成功后缓存的是
-        // AES(secretKey, token + '---' + 解密后的明文坐标 JSON)，verification 直接拿 captchaVerification 查这个 key；
-        // 所以这里必须拼明文坐标，拼 check 用的密文 pointJson 会让后端查不到 key、一律返回 6110。
+
+
+
         onVerified(aesEncrypt(`${tokenRef.current}---${JSON.stringify({ x, y: 5 })}`, secretRef.current));
         return;
       }
       setPhase('fail');
-      // 6111 是坐标不匹配，统一提示重试；其它 repCode（如 6204 限流）直接透出后端文案
+
       setMsg(res?.repCode === '6111' ? '验证失败，请重试' : friendlyMessage(res?.repMsg));
       setTimeout(() => void refresh(), 1000);
     } catch (e) {

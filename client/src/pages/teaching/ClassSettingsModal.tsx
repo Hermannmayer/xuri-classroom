@@ -6,7 +6,7 @@ import { getSystem, post } from '../../api';
 import LinkAction from '../../components/LinkAction';
 import DeleteDeptDialog from './DeleteDeptDialog';
 
-/** 与后端 ClassNodeView 对齐（班级设置弹窗只用其中一部分） */
+
 export interface DeptNode {
   id: string;
   name: string;
@@ -21,9 +21,9 @@ export interface DeptNode {
 interface DeptFormValues {
   name: string;
   parentId?: string;
-  /** group=容器班 / teaching=教学班 */
+
   classKind?: 'group' | 'teaching';
-  /** 是否开放学员自助注册（只对 teaching 班有意义） */
+
   allowRegister?: boolean;
   validity?: [Dayjs, Dayjs] | undefined;
 }
@@ -42,7 +42,7 @@ function collectSubtreeIds(node: DeptNode): string[] {
   return [node.id, ...(node.children ?? []).flatMap(collectSubtreeIds)];
 }
 
-/** 编辑时上级不能选自己或自己的子孙，否则后端会以「成环」拒绝 */
+
 function toParentTree(nodes: DeptNode[], exclude: Set<string>): { value: string; title: string; children?: any[] }[] {
   return nodes
     .filter((node) => !exclude.has(node.id) && node.classKind === 'group')
@@ -72,7 +72,7 @@ export default function ClassSettingsModal({
   open: boolean;
   mode: 'create' | 'edit';
   node?: DeptNode | null;
-  /** 新建子班时的默认上级 */
+
   defaultParentId?: string;
   tree: DeptNode[];
   canDelete: boolean;
@@ -83,9 +83,9 @@ export default function ClassSettingsModal({
   const [form] = Form.useForm<DeptFormValues>();
   const classKind = Form.useWatch<string>('classKind', form);
   const [saving, setSaving] = useState(false);
-  /** 全局注册总闸：关着时班级的「开放注册」置灰 */
+
   const [globalRegisterEnabled, setGlobalRegisterEnabled] = useState(true);
-  /** 删除统一走 DeleteDeptDialog（预检子组/成员，成员二选一：移出或迁移） */
+
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
@@ -169,7 +169,7 @@ export default function ClassSettingsModal({
       title={mode === 'edit' ? `班级设置：${node?.name || ''}` : '新建班级'}
       open={open}
       onCancel={() => {
-        // 关掉设置弹窗时顺手收起删除弹窗，避免下次打开时它还开着
+
         setDeleteOpen(false);
         onClose();
       }}

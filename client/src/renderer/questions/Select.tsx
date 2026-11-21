@@ -9,7 +9,7 @@ export default function Select(props: QuestionComponentProps) {
   const options = optionsOf(schema);
   const [answer, setAnswer] = useAnswerState(props);
   const locked = mode === 'edit' || Boolean(disabled);
-  // antd Select 把 aria-* 透传到内部 combobox 输入框，读屏才会念出题干
+
   const { labelId, descId } = questionA11yIds(schema);
 
   return (

@@ -8,10 +8,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * @author javahuang
- * @date 2021/9/8
- */
+
+
+
+
 @Data
 public abstract class AbstractStorageService implements StorageService {
 
@@ -43,7 +43,7 @@ public abstract class AbstractStorageService implements StorageService {
 
 	@Override
 	public ByteArrayInputStream generateThumbImage(InputStream inputStream) throws IOException {
-		// 在内存当中生成缩略图
+
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		Thumbnails.of(inputStream).size(thumbImageWidth, thumbImageHeight).toOutputStream(out);
 		return new ByteArrayInputStream(out.toByteArray());

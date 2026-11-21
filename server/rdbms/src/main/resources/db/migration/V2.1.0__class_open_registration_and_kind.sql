@@ -14,7 +14,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. class_kind
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_dept' AND COLUMN_NAME = 'class_kind'
@@ -26,7 +26,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 2. allow_register（老库可能还没有；已有则跳过）
+
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_dept' AND COLUMN_NAME = 'allow_register'
@@ -38,7 +38,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 3. 索引（便于按类型筛班级；重复执行安全）
+
 SET @idx_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_dept' AND INDEX_NAME = 'idx_dept_class_kind'
@@ -50,7 +50,7 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 4. 回填：先全部按容器班，再把“没有子班的 class 节点”标成教学班
+
 UPDATE t_dept SET class_kind = 'group' WHERE dept_type = 'class';
 UPDATE t_dept d SET d.class_kind = 'teaching'
 WHERE d.dept_type = 'class' AND d.is_deleted = 0
@@ -60,11 +60,11 @@ WHERE d.dept_type = 'class' AND d.is_deleted = 0
     ) c WHERE c.parent_id = d.id
   );
 
--- 5. 用户组/容器班不允许开放注册；空值归 0
+
 UPDATE t_dept SET allow_register = 0
 WHERE dept_type <> 'class' OR class_kind <> 'teaching' OR allow_register IS NULL;
 
--- 6. 自检
+
 SELECT dept_type, class_kind, allow_register, COUNT(*) AS cnt
 FROM t_dept WHERE is_deleted = 0
 GROUP BY dept_type, class_kind, allow_register

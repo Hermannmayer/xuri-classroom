@@ -18,11 +18,11 @@
 # =============================================================================
 set -euo pipefail
 
-# -----------------------------------------------------------------------------
-# 0. 前置自检
-# -----------------------------------------------------------------------------
-# 如果这个文件被 Windows 的 Git / 编辑器改成了 CRLF 换行，bash 会在奇怪的地方报错。
-# 先自己查一遍，给出确定的修复命令，别让人对着 "$'\r': command not found" 发呆。
+
+
+
+
+
 if grep -q $'\r' "${BASH_SOURCE[0]}" 2>/dev/null; then
   echo "" >&2
   echo "❌ bootstrap.sh 里含有 Windows 的 CRLF 换行，bash 无法正确解析。" >&2
@@ -43,10 +43,10 @@ COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml"
 ENV_FILE="${SCRIPT_DIR}/.env"
 ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
 
-# 后面每个 docker compose 调用都显式带 -f 和 --env-file，再配合 cd 到本目录：
-# 不管用户从哪个目录执行脚本，读到的都是同一份 compose 和同一份 .env。
-# （Compose 各版本对「.env 从工作目录还是 compose 文件目录加载」的行为不完全一致，
-#   显式 --env-file 可以彻底躲开这个坑，也避免误用仓库根目录那份生产 .env。）
+
+
+
+
 cd -- "${SCRIPT_DIR}"
 
 # 出错时统一打中文原因，别让用户只看到一行 "exit code 1"
@@ -75,9 +75,9 @@ say_step() {
   echo "──── $* ────"
 }
 
-# -----------------------------------------------------------------------------
-# 1. 读取配置（.env 不存在就从模板生成一份）
-# -----------------------------------------------------------------------------
+
+
+
 say_step "1/6 读取配置"
 
 [ -f "${COMPOSE_FILE}" ] || die "找不到 compose 文件：${COMPOSE_FILE}
@@ -98,7 +98,7 @@ if grep -q $'\r' "${ENV_FILE}" 2>/dev/null; then
      sed -i 's/\\r\$//' \"${ENV_FILE}\""
 fi
 
-# 载入 .env（set -a 让变量自动 export 给子进程）
+
 set -a
 # shellcheck disable=SC1090
 . "${ENV_FILE}"
@@ -153,9 +153,9 @@ echo "  · 源码目录：${DEV_SRC}"
 echo "  · 备份目录：${BACKUP_DIR}"
 echo "  · 端口：前端 ${DEV_WEB_PORT} → 容器 80；后端 ${DEV_BACKEND_PORT} → 容器 7007；MySQL ${DEV_DB_PORT} → 容器 3306"
 
-# -----------------------------------------------------------------------------
-# 2. 检查 docker / compose / 权限
-# -----------------------------------------------------------------------------
+
+
+
 say_step "2/6 检查 Docker 与 Compose"
 
 command -v docker >/dev/null 2>&1 || die "找不到 docker 命令。
@@ -181,10 +181,10 @@ else
    需要 Compose v2：sudo apt-get install docker-compose-plugin"
 fi
 
-# 统一的调用形式：docker compose --env-file <env> -f <compose> <子命令...>
+
 COMPOSE=("${DC[@]}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}")
 
-# compose 文件语法/变量插值预检：先在这里失败，比 build 到一半失败好定位
+
 "${COMPOSE[@]}" config -q 2>/dev/null \
   || die "compose 文件语法检查没通过（docker compose config -q 失败）。
    常见原因：.env 里某个值带了引号/空格，或者代码被改坏了。
@@ -192,9 +192,9 @@ COMPOSE=("${DC[@]}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}")
      ${COMPOSE[*]} config"
 echo "  · compose 文件语法检查通过"
 
-# -----------------------------------------------------------------------------
-# 3. 准备宿主机目录 + 检查源码
-# -----------------------------------------------------------------------------
+
+
+
 say_step "3/6 准备目录与源码"
 
 mkdir -p -- "${DEV_SRC}" "${BACKUP_DIR}"
@@ -212,9 +212,9 @@ if [ ! -f "${INIT_SQL}" ]; then
 fi
 echo "  · 初始化脚本存在：server/rdbms/src/main/resources/scripts/init-mysql.sql"
 
-# -----------------------------------------------------------------------------
-# 4. 端口检查
-# -----------------------------------------------------------------------------
+
+
+
 say_step "4/6 检查端口占用"
 
 port_listening() {
@@ -224,7 +224,7 @@ port_listening() {
   elif command -v netstat >/dev/null 2>&1; then
     addrs="$(netstat -ltn 2>/dev/null | awk 'NR>2 {print $4}')" || addrs=""
   else
-    return 2   # 没有工具，无法判断
+    return 2
   fi
   [ -n "${addrs}" ] || return 1
   printf '%s\n' "${addrs}" | grep -qE "[:.]${port}\$"
@@ -259,7 +259,7 @@ require_free_port() {
   esac
 }
 
-# 80：只报告，不作为错误。飞牛 Web 管理界面占着 80，这是环境既定事实。
+
 _st=0
 port_listening 80 || _st=$?
 if [ "${_st}" = "0" ]; then
@@ -272,16 +272,16 @@ require_free_port "${DEV_WEB_PORT}" "前端 Vite"
 require_free_port "${DEV_BACKEND_PORT}" "后端 Spring Boot"
 require_free_port "${DEV_DB_PORT}" "开发 MySQL"
 
-# -----------------------------------------------------------------------------
-# 5. 构建镜像 + 预置命名卷属主
-# -----------------------------------------------------------------------------
+
+
+
 say_step "5/6 构建 devbox 镜像（首次约 5-15 分钟，取决于网络）"
 
 "${COMPOSE[@]}" build devbox
 
-# 命名卷由 Docker 创建时属主是 root。容器里的 dev 用户（uid=1000）需要能写
-# /workspace/client/node_modules 才能 npm ci，所以先以 root 身份跑一次性容器改属主。
-# 已经改过就跳过（避免每次 bootstrap 都递归 chown 几十万个文件）。
+
+
+
 echo "  · 预置命名卷属主（uid:gid 1000:1000）"
 if ! "${COMPOSE[@]}" run --rm --no-deps -T \
       -u "0:0" --entrypoint sh devbox -c '
@@ -296,17 +296,17 @@ if ! "${COMPOSE[@]}" run --rm --no-deps -T \
   echo "     手动修复： ${DC[*]} -f \"${COMPOSE_FILE}\" exec -u 0:0 devbox chown -R 1000:1000 /workspace/client/node_modules"
 fi
 
-# -----------------------------------------------------------------------------
-# 6. 启动
-# -----------------------------------------------------------------------------
+
+
+
 say_step "6/6 启动容器"
 
 "${COMPOSE[@]}" up -d --build
 
 "${COMPOSE[@]}" ps
 
-# 自检：容器内非 root（dev, uid 1000）能不能绑 80 —— Vite 起在 80 上就靠这一条 sysctl。
-# 拿不到（runtime 不支持 / exec 失败）就只提示，不让脚本失败。
+
+
 PORT_START="$("${COMPOSE[@]}" exec -T devbox cat /proc/sys/net/ipv4/ip_unprivileged_port_start 2>/dev/null | tr -d '\r\n ' )" || true
 case "${PORT_START}" in
   ''|*[!0-9]*)
@@ -322,7 +322,7 @@ case "${PORT_START}" in
     ;;
 esac
 
-# 本机局域网地址（拿不到就退化成一个占位符，不让脚本因为取不到 IP 而失败）
+
 LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')" || LAN_IP=""
 [ -n "${LAN_IP}" ] || LAN_IP="<NAS的IP>"
 

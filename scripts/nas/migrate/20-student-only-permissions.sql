@@ -12,14 +12,14 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 学员：开始答题
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',project:answer'),
     update_at = NOW()
 WHERE code IN ('student', 'xueyuan') AND is_deleted = 0
   AND authority NOT LIKE '%project:answer%';
 
--- 管理员：移除学员专属（repo:book 是历史种子带进来的；repo:practice 是 17 脚本补的）
+
 UPDATE t_role
 SET authority = TRIM(BOTH ',' FROM REPLACE(REPLACE(REPLACE(REPLACE(
       CONCAT(',', authority, ','),
@@ -30,7 +30,7 @@ SET authority = TRIM(BOTH ',' FROM REPLACE(REPLACE(REPLACE(REPLACE(
     update_at = NOW()
 WHERE code = 'admin' AND is_deleted = 0;
 
--- 老师：同样清掉（正常不会有，幂等兜底）
+
 UPDATE t_role
 SET authority = TRIM(BOTH ',' FROM REPLACE(REPLACE(REPLACE(REPLACE(
       CONCAT(',', authority, ','),

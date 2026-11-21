@@ -14,11 +14,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/**
- * 对话缓存服务 用于缓存用户对话消息，默认保留10分钟
- *
- * @author zzr
- */
+
+
+
+
+
 @Service
 public class ConversationCacheService {
 
@@ -27,7 +27,7 @@ public class ConversationCacheService {
 	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
 	public ConversationCacheService() {
-		// 每分钟清理一次过期的对话
+
 		scheduler.scheduleAtFixedRate(this::cleanExpiredConversations, 1, 1, TimeUnit.MINUTES);
 	}
 
@@ -84,9 +84,9 @@ public class ConversationCacheService {
 		}
 	}
 
-	/**
-	 * 对话缓存内部类
-	 */
+
+
+
 	private static class ConversationCache {
 
 		private final List<ChatRequest.EnterMessage> messages = new java.util.ArrayList<>();

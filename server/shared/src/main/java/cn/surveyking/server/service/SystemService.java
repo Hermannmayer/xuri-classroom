@@ -10,10 +10,10 @@ import org.springframework.cache.annotation.Caching;
 
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/10/12
- */
+
+
+
+
 public interface SystemService {
 
 	@Cacheable(value = CacheConsts.commonCacheName, key = "'systemInfo'")

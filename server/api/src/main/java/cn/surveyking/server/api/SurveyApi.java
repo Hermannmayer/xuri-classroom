@@ -19,12 +19,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.List;
 
-/**
- * 答卷页面
- *
- * @author javahuang
- * @date 2021/8/22
- */
+
+
+
+
+
+
 @RequestMapping("${api.prefix}/public")
 @RequiredArgsConstructor
 @RestController
@@ -38,7 +38,7 @@ public class SurveyApi {
 
 	private final FileService fileService;
 
-	/** 匿名浏览器的 sk-anon 主体：不登录也能找回历次作答，登录后可 claim */
+
 	private final AnonymousIdentityService anonymousIdentityService;
 
 	/**

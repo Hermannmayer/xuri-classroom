@@ -3,9 +3,9 @@
 #
 # 它做的事（顺序固定，出问题就停在原地，不会往下走）：
 #   0. 检查工作区 / 分支 / 远端
-#   0.2 跑 check_schema.py：VERSION 必须等于 schema.json 最高版本（否则迁移会被静默跳过）
+
 #   0.5 改了 client/** 就跑 tsc；0.6 跑后端单测
-#   1. 检查工作区：有未提交改动就必须给 -Message，否则拒绝
+
 #   2. git push nas main
 #   3. 在 NAS 上 git fetch + reset --hard（运行副本永远等于裸仓库，不产生分叉）
 #   4. 按改动类型决定要不要重启：
@@ -32,16 +32,16 @@ param(
     [string]$Message,
     [switch]$SkipSmoke,
     [switch]$ReloadOnly,
-    [switch]$DiscardNasChanges,   # NAS 上有未提交改动时，强制丢弃（默认中止）
-    [switch]$SkipTests,           # 跳过后端单元测试（紧急发布用；会打 Warn）
-    [switch]$InstallJdk,          # 本机没有 JDK 25 时，自动下载 Temurin 25 到 %LOCALAPPDATA%\jdk25
+    [switch]$DiscardNasChanges,
+    [switch]$SkipTests,
+    [switch]$InstallJdk,
     [string]$NasHost = '192.168.0.2',
     [string]$NasUser = 'Home',
     [string]$RemoteRepo = '/vol2/1000/xuri/src/work',
     [string]$ComposeDir = 'deploy/nas/live',
     [string]$BaseUrl = 'http://192.168.0.2:201',
-    # 冒烟用来验登录与站点名的账号：别的部署不一定是 admin/123456、站点名也不一定是「旭日」，
-    # 写死会让冒烟误报失败（部署其实是成功的），所以做成参数。
+
+
     [string]$SmokeUser = 'admin',
     [string]$SmokePassword = '123456',
     [string]$ExpectName = '旭日'
@@ -75,9 +75,9 @@ function Invoke-NasScript {
         scp -o BatchMode=yes -q $tmp "${NasUser}@${NasHost}:$remote" 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { Die "scp 上传脚本失败（目标 $remote）" }
         $cmd = "bash $remote; ec=`$?; rm -f $remote; exit `$ec"
-        # -n：远端脚本是用 scp 传上去按路径执行的，不需要 stdin。不给 -n 时 ssh 会把本地 stdin
-        # 转发过去，而后台作业的 stdin 是一个不会关闭的管道 —— 远端命令早就跑完了，ssh 还在等通道
-        # 关闭，本地就一直挂着（实测：部署挂了 10 分钟，远端 ps 里什么都看不到）。
+
+
+
         $out = @(ssh -n -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$NasUser@$NasHost" $cmd 2>&1)
         $code = $LASTEXITCODE
     }
@@ -106,8 +106,8 @@ function Resolve-AnyPython {
 }
 
 function Resolve-SmokePython {
-    # 冒烟测试要 RSA 加密密码，得挑一个装了 cryptography 的解释器。
-    # 优先 PATH 上的 python/python3/py -3，最后兜底到 DSH 自带的 python。
+
+
     $cands = @()
     foreach ($n in 'python', 'python3') {
         $c = Get-Command $n -ErrorAction SilentlyContinue
@@ -130,7 +130,7 @@ function Test-Smoke {
     Say '冒烟测试'
     $py = Resolve-SmokePython
     if (-not $py) {
-        # 静默跳过 = 这次发布没有任何线上验证。与 0.2 的 check_schema 保持一致：不许跳。
+
         Die '找不到装了 cryptography 的 python，冒烟无法执行。装 pip install cryptography；或显式加 -SkipSmoke 表示这次不验。'
     }
     $env:PYTHONIOENCODING = 'utf-8'
@@ -139,7 +139,7 @@ function Test-Smoke {
     if ($LASTEXITCODE -ne 0) { Die '冒烟测试没通过——线上可能已经被这次改动影响，先看输出再决定回滚。' }
 }
 
-# ---------------------------------------------------------------- 0. 前置检查
+
 Say '0/6 前置检查'
 if (-not (Test-Path (Join-Path $repoRoot '.git'))) { Die "当前目录不是 git 仓库：$repoRoot" }
 $branch = (git rev-parse --abbrev-ref HEAD).Trim()
@@ -148,13 +148,13 @@ $remotes = git remote
 if ($remotes -notcontains 'nas') { Die "没有名为 nas 的远端。先执行：git remote add nas ssh://$NasUser@$NasHost/vol2/1000/xuri/src/repo.git" }
 Ok "仓库 $repoRoot，分支 main，远端 nas 就绪"
 
-# ------ 0.2 数据库结构契约检查
-# 事故复盘（2026-11-17）：加了 V2.2.1 迁移脚本却忘了改 VERSION，部署照常「成功」，
-# 但应用启动时按「程序版本 2.2.0」判定「无需迁移」，V2.2.1 被静默跳过；
-# 而 Answer 实体已经带 answerer_name 等新字段，MyBatis 的 SELECT 直接报列不存在，
-# 答卷列表 / 成绩单 / 批改全部 500。修复靠手动补 SQL + 改版本号。
-# check_schema.py 第 1 条就是「VERSION 必须等于 schema.json 的最高版本」，
-# 这里必须跑；**找不到 python 也不许跳过** —— 静默跳过正是上次踩坑的方式。
+
+
+
+
+
+
+
 if (-not $ReloadOnly) {
     Say '0.2/6 数据库结构契约检查'
     $schemaPy = Resolve-AnyPython
@@ -168,9 +168,9 @@ if (-not $ReloadOnly) {
     Ok '结构契约检查通过（VERSION 与 schema.json 一致）'
 }
 
-# ------ 0.5 前端类型检查
-# 生产构建走 web-watch 的 vite build --watch，它不跑 tsc；类型错误会直接上线。
-# 只在本次确实改了 client/** 时才跑，避免每次发布都多等十几秒。
+
+
+
 if (-not $ReloadOnly) {
     $clientDirty = @(git status --porcelain -- client).Count -gt 0
     if ($clientDirty -and (Test-Path (Join-Path $repoRoot "client/node_modules"))) {
@@ -188,10 +188,10 @@ if (-not $ReloadOnly) {
     }
 }
 
-# ------ 0.7 web-watch 日志基线（必须在 git reset 之前抓）
-# 前端就绪的判定是「基线之后新增一条 built in」。基线如果在本脚本 reset 之后才记，
-# web-watch 早就重建完了，新增条数永远是 0 —— 实测会白等 240 秒然后报「前端产物没就绪」，
-# 而实际上产物已经好了（2026-11-17 首次 Java 25 部署就踩了这条）。
+
+
+
+
 $webWatchBaseline = 0
 $baselineProbe = Invoke-NasScript -Body 'docker logs xuri-live-web-watch 2>&1 | wc -l' -AllowFail
 if ($baselineProbe.Output -match '^\s*(\d+)') { $webWatchBaseline = [int]$Matches[1] }
@@ -231,8 +231,8 @@ function Resolve-JavaHome {
     return $null
 }
 function Install-Jdk25 {
-    # 从国内镜像下 Temurin 25 JDK（约 190MB），解压到 %LOCALAPPDATA%\jdk25。
-    # 只下 JDK 不下 JRE：单测与打包都要 javac。
+
+
     $mirrors = @(
         'https://mirrors.tuna.tsinghua.edu.cn/Adoptium/25/jdk/x64/windows/',
         'https://mirrors.nju.edu.cn/adoptium/25/jdk/x64/windows/'
@@ -330,7 +330,7 @@ if (-not $ReloadOnly -and -not $SkipTests) {
         $env:JAVA_HOME = $javaHome
         Push-Location (Join-Path $repoRoot 'server')
         try {
-            # :shared:test 是 9 个纯单测；:api:test 是集成测试，没有 S2_TEST_DB_URL 时会自动禁用（不会拖慢/拖红）
+
             & .\gradlew.bat :shared:test :api:test --no-daemon --console=plain 2>&1 | Select-Object -Last 8
             if ($LASTEXITCODE -ne 0) { Die '后端单元测试没通过（:shared:test），已中止发布。' }
         }
@@ -341,23 +341,23 @@ if (-not $ReloadOnly -and -not $SkipTests) {
         Ok '单元测试通过'
     }
     else {
-        # 拒绝执行，但必须给得出路：单纯说「没有 JDK」只会让人卡住。
-        # 见 Show-JdkGuidance 里的 A/B 两条路径（Docker 部署其实不需要本机 JDK）。
+
+
         Show-JdkGuidance
         Die '本地没有 JDK 25。按上面的 A/B 选一条（装 JDK 25，或显式 -SkipTests 跳过本地单测）。'
     }
 }
 
 if (-not $ReloadOnly) {
-    # ------------------------------------------------------------ 1. 提交
+
     Say '1/6 本地提交'
     $dirty = git status --porcelain
     if ($dirty) {
         if (-not $Message) { Die "工作区有未提交改动，必须给 -Message，例如：`n  .\scripts\nas\Deploy-Nas.ps1 -Message `"fix: 修了某某`"" }
         git add -A
         git commit -q -m $Message
-        # 提交被拒（提交信息不符合 Conventional Commits / pre-commit 钩子）时必须停下：
-        # 否则下面会继续用「没提交的旧代码」走完发布，看上去全绿，线上其实一点没变。
+
+
         if ($LASTEXITCODE -ne 0) {
             Die '本地提交失败（见上面的钩子输出，多半是提交信息格式）。改好信息后重跑本脚本。'
         }
@@ -366,14 +366,14 @@ if (-not $ReloadOnly) {
         Ok '工作区干净，不用提交'
     }
 
-    # ------------------------------------------------------------ 2. 推送
+
     Say '2/6 推送到 NAS 裸仓库'
     git push nas main 2>&1 | ForEach-Object { "  $_" }
     if ($LASTEXITCODE -ne 0) { Die 'git push 失败' }
     Ok '推送完成'
 }
 
-# ---------------------------------------------------------------- 3. NAS 同步 + 判断
+
 Say '3/6 NAS 工作副本同步'
 function Get-StatusScript([string]$RepoDir) {
     $sb = New-Object System.Text.StringBuilder
@@ -398,8 +398,8 @@ function Get-SyncScript([string]$RepoDir) {
     return $sb.ToString()
 }
 
-# 3a. 先看 NAS 工作副本干不干净。有人直接在 NAS 上改过的话，下面的 reset 会冲掉，
-#     所以先拦一道——这既是保护，也说明「直接改 NAS」是可用的，只要先把改动提交掉。
+
+
 $status = Invoke-NasScript -Body (Get-StatusScript -RepoDir $RemoteRepo)
 $inDirty = $false
 $dirtyLines = @()
@@ -423,9 +423,9 @@ if ($dirtyLines.Count -gt 0) {
     Warn "NAS 上有 $($dirtyLines.Count) 个未提交改动，按 -DiscardNasChanges 丢弃"
 }
 
-# 3b. 同步到裸仓库最新
+
 $sync = Invoke-NasScript -Body (Get-SyncScript -RepoDir $RemoteRepo)
-# 注意：远端输出里可能带 \r，不清掉会导致 "075382d...？ unknown revision"
+
 $lines = ($sync.Output -split "`n") | ForEach-Object { $_.TrimEnd("`r") }
 $before = (($lines | Where-Object { $_ -like '__BEFORE__*' }) -replace '__BEFORE__', '').Trim()
 $after  = (($lines | Where-Object { $_ -like '__AFTER__*' })  -replace '__AFTER__', '').Trim()
@@ -442,25 +442,25 @@ if ($before -eq $after) {
 $serverChanged  = @($changed | Where-Object { $_ -match '^server/' }).Count -gt 0
 $composeChanged = @($changed | Where-Object { $_ -match "^$([regex]::Escape($ComposeDir))/" }).Count -gt 0
 $clientChanged  = @($changed | Where-Object { $_ -match '^client/' }).Count -gt 0
-# web-watch 只在「源码/入口/配置」变化或依赖重装时才重建。只改 client/package.json 的 version
-# 这类改动不会触发重建，若据此去等 built in 必然超时，然后被上一条 Die 判成失败（误报）。
+
+
 $clientSourceChanged = @($changed | Where-Object { $_ -match '^client/(src/|public/|index\.html|vite\.config|tsconfig)' }).Count -gt 0
 $nginxChanged   = @($changed | Where-Object { $_ -match '^deploy/nginx\.conf$' }).Count -gt 0
 $forceReload    = $ReloadOnly.IsPresent
 
-# ---------------------------------------------------------------- 4. compose
-# ------ 4. 后端运行时镜像（每次部署都校验，不看 git diff）
-#
-# 事故复盘（Java 8 → 25 那次升级）：4a 原先只看「镜像存不存在」。老部署的 .env 里写的是
-#     XURI_RUNTIME_IMAGE=xuri-runtime:8
-# 而旧的 xuri-runtime:8 镜像一直都还在，于是 docker image inspect 命中 → 打一句
-# RUNTIME_IMAGE_OK 就放行 → compose 拿 JRE 8 去跑 Java 25 编出来的 jar →
-#     java.lang.UnsupportedClassVersionError: ... class file version 61.0
-# 容器 crash-loop，站点直接宕机；这个错还只出现在 app 容器日志里，不在部署输出里。
-#
-# 现在以 Dockerfile.runtime 的 FROM 为准：
-#   · .env 里的 tag 与期望不一致 → 直接改写 .env（tag 必须体现 JDK 版本，否则下次还会踩）
-#   · 镜像里的 java 大版本与期望不一致 → 重建该 tag
+
+
+
+
+
+
+
+
+
+
+
+
+
 $imageScript = @'
 cd "@REPO@/@COMPOSE@" || exit 1
 FROM_LINE=$(sed -nE 's/^FROM[[:space:]]+([^[:space:]]+).*$/\1/p' Dockerfile.runtime | head -1)
@@ -504,8 +504,8 @@ Say '4a/6 校验后端运行时镜像（java 大版本必须等于 Dockerfile.ru
 $imgResult = Invoke-NasScript -Body $imageScript -AllowFail
 $imgResult.Output | ForEach-Object { "     $_" }
 if ($imgResult.Code -ne 0) {
-    # 镜像没准备好就继续，后面会用错误的 JRE 把后端打起来（甚至 crash-loop），
-    # 所以这里必须停，并且给出可执行的修复路径，而不是只丢一句退出码。
+
+
     Show-DockerGuidance "$($imgResult.Output)"
     Die '运行时镜像不可用（见上面的引导）。已中止，线上未受影响。'
 }
@@ -523,9 +523,9 @@ docker compose ps --format "  {{.Name}}  {{.Status}}"
     Write-Host "`n──── 4/6 compose 无变化，跳过 ────"
 }
 
-# 4b. nginx 配置变更：deploy/nginx.conf 是**单文件** bind mount。
-# git reset --hard 会替换文件（新 inode），容器仍指向旧 inode —— 只 reload 不会读到新内容
-# （实测：宿主机已是新配置，容器内还是旧的）。必须重启容器让它重新挂载。
+
+
+
 if ($nginxChanged) {
     Say '4b/6 重启 web 使 nginx 配置生效'
     $reloadNginx = @'
@@ -545,13 +545,13 @@ echo "NGINX_UNHEALTHY"
     else { $n.Output | Where-Object { $_ } | ForEach-Object { "  $_" } }
 }
 
-# ---------------------------------------------------------------- 5. 后端
-# ------ 4c. 前端依赖：按 web-watch 容器里**实际装的**锁文件哈希判断，不看 git diff
-#
-# 为什么不信 git diff：失败一次之后原样重跑，git diff 为空 → 这一步会被整个跳过，
-# 而 web-watch 里装的还是旧依赖（2.2.0 的 node_modules）。旧 vite 去编译 React 19 / Vite 8 的源码
-# 会直接解析失败，而 emptyOutDir:false 让旧 dist 留着，nginx 继续发旧页面 —— 看起来「部署成功」，
-# 实际前端永远停在老版本。改成比对容器里的 .lock-hash，重跑也能自愈。
+
+
+
+
+
+
+
 $depsScript = @'
 WANT=$(md5sum "@REPO@/client/package-lock.json" 2>/dev/null | cut -d' ' -f1)
 if [ -z "$WANT" ]; then echo "DEPS_NO_LOCK"; exit 0; fi
@@ -567,9 +567,9 @@ $depsOutput = (Invoke-NasScript -Body $depsScript).Output
 $depsOutput | ForEach-Object { "     $_" }
 $depsReinstalling = "$depsOutput" -match 'DEPS_REINSTALLING'
 
-# 代码没变不代表已经上线：上一次发布若在「编译完、重启前」中断，或有人手工 reset 了 NAS，
-# 这里就会因为「无差异」跳过重载，线上仍跑旧 jar（2026-11-19 实际踩过：jar 已是 2.3.4，运行版本还是 2.3.3）。
-# 所以先用「运行版本 vs 仓库 VERSION」兜一次底，对不上就补一次重载。
+
+
+
 $needReload = $serverChanged -or $forceReload
 if (-not $needReload) {
     $wantVersion = ''
@@ -596,16 +596,16 @@ XURI_SRC="@REPO@" bash scripts/nas/live-reload.sh
     Write-Host "`n──── 5/6 后端代码无变化，跳过重载 ────"
 }
 
-# ---------------------------------------------------------------- 6. 前端 + 冒烟
+
 if (-not ($clientSourceChanged -or $depsReinstalling)) {
     Write-Host "`n──── 6/6 前端源码无变化且依赖未变，不需要重建产物 ────"
 } else {
-    # 判定「前端就绪」不能只看「首页 200 + JS 可取」：那是部署前就已经成立的状态。
-    # web-watch 还没重建完时也会立刻满足，脚本报成功、用户看到的却是旧界面
-    # （2026-11-17 实测：改完文案部署，脚本报 READY，首页 hash 还是上一次的）。
-    # 现在先记下 web-watch 当前日志行数，要求这次部署之后新增一条 built in 才算就绪。
+
+
+
+
     Say '等待前端产物就绪'
-    # 复用 0.7 里在 git reset 之前抓的基线（reset 之后再抓会一直等不到新的 built in）
+
     $beforeLines = $webWatchBaseline
     Write-Host "  (reset 前 web-watch 日志 $beforeLines 行，等这次构建完成)"
     $wait = @'
@@ -630,8 +630,8 @@ echo "FRONTEND_TIMEOUT"
 '@.Replace('@BEFORE@', [string]$beforeLines)
     $w = Invoke-NasScript -Body $wait -AllowFail
     if ($w.Output -match 'FRONTEND_TIMEOUT') {
-        # 不能只 Warn：这个判定存在的唯一目的就是防「脚本报成功、线上还是旧前端」。
-        # 一旦超时，冒烟照样会通过（旧产物本来就 200），必须在这里停下并把日志甩出来。
+
+
         (Invoke-NasScript -Body 'docker logs --tail=40 xuri-live-web-watch 2>&1' -AllowFail).Output |
             ForEach-Object { "     $_" }
         Die '240 秒内前端产物没就绪（上面是 web-watch 日志）。别当成成功——线上很可能还是旧前端。'
@@ -640,9 +640,9 @@ echo "FRONTEND_TIMEOUT"
     $w.Output | Where-Object { $_ -match 'FRONTEND_READY' } | ForEach-Object { "  $_" }
 }
 
-# 容器重建（compose 变更、换 jar）后，nginx 到 app 的连接要重新建立，有几秒 502 窗口。
-# 冒烟若正好落在这个窗口里会报「系统信息 502」这种假失败（2026-11-19 日志挂载那次踩过）。
-# 这里等「外部入口」真正能返回 200 再冒烟；探的是 $BaseUrl 而不是容器内的 7007。
+
+
+
 if (-not $ReloadOnly) {
     $deadline = (Get-Date).AddSeconds(90)
     $probeUrl = "$BaseUrl/api/system"

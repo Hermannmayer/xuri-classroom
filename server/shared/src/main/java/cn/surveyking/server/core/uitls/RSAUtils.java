@@ -14,13 +14,13 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
 
-/**
- *
- */
+
+
+
 @Component
 public class RSAUtils {
 
-	// 默认的公钥和私钥初始化为一个已知的值，将在应用启动时更新
+
 	public static String DEFAULT_PUBLIC_KEY = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCAh/pzDlAqf13DbP5lVE2koX7RvJKGfrA5Ml5XWCQ6kNQkyb2Mv1L8GOIMLvlyMWt3My5weilkJGWS9R943g7Ze3bZZiCV994BFvX0IdJstVoppKiJllF1i7+6UNjo9Or/qzFBRmy70Z5i44BhvKws32gPHS4Sib1p1mDXVbV6JQIDAQAB";
 
 	public static String DEFAULT_PRIVATE_KEY = "MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAICH+nMOUCp/XcNs/mVUTaShftG8koZ+sDkyXldYJDqQ1CTJvYy/UvwY4gwu+XIxa3czLnB6KWQkZZL1H3jeDtl7dtlmIJX33gEW9fQh0my1WimkqImWUXWLv7pQ2Oj06v+rMUFGbLvRnmLjgGG8rCzfaA8dLhKJvWnWYNdVtXolAgMBAAECgYBI72CSS4v4IaBOVhoh2+3XPwEc+TnYcimDu25HeC/OwAJyAby7EpJ/lYsoSLuqLhsCYBu5HclBF1pAQzKhvriDqSqq8fs0psToB3PrRDbTbqg6XrWxOjf/5xqa1mN/tICZgqItnNkFT0w+WkBJpxZfMdohw3raEDPGSrr9UZj9vQJBALWvD3Y3oAFgaOdI3AiZKkZ+FunuTlq0r1bBNs/NYKxJBxI5HdZhKDt9JCv8Us3NGox9M4auSjwO/BQ/rOyTVE8CQQC1Gw+TXR6sbmrMlbgFYlEQiK0gJvz/V/MaJqO2lad+ojgEFu2CmXahlKPJoul4F40Etzft5B3HVs8Tz2132wlLAkAznFQ/F9QbMAD82qSuyJvKxJzLvUeC2tsIQQDKDSSOLHyWv6TrNlRQed8ho57+GWqWSCav9qjd4L/ZHLGJztxfAkAZLiIEQzY4k0GWIFrtpLXQrrAjgEg82GWchTLN+BDJspRHPUjYl62+2YPMTTJY2C1rMm48TTM2vAMepgB6YaHxAkEAgyAh6Zw4V4BROS+ysU7pjdsqqGIr8NWpjtQWKPLSn5RgDgzK6UMWpB7A39p3C/5vYR/Os288GdYUrASJzWr6Cw==";
@@ -28,7 +28,7 @@ public class RSAUtils {
 	@PostConstruct
 	@SneakyThrows
 	public void init() {
-		// 在 Spring 容器初始化后生成新的密钥对
+
 		HashMap<String, String> keyPair = genKeyPair();
 		DEFAULT_PUBLIC_KEY = keyPair.get("publicKey");
 		DEFAULT_PRIVATE_KEY = keyPair.get("privateKey");
@@ -42,7 +42,7 @@ public class RSAUtils {
 	public static HashMap<String, String> genKeyPair() throws NoSuchAlgorithmException {
 		HashMap<String, String> keyMap = new HashMap<>();
 		KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
-		keyPairGen.initialize(1024, new SecureRandom()); // 建议将密钥长度改为 2048
+		keyPairGen.initialize(1024, new SecureRandom());
 		KeyPair keyPair = keyPairGen.generateKeyPair();
 		RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
 		RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();

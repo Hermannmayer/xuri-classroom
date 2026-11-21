@@ -3,7 +3,7 @@ import { Card, Empty, Spin, Tree, message } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { get } from '../../api';
 
-/** 与后端 /api/project/categories 对齐 */
+
 interface CategoryCount {
   name?: string;
   count?: number;
@@ -11,7 +11,7 @@ interface CategoryCount {
 
 const ALL_KEY = '__all_categories__';
 
-/** 列表接口用这个哨兵表示「未分类」 */
+
 export const UNCATEGORIZED = '__UNCATEGORIZED__';
 
 /** 后端可能直接返回「未分类」/空串，统一归一成哨兵值，保证筛选参数正确 */
@@ -38,20 +38,20 @@ export default function ProjectCategoryTree({
 }: {
   selectedCategory?: string;
   onSelect: (category?: string) => void;
-  /** 新建/删除/重命名后递增，触发 counts 重新拉取 */
+
   refreshToken?: number;
 }) {
   const [rows, setRows] = useState<CategoryCount[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (silent = false) => {
-    // silent：窗口重新获得焦点时静默刷新，不闪 loading
+
     if (!silent) setLoading(true);
     try {
       const list = await get<CategoryCount[]>('/api/project/categories');
       setRows(Array.isArray(list) ? list : []);
     } catch (e) {
-      // 静默刷新失败时保留旧数据，避免分类树突然被清空
+
       if (!silent) {
         message.error((e as Error).message || '读取分类失败');
         setRows([]);
@@ -65,10 +65,10 @@ export default function ProjectCategoryTree({
     void load();
   }, [load, refreshToken]);
 
-  /**
-   * 从设置页/其它页返回时重新拉一次：新建项目/批量改分类后左侧能立即出现新分类。
-   * 只监听 focus + visibilitychange，并用 1s 节流避免两个事件连发/无限刷新。
-   */
+
+
+
+
   const lastRefreshRef = useRef(0);
   useEffect(() => {
     const refresh = () => {

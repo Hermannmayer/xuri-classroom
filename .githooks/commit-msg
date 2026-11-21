@@ -8,7 +8,7 @@
 msgfile="$1"
 [ -f "$msgfile" ] || exit 0
 
-# 去掉注释行后的第一条非空行
+
 subject=$(grep -v '^#' "$msgfile" | sed '/^[[:space:]]*$/d' | head -n 1)
 
 case "$subject" in
@@ -31,7 +31,7 @@ case "$subject" in
     ;;
 esac
 
-# 删除 AI 署名尾注，并去掉末尾空行
+
 LC_ALL=C awk '
 {
   low = tolower($0)

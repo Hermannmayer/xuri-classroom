@@ -8,7 +8,7 @@
  *   只让设计者看到这块区域长什么样。
  *
  * 回显说明：签名文件在后端是 shared=0，匿名访问 /api/public/preview/{id} 会 403，
- * 所以本次会话刚上传的图优先用内存里的 dataURL 回显（见 previewCache），拿不到再退回公开预览地址。
+
  */
 import { useEffect, useRef, useState } from 'react';
 import { App, Button, Segmented } from 'antd';
@@ -20,34 +20,34 @@ import { blankId } from './answers';
 import { QuestionFrame, useAnswerState } from './shared';
 import '../../styles/signature.css';
 
-/* ------ 常量 ------ */
 
-/** 笔粗档位：单位是 CSS px，实际线宽还会按运笔速度收放 */
+
+
 const PEN_SIZES = [
   { label: '细', value: 2 },
   { label: '中', value: 3.5 },
   { label: '粗', value: 5 },
 ];
 
-/** 快速运笔时线宽收到基准的多少（0.45 = 最快时只剩 45%） */
+
 const THIN_RATIO = 0.45;
 
-/** 达到这个速度（CSS px/ms）就按最细的线画 */
+
 const FAST_SPEED = 2.2;
 
-/** 墨色 / 纸色：白底黑字，深色主题和打印都看得清 */
+
 const INK_COLOR = '#111111';
 const PAPER_COLOR = '#ffffff';
 
-/** 回显缓存上限：只缓存本次会话刚上传的签名，够用又不会一直涨 */
+
 const PREVIEW_CACHE_LIMIT = 20;
 
-/** 后端 AppConsts.FileType.ANSWER_ATTACHMENT */
+
 const FILE_TYPE_ANSWER_ATTACHMENT = 4;
 
-/* ------ 类型 ------ */
 
-/** 笔画点：x/y 归一化到 0~1，w 是按画布高度归一化的线宽，窗口缩放后笔画不跑位 */
+
+
 interface InkPoint {
   x: number;
   y: number;
@@ -58,7 +58,7 @@ interface InkStroke {
   points: InkPoint[];
 }
 
-/* ------ 回显缓存 ------ */
+
 
 const previewCache = new Map<string, string>();
 
@@ -75,7 +75,7 @@ function clamp01(value: number): number {
 
 /**
  * 从答案里取签名文件 id：优先空位 id，兜底取第一个字符串值
- * （早期数据或手写题目用题目 id 当 key，不能因为 key 不同就当成没答）。
+
  */
 function signatureFileId(answer: AnswerValue, blank: string): string {
   if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return '';
@@ -92,7 +92,7 @@ function signatureFileId(answer: AnswerValue, blank: string): string {
 
 /**
  * 按设备像素比重设后备缓冲（不放大在高分屏上笔迹会发虚），返回 CSS 像素坐标系的上下文。
- * 尺寸变化会清空画布，所以调用方要立刻重绘。
+
  */
 function canvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   const ctx = canvas.getContext('2d');
@@ -130,7 +130,7 @@ function traceStroke(
   }));
   if (points.length === 0) return;
   if (points.length === 1) {
-    // 单点（点一下没拖动）也要有墨：画个圆点，和后面的圆头线帽一致
+
     const only = points[0];
     ctx.beginPath();
     ctx.fillStyle = INK_COLOR;
@@ -151,7 +151,7 @@ function traceStroke(
     ctx.moveTo(startX, startY);
     ctx.quadraticCurveTo(prev.x, prev.y, endX, endY);
     ctx.stroke();
-    // 收笔：最后一段补到真实落点，否则笔尖会短半段
+
     if (i === points.length - 1) {
       ctx.beginPath();
       ctx.lineWidth = current.w;
@@ -174,7 +174,7 @@ function repaint(canvas: HTMLCanvasElement, strokes: InkStroke[], extra?: InkStr
 }
 
 /**
- * 导出白底 PNG 的 dataURL：透明底的图在深色界面和打印时几乎看不见，所以先铺白再画墨。
+
  * 导出用的是画布的 2 倍分辨率，缩略图和打印都够清晰。
  */
 function exportSignature(canvas: HTMLCanvasElement, strokes: InkStroke[]): string {
@@ -210,8 +210,8 @@ function dataUrlToBlob(dataUrl: string): Blob {
 export default function Signature(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
   const { message } = App.useApp();
-  // 答题页和后台补录都把项目 id 放在路由参数 id 上（/s/:id、/survey/:id/data），
-  // 上传接口需要它来定位项目；练习页没有，这里只能是空串。
+
+
   const params = useParams<{ id?: string }>();
   const projectId = params.id ?? '';
   const [answer, setAnswer] = useAnswerState(props);
@@ -226,23 +226,23 @@ export default function Signature(props: QuestionComponentProps) {
   const lastRef = useRef<{ x: number; y: number; t: number } | null>(null);
 
   const [pen, setPen] = useState(PEN_SIZES[1].value);
-  /** 已提交的笔画数：撤销/清空/保存是否可点 */
+
   const [inkCount, setInkCount] = useState(0);
-  /** 画布上是否有墨（含正在画的这一笔），用来隐藏占位提示 */
+
   const [touched, setTouched] = useState(false);
-  /** 已有签名时的「重签」开关：true 才显示画布 */
+
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [brokenPreview, setBrokenPreview] = useState(false);
 
-  // 只读态（设计器/预览）始终显示画布；答题态有签名时先显示缩略图
+
   const showPad = locked || editing || !fileId;
   const cachedPreview = fileId ? previewCache.get(fileId) : undefined;
-  // 与 RichTextEditor / 系统 Logo 一致：公开预览接口的地址就是 /api/public/preview/<id>
+
   const imageSrc = cachedPreview ?? (fileId ? '/api/public/preview/' + fileId : '');
   const showImage = Boolean(cachedPreview) || (Boolean(imageSrc) && !brokenPreview);
 
-  // 设计器切题、换了一道题时，上一题的「重签」状态不能串过去
+
   useEffect(() => {
     setEditing(false);
   }, [schema.id]);
@@ -251,7 +251,7 @@ export default function Signature(props: QuestionComponentProps) {
     setBrokenPreview(false);
   }, [fileId]);
 
-  // 画布出现或尺寸变化（窗口拉宽、手机横竖屏）时整块重绘，笔画不能丢
+
   useEffect(() => {
     if (!showPad) return undefined;
     const canvas = canvasRef.current;
@@ -283,7 +283,7 @@ export default function Signature(props: QuestionComponentProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const point = pointOf(event, canvas);
-    // 指针捕获：手指/笔尖滑出画布后仍然归这块画布管，不会画出界外
+
     try {
       canvas.setPointerCapture(event.pointerId);
     } catch {
@@ -295,7 +295,7 @@ export default function Signature(props: QuestionComponentProps) {
     const width = widthUnit(canvas, 0, pressure);
     draftRef.current = { points: [{ x: point.x, y: point.y, w: width }] };
     setTouched(true);
-    // 落笔立刻可见：慢慢起笔时先点一个圆点，等第一个 move 到了再接着画
+
     const ctx = canvasContext(canvas);
     if (ctx) {
       ctx.beginPath();
@@ -317,7 +317,7 @@ export default function Signature(props: QuestionComponentProps) {
     const last = lastRef.current;
     if (locked || !draft || !canvas || !last || pointerRef.current !== event.pointerId) return;
     const point = pointOf(event, canvas);
-    // 归一化位移换算回 CSS px 再除以时间，得到 px/ms 的运笔速度
+
     const distance = Math.hypot(
       (point.x - last.x) * canvas.clientWidth,
       (point.y - last.y) * canvas.clientHeight,
@@ -343,7 +343,7 @@ export default function Signature(props: QuestionComponentProps) {
     if (!canvas || !draft || draft.points.length === 0) return;
     strokesRef.current = [...strokesRef.current, draft];
     setInkCount(strokesRef.current.length);
-    // 收笔后整条重绘一次：增量绘制为了跟手会多描半段，重绘保证撤销/清空后与最终结果一致
+
     repaint(canvas, strokesRef.current);
   };
 

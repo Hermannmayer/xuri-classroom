@@ -14,12 +14,12 @@ import org.flowable.engine.impl.persistence.entity.ExecutionEntityImpl;
 
 import java.util.Date;
 
-/**
- * 流程开始时，添加流程实例
- *
- * @author javahuang
- * @date 2022/1/10
- */
+
+
+
+
+
+
 @Slf4j
 public class ProcessStartedListener implements FlowableEventListener {
 
@@ -27,7 +27,7 @@ public class ProcessStartedListener implements FlowableEventListener {
 	public void onEvent(FlowableEvent event) {
 		FlowableProcessStartedEventImpl entityEvent = (FlowableProcessStartedEventImpl) event;
 		ExecutionEntityImpl entity = (ExecutionEntityImpl) entityEvent.getEntity();
-		// 添加流程实例
+
 		FlowInstance instance = new FlowInstance();
 		String answerId = (String) entityEvent.getVariables().get(FlowConstant.VARIABLE_ANSWER_KEY);
 		instance.setAnswerId(answerId);

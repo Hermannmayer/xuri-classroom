@@ -20,5 +20,4 @@
 
 ## 验证
 
-`cd client && npm run check`；`npm run test:rules`；发布后答题链路手工走一遍。
-
+`cd client && npm run check`；发布后答题链路手工走一遍。

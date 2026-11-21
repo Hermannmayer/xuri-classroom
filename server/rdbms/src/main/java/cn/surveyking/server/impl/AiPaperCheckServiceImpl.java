@@ -30,81 +30,81 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * 试卷质检：考前给一份编好的卷子做体检，<b>能算的全部由后端算，模型只补「教学法」这一层</b>。
- *
- * <p>为什么这么切：缺分值、缺答案、重复题、总分为 0、题型单一这五件事是<b>确定的事实</b>，
- * 让模型判断既贵又不可复现——同一份卷子跑两次结论还可能不一样；老师要的是「哪几题、怎么改」，
- * 这种活儿代码比模型靠谱。模型只负责它擅长的部分：难度梯度、考点覆盖、分值分布合理性。
- *
- * <p>三条硬约束：
- * <ol>
- * <li><b>确定性检查永远执行</b>，不花 token、不受模型可用性影响；每条问题都带 kind / severity /
- * 题号 / 处理建议，前端能直接照着改；</li>
- * <li><b>模型失败不能整单失败</b>：模型报错、被限额、返回的 JSON 不合法时，只记一条 warn，
- * 结果退回「确定性检查 + 按问题扣分」的分数——老师至少知道自己卷子上有 3 道题没答案；</li>
- * <li><b>模型问题只当质量建议</b>：一律 {@code severity=warning}，且只能<b>压低</b>分数（
- * {@code min(系统分, 模型分)}）——卷子里真有 3 处缺答案时，模型说「挺好」也不算数。</li>
- * </ol>
- *
- * <p>不做什么：不改卷子（只读 schema，建议要老师自己在编辑器里改）、不评排版与措辞、
- * 不把学员数据发给模型（体检只看题目本身）。
- *
- * @author ai-actions
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 
-	/** 提示词模板 id（{@code server/ai/src/main/resources/prompts/paper-check.md}） */
+
 	private static final String PROMPT_CHECK = "paper-check";
 
-	/** 选择题：正确答案只能标在选项上（判分器 {@code AnswerScoreEvaluator} 只读选项上的 examCorrectAnswer） */
+
 	private static final Set<SurveySchema.QuestionType> CHOICE_TYPES = EnumSet.of(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Judge, SurveySchema.QuestionType.Select);
 
-	/** 参与计分的题型：其它题型（富文本段落、上传、签名…）没有分值也没有标准答案，体检它们只会刷噪音 */
+
 	private static final Set<SurveySchema.QuestionType> SCORED_TYPES = EnumSet.of(SurveySchema.QuestionType.Radio,
 			SurveySchema.QuestionType.Checkbox, SurveySchema.QuestionType.Judge, SurveySchema.QuestionType.Select,
 			SurveySchema.QuestionType.FillBlank, SurveySchema.QuestionType.MultipleBlank,
 			SurveySchema.QuestionType.Textarea, SurveySchema.QuestionType.HorzBlank);
 
-	/** blocker 每条扣几分 */
+
 	private static final int BLOCKER_PENALTY = 10;
 
-	/** warning 每条扣几分（扣分按「问题条目」算，不按题目数算：修复成本跟问题种类相关） */
+
 	private static final int WARNING_PENALTY = 4;
 
-	/** 进提示词的最大题量：60 题以后模型也看不出更多名堂，只会把 token 烧光 */
+
 	private static final int MAX_PROMPT_QUESTIONS = 60;
 
-	/** 进提示词的题干摘要长度 */
+
 	private static final int MAX_SUMMARY_CHARS = 50;
 
-	/** 模型最多给几条问题 */
+
 	private static final int MAX_MODEL_ISSUES = 5;
 
-	/** 一条消息里最多列几个题号 */
+
 	private static final int MAX_LISTED = 8;
 
-	/** 重复题最多列几组（再多了消息读不下去，但 issue 里的题号是全的） */
+
 	private static final int MAX_DUPLICATE_GROUPS = 3;
 
-	/** 模型给的一段话最多保留多少字 */
+
 	private static final int MAX_TEXT_CHARS = 200;
 
-	/** 一条 issue 最多带多少个题号 */
+
 	private static final int MAX_ISSUE_IDS = 60;
 
-	/** 少于此题数不谈「题型单一」：一两道题的小测没必要凑题型 */
+
 	private static final int MIN_QUESTIONS_FOR_TYPE_MIX = 3;
 
 	private static final String SEVERITY_BLOCKER = "blocker";
 
 	private static final String SEVERITY_WARNING = "warning";
 
-	/** 题型枚举名 → 中文名（提示词与消息里都用中文，老师才看得懂） */
+
 	private static final Map<String, String> TYPE_LABELS = new LinkedHashMap<>();
 
 	static {
@@ -129,9 +129,9 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		}
 		String projectId = request.getProjectId().trim();
 		String userId = SecurityContextUtils.getUserId();
-		// 提交时就判一次额度：体检要读整卷 + 调一次模型，别让老师等完才看到「今天用完了」
+
 		support.assertQuota(userId);
-		// 项目行级权限与 schema 都在请求线程里读：ai-job 线程没有登录态，鉴权会变成匿名
+
 		ProjectView project = support.readableProject(projectId);
 		List<SurveySchema> questions = scorable(support.questions(project));
 		if (questions.isEmpty()) {
@@ -229,7 +229,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 					"整卷只有一种题型（" + only + "），考生容易疲劳，区分度也低。",
 					"至少再配一种题型，例如单选配判断、或多选配填空。"));
 		}
-		// blocker 排在前面（老师先修会出事故的，再看质量建议）；sorted 是稳定排序，同类问题的顺序不变
+
 		issues.sort(Comparator.comparingInt(
 				(AiPaperCheckView.Issue item) -> SEVERITY_BLOCKER.equals(item.getSeverity()) ? 0 : 1));
 		int blockers = count(issues, SEVERITY_BLOCKER);
@@ -243,7 +243,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 				ModelResult model = ask(questions, paperName, totalScore, issues, userId);
 				if (model != null) {
 					if (model.score() != null) {
-						// 模型分只能压低、不能抬高：真的缺 3 道题答案时，模型说「挺好」也不算数
+
 						score = Math.min(score, model.score().intValue());
 					}
 					advice = model.advice();
@@ -251,7 +251,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 				}
 			}
 			catch (RuntimeException e) {
-				// 模型挂了不能把确定性结论一起丢掉：老师要的是「哪里有问题」，不是「AI 不可用」
+
 				log.warn("试卷质检：模型补充建议失败，已按确定性结果返回 paper={}, {}", paperName,
 						AiAssistSupport.messageOf(e));
 			}
@@ -280,9 +280,9 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		vars.put("questions", questionLines(questions));
 		AiRequest request = AiRequest.builder().systemPrompt(support.prompts().render(PROMPT_CHECK, vars))
 				.userPrompt("请按上面的要求给出质检结论，只输出 JSON。")
-				// 质检要的是一致结论，不需要文采：温度压低，同一份卷子两次体检的说法才接近
+
 				.temperature(Double.valueOf(0.3D))
-				// 后台任务：跳过「每分钟 N 次」的窗口限流
+
 				.background(true).build();
 		AiCompletion completion = support.call(AiUsageService.SCENE_PAPER_CHECK, userId, request, true);
 		return parse(completion == null ? null : completion.getText(), questions);
@@ -323,7 +323,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 				}
 				AiPaperCheckView.Issue item = new AiPaperCheckView.Issue();
 				item.setKind(modelKind(text(node, "kind")));
-				// 模型给的问题只当质量建议：硬伤由确定性规则负责，不能被模型「降级」成 warning
+
 				item.setSeverity(SEVERITY_WARNING);
 				item.setMessage(message);
 				item.setSuggestion(text(node, "suggestion"));
@@ -359,7 +359,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return text.toString();
 	}
 
-	/** 把确定性结论压成一句提示词素材：让模型别重复报「缺分值」这种系统已经报过的 */
+
 	private static String findingsText(List<AiPaperCheckView.Issue> issues) {
 		if (CollectionUtils.isEmpty(issues)) {
 			return "未发现缺分值 / 缺答案 / 重复题 / 题型单一这类硬性问题";
@@ -406,7 +406,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return text.append("，见下方清单。").toString();
 	}
 
-	/* ====== 判定 ====== */
+
 
 	/**
 	 * 有没有参考答案——按题型分两种口径，错一种就是误报：
@@ -474,7 +474,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return SchemaHelper.trimHtmlTag(title).replaceAll("\\s+", " ").trim();
 	}
 
-	/* ====== 模型结果的容错 ====== */
+
 
 	/** 模型给的 kind 只允许 coverage / difficulty / format，其余归到 coverage（最接近「整体质量」） */
 	private static String modelKind(String kind) {
@@ -594,7 +594,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return TYPE_LABELS.getOrDefault(type, type);
 	}
 
-	/** 模型给的整体评价：三个字段都可能为空，缺哪个就用系统结论补哪个 */
+
 	private record ModelResult(Integer score, String advice, List<AiPaperCheckView.Issue> issues) {
 	}
 

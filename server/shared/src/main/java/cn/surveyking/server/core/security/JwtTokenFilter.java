@@ -26,10 +26,10 @@ import java.io.IOException;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-/**
- * @author javahuang
- * @date 2021/8/23
- */
+
+
+
+
 @Component
 @RequiredArgsConstructor
 public class JwtTokenFilter extends OncePerRequestFilter {
@@ -43,7 +43,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws ServletException, IOException {
-		// Get authorization cookie and validate
+
 		Cookie tokenFromCookie = WebUtils.getCookie(request, AppConsts.TOKEN_NAME);
 		WebSecurityConfig securityConfig = ContextHelper.getBean(WebSecurityConfig.class);
 		String tokenFromParameter = securityConfig.getUrlTokenAuthentication().isEnabled()
@@ -53,7 +53,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 			return;
 		}
 
-		// Get jwt token and validate
+
 		final String token = isNotBlank(tokenFromParameter) ? tokenFromParameter : tokenFromCookie.getValue().trim();
 		if (!jwtTokenUtil.validate(token)) {
 			chain.doFilter(request, response);
@@ -61,7 +61,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 		}
 
 		try {
-			// Get user identity and set it on the spring security context
+
 			UserDetails userDetails = userService.loadUserById(jwtTokenUtil.getUser(token).getUserId());
 			if (userDetails == null || !userDetails.isEnabled() || !userDetails.isAccountNonLocked()
 					|| !userDetails.isAccountNonExpired() || !userDetails.isCredentialsNonExpired()) {
@@ -74,7 +74,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 
-			// Execute login
+
 			if (tokenFromCookie == null && tokenFromParameter != null) {
 				ResponseCookie cookie = ResponseCookie.from(AppConsts.TOKEN_NAME, tokenFromParameter).path("/")
 						.httpOnly(true).secure(request.isSecure()).sameSite("Lax").build();
@@ -84,7 +84,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 			chain.doFilter(request, response);
 		}
 		catch (AuthenticationException e) {
-			// spring security filter 里面的异常，GlobalExceptionHandler 不能捕获
+
 			resolveException.commence(request, response, e);
 		}
 

@@ -10,14 +10,14 @@ interface Dept {
   children?: Dept[];
 }
 
-/** 后端 RepoPartnerView：按组授权时 userId 为空，按个人授权时 deptId 为空 */
+
 interface RepoPartnerView {
   id: string;
   userId?: string;
   user?: { userId?: string; name?: string; username?: string };
   deptId?: string;
   deptName?: string;
-  /** 1 查看 / 2 编辑（含查看）/ 3 授权（含查看+编辑）；用户组授权为空 */
+
   accessLevel?: number;
   userType?: string;
   deptType?: string;
@@ -37,10 +37,10 @@ const levelText = (level?: number) =>
   level === 3 ? '可授权' : level === 1 ? '可查看' : '可编辑';
 const levelColor = (level?: number) => (level === 3 ? 'green' : level === 1 ? 'default' : 'blue');
 
-/**
- * 后端 /api/system/user/options（UserOptionView）：
- * 只返回 id / 姓名 / 账号 / 部门，不带手机号等敏感字段，老师也能读。
- */
+
+
+
+
 interface UserOption {
   id: string;
   name?: string;
@@ -67,21 +67,21 @@ export default function GrantModal({
   onChanged,
 }: {
   repoId?: string;
-  /** 批量授权：传多个题库 id 时，只做新增授权，不展示单个题库的授权名单 */
+
   repoIds?: string[];
   repoName?: string;
   open: boolean;
   onClose: () => void;
-  /** 授权/取消成功后通知外层刷新列表（可选） */
+
   onChanged?: () => void;
 }) {
   const { message } = App.useApp();
-  /** 批量模式：对选中的每个题库依次授权 */
+
   const targets = repoIds && repoIds.length > 0 ? repoIds : repoId ? [repoId] : [];
   const isBatch = targets.length > 1;
   const [loading, setLoading] = useState(false);
   const [partners, setPartners] = useState<RepoPartnerView[]>([]);
-  // 题库授权只面向教师/用户组；学员由班级资源分配，不再从这里授权
+
   const audience = 'staff' as const;
   const [mode, setMode] = useState<GrantMode>('dept');
   const [depts, setDepts] = useState<Dept[]>([]);
@@ -95,7 +95,7 @@ export default function GrantModal({
   const [removingId, setRemovingId] = useState<string>();
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
   const [batchRemoving, setBatchRemoving] = useState(false);
-  /** 新增授权的级别，默认 2（可编辑） */
+
   const [level, setLevel] = useState(2);
   const [myId, setMyId] = useState<string>();
   const [updatingId, setUpdatingId] = useState<string>();
@@ -130,7 +130,7 @@ export default function GrantModal({
       .catch(() => undefined);
   }, [open, loadPartners]);
 
-  // 只拉教师用户组；班级不在这里参与题库授权
+
   useEffect(() => {
     if (!open) return;
     setDeptId(undefined);
@@ -144,7 +144,7 @@ export default function GrantModal({
       .catch((e: Error) => setDeptError(e.message || '没有权限读取用户组'));
   }, [open, audience]);
 
-  // 人员候选只出现教职工；学员通过班级资源分配
+
   useEffect(() => {
     if (!open || mode !== 'user') return;
     setUsers([]);
@@ -159,9 +159,9 @@ export default function GrantModal({
   // 当前用户在这份题库里的级别：level3 才能继续授权；owner/admin 没有个人行，视为全量
   const myPartner = partners.find((row) => row.userId && myId && row.userId === myId);
   const myLevel = myPartner?.accessLevel;
-  // 批量授权没有单个题库的名单可判断，交给后端 403 兜底
+
   const canWrite = isBatch || myLevel === undefined || myLevel >= 3;
-  // 后端已过滤历史学员/班级行；这里直接展示教师/用户组授权
+
   const visiblePartners = partners;
   const audienceLabel = '教师';
 
@@ -211,8 +211,8 @@ export default function GrantModal({
     let ok = 0;
     const failed: string[] = [];
     try {
-      // 逐个题库授权：后端 /partner/create 一次只收一个 repoId，
-      // 这里串行调用，失败不影响其它题库，最后汇总结果。
+
+
       for (const target of targets) {
         try {
           await post(
@@ -326,7 +326,7 @@ export default function GrantModal({
         loading={loading}
         dataSource={visiblePartners}
         pagination={false}
-        // 授权对象 / 类型 / 权限几列合计约 330px，弹窗窄屏时横滚，避免操作列被挤出
+
         scroll={{ x: 340 }}
         rowSelection={
           canWrite && !isBatch

@@ -4,10 +4,10 @@ import lombok.Data;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 
-/**
- * @author javahuang
- * @date 2021/8/10
- */
+
+
+
+
 @Data
 public class DownloadData {
 

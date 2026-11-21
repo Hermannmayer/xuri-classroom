@@ -1,7 +1,7 @@
 /**
  * 答题相关的本地存储（草稿 / 匿名 answerId / 题目标记）。
  *
- * 单独抽出来的原因（对应前端 A 审计 A-DATA-1 / A-DATA-2）：
+
  * 1. **公用电脑隐私**：这些键里是答题者真实填写的内容（姓名、手机、住址答案），
  *    登出时必须能一键清干净，避免下一位用户打开同一份问卷看到上一位的答案。
  *    登出集成只需在登出逻辑里调用 `clearAnswerStorage()`（不改本文件以外的东西）。
@@ -10,13 +10,13 @@
  * 3. **健壮性**：隐私模式 / 配额满时 localStorage 会抛异常，这里统一吞掉，
  *    最坏情况是草稿失效，不影响答题与交卷。
  *
- * 注意：只清理「答题数据」，不动 UI 偏好（sk-font-scale / sk-zoom 等）。
+
  */
 
 /** 答题数据用到的键前缀：登出时按前缀整体清理 */
 export const ANSWER_STORAGE_PREFIXES = ['sk-answer-', 'sk-draft-', 'sk-marks-'] as const;
 
-/** 草稿有效期：7 天（过期视为不存在，读取时顺手删掉） */
+
 export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const answerKey = (projectId: string) => `sk-answer-${projectId}`;
@@ -25,7 +25,7 @@ export const marksKey = (projectId: string) => `sk-marks-${projectId}`;
 
 function safeStorage(): Storage | undefined {
   try {
-    // Safari 隐私模式 / 被策略禁用时，访问 localStorage 本身就可能抛异常
+
     return window.localStorage;
   } catch {
     return undefined;
@@ -45,7 +45,7 @@ export function safeSet(key: string, value: string): boolean {
     safeStorage()?.setItem(key, value);
     return true;
   } catch {
-    // 配额满 / 隐私模式：写不进去就算了，不影响答题
+
     return false;
   }
 }
@@ -78,7 +78,7 @@ export function clearAnswerStorage(): number {
   return keys.length;
 }
 
-/** 登出信号：BasicLayout 登出时 `window.dispatchEvent(new Event(LOGOUT_EVENT))` 即可清空 */
+
 export const LOGOUT_EVENT = 'sk:logout';
 
 /**
@@ -112,7 +112,7 @@ export function removeAnswerId(projectId: string): void {
   safeRemove(answerKey(projectId));
 }
 
-/* ---------------------------------------------------------------- 草稿 */
+
 
 export interface DraftPayload {
   projectId: string;

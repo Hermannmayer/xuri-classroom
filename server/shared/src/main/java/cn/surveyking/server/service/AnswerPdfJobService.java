@@ -5,20 +5,20 @@ import cn.surveyking.server.domain.dto.DownloadQuery;
 import java.io.InputStream;
 import java.util.Map;
 
-/**
- * 班级答卷批量导出 PDF 的异步任务服务。
- *
- * <p>
- * 为什么拆成接口 + 实现（{@code rdbms/impl/AnswerPdfJobServiceImpl}）：{@code api} 模块只依赖
- * {@code project(':rdbms')} 的编译产物，而 mybatis-plus 在 rdbms 里是 {@code implementation} 依赖，
- * 不会传到 api 的编译类路径。Controller 直接按实现类注入会在编译期报
- * 「无法访问 com.baomidou...ServiceImpl」。接口放 shared 模块，Controller 只依赖这个接口，
- * 与 {@code AnswerService} / {@code ClassService} 的做法一致。
- *
- * <p>
- * 任务本身是内存态（不建表）：进程重启后未完成的任务会消失，前端轮询会拿到
- * 「导出任务不存在或已过期」，重新导出即可。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public interface AnswerPdfJobService {
 
 	/**
@@ -31,7 +31,7 @@ public interface AnswerPdfJobService {
 	 * <p>
 	 * 屏幕上的筛选（gradeStatus / createByName / minScore / maxScore / includeAnonymous）也必须一起传：
 	 * 老师「筛完再导出」时期望拿到的是筛出来的那一批，PDF 与 Excel 明细的取数条件完全一致，
-	 * 否则导出文件与页面不一致，会被当成系统算错。
+
 	 * @param query 导出范围与产出格式。outputs 可选（成绩单 / 答题卷还原 / 长图 / 确认单），
 	 * 为空时按 type 走老逻辑（只出成绩单）。includeImages 已废弃：签名与上传图片总是包含。
 	 * @return 任务 id

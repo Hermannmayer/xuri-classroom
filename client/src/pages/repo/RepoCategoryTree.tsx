@@ -4,13 +4,13 @@ import type { TreeDataNode } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { get, post } from '../../api';
 
-/** 与后端 RepoCategoryView 对齐：扁平结构，按 path 拆 "/" 建树 */
+
 interface RepoCategory {
-  /** 目录登记表 id；由 t_repo.category 推导出来的层级可能为 null */
+
   id?: string | null;
   name?: string;
   parentId?: string | null;
-  /** 全路径（"/" 连接）；「未分类」为空串 */
+
   path?: string;
   parentPath?: string;
   count?: number;
@@ -29,7 +29,7 @@ interface CategoryMeta {
 interface BuiltTree {
   data: TreeDataNode[];
   meta: Map<string, CategoryMeta>;
-  /** 是否存在「未分类」（path 为空）的题库 */
+
   uncategorizedCount: number;
 }
 
@@ -45,7 +45,7 @@ function buildTree(list: RepoCategory[]): BuiltTree {
   for (const item of list) {
     const path = normalizePath(item.path ?? item.name);
     if (!path) {
-      // 「未分类」：后端用空 path 表示；不能按 category 精确过滤，树里只做展示
+
       uncategorizedCount = item.count ?? 0;
       continue;
     }
@@ -87,7 +87,7 @@ function buildTree(list: RepoCategory[]): BuiltTree {
   if (uncategorizedCount > 0) {
     data.push({
       key: UNCATEGORIZED_KEY,
-      // 未分类的 category 为空，后端 listRepo 没有可用的精确过滤值；这里只展示数量
+
       selectable: false,
       title: (
         <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, color: 'var(--bp-text-soft)' }}>
@@ -117,9 +117,9 @@ export default function RepoCategoryTree({
 }: {
   selectedPath?: string;
   onSelect: (path?: string, id?: string) => void;
-  /** 新建文件夹成功后的回调，父级用它刷新分类候选/列表 */
+
   onCreated?: () => void;
-  /** 是否有 repo:create（没有就不显示「新建文件夹」） */
+
   canCreate?: boolean;
   refreshToken?: number;
 }) {

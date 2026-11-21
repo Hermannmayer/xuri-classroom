@@ -6,10 +6,10 @@ import org.springframework.scheduling.support.CronExpression;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
-/**
- * @author javahuang
- * @date 2022/2/28
- */
+
+
+
+
 public class CronHelper {
 
 	private final String cron;

@@ -16,20 +16,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 主观题人工批改接口。
- *
- * <p>单独开一个 Controller（而不是塞进 {@code AnswerApi}）：批改有独立的权限点
- * {@code answer:grade} 和独立的读写路径，放在一起会让答卷列表接口的权限面变模糊。
- *
- * <p>写操作由 {@code AuditRecorder} 的 AOP 自动记入操作日志（动作码 ANSWER_GRADE / ANSWER_GRADE_RESET），
- * 这里不重复写审计。
- *
- * <p>权限：{@code hasAuthority('answer:grade')}，管理员按仓库既有惯例直接放行
- * （同 {@code AnswerApi#restoreAnswer}），避免角色还没配权限点时管理员自己都进不去。
- *
- * @author grading
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @RestController
 @RequestMapping("${api.prefix}/answer/grade")
 @RequiredArgsConstructor

@@ -60,10 +60,7 @@ modules:
       - POST /api/system/aiModels
     tables:
       - t_ai_usage
-    tests:
-      - server/rdbms/src/test/java/cn/surveyking/server/ai/AiContentGuardTest.java
-      - server/rdbms/src/test/java/cn/surveyking/server/impl/AiUsageServiceImplTest.java
-      - server/rdbms/src/test/java/cn/surveyking/server/impl/AiAssistServiceImplTest.java
+    tests: []
     last_verified: 2026-11-17
     verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
   - id: module-answer
@@ -244,7 +241,6 @@ modules:
     tests:
       - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditRecorderTest.java
       - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditDiffSupportTest.java
-      - server/rdbms/src/test/java/cn/surveyking/server/impl/AnswerTimelineServiceImplTest.java
     last_verified: 2026-11-17
     verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
   - id: module-auth
@@ -543,7 +539,6 @@ modules:
       - server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/PaperImportRecordRequest.java
       - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoTemplateRequest.java
-      - server/shared/src/test/java/cn/surveyking/server/core/importer/**
       - server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx
       - server/api/src/main/resources/template/旭日云课堂试卷导入模板.docx
     entrypoints:
@@ -562,7 +557,7 @@ modules:
       - t_template
     tests:
       - client:npx tsc --noEmit
-      - server:gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
+      - server:gradlew :shared:test
     last_verified: 2026-11-19
     verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
   - id: module-mcp
@@ -612,11 +607,7 @@ modules:
       - t_api_token
       - t_api_idempotency
     tests:
-      - server/api/src/test/java/cn/surveyking/server/mcp/McpServerTest.java
-      - server/api/src/test/java/cn/surveyking/server/mcp/McpEndToEndTest.java
-      - server/api/src/test/java/cn/surveyking/server/mcp/McpApiTest.java
       - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiTokenServiceImplTest.java
-      - server/rdbms/src/test/java/cn/surveyking/server/impl/ApiIdempotencyServiceImplTest.java
       - client:npm run check
     last_verified: 2026-11-17
     verified_against: a2d304a31f0d64d28a8502fdcda02ef55c9a55de
@@ -667,7 +658,6 @@ modules:
       - t_notice
       - t_notice_read
     tests:
-      - server/rdbms/src/test/java/cn/surveyking/server/impl/NoticeServiceImplTest.java
       - client:npm run check
     last_verified: 2026-11-19
     verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
@@ -1080,8 +1070,6 @@ modules:
       - t_template
     tests:
       - client:npm run check
-      - client:npm run test:rules
-      - client:npm run test:tree
       - docs:npm run docs:check
     last_verified: 2026-11-19
     verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3

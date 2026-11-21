@@ -17,7 +17,7 @@
 -- ======
 SET NAMES utf8mb4;
 
--- 1. 班级授权表
+
 CREATE TABLE IF NOT EXISTS `t_class_partner` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `dept_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id）',
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS `t_class_partner` (
   KEY `idx_class_partner_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级授权给老师';
 
--- 2. 老师：移除系统管理串与练习入口，追加班级管理/只读授权依赖
+
 UPDATE t_role
 SET authority = TRIM(BOTH ',' FROM REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
       CONCAT(',', authority, ','),
@@ -55,21 +55,21 @@ SET authority = CONCAT(authority, ',class:list,class:detail,class:member:create,
 WHERE code = 'teacher' AND is_deleted = 0
   AND authority NOT LIKE '%class:list%';
 
--- 3. 学员：练习入口改用 repo:practice（repo:book 继续只管错题本/练习册）
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',repo:practice'),
     update_at = NOW()
 WHERE code IN ('student', 'xueyuan') AND is_deleted = 0
   AND authority NOT LIKE '%repo:practice%';
 
--- 4. 管理员：补进权限串便于导出/审计（代码层本来就会自动注入全部目录权限）
+
 UPDATE t_role
 SET authority = CONCAT(authority, ',repo:practice,class:list,class:detail,class:grant,class:member:create,org:list,user:select'),
     update_at = NOW()
 WHERE code = 'admin' AND is_deleted = 0
   AND authority NOT LIKE '%class:list%';
 
--- 自检
+
 SELECT code, name,
        (CHAR_LENGTH(authority) - CHAR_LENGTH(REPLACE(authority, ',', '')) + 1) AS perm_count,
        (authority LIKE '%class:list%')  AS can_class_list,

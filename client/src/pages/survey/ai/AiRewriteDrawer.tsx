@@ -29,13 +29,13 @@ const STYLE_OPTIONS: Array<{ value: AiRewriteStyle; label: string; hint: string 
 export interface AiRewriteDrawerProps {
   open: boolean;
   projectId: string;
-  /** 要改的题目；空 = 不打开 */
+
   questionId?: string;
-  /** 当前题干：带上后端就直接拿它改写（题目还没保存也能用） */
+
   title?: string;
-  /** 题型名：让模型知道按什么题型改写 */
+
   type?: string;
-  /** 采纳：把新题干交回编辑器 */
+
   onAdopt: (text: string, reason?: string) => void;
   onClose: () => void;
 }
@@ -53,10 +53,10 @@ export default function AiRewriteDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [suggestions, setSuggestions] = useState<AiRewriteSuggestion[]>([]);
-  /**
-   * 题干 / 题型放进 ref：它们是随编辑器每次输入都变的 props，
-   * 挂进 useCallback 依赖会让「老师打字」也触发重新请求。
-   */
+
+
+
+
   const latestRef = useRef<{ title?: string; type?: string }>({ title, type });
   latestRef.current = { title, type };
 
@@ -77,7 +77,7 @@ export default function AiRewriteDrawer({
         setSuggestions(list);
         if (!list.length) setError('AI 没有给出可用建议，请稍后重试');
       } catch (e) {
-        // 后端的拒绝原因（额度、AI 未启用、题目不存在）已经是中文，原样展示
+
         setError((e as Error).message);
         setSuggestions([]);
       } finally {

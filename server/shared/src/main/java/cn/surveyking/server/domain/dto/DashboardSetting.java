@@ -6,10 +6,10 @@ import lombok.Data;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2022/1/28
- */
+
+
+
+
 @Data
 public class DashboardSetting {
 
@@ -17,19 +17,19 @@ public class DashboardSetting {
 
 	private String title;
 
-	/**
-	 *
-	 */
+
+
+
 	private List<GridDataItemTab> tabs;
 
-	/**
-	 * 刷新间隔
-	 */
+
+
+
 	private Integer refreshInterval;
 
-	/**
-	 * 组件的 props
-	 */
+
+
+
 	private LinkedHashMap<String, Object> widgetProps;
 
 	private GridLayout gridLayout;

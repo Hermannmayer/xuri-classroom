@@ -35,10 +35,10 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/**
- * @author javahuang
- * @date 2021/12/17
- */
+
+
+
+
 public abstract class AbstractTaskHandler implements TaskHandler {
 
 	@Autowired
@@ -98,7 +98,7 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 		if (fieldPermission == null) {
 			return target;
 		}
-		// 原始答案里面过滤掉当前权限允许编辑的答案
+
 		fieldPermission.entrySet().forEach(entry -> {
 			String qId = entry.getKey();
 			Integer permType = entry.getValue();
@@ -106,7 +106,7 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 				result.remove(qId);
 			}
 		});
-		// 合并当前答案
+
 		result.putAll(target);
 		return result;
 	}
@@ -129,11 +129,11 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 	}
 
 	private void saveOperation(ApprovalTaskRequest request) {
-		// 更新审批记录为历史审批记录，目的是只有最新操作记录的对应的人才能进行撤回操作
+
 		FlowOperationMapper flowOperationMapper = (FlowOperationMapper) flowOperationService.getBaseMapper();
 		flowOperationMapper.updateOperationLatest(request.getProcessInstanceId());
 
-		// 添加新的操作记录
+
 		FlowOperation operation = new FlowOperation();
 		operation.setAnswerId(request.getAnswerId());
 		operation.setAnswer(request.getAnswer());
@@ -150,14 +150,14 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 		operation.setLatest(true);
 		flowOperationService.save(operation);
 
-		// 更新操作人历史
-		// 如果一个人参与了多个流程节点，只显示最近参与的流程节点
+
+
 		UpdateFlowOperationUserRequest updateFlowOperationUserRequest = new UpdateFlowOperationUserRequest();
 		updateFlowOperationUserRequest.setTaskType(FlowTaskType.userTask);
 		updateFlowOperationUserRequest.setUserId(SecurityContextUtils.getUserId());
 		updateFlowOperationUserRequest.setInstanceId(request.getProcessInstanceId());
 		flowOperationMapper.updateOperationUserLatest(updateFlowOperationUserRequest);
-		// 更新操作人为最新的操作人
+
 		saveOperationUser(operation);
 	}
 
@@ -207,14 +207,14 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 		if (!request.getNewActivityId().equals(request.getProjectId())) {
 			return false;
 		}
-		// StartEvent event = getStartNode(request.getProjectId());
+
 		String starterActivityId = FlowConstant.STARTER_ACTIVITY_ID;
 		String currentActivityId = getProcessInstanceActiveTaskList(request.getProcessInstanceId()).get(0)
 				.getTaskDefinitionKey();
 		request.setNewActivityId(starterActivityId);
-		// runtimeService.createChangeActivityStateBuilder().processInstanceId(request.getProcessInstanceId())
-		// .moveActivityIdTo(currentActivityId, starterActivityId);
-		// 回滚至开始节点之后，任务自动流程到了下一节点，所以需要暂停任务
+
+
+
 		runtimeService.suspendProcessInstanceById(request.getProcessInstanceId());
 		return true;
 	}
@@ -265,7 +265,7 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 				continue;
 			}
 			else if (FlowApprovalType.REVERT.equals(operation.getApprovalType())) {
-				// 撤回节点的 taskDefKey 和已完成节点是一致的
+
 			}
 			lastNode = currNode;
 		}

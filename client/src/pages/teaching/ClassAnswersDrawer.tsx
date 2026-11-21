@@ -56,7 +56,7 @@ import { flattenSchema } from '../../schema/flatten';
 import type { Project } from '../../schema/project';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 
-/** 与后端班级答卷列表项对齐（AnswerView） */
+
 interface ClassAnswerRow {
   id: string;
   projectId?: string;
@@ -65,72 +65,72 @@ interface ClassAnswerRow {
   answererName?: string;
   isAnonymous?: boolean;
   examScore?: number | null;
-  /** 后端 Date 序列化：字符串或 epoch 毫秒 */
+
   createAt?: string | number;
   tempSave?: number;
-  /** none 无需批改 / pending 待批改 / graded 已批改 */
+
   gradeStatus?: string;
-  /**
-   * 第几次作答（从 0 开始）。后端 t_answer 有这个字段，但 AnswerView 目前没下发，
-   * 所以声明成可选：有就用后端的，没有就按同一学员的交卷顺序在前端推导。
-   */
+
+
+
+
   attemptNo?: number;
   metaInfo?: { answerInfo?: { startTime?: number; endTime?: number } } | null;
-  /** 每题分值（questionId → 分），用于推卷面满分 */
+
   examInfo?: { questionScore?: Record<string, number> } | null;
-  /** 答案原文：附件列要从这里看签名/上传题有没有 fileId */
+
   answer?: Record<string, unknown> | null;
-  /** 交卷时的题树快照：附件列据此分清哪些题存的是文件 id */
+
   survey?: SurveySchema | null;
-  /** 客观题机器分小计 / 主观题人工分小计：接口暂未下发，哪天给了就直接显示 */
+
   objectiveScore?: number | null;
   manualScore?: number | null;
 }
 
-/** 未交名单接口的行（后端 UnsubmittedStudentView.Student） */
+
 interface RosterStudent {
   id: string;
   name?: string;
   phone?: string;
 }
 
-/** 未交名单接口（后端 UnsubmittedStudentView） */
+
 interface RosterView {
-  /** 班级学员总数（主组 + 兼报组） */
+
   total?: number;
-  /** 其中已正式交卷的人数 */
+
   submitted?: number;
-  /** 还没交的人；班级人多时后端只回前 500 条 */
+
   list?: RosterStudent[];
 }
 
-/** 表格里的一行：原始答卷 + 前端推导出来的展示字段 */
+
 interface AnswerRowView extends ClassAnswerRow {
-  /** 第几次作答（从 0 开始） */
+
   attempt?: number;
-  /** 作答用时（毫秒） */
+
   duration?: number;
-  /** 有手写签名 */
+
   hasSignature: boolean;
-  /** 上传题图片/文件个数 */
+
   uploadCount: number;
 }
 
 type TabKey = 'answers' | 'unsubmitted';
 type StatusFilter = 'all' | 'submitted' | 'pending';
 
-/**
- * pdf-job 的 outputs 取值（后端契约已冻结），每个值产出「每人一份」的东西。
- * 名字是后端的，别改；界面文案见 PDF_FORMATS。
- */
+
+
+
+
 type PdfOutput = AnswerExportOutput;
 
-/**
- * 四种异步产物的界面配置。
- *
- * <p>dir 是后端 ZIP 里的子目录名（契约固定），提示文案照着它写——老师拿到 ZIP 会按目录名认东西。
- * 数组顺序 = 勾选顺序 = ZIP 子目录的列举顺序。
- */
+
+
+
+
+
+
 const PDF_FORMATS: { key: PdfOutput; label: string; dir: string }[] = [
   { key: 'answerPdf', label: '成绩单 PDF（每人一份，含分数摘要）', dir: '成绩单' },
   { key: 'answerSheetPdf', label: '答题卷 PDF（和学员答题时一样）', dir: '答题卷' },
@@ -138,15 +138,15 @@ const PDF_FORMATS: { key: PdfOutput; label: string; dir: string }[] = [
   { key: 'confirmSheetPdf', label: '成绩确认单（整班一张表，每人一行，签名列留空手写）', dir: '确认单' },
 ];
 
-/** 导出设置：弹窗里的选择 */
+
 interface ExportOptions {
-  /** 第几次作答（从 0 开始）；undefined = 全部轮次 */
+
   attemptNo?: number;
   range?: [Dayjs, Dayjs] | null;
   includeAnalysis: boolean;
-  /** Excel 明细（.xlsx，同步下载） */
+
   excel: boolean;
-  /** 以下四种合成一个异步任务，勾几种生成几种 */
+
   answerPdf: boolean;
   answerSheetPdf: boolean;
   answerImage: boolean;
@@ -156,9 +156,9 @@ interface ExportOptions {
 const DEFAULT_OPTIONS: ExportOptions = {
   attemptNo: undefined,
   range: null,
-  // 解析默认关：考试没结束时放解析等于泄题，老师要显式勾
+
   includeAnalysis: false,
-  // 默认「Excel 明细 + 成绩单 PDF」：日常最常用的两样，一个进表格、一个发学员/归档
+
   excel: true,
   answerPdf: true,
   answerSheetPdf: false,
@@ -166,26 +166,26 @@ const DEFAULT_OPTIONS: ExportOptions = {
   confirmSheetPdf: false,
 };
 
-/**
- * 一次拉多少份答卷。
- *
- * <p>统计条（应考/已交/平均/最高/最低/及格率）与姓名、状态、时间筛选都要求拿到整班数据，
- * 所以这里不分页，一次拉回来在前端分页；500 和未交名单接口的硬上限对齐，够一个教学班用。
- * 真超过 500 份（大量补考）时列表上方会写清「统计基于已加载的最近 500 份」，不装作是全部。
- */
+
+
+
+
+
+
+
 const ANSWER_LIMIT = 500;
 
-/**
- * 题库练习的哨兵 projectId：班级资源面板打开「练习记录」时传的就是这个值。
- * 它不是真项目（没有 setting、没有班级花名册），未交名单接口对它只会报「项目不存在」，
- * 所以干脆不发这个请求，也就不会在抽屉顶上挂一条永远消不掉的错误提示。
- */
+
+
+
+
+
 const EXERCISE_PROJECT_ID = 'exercise';
 
-/**
- * 附件列关心的题型：只有手写签名与上传题才是老师要核对的原件。
- * 条码（Barcode）虽然也存文件 id，但那是系统生成的图，不该在「附件」里出现。
- */
+
+
+
+
 const FILE_TYPES = new Set<QuestionType>(['Signature', 'Upload']);
 
 const ATTEMPT_OPTIONS = [1, 2, 3, 4, 5].map((ordinal) => ({ value: ordinal - 1, label: `第 ${ordinal} 次作答` }));
@@ -196,7 +196,7 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'pending', label: '待批改' },
 ];
 
-/** 批改状态 → 标签（none = 卷里没有人工评分题，不是「没批」） */
+
 const GRADE_TAGS: Record<string, { color: string; text: string }> = {
   none: { color: 'default', text: '无主观题' },
   pending: { color: 'warning', text: '待批改' },
@@ -278,7 +278,7 @@ function rosterClipboardText(list: RosterStudent[]): string {
  *
  * <p>startTime / endTime / attemptNo / gradeStatus / createByName 都是可选：不传就是「整班、全部轮次、不限状态」。
  * 这些都是后端 downloadByClass 里已经支持的过滤条件，不是前端假筛 —— 抽屉列表上筛了什么，
- * Excel 与 PDF / 长图就必须导什么，否则老师会把整班明细当筛选结果发出去。
+
  */
 export async function downloadClassAnswers(params: {
   projectId: string;
@@ -288,9 +288,9 @@ export async function downloadClassAnswers(params: {
   startTime?: string;
   endTime?: string;
   attemptNo?: number;
-  /** 批改状态（pending / graded）；不传 = 不限 */
+
   gradeStatus?: string;
-  /** 姓名或账号（后端按「姓名快照 + 账号名」模糊匹配）；不传 = 不限 */
+
   createByName?: string;
 }) {
   const tokenRes = await post<{ exportToken?: string; expiresIn?: number }>('/api/answer/export/token', {});
@@ -393,7 +393,7 @@ export default function ClassAnswersDrawer({
   const { message } = App.useApp();
   const navigate = useNavigate();
 
-  /* ------ 数据：答卷列表 / 未交名单 / 项目详情，各自独立失败 ------ */
+
   const [rows, setRows] = useState<ClassAnswerRow[]>([]);
   const [rowsTotal, setRowsTotal] = useState(0);
   const [rowsLoading, setRowsLoading] = useState(false);
@@ -403,14 +403,14 @@ export default function ClassAnswersDrawer({
   const [rosterLoading, setRosterLoading] = useState(false);
   const [rosterError, setRosterError] = useState<string>();
 
-  /** 项目详情只用来读及格线与满分：拿不到就按答卷里的每题分值兜底，不阻塞任何东西 */
+
   const [project, setProject] = useState<Project>();
 
-  /** 两个重试计数器：重试一个请求不要连带把另一个也刷一遍 */
+
   const [answersReload, setAnswersReload] = useState(0);
   const [rosterReload, setRosterReload] = useState(0);
 
-  /* ------ 列表筛选（都在前端做：数据本来就整班拉回来了） ------ */
+
   const [tab, setTab] = useState<TabKey>('answers');
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -418,7 +418,7 @@ export default function ClassAnswersDrawer({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  /* ------ 导出弹窗与异步任务 ------ */
+
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [options, setOptions] = useState<ExportOptions>(DEFAULT_OPTIONS);
@@ -462,7 +462,7 @@ export default function ClassAnswersDrawer({
   useEffect(() => {
     if (!open || !projectId || !deptId) return;
     if (projectId === EXERCISE_PROJECT_ID) {
-      // 题库练习没有花名册：统计条里应考/未交留「—」，也不去撞一个必然失败的接口
+
       setRoster(undefined);
       setRosterError(undefined);
       setRosterLoading(false);
@@ -478,7 +478,7 @@ export default function ClassAnswersDrawer({
       })
       .catch((e: unknown) => {
         if (!alive) return;
-        // 只影响应考/已交/未交三个数字，不顶掉答卷列表
+
         setRosterError((e as Error).message);
         setRoster(undefined);
       })
@@ -499,7 +499,7 @@ export default function ClassAnswersDrawer({
         if (alive) setProject(detail);
       })
       .catch(() => {
-        // 只是拿及格线：项目读不到就退回「满分 60%」的兜底，不打扰老师
+
         if (alive) setProject(undefined);
       });
     return () => {
@@ -507,7 +507,7 @@ export default function ClassAnswersDrawer({
     };
   }, [open, projectId]);
 
-  // 换班/换考试或重新打开时回到默认筛选：上一个班的搜索词带到下一个班只会让人以为没数据
+
   useEffect(() => {
     if (!open) return;
     setTab('answers');
@@ -523,7 +523,7 @@ export default function ClassAnswersDrawer({
 
   /* ------ 前端推导：轮次 / 用时 / 附件 ------ */
   const fileQuestions = useMemo(() => {
-    // 题 id → 题型：附件列要知道哪些题存的是文件 id（不同试卷/不同版本各建一次，别重复拍平）
+
     const map = new Map<string, QuestionType>();
     const seen = new Set<SurveySchema>();
     for (const row of rows) {
@@ -545,7 +545,7 @@ export default function ClassAnswersDrawer({
       if (list) list.push(row);
       else byPerson.set(key, [row]);
     }
-    // 轮次：后端按「同一人 + 交卷顺序」分配 attempt_no，前端用同样的口径补一遍
+
     const attemptOf = new Map<string, number>();
     for (const list of byPerson.values()) {
       [...list]
@@ -648,7 +648,7 @@ export default function ClassAnswersDrawer({
   const rosterList = useMemo<RosterStudent[]>(() => (Array.isArray(roster?.list) ? roster!.list : []), [roster]);
   const rosterTotal = typeof roster?.total === 'number' ? roster.total : undefined;
   const rosterSubmitted = typeof roster?.submitted === 'number' ? roster.submitted : undefined;
-  // 后端名单最多 500 条，展示与复制都以「total - submitted」为准，至少不会比列出来的人还少
+
   const unsubmittedCount =
     rosterTotal !== undefined ? Math.max(rosterTotal - (rosterSubmitted ?? 0), rosterList.length) : undefined;
 
@@ -674,7 +674,7 @@ export default function ClassAnswersDrawer({
     });
   }, [rowsView, keyword, statusFilter, range]);
 
-  // 筛选变化后回到第 1 页；越界（例如筛完只剩 3 条）也夹回最后一页，别给一张空表
+
   useEffect(() => {
     setPage(1);
   }, [keyword, statusFilter, range]);
@@ -695,14 +695,14 @@ export default function ClassAnswersDrawer({
   const downloadJob = useCallback(
     async (current: AnswerPdfJobView) => {
       const tokenRes = await post<{ exportToken?: string }>('/api/answer/export/token', {});
-      // 产物可能混着 PDF 和长图，名字别再写死 PDF
+
       const fallbackName = `${projectName || '考试'}-${deptName || '班级'}-答卷导出.zip`;
       await downloadAnswerPdfJob(current.jobId, tokenRes?.exportToken, current.fileName || fallbackName);
     },
     [deptName, projectName],
   );
 
-  /** 任务跑完：自动下载；失败：把后端的中文原因留在弹窗里 */
+
   const finishJob = useCallback(
     async (current: AnswerPdfJobView) => {
       stopPolling();
@@ -730,7 +730,7 @@ export default function ClassAnswersDrawer({
   const startPolling = useCallback(
     (jobId: string) => {
       stopPolling();
-      // 2 秒一轮：太密会把 4 核机器拖慢，太疏进度条看起来像卡住
+
       pollTimer.current = window.setInterval(
         () => {
           if (polling.current) return;
@@ -780,8 +780,8 @@ export default function ClassAnswersDrawer({
   const openExportModal = () => {
     setJobError(null);
     setJob(null);
-    // 列表上的交卷时间筛选直接带进导出设置：屏幕上只有这段时间的答卷、导出却是全班，
-    // 老师会以为导出漏了或多了。时间框里看得见也能当场改，不存在「偷偷改口径」
+
+
     setOptions({ ...DEFAULT_OPTIONS, range });
     setExportOpen(true);
   };
@@ -795,7 +795,7 @@ export default function ClassAnswersDrawer({
 
   /** 勾了哪几种异步产物：顺序按 PDF_FORMATS，正好也是 ZIP 子目录的顺序 */
   const outputs = PDF_FORMATS.filter((format) => options[format.key]).map((format) => format.key);
-  /** 需要解析的只有 PDF（长图/确认单按后端契约不带解析） */
+
   const analysisApplies = options.answerPdf || options.answerSheetPdf;
 
   const submitExport = async () => {
@@ -809,13 +809,13 @@ export default function ClassAnswersDrawer({
     setExporting(true);
     const startTime = options.range?.[0]?.format('YYYY-MM-DD HH:mm:ss');
     const endTime = options.range?.[1]?.format('YYYY-MM-DD HH:mm:ss');
-    /**
-     * 列表上筛出来的就是屏幕上那一批：状态 / 姓名对 Excel 与 PDF 两个出口都生效。
-     * - statusFilter=pending → gradeStatus=pending；
-     *   statusFilter=submitted 不需要额外条件（导出本来就只含已交卷的答卷）
-     * - keyword 是姓名/账号搜索框，后端按「姓名快照 + 账号名」两头模糊匹配
-     * - 本页没有分数段筛选，所以 minScore / maxScore 不传
-     */
+
+
+
+
+
+
+
     const gradeStatus = statusFilter === 'pending' ? 'pending' : undefined;
     const createByName = keyword.trim() || undefined;
     let excelFailed: string | null = null;
@@ -841,12 +841,12 @@ export default function ClassAnswersDrawer({
 
       if (outputs.length > 0) {
         const tokenRes = await post<{ exportToken?: string }>('/api/answer/export/token', {});
-        /**
-         * 契约：{ projectId, classId?, ids?, startTime?, endTime?, attemptNo?, gradeStatus?, createByName?,
-         * includeAnalysis?, outputs? }。includeImages 已废弃：后端永远带签名/上传图片，前端不再传，也不再给开关。
-         * outputs 传了就走多格式；不传时后端按 type 走老逻辑（只出成绩单）。
-         */
-        // 状态 / 姓名与 Excel 出口用的是同两个值：两个出口导的必须是同一批答卷
+
+
+
+
+
+
         const body: AnswerPdfJobRequest = {
           projectId,
           classId: deptId,
@@ -871,16 +871,16 @@ export default function ClassAnswersDrawer({
         jobRef.current = initial;
         startPolling(created.jobId);
       } else {
-        // 只导 Excel：已经在下载了，直接收尾
+
         setExportOpen(false);
       }
 
       if (excelFailed) {
-        // Excel 失败但 PDF 已经在跑：把原因留在弹窗里，不要直接吞掉
+
         setJobError(`Excel 明细导出失败：${excelFailed}`);
       }
     } catch (e) {
-      // 后端的中文提示（例如「当前有考试进行中，答卷 PDF 导出已暂停…」）原样展示
+
       setJobError((e as Error).message);
     } finally {
       setExporting(false);
@@ -895,7 +895,7 @@ export default function ClassAnswersDrawer({
       width: 168,
       render: (_: unknown, row) => {
         const name = row.answererName || row.createByName || '—';
-        // 学员的登录账号就是手机号，第二行直接当「账号」给老师核对/催交用
+
         const account = row.createBy && row.createBy !== name ? row.createBy : undefined;
         return (
           <div style={{ lineHeight: 1.35 }}>
@@ -950,7 +950,7 @@ export default function ClassAnswersDrawer({
           <Tooltip title={parts.length > 0 ? parts.join(' · ') : undefined}>
             <span>
               {main}
-              {/* 后端哪天下发客观/主观小计就用次行展示；没下发不留空行，避免表格高度跳动 */}
+
               {hasSubtotal && (
                 <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', whiteSpace: 'nowrap' }}>
                   客观 {scoreText(row.objectiveScore)} / 主观 {scoreText(row.manualScore)}
@@ -1038,7 +1038,7 @@ export default function ClassAnswersDrawer({
       await navigator.clipboard.writeText(rosterClipboardText(rosterList));
       message.success(`已复制 ${rosterList.length} 人的名单`);
     } catch {
-      // 非 https / 旧浏览器拿不到剪贴板权限
+
       message.warning('当前环境不能自动复制，请手动选择表格内容');
     }
   };
@@ -1062,7 +1062,7 @@ export default function ClassAnswersDrawer({
       destroyOnHidden
       styles={{ body: { paddingTop: 12 } }}
     >
-      {/* ① 统计条：应考/已交/未交按「人」算，平均/最高/最低/及格率按「每人最好一次」算 */}
+
       <div
         style={{
           display: 'grid',
@@ -1134,7 +1134,7 @@ export default function ClassAnswersDrawer({
         />
       )}
 
-      {/* ② 导出入口放在标签页外面：在「未交名单」里也能直接导出 */}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
         <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
           {rowsLoading
@@ -1157,7 +1157,7 @@ export default function ClassAnswersDrawer({
             label: '答卷列表',
             children: (
               <>
-                {/* ③ 筛选条：姓名/状态/交卷时间；整班数据都在手上，全部前端过滤，改条件立刻见结果 */}
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                   <Input
                     allowClear
@@ -1200,8 +1200,8 @@ export default function ClassAnswersDrawer({
                   loading={rowsLoading}
                   dataSource={pagedRows}
                   columns={columns}
-                  // 点一行直接看卷子：跳到数据页的答卷详情抽屉（那边有逐题对错与答案）。
-                  // 以前这里只能导出 Excel，想看一眼某个人的卷子要绕三四个页面。
+
+
                   onRow={(row) => ({
                     style: { cursor: 'pointer' },
                     onClick: () => {
@@ -1332,7 +1332,7 @@ export default function ClassAnswersDrawer({
               }
               disabled={running}
             />
-            {/* 「导出的是哪一批」写在这里：列表上的状态/姓名也一起进任务，两个出口同一批答卷 */}
+
             <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
               列表上筛过的状态 / 姓名也会一起带进导出：PDF / 长图与 Excel 明细导的是同一批答卷。
             </div>
@@ -1359,7 +1359,7 @@ export default function ClassAnswersDrawer({
                 </Checkbox>
               ))}
             </Space>
-            {/* 格式一多，光看名字分不清用途：把「拿它干什么」直接写在弹窗里 */}
+
             <div style={{ marginTop: 6, fontSize: 12, color: 'var(--bp-text-soft)' }}>
               长图适合微信发送、省纸；确认单是整班一张表，每人一行，签名列留空手写。
             </div>

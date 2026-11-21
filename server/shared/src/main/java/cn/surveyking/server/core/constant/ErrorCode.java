@@ -1,9 +1,9 @@
 package cn.surveyking.server.core.constant;
 
-/**
- * @author javahuang
- * @date 2022/2/23
- */
+
+
+
+
 public enum ErrorCode {
 
 	/**
@@ -139,9 +139,9 @@ public enum ErrorCode {
 	 */
 	QueryResultUpdateError(7020, "答案更新失败"),;
 
-	/**
-	 * 前两位区分模块，后两位区分错误消息
-	 */
+
+
+
 	public int code;
 
 	public String message;

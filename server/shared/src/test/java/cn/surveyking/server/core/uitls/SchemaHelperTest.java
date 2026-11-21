@@ -9,9 +9,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * 扁平化是所有统计/导出/答题页共用的基础操作，拆类时它必须保持不变。
- */
+
+
+
 class SchemaHelperTest {
 
 	private static SurveySchema option(String id) {

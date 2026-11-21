@@ -51,47 +51,47 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * 四个 AI 场景的实现：把「参数 / 业务数据」拼成提示词，交给 {@link AiGateway}，
- * 拿回结果后<b>先校验、再交给调用方</b>。
- *
- * <p>三条贯穿全类的口径：
- * <ol>
- * <li><b>模型只负责产出内容，结构由后端补齐</b>：改题/批改/学情只拿文本与结构化建议，
- * 写库（采纳、落分）全部走既有业务服务，判分口径只有一份；</li>
- * <li><b>记账就地发生</b>：每次调模型都写一条 {@code t_ai_usage}（ok / error / rejected），
- * 失败也要记——排障时最想知道的恰恰是「哪次失败了、为什么」；</li>
- * <li><b>后台线程里没有登录态</b>：userId 在提交任务时抓一次传进去，
- * 绝不在 {@code ai-job} 线程里读 {@code SecurityContextHolder}。</li>
- * </ol>
- *
- * @author p4-backend
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiAssistServiceImpl implements AiAssistService {
 
-	/** 项目授权级别：1 只读（{@code ProjectPartnerService#accessLevel} 的口径） */
+
 	private static final int ACCESS_LEVEL_VIEW = 1;
 
-	/** 学员答案最多带多少字进提示词：再长既贵也没用，判分看要点不看长度 */
+
 	private static final int MAX_ANSWER_CHARS = 2000;
 
-	/** 学情总结里最多带多少道题的统计，避免提示词过长 */
+
 	private static final int MAX_REPORT_QUESTIONS = 40;
 
-	/** 学情总结里最多带几天的每日答卷数 */
+
 	private static final int MAX_REPORT_DAYS = 14;
 
-	/** 各个场景的提示词模板 id（文件名，不含 .md） */
+
 	private static final String PROMPT_REWRITE = "question-rewrite";
 
 	private static final String PROMPT_GRADE = "grade-suggest";
 
 	private static final String PROMPT_REPORT = "report-summary";
 
-	/** 改写风格 → 给模型的一句指令 */
+
 	private static final Map<String, String> REWRITE_STYLES = new LinkedHashMap<>();
 
 	static {
@@ -137,7 +137,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound, "项目不存在");
 		}
-		// 采纳的题也要能判分：这道闸门与出卷时用的是同一份规则
+
 		AiContentGuard.checkAccepted(request.getQuestions());
 		SurveySchema schema = project.getSurvey() == null ? emptySchema(project) : project.getSurvey();
 		List<SurveySchema> children = schema.getChildren() == null ? new ArrayList<>()
@@ -153,7 +153,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 			if (question == null) {
 				continue;
 			}
-			// id 撞了就换一个：生成结果可能被采纳两次，撞 id 会让判分把两道题算成一题
+
 			if (!StringUtils.hasText(question.getId()) || !usedIds.add(question.getId())) {
 				question.setId(newId());
 				usedIds.add(question.getId());
@@ -165,7 +165,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		ProjectRequest update = new ProjectRequest();
 		update.setId(project.getId());
 		update.setSurvey(schema);
-		// 走 ProjectService 而不是直接改库：富文本消毒、附件引用登记、project:update 的行级闸门都在那里
+
 		projectService.updateProject(update);
 		AiPaperApplyView view = new AiPaperApplyView();
 		view.setProjectId(project.getId());
@@ -186,7 +186,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		String title = request.getTitle();
 		String type = request.getType();
 		if (StringUtils.hasText(request.getProjectId())) {
-			// 即使题干是前端直传的，也不该允许「用别人的 projectId 白嫖一次 AI」→ 统一过项目只读闸门
+
 			assertCanRead(request.getProjectId());
 		}
 		if (!StringUtils.hasText(title)) {
@@ -202,7 +202,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 				type = question.getType().name();
 			}
 		}
-		// 富文本题干先剥标签：发给模型的是纯文本，返回的也是纯文本，写回时不会破坏原有 HTML
+
 		String plainTitle = SchemaHelper.trimHtmlTag(title);
 		if (!StringUtils.hasText(plainTitle)) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "题干为空，无法改写");
@@ -232,7 +232,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		if (answer == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "答卷不存在或已删除");
 		}
-		// 行级权限：只有本人、项目所有者/协作者、管理员能看这份答卷
+
 		answerAccessGuard.assertProjectAccess(answer.getProjectId());
 		SurveySchema schema = answer.getSurvey() != null ? answer.getSurvey() : loadSchema(answer.getProjectId());
 		SurveySchema question = findQuestion(schema, request.getQuestionId());
@@ -276,7 +276,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound, "项目不存在");
 		}
-		// 只吃报表统计数字，不把学员原始答卷发给模型
+
 		ReportData data = reportService.getData(request.getProjectId(), true, request.getClassId());
 		if (data == null || data.getTotal() == null || data.getTotal().intValue() <= 0) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "该项目还没有答卷，无法生成学情分析");
@@ -356,7 +356,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		}
 	}
 
-	/* ====== 学情统计文本 ====== */
+
 
 	/**
 	 * 把 {@link ReportData} 压成一段给模型看的统计文本。
@@ -405,13 +405,13 @@ public class AiAssistServiceImpl implements AiAssistService {
 		return text.toString();
 	}
 
-	/* ====== 记账 / 通用工具 ====== */
+
 
 	/** 调模型并记账：成功记 ok，被拦记 rejected，其它异常记 error；记账之后原样抛出 */
 	private AiCompletion call(String scene, String userId, AiRequest request, boolean json) {
 		long start = System.currentTimeMillis();
 		try {
-			// 限额闸门：超限直接 400，一次模型都不调（被拦也要记账，否则「今天怎么没额度」查不出来）
+
 			aiUsageService.assertQuota(userId);
 		}
 		catch (ErrorCodeException e) {

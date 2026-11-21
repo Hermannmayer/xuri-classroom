@@ -2,7 +2,7 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- S2-5：SQL 由 Mapper 方法上的注解原样迁移过来，语句文本与语义不变；statement id = 方法名。 -->
+
 <mapper namespace="cn.surveyking.server.mapper.RepoMapper">
     <select id="selectRepoTemplateTags" resultType="cn.surveyking.server.domain.dto.TemplateTagTotalView">
         SELECT a.`name`, count(*) total FROM t_tag a

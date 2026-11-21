@@ -18,25 +18,25 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
-/**
- * Excel 内嵌图片按行索引：sheet 名 → 1 基行号 → 图片字节。
- *
- * <p>
- * fastexcel 不读图片，所以导入时用 POI 把同一份 .xlsx 再打开一次，按 {@link ClientAnchor} 的
- * <b>左上角所在行</b>归属。只认「纵向落在一行之内」的图片：跨行、或压到下一行里的图片
- * 会被跳过并给一条 {@code IMAGE_ANCHOR_SPANS_ROWS} 警告 —— 这种图片挂到哪一行都是猜，
- * 猜错就是「图贴到别的题上」，比少一张图难发现得多（学员对着别人的图答题）。
- *
- * <p>
- * 只取 png/jpg/jpeg/gif/bmp；单张超过 {@value #MAX_IMAGE_BYTES} 字节跳过、整份超过 {@value #MAX_IMAGES} 张截断，
- * 两种情况都记一条 warning。读取失败不抛异常（返回空表 + warning）：图片读不出来不该拖垮文字题目的导入。
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 public final class ExcelRowImages {
 
-	/** 单张内嵌图片上限 2MB：超过就跳过（避免一次导入把附件目录撑爆） */
+
 	public static final long MAX_IMAGE_BYTES = 2L * 1024 * 1024;
 
-	/** 单份 Excel 最多取 50 张内嵌图片 */
+
 	public static final int MAX_IMAGES = 50;
 
 	private static final List<String> IMAGE_EXTENSIONS = Arrays.asList("png", "jpg", "jpeg", "gif", "bmp");
@@ -88,7 +88,7 @@ public final class ExcelRowImages {
 					String extension = data.suggestFileExtension() == null ? ""
 							: data.suggestFileExtension().toLowerCase(Locale.ROOT);
 					if (!IMAGE_EXTENSIONS.contains(extension)) {
-						// emf/wmf 这类矢量图前端渲染不了，静默跳过
+
 						continue;
 					}
 					byte[] imageBytes = data.getData();
@@ -108,7 +108,7 @@ public final class ExcelRowImages {
 					}
 					int rowNum = anchor.getRow1() + 1;
 					if (spansRows(anchor)) {
-						// 跨行图片按左上角行归属会挂到错误题目上：宁可跳过并告诉老师怎么改，也不静默挂错
+
 						warnings.add(new Warning("IMAGE_ANCHOR_SPANS_ROWS", "工作表「" + sheet.getSheetName() + "」第 "
 								+ rowNum + " 行的图片跨了多行，已跳过；请把图片贴到单个单元格内再导入"));
 						continue;
@@ -140,10 +140,10 @@ public final class ExcelRowImages {
 		int fromRow = anchor.getRow1();
 		int toRow = anchor.getRow2();
 		if (toRow <= fromRow) {
-			// 纵向落在一行之内（图片比格子矮时 rowOff2 > 0，但仍属于同一行）
+
 			return false;
 		}
-		// 恰好一行：右下角压在下一行的行线上，偏移为 0
+
 		return !(toRow == fromRow + 1 && anchor.getDy2() == 0);
 	}
 
@@ -189,9 +189,9 @@ public final class ExcelRowImages {
 		return message.length() > 200 ? message.substring(0, 200) + "…" : message;
 	}
 
-	/**
-	 * 跳过的图片原因（不致命，调用方并入 ImportPreview.warnings 或日志）。
-	 */
+
+
+
 	public static final class Warning {
 
 		private final String code;

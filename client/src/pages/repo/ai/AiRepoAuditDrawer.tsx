@@ -24,26 +24,26 @@ import {
   type AiRepoPatch,
 } from '../../../api/ai';
 
-/**
- * 题库体检（task-24）。
- *
- * 体检是长任务：先 POST /api/ai/repo/audit 拿 jobId，再每 2 秒问一次 /api/ai/paper/job/{jobId}，
- * 和组卷、质检、批量批改同一套节奏。结果分三类：
- * - issues：确定性检查（缺答案、题干为空…），不需要模型，改不改由老师自己判断；
- * - duplicates：疑似重复题组，只给相似度和理由，**不在这里合并/删除**（删题不可逆，
- *   留给题目列表页，那边有勾选、有确认、有权限校验）；
- * - patches：逐题补全建议，默认只勾「原本为空」的字段——体检的价值是把没填的补上，
- *   而不是把老师写好的难度/章节/解析改成模型的想法。
- *
- * 体检本身不写库：勾选后点「应用选中建议」才走 POST /api/ai/repo/audit/apply。
- */
 
-/** 体检的题目上限：后端默认 40、上限 120；题数越多越慢也越贵，所以只给几档而不是自由输入 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const LIMIT_OPTIONS = [20, 40, 80, 120];
 
 const DEFAULT_OPTIONS: AuditOptions = { duplicates: true, analysis: true, limit: 40 };
 
-/** /api/template/list 的一行：这里只用它判断「原本是不是空的」 */
+
 interface TemplateRow {
   id: string;
   chapter?: string;
@@ -58,20 +58,20 @@ interface TemplateRow {
 }
 
 type AuditOptions = {
-  /** 是否查重 */
+
   duplicates: boolean;
-  /** 是否补解析 */
+
   analysis: boolean;
-  /** 本次最多体检多少题 */
+
   limit: number;
 };
 
 type Phase = 'idle' | 'running' | 'done' | 'failed';
 
-/** 建议里可以写回的字段，与 AiRepoAuditView.Patch 一一对应 */
+
 type PatchKey = 'difficulty' | 'chapter' | 'tags' | 'analysis';
 
-/** blank 原本为空（可以直接补）/ filled 原本有值（应用会覆盖）/ unknown 取不到原题 */
+
 type FieldStatus = 'blank' | 'filled' | 'unknown';
 
 const FIELD_LABEL: Record<PatchKey, string> = {
@@ -81,14 +81,14 @@ const FIELD_LABEL: Record<PatchKey, string> = {
   analysis: '解析',
 };
 
-/** 后端 DTO 里难度是 easy / medium / hard（写回时才转成 易 / 中 / 难），页面上直接给中文 */
+
 const DIFFICULTY_LABEL: Record<string, string> = {
   easy: '易',
   medium: '中',
   hard: '难',
 };
 
-/** 后端对 issues[].kind 给的是英文码，页面上给中文，认不出来的直接不显示 */
+
 const ISSUE_KIND_LABEL: Record<string, string> = {
   no_answer: '缺答案',
   no_score: '缺分值',
@@ -99,7 +99,7 @@ const ISSUE_KIND_LABEL: Record<string, string> = {
   type_mix: '题型配比',
 };
 
-/** 重复题组的处置建议：merge 合并留一 / review 人工确认 */
+
 const DUPLICATE_SUGGEST_LABEL: Record<string, string> = {
   merge: '建议合并留一',
   review: '建议人工确认',
@@ -200,7 +200,7 @@ function toApplyPatch(patch: AiRepoPatch): AiRepoPatch {
 /**
  * 取建议题目的原始字段。
  *
- * 体检按「最需要修」挑题，挑中的题不一定在当前页，所以这里自己翻列表：
+
  * 只为判断「原本是否为空」，按页翻到 id 找齐就停，最多 6 页（300 题）——
  * 再往后翻的代价已经超过重新体检一次了。取不到不影响展示，只是对应行默认不勾。
  */
@@ -225,9 +225,9 @@ async function loadOriginals(repoId: string, ids: string[]): Promise<Map<string,
 export interface AiRepoAuditDrawerProps {
   open: boolean;
   repoId: string;
-  /** 应用建议要写题库（后端要 ai:use + repo:update 或 template:update）；没有就只能看 */
+
   canApply: boolean;
-  /** 应用成功后刷新页面里的题目列表 */
+
   onApplied: () => void;
   onClose: () => void;
 }
@@ -248,15 +248,15 @@ export default function AiRepoAuditDrawer({
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string>();
   const [applying, setApplying] = useState(false);
-  /** 已写回的题数：应用后摘要还是体检当时的统计，用一行提示说明，免得老师以为没生效 */
+
   const [updatedCount, setUpdatedCount] = useState(0);
-  /** 重复题组里老师选中的「保留哪一道」，只记在内存里，不上报也不删题 */
+
   const [keepChoice, setKeepChoice] = useState<Record<number, string>>({});
-  /** 连点开关可能同时有两个任务在跑：只认最后一次发起的那条结果 */
+
   const runSeqRef = useRef(0);
-  /** 还在跑的任务：关掉抽屉只是停止轮询，再打开接着看进度，别为一个没看完的任务再花一次钱 */
+
   const runningJobRef = useRef<string | undefined>(undefined);
-  /** 那个任务属于哪个题库：同一页切到别的题库时，不能接着轮询上一个题库的任务 */
+
   const jobRepoRef = useRef<string | undefined>(undefined);
 
   const start = useCallback(
@@ -287,7 +287,7 @@ export default function AiRepoAuditDrawer({
         setJobId(created.jobId);
       } catch (e) {
         if (runSeqRef.current !== seq) return;
-        // 后端的中文原因（没配模型、没权限、超限额）原样展示，不要显示 code
+
         setError((e as Error).message);
         setPhase('failed');
       }
@@ -295,8 +295,8 @@ export default function AiRepoAuditDrawer({
     [repoId],
   );
 
-  // 打开就体检一次，且不沿用上一次已成结果的体检：库随时会被改，旧结果会让人以为已经修好了；
-  // 但上次的任务还没跑完时接着看进度——重新发起等于为一个没看完的任务再花一次钱
+
+
   useEffect(() => {
     if (!open || !repoId) return;
     if (runningJobRef.current && jobRepoRef.current === repoId) {
@@ -307,9 +307,9 @@ export default function AiRepoAuditDrawer({
     void start(DEFAULT_OPTIONS);
   }, [open, repoId, start]);
 
-  // 每 2 秒一轮；done / failed 或关掉抽屉就停（关掉后还接着轮询等于白烧后端线程）
+
   useEffect(() => {
-    // 任务和题库对不上（同一页换了题库）就不再轮询：结果会串到另一个题库
+
     if (!open || !jobId || jobRepoRef.current !== repoId) return;
     let alive = true;
     let timer = 0;
@@ -339,7 +339,7 @@ export default function AiRepoAuditDrawer({
           if (!alive) return;
           setOriginals(found);
           setResult({ ...data, patches });
-          // 没有写权限时不要预勾：勾了也点不出去，还让人以为已经改好了
+
           setChecked(
             canApply
               ? new Set(patches.filter((patch) => isSafeToPreselect(patch, found)).map((patch) => patch.id as string))
@@ -356,7 +356,7 @@ export default function AiRepoAuditDrawer({
         if (!alive) return;
         stop();
         runningJobRef.current = undefined;
-        // 任务只在内存里，后端重启后轮询会 400「任务不存在或已过期」，当成失败提示即可
+
         setError((e as Error).message);
         setPhase('failed');
       }

@@ -25,7 +25,7 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
 export default function MobileTabBar({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // 教学 = 考试/问卷 + 班级（已合并），入口按「能上课」或「能带班」任一命中
+
   const canTeach =
     can(authorities, PERMISSION_CODES.projectList) || can(authorities, PERMISSION_CODES.classList);
 
@@ -38,8 +38,8 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => p === '/home' || p === '/',
     },
   ];
-  // 三个视角和桌面端一致：老师/管理员一个「教学」（考试/问卷 + 班级两个 Tab），学员一个「我的任务」。
-  // 原来的独立「班级」tab 已经并进教学——底栏 5 个位置本来就挤。
+
+
   if (canTeach) {
     tabs.push({
       key: 'teaching',
@@ -67,8 +67,8 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
       active: (p) => under(p, '/repo'),
     });
   }
-  // 系统管理：手机上没有侧栏，底栏原来只有「首页/教学/题库/我的」，
-  // 管理员在手机上根本进不去系统设置。这里补一个「系统」，落到他有权限的第一个系统页。
+
+
   const canSystem =
     can(authorities, PERMISSION_CODES.systemUserList) ||
     can(authorities, PERMISSION_CODES.systemRoleList) ||
@@ -93,9 +93,9 @@ export default function MobileTabBar({ authorities }: { authorities: string[] })
     });
   }
 
-  // 与桌面端一致：不再给「没有任何角色」的用户强塞「我的练习」。
-  // 菜单能点但路由守卫（exercise:list）会 403，属于自欺欺人；
-  // 正确做法是给用户配一个角色（学员预设），见 /system/permissions。
+
+
+
   tabs.push({
     key: 'account',
     path: '/account/settings',

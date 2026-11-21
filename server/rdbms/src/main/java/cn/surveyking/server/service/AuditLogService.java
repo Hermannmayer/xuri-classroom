@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** 操作审计日志查询 */
+
 @Service
 @RequiredArgsConstructor
 public class AuditLogService {
@@ -109,16 +109,16 @@ public class AuditLogService {
 		return options;
 	}
 
-	/** 保留天数下限：低于这个值一律拒绝，避免一次误操作把最近几天的证据也删掉 */
+
 	public static final int MIN_KEEP_DAYS = 7;
 
-	/** 单批删除行数：审计表可能几十万行，一条 DELETE 会长时间持锁并撑大 undo */
+
 	private static final int CLEAN_BATCH = 2000;
 
-	/** 单次清理最多跑多少批（≈400 万行），防止配置写错时无限循环 */
+
 	private static final int CLEAN_MAX_BATCHES = 2000;
 
-	/** 自动保留天数（sk.audit.retention-days；0 或负数 = 关闭自动清理） */
+
 	@Value("${sk.audit.retention-days:180}")
 	private int retentionDays;
 
@@ -133,7 +133,7 @@ public class AuditLogService {
 	}
 
 	/**
-	 * 清理日志：all=true 清空；否则删除 beforeDays 天之前 / before 时间之前的记录。
+
 	 *
 	 * <p>
 	 * 两条安全线：①保留天数不得低于 {@link #MIN_KEEP_DAYS}（含"截止时间"形态，晚于下限直接拒绝），

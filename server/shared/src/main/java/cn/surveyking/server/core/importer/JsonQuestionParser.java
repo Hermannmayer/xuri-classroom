@@ -18,12 +18,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * JSON 解析：吃本系统导出的试卷 JSON（可含大题），校验后重新生成全部 ID，避免与现有试卷冲突。
- */
+
+
+
 public class JsonQuestionParser {
 
-	// Jackson 3 去掉了 ObjectMapper#configure，改用 builder 声明特性
+
 	private static final ObjectMapper MAPPER = JsonMapper.builder()
 			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
@@ -98,7 +98,7 @@ public class JsonQuestionParser {
 		node.setId(newId);
 		SurveySchema.Attribute attribute = node.getAttribute();
 		if (attribute != null && StringUtils.hasText(oldId) && oldId.equals(attribute.getExamCorrectAnswer())) {
-			// 选择题的“正确答案”存的就是选项自己的 id，换 id 必须同步改
+
 			attribute.setExamCorrectAnswer(newId);
 		}
 		if (node.getChildren() != null) {

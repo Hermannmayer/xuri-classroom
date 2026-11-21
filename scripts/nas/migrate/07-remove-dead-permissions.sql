@@ -35,7 +35,7 @@ WHERE is_deleted = 0
        OR authority LIKE '%system:backup%'
        OR authority LIKE '%system:restore%');
 
--- 自检：应只剩 66 个目录内权限 + 若干历史前缀串
+
 SELECT name, code,
        (CHAR_LENGTH(authority) - CHAR_LENGTH(REPLACE(authority, ',', '')) + 1) AS perm_count
 FROM t_role WHERE is_deleted = 0 ORDER BY perm_count DESC;

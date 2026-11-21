@@ -9,15 +9,15 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 
-/**
- * 「AI 使用说明」的静态内容（系统设置 → AI 页签底部折叠展示）。
- *
- * 文案全部是产品口径，不写实现细节；改文案只改这个文件，组件不掺内容。
- * 每条能力都必须写清「从哪进」——用户知道有 AI，但不知道入口藏在哪个按钮下面，
- * 这一栏就是把「能力 → 入口 → 权限 → 限制」对齐，缺一条就会变成「听说有但找不到」。
- */
 
-/** 能力卡片底部的「去…」指向哪一类页面：决定用哪个列表页做落点 */
+
+
+
+
+
+
+
+
 export type CapabilityTarget = 'project' | 'repo' | 'notice';
 
 export interface Capability {
@@ -25,13 +25,13 @@ export interface Capability {
   title: string;
   icon: ReactNode;
   summary: string;
-  /** 界面里的点击路径，文案与页面上的按钮名保持一致 */
+
   entry: string;
-  /** 所需权限，直接写权限码，和权限配置页的分组一致 */
+
   permission: string;
-  /** 一句话限制或注意事项，避免用户误以为 AI 会自己发布 / 自己改卷 */
+
   tip: string;
-  /** 落点页面；不给表示这条能力没有「先选一份试卷/题库」的前置步骤 */
+
   target?: CapabilityTarget;
 }
 
@@ -113,12 +113,12 @@ export interface ModelFaq {
   fix: string;
 }
 
-/**
- * 模型服务侧的常见问题。
- *
- * 这里的报错原文都能在 AiGateway / AiAssistServiceImpl / AiUsageServiceImpl 里找到，
- * 排查顺序按「最常见的先修」排：权限 → 开关 → Key → 模型 → 地址 → 网络 → 内容校验 → 限额。
- */
+
+
+
+
+
+
 export const MODEL_FAQS: ModelFaq[] = [
   {
     question: '页面上找不到任何 AI 入口',
@@ -195,7 +195,7 @@ export interface McpTool {
   write: boolean;
 }
 
-/** 与后端 McpToolCatalog 一一对应：9 类能力，导出拆成 create/get，共 10 个工具 */
+
 export const MCP_TOOLS: McpTool[] = [
   {
     name: 'sk_capabilities',
@@ -274,7 +274,7 @@ export type McpClientKey = 'generic' | 'cursor' | 'vscode' | 'codex';
 export interface McpClient {
   key: McpClientKey;
   label: string;
-  /** 配置文件放在哪里（对着客户端界面照抄） */
+
   configPath: string;
   language: 'json' | 'toml';
   hint: string;
@@ -361,7 +361,7 @@ export const MCP_CLIENTS: McpClient[] = [
   },
 ];
 
-/** 「复制这段需求」的示例：把目标试卷名换成自己的，AI 客户端就能按工具链跑一遍 */
+
 export const MCP_PROMPT_EXAMPLE = [
   '先用 sk_capabilities 看看这个令牌能用哪些工具；',
   '再用 sk_project_list 找到《安全生产培训》这份考试，用 sk_project_get 读出完整 schema。',
