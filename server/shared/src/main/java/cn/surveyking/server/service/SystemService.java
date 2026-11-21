@@ -23,10 +23,10 @@ public interface SystemService {
 			@CacheEvict(value = CacheConsts.commonCacheName, key = "'aiInfo'") })
 	void updateSystemInfo(SystemInfoRequest request);
 
-	UpdateCheckView getUpdateStatus();
+	SystemInfo.UpdateStatus getUpdateStatus();
 
 	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
-	void saveUpdateStatus(UpdateCheckView view);
+	void saveUpdateStatus(SystemInfo.UpdateStatus status);
 
 	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
 	void clearUpdateStatus();

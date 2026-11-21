@@ -131,14 +131,14 @@ public class SystemServiceImpl implements SystemService {
 	}
 
 	@Override
-	public UpdateCheckView getUpdateStatus() {
+	public SystemInfo.UpdateStatus getUpdateStatus() {
 		SysInfo info = sysInfoMapper.selectById("1");
 		return info == null || info.getSetting() == null ? null : info.getSetting().getUpdateStatus();
 	}
 
 	@Override
 	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
-	public void saveUpdateStatus(UpdateCheckView view) {
+	public void saveUpdateStatus(SystemInfo.UpdateStatus status) {
 		SysInfo info = sysInfoMapper.selectById("1");
 		if (info == null) {
 			return;
@@ -148,7 +148,7 @@ public class SystemServiceImpl implements SystemService {
 			setting = new SystemInfo.SystemSetting();
 			info.setSetting(setting);
 		}
-		setting.setUpdateStatus(view);
+		setting.setUpdateStatus(status);
 		sysInfoMapper.updateById(info);
 	}
 

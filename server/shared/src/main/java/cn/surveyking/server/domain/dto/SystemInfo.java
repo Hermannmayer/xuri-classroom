@@ -165,7 +165,7 @@ public class SystemInfo {
 
 		private Integer updateCheckIntervalHours;
 
-		private UpdateCheckView updateStatus;
+		private UpdateStatus updateStatus;
 
 
 
@@ -216,6 +216,24 @@ public class SystemInfo {
 
 		private Boolean pauseAnswerPdfDuringExam;
 
+	}
+
+	@Data
+	public static class UpdateStatus {
+
+		private Long checkedAt;
+
+		private String currentVersion;
+
+		private String latestVersion;
+
+		private Boolean hasUpdate;
+
+		private Boolean enabled;
+
+		private String error;
+
+		private String channel;
 	}
 
 	@Data

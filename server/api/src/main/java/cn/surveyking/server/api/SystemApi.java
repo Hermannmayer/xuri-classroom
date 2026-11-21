@@ -167,11 +167,20 @@ public class SystemApi {
 			return cachedUpdate;
 		}
 		if (!force && cachedUpdate == null) {
-			UpdateCheckView stored = systemService.getUpdateStatus();
-			if (stored != null && stored.getCheckedAt() != null && now - stored.getCheckedAt() < effectiveMs) {
-				cachedUpdate = stored;
+			SystemInfo.UpdateStatus stored = systemService.getUpdateStatus();
+			if (stored != null && stored.getCheckedAt() != null && now - stored.getCheckedAt() < effectiveMs
+					&& !Boolean.TRUE.equals(stored.getHasUpdate())) {
+				UpdateCheckView view = new UpdateCheckView();
+				view.setCheckedAt(stored.getCheckedAt());
+				view.setCurrentVersion(stored.getCurrentVersion());
+				view.setLatestVersion(stored.getLatestVersion());
+				view.setHasUpdate(Boolean.TRUE.equals(stored.getHasUpdate()));
+				view.setEnabled(Boolean.TRUE.equals(stored.getEnabled()));
+				view.setError(stored.getError());
+				view.setChannel(stored.getChannel());
+				cachedUpdate = view;
 				updateCheckedAt = stored.getCheckedAt();
-				return stored;
+				return view;
 			}
 		}
 
@@ -220,12 +229,24 @@ public class SystemApi {
 		return view;
 	}
 
+	private SystemInfo.UpdateStatus toStoredStatus(UpdateCheckView view) {
+		SystemInfo.UpdateStatus status = new SystemInfo.UpdateStatus();
+		status.setCheckedAt(view.getCheckedAt());
+		status.setCurrentVersion(view.getCurrentVersion());
+		status.setLatestVersion(view.getLatestVersion());
+		status.setHasUpdate(view.isHasUpdate());
+		status.setEnabled(view.isEnabled());
+		status.setError(truncate(view.getError(), 500));
+		status.setChannel(view.getChannel());
+		return status;
+	}
+
 	private void rememberUpdate(UpdateCheckView view, long now) {
 		view.setCheckedAt(now);
 		cachedUpdate = view;
 		updateCheckedAt = now;
 		try {
-			systemService.saveUpdateStatus(view);
+			systemService.saveUpdateStatus(toStoredStatus(view));
 		}
 		catch (RuntimeException e) {
 			log.warn("保存更新检查状态失败", e);
