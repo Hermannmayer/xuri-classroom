@@ -1,19 +1,4 @@
-/**
- * 全站平铺水印：内容可在「系统设置 → 内容与隐私保护」里配置
- *
-
- * 1. 只在登录后的页面（AUTH_PREFIXES 白名单）拉 /api/currentUser；匿名页（登录 / 注册 / 公开答题）
- *    不拉也不渲染——公开答题页去拉 currentUser 必然 401，会被全局 401 处理踢回登录页。
- * 2. 用 canvas 画一块倾斜 -25° 的文字砖，转 dataURL 当 repeat 背景，不引任何第三方依赖。
- * 3. 颜色取当前主题的 --bp-text（canvas 不认 CSS 变量，只能读计算值），透明度 0.06，
- *    两套主题都「看得见但不刺眼」；切主题时用 MutationObserver 重新画。
- * 4. 覆盖层 pointer-events: none，不挡点击、滚动、拖拽；z-index 900 低于 antd Modal/Drawer 的 1000。
- *
- * 设置项（GET /api/system 的 system.setting，缺省都按「开启 + name_phone」处理）：
- * - watermarkEnabled：false 时不渲染；
- * - watermarkMode：'name_phone'（默认）| 'name' | 'phone'。
- * 改设置后系统设置页会广播 WATERMARK_EVENT，这里即时生效，不用刷新页面。
- */
+/** 全站平铺水印：内容可在「系统设置 → 内容与隐私保护」里配置 */
 import { useEffect, useMemo, useState } from 'react';
 import { getCurrentUser, getSystem } from '../api';
 import type { UserInfo } from '../api';
@@ -101,10 +86,7 @@ function buildTile(text: string, color: string) {
   return canvas.toDataURL('image/png');
 }
 
-/**
- * 路由变化感知：本组件在 RouterProvider 之外，用不了 useLocation，
-
- */
+/** 路由变化感知：本组件在 RouterProvider 之外，用不了 useLocation， */
 function usePathname() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
 

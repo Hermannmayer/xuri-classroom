@@ -29,13 +29,7 @@ const CHINESE = /[\u4e00-\u9fa5]/;
 
 const INTERNAL_ERROR = /exception|sql|stack\s*trace|caused by|syntaxerror|at\s+[\w$.]+\s*\(/i;
 
-/**
- * 把后端 code/message 归一成「能直接给用户看」的中文。
- *
- * - 401/403/-1 统一文案；
- * - 后端业务错误（如导出密码错误 code=4030）自带中文提示，原样展示；
- * - 内部异常（SQL/英文异常类名/堆栈）一律兜底，避免把实现细节泄露给用户。
- */
+/** 把后端 code/message 归一成「能直接给用户看」的中文 */
 export function humanizeApiError(code: number, backendMessage?: string): string {
   if (code === 401) return '登录已过期，请重新登录';
   if (code === 403) {
@@ -65,10 +59,7 @@ function qs(params?: Record<string, unknown>): string {
   return s ? `?${s}` : '';
 }
 
-/**
- * 没有可用 JSON body 时的兜底：按 HTTP 状态归纳成 ApiError。
- * 401 仍走全局跳登录；429 用后端的业务码 4290，保证提示文案一致。
- */
+/** 没有可用 JSON body 时的兜底：按 HTTP 状态归纳成 ApiError */
 function statusError(status: number, url: string): ApiError {
   if (status === 401) {
     onUnauthorized();
@@ -83,15 +74,7 @@ function statusError(status: number, url: string): ApiError {
   return new ApiError(-1, `接口返回非 JSON（${url}），请检查后端是否已启动`);
 }
 
-/**
- * 后端契约：**HTTP 状态码与 body.code 对齐**（S3-7 起）。
- * - 成功 200 + code 200；
- * - 参数/业务拒绝 400，无权限 403，未登录 401，不存在 404，未预期异常 500；
- * - body 结构始终是 {code,message,data}，前端优先按 body.code 分支。
- *
-
-
- */
+/** 后端契约：**HTTP 状态码与 body.code 对齐**（S3-7 起） */
 export async function http<T>(method: string, url: string, data?: unknown): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -184,13 +167,7 @@ function fileNameFromDisposition(cd: string, fallback: string): string {
   }
 }
 
-/**
- * 下载文件。
- *
- * 后端错误统一是「HTTP 200 + body.code」，之前这里只看 res.ok，会把错误 JSON
- * 直接保存成 .xlsx。现在先按 content-type 判断：JSON 一律解析 code/message 抛中文错误；
- * 只有真正的二进制才落盘。401 仍然走全局跳登录。
- */
+/** 下载文件 */
 export async function download(
   url: string,
   params?: Record<string, unknown>,

@@ -101,13 +101,7 @@ function buildTree(list: RepoCategory[]): BuiltTree {
   return { data, meta, uncategorizedCount };
 }
 
-/**
- * 题库左侧分类树：根「全部分类」，节点显示 name + count。
- *
- * <p>后端 /api/repo/categories 是扁平列表（按 path 拆层级），选中回传 (path, id)：
- * path 用于 /api/repo/list?category= 精确过滤；「新建文件夹」优先传 parentId，
- * 推导出来的层级没有 id 时改传 parentPath。
- */
+/** 题库左侧分类树：根「全部分类」，节点显示 name + count */
 export default function RepoCategoryTree({
   selectedPath,
   onSelect,

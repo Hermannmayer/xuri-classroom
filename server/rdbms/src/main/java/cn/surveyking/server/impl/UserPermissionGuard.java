@@ -56,15 +56,7 @@ public class UserPermissionGuard {
 		}
 	}
 
-	/**
-	 * 「把用户放进某个组」会连带把该组（含祖先链）绑定的角色授予他，因此非管理员改 deptId / deptIds 时，
-
-	 * admin/teacher 的组，等于绕开 assertGrantableRoles 发角色。
-	 *
-	 * <p>
-	 * 两条豁免：① 管理员；② 匿名调用（注册）：那条路径的组与角色都来自系统设置，不由请求方指定。
-	 * 孤儿绑定（角色已被删）不授予任何权限，直接跳过，避免脏数据阻断正常的用户管理。
-	 */
+	/** 「把用户放进某个组」会连带把该组（含祖先链）绑定的角色授予他，因此非管理员改 deptId / deptIds 时， */
 	public void assertDeptAssignmentAllowed(String mainDeptId, List<String> extraDeptIds) {
 		if (!SecurityContextUtils.isAuthenticated() || SecurityContextUtils.isAdmin()) {
 			return;
@@ -120,24 +112,7 @@ public class UserPermissionGuard {
 		}
 	}
 
-	/**
-	 * 「建用户按角色分权」的服务层二次校验。
-	 *
-	 * <p>
-	 * 入口上的 @PreAuthorize 只回答「能不能进入建/改用户这个动作」，同一个人可能只该建学员、
-	 * 不该建老师；这个区分只能看请求里的 roles，所以在服务层拦：
-	 * <ul>
-	 * <li>目标角色里<b>任一</b>权限串以 {@code system:} 开头（即能进系统管理）→ 调用方必须是管理员，
-	 * 或持有 {@code system:user:create:teacher}；</li>
-
-	 * {@code system:user:create:student} 或 {@code system:user:create} 即可。</li>
-	 * </ul>
-	 *
-	 * <p>
-	 * 与 {@link #assertGrantableRoles} 分工：那个管「不能授予比自己高的角色」，这个管「学员/老师两档
-	 * 委派」，两者都过才允许写库。角色 id 不存在/已停用由 assertGrantableRoles 先拦，这里只做分档。
-	 * {@code roleIds} 为 null 表示本次不改角色（更新场景），直接跳过。
-	 */
+	/** 「建用户按角色分权」的服务层二次校验 */
 	public void assertRoleGrantScope(List<String> roleIds) {
 		if (CollectionUtils.isEmpty(roleIds)) {
 			return;
@@ -172,14 +147,7 @@ public class UserPermissionGuard {
 		}
 	}
 
-	/**
-	 * 目标用户的有效权限：直挂角色 ∪ 组链绑定角色（与 loadUserById 同一套口径）。
-	 *
-	 * <p>
-	 * 只查 t_user_role 会把「没有任何直挂角色、但所在组绑了 teacher」的老师误判成低权限，
-	 * 从而允许别人重置他的密码/删除他（账号接管）。这里直接用 loadUserById 的并集结果。
-
-	 */
+	/** 目标用户的有效权限：直挂角色 ∪ 组链绑定角色（与 loadUserById 同一套口径） */
 	public Set<String> loadAuthorityNames(String userId) {
 		UserInfo userInfo = userAuthService.buildUserInfo(userId);
 		if (userInfo == null || userInfo.getAuthorityList() == null) {

@@ -22,11 +22,7 @@ public class TaskHelper {
 
 	private final UserService userService;
 
-	/**
-	 * 根据 xml 节点计算审批人
-	 * @param activityId 当前 XML 节点 ID
-	 * @param starterUserId 发起人用户 ID
-	 */
+	/** 根据 xml 节点计算审批人 */
 	public Set<String> getUsers(String activityId, String starterUserId) {
 		FlowEntryNode node = nodeService.getById(activityId);
 		Set<String> result = new LinkedHashSet<>();

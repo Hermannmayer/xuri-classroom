@@ -1,19 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · live 环境一次性引导（在飞牛 NAS 上执行）
-#
-# 做完这四件事：
-#   1. 建数据目录（/vol2/1000/xuri/live/{mysql,files,build}）
-#   2. 生成 .env（不覆盖已存在的）
-#   3. 构建后端运行时镜像 xuri-runtime:25（只有 curl+JRE，约 1 分钟）
-#   4. 编译一次后端 jar，然后 docker compose up -d
-#
-# 幂等：重复执行不会覆盖 .env，也不会丢数据。
-#
-# 用法：
-#   cd <仓库>/deploy/nas/live
-#   bash ../../../scripts/nas/live-bootstrap.sh
-# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"

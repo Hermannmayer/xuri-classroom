@@ -83,11 +83,7 @@ public class FlowServiceImpl implements FlowService {
 
 	private final RevertTaskHandler revertTaskHandler;
 
-	/**
-	 * 问卷开始之前，根据权限过滤字段。
-	 * @param projectView
-	 * @return
-	 */
+	/** 问卷开始之前，根据权限过滤字段 */
 	@Override
 	public void beforeLaunchProcess(PublicProjectView projectView) {
 		SurveySchema schema = projectView.getSurvey();
@@ -444,10 +440,7 @@ public class FlowServiceImpl implements FlowService {
 		}
 	}
 
-	/**
-	 * 设置当前任务的任务状态
-	 * @param views
-	 */
+	/** 设置当前任务的任务状态 */
 	private void setTaskStatus(List<FlowTaskView> views) {
 		views.forEach(view -> {
 			if (view.getStatus() != null) {
@@ -461,10 +454,7 @@ public class FlowServiceImpl implements FlowService {
 		});
 	}
 
-	/**
-	 * 保存流程节点，将 flowEntry 里面的临时节点保存到数据库
-	 * @param flowEntry
-	 */
+	/** 保存流程节点，将 flowEntry 里面的临时节点保存到数据库 */
 	private void saveFlowElement(FlowEntry flowEntry) {
 
 		entryNodeService

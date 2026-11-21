@@ -61,15 +61,7 @@ public final class AnswerImageExporter {
 	private AnswerImageExporter() {
 	}
 
-	/**
-	 * 渲染「答题卷还原」长图。
-	 * @param project 试卷（只用 survey 里的题目结构）
-	 * @param answer 答卷视图（answer 原文、metaInfo、examInfo、examScore 等）
-	 * @param options 导出选项；内部会复制一份并把版式强制成 {@link AnswerPdfExporter.Style#ANSWER_SHEET}，
-	 * 不会改动调用方传入的对象
-	 * @return PNG 字节
-	 * @throws InternalServerError 字体缺失、PDF 生成失败或栅格化失败（中文提示）
-	 */
+	/** 渲染「答题卷还原」长图；返回 PNG 字节 */
 	public static byte[] renderAnswerImage(ProjectView project, AnswerView answer,
 			AnswerPdfExporter.PdfOptions options) {
 		if (!AnswerPdfExporter.isFontAvailable()) {
@@ -138,13 +130,7 @@ public final class AnswerImageExporter {
 		}
 	}
 
-	/**
-	 * 选 DPI：默认 150；拼出来超过 {@link #MAX_HEIGHT_PX} 就按 120 → 100 依次降；
-	 * 还超（题量真到了这个程度）就按比例继续降到刚好卡在上限，最低 {@link #MIN_DPI}。
-	 *
-	 * <p>为什么不是「超了就截断」：截断等于吃掉学员的后半张卷子。宁可整张图小一点，
-	 * 也不能让导出静默丢内容。
-	 */
+	/** 选 DPI：默认 150；拼出来超过 #MAX_HEIGHT_PX 就按 120 → 100 依次降； 还超（题量真到了这个程度）就按比例继续降到刚好卡在上限，最低 #MIN_DPI */
 	private static float chooseDpi(PDDocument document) {
 		float dpi = DEFAULT_DPI;
 		long height = estimatedHeight(document, dpi);

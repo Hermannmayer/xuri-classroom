@@ -55,12 +55,7 @@ function buildFolderNodes(nodes: ProjectTreeNode[], parentPath: Crumb[], paths: 
   return result;
 }
 
-/**
- * 考试/问卷左侧分类树（根固定「全部」）。
- *
- * <p>只负责拉 /api/project/tree 与选中回调；parentId 为空表示「全部」。
- * 选中文件夹时通过 path 回传从根到该节点的路径，右侧用它维护面包屑。
- */
+/** 考试/问卷左侧分类树（根固定「全部」） */
 export default function ProjectTree({
   selectedId,
   selectedCategory,

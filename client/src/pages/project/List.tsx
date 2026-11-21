@@ -67,12 +67,7 @@ const STUDENT_PAGE_SIZE = 200;
 
 const STUDENT_MAX_PAGES = 10;
 
-/**
- * 学员视图：只有 project:list / project:detail、没有 project:update 的账号（学生 / 只读协作者）。
- *
- * 管理端那一套（新建、回收站、编辑、设置、数据、删除、授权、批量操作）一个都不渲染，
- * 唯一动作是「开始答题」——直接跳公开答题页 /s/:id，这条路不需要任何管理权限，学员不会 403。
- */
+/** 学员视图：只有 project:list / project:detail、没有 project:update 的账号（学生 / 只读协作者） */
 function StudentProjectList({
   authorities,
   embedded = false,
@@ -94,12 +89,7 @@ function StudentProjectList({
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  /**
-   * 列表接口只能在服务端按名称/父级/类型过滤，没法排除文件夹；而且后端把文件夹排在
-
-   * 学员会看到空白页、页码也对不上。这里按 200 条一页把授权范围内的项目取全，
-   * 再在前端过滤文件夹、自行分页（练习中心「我的任务」也是这个套路）。
-   */
+  /** 列表接口只能在服务端按名称/父级/类型过滤，没法排除文件夹；而且后端把文件夹排在 */
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -322,10 +312,7 @@ function StudentProjectList({
   );
 }
 
-/**
- * 管理端 / 老师视图：增删改、批量、回收站、文件夹都还在这里，
- * 但每个动作都按 authorities 逐项渲染，没权限的入口不出现（而不是点了才 403）。
- */
+/** 管理端 / 老师视图：增删改、批量、回收站、文件夹都还在这里， 但每个动作都按 authorities 逐项渲染，没权限的入口不出现（而不是点了才 403） */
 function ManagerProjectList({
   authorities,
   embedded = false,
@@ -1322,13 +1309,7 @@ function ManagerProjectList({
   );
 }
 
-/**
- * 「我的考试」入口：按权限分成两种视图，权限判断统一走 auth/permissions 的 can()。
- *
- * - 有 project:update（老师 / 管理员）：管理视图（各动作再按权限逐项渲染）；
- * - 没有 project:update、但有 project:list（学员 / 只读协作者）：学员视图，
- *   只有「开始答题」，不出现任何管理入口，避免每点一次都是 403。
- */
+/** 「我的考试」入口：按权限分成两种视图，权限判断统一走 auth/permissions 的 can() */
 export default function ProjectList({
   embedded = false,
   mode,

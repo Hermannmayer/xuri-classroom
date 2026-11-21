@@ -6,12 +6,7 @@ import { useEffect, useState } from 'react';
 
 export const MOBILE_QUERY = '(max-width: 767.98px)';
 
-/**
- * 当前视口是不是手机宽度。
- *
- * <p>用 matchMedia 而不是读 innerWidth：滚动条出现/消失、软键盘弹出都会让 innerWidth 抖一下，
- * 而这里关心的是「断点跨没跨过去」。
- */
+/** 当前视口是不是手机宽度 */
 export function useIsMobile(query: string = MOBILE_QUERY): boolean {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window === 'undefined' ? false : window.matchMedia(query).matches,

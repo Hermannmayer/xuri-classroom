@@ -119,10 +119,7 @@ public class AiUsageServiceImpl implements AiUsageService {
 		return view;
 	}
 
-	/**
-	 * 限额归一化：null → 默认值；<= 0 → 0（表示不限）；上限夹到 1 亿（再大没有实际意义，
-	 * 只是防止有人把 Integer 塞成天文数字把界面占满）。
-	 */
+	/** 限额归一化：null → 默认值；<= 0 → 0（表示不限）；上限夹到 1 亿（再大没有实际意义， 只是防止有人把 Integer 塞成天文数字把界面占满） */
 	private static int limit(Integer configured, int defaultValue) {
 		if (configured == null) {
 			return defaultValue;

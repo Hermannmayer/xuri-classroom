@@ -1,6 +1,4 @@
 # 一键启动本地开发环境：MySQL(3306) + 后端(7007，内部服务) + 前端 dev(80，对外入口)
-#
-# 访问地址固定为 http://localhost —— 用户不需要知道后端在哪个端口。
 $ErrorActionPreference = 'Stop'
 $dev = $PSScriptRoot
 $root = Split-Path -Parent (Split-Path -Parent $dev)

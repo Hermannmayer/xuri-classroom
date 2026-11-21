@@ -3,14 +3,7 @@ import { RobotOutlined } from '@ant-design/icons';
 import AiAssistantPanel from './AiAssistantPanel';
 import { useAiAssistant } from './AiAssistantContext';
 
-/**
- * 右下角悬浮入口：圆形按钮 + 浮层对话框。桌面和手机都是浮层，只是尺寸不同。
- *
- * <p>手机上原来用 Drawer（先全屏、后 92vw），看着仍像「另一个页面」：背景被完全盖住，
- * 也不知道自己在哪。改成真正的悬浮小窗——保留当前页面可见，像 IM 的聊天窗一样。
- *
- * <p>为什么不做左侧停靠栏：停靠栏常驻要吃掉 336px 正文宽度，而老师 90% 的时间在改卷/看报表。
- */
+/** 右下角悬浮入口：圆形按钮 + 浮层对话框 */
 export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
   const { open, setOpen } = useAiAssistant();
 

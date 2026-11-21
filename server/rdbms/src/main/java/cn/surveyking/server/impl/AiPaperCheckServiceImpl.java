@@ -149,7 +149,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		});
 	}
 
-	/* ====== 任务体：确定性检查 → 模型补充建议 ====== */
+	/** ====== 任务体：确定性检查 → 模型补充建议 ====== */
 
 	private AiPaperCheckView inspect(List<SurveySchema> questions, String paperName, boolean aiSummary, String userId,
 			AiJobService.JobContext context) {
@@ -288,12 +288,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return parse(completion == null ? null : completion.getText(), questions);
 	}
 
-	/**
-	 * 解析模型结果：分数夹到 0~100、题号只认卷子里真实存在的 id、kind 只认三种。
-	 *
-	 * <p>模型的脏数据在这里就地修掉，不让它把整单打成 500：分数为空就只用系统分，
-	 * 题号编的就丢掉，kind 认不出就归到 coverage。
-	 */
+	/** 解析模型结果：分数夹到 0~100、题号只认卷子里真实存在的 id、kind 只认三种 */
 	private ModelResult parse(String json, List<SurveySchema> questions) {
 		JsonNode root = support.readJson(json, "试卷质检");
 		if (root == null || root.isMissingNode()) {
@@ -334,7 +329,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return new ModelResult(score, combineAdvice(text(root, "summary"), text(root, "advice")), issues);
 	}
 
-	/* ====== 提示词素材 ====== */
+	/** ====== 提示词素材 ====== */
 
 	private static String typePlan(List<SurveySchema> questions) {
 		Map<String, Integer> counts = new LinkedHashMap<>();
@@ -408,16 +403,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 
 
 
-	/**
-	 * 有没有参考答案——按题型分两种口径，错一种就是误报：
-	 * <ul>
-	 * <li><b>选择题</b>（单选 / 多选 / 判断 / 下拉）只认<b>选项上</b>的标记：判分器
-	 * {@code AnswerScoreEvaluator} 读的是 {@code child.attribute.examCorrectAnswer}，题目自身写的答案
-	 * 判分时根本不用（{@code AiContentGuard#checkAnswers} 也是这个口径）；</li>
-	 * <li><b>填空 / 简答</b>认题目自身的 {@code attribute.examCorrectAnswer}，也认子题上的
-	 * （多空填空一空一个答案）。</li>
-	 * </ul>
-	 */
+	/** 有没有参考答案——按题型分两种口径，错一种就是误报：  选择题（单选 / 多选 / 判断 / 下拉）只认选项上的标记：判分器 AnswerScoreEvaluator 读的是 child.attribute.examCorrectAnswer，题目自身写的答案 判分时根本不用（AiContentGuard#checkAnswers 也是这个口径） */
 	private static boolean hasCorrectAnswer(SurveySchema question) {
 		if (CHOICE_TYPES.contains(question.getType())) {
 			if (CollectionUtils.isEmpty(question.getChildren())) {
@@ -434,7 +420,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return StringUtils.hasText(correctAnswerOf(question));
 	}
 
-	/** 题目自身或子题上的参考答案文本（填空 / 简答用；选择题的答案在选项上，见 {@link #hasCorrectAnswer}） */
+	/** 题目自身或子题上的参考答案文本（填空 / 简答用；选择题的答案在选项上，见 #hasCorrectAnswer） */
 	private static String correctAnswerOf(SurveySchema question) {
 		if (question.getAttribute() != null && StringUtils.hasText(question.getAttribute().getExamCorrectAnswer())) {
 			return question.getAttribute().getExamCorrectAnswer().trim();
@@ -452,7 +438,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return answers.isEmpty() ? null : String.join(" / ", answers);
 	}
 
-	/** 只留参与计分的题：见 {@link #SCORED_TYPES} 的注释 */
+	/** 只留参与计分的题：见 #SCORED_TYPES 的注释 */
 	private static List<SurveySchema> scorable(List<SurveySchema> questions) {
 		List<SurveySchema> result = new ArrayList<>();
 		if (CollectionUtils.isEmpty(questions)) {
@@ -529,7 +515,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return StringUtils.hasText(raw) ? AiAssistSupport.oneLine(raw, MAX_TEXT_CHARS) : null;
 	}
 
-	/* ====== 小工具 ====== */
+	/** ====== 小工具 ====== */
 
 	private static AiPaperCheckView.Issue issue(String kind, String severity, List<String> questionIds, String message,
 			String suggestion) {
@@ -561,7 +547,7 @@ public class AiPaperCheckServiceImpl implements AiPaperCheckService {
 		return ids;
 	}
 
-	/** 题号列表压成「第 2、5、9 题」；超过 {@link #MAX_LISTED} 个就写「等 N 题」 */
+	/** 题号列表压成「第 2、5、9 题」；超过 #MAX_LISTED 个就写「等 N 题」 */
 	private static String numbersText(List<Integer> numbers) {
 		StringBuilder text = new StringBuilder("第 ");
 		int shown = Math.min(numbers.size(), MAX_LISTED);

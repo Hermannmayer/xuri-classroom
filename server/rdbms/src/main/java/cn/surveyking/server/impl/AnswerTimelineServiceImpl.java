@@ -84,10 +84,7 @@ public class AnswerTimelineServiceImpl implements AnswerTimelineService {
 		return views;
 	}
 
-	/**
-	 * 快照反序列化：正常是对象/数组；解析不了（历史半截 JSON、手工写坏的数据）就原样返回字符串，
-	 * 让前端按文本展示——时间线是审计凭证，宁可难看也不能整条丢掉。
-	 */
+	/** 快照反序列化：正常是对象/数组；解析不了（历史半截 JSON、手工写坏的数据）就原样返回字符串， 让前端按文本展示——时间线是审计凭证，宁可难看也不能整条丢掉 */
 	private Object parseSnapshot(String json) {
 		if (!StringUtils.hasText(json)) {
 			return null;

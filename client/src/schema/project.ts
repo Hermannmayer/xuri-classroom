@@ -1,7 +1,4 @@
-/**
- * 项目（问卷/考试/文件夹）与发布设置 —— 与后端 Project.java / ProjectSetting.java 对齐。
- * 问卷整棵树存在 Project.survey 一个 JSON 字段里。
- */
+/** 项目（问卷/考试/文件夹）与发布设置 —— 与后端 Project.java / ProjectSetting.java 对齐 */
 import type { SurveySchema } from './types';
 
 export type ProjectModeEnum = 'survey' | 'exam' | 'folder';

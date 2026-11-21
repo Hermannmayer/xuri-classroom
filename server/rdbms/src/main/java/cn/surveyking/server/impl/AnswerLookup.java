@@ -53,19 +53,7 @@ public class AnswerLookup {
 		return answerView;
 	}
 
-	/**
-	 * 答卷归属校验。
-	 *
-	 * <p>合法持有者只有三种：
-	 * <ol>
-	 * <li>登录用户本人（答卷 createBy 等于当前用户；白名单导入的答卷 createBy 是 partner id，
-	 * 靠 {@link AnswerLimitGuard#validateWhitelistLimit} 的同一套 createBy 语义判断）；</li>
-	 * <li>匿名用户本机：浏览器里存着这份答卷的 id（答题时的随机卷 cookie
-	 * {@code rd_answer_id_<projectId>}，或前端 localStorage 走后端暂存时下发的同名 cookie）；</li>
-	 * <li>匿名用户本机查看成绩单：提交成功后写入的 {@code rd_result_<projectId>} 查看凭证。</li>
-	 * </ol>
-	 * 三者都不成立一律拒绝，避免「知道 UUID 就能看别人答案」。
-	 */
+	/** 答卷归属校验 */
 	private void assertAnswerOwnership(AnswerView answerView) {
 		String userId = SecurityContextUtils.getUserId();
 		if (isNotBlank(userId) && Objects.equals(userId, answerView.getCreateBy())) {

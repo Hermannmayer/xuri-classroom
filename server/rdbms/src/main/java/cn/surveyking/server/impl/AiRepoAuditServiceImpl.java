@@ -170,7 +170,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 
 	private final TemplateService templateService;
 
-	/* ====== ① 体检（异步） ====== */
+	/** ====== ① 体检（异步） ====== */
 
 	@Override
 	public String audit(AiRepoAuditRequest request) {
@@ -251,7 +251,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 				view.getDuplicates().size(), failedBatches);
 	}
 
-	/* ====== 选题：显式指定 → 按章节 → 按「缺什么」排优先级 ====== */
+	/** ====== 选题：显式指定 → 按章节 → 按「缺什么」排优先级 ====== */
 
 	private Scan loadCandidates(AiJobService.JobContext context, Options options) {
 		Set<String> wanted = new LinkedHashSet<>(options.templateIds());
@@ -380,7 +380,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		}
 	}
 
-	/* ====== 确定性检查（不花 token） ====== */
+	/** ====== 确定性检查（不花 token） ====== */
 
 	private void checkStructure(List<Candidate> candidates, AiRepoAuditView view) {
 		for (int index = 0; index < candidates.size(); index++) {
@@ -555,7 +555,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return patches;
 	}
 
-	/* ====== 模型检查②：重复题 ====== */
+	/** ====== 模型检查②：重复题 ====== */
 
 	private List<AiRepoAuditView.Duplicate> detectDuplicates(List<Candidate> candidates, String userId) {
 		Map<String, Candidate> byId = new LinkedHashMap<>();
@@ -581,12 +581,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		}
 	}
 
-	/**
-	 * 字面预筛：先把「去标签、去空白与标点」之后的题干分组。
-	 *
-	 * <p>为什么要预筛：一次体检 40~120 道题，两两比较是 780~7140 对，
-	 * 全发给模型既贵又慢；而且真正要模型判断的只有字面已经很像的那些对。
-	 */
+	/** 字面预筛：先把「去标签、去空白与标点」之后的题干分组 */
 	private List<DupGroup> preScreen(List<Candidate> candidates) {
 		Map<String, List<Candidate>> byText = new LinkedHashMap<>();
 		List<String> keys = new ArrayList<>(candidates.size());
@@ -742,7 +737,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return duplicates;
 	}
 
-	/* ====== ② 应用建议（同步） ====== */
+	/** ====== ② 应用建议（同步） ====== */
 
 	@Override
 	public int apply(AiRepoAuditApplyRequest request) {
@@ -795,19 +790,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return updated;
 	}
 
-	/**
-	 * 写一道题：只动老师勾中的字段，且每个字段都先和库里现状比一遍，没变化就不写。
-	 *
-	 * <p>两条写入路径：
-	 * <ul>
-	 * <li>{@link TemplateService#batchPatchTemplate}：t_template 的 difficulty / tag 两列，
-	 * 题库列表筛选、组卷抽题读的就是它们；</li>
-	 * <li>{@link TemplateService#updateTemplate}：chapter 列（batchPatchTemplate 没有这个字段）+ 整包 schema
-	 * （解析写在 {@code template.attribute.examAnalysis} 上，章节/难度/标签在 schema 里也有一份镜像）。</li>
-	 * </ul>
-	 * 两条路径都会在服务端再做一次行级校验（{@code assertManageTemplate}：题目创建者或题库管理员），
-	 * 这里不做任何绕过。
-	 */
+	/** 写一道题：只动老师勾中的字段，且每个字段都先和库里现状比一遍，没变化就不写 */
 	private boolean applyOne(String repoId, String templateId, AiRepoAuditView.Patch patch) {
 		TemplateView current = readView(templateId);
 		if (current == null) {
@@ -891,7 +874,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return true;
 	}
 
-	/* ====== 结果摘要 ====== */
+	/** ====== 结果摘要 ====== */
 
 	private String summarize(Options options, AiRepoAuditView view, Stats stats, int failedBatches, boolean truncated) {
 		StringBuilder text = new StringBuilder();
@@ -920,7 +903,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return text.toString();
 	}
 
-	/* ====== 小工具 ====== */
+	/** ====== 小工具 ====== */
 
 	private static String repoName(Options options) {
 		return StringUtils.hasText(options.repoName()) ? options.repoName() : "题库";
@@ -974,10 +957,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return items.isEmpty() ? null : truncate(String.join("、", items), MAX_OPTION_CHARS);
 	}
 
-	/**
-	 * 参考答案：选择题的答案存的是「选项自己的 id」，要换成选项文字；填空/简答存的是答案文本。
-	 * 也兼容直接挂在题目 attribute 上的写法（部分导入器会这么落库）。
-	 */
+	/** 参考答案：选择题的答案存的是「选项自己的 id」，要换成选项文字；填空/简答存的是答案文本 */
 	private static String answerText(SurveySchema schema) {
 		SurveySchema.Attribute attribute = schema.getAttribute();
 		if (attribute != null && StringUtils.hasText(attribute.getExamCorrectAnswer())) {
@@ -1029,7 +1009,7 @@ public class AiRepoAuditServiceImpl implements AiRepoAuditService {
 		return schema.getAttribute() != null && StringUtils.hasText(schema.getAttribute().getExamCorrectAnswer());
 	}
 
-	/** 有没有解析：解析允许是富文本，空的 {@code <p></p>} 也算没有 */
+	/** 有没有解析：解析允许是富文本，空的 {@code } 也算没有 */
 	private static boolean hasAnalysis(SurveySchema schema) {
 		if (schema == null || schema.getAttribute() == null) {
 			return false;

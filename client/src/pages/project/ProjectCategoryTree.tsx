@@ -25,12 +25,7 @@ function categoryLabel(value: string): string {
   return value === UNCATEGORIZED ? '未分类' : value;
 }
 
-/**
- * 考试/问卷的「分类」树（和文件夹树是两个维度，互斥筛选）。
- *
- * <p>根固定「全部分类」；选中回调 分类名 / undefined（全部）/ __UNCATEGORIZED__（未分类）。
- * 数据来自 /api/project/categories（已包含未分类）。
- */
+/** 考试/问卷的「分类」树（和文件夹树是两个维度，互斥筛选） */
 export default function ProjectCategoryTree({
   selectedCategory,
   onSelect,

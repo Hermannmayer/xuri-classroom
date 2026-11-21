@@ -1,21 +1,6 @@
--- =============================================================================
 -- 权限接线补丁（幂等，可重复执行）
---
--- 背景：2026-11-07 给 5 个「目录里有、后端没用」的权限接上了真实注解：
---   project:partner → /api/project/partner/*（原 project:update）
---   repo:grant      → /api/repo/partner/*   （原 repo:update）
---   answer:restore  → /api/answer/restore   （原 answer:update）
---   user:import     → /api/importUser       （原 system:user:create）
---   system:setting:update → /api/system/update（原仅 hasRole('admin')）
---
--- 这些注解都写成「目标权限 or hasRole('admin')」，所以管理员不受影响；
 
--- 本脚本把缺的串追加进去（只追加，不重写整串——t_role.authority 里还有
--- answer/system:role/position 等历史前缀串，重写会丢）。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 06-permission-wiring.sql
--- =============================================================================
+-- 本脚本把缺的串追加进去（只追加，不重写整串——t_role.authority 里还有 answer/system:role/position 等历史前缀串，重写会丢）。
 SET NAMES utf8mb4;
 
 

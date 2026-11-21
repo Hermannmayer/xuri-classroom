@@ -30,9 +30,7 @@ public class TemplateApi {
 		return templateService.listTemplate(query);
 	}
 
-	/**
-	 * 练习专用：只允许 repo:practice，单页最多 20 题；不暴露题库浏览能力。
-	 */
+	/** 练习专用：只允许 repo:practice，单页最多 20 题；不暴露题库浏览能力 */
 	@GetMapping("/practiceList")
 	@PreAuthorize("hasAuthority('repo:practice') or hasRole('admin')")
 	public PaginationResponse<TemplateView> practiceList(TemplateQuery query) {

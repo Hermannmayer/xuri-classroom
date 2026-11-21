@@ -1,16 +1,4 @@
-/**
- * 前端防复制（内容保护）
- *
- * 系统设置 →「内容保护」开关决定是否生效（缺省开启，见 GET /api/system 的 setting.copyProtected）：
- * - 拦截：右键菜单、copy、cut、拖拽选中、F12 / Ctrl+Shift+I·J·C·K / Ctrl+U / Ctrl+S / Ctrl+P；
- * - **粘贴（paste）一律不拦**：学员要往输入框里粘答案，右键菜单和 Ctrl+V 都必须能用，
-
- * - 输入框 / 文本域 / contenteditable 里的 copy、cut、右键同样放行——那是正常编辑行为，
- *   只有页面正文的复制剪切才拦；
-
- *
- * 开关变化走 window 事件 COPY_PROTECT_EVENT（系统设置页保存后广播），不用刷新整页。
- */
+/** 前端防复制（内容保护） */
 import { useEffect, useState } from 'react';
 import { App } from 'antd';
 import { getSystem } from '../api';

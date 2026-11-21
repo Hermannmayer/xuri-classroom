@@ -1,15 +1,4 @@
-/**
- * 班级答卷抽屉：按 projectId + deptId 查看本班答卷（顶部统计条 + 可筛选列表 + 未交名单），
- * 并支持一次导出多种格式（Excel 明细 / 成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单）。
- *
- * <p>这里是三份互相独立的数据：答卷列表（统计条与表格都基于它）、未交名单（应考/已交/未交）、
- * 项目详情（及格线与满分）。任一请求失败只让对应的数字变「—」并给「重试」，不牵连其它区块——
- * 未交名单接口要 class:detail，题库练习（projectId=exercise）根本调不通，不能因此整页报错。
- *
- * <p>导出只有两个出口：Excel 明细走同步下载 /api/answer/download；其余四种「每人一份」的产物
- * 合成**一个** pdf-job（outputs 数组），后端一次渲染完打成 ZIP。拆成四次导出只是在 4 核机器上
- * 把同一批答卷多渲染三遍、多等三倍，没有任何收益。
- */
+/** 班级答卷抽屉：按 projectId + deptId 查看本班答卷（顶部统计条 + 可筛选列表 + 未交名单）， 并支持一次导出多种格式（Excel 明细 / 成绩单 PDF / 答题卷 PDF / 长图 PNG / 成绩确认单） */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
@@ -225,12 +214,7 @@ const timeOf = (row: ClassAnswerRow): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-/**
- * 「同一个人」的判定键。
- *
- * <p>有账号就用 createBy（补考也只有 createBy 相同）；匿名答卷没有 createBy，
- * 按行拆开算，避免把两个同名的陌生人当成一个人的多次作答。
- */
+/** 「同一个人」的判定键 */
 const personKey = (row: ClassAnswerRow): string => row.createBy || `row:${row.id}`;
 
 /** 从签名/上传题的答案里取出 fileId（答案里存的是文件 id） */
@@ -272,14 +256,7 @@ function rosterClipboardText(list: RosterStudent[]): string {
   return [header, ...lines].join('\n');
 }
 
-/**
- * 导出本班答卷（Excel 明细）：先用 POST /api/answer/export/token 换一次性 token，
- * 再走带 cookie 的 download 下载 xlsx（后端错误会以 JSON 返回并转成中文提示）。
- *
- * <p>startTime / endTime / attemptNo / gradeStatus / createByName 都是可选：不传就是「整班、全部轮次、不限状态」。
- * 这些都是后端 downloadByClass 里已经支持的过滤条件，不是前端假筛 —— 抽屉列表上筛了什么，
-
- */
+/** 导出本班答卷（Excel 明细）：先用 POST /api/answer/export/token 换一次性 token， 再走带 cookie 的 download 下载 xlsx（后端错误会以 JSON 返回并转成中文提示） */
 export async function downloadClassAnswers(params: {
   projectId: string;
   deptId: string;
@@ -371,10 +348,7 @@ function Metric({
   );
 }
 
-/**
- * 某个班的答卷抽屉：查看本班学员答卷（统计/筛选在前端做），并支持导出本班答卷
- * （Excel 明细走同步下载；PDF/长图/确认单走异步任务 + 进度轮询，产物是一个 ZIP）。
- */
+/** 某个班的答卷抽屉：查看本班学员答卷（统计/筛选在前端做），并支持导出本班答卷 （Excel 明细走同步下载；PDF/长图/确认单走异步任务 + 进度轮询，产物是一个 ZIP） */
 export default function ClassAnswersDrawer({
   open,
   projectId,
@@ -521,7 +495,7 @@ export default function ClassAnswersDrawer({
     jobRef.current = job;
   }, [job]);
 
-  /* ------ 前端推导：轮次 / 用时 / 附件 ------ */
+  /** ------ 前端推导：轮次 / 用时 / 附件 ------ */
   const fileQuestions = useMemo(() => {
 
     const map = new Map<string, QuestionType>();
@@ -578,7 +552,7 @@ export default function ClassAnswersDrawer({
     });
   }, [rows, fileQuestions]);
 
-  /* ------ 统计：每人取最好一次成绩，和「已交人数」同一口径 ------ */
+  /** ------ 统计：每人取最好一次成绩，和「已交人数」同一口径 ------ */
   const statistics = useMemo(() => {
     const submittedRows = rows.filter((row) => row.tempSave === 1);
     const bestByPerson = new Map<string, number>();
@@ -622,12 +596,7 @@ export default function ClassAnswersDrawer({
     return best > 0 ? best : undefined;
   }, [project, rows]);
 
-  /**
-   * 及格线：
-   * 1. 项目设置 examSetting.passScore（老师自己填的，最准）；
-   * 2. 没配就按满分 60% 推算；
-   * 3. 连满分都算不出来（问卷没有分值）→ 不显示及格率，只留平均/最高/最低。
-   */
+  /** 及格线： */
   const passLine = useMemo(() => {
     const configured = Number((project?.setting?.examSetting as { passScore?: number } | undefined)?.passScore);
     if (Number.isFinite(configured) && configured > 0) {
@@ -644,7 +613,7 @@ export default function ClassAnswersDrawer({
   const passRate =
     passLine && passCount !== undefined && statistics.scored > 0 ? (passCount * 100) / statistics.scored : undefined;
 
-  /* ------ 未交名单 ------ */
+  /** ------ 未交名单 ------ */
   const rosterList = useMemo<RosterStudent[]>(() => (Array.isArray(roster?.list) ? roster!.list : []), [roster]);
   const rosterTotal = typeof roster?.total === 'number' ? roster.total : undefined;
   const rosterSubmitted = typeof roster?.submitted === 'number' ? roster.submitted : undefined;
@@ -652,7 +621,7 @@ export default function ClassAnswersDrawer({
   const unsubmittedCount =
     rosterTotal !== undefined ? Math.max(rosterTotal - (rosterSubmitted ?? 0), rosterList.length) : undefined;
 
-  /* ------ 筛选 + 前端分页 ------ */
+  /** ------ 筛选 + 前端分页 ------ */
   const filteredRows = useMemo(() => {
     const needle = keyword.trim().toLowerCase();
     const from = range?.[0]?.valueOf();
@@ -682,7 +651,7 @@ export default function ClassAnswersDrawer({
   const safePage = Math.min(page, lastPage);
   const pagedRows = filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  /* ------ 异步导出任务：轮询 / 下载 / 取消 ------ */
+  /** ------ 异步导出任务：轮询 / 下载 / 取消 ------ */
   const stopPolling = useCallback(() => {
     if (pollTimer.current !== null) {
       window.clearInterval(pollTimer.current);
@@ -887,7 +856,7 @@ export default function ClassAnswersDrawer({
     }
   };
 
-  /* ------ 表格列 ------ */
+  /** ------ 表格列 ------ */
   const columns: ColumnsType<AnswerRowView> = [
     {
       title: '学员',
@@ -1030,7 +999,7 @@ export default function ClassAnswersDrawer({
     },
   ];
 
-  /* ------ 复制未交名单（浏览器不让复制时如实提示，别假装成功） ------ */
+  /** ------ 复制未交名单（浏览器不让复制时如实提示，别假装成功） ------ */
   const copyRoster = async () => {
     if (rosterList.length === 0) return;
     try {

@@ -1,7 +1,4 @@
-/**
- * 答卷 → 单元格文本。电子表格一列一题，单元格要短、可排序、可贴 tooltip。
- * 答案格式的规则全部来自 renderer/questions/answers.ts，这里只负责「摆成一行」。
- */
+/** 答卷 → 单元格文本 */
 import type { FlatQuestion } from '../../../schema/flatten';
 import type { AnswerValue } from '../../../renderer/types';
 import {

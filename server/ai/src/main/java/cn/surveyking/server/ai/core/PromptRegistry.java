@@ -43,12 +43,7 @@ public class PromptRegistry {
 
 	private final Map<String, Template> templates = new ConcurrentHashMap<>();
 
-	/**
-	 * 取模板正文并做变量替换。
-	 * @param id 模板 id（不含目录与后缀），如 {@code paper-generate}
-	 * @param vars 变量表；值为 null 时替换成空串
-	 * @return 渲染后的提示词
-	 */
+	/** 取模板正文并做变量替换；返回 渲染后的提示词 */
 	public String render(String id, Map<String, String> vars) {
 		Template template = load(id);
 		String body = template.getBody();
@@ -64,12 +59,12 @@ public class PromptRegistry {
 		return body;
 	}
 
-	/** 模板版本号（首行 {@code version: x.y} 的值）；读不到时返回 {@code unknown} */
+	/** 模板版本号（首行 version: x.y 的值）；读不到时返回 unknown */
 	public String version(String id) {
 		return load(id).getVersion();
 	}
 
-	/** 渲染时用的日志标签：{@code paper-generate@1.0} */
+	/** 渲染时用的日志标签：paper-generate@1.0 */
 	public String label(String id) {
 		return id + "@" + version(id);
 	}

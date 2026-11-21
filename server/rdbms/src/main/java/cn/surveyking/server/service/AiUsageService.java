@@ -68,26 +68,10 @@ public interface AiUsageService {
 
 	int DEFAULT_RATE_LIMIT_PER_MINUTE = 10;
 
-	/**
-	 * 限额闸门：超限直接抛 {@code ErrorCodeException}（中文提示），<b>不调用模型</b>。
-	 * @param userId 调用人；为空时只检查全站额度
-	 */
+	/** 限额闸门：超限直接抛 ErrorCodeException（中文提示），不调用模型 */
 	void assertQuota(String userId);
 
-	/**
-	 * 记一笔用量。
-	 *
-	 * <p>记账失败不能影响业务：老师要的是题目，不是「记账没成功所以整单失败」。
-	 * 内部吞掉异常并打 error 日志。
-	 * @param userId 调用人
-	 * @param scene 场景（见本接口的 SCENE_* 常量）
-	 * @param model 模型 id（拿不到时传 null）
-	 * @param promptTokens 输入 token
-	 * @param completionTokens 输出 token
-	 * @param costMs 耗时（毫秒）
-	 * @param status ok / error / rejected
-	 * @param error 失败原因摘要（成功传 null）
-	 */
+	/** 记一笔用量 */
 	void record(String userId, String scene, String model, int promptTokens, int completionTokens, long costMs,
 			String status, String error);
 

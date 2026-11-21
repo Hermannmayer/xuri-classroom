@@ -1,6 +1,4 @@
--- 通知公告（2.2.2，幂等）
--- 一张表 + 两个维度（audience / scope）：管理员公告与老师班级公告共用同一张表，
--- 列表、已读、过期清理逻辑完全一样；权限与可见性判定分开（见 NoticeService）。
+-- 通知公告（2.2.2，幂等） 一张表 + 两个维度（audience / scope）：管理员公告与老师班级公告共用同一张表， 列表、已读、过期清理逻辑完全一样；权限与可见性判定分开（见 NoticeService）。
 SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `t_notice` (

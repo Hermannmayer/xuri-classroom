@@ -1,9 +1,4 @@
-/**
- * 界面缩放档位控件
- *
- * 档位、吸附、持久化统一在 utils/uiZoom 里，全站一套（首页、系统页、答题页都一致）。
- * 这里只负责渲染，不再自己维护档位表。
- */
+/** 界面缩放档位控件 */
 import { ZOOM_PRESETS, snapZoom } from '../utils/uiZoom';
 
 export { ZOOM_PRESETS, ZOOM_MIN, ZOOM_MAX, snapZoom } from '../utils/uiZoom';

@@ -1,12 +1,4 @@
-/**
- * 首页统计接口：/api/dashboard/{overview,trend,teacher,teacher/trend,student}。
- *
-
-
- *    不往外抛，页面才能「失败的那块显示 —，其余照常渲染」。
- * 2. **把后端字段揉成页面能直接用的形状**：字段缺失/null/字符串数字都归一，
- *    趋势序列按 days 对齐（短了在前面补 null，长了取最后几项），日期缺失时自己补。
- */
+/** 首页统计接口：/api/dashboard/{overview,trend,teacher,teacher/trend,student} */
 import dayjs from 'dayjs';
 import { get } from './request';
 import { num } from '../components/charts/util';
@@ -163,13 +155,7 @@ export const fetchTrend = (days = 14) =>
 
 export const fetchTeacherBoard = () => section(get<TeacherDashboard>('/api/dashboard/teacher'));
 
-/**
- * 老师首页趋势：只统计当前老师可见的项目（后端 DashboardStatsService#teacherTrend）。
- *
- * 与 fetchTrend 的唯一区别是统计范围：那个是全站口径（管理员视角），老师首页直接用会把
- * 别人的答卷画到自己的图上——卡片写着「我的教学」，图里却是全校数据，属于误导。
- * 失败照旧收敛成 { data: null, error }，页面按块降级。
- */
+/** 老师首页趋势：只统计当前老师可见的项目（后端 DashboardStatsService#teacherTrend） */
 export const fetchTeacherTrend = (days = 14) =>
   section(get<DashboardTrend>('/api/dashboard/teacher/trend', { days: normalizeDays(days) }));
 
@@ -186,12 +172,7 @@ function alignSeries(
   return [...Array<number | null>(length - source.length).fill(null), ...source];
 }
 
-/**
- * 趋势序列对齐：days 是横轴基准。
- *
- * 后端按理返回等长数组，但并行开发期间字段短一截、少 days 都可能发生；
- * 这里统一补齐/截断，避免图表里出现「标签 14 个、柱子 9 根」的错位。
- */
+/** 趋势序列对齐：days 是横轴基准 */
 export function normalizeTrend(trend: DashboardTrend | null, days = 14, today = dayjs()): TrendSeries {
   const count = normalizeDays(days);
   const rawDays = (trend?.days ?? []).filter((day): day is string => typeof day === 'string' && day !== '');
@@ -223,12 +204,7 @@ function toMillis(value: string | number | null | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/**
- * 时间字段格式化。
- *
- * 后端 Date 按 application.yml 的 spring.jackson.date-format 序列化成 'yyyy-MM-dd HH:mm:ss'，
-
- */
+/** 时间字段格式化 */
 export function fmtDateTime(value: string | number | null | undefined, fallback = '—'): string {
   if (value === null || value === undefined || value === '') return fallback;
   if (typeof value === 'number') {
@@ -253,10 +229,7 @@ export interface ScoreTrend {
 
 export const STUDENT_RECENT_LIMIT = 20;
 
-/**
- * 学员首页的「我的成绩走势」：把 /api/dashboard/student 的 recent 按时间正序摊平。
- * 没有分数的记录保留成 null（折线断开），不会被当成 0 分。
- */
+/** 学员首页的「我的成绩走势」：把 /api/dashboard/student 的 recent 按时间正序摊平 */
 export function scoreTrend(rows: StudentRecentRow[] | null | undefined, limit = STUDENT_RECENT_LIMIT): ScoreTrend {
   const list = (rows ?? [])
     .map((row, index) => ({ row, index, at: toMillis(row.createAt) }))

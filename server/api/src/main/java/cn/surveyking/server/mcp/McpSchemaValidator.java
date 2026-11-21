@@ -46,12 +46,7 @@ public final class McpSchemaValidator {
 	private McpSchemaValidator() {
 	}
 
-	/**
-	 * 校验整卷。
-	 * @param root 根节点（通常 type=Survey）
-	 * @param mode 用途：exam 会额外校验分值与正确答案；survey 只看结构
-	 * @return {@code {ok, errors, warnings, stats}}
-	 */
+	/** 校验整卷；返回 {ok, errors, warnings, stats} */
 	public static Map<String, Object> check(SurveySchema root, ProjectModeEnum mode) {
 		List<String> errors = new ArrayList<>();
 		List<String> warnings = new ArrayList<>();

@@ -1,23 +1,4 @@
-/**
- * 主观题人工批改抽屉。
- *
- * 数据：GET /api/answer/grade/detail（老师端默认连参考答案一起拿，接口本身默认不下发）。
- * 保存：POST /api/answer/grade —— 只提交 examAnswerMode=manual 的题；客观题的机器分不参与，
- * 后端收到客观题传分会直接 400（机器分不可覆盖）。
- *
- * 操作记录：底部「操作记录」折叠面板，展开时拉一次
- * GET /api/audit/answer-timeline?answerId=（权限 answer:detail），
- * 展示「谁在什么时候把哪道题从几分改成几分」，读不到不影响批改主流程。
- *
- * 快捷键：
- * - 分数框 Enter：保存并跳到下一题；
- * - 评语框 Ctrl/⌘ + Enter：保存并跳到下一题（Enter 仍是换行）；
- * - ← / →：在题目卡片之间切换（焦点在输入框里时保留光标移动，避免打字时跳题）。
- *
- * AI 批改建议（计划 §6.3 ③）：每题头部的「AI 建议」→ POST /api/ai/grade/suggest →
- * 展示建议分 / 把握度 / 评分点命中 / 理由。点「采纳」**只把分数填进上面的输入框**，
- * AI 不自动落分——确认后仍需老师点「保存批改」走原有批改接口。
- */
+/** 主观题人工批改抽屉 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Collapse, Drawer, Empty, Input, InputNumber, Space, Spin, Tag, Timeline } from 'antd';
 import { CheckOutlined, CloseOutlined, HistoryOutlined, RobotOutlined } from '@ant-design/icons';
@@ -136,10 +117,7 @@ function gradeItemsOf(snapshot?: TimelineSnapshot): Map<string, TimelineGradeIte
   return map;
 }
 
-/**
- * 操作时间：后端 spring.jackson.date-format=yyyy-MM-dd HH:mm:ss，正常是字符串；
-
- */
+/** 操作时间：后端 spring.jackson.date-format=yyyy-MM-dd HH:mm:ss，正常是字符串 */
 function fmtAt(value?: string | number): string {
   if (value === null || value === undefined || value === '') return '时间未知';
   const parsed = dayjs(value);
@@ -152,14 +130,7 @@ function snapshotText(value: unknown): string {
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
 }
 
-/**
- * before → after 的差异摘要。
- *
- * <p>后端快照口径（计划 §5.3）：
- * - 批改 / 撤销批改：{examScore, gradeStatus, items:[{questionId, score, comment}]}；
- * - 删除 / 恢复答卷：{visible, answers:[...]}，用「可查看」表达方向；
- * - 业务抛异常时只记改前（AuditAspect 的约定），这时不编造改后值。
- */
+/** before → after 的差异摘要 */
 function changeParts(
   row: AuditTimelineRow,
   labelOf: (questionId?: string | null) => string,
@@ -246,13 +217,7 @@ interface AiSuggestionState {
 
 const LOW_CONFIDENCE = 0.6;
 
-/**
- * 请求 AI 批改建议（同步，2~5 秒，后端 `AiApi#gradeSuggest`）。
- *
- * <p>请求体就是 `{ answerId, questionId }`。按项目约定这类调用应该收敛到
- * `client/src/api/ai.ts`，但那个文件现在归 AI 出卷/改题那边改（同文件并发容易冲突），
-
- */
+/** 请求 AI 批改建议（同步，2~5 秒，后端 `AiApi#gradeSuggest`） */
 const requestGradeSuggestion = (data: { answerId: string; questionId: string }) =>
   post<GradeSuggestion>('/api/ai/grade/suggest', data);
 
@@ -342,12 +307,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     setAiSuggest({});
   }, [answerId, open]);
 
-  /**
-   * 拉操作记录。
-   *
-   * <p>失败静默降级：面板里给一句提示就够了，不弹 message.error——
-   * 老师正在批改时不该被一条「操作记录读不到」打断，这也是任务里写明的降级要求。
-   */
+  /** 拉操作记录 */
   const loadTimeline = useCallback(async (id: string) => {
     setTimelineLoading(true);
     setTimelineError(undefined);
@@ -372,10 +332,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     }
   };
 
-  /**
-   * 批改 / 撤销之后审计里刚多了一条：面板开着就立刻重拉，没开就标记成未加载，
-
-   */
+  /** 批改 / 撤销之后审计里刚多了一条：面板开着就立刻重拉，没开就标记成未加载， */
   const refreshTimeline = useCallback(() => {
     setTimelineFor(undefined);
     if (answerId && timelineKeys.includes(TIMELINE_KEY)) {
@@ -496,12 +453,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     }
   };
 
-  /**
-   * 请求某道题的 AI 建议。
-   *
-   * <p>失败只在面板里说明、不弹全局 message：老师正在批改，
-   * 一条失败的 toast 会把刚打的分数挡住；面板就在按钮下面，看得见。
-   */
+  /** 请求某道题的 AI 建议 */
   const askAi = async (item: GradeItem) => {
     if (!detail) return;
     const questionId = item.questionId;
@@ -517,13 +469,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     }
   };
 
-  /**
-   * 采纳建议：**只把分数写进输入框，不调保存接口**。
-   *
-   * <p>计划 §6.3 ③ 的关键约束——AI 只给建议不落分，判错分的责任留在人身上；
-   * 老师确认后仍然点「保存批改」，走原来的 POST /api/answer/grade 落库（会进审计）。
-   * 后端给的分数已夹在 0~满分之间，这里再夹一次只是二道防线（分数框 max 同口径）。
-   */
+  /** 采纳建议：**只把分数写进输入框，不调保存接口** */
   const adoptSuggestion = (item: GradeItem, score: number) => {
     const max = typeof item.maxScore === 'number' ? item.maxScore : undefined;
     const clamped = Math.max(0, typeof max === 'number' ? Math.min(score, max) : score);
@@ -535,12 +481,7 @@ export default function GradeDrawer({ open, answerId, onClose, onChanged }: Grad
     message.success(`已填入 ${formatScore(clamped)} 分，确认无误后点「保存批改」`);
   };
 
-  /**
-   * AI 建议面板：只展示、不改分。
-   *
-   * <p>三种状态各自给明确反馈（加载中 / 拿到建议 / 失败可重试），
-   * 失败时明确写「不影响手动批改」，别让老师以为批改被卡住。
-   */
+  /** AI 建议面板：只展示、不改分 */
   const renderAiPanel = (item: GradeItem, ai: AiSuggestionState) => {
     const score = suggestionScore(ai.data?.score);
     const confidence = suggestionConfidence(ai.data?.confidence);

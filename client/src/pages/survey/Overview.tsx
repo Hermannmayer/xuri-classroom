@@ -154,17 +154,7 @@ interface ReportData {
   dailyCountStat?: Record<string, number>;
 }
 
-/**
- * 项目详情（概述）：概览 + 全部发布设置，一页搞定。
- *
- * 原「/survey/:id」(概述) 与「/survey/:id/setting」(发布设置) 已合并：
- * 设置页的所有字段都在这里，保存一次走 POST /api/project/update（整包 setting，
- * 未改字段从已加载 setting 合并保留，不会丢字段）。合并时去掉了三处重复：
- * 1. 「开启收集」(旧概述) 与「发布状态」(旧设置) 是同一个 status → 只留投放与分享里的「发布状态」；
- * 2. 「自动保存」(旧概述) 与「自动暂存」(旧设置) 都是 answerSetting.autoSave → 只留答题显示里的「自动暂存」；
- * 3. 「显示排名」(submittedSetting.rankVisible) 与「交卷后显示排名」(examSetting.rankingEnabled)
- *    是同一件事 → 只留考试控制里的「交卷后显示排名」，保存时两个字段一起写，后端行为不变。
- */
+/** 项目详情（概述）：概览 + 全部发布设置，一页搞定 */
 export default function SurveyOverview() {
   const { id = '' } = useParams();
   const [form] = Form.useForm();

@@ -1,7 +1,4 @@
-/**
- * 手机端答卷卡片：电子表格在 390px 下横向滚不起来，一条答卷一张卡。
- * 单元格文本仍用父级算好的 cells（来自 data/format.ts），卡片只负责排版。
- */
+/** 手机端答卷卡片：电子表格在 390px 下横向滚不起来，一条答卷一张卡 */
 import { Button, Checkbox, Tag } from 'antd';
 import type { Answer } from '../../../schema/project';
 import type { FlatQuestion } from '../../../schema/flatten';

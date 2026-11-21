@@ -1,32 +1,4 @@
-# =============================================================================
 # 旭日云课堂 · 一条命令把本地改动发布到 NAS 的 live 环境
-#
-# 它做的事（顺序固定，出问题就停在原地，不会往下走）：
-#   0. 检查工作区 / 分支 / 远端
-
-#   0.5 改了 client/** 就跑 tsc；0.6 跑后端单测
-
-#   2. git push nas main
-#   3. 在 NAS 上 git fetch + reset --hard（运行副本永远等于裸仓库，不产生分叉）
-#   4. 按改动类型决定要不要重启：
-#        server/**            → live-reload.sh（编译 19s + 重启 10s）
-#        client/package*.json → npm ci（web-watch 里带锁文件哈希，会自动装）
-#        deploy/nas/live/**   → docker compose up -d
-#        client/** 其他       → 什么都不用做，web-watch 自己重建（~9s）
-#   5. 等构建/健康就绪
-#   6. 跑冒烟测试
-#
-# 用法（在仓库根目录）：
-#   .\scripts\nas\Deploy-Nas.ps1 -Message "feat: 改了某某"     # 提交并发布
-#   .\scripts\nas\Deploy-Nas.ps1                              # 只发布已提交的内容
-#   .\scripts\nas\Deploy-Nas.ps1 -SkipSmoke                   # 不发冒烟
-#   .\scripts\nas\Deploy-Nas.ps1 -ReloadOnly                  # 不推代码，只重载后端
-#   .\scripts\nas\Deploy-Nas.ps1 -DiscardNasChanges           # NAS 上有人直接改过，丢弃那些改动
-#                                                             #（默认会中止并提示，防误删）
-#
-# 前提：本机 ~/.ssh 里有能免密登 NAS 的私钥（已配好）；NAS 上远端名 nas 指向
-#       ssh://Home@192.168.0.2/vol2/1000/xuri/src/repo.git
-# =============================================================================
 [CmdletBinding()]
 param(
     [string]$Message,
@@ -57,14 +29,6 @@ function Warn($msg) { Write-Host "  ⚠️  $msg" -ForegroundColor Yellow }
 function Die($msg)  { Write-Host "`n❌ $msg`n" -ForegroundColor Red; exit 1 }
 
 # 把一段 bash 脚本送到 NAS 执行。
-#
-# 为什么是「写临时文件 → scp → 远端 bash 执行」，而不是 pipe 给 bash -s：
-#   Windows 的 PowerShell 把字符串管道给原生进程（ssh.exe）时，会在末尾**自动追加
-#   一个 \r\n**（实测 `"A`nB`n" | ssh ... 'od -c'` 收到的是 A \n B \n \r \n）。
-#   于是远端最后一行变成孤零零的 "\r"，bash 报
-#       bash: line 10: $'\r': command not found
-#   并且返回 127。试过 here-string、单引号多行串、-replace CR、base64 内联，全都被
-#   这个尾部的 \r 绕过。落盘成文件再 scp，走的是二进制通道，一个字节都不会变。
 function Invoke-NasScript {
     param([Parameter(Mandatory)][string]$Body, [switch]$AllowFail)
     $lf = ((($Body -replace "`r", "").TrimEnd()) + "`n")
@@ -197,11 +161,7 @@ $baselineProbe = Invoke-NasScript -Body 'docker logs xuri-live-web-watch 2>&1 | 
 if ($baselineProbe.Output -match '^\s*(\d+)') { $webWatchBaseline = [int]$Matches[1] }
 Write-Host "  · web-watch 日志基线 $webWatchBaseline 行（reset 前记录）"
 
-# ------ 0.6 后端单元测试
-# 目的：拆上帝类/改统计之前先有一层能红的网。9 个用例约 10 秒，每次发布都跑；
-# 紧急发布可用 -SkipTests 跳过（会打 Warn，便于事后追溯）。
-# 本项目 2.2.3 起要求 JDK 25（server/build.gradle 用 toolchain 25）：
-# 拿 JDK 8/17 跑本地测试会因为找不到 25 工具链直接失败，所以这里按版本挑，而不是按目录名猜。
+# ------ 0.6 后端单元测试 目的：拆上帝类/改统计之前先有一层能红的网。
 function Test-JavaAtLeast25 {
     param([string]$JavaHome)
     if (-not $JavaHome) { return $false }

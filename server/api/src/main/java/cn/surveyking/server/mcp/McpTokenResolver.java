@@ -37,10 +37,7 @@ public class McpTokenResolver {
 
 	private final UserService userService;
 
-	/**
-	 * 解析并写入 SecurityContext。
-	 * @throws McpUnauthorizedException 凭据缺失或不可用
-	 */
+	/** 解析并写入 SecurityContext */
 	public McpCaller resolve(HttpServletRequest request) {
 		String header = request == null ? null : request.getHeader(HttpHeaders.AUTHORIZATION);
 		if (!StringUtils.hasText(header)

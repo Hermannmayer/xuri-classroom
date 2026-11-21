@@ -1,31 +1,4 @@
-<#
-.SYNOPSIS
-  Windows 恢复脚本：从 backup_*.zip 恢复 MySQL 数据库和 files 上传目录。
-
-.DESCRIPTION
-  恢复前会停止 Windows 服务；从备份包解压 db.sql、files.zip 后还原数据库和文件。
-  备份中的 app.env 是脱敏副本，不会覆盖线上 app.env；请确保线上 app.env 的数据库连接正确。
-  恢复完成后会尝试重新启动服务。数据库是覆盖式恢复，请先确认备份文件正确。
-
-.PARAMETER BackupPath
-  必填，backup_*.zip 或已解压的备份目录。
-
-.PARAMETER InstallDir
-  安装目录，默认 C:\xuri-classroom（读取 app.env、恢复 files\）。
-
-.PARAMETER ServiceName
-  Windows 服务名，默认 xuri-classroom。
-
-.PARAMETER Force
-  跳过交互确认（自动化时使用）。
-
-.PARAMETER MysqlPath
-  mysql 可执行文件；默认从 PATH 查找。
-
-.EXAMPLE
-  .\restore.ps1 -BackupPath .\backups\backup_20261106_003000.zip
-  .\restore.ps1 -BackupPath D:\backups\backup_20261106_003000.zip -Force
-#>
+# Windows 恢复脚本：从 backup_*.zip 恢复 MySQL 数据库和 files 上传目录。
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]

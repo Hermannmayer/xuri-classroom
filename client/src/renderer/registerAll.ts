@@ -1,7 +1,4 @@
-/**
- * 题型注册入口：新增题型 = 组件 + 这里一行。
- * 副作用模块，被应用入口 import 一次即可（main.tsx: import './renderer/registerAll'）。
- */
+/** 题型注册入口：新增题型 = 组件 + 这里一行 */
 import { registerQuestion } from './registry';
 import Address from './questions/Address';
 import Cascader from './questions/Cascader';

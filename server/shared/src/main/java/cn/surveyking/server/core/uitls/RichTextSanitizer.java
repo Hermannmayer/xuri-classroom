@@ -44,9 +44,7 @@ public final class RichTextSanitizer {
 		return POLICY.sanitize(html);
 	}
 
-	/**
-	 * 项目/题库 schema 落库前消毒标题（仅 richTitle）、描述、说明内容。
-	 */
+	/** 项目/题库 schema 落库前消毒标题（仅 richTitle）、描述、说明内容 */
 	public static void sanitizeSchema(SurveySchema schema) {
 		if (schema == null) {
 			return;

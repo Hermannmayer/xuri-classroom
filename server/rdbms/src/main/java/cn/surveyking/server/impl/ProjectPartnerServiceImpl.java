@@ -403,14 +403,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		return accessLevel;
 	}
 
-	/**
-	 * 成员变更后失效「我可见的项目」缓存（projectPermissionCache）。
-	 *
-	 * <p>
-	 * 这个缓存的 key 是<b>用户 id</b>（`getProjectPerms()` 的 @Cacheable），不是项目 id，
-	 * 所以没法「按 projectId 精确 evict」，只能按受影响的用户 evict；组授权（groupId）在
-	 * 行上看不出成员是谁，直接清全量——重算只是一条轻量 SQL，代价远小于「撤销后仍能访问」。
-	 */
+	/** 成员变更后失效「我可见的项目」缓存（projectPermissionCache） */
 	private void evictProjectPermissions(Collection<ProjectPartner> partners) {
 		if (CollectionUtils.isEmpty(partners)) {
 			return;
@@ -490,13 +483,7 @@ public class ProjectPartnerServiceImpl extends BaseService<ProjectPartnerMapper,
 		return new ArrayList<>(expandFolderGrants(result));
 	}
 
-	/**
-	 * 文件夹授权向下继承：被授权的文件夹 → 里面所有层级的项目都算「可见」。
-	 *
-	 * <p>列表/树靠 SQL 里的父级判断只能覆盖两层，数据页、报表、答卷列表这些走
-	 * {@link #getProjectPerms()} 的地方更是完全看不到文件夹里的考试——表现就是「文件夹授权了，
-	 * 点进去 403」。这里一次性把子孙项目展开，口径统一成「授权文件夹 = 授权里面的全部内容」。
-	 */
+	/** 文件夹授权向下继承：被授权的文件夹 → 里面所有层级的项目都算「可见」 */
 	private Set<String> expandFolderGrants(Set<String> granted) {
 		if (granted.isEmpty()) {
 			return granted;

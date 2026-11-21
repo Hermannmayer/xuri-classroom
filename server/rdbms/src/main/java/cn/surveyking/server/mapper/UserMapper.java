@@ -14,9 +14,7 @@ public interface UserMapper extends BaseMapper<User> {
 
 	User getUser(String name, String authAccount);
 
-	/**
-	 * 只取界面偏好两列。用显式 SQL 而不是实体属性，避免列类型/映射配置变了之后读回 null。
-	 */
+	/** 只取界面偏好两列 */
 	Map<String, Object> selectUiPrefs(@Param("id") String id);
 
 }

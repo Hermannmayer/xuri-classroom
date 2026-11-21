@@ -45,8 +45,7 @@ export default function BasicLayout() {
   const isMobile = useIsMobile();
   const authorities = user?.authorityList ?? [];
   const { mode, setMode, toggle } = useThemeMode();
-  // 页面缩放：整体放大，方便年长老师看清。默认 1.1 而不是 1：基准字号已经提到 15，
-  // 再叠一档 110% 才是中老年学员实际能轻松读的尺寸，用户自己改过就尊重用户的值。
+  // 页面缩放：整体放大，方便年长老师看清。
   const [zoom, setZoom] = useState<number>(() => readZoom());
   // 缩放跟着账号走：登录后优先用账号里存的档位，没有才用本机上次的值
   const changeTheme = () => {
@@ -100,12 +99,7 @@ export default function BasicLayout() {
     };
   }, []);
 
-  /**
-   * 菜单按权限过滤（权限串来自 /api/currentUser 的 authorityList）：
-   * - ROLE_admin 视为全权限
-   * - 学员只需 exercise:*（我的练习）与 repo:*（题库只读）
-   * - 管理员才有 project:* 与 system:*
-   */
+  /** 菜单按权限过滤（权限串来自 /api/currentUser 的 authorityList）： */
   const items = useMemo(() => {
     const authorities = user?.authorityList ?? [];
     const isAdmin = authorities.includes('ROLE_admin');

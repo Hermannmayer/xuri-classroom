@@ -59,10 +59,7 @@ class ApiTokenServiceImplTest {
 
 	private final UserMapper userMapper = mock(UserMapper.class);
 
-	/**
-	 * 单测不启动 MyBatis，Lambda 缓存是空的：{@code ApiToken::getTokenHash} 解析不出列名。
-	 * 这里手动登记一次表元数据（与 NoticeServiceImplTest 同样的处理）。
-	 */
+	/** 单测不启动 MyBatis，Lambda 缓存是空的：ApiToken::getTokenHash 解析不出列名 */
 	@BeforeAll
 	static void initTableInfo() {
 		TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),

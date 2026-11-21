@@ -79,12 +79,7 @@ function Shell({
   );
 }
 
-/**
- * 图表/表格的统一卡片外壳。
- *
-
- * 哪个请求挂了就只在它自己的卡片下面留一行说明，其余部分照常可用。
- */
+/** 图表/表格的统一卡片外壳 */
 function Panel({
   title,
   extra,
@@ -117,12 +112,7 @@ interface SectionState<T> extends DashboardSection<T> {
   loading: boolean;
 }
 
-/**
- * 单个统计块的取数。
- *
- * 每个请求自己一个 state、自己一个 catch，互不牵连：首页允许「用户构成没了、
- * 答卷趋势还在」，不允许一个接口 500 就把整页打成白屏。
- */
+/** 单个统计块的取数 */
 function useSection<T>(load: () => Promise<DashboardSection<T>>, deps: unknown[]): SectionState<T> {
   const [state, setState] = useState<SectionState<T>>({ data: null, error: null, loading: true });
 
@@ -161,10 +151,7 @@ interface MetricRow {
   rowSpan: number;
 }
 
-/**
- * 第四行的「数据表」内容：题库 / 试卷 / 答卷 / 班级 / 成绩 / AI 六组。
- * 口径注释跟着数据走，方便老师问「这个数是算什么」时在页面上就能答。
- */
+/** 第四行的「数据表」内容：题库 / 试卷 / 答卷 / 班级 / 成绩 / AI 六组 */
 function buildMetricRows(data: DashboardOverview | null): MetricRow[] {
   const raw: Array<Omit<MetricRow, 'rowSpan'>> = [
     { key: 'repos', group: '题库', name: '题库', value: fmtInt(data?.questions?.repos), note: '可复用的题目集合' },
@@ -258,11 +245,7 @@ export function AdminHome() {
   const gradedTotal = (answers?.graded ?? 0) + (answers?.pending ?? 0);
   const rows = buildMetricRows(data);
 
-/**
-   * 手机端把概览表按「题库 / 试卷 / 答卷」分组渲染成列表。
-   * <p>表格在 390px 上无论怎么调列宽都别扭：分组列要么重复要么压成半个字，
-   * 干脆换一套结构——每组一个小标题，组内一条一行，数值右对齐。
-   */
+/** 手机端把概览表按「题库 / 试卷 / 答卷」分组渲染成列表 */
   const metricGroups = useMemo(() => {
     const groups: Array<{ group: string; items: MetricRow[] }> = [];
     for (const row of rows) {
@@ -532,7 +515,7 @@ export function AdminHome() {
   );
 }
 
-/* ------ 老师 */
+/** ------ 老师 */
 
 export function TeacherHome() {
   const navigate = useNavigate();
@@ -683,7 +666,7 @@ export function TeacherHome() {
   );
 }
 
-/* ------ 学员 */
+/** ------ 学员 */
 
 export function StudentHome({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
@@ -844,13 +827,7 @@ export function StudentHome({ authorities }: { authorities: string[] }) {
   );
 }
 
-/**
- * 首页分发：门户权限决定视角，教学首页还要叠加接口权限。
- *
- * <p>TeacherHome 会请求 /api/teaching/projects（要 project:report）；只配了 portal:teacher
-
- * 学员预设也带 project:report，因此只看 report 会把学员误判成老师，必须两个条件一起判。
- */
+/** 首页分发：门户权限决定视角，教学首页还要叠加接口权限 */
 export default function Dashboard({ authorities }: { authorities: string[] }) {
   const has = (code: string) => authorities.includes(code) || authorities.includes('ROLE_admin');
   if (has(PERMISSION_CODES.portalAdmin)) return <AdminHome />;

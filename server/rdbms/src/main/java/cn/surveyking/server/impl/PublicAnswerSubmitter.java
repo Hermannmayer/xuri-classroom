@@ -178,12 +178,7 @@ public class PublicAnswerSubmitter {
 		answerService.updateAnswer(answerRequest);
 	}
 
-	/**
-	 * 校验问卷并且判断是否要更新最近一次的答案
-	 * @param project
-	 * @param request
-	 * @return 最近一次的答案
-	 */
+	/** 校验问卷并且判断是否要更新最近一次的答案；返回 最近一次的答案 */
 	private AnswerView validateAndGetLatestAnswer(ProjectView project, AnswerRequest request) {
 		ProjectSetting setting = project.getSetting();
 		boolean needGetLatest = false;
@@ -220,11 +215,7 @@ public class PublicAnswerSubmitter {
 		return null;
 	}
 
-	/**
-	 * 如果存在白名单，答卷完更新白名单为已访问的状态，由于导入用户白名单没有系统用户id，需要将答案的创建人更新为答题参与表的id。
-	 * @param request
-	 * @param project
-	 */
+	/** 如果存在白名单，答卷完更新白名单为已访问的状态，由于导入用户白名单没有系统用户id，需要将答案的创建人更新为答题参与表的id */
 	private void updateProjectPartnerByAnswer(AnswerRequest request, ProjectView project) {
 		if (project.getSetting() != null && project.getSetting().getAnswerSetting() != null) {
 			Integer whitelistType = project.getSetting().getAnswerSetting().getWhitelistType();

@@ -26,21 +26,10 @@ import java.security.SecureRandom;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * A class for generating unique String IDs.
- *
- * The implementations of the core logic in this class are based on NanoId, a JavaScript
- * library by Andrey Sitnik released under the MIT license. (https://github.com/ai/nanoid)
- *
- * @author David Klebanoff
- */
+/** NanoIdUtils：生成唯一 String ID。 */
 public final class NanoIdUtils {
 
-	/**
-	 * <code>NanoIdUtils</code> instances should NOT be constructed in standard
-	 * programming. Instead, the class should be used as
-	 * <code>NanoIdUtils.randomNanoId();</code>.
-	 */
+	/** NanoIdUtils instances should NOT be constructed in standard programming. Instead, the class should be used as NanoIdUtils.randomNanoId();. */
 	private NanoIdUtils() {
 
 	}
@@ -64,40 +53,17 @@ public final class NanoIdUtils {
 
 	public static final int DEFAULT_SIZE = 21;
 
-	/**
-	 * Static factory to retrieve a url-friendly, pseudo randomly generated, NanoId
-	 * String.
-	 *
-	 * The generated NanoId String will have 21 symbols.
-	 *
-	 * The NanoId String is generated using a cryptographically strong pseudo random
-	 * number generator.
-	 * @return A randomly generated NanoId String.
-	 */
+	/** Static factory to retrieve a url-friendly, pseudo randomly generated, NanoId String.；返回 A randomly generated NanoId String. */
 	public static String randomNanoId() {
 		return randomNanoId(DEFAULT_NUMBER_GENERATOR, DEFAULT_ALPHABET, DEFAULT_SIZE);
 	}
 
-	/**
-	 * Static factory to retrieve a url-friendly, pseudo randomly generated, NanoId
-	 * String.
-	 *
-	 * The generated NanoId String will have 21 symbols.
-	 *
-	 * The NanoId String is generated using a cryptographically strong pseudo random
-	 * number generator.
-	 * @param size The number of symbols in the NanoId String.
-	 * @return A randomly generated NanoId String.
-	 */
+	/** Static factory to retrieve a url-friendly, pseudo randomly generated, NanoId String.；返回 A randomly generated NanoId String. */
 	public static String randomNanoId(int size) {
 		return randomNanoId(DEFAULT_NUMBER_GENERATOR, DEFAULT_ALPHABET, size);
 	}
 
-	/**
-	 * @param size The number of symbols in the NanoId String.
-	 * @param ids A group of ids generated.
-	 * @return A randomly generated NanoId String.
-	 */
+	/** 返回 A randomly generated NanoId String.；返回 A randomly generated NanoId String. */
 	public static String randomNanoId(int size, Set<String> ids) {
 		String newId = randomNanoId(size);
 		if (ids.contains(newId)) {
@@ -109,15 +75,7 @@ public final class NanoIdUtils {
 		}
 	}
 
-	/**
-	 * Static factory to retrieve a NanoId String.
-	 *
-	 * The string is generated using the given random number generator.
-	 * @param random The random number generator.
-	 * @param alphabet The symbols used in the NanoId String.
-	 * @param size The number of symbols in the NanoId String.
-	 * @return A randomly generated NanoId String.
-	 */
+	/** Static factory to retrieve a NanoId String.；返回 A randomly generated NanoId String. */
 	public static String randomNanoId(final Random random, final char[] alphabet, final int size) {
 
 		if (random == null) {

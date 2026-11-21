@@ -26,12 +26,7 @@ interface ClassTreeOption {
   children?: ClassTreeOption[];
 }
 
-/**
- * 班级候选：只留「可选」的班。
- *
- * <p>accessible=false 是路径祖先、manageable=false 是只读班，两者都不该出现在候选里。
- * 父节点不可选但子节点可选时把子节点提上来（班级树最多两三层，提上来比整棵剪掉强）。
- */
+/** 班级候选：只留「可选」的班 */
 function toClassOptions(nodes: ClassTreeNode[]): ClassTreeOption[] {
   const result: ClassTreeOption[] = [];
   for (const node of nodes) {
@@ -58,14 +53,7 @@ interface NoticeFormValues {
   expireAt?: Dayjs;
 }
 
-/**
- * 受众候选：只给「选了不会 403」的项。
- *
- * <p>后端 NoticeServiceImpl#applyRequest 的规则是 scopeType=class 要班级权限（持 notice:manage:system
-
- * - 有全站权限：五项都能选，class 表示发给某个班（管理员后端放行）；
- * - 只有班级权限：只能 class —— 给「全站」等于让人选了必然失败。
- */
+/** 受众候选：只给「选了不会 403」的项 */
 function availableTargets(canManageSystem: boolean): NoticeAudienceTarget[] {
   return canManageSystem ? ['all', 'admin', 'teacher', 'student', 'class'] : ['class'];
 }
@@ -78,7 +66,7 @@ function initialTarget(notice?: NoticeView): NoticeAudienceTarget {
   return 'all';
 }
 
-/** 判断正文是否为空：富文本里全是标签（<p></p>）时也算空 */
+/** 判断正文是否为空：富文本里全是标签（）时也算空 */
 function plainText(html: string): string {
   return html
     .replace(/<[^>]*>/g, ' ')
@@ -92,10 +80,7 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/**
- * AI 返回的正文是纯文本（段落之间用换行；见 AiNoticeDraftView），而编辑器吃 HTML：
- * 空行分段、段内换行转 <br />，先转义再拼标签，保证模型输出里的尖括号只能当文字显示。
- */
+/** AI 返回的正文是纯文本（段落之间用换行；见 AiNoticeDraftView），而编辑器吃 HTML： 空行分段、段内换行转 ，先转义再拼标签，保证模型输出里的尖括号只能当文字显示 */
 function plainTextToHtml(text: string): string {
   const normalized = text.replace(/\r\n?/g, '\n').trim();
   if (!normalized) return '';
@@ -105,20 +90,7 @@ function plainTextToHtml(text: string): string {
     .join('');
 }
 
-/**
- * 写公告抽屉：标题、富文本正文、受众、选班、置顶、过期时间（实施计划 4.6）。
- *
- * <p>入口只在公告管理台（/system/notice）里，而且只有 notice:manage:* 才渲染（见 NoticeCenter）；
- * 顶栏铃铛进的只读中心没有这里任何一个写入口。后端还会在 Service 层再校验一次（4.5），
- * 前端隐藏按钮不是权限边界。
- *
- * <p>受众是一个下拉而不是「范围 + 受众」两个控件：对发通知的人来说要决定的只有一件事——发给谁。
- * 五种目标里前四个落到后端 audience 列，class 落到 scopeType=class（见 types.ts 的
- * NoticeAudienceTarget）。只有班级权限的老师只会看到「指定班级」，别让他选了必失败。
- *
- * <p>选班的数据来自已有的 /api/teaching/classes/tree（class:list，老师与管理员预设都带），
- * 4.5 没有给公告专用的班级候选接口，这里不新增后端契约。
- */
+/** 写公告抽屉：标题、富文本正文、受众、选班、置顶、过期时间（实施计划 4.6） */
 export default function NoticeEditor({
   open,
   notice,
@@ -227,13 +199,7 @@ export default function NoticeEditor({
     };
   }, [open, classScoped, authorities]);
 
-  /**
-   * AI 起草：把几句要点补成规范通知，只填进表单，不碰任何写接口。
-   *
-   * <p>受众跟着表单当前的选择走，模型建议的 audience / classIds 一律不回写——
-   * 若模型建议了用户无权发的范围，回写只会立刻换来一个 403。
-
-   */
+  /** AI 起草：把几句要点补成规范通知，只填进表单，不碰任何写接口 */
   const generateDraft = async () => {
     const raw = points.trim();
     if (!raw) {
@@ -274,14 +240,7 @@ export default function NoticeEditor({
     }
   };
 
-  /**
-   * 保存 / 发布。
-   *
-   * <p>4.5 把 create 与 publish 分成两个接口，后端 create 只落草稿（NoticeServiceImpl#create），
-
-   * （只把状态写回 published、保留首次 publishAt），重复点不会出问题。
-   * 万一 create 什么 id 都没回，退化成「已保存为草稿，请到列表里点发布」，不假装发布成功。
-   */
+  /** 保存 / 发布 */
   const submit = async (publish: boolean) => {
     let values: NoticeFormValues;
     try {

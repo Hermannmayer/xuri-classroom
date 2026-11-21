@@ -9,13 +9,7 @@ import type { Project } from '../../schema/project';
 import { TABLE_COMPONENTS } from '../repo/table';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
-/**
- * 项目回收站：软删除的试卷/问卷在这里，可恢复或彻底删除。
- *
-
- * 之前用 getWithPagination 解析导致 rows 永远是 []，回收站看起来像“没用”。
- * 这里改成直接取数组，分页在前端做。
- */
+/** 项目回收站：软删除的试卷/问卷在这里，可恢复或彻底删除 */
 export default function ProjectTrash() {
   const [rows, setRows] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);

@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
-# ======
 # 旭日云课堂 · Linux 单独执行数据库结构迁移
-#
-# 什么时候用：应用起不来、日志里是 Unknown column / 表不存在，想先把库结构补齐再说。
-# **正常升级不需要跑它** —— upgrade.sh 启动服务时会自动迁移。
-#
-# 它做什么：把本包 migrations/ 下的所有 SQL 按文件名顺序、对着 app.env 指向的库执行一遍。
-# 每个脚本都是幂等的（先查 information_schema，已存在就跳过），重复执行安全。
-#
-# 用法：
-#   sudo bash migrate.sh
-#   sudo bash migrate.sh --dir /opt/xuri-classroom
-#   sudo bash migrate.sh --whatif
-# ======
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

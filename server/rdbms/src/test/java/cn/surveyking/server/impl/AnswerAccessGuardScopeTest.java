@@ -137,7 +137,7 @@ class AnswerAccessGuardScopeTest {
 		assertThrows(AccessDeniedException.class, () -> guard.assertAnswerAccess(answer("a2", "p1", "c1", "student-2")));
 	}
 
-	/* ====== helpers ====== */
+	/** ====== helpers ====== */
 
 	private void stubClasses(Dept... classes) {
 		when(deptMapper.selectList(any())).thenReturn(Arrays.asList(classes));

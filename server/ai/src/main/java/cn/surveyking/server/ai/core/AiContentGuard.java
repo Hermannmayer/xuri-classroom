@@ -62,13 +62,7 @@ public final class AiContentGuard {
 	private AiContentGuard() {
 	}
 
-	/**
-	 * 校验出卷结果，通过则返回统计数字（预览表直接用）。
-	 * @param spec 归一化后的出卷参数
-	 * @param questions AI 生成、后端已补齐结构的题目
-	 * @return 题量 / 总分 / 题型分布
-	 * @throws ErrorCodeException 校验不通过（消息以「AI 出卷结果未通过校验：」开头，直接弹给老师）
-	 */
+	/** 校验出卷结果，通过则返回统计数字（预览表直接用）；返回 题量 / 总分 / 题型分布 */
 	public static AiPaperJobView.Stats check(AiPaperSpec spec, List<SurveySchema> questions) {
 		if (spec == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "出卷参数为空");
@@ -104,11 +98,7 @@ public final class AiContentGuard {
 		return stats;
 	}
 
-	/**
-	 * 只做逐题校验（不看题量/配比/总分）：老师采纳后写入项目 schema 前用。
-	 * <p>为什么也要校验：前端可能只采纳了一部分题目，或者题目在画布里被改过；
-
-	 */
+	/** 只做逐题校验（不看题量/配比/总分）：老师采纳后写入项目 schema 前用 */
 	public static void checkAccepted(List<SurveySchema> questions) {
 		if (CollectionUtils.isEmpty(questions)) {
 			throw reject("没有要采纳的题目");
@@ -121,24 +111,7 @@ public final class AiContentGuard {
 
 
 
-	/**
-	 * 对话回复校验：只判断「这段正文能不能直接给用户看」，<b>不改写内容</b>。
-	 *
-	 * <p>为什么不复用 {@link #check(AiPaperSpec, List)}：那条线校验的是题目结构能不能判分，
-	 * 这里要挡的是另外三类东西——
-	 * <ol>
-	 * <li><b>空回复</b>：模型返回空白时前端会显示一个空气泡，用户以为卡住了；</li>
-	 * <li><b>提示词泄露</b>：把系统提示里 {@link AiPageContext} 的分隔符念出来，说明它把内部说明当成正文了；</li>
-	 * <li><b>万字长文</b>：多半是跑题或复读，截断并标注比让侧栏滚十分钟更有用。</li>
-	 * </ol>
-	 *
-	 * <p>截断在这里是允许的（截断不改变事实、不替模型编内容），出卷那条线仍然一律拒绝——
-	 * 一份被截断的卷子会直接导致判分错误。
-	 *
-	 * @param text 模型返回的正文
-	 * @return 可直接渲染的正文（超长时已截断并标注）
-	 * @throws ErrorCodeException 空回复或疑似提示词泄露（消息以「AI 对话回复未通过校验：」开头，可直接展示）
-	 */
+	/** 对话回复校验：只判断「这段正文能不能直接给用户看」，不改写内容；返回 可直接渲染的正文（超长时已截断并标注） */
 	public static String checkChatReply(String text) {
 		if (!StringUtils.hasText(text)) {
 			throw chatReject("AI 没有返回内容，请换个问法再试一次");
@@ -157,11 +130,7 @@ public final class AiContentGuard {
 		return value;
 	}
 
-	/**
-	 * 整段被一对 ``` 包住时把围栏拆掉：这是排版，不是内容改写。
-	 *
-	 * <p>三种情况原样返回，不猜：只有一行（可能是行内代码）、围栏没闭合、闭合围栏后面还有正文。
-	 */
+	/** 整段被一对 ``` 包住时把围栏拆掉：这是排版，不是内容改写 */
 	private static String unwrapChatFence(String text) {
 		if (!text.startsWith("```")) {
 			return text;

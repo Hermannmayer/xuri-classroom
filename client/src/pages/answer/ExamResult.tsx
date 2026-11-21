@@ -1,17 +1,4 @@
-/**
- * 交卷后的成绩单 / 逐题解析页。
- *
- * 数据来源：POST /api/public/loadExamResult → { name, schema, answer, examScore, rank }
- * 正确答案的存放位置（与后端 AnswerScoreEvaluator 一致）：
- * - 选择题（Radio/Checkbox/Select/Judge）：在「选项子节点」上，
- *   question.children[] 里 attribute.examCorrectAnswer 非空的就是正确项，值等于选项自己的 id。
- * - 填空/简答（FillBlank/Textarea/MultipleBlank）：children[i].attribute.examCorrectAnswer，
- *   兜底 question.attribute.examCorrectAnswer。
- * 对错判定：统一走 `client/src/utils/scoring.ts`（与 backend-data / business-logic 审计的修复项对应）。
- * **逐题对错只是前端预览，最终得分以服务端 exam_score 为准**；`manual` 模式后端没有 evaluator，
- * 这里明确标注「待人工评分」，不假装已经判过分。
- * 题库里多数题目没有 examAnalysis，解析为空时显示「暂无解析」。
- */
+/** 交卷后的成绩单 / 逐题解析页 */
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, Spin, Switch, message } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -141,7 +128,7 @@ export interface QuestionView {
   status: Status;
 }
 
-/* ---------------------------------------------------------------- 取值小工具 */
+/** ---------------------------------------------------------------- 取值小工具 */
 
 function asRecord(value: AnswerValue): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -167,10 +154,7 @@ function trimmed(value?: string): string {
   return (value ?? '').trim();
 }
 
-/**
- * 不参与逐项解析的题目（NPS / 评分 / 级联 / 地址等）的答案文本。
-
- */
+/** 不参与逐项解析的题目（NPS / 评分 / 级联 / 地址等）的答案文本 */
 function answerText(value: AnswerValue): string {
   if (value === null || value === undefined || value === '') return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
@@ -299,7 +283,7 @@ function matrixLines(q: FlatQuestion, value: AnswerValue): string[] {
   return lines;
 }
 
-/* ---------------------------------------------------------------- 一道题的视图模型 */
+/** ---------------------------------------------------------------- 一道题的视图模型 */
 
 export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
   const options = buildOptions(q, value);
@@ -361,7 +345,7 @@ function statusBadge(view: QuestionView): { text: string; tone: string } | undef
   return view.answered ? undefined : { text: '未作答', tone: 'is-unanswered' };
 }
 
-/* ---------------------------------------------------------------- 卡片 */
+/** ---------------------------------------------------------------- 卡片 */
 
 export function QuestionCard({ view }: { view: QuestionView }) {
   const { q, options, blanks, analysis } = view;
@@ -512,7 +496,7 @@ export function QuestionCard({ view }: { view: QuestionView }) {
   );
 }
 
-/* ---------------------------------------------------------------- 页面 */
+/** ---------------------------------------------------------------- 页面 */
 
 export default function ExamResult() {
   const navigate = useNavigate();

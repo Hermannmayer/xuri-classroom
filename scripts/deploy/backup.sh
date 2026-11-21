@@ -1,32 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Linux 备份脚本（Docker Compose 形态）
-#
-# 用途：备份 MySQL 全库 + 上传附件目录 + 脱敏后的 .env，生成带时间戳的 tar.gz，
-#       并按保留份数清理旧备份。
-#
-# 为什么是这个形态：
-#   docker-compose.yml 里数据库是容器（服务名 db）、MySQL 端口不对外发布、附件在命名卷
-#   app-files 里。所以**不能在宿主机直接跑 mysqldump**，必须进容器执行。
-#
-# 用法：
-#   ./scripts/deploy/backup.sh
-#   ./scripts/deploy/backup.sh --output /data/backups --retention 14
-#   ./scripts/deploy/backup.sh --compose-dir /opt/xuri-classroom
-#
-# 参数：
-#   --compose-dir <dir>  含 docker-compose.yml 与 .env 的目录，默认：脚本上两级（仓库根）
-#   --output <dir>       备份输出目录，默认 <compose-dir>/backups
-#   --retention <n>      保留份数，默认 7
-#   --db-service <name>  数据库服务名，默认 db
-#   --app-service <name> 应用服务名，默认 app（附件从它的 /app/files 打包）
-#   --env-file <file>    读取连接信息用的 env 文件，默认 <compose-dir>/.env
-#   --help               显示帮助
-#
-# 说明：
-#   - 归档内容：db.sql、files.tar.gz、app.env（密码打码）、manifest.txt
-#   - 归档里的 app.env 只作参考，恢复时请使用线上 .env
-# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

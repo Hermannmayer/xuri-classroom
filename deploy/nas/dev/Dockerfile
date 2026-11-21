@@ -1,33 +1,6 @@
-# syntax=docker/dockerfile:1
-# =============================================================================
-# 旭日云课堂 · 飞牛 NAS「开发环境」镜像（devbox）
-#
-# 设计原则：NAS 宿主机上什么都不装。JDK / Node / Gradle 全在这个镜像里，
-# 这样系统盘升级、重装飞牛都不会破坏开发环境，也绝不会污染生产考试系统。
-#
-# 版本对齐（与仓库根目录 Dockerfile 保持一致，别随手升级）：
-#   JDK    25   ← 生产 Dockerfile 用 eclipse-temurin:25-jre-alpine（产物字节码 major 69）
-#   Node   20   ← 生产 Dockerfile 前端阶段用 node:20-alpine
-#   Gradle 9.9.1 ← 生产 Dockerfile 后端阶段用 gradle:9.9.1-jdk25
-#
-# 注意：仓库自带的 gradle wrapper 也是 9.9.1（server/gradle/wrapper/gradle-wrapper.properties），
-# 与镜像里的版本一致；用 `./gradlew` 或 `gradle` 都可以。
-# 想和 CI / 生产完全一致就用 `gradle`；两种都能构建，README「与仓库 Dockerfile 的差异」有说明。
-#
-# 构建（一般由 bootstrap.sh 或 docker compose 触发，不需要手动跑）：
-#   docker compose -f deploy/nas/dev/docker-compose.yml build devbox
-# =============================================================================
+# syntax=docker/dockerfile:1 旭日云课堂 · 飞牛 NAS「开发环境」镜像（devbox）
 
-# -----------------------------------------------------------------------------
 # 阶段 1：只为了拿 Node 20 官方二进制
-#
-# 为什么走多阶段 COPY 而不是 apt install nodejs：
-#   - Ubuntu 仓库里的 nodejs 版本太旧（16/18），与生产的 20 不一致；
-#   - 用 NodeSource 之类要多配一个外部源，失败点更多。
-# 为什么选 bookworm-slim 而不是 alpine（生产前端阶段用的是 node:20-alpine）：
-#   运行环境是 Debian/Ubuntu（glibc），把 musl 的 node 拷进 glibc 环境会踩动态库的坑；
-#   bookworm-slim 与目标环境同为 glibc，只拷 node/npm/npx 三个入口，干净。
-# -----------------------------------------------------------------------------
 FROM node:20-bookworm-slim AS node20
 
 # -----------------------------------------------------------------------------

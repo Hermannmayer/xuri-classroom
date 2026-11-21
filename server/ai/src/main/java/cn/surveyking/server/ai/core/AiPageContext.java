@@ -38,14 +38,7 @@ public final class AiPageContext {
 	private AiPageContext() {
 	}
 
-	/**
-	 * 渲染上下文块。
-	 * @param lines 标签 → 值，按插入顺序输出；空标签或空值会被跳过
-	 * @return 形如 {@code <<<PAGE_CONTEXT>>>
-- 页面：试卷编辑器
-<<<END_PAGE_CONTEXT>>>} 的文本；
-	 * 没有任何有效行时返回 {@link #NONE}
-	 */
+	/** 渲染上下文块；返回 形如 {@code >> */
 	public static String render(Map<String, String> lines) {
 		if (lines == null || lines.isEmpty()) {
 			return NONE;

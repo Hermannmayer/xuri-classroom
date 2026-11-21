@@ -56,9 +56,7 @@ public class ChatController {
 		return createConversationInternal(conversationRequest, model);
 	}
 
-	/**
-	 * 关闭对话并清理缓存
-	 */
+	/** 关闭对话并清理缓存 */
 	@PostMapping("/close-conversation")
 	public void closeConversation(@RequestParam String conversationId) {
 		conversationCacheService.closeConversation(conversationId);
@@ -69,13 +67,7 @@ public class ChatController {
 		conversationCacheService.closeConversation(conversationId);
 	}
 
-	/**
-	 * 创建聊天流 - 使用GET请求和缓存的消息历史
-	 * @param content 用户输入的消息内容
-	 * @param model 使用的AI模型
-	 * @param conversationId 对话ID
-	 * @return 聊天响应流
-	 */
+	/** 创建聊天流 - 使用GET请求和缓存的消息历史；返回 聊天响应流 */
 	@GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<StreamResponseEvent> createChatStream(@RequestParam(value = "content", required = false) String content,
 			@RequestParam(value = "model", required = false) String model,

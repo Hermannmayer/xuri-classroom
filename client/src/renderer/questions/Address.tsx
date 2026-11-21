@@ -3,10 +3,7 @@ import type { QuestionComponentProps } from '../types';
 import { addressAnswer, addressText } from './answers';
 import { QuestionFrame, useAnswerState } from './shared';
 
-/**
- * 地址：answer = { [questionId]: '省 市 区' }。
- * 新前端没有省市级联字典接口可用（boundary 不改 api），按任务约定退化成三个 Input 组合。
- */
+/** 地址：answer = { [questionId]: '省 市 区' } */
 export default function Address(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
   const [answer, setAnswer] = useAnswerState(props);

@@ -188,10 +188,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
 
 
-	/**
-	 * 只保留 user / assistant 两种角色，去掉空消息，截断超长内容，并只留最近 {@link #MAX_HISTORY_TURNS} 条。
-
-	 */
+	/** 只保留 user / assistant 两种角色，去掉空消息，截断超长内容，并只留最近 #MAX_HISTORY_TURNS 条 */
 	private List<AiChatTurn> sanitize(List<AiChatRequest.Message> messages) {
 		int maxTurns = configuredMaxTurns();
 		int maxChars = configuredMaxChars();
@@ -236,12 +233,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		return Math.max(200, Math.min(20000, configured.intValue()));
 	}
 
-	/**
-	 * 动作结果 → 一句话正文。
-	 *
-	 * <p>为什么还要正文：{@code action} 是给界面渲染卡片的，正文才是对话气泡里那一段。
-	 * 两者都写同一份摘要，用户不会看到「卡片说批了 12 份、气泡说批完了」这种不一致。
-	 */
+	/** 动作结果 → 一句话正文 */
 	private String composeActionReply(AiChatAction action) {
 		StringBuilder text = new StringBuilder();
 		if (StringUtils.hasText(action.getTitle())) {
@@ -256,7 +248,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		return text.length() == 0 ? "好的。" : text.toString();
 	}
 
-	/* ====== 当前页面上下文 ====== */
+	/** ====== 当前页面上下文 ====== */
 
 	private String renderSystemPrompt(ContextFacts facts) {
 		LinkedHashMap<String, String> vars = new LinkedHashMap<>();
@@ -264,12 +256,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		return promptRegistry.render(PROMPT_CHAT, vars);
 	}
 
-	/**
-	 * 按 id 查库补齐上下文。
-	 *
-	 * <p>为什么不信前端给的文案：试卷名与题干都会进系统提示，如果由前端直接给字符串，
-	 * 任何人在控制台里改一句就能往提示词里塞指令。这里只信 id，文案一律查库。
-	 */
+	/** 按 id 查库补齐上下文 */
 	private ContextFacts collectContext(AiChatRequest.Context context) {
 		LinkedHashMap<String, String> lines = new LinkedHashMap<>();
 		List<String> labels = new ArrayList<>();

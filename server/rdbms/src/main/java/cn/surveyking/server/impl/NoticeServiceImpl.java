@@ -273,16 +273,7 @@ public class NoticeServiceImpl implements NoticeService {
 
 
 
-	/**
-	 * 把请求写进实体，同时做全部业务校验（标题/正文、类型、受众、范围权限）。
-	 *
-	 * <p>范围与权限的对应关系（计划 §4.5，比 {@code @PreAuthorize} 更细）：
-	 * <ul>
-	 * <li>{@code scope_type=class}：需要 {@code notice:manage:class}，并且该班对当前用户可见；
-	 * 没有 {@code notice:manage:system} 的人不能把班级公告发给「全体 / 管理员」；</li>
-	 * <li>其余（空 = 全站）：需要 {@code notice:manage:system}，老师发 audience=all 会在这里 403。</li>
-	 * </ul>
-	 */
+	/** 把请求写进实体，同时做全部业务校验（标题/正文、类型、受众、范围权限） */
 	private void applyRequest(Notice notice, NoticeRequest request) {
 		if (request == null) {
 			throw new ValidationException("缺少公告内容");
@@ -358,7 +349,7 @@ public class NoticeServiceImpl implements NoticeService {
 		return value;
 	}
 
-	/** 范围：空 = 全站；class = 班级。project 是表里的预留列，规则没定之前不接受写入 */
+	/** 范围：空 = 全站；class = 班级 */
 	private String normalizeScopeType(String scopeType) {
 		if (!StringUtils.hasText(scopeType)) {
 			return null;
@@ -385,12 +376,7 @@ public class NoticeServiceImpl implements NoticeService {
 		return notice;
 	}
 
-	/**
-	 * 编辑/发布/归档/删除的闸门。
-	 *
-	 * <p>{@code notice:manage:system} 管全部；{@code notice:manage:class} 只管自己创建的班级公告，
-
-	 */
+	/** 编辑/发布/归档/删除的闸门 */
 	private void assertCanEdit(Notice notice) {
 		if (canManage(notice, currentUserId())) {
 			return;
@@ -400,12 +386,7 @@ public class NoticeServiceImpl implements NoticeService {
 
 
 
-	/**
-	 * 列表查询条件：状态、筛选、受众、范围、未读，全在这里拼。
-	 *
-	 * <p>默认只返回「已发布 + 已到发布时间 + 未过期」的公告；{@code status} 显式传入且当前用户能管理公告时，
-	 * 才按该状态查（管理视角看草稿 / 归档）。
-	 */
+	/** 列表查询条件：状态、筛选、受众、范围、未读，全在这里拼 */
 	private LambdaQueryWrapper<Notice> visibleQuery(NoticeQuery query, String userId, User user) {
 		LambdaQueryWrapper<Notice> wrapper = Wrappers.lambdaQuery();
 		String status = trim(query.getStatus());
@@ -437,16 +418,7 @@ public class NoticeServiceImpl implements NoticeService {
 		return wrapper;
 	}
 
-	/**
-	 * 受众 + 范围过滤：{@code ((audience 命中 AND 范围命中) OR 我创建的)}。
-	 *
-	 * <p>持 {@code notice:manage:system} 的人（管理员）不参加过滤：能看全部，含各班公告与草稿；其余人：
-	 * <ul>
-	 * <li>audience：all 人人可见 / admin 仅管理员 / teacher 教职工 / student 学员；</li>
-	 * <li>scope：空 = 全站；class 要求 scope_id 落在「主组 + 附加组 + 祖先链」里；</li>
-
-	 * </ul>
-	 */
+	/** 受众 + 范围过滤：((audience 命中 AND 范围命中) OR 我创建的) */
 	private void applyVisibility(LambdaQueryWrapper<Notice> wrapper, String userId, User user) {
 		if (canManageSystem()) {
 
@@ -476,11 +448,7 @@ public class NoticeServiceImpl implements NoticeService {
 		return Arrays.asList(Notice.AUDIENCE_ALL, Notice.AUDIENCE_TEACHER);
 	}
 
-	/**
-	 * 单条公告的可见性（详情 / 标记已读用；与列表的 SQL 口径保持一致）。
-	 *
-	 * <p>scope 为 project 等未开放的范围时，只有创建人和管理员能看到。
-	 */
+	/** 单条公告的可见性（详情 / 标记已读用；与列表的 SQL 口径保持一致） */
 	private boolean canSee(Notice notice, String userId, User user, Set<String> deptScope) {
 		if (notice == null) {
 			return false;
@@ -673,12 +641,7 @@ public class NoticeServiceImpl implements NoticeService {
 
 
 
-	/**
-	 * 系统更新公告正文：版本号、当前版本、Release 说明、下载地址。
-	 *
-	 * <p>Release 正文是外部内容（GitHub / 自建清单），先消毒再拼；整段最后再过一次白名单，
-	 * 保证公告正文里不可能出现脚本。
-	 */
+	/** 系统更新公告正文：版本号、当前版本、Release 说明、下载地址 */
 	private String buildSystemUpdateContent(UpdateCheckView view, String version) {
 		StringBuilder html = new StringBuilder();
 		html.append("<p>检测到新版本 <strong>v").append(escapeHtml(version)).append("</strong>");

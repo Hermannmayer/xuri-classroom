@@ -1,19 +1,4 @@
-# =============================================================================
 # 旭日云课堂 · 飞牛 NAS「开发环境」Compose 文件
-#
-# 为什么单独一份 compose、单独一个项目名：NAS 上生产考试系统正在跑
-# （容器名 surveyking、宿主机 201、H2 库、数据在 /vol2/1000/surveyking/）。
-# 本文件创建的所有资源都带 xuri-dev 前缀，端口全部落在 1xxxx 段，
-# 并且**绝不碰宿主机 80**（飞牛 Web 管理界面占着 80）。
-#
-# 用法（在 NAS 上、本目录内执行）：
-#   cp .env.example .env      # 按需改端口 / 源码路径
-#   bash bootstrap.sh         # 幂等引导：检查 → 构建 → 起容器（推荐）
-# 也可以直接：
-#   docker compose -f deploy/nas/dev/docker-compose.yml up -d --build
-#
-# 需要 Docker Compose v2（`docker compose version` 能打印版本）；v1 已停止维护，不支持本文件。
-# =============================================================================
 
 name: xuri-dev
 

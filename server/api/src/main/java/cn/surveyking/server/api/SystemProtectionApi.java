@@ -40,11 +40,7 @@ public class SystemProtectionApi {
 
 	private final SystemServiceImpl systemService;
 
-	/**
-	 * 保存水印 / 防复制策略（三项任意子集，未给的字段保持不变）。
-	 * @param request 只读取 setting.copyProtected、setting.watermarkEnabled、
-	 * setting.watermarkMode，其它字段忽略
-	 */
+	/** 保存水印 / 防复制策略（三项任意子集，未给的字段保持不变） */
 	@PostMapping("/protection")
 	@PreAuthorize("hasAuthority('content:protect') or hasRole('admin')")
 	public void updateProtection(@RequestBody SystemInfoRequest request) {

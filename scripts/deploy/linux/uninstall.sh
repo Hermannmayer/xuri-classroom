@@ -1,20 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Linux 卸载（systemd）
-#
-# 用途：停止并删除 systemd 服务；默认保留安装目录（app.env、files/ 等数据）。
-#
-# 用法：
-#   sudo ./uninstall.sh
-#   sudo ./uninstall.sh --install-dir /opt/xuri-classroom --service-name xuri-classroom
-#   sudo ./uninstall.sh --purge        # 同时删除安装目录和运行用户
-#
-# 参数：
-#   --install-dir <dir>    安装目录，默认 /opt/xuri-classroom
-#   --user <name>          运行用户，默认 xuri（仅 --purge 时删除）
-#   --service-name <name>  systemd 服务名，默认 xuri-classroom
-#   --purge                删除安装目录和运行用户（数据库不会删除）
-# =============================================================================
 set -euo pipefail
 
 INSTALL_DIR="/opt/xuri-classroom"

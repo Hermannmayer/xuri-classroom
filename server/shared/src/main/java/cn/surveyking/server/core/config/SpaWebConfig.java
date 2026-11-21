@@ -28,7 +28,7 @@ public class SpaWebConfig implements WebMvcConfigurer {
 
 	private static final ClassPathResource INDEX = new ClassPathResource("static/index.html");
 
-	/** 根路径不会进入 ResourceHttpRequestHandler，需要显式返回 index.html。 */
+	/** 根路径不会进入 ResourceHttpRequestHandler，需要显式返回 index.html */
 	@GetMapping("/")
 	public ResponseEntity<Resource> index() {
 		if (!INDEX.exists()) {

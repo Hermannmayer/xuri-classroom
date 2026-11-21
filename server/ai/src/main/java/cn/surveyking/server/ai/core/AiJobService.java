@@ -73,13 +73,7 @@ public class AiJobService {
 				return thread;
 			}, new ThreadPoolExecutor.AbortPolicy());
 
-	/**
-	 * 提交一个长任务。
-	 * @param scene 场景标识（写进任务、日志），如 {@code paper_generate}
-	 * @param ownerId 发起人（用于归属校验；后台线程里拿不到 SecurityContext，必须显式传进来）
-	 * @param task 任务体：通过 {@link JobContext} 报进度与结果
-	 * @return 任务 id
-	 */
+	/** 提交一个长任务；返回 任务 id */
 	public String submit(String scene, String ownerId, JobTask task) {
 		if (task == null) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 任务内容为空");
@@ -101,10 +95,7 @@ public class AiJobService {
 		return job.id;
 	}
 
-	/**
-	 * 查任务（带归属校验：只能看自己发起的，管理员除外）。
-	 * @return {jobId, scene, status, progress, error, result, createdAt, finishedAt}
-	 */
+	/** 查任务（带归属校验：只能看自己发起的，管理员除外）；返回 {jobId, scene, status, progress, error, result, createdAt, finishedAt} */
 	public Map<String, Object> describe(String jobId) {
 		LocalJob job = JOBS.get(jobId);
 		if (job == null) {
@@ -123,7 +114,7 @@ public class AiJobService {
 		return view;
 	}
 
-	/* ====== 任务执行 ====== */
+	/** ====== 任务执行 ====== */
 
 	private void run(LocalJob job, JobTask task) {
 		job.status = STATUS_RUNNING;
@@ -170,7 +161,7 @@ public class AiJobService {
 		}
 	}
 
-	/* ====== 归属校验 ====== */
+	/** ====== 归属校验 ====== */
 
 	private void assertOwner(LocalJob job) {
 		if (SecurityContextUtils.isAdmin()) {

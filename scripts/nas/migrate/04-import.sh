@@ -1,16 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 第 4 步：建 MySQL 库 + 灌入 H2 的数据（在飞牛 NAS 上执行）
-#
-# 顺序：生成 .env（含随机密钥）→ 起 db 容器 → 空库闸门 → 建表（init-mysql.sql）
-#       → 导入 import.sql → 对账行数
-#
-# 为什么要有「空库闸门」：init-mysql.sql 里有 22 处 DROP TABLE IF EXISTS，
-# 对着已经有数据的库执行就是清库。所以先确认库里 0 张表才允许执行。
-#
-# 用法：
-#   bash scripts/nas/migrate/04-import.sh
-# =============================================================================
 set -euo pipefail
 
 REPO="${XURI_SRC:-/vol2/1000/xuri/src/work}"

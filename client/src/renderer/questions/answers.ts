@@ -1,9 +1,4 @@
-/**
- * 题型答案格式的唯一出口（与后端一致，改这里就够）：
- * - 选择类：{ [optionId]: true }，后端只判 key 存在（单选必须恰好一个 key）
- * - 填空/文本：{ [空位id]: 文本 }，空位 id 来自 schema.children[0].id
- * - 评分：{ [optionId]: 数值 } 或数值
- */
+/** 题型答案格式的唯一出口（与后端一致，改这里就够）： */
 import type { Attribute, DataSource, SurveySchema } from '../../schema/types';
 import { isOptionSelected, type AnswerValue } from '../types';
 
@@ -17,12 +12,7 @@ export function toOptions(dataSource?: DataSource[]): Option[] {
   return (dataSource ?? []).map(({ label, value }) => ({ label, value }));
 }
 
-/**
- * 取一道题的选项，带兜底：
- * - 设计器新建的题把选项放在 dataSource 里；
- * - **Excel 导入的题没有 dataSource**，选项只写在 children 里（且这些 Option 子节点连 type 都没有），
- *   不兜底的话渲染层会整题显示「未配置选项」——这是存量题库里大量存在的问题。
- */
+/** 取一道题的选项，带兜底： */
 export function optionsOf(schema: SurveySchema): Option[] {
   const fromDataSource = toOptions(schema.dataSource);
   if (fromDataSource.length) return fromDataSource;
@@ -206,7 +196,7 @@ export function scoreMax(scope?: string): number {
   return Number.isFinite(max) && max > 0 ? max : 5;
 }
 
-/* ---------------- 输入校验：按 attribute.dataType 限制与校验 ---------------- */
+/** ---------------- 输入校验：按 attribute.dataType 限制与校验 ---------------- */
 
 function textLimitMax(textLimit?: string): number | undefined {
   const m = /[([]\s*(\d*)\s*,\s*(\d*)\s*[)\]]/.exec(textLimit ?? '');

@@ -86,15 +86,7 @@ public final class AiPaperSpec {
 		this.requirements = requirements;
 	}
 
-	/**
-	 * 校验并归一化组卷参数。
-	 *
-	 * <p>刻意不接请求 DTO：组卷请求（{@code AiPaperPickRequest}）与历史出卷请求字段名不同，
-	 * 而「题量 / 总分 / 题型配比 / 难度」才是真正参与校验的四个量，调用方各自取出来即可。
-	 * 学科与级别只是提示词上下文，可空。
-	 *
-	 * @throws ErrorCodeException 参数不合法（中文提示，可直接弹给老师）
-	 */
+	/** 校验并归一化组卷参数 */
 	public static AiPaperSpec of(Integer questionCount, Double totalScore, Map<String, Double> typeRatio,
 			String difficulty, String subject, String level, String requirements) {
 		if (questionCount == null || questionCount.intValue() <= 0) {
@@ -119,12 +111,7 @@ public final class AiPaperSpec {
 				StringUtils.hasText(requirements) ? requirements.trim() : null);
 	}
 
-	/**
-	 * 题型配比归一化：校验题型合法、去重合并，并把总和缩放到 1。
-	 *
-	 * <p>为什么要缩放到 1：调用方可能传「0.4 / 0.2 / 0.2 / 0.2」，也可能传「40 / 20 / 20 / 20」（百分比）；
-	 * 不归一化时 20 题的卷子会被算成 800 题。这里统一成小数比例，下游 {@link #expectedTypeCount()} 只认这一种口径。
-	 */
+	/** 题型配比归一化：校验题型合法、去重合并，并把总和缩放到 1 */
 	private static LinkedHashMap<String, Double> normalizeRatio(Map<String, Double> input) {
 		LinkedHashMap<String, Double> merged = new LinkedHashMap<>();
 		if (input == null || input.isEmpty()) {
@@ -165,10 +152,7 @@ public final class AiPaperSpec {
 		return null;
 	}
 
-	/**
-	 * 每种题型的期望题数（四舍五入，差额补到比例最大的题型上，保证合计等于题量）。
-	 * <p>这是提示词与校验共用的唯一口径。
-	 */
+	/** 每种题型的期望题数（四舍五入，差额补到比例最大的题型上，保证合计等于题量） */
 	public LinkedHashMap<String, Integer> expectedTypeCount() {
 		LinkedHashMap<String, Integer> counts = new LinkedHashMap<>();
 		int sum = 0;
@@ -227,7 +211,7 @@ public final class AiPaperSpec {
 		return text.toString();
 	}
 
-	/** 支持的题型清单（给前端的下拉框用，也是 {@link #SUPPORTED_TYPES} 的稳定顺序） */
+	/** 支持的题型清单（给前端的下拉框用，也是 #SUPPORTED_TYPES 的稳定顺序） */
 	public static List<String> supportedTypeList() {
 		return SUPPORTED_TYPES.stream().map(Enum::name).toList();
 	}

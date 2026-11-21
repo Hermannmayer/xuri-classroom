@@ -67,10 +67,7 @@ public class AuditDiffSupport {
 
 	private final RoleMapper roleMapper;
 
-	/**
-	 * 比 {@link AuditRecorder#targetIdOf} 更准的目标 id：批改请求的目标是答卷（{@code answerId}），
-	 * 整卷/批量动作取第一条 id。非高危动作返回 null，由调用方回退到通用解析。
-	 */
+	/** 比 AuditRecorder#targetIdOf 更准的目标 id：批改请求的目标是答卷（answerId）， 整卷/批量动作取第一条 id */
 	public String targetIdOf(String action, Object[] args) {
 		if (!ACTIONS.contains(action) || args == null) {
 			return null;
@@ -95,11 +92,7 @@ public class AuditDiffSupport {
 		return roleRequest == null ? null : trimToNull(roleRequest.getId());
 	}
 
-	/**
-	 * 采集当前时刻的快照；非清单里的动作、参数对不上、查询出错都返回 null。
-	 * @param action 动作码
-	 * @param args Controller 方法参数
-	 */
+	/** 采集当前时刻的快照；非清单里的动作、参数对不上、查询出错都返回 null */
 	public Map<String, Object> snapshot(String action, Object[] args) {
 		if (!ACTIONS.contains(action) || args == null) {
 			return null;
@@ -130,7 +123,7 @@ public class AuditDiffSupport {
 		}
 	}
 
-	/* ------ 以下为内部实现 ------ */
+	/** ------ 以下为内部实现 ------ */
 
 	private static boolean isGradeAction(String action) {
 		return "ANSWER_GRADE".equals(action) || "ANSWER_GRADE_RESET".equals(action);
@@ -147,12 +140,7 @@ public class AuditDiffSupport {
 				|| "PROJECT_STATUS".equals(action);
 	}
 
-	/**
-	 * 批改快照：逐题的分数与评语 + 整卷 {@code exam_score} 与批改状态。
-	 *
-	 * <p>撤销批改（reset）不带题目 id 表示整卷清空，这时要取库里现存的全部人工分，
-
-	 */
+	/** 批改快照：逐题的分数与评语 + 整卷 exam_score 与批改状态 */
 	private Map<String, Object> gradeSnapshot(String action, AnswerGradeRequest request) {
 		String answerId = trimToNull(request.getAnswerId());
 		Map<String, Object> snapshot = new LinkedHashMap<>();
@@ -193,12 +181,7 @@ public class AuditDiffSupport {
 		return snapshot;
 	}
 
-	/**
-	 * 答卷删除 / 彻底删除 / 恢复的快照：答卷 id、项目 id、提交人（只存账号 id，不存姓名）+ 是否还能查到。
-	 *
-	 * <p>{@code visible=false} 就是「当前查不到这一行」：逻辑删除后 {@code @TableLogic} 会把它挡掉。
-	 * 于是「删除」的前后是 true→false，「恢复」是 false→true，一眼能看出动作方向。
-	 */
+	/** 答卷删除 / 彻底删除 / 恢复的快照：答卷 id、项目 id、提交人（只存账号 id，不存姓名）+ 是否还能查到 */
 	private Map<String, Object> answerSnapshot(AnswerRequest request) {
 		List<String> ids = answerIds(request);
 		Map<String, Object> snapshot = new LinkedHashMap<>();

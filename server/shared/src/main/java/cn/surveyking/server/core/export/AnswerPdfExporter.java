@@ -177,21 +177,12 @@ public final class AnswerPdfExporter {
 		return FONT_BYTES != null && FONT_BYTES.length > 0;
 	}
 
-	/**
-	 * 字体字节（包内可见）。成绩确认单等同样要嵌入这份 TTF 的渲染器直接复用，
-	 * 免得为了一个 12.6MB 的子集字体再读一次资源。
-	 */
+	/** 字体字节（包内可见） */
 	static byte[] fontBytes() {
 		return FONT_BYTES;
 	}
 
-	/**
-	 * 渲染单份答卷。
-	 * @param project 试卷（只用 id/name/category/survey/setting，调用方可以从 Project 模型转换）
-	 * @param answer 答卷视图（需要 answer 原文、metaInfo、examInfo、examScore、answererName 等）
-	 * @param options 导出选项（轮次、是否含解析/图片、班级名、图片加载回调）
-	 * @return PDF 字节内容
-	 */
+	/** 渲染单份答卷；返回 PDF 字节内容 */
 	public static byte[] renderAnswer(ProjectView project, AnswerView answer, PdfOptions options) {
 		if (!isFontAvailable()) {
 			throw new InternalServerError(FONT_MISSING_MESSAGE);
@@ -356,10 +347,7 @@ public final class AnswerPdfExporter {
 			return style;
 		}
 
-		/**
-		 * 复制一份选项。长图导出要在副本上把版式强制成「答题卷」，不能改调用方手里那份
-		 * （同一个对象可能还要拿去导成绩单）。
-		 */
+		/** 复制一份选项 */
 		public PdfOptions copy() {
 			PdfOptions copy = new PdfOptions();
 			copy.attemptNo = attemptNo;
@@ -393,10 +381,7 @@ public final class AnswerPdfExporter {
 
 	}
 
-	/**
-	 * 按卷面顺序展开题目：只给 dataType 编号；QuestionSet 当大题标题；
-	 * Pagination/Survey 只往下钻；SplitLine/Option/RandomSurvey 不显示。
-	 */
+	/** 按卷面顺序展开题目：只给 dataType 编号；QuestionSet 当大题标题； Pagination/Survey 只往下钻；SplitLine/Option/RandomSurvey 不显示 */
 	private static List<QuestionItem> collectQuestions(SurveySchema survey) {
 		List<QuestionItem> result = new ArrayList<>();
 		if (survey == null) {
@@ -517,7 +502,7 @@ public final class AnswerPdfExporter {
 		return examInfo.getQuestionScore().get(questionId);
 	}
 
-	/* ======================= 抬头 / 信息卡 ======================= */
+	/** ======================= 抬头 / 信息卡 ======================= */
 
 	static String displayTitle(ProjectView project, AnswerView answer) {
 		SurveySchema survey = project.getSurvey();
@@ -668,7 +653,7 @@ public final class AnswerPdfExporter {
 		layout.advance(8f);
 	}
 
-	/* ======================= 逐题渲染 ======================= */
+	/** ======================= 逐题渲染 ======================= */
 
 	private static void drawQuestion(Layout layout, QuestionItem item, AnswerView answer, PdfOptions opts)
 			throws IOException {
@@ -791,9 +776,7 @@ public final class AnswerPdfExporter {
 		return null;
 	}
 
-	/**
-	 * 主观题/填空题：把「我的作答」摊平成可读文本。选项类题不在这里处理。
-	 */
+	/** 主观题/填空题：把「我的作答」摊平成可读文本 */
 	private static void appendAnswerLines(List<QLine> lines, Layout layout, SurveySchema schema, Object value)
 			throws IOException {
 		List<String> parts = flattenAnswer(schema, value);
@@ -807,11 +790,7 @@ public final class AnswerPdfExporter {
 		}
 	}
 
-	/**
-	 * 摊平答案 JSON。不同题型的结构不一样：
-	 * 选项题是 {qid:{optionId:true}}，填空题是 {qid:{blankId:"文本"}}，
-	 * 矩阵是 {qid:{rowId:{cellId:值}}}，评分题直接是数字。
-	 */
+	/** 摊平答案 JSON */
 	private static List<String> flattenAnswer(SurveySchema schema, Object value) {
 		List<String> parts = new ArrayList<>();
 		if (value == null) {
@@ -980,13 +959,7 @@ public final class AnswerPdfExporter {
 
 
 
-	/**
-	 * 答题卷还原版式：一行紧凑抬头 + 按卷面顺序逐题还原「题目 + 作答」。
-	 * <p>
-	 * 为什么不给成绩单多套几个 if：成绩单是「阅卷结果」（分数卡、对错色、每题得分），
-	 * 答题卷是「卷面还原」（原样呈现学员看到并写下的一切）。两者排版语义不同，塞进一套代码里
-	 * 迟早把某一方改坏，而成绩单是线上基线——一个字节都不能动。
-	 */
+	/** 答题卷还原版式：一行紧凑抬头 + 按卷面顺序逐题还原「题目 + 作答」 */
 	private static void drawAnswerSheet(Layout layout, AnswerView answer, PdfOptions options,
 			List<QuestionItem> questions) throws IOException {
 		AnswerStats stats = buildStats(questions, answer);
@@ -996,12 +969,7 @@ public final class AnswerPdfExporter {
 		}
 	}
 
-	/**
-	 * 答题卷抬头：只留一行「姓名 / 班级 / 交卷时间 / 作答轮次 / 得分」。
-	 * <p>
-	 * 成绩单那套标题 + 分数卡 + 统计卡在这里全部不要：长图是老师在手机上看答卷用的，
-	 * 半屏抬头换不来信息量，还费纸。
-	 */
+	/** 答题卷抬头：只留一行「姓名 / 班级 / 交卷时间 / 作答轮次 / 得分」 */
 	private static void drawSheetHeader(Layout layout, AnswerView answer, PdfOptions options, AnswerStats stats)
 			throws IOException {
 		List<String> parts = new ArrayList<>();
@@ -1068,12 +1036,7 @@ public final class AnswerPdfExporter {
 		drawSheetImages(layout, schema, value, options);
 	}
 
-	/**
-	 * 选项竖排：学员选中的选项前画实心方框，其余画空心方框（判断题同）。
-	 * <p>
-	 * 方框是矢量矩形，不是「□ / ■」字符：字体子集（见 fonts/README.md）不含 U+25A0 / U+25A1，
-	 * 塞进 showText 会被 sanitize 换成「·」，卷面就毁了。
-	 */
+	/** 选项竖排：学员选中的选项前画实心方框，其余画空心方框（判断题同） */
 	private static void appendSheetOptions(List<SheetLine> lines, Layout layout, SurveySchema schema, Object value)
 			throws IOException {
 		List<SurveySchema> options = schema.getChildren();
@@ -1100,11 +1063,7 @@ public final class AnswerPdfExporter {
 		}
 	}
 
-	/**
-	 * 填空/简答/矩阵等：题干下方用一块浅底显示学员原文，保留换行；没作答就写「（未作答）」。
-	 * <p>
-	 * 签名/上传题也走这里：先用一句「已签名 / 已上传 N 个附件」占位，图片在正文之后统一贴。
-	 */
+	/** 填空/简答/矩阵等：题干下方用一块浅底显示学员原文，保留换行；没作答就写「（未作答）」 */
 	private static void appendSheetAnswerBlock(List<SheetLine> lines, Layout layout, SurveySchema schema,
 			Object value) throws IOException {
 		List<String> parts = flattenAnswer(schema, value);
@@ -1143,12 +1102,7 @@ public final class AnswerPdfExporter {
 		}
 	}
 
-	/**
-	 * 签名/上传题的图片：答题卷版式里永远嵌入，不再看 includeImages。
-	 * <p>
-	 * 「附签名/上传图片」这个选项取消掉了：老师要确认的是学员到底交了什么，
-	 * 勾漏一次这张卷子就变成「没作答」，责任说不清。
-	 */
+	/** 签名/上传题的图片：答题卷版式里永远嵌入，不再看 includeImages */
 	private static void drawSheetImages(Layout layout, SurveySchema schema, Object value, PdfOptions options)
 			throws IOException {
 		for (Img image : loadImages(layout, schema, value, options)) {
@@ -1158,7 +1112,7 @@ public final class AnswerPdfExporter {
 		}
 	}
 
-	/** 普通文本行：{@link #addWrapped} 的答题卷版本，只是产出 {@link SheetLine} */
+	/** 普通文本行：#addWrapped 的答题卷版本，只是产出 SheetLine */
 	private static void addSheetLines(List<SheetLine> out, Layout layout, String text, float firstIndent,
 			float restIndent, float size, boolean bold, Color color) throws IOException {
 		float maxWidth = layout.contentWidth() - Math.max(firstIndent, restIndent);
@@ -1168,12 +1122,7 @@ public final class AnswerPdfExporter {
 		}
 	}
 
-	/**
-	 * 画一批答题卷行。
-	 * <p>
-	 * 默认整批不跨页（题目不能被截成两半）；但单题高过一页时（超长简答）必须退化成逐行流动——
-
-	 */
+	/** 画一批答题卷行 */
 	private static void drawSheetLines(Layout layout, List<SheetLine> lines) throws IOException {
 		float total = 0f;
 		for (SheetLine line : lines) {
@@ -1230,7 +1179,7 @@ public final class AnswerPdfExporter {
 		layout.advance(chunkTop - cursor);
 	}
 
-	/** 一行：方框（可选）+ 文字；基线偏移与 {@link Layout#drawText} 保持一致 */
+	/** 一行：方框（可选）+ 文字；基线偏移与 Layout#drawText 保持一致 */
 	private static void drawSheetLine(Layout layout, SheetLine line, float top) throws IOException {
 		if (line.text == null) {
 			return;
@@ -1327,10 +1276,7 @@ public final class AnswerPdfExporter {
 
 	}
 
-	/**
-	 * 加载签名题/上传题的图片：先把像素宽缩到 {@link #IMAGE_MAX_PIXEL_WIDTH} 再嵌入，
-	 * 免得一张 4000px 的手机照片把 PDF 撑成几十 MB。
-	 */
+	/** 加载签名题/上传题的图片：先把像素宽缩到 #IMAGE_MAX_PIXEL_WIDTH 再嵌入， 免得一张 4000px 的手机照片把 PDF 撑成几十 MB */
 	private static List<Img> loadImages(Layout layout, SurveySchema schema, Object value, PdfOptions opts) {
 		QuestionType type = schema.getType();
 		if (type != QuestionType.Upload && type != QuestionType.Signature) {
@@ -1708,10 +1654,7 @@ public final class AnswerPdfExporter {
 			drawTextAt(text, x, baseline, size, bold, color);
 		}
 
-		/**
-		 * 按基线绝对定位绘制。加粗用「填充 + 描边」模拟（字体只有一个字重），
-		 * 描边宽度取字号的 2.5%，肉眼接近 semibold。
-		 */
+		/** 按基线绝对定位绘制 */
 		private void drawTextAt(String text, float x, float baseline, float size, boolean bold, Color color)
 				throws IOException {
 			if (text == null || text.isEmpty()) {
@@ -1779,7 +1722,7 @@ public final class AnswerPdfExporter {
 	private static final int[][] SAFE_RANGES = { { 0x20, 0x7E }, { 0xA0, 0xFF }, { 0x2000, 0x206F }, { 0x3000, 0x303F },
 			{ 0x4E00, 0x9FFF }, { 0xFF00, 0xFFEF } };
 
-	/** 常见符号的手工映射：字体里没有这些字形，换成等价的中文/ASCII 表达。包内可见，便于单测。 */
+	/** 常见符号的手工映射：字体里没有这些字形，换成等价的中文/ASCII 表达 */
 	static String sanitize(String text) {
 		if (text == null) {
 			return "";

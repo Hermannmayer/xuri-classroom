@@ -23,19 +23,7 @@ const TAB_LABEL: Record<TabKey, string> = {
   group: '用户组',
 };
 
-/**
- * 用户与权限：把原来三个独立菜单（用户管理 / 权限配置 / 用户组）合成一页三个 Tab。
- *
- * <p>为什么合并：这三件事本来就是同一件事的三个切面——「有哪些人」「他们被授了什么角色」
- * 「角色在哪个组」；分三页的直接后果是管理员改一个老师要跳三次页，且侧栏常驻 5 项，
- * 把真正高频的「系统设置」「公告」「日志」挤在一起。
- *
- * <p>权限没有放松：Tab 逐个按自己的权限点判定，只保留当前账号真能看的 Tab；
- * 一个都没有时直接给 403 结果页（而不是渲染一个空壳）。
- *
- * <p>子页一律以 embedded 传入：页头统一由这里给（一个页面只该有一个标题），
- * 子页自己那份「SYSTEM / 教职工」之类的小标题会和外层打架。
- */
+/** 用户与权限：把原来三个独立菜单（用户管理 / 权限配置 / 用户组）合成一页三个 Tab */
 export default function SystemAccess() {
   const [authorities, setAuthorities] = useState<string[]>();
   const [searchParams, setSearchParams] = useSearchParams();

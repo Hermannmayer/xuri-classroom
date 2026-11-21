@@ -44,15 +44,7 @@ interface ClassOption {
   name: string;
 }
 
-/**
- * 班级下拉候选：只列「可访问的叶子班」。
- *
- * <p>要滤掉三类节点：
- * - accessible=false：后端为撑出树路径补的祖先节点，不是真班级；
- * - classKind=group：分组，不是能收答卷的班级；
- * - 还有可选下级的节点：它是「年级」这种父级，真正能统计的是下面的班。
-
- */
+/** 班级下拉候选：只列「可访问的叶子班」 */
 function flattenClassLeaves(nodes: ClassNode[], path: string[] = []): ClassOption[] {
   const options: ClassOption[] = [];
   for (const node of nodes) {
@@ -68,14 +60,7 @@ function flattenClassLeaves(nodes: ClassNode[], path: string[] = []): ClassOptio
   return options;
 }
 
-/**
- * URL 里的时间串 → Dayjs。
- *
- * <p>契约格式是 yyyy-MM-dd HH:mm:ss，但手改的链接 / 老书签可能带 'T' 或省掉秒，
- * 这里按数字段手工构造：不依赖 dayjs 的 customParseFormat 插件（少注册一个插件，
- * 也避开 Safari 对「空格分隔」的 Date 解析差异）。解不出来一律当「没传」，
-
- */
+/** URL 里的时间串 → Dayjs */
 function parseTime(raw?: string | null): Dayjs | undefined {
   const text = raw?.trim();
   if (!text) return undefined;
@@ -167,12 +152,7 @@ export default function SurveyReport() {
   const classId = searchParams.get('classId') || undefined;
   const className = searchParams.get('className') || undefined;
 
-  /**
-   * 时间范围从 URL 解析（URL 是唯一真源）：刷新页面、把链接发给同事都保持同一口径。
-   *
-   * <p>解析结果同时喂给 RangePicker 的值和请求参数，避免「控件显示 A、请求里发 B」；
-   * 非法值按「没传」处理，不让一个手改坏了的链接把整个页面变成 Invalid Date。
-   */
+  /** 时间范围从 URL 解析（URL 是唯一真源）：刷新页面、把链接发给同事都保持同一口径 */
   const timeRange = useMemo<[Dayjs | null, Dayjs | null] | null>(() => {
     const start = parseTime(searchParams.get('startTime'));
     const end = parseTime(searchParams.get('endTime'));
@@ -243,13 +223,7 @@ export default function SurveyReport() {
 
   const ready = loadedKey === filterKey;
 
-  /**
-
-   *
-   * <p>两个请求各自降级（报表挂了还能看答卷、反之亦然）。报表失败只弹一条提示（它没有专属卡片），
-   * 答卷列表失败则常驻显示在内容区——不能把「接口挂了」说成「这个口径没有答卷」。
-   * seq 闸门是关键：连改两次筛选时先发的请求可能后回，过期回包直接丢掉。
-   */
+  /** 答卷列表失败则常驻显示在内容区——不能把「接口挂了」说成「这个口径没有答卷」 */
   const load = useCallback(async () => {
     const seq = ++reqSeq.current;
     const key = `${id}|${classId ?? ''}|${startTime ?? ''}|${endTime ?? ''}`;
@@ -340,22 +314,14 @@ export default function SurveyReport() {
     };
   }, [canListClasses]);
 
-  /**
-   * 下拉选项：链接里带的班级若不在树里（班级被删 / 只读授权 / 树没拉回来），补一条占位项。
-   *
-   * <p>不补的话 antd 会把 classId 原样显示在输入框里，老师看到一串 id 根本认不出是哪个班。
-   */
+  /** 下拉选项：链接里带的班级若不在树里（班级被删 / 只读授权 / 树没拉回来），补一条占位项 */
   const classSelectOptions = useMemo<ClassOption[]>(() => {
     if (!classId || classOptions.some((option) => option.value === classId)) return classOptions;
     const label = className || classId;
     return [{ value: classId, label, name: label }, ...classOptions];
   }, [classOptions, classId, className]);
 
-  /**
-   * 只改筛选相关的四个键，其余参数（例如 AI 侧栏带进来的 ?ai=recommend）原样保留。
-   *
-   * <p>用 push 而不是 replace：连改两次条件后按「后退」能回到上一个口径，符合筛选器的直觉。
-   */
+  /** 只改筛选相关的四个键，其余参数（例如 AI 侧栏带进来的 ?ai=recommend）原样保留 */
   const applyQuery = useCallback(
     (changes: Record<string, string | undefined>) => {
       const next = new URLSearchParams(searchParams);
@@ -368,12 +334,7 @@ export default function SurveyReport() {
     [searchParams, setSearchParams],
   );
 
-  /**
-   * 选班级：classId 与 className 一起写、一起删。
-   *
-   * <p>className 只是给页头和 AI 抽屉做展示的冗余字段；只写 id 会让页头显示一串 id、
-
-   */
+  /** 选班级：classId 与 className 一起写、一起删 */
   const pickClass = useCallback(
     (nextClassId?: string) => {
       const option = classSelectOptions.find((item) => item.value === nextClassId);
@@ -408,12 +369,7 @@ export default function SurveyReport() {
     if (canUseAi && searchParams.get('ai') === 'recommend') setRecommendOpen(true);
   }, [canUseAi, searchParams]);
 
-  /**
-   * 关闭抽屉：顺手把 ?ai= 抹掉。
-   *
-   * <p>用 replace 而不是 push —— 老师关掉之后按 F5 不该再弹一次；
-   * 只删 ai 这一个键，classId / className / startTime / endTime 这些筛选条件要留着。
-   */
+  /** 关闭抽屉：顺手把 ?ai= 抹掉 */
   const closeRecommend = useCallback(() => {
     setRecommendOpen(false);
     if (searchParams.get('ai') === 'recommend') {
@@ -432,15 +388,7 @@ export default function SurveyReport() {
     setAiLoading(false);
   }, [id, classId]);
 
-  /**
-   * 生成学情总结（同步，3~8 秒）。
-   *
-   * <p>请求体只带 projectId / classId，统计口径由后端自己取（计划 §6.3 ④，后端 `AiReportSummaryView`）：
-   * 「只吃统计数字，不把学员原始答卷发给模型」——隐私与成本双赢。
-
-
-   * 按项目约定这类调用应收敛到 `client/src/api/ai.ts`，那边归 AI 出卷/改题在改，先就地调。
-   */
+  /** 生成学情总结（同步，3~8 秒） */
   const generateSummary = useCallback(async () => {
     const key = `${id}|${classId ?? ''}`;
     aiKeyRef.current = key;
@@ -521,14 +469,7 @@ export default function SurveyReport() {
     return [...groups.values()];
   }, [questions, answers]);
 
-  /**
-   * 错题排行：按「正确率最低」排前 10，帮老师一眼找到整套卷子最薄弱的题。
-   * 口径与逐题区块一致（exam_info.questionScore），不另开一套算法。
-   */
-  /**
-   * 逐题指标：全部题一行一条，供「表格 + 抽屉」展示。
-   * 区分度 = 总分前 27% 与后 27% 两组的正确率差（教育测量标准做法：D<0.2 基本没有区分能力）。
-   */
+  /** 逐题指标：全部题一行一条，供「表格 + 抽屉」展示 */
   const itemRows = useMemo(() => {
     const scoredAnswers = answers.filter((a) => typeof a.examScore === 'number');
     const ranked = [...scoredAnswers].sort((a, b) => (b.examScore as number) - (a.examScore as number));
@@ -602,12 +543,7 @@ export default function SurveyReport() {
 
   const [detailQid, setDetailQid] = useState<string>();
 
-  /**
-   * 分值统计：绝对分数段（按满分自动选桶宽）+ 均分/中位数/标准差/极值/及格率/优秀率。
-   *
-   * <p>原来是三档百分比（0-33/33-67/67-100），老师看不出「到底几个人不及格」。
-   * 现在按绝对分数分段，桶宽跟着满分走：≤20 分 5 分一档、≤60 分 10 分一档、其余 20 分一档。
-   */
+  /** 分值统计：绝对分数段（按满分自动选桶宽）+ 均分/中位数/标准差/极值/及格率/优秀率 */
   const scoreStats = useMemo(() => {
     const totalScore = questions.reduce(
       (sum, q) => sum + Number((q.schema as { attribute?: { examScore?: number } }).attribute?.examScore ?? 0),

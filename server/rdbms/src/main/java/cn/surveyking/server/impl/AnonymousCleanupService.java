@@ -53,9 +53,7 @@ public class AnonymousCleanupService {
 
 	private final CacheManager cacheManager;
 
-	/**
-	 * 每日 03:30 自动清理。关闭时跳过；异常只记日志，不影响调度线程。
-	 */
+	/** 每日 03:30 自动清理 */
 	@Scheduled(cron = "0 30 3 * * ?")
 	public void cleanupDaily() {
 		SysInfo info = sysInfoMapper.selectById(SYS_INFO_ID);
@@ -90,21 +88,14 @@ public class AnonymousCleanupService {
 		}
 	}
 
-	/**
-	 * 手动清理：按当前系统设置里的保留天数执行。
-	 * @return 删除的匿名答卷条数
-	 */
+	/** 手动清理：按当前系统设置里的保留天数执行；返回 删除的匿名答卷条数 */
 	public int runNow() {
 		SysInfo info = sysInfoMapper.selectById(SYS_INFO_ID);
 		SystemInfo.SystemSetting setting = info == null ? null : info.getSetting();
 		return runNow(normalizeRetentionDays(setting == null ? null : setting.getAnonymousRetentionDays()));
 	}
 
-	/**
-	 * 按指定保留天数清理，并把「最近一次清理」写回系统设置。
-	 * @param days 保留天数（越界会被夹到 1~3650）
-	 * @return 删除的匿名答卷条数
-	 */
+	/** 按指定保留天数清理，并把「最近一次清理」写回系统设置；返回 删除的匿名答卷条数 */
 	public int runNow(int days) {
 		int retentionDays = normalizeRetentionDays(days);
 		int deleted = anonymousIdentityService.purgeOlderThan(retentionDays);

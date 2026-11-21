@@ -65,9 +65,7 @@ public class OpenAiCompatibleChatServiceImpl implements AiChatService {
 		this.systemService = systemService;
 	}
 
-	/**
-	 * 获取AI配置
-	 */
+	/** 获取AI配置 */
 	private SystemInfo.AiSetting getAiSetting() {
 		SystemInfo.AiSetting aiSetting = systemService.getSystemAiSetting();
 		if (aiSetting == null) {

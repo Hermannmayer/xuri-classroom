@@ -1,9 +1,4 @@
--- 答题人姓名 + 主观题人工批改（2.2.1，幂等）
--- 1) t_answer.answerer_name：交卷时快照答题人姓名（选填），成绩单/PDF 抬头用。
--- 2) t_answer.grade_status / graded_by / graded_at：批改状态机，none=无需批改（卷里没有 manual 题）,
---    pending=待批改, graded=已批改；学生重新提交后回到 pending 并清空 t_answer_grade。
--- 3) t_answer_grade：逐题人工分与评语。单独开表而不是塞 exam_info JSON，
---    是为了避免并发批改互相覆盖，也便于按 project_id 统计批改进度。
+-- 答题人姓名 + 主观题人工批改（2.2.1，幂等） 1) t_answer.answerer_name：交卷时快照答题人姓名（选填），成绩单/PDF 抬头用。
 SET NAMES utf8mb4;
 
 

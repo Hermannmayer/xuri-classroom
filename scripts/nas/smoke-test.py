@@ -152,8 +152,7 @@ def main():
         return f'{len(rows)} 份，首份「{d["name"]}」'
     check('试卷数据', c5)
 
-    # 6. 未知接口 → 404 JSON（S3-7）。带 cookie 走：/api/** 先过认证，才能到 DispatcherServlet 的 404；
-    #    非 /api 路径会被 nginx 的 try_files 兜成 index.html（200），不能用来验状态码。
+    # 6. 未知接口 → 404 JSON（S3-7）。
     def c6():
         status, _, body = http_any(base + '/api/__smoke_not_exists__', cookie=state['cookie'])
         assert status == 404, f'HTTP {status}'

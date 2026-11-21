@@ -1,8 +1,4 @@
--- 审计细化（2.2.3，幂等）
--- 目标：让「把 8 分改成 10 分」这类高危操作事后可追溯。
---   before_json / after_json：只给高危动作写快照，序列化后超过 2KB 截断
---   source：web / mcp / api，区分入口
---   request_id：同一次请求关联 id（X-Request-Id，可空）
+-- 审计细化（2.2.3，幂等） 目标：让「把 8 分改成 10 分」这类高危操作事后可追溯。
 
 SET NAMES utf8mb4;
 

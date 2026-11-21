@@ -1,5 +1,4 @@
--- 用户组 → 角色 绑定表（可重复执行）
--- 权限点只挂角色；组通过该表把角色授予组内成员（见 docs/permissions-ia.md）
+-- 用户组 → 角色 绑定表（可重复执行） 权限点只挂角色；组通过该表把角色授予组内成员（见 docs/permissions-ia.md）
 CREATE TABLE IF NOT EXISTS `t_dept_role` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `dept_id` varchar(64) NOT NULL COMMENT '用户组ID',

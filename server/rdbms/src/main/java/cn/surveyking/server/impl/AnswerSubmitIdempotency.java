@@ -55,17 +55,7 @@ public class AnswerSubmitIdempotency {
 		submitLocks.remove(idempotencyKey, lock);
 	}
 
-	/**
-	 * 提交幂等键 = 项目 + 答题人 + 答案指纹。
-	 *
-	 * <p>
-	 * 刻意不加数据库唯一键：存量库里本来就可能有重复答卷（历史 bug 已经产生过），唯一索引会让
-	 * 迁移直接失败；而且「网络重试」和「用户真的想再交一次」在库里无法区分。所以这里只做应用层的 15 秒窗口合并 ——
-	 * 防的是双击与重试这类误操作，不是强一致保证（服务重启/多实例即失效）。
-	 *
-	 * <p>
-	 * 返回 null 表示本次不做幂等：显式「再考一次」、题库练习、以及拿不到可信答题人身份的情况。
-	 */
+	/** 提交幂等键 = 项目 + 答题人 + 答案指纹 */
 	public String buildSubmitIdempotencyKey(AnswerRequest request) {
 
 		if (Boolean.TRUE.equals(request.getFreshAttempt())) {
@@ -86,13 +76,7 @@ public class AnswerSubmitIdempotency {
 		return projectId + "|" + actor + "|" + fingerprint;
 	}
 
-	/**
-	 * 提交幂等用的「答题人」标识：登录用户 → 设备限次 cookie → 考试模式退化为 IP+UA。
-	 *
-	 * <p>
-
-	 * 下两个答案相同的受访者会被吞掉一份。
-	 */
+	/** 提交幂等用的「答题人」标识：登录用户 → 设备限次 cookie → 考试模式退化为 IP+UA */
 	private String resolveSubmitActor(String projectId) {
 		String userId = SecurityContextUtils.getUserId();
 		if (StringUtils.hasText(userId)) {

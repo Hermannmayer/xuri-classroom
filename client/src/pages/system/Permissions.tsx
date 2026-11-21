@@ -288,10 +288,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
 
   const keywordNorm = keyword.trim().toLowerCase();
 
-  /**
-   * 左树数据源：按目录分组顺序，过滤掉不命中的权限点。
-   * 搜索只保留命中节点及其父节点；「只看已选」再叠一层已勾选条件。
-   */
+  /** 左树数据源：按目录分组顺序，过滤掉不命中的权限点 */
   const visibleGroups = useMemo<VisibleGroup[]>(() => {
     const result: VisibleGroup[] = [];
     for (const group of groups) {
@@ -325,10 +322,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
     [allItems, draft, editorLocked],
   );
 
-  /**
-   * 左树的两级结构：分组 → 权限点。
-   * 分组标题右侧显示「已选 / 总数」，权限点显示中文名 + 灰字权限串 + 看/改 Tag。
-   */
+  /** 左树的两级结构：分组 → 权限点 */
   const treeData = useMemo<TreeDataNode[]>(
     () =>
       visibleGroups.map(({ group, items }) => {
@@ -439,10 +433,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
     });
   };
 
-  /**
-   * 勾选框的委托：勾选分组 = 整组加入 / 整组移除（搜索过滤时也按整组算，语义不随视图变化）；
-   * 勾选权限点 = 单项切换。半选态由 antd 根据叶子勾选推导。
-   */
+  /** 勾选框的委托：勾选分组 = 整组加入 / 整组移除（搜索过滤时也按整组算，语义不随视图变化）； 勾选权限点 = 单项切换 */
   const handleTreeCheck: TreeProps['onCheck'] = (_checkedKeys, info) => {
     if (editorLocked) return;
     const key = String(info.node.key);
@@ -457,10 +448,7 @@ export default function SystemPermissions({ embedded = false }: { embedded?: boo
   const expandAll = () => setExpandedKeys(visibleGroups.map((entry) => entry.group.group));
   const collapseAll = () => setExpandedKeys([]);
 
-  /**
-   * 不再按固定 key（teacher/student）查找：直接按角色 id 取当前 authorities。
-   * 这样 student / xueyuan / 以后新增的任何角色都能作为复制源，不会写死。
-   */
+  /** 不再按固定 key（teacher/student）查找：直接按角色 id 取当前 authorities */
   const presetCodesOf = (roleId?: string): string[] => {
     const role = roles.find((r) => r.id === roleId);
     return (role?.authorities ?? []).filter((code) => catalogCodes.has(code));

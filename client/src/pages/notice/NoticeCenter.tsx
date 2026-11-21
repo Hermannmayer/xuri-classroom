@@ -110,30 +110,7 @@ function fmtTime(value?: string | number): string {
   return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : String(value);
 }
 
-/**
- * 公告页的共用实现：左分类、中列表、右详情（实施计划 4.6）。
- *
- * <p>同一份列表搭两个入口，靠 mode 区分，不复制第二套页面：
- * - read（/notice，顶栏铃铛）：只读中心。分类只有「全部 / 系统更新 / 未读」，
- *   能做的只有看详情与标记已读——铃铛只负责显示通知，不再有配置功能；
- * - manage（/system/notice，系统管理 → 公告管理）：全部写能力（新建 / 编辑 / 发布 / 归档 / 删除），
- *   外加草稿与已归档两个分类。
- *
- * <p>数据全走 4.5 的接口（后端实现见 NoticeApi.java / NoticeServiceImpl）：
- * - GET /api/notice/list?current=&pageSize=&onlyUnread=&type=&status=
- *   列表行不含 content，只给 summary；默认只回「已发布且在有效期内」，
- *   status=draft / archived 只有持 notice:manage:* 的人传才生效；
- * - GET /api/notice/unread-count
- * - GET /api/notice?id=（详情顺带 mark read，并回读 read=true）
- * - POST /api/notice/read  body { ids }
- * - POST /api/notice/create | update | publish | archive | delete
- *
- * <p>写操作的入口只在管理台出现，具体某一条能不能改还要看后端算好的
- * NoticeView.manageable（老师只能改自己创建的班级公告）。
- *
- * <p>「系统更新」分类把 type=system_update 传给后端做服务端过滤；返回后再本地筛一遍，
- * 保证这个分类里永远不会混进普通公告（缓存脏数据 / 后端回归时的双保险）。
- */
+/** 公告页的共用实现：左分类、中列表、右详情（实施计划 4.6） */
 export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
@@ -192,12 +169,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
 
   const canWrite = isManage && (canManageSystem || canManageClass);
 
-  /**
-   * 左栏可见分类：
-   * - 系统更新：这类公告的受众固定是 admin（NoticeServiceImpl#recordSystemUpdate），
-   *   非管理员点进去永远是空的，干脆不显示；
-   * - 草稿 / 已归档：写流程的一部分，只在管理台出现（见 types.ts 的 NoticeCategory 注释）。
-   */
+  /** 左栏可见分类： */
   const categories = useMemo(
     () =>
       CATEGORIES.filter((item) => {
@@ -265,10 +237,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     await Promise.all([loadList(), loadUnread()]);
   }, [loadList, loadUnread]);
 
-  /**
-
-   * markRead=false 用于「编辑/发布后回读」，那次不该重复广播未读数变化。
-   */
+  /** markRead=false 用于「编辑/发布后回读」，那次不该重复广播未读数变化 */
   const loadDetail = useCallback(
     async (id: string, markRead: boolean) => {
       const seq = ++detailSeq.current;
@@ -326,10 +295,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     setDetailError(undefined);
   };
 
-  /**
-   * 未读判定：优先用后端下发的 read 字段；
-   * 后端没给时，「未读」分类里的一律算未读（这个分类本身就是服务端按未读筛出来的）。
-   */
+  /** 未读判定：优先用后端下发的 read 字段； 后端没给时，「未读」分类里的一律算未读（这个分类本身就是服务端按未读筛出来的） */
   const isUnread = (notice: NoticeView) => {
     if (readIds.has(notice.id)) return false;
     if (typeof notice.read === 'boolean') return !notice.read;
@@ -365,11 +331,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     }
   };
 
-  /**
-   * 能不能改这条公告：优先后端按当前用户算好的 manageable（NoticeServiceImpl#canManage）——
-   * 老师只能改「自己创建的班级公告」，只看权限点会多显示按钮、点下去 403；
-   * 后端没下发该字段时再按权限点兜底。
-   */
+  /** 能不能改这条公告：优先后端按当前用户算好的 manageable（NoticeServiceImpl#canManage）—— 老师只能改「自己创建的班级公告」，只看权限点会多显示按钮、点下去 403； 后端没下发该字段时再按权限点兜底 */
   const canEdit = (notice: NoticeView) => {
     if (typeof notice.manageable === 'boolean') return notice.manageable;
     return notice.scopeType === 'class' ? canManageClass : canManageSystem;
@@ -435,12 +397,7 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
     setEditorOpen(true);
   };
 
-  /**
-   * 保存成功：刷新列表；编辑过的那条回读一次，保证右边是新正文。
-   *
-   * <p>新建公告只落草稿（后端 create 不发布），而默认列表只回已发布，
-
-   */
+  /** 保存成功：刷新列表；编辑过的那条回读一次，保证右边是新正文 */
   const handleSaved = async (publish: boolean) => {
     const editedId = editing?.id;
     setEditorOpen(false);

@@ -59,10 +59,6 @@ public class PublicQueryService {
 	private final WechatAccessGuard wechatAccessGuard;
 
 	private final MessageSource messageSource;
-	/**
-	 * @param request
-	 * @return
-	 */
 	@SneakyThrows
 	public PublicQueryVerifyView loadQuery(PublicQueryRequest request) {
 		Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery = getProjectAndQueryThenValidate(request);
@@ -117,10 +113,6 @@ public class PublicQueryService {
 		return new Tuple2<>(project, query);
 	}
 
-	/**
-	 * @param query 公开查询配置
-	 * @param answer 查询答案
-	 */
 	@SneakyThrows
 	private void validatePublicQuery(ProjectSetting.PublicQuery query, LinkedHashMap answer) {
 		if (Boolean.FALSE.equals(query.getEnabled())) {
@@ -146,12 +138,7 @@ public class PublicQueryService {
 		}
 	}
 
-	/**
-	 * 前端支持动态主题(问卷主题/表单主题)切换，动态构建查询表单
-	 * @param project
-	 * @param query
-	 * @return
-	 */
+	/** 前端支持动态主题(问卷主题/表单主题)切换，动态构建查询表单 */
 	private SurveySchema buildQueryFormSchema(ProjectView project, ProjectSetting.PublicQuery query) {
 		SurveySchema schema = SurveySchema.builder().id(query.getId()).title(query.getTitle())
 				.description(query.getDescription())
@@ -185,12 +172,7 @@ public class PublicQueryService {
 				.filter(qSchema -> conditionIds.contains(qSchema.getId())).collect(Collectors.toList());
 	}
 
-	/**
-	 * 根据配置的字段权限信息来过滤要查询的字段
-	 * @param project
-	 * @param query
-	 * @return
-	 */
+	/** 根据配置的字段权限信息来过滤要查询的字段 */
 	private SurveySchema buildQueryResultSchema(ProjectView project, ProjectSetting.PublicQuery query) {
 		SurveySchema schema = project.getSurvey().deepCopy();
 		SchemaHelper.updateSchemaByPermission(query.getFieldPermission(), schema);
@@ -212,11 +194,6 @@ public class PublicQueryService {
 		return schema;
 	}
 
-	/**
-	 * @param request 提交的请求
-	 * @param projectAndQuery 项目信息和当前查询信息
-	 * @return
-	 */
 	private List<AnswerView> findAnswerByQuery(PublicQueryRequest request,
 			Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery) {
 		ProjectView projectView = projectAndQuery.getFirst();
@@ -247,11 +224,7 @@ public class PublicQueryService {
 		return answer;
 	}
 
-	/**
-	 * 通过查询参数里面构建 form values
-	 * @param query
-	 * @return
-	 */
+	/** 通过查询参数里面构建 form values */
 	private LinkedHashMap buildFormValuesFromQueryParameter(SchemaHelper.TreeNode surveySchemaTreeNode,
 			Map<String, String> query) {
 		LinkedHashMap<String, Map> formValues = new LinkedHashMap<>();
@@ -265,12 +238,7 @@ public class PublicQueryService {
 		return formValues;
 	}
 
-	/**
-	 * 通过问题答案手动构建like 查询
-	 * @param qNode 当前问题的 schema node 节点
-	 * @param qValueObj 当前问题的答案
-	 * @return
-	 */
+	/** 通过问题答案手动构建like 查询 */
 	private String buildLikeQueryConditionOfQuestion(SchemaHelper.TreeNode qNode, Map qValueObj) {
 		SurveySchema optionSchema = qNode.getData().getChildren().get(0);
 		String optionId = optionSchema.getId();
@@ -284,11 +252,7 @@ public class PublicQueryService {
 		return String.format("{\"%s\":%s}", optionId, value);
 	}
 
-	/**
-	 * 根据字段权限配置过滤结果集，过滤掉隐藏题的答案
-	 * @param answer
-	 * @param fieldPermission
-	 */
+	/** 根据字段权限配置过滤结果集，过滤掉隐藏题的答案 */
 	private void filterAnswerByFieldPermission(LinkedHashMap answer, LinkedHashMap<String, Integer> fieldPermission) {
 		fieldPermission.entrySet().forEach(entry -> {
 			String qId = entry.getKey();

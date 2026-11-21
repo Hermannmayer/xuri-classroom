@@ -148,16 +148,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 
 
 
-	/**
-	 * 查一个题库里符合条件的题：章节 / 难度交给 SQL，题型在内存里过滤。
-	 *
-	 * <p>为什么题型不交给 SQL：{@code TemplateQuery.questionType} 一次只能带一种题型，而组卷要的是
-	 * 「配比里那一整组题型」；分题型查 N 次再合并，还不如查一次按枚举筛。
-	 *
-
-	 * 「XX 题型题库里只有 N 道」这句话会失真，老师照着放宽条件也补不出题来。
-	 * 这里与既有组卷（{@code ComposeServiceImpl})同口径：一个题库的题量按「能整份读进内存」设计。
-	 */
+	/** 查一个题库里符合条件的题：章节 / 难度交给 SQL，题型在内存里过滤 */
 	private List<Candidate> loadCandidates(String repoId, List<String> chapters, List<String> difficulties,
 			Set<String> types) {
 		TemplateQuery query = new TemplateQuery();
@@ -191,7 +182,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return candidates;
 	}
 
-	/* ====== 任务体：挑选 → 补齐 → 组卷 ====== */
+	/** ====== 任务体：挑选 → 补齐 → 组卷 ====== */
 
 	private AiPaperPickView assemble(AiPaperSpec spec, List<RepoView> repos, List<Candidate> candidates,
 			boolean aiSelect, int maxCandidates, Map<String, Double> typeScores, String userId,
@@ -315,13 +306,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return parsePicks(completion == null ? null : completion.getText(), pool);
 	}
 
-	/**
-	 * 解析模型挑选结果：只认候选清单里真实存在的 id。
-	 *
-	 * <p>模型偶尔会编 id、写重复 id、或者干脆返回空数组：<b>编的 id 一律丢弃</b>（宁可少挑一道，
-	 * 也不能让不存在的题混进卷子）；一条可用结果都没有时打日志，由上层用随机补齐兜底，
-	 * 并在摘要里如实写「模型没有挑出可用题目」。
-	 */
+	/** 解析模型挑选结果：只认候选清单里真实存在的 id */
 	private LinkedHashMap<String, String> parsePicks(String json, List<Candidate> pool) {
 		JsonNode root = support.readJson(json, "组卷");
 		if (root == null || root.isMissingNode()) {
@@ -350,14 +335,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return picks;
 	}
 
-	/**
-	 * 模板 → 可直接写进画布的题目：先深拷贝再补分值。
-	 *
-	 * <p>为什么必须深拷贝：{@code Template.template} 是 MyBatis 反序列化出来的共享对象，就地改
-	 * {@code examScore} 会污染同一个模板在别处的用法（而且下一次组卷会带着上次的分值）。
-	 * 只补 {@code examScore} 与空的章节 / 难度，其余字段（题干、选项、答案）原样带过去——
-	 * 渲染层的 {@code optionsOf} 对「选项只在 children 里、没有 dataSource」的存量题已有兜底，不需要重建。
-	 */
+	/** 模板 → 可直接写进画布的题目：先深拷贝再补分值 */
 	private SurveySchema toQuestion(Candidate candidate, double score) {
 		SurveySchema question;
 		try {
@@ -456,16 +434,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return text.append("。").toString();
 	}
 
-	/**
-	 * 一道题的挑选理由：模型挑的用模型给的理由；模型挑剩的（或压根没让模型挑的）才写「随机」。
-	 *
-
-	 * <ul>
-	 * <li>模型挑中的 → 用模型理由；</li>
-	 * <li>aiSelect=true 但模型没挑够 → 「按条件随机补齐」；</li>
-	 * <li>aiSelect=false（或模型一条可用结果都没给）→ 「按条件随机抽取」。</li>
-	 * </ul>
-	 */
+	/** 一道题的挑选理由：模型挑的用模型给的理由；模型挑剩的（或压根没让模型挑的）才写「随机」 */
 	private static String reasonOf(String modelReason, boolean aiSelect, boolean modelPicked) {
 		if (StringUtils.hasText(modelReason)) {
 			return modelReason;
@@ -483,17 +452,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 
 
 
-	/**
-	 * 把题型配比缩放成「加和为 1」再交给 {@link AiPaperSpec}。
-	 *
-	 * <p>为什么这一步不能让 {@code AiPaperSpec} 自己做：它的 javadoc 写着「比例不要求加和为 1」，
-	 * 但 {@code expectedTypeCount()} 是直接拿 {@code ratio × 题量} 取整的——如果前端按百分比传
-	 * 40 / 20 / 20 / 20，20 题会被算成 800 题，整张卷子直接崩。这里按总和缩放，
-	 * 百分比（40/20/20/20）与小数（0.4/0.2/0.2/0.2）走同一条路。
-	 *
-	 * <p>非法值（null / 负数 / 与其它值一起出现的不支持题型）原样保留，交给
-	 * {@code AiPaperSpec.of} 抛中文错误——在这里静默丢掉只会让老师看到一份「少了一种题型」的卷子。
-	 */
+	/** 把题型配比缩放成「加和为 1」再交给 AiPaperSpec */
 	private static Map<String, Double> normalizeRatio(LinkedHashMap<String, Double> typeRatio) {
 		Map<String, Double> result = new LinkedHashMap<>();
 		if (typeRatio == null || typeRatio.isEmpty()) {
@@ -542,7 +501,7 @@ public class AiPaperPickServiceImpl implements AiPaperPickService {
 		return result;
 	}
 
-	/** 题型名大小写不敏感（与 {@code AiPaperSpec} 的配比口径一致）：Radio / radio 都认 */
+	/** 题型名大小写不敏感（与 AiPaperSpec 的配比口径一致）：Radio / radio 都认 */
 	private static Map<String, Double> normalizeTypeScores(LinkedHashMap<String, Double> typeScores) {
 		Map<String, Double> result = new LinkedHashMap<>();
 		if (typeScores == null || typeScores.isEmpty()) {

@@ -122,13 +122,7 @@ function rangeText(start?: string | number, end?: string | number, emptyLabel = 
   return `${fmt(start)} ~ ${fmt(end)}`;
 }
 
-/**
- * 班级资源面板：考试/问卷（project）与题库（repo）两类。
- *
- * <p>管理员/可管理的任课老师给本班分配资源，并设置本班开放窗口：
- * 考试/问卷的全局窗口是硬上限，本班窗口留空表示继承全局；题库暂无全局窗口，留空=不限。
- * 关闭开关后本班学员看不到。只读老师只能看列表（写操作按钮不渲染）。
- */
+/** 班级资源面板：考试/问卷（project）与题库（repo）两类 */
 export default function ClassResourcesPanel({
   classId,
   manageable,

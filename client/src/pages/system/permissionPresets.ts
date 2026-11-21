@@ -49,11 +49,7 @@ const WRITE_ACTIONS = new Set([
 
 const BASIC_CODES = new Set<string>([PERMISSION_CODES.userUpdate]);
 
-/**
- * 按权限串最后一段判断「看 / 改」。
- * 两端都不命中的（如 content:protect、updatePosition、system:dictItem:import）归入「基础」，不强行归边。
- * updatePosition 这类复合动作按动词前缀兜底，避免把写操作显示成「基础」。
- */
+/** 按权限串最后一段判断「看 / 改」 */
 export function permissionKind(code: string): PermissionKind {
   if (BASIC_CODES.has(code)) return 'basic';
   const action = code.split(':').pop() ?? code;

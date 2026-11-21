@@ -26,9 +26,7 @@ public class CronHelper {
 		}
 	}
 
-	/**
-	 * @return 当前时间窗
-	 */
+	/** 返回 当前时间窗；返回 当前时间窗 */
 	public Tuple2<LocalDateTime, LocalDateTime> currentWindow() {
 		if (this.cronExpression == null) {
 			return defaultWindow();
@@ -39,10 +37,7 @@ public class CronHelper {
 		return new Tuple2<>(currentWindowStart, nextWindow.getFirst());
 	}
 
-	/**
-	 * 下个时间窗
-	 * @return
-	 */
+	/** 下个时间窗 */
 	public Tuple2<LocalDateTime, LocalDateTime> nextWindow() {
 		if (this.cronExpression == null) {
 			return defaultWindow();

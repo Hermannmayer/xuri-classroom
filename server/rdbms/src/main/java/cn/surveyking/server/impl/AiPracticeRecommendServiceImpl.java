@@ -209,7 +209,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return aiJobService.submit(scene, userId, context -> run(context, plan, userId, scene));
 	}
 
-	/* ====== 任务体：调模型 → 组结果 ====== */
+	/** ====== 任务体：调模型 → 组结果 ====== */
 
 	private void run(AiJobService.JobContext context, Plan plan, String userId, String scene) {
 		Map<String, String> vars = new LinkedHashMap<>();
@@ -361,13 +361,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return schema;
 	}
 
-	/**
-	 * 选择题的选项列表按 children 重建（与 {@code ComposeServiceImpl#rebuildDataSource} 同一处理）。
-	 *
-	 * <p>两个理由：一是题库里改过选项后 dataSource 可能是旧的，直接进画布会出现「选项列表里有、点开没有」
-	 * 的错位；二是老师点「采纳」时会走 {@code AiContentGuard#checkAccepted}，它要求 choices 的
-	 * dataSource 与 children **一一对上**——重建一次，存量题里的脏 dataSource 才不会让整批采纳被拒。
-	 */
+	/** 选择题的选项列表按 children 重建（与 ComposeServiceImpl#rebuildDataSource 同一处理） */
 	private void rebuildDataSource(SurveySchema question) {
 		SurveySchema.QuestionType type = question.getType();
 		if (type != SurveySchema.QuestionType.Radio && type != SurveySchema.QuestionType.Checkbox
@@ -408,13 +402,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 
 
 
-	/**
-	 * 每题得分率（0~1）：{@code questionId → 得分率}，只含有分值且能算出平均分的题。
-	 *
-	 * <p>两条口径合并（见类注释）：先按 {@code exam_info.question_score} 聚合考试逐题得分，
-	 * 再用报表 {@link ReportData#getStatistics()} 补数值型题。这里只读汇总分，
-	 * <b>不读、也不保留任何学员原始作答</b>。
-	 */
+	/** 每题得分率（0~1）：questionId → 得分率，只含有分值且能算出平均分的题 */
 	private Map<String, Double> scoreRates(List<SurveySchema> questions, ReportData report, String projectId,
 			String classId) {
 		Map<String, SurveySchema> byId = new LinkedHashMap<>();
@@ -488,7 +476,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return answers == null ? List.of() : answers;
 	}
 
-	/** 得分率升序取前 {@link #MAX_WEAK_QUESTIONS} 题：越低越需要重练 */
+	/** 得分率升序取前 #MAX_WEAK_QUESTIONS 题：越低越需要重练 */
 	private List<Weak> rankWeak(List<SurveySchema> questions, Map<String, Double> rates) {
 		List<Weak> list = new ArrayList<>();
 		for (SurveySchema question : questions) {
@@ -505,12 +493,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return list.size() <= MAX_WEAK_QUESTIONS ? list : new ArrayList<>(list.subList(0, MAX_WEAK_QUESTIONS));
 	}
 
-	/**
-	 * 按考点聚合：chapter → 标签 → 题干关键词，三级兜底保证每个薄弱题都能落到一个考点上。
-	 *
-	 * <p>输出按考点得分率升序：分组的插入顺序只反映「组里最弱那道题」的顺序，聚完一组之后整体得分率
-	 * 可能被拉高，所以这里再排一次，前端和提示词看到的口径一致。
-	 */
+	/** 按考点聚合：chapter → 标签 → 题干关键词，三级兜底保证每个薄弱题都能落到一个考点上 */
 	private void groupFocus(List<Weak> weak, List<AiPracticeRecommendView.Focus> focuses, List<String> focusLines) {
 		LinkedHashMap<String, Group> groups = new LinkedHashMap<>();
 		for (Weak item : weak) {
@@ -550,13 +533,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 
 
 
-	/**
-	 * 按考点从题库捞候选题。
-	 *
-	 * <p>先把题库整池读一遍（与组卷同一口径，见 {@link #loadRepoPool} 的注释），再按「章节 = 考点 / 标签 = 考点 / 题名包含考点」
-	 * 在内存里筛：一次查询比按考点逐个打 DB 便宜，也不会因为某个考点的措辞不完全一致而漏题。
-	 * 某个考点在题库里一道都没有时<b>跨章节回退</b>到整池（不把这一档晾空），回退来的题不归属任何考点。
-	 */
+	/** 按考点从题库捞候选题 */
 	private List<Candidate> loadCandidates(String repoId, List<AiPracticeRecommendView.Focus> focuses) {
 		List<TemplateView> pool = loadRepoPool(repoId);
 		if (CollectionUtils.isEmpty(pool)) {
@@ -658,7 +635,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 				AiAssistSupport.plainTitle(title, MAX_TITLE_CHARS), schema, focusPoint);
 	}
 
-	/* ====== 文本拼装 ====== */
+	/** ====== 文本拼装 ====== */
 
 	private String buildFocusText(List<String> focusLines, int answerCount) {
 		StringBuilder text = new StringBuilder();
@@ -705,7 +682,7 @@ public class AiPracticeRecommendServiceImpl implements AiPracticeRecommendServic
 		return text.toString();
 	}
 
-	/* ====== 小工具 ====== */
+	/** ====== 小工具 ====== */
 
 	private static int normalizeCount(Integer value) {
 		if (value == null) {

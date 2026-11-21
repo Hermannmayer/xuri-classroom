@@ -123,10 +123,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-/**
- * 后端 listClassTree 返回的是嵌套树；如果哪天改成扁平列表（只有 parentId），这里按 parentId 重新组装。
- * 父节点不在结果里的节点当成根（后端只返回「可见子树 + 补出来的祖先路径」）。
- */
+/** 后端 listClassTree 返回的是嵌套树；如果哪天改成扁平列表（只有 parentId），这里按 parentId 重新组装 */
 function normalizeTree(list: ClassNode[]): ClassNode[] {
   const nested = list.some((node) => (node.children?.length ?? 0) > 0);
   if (nested) return list;
@@ -155,11 +152,7 @@ function findNode(nodes: ClassNode[], id: string): ClassNode | undefined {
   return undefined;
 }
 
-/**
- * 自动选中第一个叶子班。
- * 树里可能有「只是路径」的祖先节点（后端为了让被授权的班有路径可显示补出来的），
-
- */
+/** 自动选中第一个叶子班 */
 function firstSelectable(nodes: ClassNode[]): ClassNode | undefined {
   for (const node of nodes) {
     const leaf = !node.children || node.children.length === 0;
@@ -241,21 +234,7 @@ function MemberStatus({ status }: { status?: number | null }) {
   return <span style={{ color: 'var(--bp-text-soft)' }}>—</span>;
 }
 
-/**
- * 班级管理（老师 / 管理员视角）。
- *
- * 权限切分：
- * - class:list          → 进页面（路由守卫）
- * - class:detail        → 看本班成员
- * - class:grant         → 看全部班级、给老师分配查看权限
- * - class:member:create → 在自己管的班里添加学员
- *
- * 数据全部来自后端（/api/teaching/classes/tree 只返回班级节点），没有班级时显示引导而不是假数据。
- *
- * <p>embedded=true 时本页被「教学」的班级 Tab 嵌进去用：页头（CLASS 标签、标题、说明）交给外层，
- * 这里只留「新建班级 / 待审核 / 刷新」工具条并靠右；其余布局与独立访问完全一致，
- * 这样两侧任何一个入口看到的都是同一套行为，不会出现「嵌入版少了个按钮」。
- */
+/** 班级管理（老师 / 管理员视角） */
 export default function TeachingClasses({ embedded = false }: { embedded?: boolean }) {
   const { message } = App.useApp();
   const isMobile = useIsMobile();
@@ -736,8 +715,7 @@ export default function TeachingClasses({ embedded = false }: { embedded?: boole
     password?: string;
   }>();
 
-  // 弹窗里的 Form 要等 open=true 才会挂载；在挂载之前 resetFields 既会触发 antd 的
-  // 「Instance created by useForm is not connected to any Form element」告警，也清不掉上一轮的残留值。
+  // 弹窗里的 Form 要等 open=true 才会挂载；在挂载之前 resetFields 既会触发 antd 的 「Instance created by useForm is not connected to any Form element」告警，也清不掉上一轮的残留值。
 
   const openMemberModal = () => {
     setMemberOpen(true);

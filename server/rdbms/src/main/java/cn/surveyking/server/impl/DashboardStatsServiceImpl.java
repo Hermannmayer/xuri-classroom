@@ -219,12 +219,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return view;
 	}
 
-	/**
-	 * 人：学员 / 老师 / 管理员互斥，合计就是三者之和。
-	 *
-	 * <p>先认管理员再认 user_type：管理员账号的 user_type 也是 staff，不先扣掉就会被数两次
-	 * （「老师 5 人 + 管理员 1 人 = 6」但系统里只有 5 个 staff）。
-	 */
+	/** 人：学员 / 老师 / 管理员互斥，合计就是三者之和 */
 	private void fillUsers(DashboardOverviewView.Users users) {
 		long admins = safeCount("users.admin",
 				() -> userMapper.selectCount(new QueryWrapper<User>().apply(ADMIN_USER_SQL)));
@@ -245,12 +240,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		}));
 	}
 
-	/**
-	 * 项目：一次 group by (mode, status) 拿到全部计数，再单独解析「进行中」。
-	 *
-	 * <p>不把 t_project 整表拉回来：survey / setting 都是 longtext，一堂考试几 KB，
-	 * 几百个项目就是几 MB，首页扛不住。只有「已发布的考试」才需要 setting，用来解析时间窗。
-	 */
+	/** 项目：一次 group by (mode, status) 拿到全部计数，再单独解析「进行中」 */
 	private void fillProjects(DashboardOverviewView.Projects projects) {
 		List<Map<String, Object>> rows = safe("projects.count", () -> projectMapper.selectMaps(new QueryWrapper<Project>()
 				.select("mode", "status", "COUNT(*) AS cnt").groupBy("mode", "status")), Collections.emptyList());
@@ -287,13 +277,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		projects.setRunning(safe("projects.running", this::countRunningExams, 0L));
 	}
 
-	/**
-	 * 进行中的考试：mode=exam + status=1 + 当前落在 [startTime, endTime] 内（两端为空表示不限）。
-	 *
-	 * <p>时间窗来自 setting JSON（t_project 没有独立的时间列），所以这条只能把已发布考试的
-	 * id + setting 取回来在 Java 里判断 —— 这是本类唯一会读 setting 的地方，行数受「已发布考试」
-	 * 限制，不会随历史数据增长。
-	 */
+	/** 进行中的考试：mode=exam + status=1 + 当前落在 [startTime, endTime] 内（两端为空表示不限） */
 	private long countRunningExams() {
 		List<Map<String, Object>> rows = projectMapper.selectMaps(new QueryWrapper<Project>().select("id", "setting")
 				.eq("mode", ProjectModeEnum.exam.name()).eq("status", 1));
@@ -308,18 +292,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return running;
 	}
 
-	/**
-	 * 班级：总数 / 开班中 / 在册学员 / 平均班额。
-	 *
-	 * <p>「开班中」的三个条件（缺一个都不算）：
-	 * <ol>
-	 * <li>教学班：class_kind ≠ group（历史数据 class_kind 为空按容器班处理，与
-	 * {@code ClassServiceImpl#classKindOf} 一致）；</li>
-	 * <li>有在册学员：主班（t_user.dept_id）或兼报班（t_user_dept）里有人；</li>
-	 * <li>有已发布项目资源：t_class_resource 里 status=1 且指向已发布考试/问卷。</li>
-	 * </ol>
-	 * 「在册学员」按主班去重：一个学员只有一个主班，兼报班不重复计人，所以总数不会大于学员总数。
-	 */
+	/** 班级：总数 / 开班中 / 在册学员 / 平均班额 */
 	private void fillClasses(DashboardOverviewView.Classes classes) {
 		List<Map<String, Object>> classRows = safe("classes.list",
 				() -> deptMapper.selectMaps(new QueryWrapper<Dept>().select("id", "class_kind").eq("dept_type", Dept.TYPE_CLASS)),
@@ -402,14 +375,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 				() -> answerMapper.selectCount(formalAnswers().eq("grade_status", GRADE_PENDING))));
 	}
 
-	/**
-	 * 题库：t_repo / t_template 的逻辑未删除行数。
-	 *
-	 * <p>t_template 走 @TableLogic 自动补 is_deleted=0；<b>t_repo 必须手写</b>：{@code Repo} 实体把
-	 * {@code deleted} 重新声明成了 {@code @TableField(exist = false)}（为了不让它出现在 JSON 里），
-	 * MyBatis-Plus 因此认为这张表没有逻辑删除列，不会自动补条件（实测 Repo 的
-	 * {@code TableInfo.isWithLogicDelete()=false}，User/Dept/Project/Answer/ClassResource 都是 true）。
-	 */
+	/** 题库：t_repo / t_template 的逻辑未删除行数 */
 	private void fillQuestions(DashboardOverviewView.Questions questions) {
 
 
@@ -417,12 +383,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		questions.setTemplates(safeCount("questions.templates", () -> templateMapper.selectCount(new QueryWrapper<Template>())));
 	}
 
-	/**
-	 * 分数：一条聚合就够（COUNT / AVG / MAX / MIN + 及格数）。
-	 *
-	 * <p>只看有分数的正式答卷：问卷的 exam_score 是空的，算进分母会把平均分拉低。
-	 * 没有样本时四个值都给 null（而不是 0），前端显示「—」即可。
-	 */
+	/** 分数：一条聚合就够（COUNT / AVG / MAX / MIN + 及格数） */
 	private void fillScores(DashboardOverviewView.Scores scores) {
 		Map<String, Object> row = safe("scores", () -> {
 			List<Map<String, Object>> rows = answerMapper.selectMaps(formalAnswers()
@@ -456,16 +417,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return buildTrend(normalizeDays(days), formalAnswers(), "trend");
 	}
 
-	/**
-	 * 当前老师可见范围内的趋势（老师首页用）：只统计 {@link #teacher()} 那批项目下的正式答卷。
-	 *
-	 * <p>可见项目与老师首页共用 {@link #visibleProjectIds} + {@link #visibleProjectRows}：两处各写一遍
-	 * 「哪些项目算我的」，迟早会出现「卡片说 9 个项目、趋势却画了别人的卷子」这种对不上的偏差，
-	 * 而这类错位用户第一眼就能看出来（而且等于把看不到的项目规模透出去了）。
-	 *
-	 * <p>没有任何可见项目时返回「整段 0 值」的完整窗口（不查库）：前端按等长数组画图，
-	 * 空数组会把日期轴也一起弄空，页面上是一块空白，而不是「最近 14 天都是 0」。
-	 */
+	/** 当前老师可见范围内的趋势（老师首页用）：只统计 #teacher() 那批项目下的正式答卷 */
 	@Override
 	public DashboardTrendView teacherTrend(int days) {
 		int window = normalizeDays(days);
@@ -485,14 +437,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return projectIdList(visibleProjectRows(projectIds));
 	}
 
-	/**
-	 * 趋势骨架：一条 SQL 出四个序列，日期轴在 Java 里逐日补齐。
-	 *
-	 * @param window 已夹取过的窗口天数
-	 * @param scope 统计范围（正式答卷 + 可选的项目过滤）；<b>null 表示一个可见项目都没有</b>，
-	 * 此时不查库，直接按天补 0
-	 * @param block 失败兜底日志里的块名，用来区分是全站口径还是老师口径挂了
-	 */
+	/** 趋势骨架：一条 SQL 出四个序列，日期轴在 Java 里逐日补齐 */
 	private DashboardTrendView buildTrend(int window, QueryWrapper<Answer> scope, String block) {
 		DashboardTrendView view = new DashboardTrendView();
 		LocalDate today = LocalDate.now();
@@ -539,17 +484,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 
 
 
-	/**
-	 * 当前老师可见范围内的首页数字。
-	 *
-	 * <p>班级可见性直接复用 {@code ClassService.listClassTree}：班主任是自己创建/负责的班，
-	 * 被授权老师是 t_class_partner 里的班（含下级班），管理员 / class:grant 是全部 —— 与班级管理页
-	 * 看到的完全一致，不在首页另写一套判定。
-	 *
-	 * <p>项目可见性 = 自己创建 ∪ 所有者/协作者（t_project_partner，含按用户组授权）∪
-	 * 可见班级上分配过的资源。前两条与 {@code AnswerAccessGuard#canManageProject} 同源，
-	 * 第三条覆盖「资源分配给班级」这一层：老师没被加成协作者，但班是他带的。
-	 */
+	/** 当前老师可见范围内的首页数字 */
 	@Override
 	public TeacherDashboardView teacher() {
 		String userId = SecurityContextUtils.getUserId();
@@ -604,12 +539,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		}
 	}
 
-	/**
-	 * 可见班级里的学员去重数：主班（t_user.dept_id）∪ 兼报班（t_user_dept）。
-	 *
-	 * <p>不能直接把每个班的 memberCount 加起来：兼报班学员会被数两次。所以取 id 再求并集，
-	 * 学员量级是「几个班 × 几十人」，只取 id 一列，代价可控。
-	 */
+	/** 可见班级里的学员去重数：主班（t_user.dept_id）∪ 兼报班（t_user_dept） */
 	private long countStudentsInClasses(List<String> classIds) {
 		Set<String> ids = new LinkedHashSet<>();
 		userMapper.selectObjs(new QueryWrapper<User>().select("id").eq("user_type", "student").in("dept_id", classIds))
@@ -651,12 +581,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return ids;
 	}
 
-	/**
-	 * 老师可见的、可作答的项目行（id / name / mode / status / create_at）。
-	 *
-	 * <p>文件夹只是分组容器：既不算「项目数」，也不可能有答卷，所以在这里一次性滤掉。
-	 * 老师首页的项目卡、最近项目表和老师趋势都从这里取，避免三处各写一遍过滤、各自漏一种情况。
-	 */
+	/** 老师可见的、可作答的项目行（id / name / mode / status / create_at） */
 	private List<Map<String, Object>> visibleProjectRows(Set<String> projectIds) {
 		if (projectIds == null || projectIds.isEmpty()) {
 			return new ArrayList<>();
@@ -677,10 +602,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 				.collect(Collectors.toList());
 	}
 
-	/**
-	 * 最近有动静的 8 个项目：一条 group by project_id 拿齐答卷数/平均分/待批改/最后交卷时间，
-	 * 再按「最后交卷时间倒序、没交过的按建卷时间倒序」排序。
-	 */
+	/** 最近有动静的 8 个项目：一条 group by project_id 拿齐答卷数/平均分/待批改/最后交卷时间， 再按「最后交卷时间倒序、没交过的按建卷时间倒序」排序 */
 	private List<TeacherDashboardView.Recent> buildRecentProjects(List<Map<String, Object>> projectRows, List<String> ids) {
 		Map<String, Map<String, Object>> statsByProject = new HashMap<>();
 		for (Map<String, Object> row : safe("teacher.recent", () -> answerMapper
@@ -767,23 +689,13 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return new ArrayList<>(ids);
 	}
 
-	/**
-	 * 练习记录：与「我的练习记录」列表（{@code ExerciseAnswerService#historyExercise}）同一口径 ——
-	 * 有 exam_exercise_type 的行，且「真的动过」（已交卷或暂存里有内容）。
-	 *
-	 * <p>只点开「开始练习」会建一条空 record，不滤掉的话练习次数会被点开次数刷高。
-	 */
+	/** 练习记录：与「我的练习记录」列表（ExerciseAnswerService#historyExercise）同一口径 —— 有 exam_exercise_type 的行，且「真的动过」（已交卷或暂存里有内容） */
 	private QueryWrapper<Answer> practiceAnswers(String userId) {
 		return new QueryWrapper<Answer>().eq("create_by", userId).isNotNull("exam_exercise_type")
 				.and(wrapper -> wrapper.eq("temp_save", FORMAL).or().isNotNull("temp_answer").ne("temp_answer", ""));
 	}
 
-	/**
-	 * 练习过的题目数：去重题数，来自 t_answer_item 投影（交卷时把 answer JSON 展开成一题一行）。
-	 *
-	 * <p>用 EXISTS 式子查询按 create_by 反查，不把练习记录 id 全捞出来再 IN：练习次数可以很多，
-	 * id 列表会越滚越长。投影没同步到的历史练习不计入（偏小），也不会因此报错。
-	 */
+	/** 练习过的题目数：去重题数，来自 t_answer_item 投影（交卷时把 answer JSON 展开成一题一行） */
 	private long countPracticeQuestions(String userId) {
 		List<Map<String, Object>> rows = answerItemMapper.selectMaps(new QueryWrapper<AnswerItem>()
 				.select("COUNT(DISTINCT question_id) AS cnt")
@@ -792,13 +704,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 		return asLong(firstRow(rows).get("cnt"));
 	}
 
-	/**
-	 * 待参加的考试：分配到我所在班级、已发布、当前在开放时间内、我还没交过。
-	 *
-	 * <p>「开放时间」与 {@code ClassResourceService} 完全一致：班级窗口为空表示继承项目的全局窗口
-	 * （examSetting.startTime/endTime），班级窗口非空时以它为准（全局是硬上限，分配时就校验过）。
-	 * 一个班关闭不代表别的班也关闭：同一场考试可能在多个班上有不同窗口，任一窗口开放即可参加。
-	 */
+	/** 待参加的考试：分配到我所在班级、已发布、当前在开放时间内、我还没交过 */
 	private long countTodoExams(String userId, List<String> classIds) {
 		Map<String, List<Map<String, Object>>> windowsByProject = new LinkedHashMap<>();
 		for (Map<String, Object> row : classResourceMapper.selectMaps(new QueryWrapper<ClassResource>()
@@ -867,11 +773,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 
 
 
-	/**
-	 * 单个子统计的失败兜底：任何 RuntimeException 都只让这一块变成默认值，其余块照常返回。
-	 *
-	 * <p>首页是聚合接口，一个口径（比如 JSON 脏数据）失败就把整页 500，用户会以为系统挂了。
-	 */
+	/** 单个子统计的失败兜底：任何 RuntimeException 都只让这一块变成默认值，其余块照常返回 */
 	private <T> T safe(String block, Supplier<T> supplier, T fallback) {
 		try {
 			T value = supplier.get();

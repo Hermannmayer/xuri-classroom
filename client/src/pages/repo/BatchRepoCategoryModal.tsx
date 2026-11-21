@@ -52,12 +52,7 @@ function buildCategoryOptions(list: RepoCategory[]): CategoryOption[] {
   return build('');
 }
 
-/**
- * 题库批量移动到分类/文件夹。
- *
- * <p>树选择原有分类（根「未分类」= 清空分类），也可以直接输入一个新路径；
- * 新路径优先。确认后逐个 POST /api/repo/update {id, category}，最后按成功/失败计数。
- */
+/** 题库批量移动到分类/文件夹 */
 export default function BatchRepoCategoryModal({
   open,
   ids,

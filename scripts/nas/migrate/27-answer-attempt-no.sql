@@ -1,7 +1,4 @@
--- S1-3：交卷幂等从进程内窗口升级为数据库约束
--- (project_id, create_by, attempt_no) 唯一：多实例并发重复提交只落一条。
--- 说明：create_by 为 NULL 的纯匿名提交不会被唯一索引约束（MySQL 唯一索引允许多个 NULL），
--- 这类提交仍靠设备限次 cookie；登录用户/白名单用户（create_by 非空）受约束。
+-- S1-3：交卷幂等从进程内窗口升级为数据库约束 (project_id, create_by, attempt_no) 唯一：多实例并发重复提交只落一条。
 
 ALTER TABLE t_answer
   ADD COLUMN attempt_no INT NOT NULL DEFAULT 0 COMMENT '同项目同答题人的第几次作答（从 0 开始）' AFTER items_synced;

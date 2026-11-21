@@ -62,9 +62,7 @@ public class ScriptRunner {
 
 	private String userDirectory = System.getProperty("user.dir");
 
-	/**
-	 * Default constructor
-	 */
+	/** Default constructor */
 	public ScriptRunner(Connection connection, boolean autoCommit, boolean stopOnError) {
 		this.connection = connection;
 		this.autoCommit = autoCommit;
@@ -103,43 +101,28 @@ public class ScriptRunner {
 		this.fullLineDelimiter = fullLineDelimiter;
 	}
 
-	/**
-	 * Setter for logWriter property
-	 * @param logWriter - the new value of the logWriter property
-	 */
+	/** Setter for logWriter property */
 	public void setLogWriter(PrintWriter logWriter) {
 		this.logWriter = logWriter;
 	}
 
-	/**
-	 * Setter for errorLogWriter property
-	 * @param errorLogWriter - the new value of the errorLogWriter property
-	 */
+	/** Setter for errorLogWriter property */
 	public void setErrorLogWriter(PrintWriter errorLogWriter) {
 		this.errorLogWriter = errorLogWriter;
 	}
 
-	/**
-	 * Set the current working directory. Source commands will be relative to this.
-	 */
+	/** Set the current working directory. Source commands will be relative to this. */
 	public void setUserDirectory(String userDirectory) {
 		this.userDirectory = userDirectory;
 	}
 
-	/**
-	 * Runs an SQL script (read in using the Reader parameter)
-	 * @param filepath - the filepath of the script to run. May be relative to the
-	 * userDirectory.
-	 */
+	/** Runs an SQL script (read in using the Reader parameter) */
 	public void runScript(String filepath) throws IOException, SQLException {
 		File file = new File(userDirectory, filepath);
 		this.runScript(new BufferedReader(new FileReader(file)));
 	}
 
-	/**
-	 * Runs an SQL script (read in using the Reader parameter)
-	 * @param reader - the source of the script
-	 */
+	/** Runs an SQL script (read in using the Reader parameter) */
 	public void runScript(Reader reader) throws IOException, SQLException {
 		try {
 			boolean originalAutoCommit = connection.getAutoCommit();
@@ -161,14 +144,7 @@ public class ScriptRunner {
 		}
 	}
 
-	/**
-	 * Runs an SQL script (read in using the Reader parameter) using the connection passed
-	 * in
-	 * @param conn - the connection to use for the script
-	 * @param reader - the source of the script
-	 * @throws SQLException if any SQL errors occur
-	 * @throws IOException if there is an error reading from the Reader
-	 */
+	/** Runs an SQL script (read in using the Reader parameter) using the connection passed in */
 	private void runScript(Connection conn, Reader reader) throws IOException, SQLException {
 		StringBuffer command = null;
 		try {

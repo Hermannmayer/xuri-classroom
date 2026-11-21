@@ -1,6 +1,4 @@
 // 把「25年新 -育婴、养老、保育复习题各科题库」目录下的 9 个 xlsx 分别导入成独立题库。
-// 用法：node scripts/dev/import-repos.cjs <目录>
-// 依赖 client/node_modules 里的 jsencrypt（RSA 登录）和 Node 18+ 的 fetch/FormData/Blob。
 const fs = require('fs');
 const path = require('path');
 const JSEncrypt = require(path.join(__dirname, '../../client/node_modules/jsencrypt'));

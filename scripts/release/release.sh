@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # 旭日云课堂发版准备脚本（Linux/macOS）。
-# 本地只写版本、CHANGELOG、提交、打 tag；-p/--push 推到 GitHub 后由 Actions 构建并创建 Release。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

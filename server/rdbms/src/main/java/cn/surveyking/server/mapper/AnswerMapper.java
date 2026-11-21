@@ -26,18 +26,10 @@ public interface AnswerMapper extends BaseMapper<Answer> {
 
 	void restoreAnswer(List<String> ids);
 
-	/**
-	 * 同项目 + 同答题人已用的最大作答序号（含已逻辑删除的行，避免撞唯一键）。
-	 * @return 没有历史答卷时返回 -1
-	 */
+	/** 同项目 + 同答题人已用的最大作答序号（含已逻辑删除的行，避免撞唯一键）；返回 没有历史答卷时返回 -1。 */
 	Integer selectMaxAttemptNo(@Param("projectId") String projectId, @Param("createBy") String createBy);
 
-	/**
-	 * 可物理清理的匿名答卷 id：已经逻辑删除、且删除时间早于 cutoff。
-	 *
-	 * <p>业务查询被 {@code @TableLogic} 挡住了，只有原生 SQL 能捞出来。
-	 * 用 {@code update_at} 表示「进回收站的时间」（逻辑删除是一次 UPDATE）。
-	 */
+	/** 可物理清理的匿名答卷 id：已经逻辑删除、且删除时间早于 cutoff */
 	List<String> selectPurgeableAnonymousIds(@Param("cutoff") Date cutoff, @Param("limit") int limit);
 
 	/** 物理删除（真 DELETE），只给匿名答卷物理清理任务用 */

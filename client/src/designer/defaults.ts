@@ -139,11 +139,7 @@ export function nextOptionValue(schema: SurveySchema): string {
   return `o${i}`;
 }
 
-/**
- * 保证每道数据题都有 children。
- * 后端 AnswerServiceImpl.updateLinkSurveyAnswer 直接取 getChildren().get(0)，
- * 缺 children 的题会让整次提交 500；选项类还要与 dataSource 的 value 对齐（答案 key 就是它）。
- */
+/** 保证每道数据题都有 children */
 export function normalizeSchema(schema: SurveySchema): SurveySchema {
   const children = schema.children?.map(normalizeSchema);
   if (!DATA_TYPES.has(schema.type)) return { ...schema, children };

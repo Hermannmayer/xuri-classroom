@@ -50,13 +50,7 @@ interface Dept {
 
 type CollabMode = 'user' | 'group';
 
-/**
- * 协作 + 授权：一份考试/问卷可以
- * 1) 加协作者（type=2，能编辑题目、看数据）
- * 2) 授权给班级（type=3 + group_id，该班学员在「我的考试」里能看到这份卷子）
- *
- * 匿名答题不受这里影响：公开链接 /s/:id 任何人都能答。
- */
+/** 协作 + 授权：一份考试/问卷可以 1) 加协作者（type=2，能编辑题目、看数据） 2) 授权给班级（type=3 + group_id，该班学员在「我的考试」里能看到这份卷子） */
 export default function PartnerPanel({
   projectId,
   canManage = false,

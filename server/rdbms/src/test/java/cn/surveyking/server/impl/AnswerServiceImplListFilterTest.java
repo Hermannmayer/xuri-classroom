@@ -109,10 +109,7 @@ class AnswerServiceImplListFilterTest {
 
 	private Wrapper<Answer> lastWrapper;
 
-	/**
-	 * 单测不启动 MyBatis，Lambda 缓存是空的：{@code Answer::getExamScore} 解析不出列名。
-	 * 这里手动登记一次表元数据（与 {@code ApiTokenServiceImplTest} 同样的处理）。
-	 */
+	/** 单测不启动 MyBatis，Lambda 缓存是空的：Answer::getExamScore 解析不出列名 */
 	@BeforeAll
 	static void initTableInfo() {
 		TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),
@@ -214,12 +211,7 @@ class AnswerServiceImplListFilterTest {
 
 
 
-	/**
-	 * 跑一次 {@code listAnswer} 并把生成的 Wrapper 抓下来。
-	 *
-
-	 * {@code create_by = 当前用户}，把要断言的片段挤在一起。
-	 */
+	/** 跑一次 listAnswer 并把生成的 Wrapper 抓下来 */
 	private String sqlOf(AnswerQuery query) {
 		when(answerAccessGuard.canManageProject("p1")).thenReturn(true);
 		when(projectMapper.selectById("p1")).thenReturn(new Project());

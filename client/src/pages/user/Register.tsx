@@ -12,13 +12,7 @@ interface SubmittedInfo {
   className: string;
 }
 
-/**
- * 学员注册页：手机号即登录账号。
- *
- * <p>流程（面向不懂系统的学员，页面上按 1/2/3 写清楚）：
- * 选择开放注册的班级 → 填手机号/姓名/密码 → 提交后等该班老师或管理员审核。
- * 审核通过前账号是 status=0，登录会被拒绝。
- */
+/** 学员注册页：手机号即登录账号 */
 export default function Register() {
   const navigate = useNavigate();
   const [system, setSystem] = useState<SystemInfo>();

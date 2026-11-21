@@ -1,37 +1,4 @@
-﻿<#
-.SYNOPSIS
-  准备一个 GitHub Release：写版本、生成 CHANGELOG、提交、打 tag；-Push 推到 GitHub 后由 Actions 构建并发布。
-
-.DESCRIPTION
-  本地不打包、不创建 GitHub Release。真正的 Windows/Linux/Docker 产物由
-  .github/workflows/release.yml 在 tag 上构建。
-
-.PARAMETER Version
-  显式指定下一个版本，例如 2.1.0。省略时由 -Bump 从 conventional commits 计算。
-
-.PARAMETER Bump
-  auto / major / minor / patch / none，默认 auto。
-
-.PARAMETER Notes
-  可选，用文件内容作为本版本 CHANGELOG 说明。
-
-.PARAMETER Push
-  提交并打 tag 后，push 到 GitHub，触发 Release workflow。
-
-.PARAMETER NoTag
-  只写版本与 CHANGELOG，不提交、不打 tag。
-
-.PARAMETER DryRun
-  只打印将要做的事，不写文件、不提交。
-
-.PARAMETER AllowDirty
-  允许工作区有未提交改动（只提交版本文件，其他改动原样保留）。
-
-.EXAMPLE
-  .\scripts\release\Release.ps1
-  .\scripts\release\Release.ps1 -Version 2.1.0 -Push
-  .\scripts\release\Release.ps1 -Bump auto -DryRun
-#>
+﻿# 准备一个 GitHub Release：写版本、生成 CHANGELOG、提交、打 tag；-Push 推到 GitHub 后由 Actions 构建并发布。
 [CmdletBinding()]
 param(
     [string]$Version,

@@ -1,6 +1,4 @@
-/**
- * 答卷回收站：删除只是 is_deleted=1，这里能恢复或彻底删除。
- */
+/** 答卷回收站：删除只是 is_deleted=1，这里能恢复或彻底删除 */
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Drawer, Empty, message, Space, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';

@@ -54,9 +54,7 @@ public final class ExcelRowImages {
 		return new ExcelRowImages(new LinkedHashMap<>(), new ArrayList<>());
 	}
 
-	/**
-	 * 读一份 xlsx 里的全部内嵌图片；任何异常都退化成空表 + 一条 warning。
-	 */
+	/** 读一份 xlsx 里的全部内嵌图片；任何异常都退化成空表 + 一条 warning */
 	public static ExcelRowImages read(byte[] bytes) {
 		List<Warning> warnings = new ArrayList<>();
 		Map<String, Map<Integer, List<byte[]>>> rowImages = new LinkedHashMap<>();
@@ -124,18 +122,7 @@ public final class ExcelRowImages {
 		return new ExcelRowImages(rowImages, warnings);
 	}
 
-	/**
-	 * 图片锚点是否跨行（纵向范围超过一行）。
-	 *
-	 * <p>
-	 * Excel 的 twoCellAnchor 用「左上角单元格 + 行列偏移」「右下角单元格 + 行列偏移」描述图片位置，
-	 * 一张正好填满一个单元格的图片，右下角<b>压在下一行的行线上</b>，所以
-	 * {@code row2 == row1 + 1 && rowOff2 == 0} 是单行的标准写法（Excel 与 POI 都这么写），
-	 * 不能简单比 {@code row1 != row2} —— 那样会把所有正常图片判成跨行、全部丢掉。
-	 * 真正会挂错题的是纵向伸进下一行的图片：跨两行以上，或第二行还有偏移。
-	 * @param anchor 图片锚点
-	 * @return true 表示纵向超出一行，按左上角行归属不可靠
-	 */
+	/** 图片锚点是否跨行（纵向范围超过一行）；返回 true 表示纵向超出一行，按左上角行归属不可靠 */
 	private static boolean spansRows(ClientAnchor anchor) {
 		int fromRow = anchor.getRow1();
 		int toRow = anchor.getRow2();
@@ -147,9 +134,7 @@ public final class ExcelRowImages {
 		return !(toRow == fromRow + 1 && anchor.getDy2() == 0);
 	}
 
-	/**
-	 * 某 sheet 某行（1 基）的图片；没有就返回空列表。
-	 */
+	/** 某 sheet 某行（1 基）的图片；没有就返回空列表 */
 	public List<byte[]> imagesOf(String sheetName, Integer rowNum) {
 		if (sheetName == null || rowNum == null) {
 			return Collections.emptyList();

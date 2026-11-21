@@ -3,12 +3,7 @@ import { Button, Result, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { can, loadAuthorities } from '../auth/permissions';
 
-/**
- * 页面级权限守卫：没有权限直接给 403，而不是让用户进去看一堆 403 toast。
- *
- * <p>perm 传数组时表示「任一命中即可」——例如题库题目页，管理端靠 repo:detail，
- * 学员靠 repo:questions:read。
- */
+/** 页面级权限守卫：没有权限直接给 403，而不是让用户进去看一堆 403 toast */
 export default function RequirePerm({
   perm,
   children,

@@ -6,10 +6,7 @@ import type { SurveySchema } from '../schema/types';
 export const DEVICE_W = 375;
 export const DEVICE_H = 667;
 
-/**
- * 手机比例预览：内容是真实 DOM（同一套渲染器），用 transform 缩放，
-
- */
+/** 手机比例预览：内容是真实 DOM（同一套渲染器），用 transform 缩放， */
 export default function PhonePreview({
   schema,
   values,

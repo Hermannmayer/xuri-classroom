@@ -70,16 +70,7 @@ function toTreeOptions(nodes: DeptNode[], exclude: Set<string>): TreeOption[] {
     }));
 }
 
-/**
- * 删除用户组 / 班级的统一弹窗。
- *
- * 打开时先调 delete-check 拿到子组与成员情况，再让用户决定成员去向：
-
- * - 有成员：必须二选一（移出分组 UNASSIGN / 迁移到其他组 MOVE），默认移出；
- * - 最后一个组：只提示「删除后大家会变成未分组」，不阻止。
- *
- * 三个入口共用：班级管理页、班级设置弹窗、用户组页。
- */
+/** 删除用户组 / 班级的统一弹窗 */
 export default function DeleteDeptDialog({
   open,
   deptId,

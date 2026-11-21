@@ -1,10 +1,7 @@
 import { Modal } from 'antd';
 import PartnerPanel from '../survey/PartnerPanel';
 
-/**
- * 文件夹授权弹窗：文件夹本身不是考试，不能跳 /survey/:id 的设置页。
- * 直接复用考试协作面板，projectId 传文件夹 id。
- */
+/** 文件夹授权弹窗：文件夹本身不是考试，不能跳 /survey/:id 的设置页 */
 export default function FolderAuthModal({
   open,
   folderId,

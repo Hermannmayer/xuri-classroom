@@ -1,15 +1,4 @@
-/**
- * 上传题：选文件 → POST /api/public/upload → 答案写回 { 空位id: [fileId, ...] }（与后端约定一致）。
- *
- * 三态（和签名题同一套）：
- * - answer：可上传、可删除。已传文件按 fileId 回显：图片出缩略图，其余出文件名 + 下载链接。
- * - preview / edit：只读。设计器里没有答卷上下文（没有 projectId），禁止上传，
- *   只让设计者看到这块区域长什么样。
- *
- * 文件名回显：答案里只有 fileId，后端没有「按 id 列表给匿名用户查文件名」的接口，
-
- * 刷新页面后认不出的文件先按图片试一次，加载失败再退回「附件 N + 下载链接」，不留破图。
- */
+/** 上传题：选文件 → POST /api/public/upload → 答案写回 { 空位id: [fileId, ...] }（与后端约定一致） */
 import { useRef, useState } from 'react';
 import { App, Button } from 'antd';
 import { DeleteOutlined, FileOutlined, UploadOutlined } from '@ant-design/icons';
@@ -68,11 +57,7 @@ function previewUrl(fileId: string): string {
   return '/api/public/preview/' + fileId;
 }
 
-/**
- * 答案 → 文件 id 列表。
-
-
- */
+/** 答案 → 文件 id 列表 */
 function fileIdsOf(answer: AnswerValue, blank: string): string[] {
   if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return [];
   const map = answer as Record<string, unknown>;
@@ -96,10 +81,7 @@ function firstPositive(values: Array<number | undefined>, fallback: number): num
   return fallback;
 }
 
-/**
- * accept 规范化：设计器里填的是 'png,jpg' 这种裸扩展名，HTML accept 要 '.png,.jpg'；
- * 带 '/' 的 MIME（image/*、application/pdf）原样保留。留空或解析不出东西时回退默认值。
- */
+/** accept 规范化：设计器里填的是 'png,jpg' 这种裸扩展名，HTML accept 要 '.png,.jpg'； 带 '/' 的 MIME（image/*、application/pdf）原样保留 */
 function normalizeAccept(raw?: string): string {
   const tokens = (raw ?? '')
     .split(',')
@@ -123,7 +105,7 @@ function imageOnly(accept: string): boolean {
   });
 }
 
-/* ------ 组件 ------ */
+/** ------ 组件 ------ */
 
 export default function Upload(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
@@ -192,11 +174,7 @@ export default function Upload(props: QuestionComponentProps) {
     inputRef.current?.click();
   };
 
-  /**
-   * 选完文件：先本地校验数量/大小，再逐个上传，每传成一个立刻写回答案。
-   * 局部 next 数组是必要的：一次选多个文件时 props 里的答案还没回写，
-   * 直接拿 fileIds 当基准会让后一个文件覆盖前一个。
-   */
+  /** 选完文件：先本地校验数量/大小，再逐个上传，每传成一个立刻写回答案 */
   const handlePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
 

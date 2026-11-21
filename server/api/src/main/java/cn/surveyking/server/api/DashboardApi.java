@@ -47,22 +47,14 @@ public class DashboardApi {
 		return dashboardService.listDashboard(query);
 	}
 
-	/**
-	 * 首页总览：人 / 班 / 卷 / 答卷 / 题库 / 分数 / AI 七个块一次返回。
-	 *
-	 * <p>{@code days} 只为和趋势接口用同一套调用签名，总览内部窗口固定（今天 / 7 天 / 30 天）。
-	 */
+	/** 首页总览：人 / 班 / 卷 / 答卷 / 题库 / 分数 / AI 七个块一次返回 */
 	@GetMapping("/overview")
 	@PreAuthorize("hasAuthority('project:detail') or hasRole('admin')")
 	public DashboardOverviewView overview(@RequestParam(required = false, defaultValue = "14") int days) {
 		return dashboardStatsService.overview(days);
 	}
 
-	/**
-	 * 首页趋势图：近 {@code days} 个自然日（默认 14，上限 90），缺的日期补 0 / 当天没有分数补 null。
-	 *
-	 * <p>五个数组等长且按下标对齐，前端直接按下标画折线即可。
-	 */
+	/** 首页趋势图：近 days 个自然日（默认 14，上限 90），缺的日期补 0 / 当天没有分数补 null */
 	@GetMapping("/trend")
 	@PreAuthorize("hasAuthority('project:detail') or hasRole('admin')")
 	public DashboardTrendView trend(@RequestParam(required = false, defaultValue = "14") int days) {
@@ -76,12 +68,7 @@ public class DashboardApi {
 		return dashboardStatsService.teacher();
 	}
 
-	/**
-	 * 老师视角的趋势：结构同 {@link #trend(int)}，但只统计 {@link #teacher()} 那批可见项目。
-	 *
-	 * <p>老师首页的柱状图必须用这个而不是 {@code /trend}：后者是全站口径，老师看到的是别人的答卷，
-	 * 属于误导（卡片写「我的教学」，图里却是全校数据）。权限与会话口径都跟 {@code /teacher} 对齐。
-	 */
+	/** 老师视角的趋势：结构同 #trend(int)，但只统计 #teacher() 那批可见项目 */
 	@GetMapping("/teacher/trend")
 	@PreAuthorize("hasAuthority('project:detail') or hasRole('admin')")
 	public DashboardTrendView teacherTrend(@RequestParam(required = false, defaultValue = "14") int days) {

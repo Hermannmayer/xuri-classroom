@@ -1,12 +1,4 @@
--- ======
 -- 权限 v12：老师保留考试删除权、答卷删除归管理员、导入权限合并、历史前缀清理（2026-11-09，幂等）
---
--- 1. 老师保留 project:delete（只能删自己创建/协作的考试）；收回 answer:delete / answer:restore，
---    删答卷、恢复答卷、清空答卷回收站归管理员。题库仍然只读（repo:create/update/delete 不授予）。
--- 2. repo:import 合并到 template:import：先补 template:import，再删 repo:import。
--- 3. 清理 t_role.authority 中不参与鉴权的历史前缀（project / answer / repo / ...），
---    这些串从来不是权限点，只会让权限矩阵导出看起来像有权限。
--- ======
 SET NAMES utf8mb4;
 
 

@@ -58,11 +58,7 @@ public class ProjectAnswerValidator {
 
 	private final MessageSource messageSource;
 
-	/**
-	 * 根据问卷设置校验问卷
-	 * @param project
-	 * @return
-	 */
+	/** 根据问卷设置校验问卷 */
 	public void validateProject(ProjectView project) {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);
@@ -114,11 +110,7 @@ public class ProjectAnswerValidator {
 		validateExamSetting(project);
 	}
 
-	/**
-	 * 答案校验
-	 * @param project
-	 * @param request
-	 */
+	/** 答案校验 */
 	public void validateAnswer(ProjectView project, AnswerRequest request) {
 		List<SurveySchema> uniqueSchemaList = SchemaHelper.findSchemaListByAttribute(project.getSurvey(), "unique",
 				true);
@@ -192,11 +184,7 @@ public class ProjectAnswerValidator {
 		}
 	}
 
-	/**
-	 * 公开查询修改答案，因为涉及到权限操作，需要将之前的答案和更新的答案做一个 merge 操作
-	 * @param project
-	 * @param answer
-	 */
+	/** 公开查询修改答案，因为涉及到权限操作，需要将之前的答案和更新的答案做一个 merge 操作 */
 	public void validateAndMergeAnswer(ProjectView project, AnswerRequest answer) {
 		if (isBlank(answer.getQueryId()) || isBlank(answer.getId())) {
 			throw new ErrorCodeException(ErrorCode.QueryResultUpdateError);
@@ -225,12 +213,7 @@ public class ProjectAnswerValidator {
 		}
 	}
 
-	/**
-	 * 提交阶段的「能不能作答」闸门。
-	 *
-	 * <p>此前密码 / 需要登录 / 白名单只在「打开问卷」时校验，直接 POST saveAnswer 就能绕过。
-	 * 这里把同一套条件在提交路径上再判一次；回收上限不在此列（会挡住正常修改答案）。
-	 */
+	/** 提交阶段的「能不能作答」闸门 */
 	public void validateAnswerGate(ProjectView project, boolean newAnswer) {
 
 		classResourceService.assertStudentCanAnswer(project);

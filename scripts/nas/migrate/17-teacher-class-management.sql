@@ -1,20 +1,4 @@
--- ======
 -- 权限 v6：老师班级管理 + 题库练习入口拆分（2026-11-08，幂等）
---
--- 本次调整：
---   1. 老师不再进「系统管理」：移除 system:user:create/update/list、system:user:create:student、
---      system:dept:list/create/update/delete；老师改由「班级管理」页查看/添加本班学员。
---   2. 新增班级管理权限：class:list / class:detail / class:member:create；
---      class:grant 留给管理员或教务角色（谁需要分配班级给老师，谁才勾）。
---   3. 拆出只读组织树 org:list 与只读用户候选 user:select：
---      老师仍能在题库/考试授权弹窗里选组、选人，但看不到用户组/用户管理菜单。
---   4. 练习入口从 repo:book/exercise:list 拆成 repo:practice：
---      老师不再出现「开始练习/随机练习/继续练习」，学员保留。
---   5. 新建 t_class_partner：班级（用户组）授权给老师；授权一个班默认含其下级班。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 17-teacher-class-management.sql
--- ======
 SET NAMES utf8mb4;
 
 

@@ -94,12 +94,7 @@ public class SchemaHelper {
 		return MESSAGE_SOURCE.getMessage(code, args, defaultMessage, locale);
 	}
 
-	/**
-	 * 将 schema 解析为导出的 excel的header
-	 * @param schemaDataTypes 问题数据类型列表
-	 * @param mode 项目模式
-	 * @return Excel表头列表
-	 */
+	/** 将 schema 解析为导出的 excel的header；返回 Excel表头列表 */
 	public static List<String> parseColumns(List<SurveySchema> schemaDataTypes, ProjectModeEnum mode) {
 		List<String> result = new ArrayList<>();
 		result.add(i18n("schema.column.serialNumber", "序号"));
@@ -122,19 +117,12 @@ public class SchemaHelper {
 		return result;
 	}
 
-	/**
-	 * @param schema
-	 * @return 有数据
-	 */
+	/** 返回 有数据；返回 有数据 */
 	public static List<SurveySchema> flatSurveySchema(SurveySchema schema) {
 		return flatSurveySchemaWitchOption(schema, false);
 	}
 
-	/**
-	 * @param schema
-	 * @param withOption 是否解析选项
-	 * @return 有数据
-	 */
+	/** 返回 有数据；返回 有数据 */
 	public static List<SurveySchema> flatSurveySchemaWitchOption(SurveySchema schema, boolean withOption) {
 		List<SurveySchema> dataTypes = new ArrayList<>();
 
@@ -153,14 +141,7 @@ public class SchemaHelper {
 		return dataTypes;
 	}
 
-	/**
-	 * 转换答案为导出 excel 的行格式
-	 * @param answerInfo 单条答案记录
-	 * @param dataTypes 所有的问题 schema
-	 * @param index 当前行索引
-	 * @param mode 项目模式
-	 * @return excel 行记录
-	 */
+	/** 转换答案为导出 excel 的行格式；返回 excel 行记录 */
 	public static List<Object> parseRowData(AnswerView answerInfo, List<SurveySchema> dataTypes, int index,
 			ProjectModeEnum mode) {
 		try {
@@ -192,9 +173,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 解析问题答案
-	 */
+	/** 解析问题答案 */
 	private static void parseQuestionAnswers(AnswerView answerInfo, List<SurveySchema> dataTypes,
 			List<Object> rowData) {
 		LinkedHashMap<String, Object> answer = answerInfo.getAnswer();
@@ -214,9 +193,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 根据问题类型解析问题值
-	 */
+	/** 根据问题类型解析问题值 */
 	private static Object parseQuestionValue(SurveySchema schemaType, Object valueObj, AnswerView answerInfo) {
 		SurveySchema.QuestionType questionType = schemaType.getType();
 
@@ -242,9 +219,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 解析文件类型问题值
-	 */
+	/** 解析文件类型问题值 */
 	private static String parseFileQuestionValue(Object valueObj, AnswerView answerInfo) {
 		Map<?, ?> mapValue = (Map<?, ?>) valueObj;
 		return mapValue.values().stream().map(x -> {
@@ -259,9 +234,7 @@ public class SchemaHelper {
 		}).collect(Collectors.joining(","));
 	}
 
-	/**
-	 * 解析层级选择器问题值
-	 */
+	/** 解析层级选择器问题值 */
 	private static String parseCascaderQuestionValue(SurveySchema schemaType, Object valueObj) {
 		Map<?, ?> mapValue = (Map<?, ?>) valueObj;
 		List<String> result = new ArrayList<>();
@@ -281,9 +254,7 @@ public class SchemaHelper {
 		return String.join(",", result);
 	}
 
-	/**
-	 * 解析用户选择问题值
-	 */
+	/** 解析用户选择问题值 */
 	private static String parseUserQuestionValue(Object valueObj, AnswerView answerInfo) {
 		Map<?, ?> mapValue = (Map<?, ?>) valueObj;
 		return mapValue.values().stream().map(x -> {
@@ -293,9 +264,7 @@ public class SchemaHelper {
 		}).collect(Collectors.joining(","));
 	}
 
-	/**
-	 * 解析部门选择问题值
-	 */
+	/** 解析部门选择问题值 */
 	private static String parseDeptQuestionValue(Object valueObj, AnswerView answerInfo) {
 		Map<?, ?> mapValue = (Map<?, ?>) valueObj;
 		return mapValue.values().stream().map(x -> {
@@ -305,18 +274,14 @@ public class SchemaHelper {
 		}).collect(Collectors.joining(","));
 	}
 
-	/**
-	 * 解析标准问题值（单选、多选、填空等）
-	 */
+	/** 解析标准问题值（单选、多选、填空等） */
 	private static String parseStandardQuestionValue(SurveySchema schemaType, Object valueObj) {
 		return schemaType.getChildren().stream()
 				.map(optionSchema -> parseOptionValue(schemaType, optionSchema, valueObj)).filter(Objects::nonNull)
 				.collect(Collectors.joining(","));
 	}
 
-	/**
-	 * 解析选项值
-	 */
+	/** 解析选项值 */
 	private static String parseOptionValue(SurveySchema schemaType, SurveySchema optionSchema, Object valueObj) {
 
 		if (!(valueObj instanceof Map)) {
@@ -358,9 +323,7 @@ public class SchemaHelper {
 		return optionValue.toString();
 	}
 
-	/**
-	 * 解析字典值
-	 */
+	/** 解析字典值 */
 	private static String parseDictValue(String value) {
 		String[] dictValueAndLabel = value.split(DICT_SEPARATOR, 2);
 		if (dictValueAndLabel.length > DICT_LABEL_INDEX) {
@@ -369,9 +332,7 @@ public class SchemaHelper {
 		return dictValueAndLabel[0];
 	}
 
-	/**
-	 * 解析下拉选择值
-	 */
+	/** 解析下拉选择值 */
 	private static String parseSelectValue(SurveySchema optionSchema, Object optionValue) {
 		Optional<SurveySchema.DataSource> findDataSource = optionSchema.getDataSource().stream()
 				.filter(x -> x.getValue().equals(optionValue)).findFirst();
@@ -379,9 +340,7 @@ public class SchemaHelper {
 		return findDataSource.map(SurveySchema.DataSource::getLabel).orElse(optionValue.toString());
 	}
 
-	/**
-	 * 解析矩阵自动问题值
-	 */
+	/** 解析矩阵自动问题值 */
 	private static String parseMatrixAutoQuestionValue(SurveySchema schemaType, Object valueObj) {
 		List<String> result = new ArrayList<>();
 		((List<Map<?, ?>>) valueObj).forEach(rowValue -> {
@@ -409,9 +368,7 @@ public class SchemaHelper {
 		return String.join(",", result);
 	}
 
-	/**
-	 * 解析矩阵问题值
-	 */
+	/** 解析矩阵问题值 */
 	private static String parseMatrixQuestionValue(SurveySchema schemaType, Object valueObj,
 			SurveySchema.QuestionType questionType) {
 		List<String> result = new ArrayList<>();
@@ -435,9 +392,7 @@ public class SchemaHelper {
 		return String.join(",", result);
 	}
 
-	/**
-	 * 处理矩阵单元格值
-	 */
+	/** 处理矩阵单元格值 */
 	private static String processMatrixCellValue(SurveySchema cellSchema, Object val,
 			SurveySchema.QuestionType questionType) {
 		if (!CollectionUtils.isEmpty(cellSchema.getDataSource())) {
@@ -453,9 +408,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 解析 openid 信息
-	 */
+	/** 解析 openid 信息 */
 	private static void parseOpenIdInfo(LinkedHashMap<String, Object> answer, List<Object> rowData) {
 		if (answer.containsKey("openid")) {
 			rowData.add(answer.get("openid"));
@@ -480,9 +433,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 解析元数据信息
-	 */
+	/** 解析元数据信息 */
 	private static void parseMetaData(AnswerView answerInfo, List<Object> rowData) {
 
 
@@ -506,9 +457,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 创建错误行数据
-	 */
+	/** 创建错误行数据 */
 	private static List<Object> createErrorRowData(int index) {
 		List<Object> errorRow = new ArrayList<>();
 		errorRow.add(index);
@@ -516,11 +465,6 @@ public class SchemaHelper {
 		return errorRow;
 	}
 
-	/**
-	 * @param optionSchema 选项 schema
-	 * @param optionValue
-	 * @return
-	 */
 	private static String getHorzBlankValue(SurveySchema optionSchema, Map<String, String> optionValue) {
 		if (!SurveySchema.DataType.horzBlank.equals(optionSchema.getAttribute().getDataType())) {
 			return "";
@@ -557,11 +501,7 @@ public class SchemaHelper {
 		return result.stream().collect(Collectors.joining(","));
 	}
 
-	/**
-	 * 移除HTML标签和实体字符 更好的方式是使用 Jsoup.parse(html).text(); 但是我不想引入过多的第三方 jar
-	 * @param string 包含HTML标签的字符串
-	 * @return 清理后的纯文本字符串
-	 */
+	/** 移除HTML标签和实体字符 更好的方式是使用 Jsoup.parse(html).text(); 但是我不想引入过多的第三方 jar；返回 清理后的纯文本字符串 */
 	public static String trimHtmlTag(String string) {
 		if (StringUtils.isBlank(string)) {
 			return "";
@@ -569,11 +509,7 @@ public class SchemaHelper {
 		return string.replaceAll(HTML_TAG_REGEX, " ").replaceAll(MULTIPLE_SPACES_REGEX, " ").trim();
 	}
 
-	/**
-	 * 根据字段权限更新Schema
-	 * @param fieldPermission 字段权限映射
-	 * @param schema Schema对象
-	 */
+	/** 根据字段权限更新Schema */
 	public static void updateSchemaByPermission(LinkedHashMap<String, Integer> fieldPermission, SurveySchema schema) {
 		if (schema.getChildren() == null || fieldPermission == null || fieldPermission.isEmpty()) {
 			return;
@@ -586,12 +522,7 @@ public class SchemaHelper {
 		schema.getChildren().forEach(child -> updateSchemaByPermission(fieldPermission, child));
 	}
 
-	/**
-	 * 处理子项权限
-	 * @param child 子项Schema
-	 * @param fieldPermission 字段权限映射
-	 * @return 是否应该移除该子项
-	 */
+	/** 处理子项权限；返回 是否应该移除该子项 */
 	private static boolean processChildPermission(SurveySchema child, LinkedHashMap<String, Integer> fieldPermission) {
 		Integer permValue = fieldPermission.get(child.getId());
 		if (permValue == null) {
@@ -612,21 +543,14 @@ public class SchemaHelper {
 		return false;
 	}
 
-	/**
-	 * 确保Schema具有Attribute对象
-	 * @param schema Schema对象
-	 */
+	/** 确保Schema具有Attribute对象 */
 	private static void ensureAttributeExists(SurveySchema schema) {
 		if (schema.getAttribute() == null) {
 			schema.setAttribute(new SurveySchema.Attribute());
 		}
 	}
 
-	/**
-	 * 移除 schema 里面的指定属性值
-	 * @param schema
-	 * @param attributes
-	 */
+	/** 移除 schema 里面的指定属性值 */
 	public static void ignoreAttributes(SurveySchema schema, String... attributes) {
 		if (schema.getAttribute() != null) {
 			for (String attributeName : attributes) {
@@ -642,12 +566,7 @@ public class SchemaHelper {
 		});
 	}
 
-	/**
-	 * 根据属性名和属性值找到所有满足条件的子 schema 列表
-	 * @param schema
-	 * @param attributeName
-	 * @param attributeValue
-	 */
+	/** 根据属性名和属性值找到所有满足条件的子 schema 列表 */
 	public static List<SurveySchema> findSchemaListByAttribute(SurveySchema schema, String attributeName,
 			Object attributeValue) {
 		List<SurveySchema> result = new ArrayList<>();
@@ -663,11 +582,7 @@ public class SchemaHelper {
 		return result;
 	}
 
-	/**
-	 * 根据属性名查找子 schema 列表
-	 * @param schema
-	 * @param attributeName
-	 */
+	/** 根据属性名查找子 schema 列表 */
 	public static List<SurveySchema> findSchemaHasAttribute(SurveySchema schema, String attributeName) {
 		List<SurveySchema> result = new ArrayList<>();
 		BeanWrapper wrapper = PropertyAccessorFactory.forBeanPropertyAccess(schema.getAttribute());
@@ -683,11 +598,7 @@ public class SchemaHelper {
 		return result;
 	}
 
-	/**
-	 * 主要是用于构建 FillBlank 类型的查询表单
-	 * @param field
-	 * @return
-	 */
+	/** 主要是用于构建 FillBlank 类型的查询表单 */
 	public static SurveySchema buildFillBlankQuerySchema(LoginFormFieldEnum field) {
 		return SurveySchema.builder().id(field.name()).type(SurveySchema.QuestionType.FillBlank).title(field.getTitle())
 				.attribute(SurveySchema.Attribute.builder().required(true).build())
@@ -704,11 +615,7 @@ public class SchemaHelper {
 		return questionValue.get(field.name());
 	}
 
-	/**
-	 * 将问题 schema 添加到问卷里面
-	 * @param parent 问卷 schema
-	 * @param child 问题 schema
-	 */
+	/** 将问题 schema 添加到问卷里面 */
 	public static void appendChildIfNotExist(SurveySchema parent, SurveySchema child) {
 		boolean exists = flatSurveySchema(parent).stream().anyMatch(x -> child.getId().equals(x.getId()));
 		if (!exists) {
@@ -736,10 +643,7 @@ public class SchemaHelper {
 		return new TreeNode(surveySchema, null);
 	}
 
-	/**
-	 * 防止Excel公式注入攻击 在可能包含公式的字符串前添加单引号
-	 * @param rowData 行数据列表
-	 */
+	/** 防止Excel公式注入攻击 在可能包含公式的字符串前添加单引号 */
 	private static void avoidFormulaInjection(List<Object> rowData) {
 		for (int i = 0; i < rowData.size(); i++) {
 			Object item = rowData.get(i);
@@ -752,11 +656,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 检查字符串是否有公式注入风险
-	 * @param str 待检查的字符串
-	 * @return 是否有风险
-	 */
+	/** 检查字符串是否有公式注入风险；返回 是否有风险 */
 	private static boolean isFormulaInjectionRisk(String str) {
 		if (StringUtils.isBlank(str)) {
 			return false;
@@ -765,12 +665,7 @@ public class SchemaHelper {
 		return Arrays.stream(FORMULA_INJECTION_PREFIXES).anyMatch(str::startsWith);
 	}
 
-	/**
-	 * 构建 linkSurvey 的查询条件
-	 * @param linkSurvey
-	 * @param value
-	 * @return
-	 */
+	/** 构建 linkSurvey 的查询条件 */
 	@SneakyThrows
 	public static String buildLinkLikeCondition(SurveySchema.LinkSurvey linkSurvey, Object value) {
 		Map<String, Object> optionValue = new HashMap<>();
@@ -779,11 +674,7 @@ public class SchemaHelper {
 		return StringUtils.substringBetween(objectMapper.writeValueAsString(optionValue), "{", "}");
 	}
 
-	/**
-	 * 解析人类可读的时长格式
-	 * @param answerInfo 答案信息
-	 * @return 格式化的时长字符串，如 "1天2小时30分钟15秒"
-	 */
+	/** 解析人类可读的时长格式；返回 格式化的时长字符串，如 "1天2小时30分钟15秒" */
 	private static String parseHumanReadableDuration(AnswerView answerInfo) {
 		if (answerInfo.getMetaInfo() == null || answerInfo.getMetaInfo().getAnswerInfo() == null) {
 			return "";
@@ -806,11 +697,7 @@ public class SchemaHelper {
 		}
 	}
 
-	/**
-	 * 格式化时长
-	 * @param duration 时长（毫秒）
-	 * @return 格式化的时长字符串
-	 */
+	/** 格式化时长；返回 格式化的时长字符串 */
 	private static String formatDuration(long duration) {
 		List<String> parts = new ArrayList<>();
 

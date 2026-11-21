@@ -325,13 +325,7 @@ public class TextQuestionParser {
 		}
 	}
 
-	/**
-	 * 矩阵题：标记之后用若干行「行：xxx」「列：xxx」定义行与列。
-	 *
-	 * <p>
-	 * 生成的结构与设计器一致：行放 {@code row}，列放 {@code dataSource} + {@code children}（Option 节点）。
-	 * 答案按行写、行之间用 {@code |}，行内多选用 {@code ,}。
-	 */
+	/** 矩阵题：标记之后用若干行「行：xxx」「列：xxx」定义行与列 */
 	private List<SurveySchema.Row> parseMatrix(SurveySchema.QuestionType type, List<String> extras, String answer,
 			List<SurveySchema> children, List<SurveySchema.DataSource> dataSources, int serial) {
 		List<String> rowTitles = new ArrayList<>();
@@ -391,7 +385,7 @@ public class TextQuestionParser {
 				|| type == SurveySchema.QuestionType.MatrixFillBlank;
 	}
 
-	/** 上传题的答案列当参考答案说明，挂到唯一那个空位节点上（渲染层不显示，判分也不看）。 */
+	/** 上传题的答案列当参考答案说明，挂到唯一那个空位节点上（渲染层不显示，判分也不看） */
 	private void setUploadReference(List<SurveySchema> children, String answer) {
 		if (children.isEmpty()) {
 			return;
@@ -557,7 +551,7 @@ public class TextQuestionParser {
 		return result.isEmpty() ? null : result;
 	}
 
-	/** 首行是否像“试卷标题”：不是题型标记、不是题号、不是字段行、不是选项、不以句号问号结尾。 */
+	/** 首行是否像“试卷标题”：不是题型标记、不是题号、不是字段行、不是选项、不以句号问号结尾 */
 	public static boolean looksLikeTitle(String line) {
 		String value = line.trim();
 		return StringUtils.hasText(value) && !MARKER.matcher(value).find() && !QUESTION_NO.matcher(value).find()

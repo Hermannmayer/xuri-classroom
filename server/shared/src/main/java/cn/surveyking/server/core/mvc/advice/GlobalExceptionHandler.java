@@ -157,12 +157,7 @@ public class GlobalExceptionHandler {
 				.body(new ApiResponse<>(ResponseCode.INTERNAL_SERVER_ERROR.code, message));
 	}
 
-	/**
-	 * 把未预期异常压成一句「用户看得懂、又不泄露内部细节」的原因。
-	 *
-	 * <p>取最内层 cause 的异常类名与首行 message；SQL/驱动相关一律改写成可读描述，
-	 * 避免把表名、SQL 语句直接甩到前端。
-	 */
+	/** 把未预期异常压成一句「用户看得懂、又不泄露内部细节」的原因 */
 	private static String readableReason(Throwable ex) {
 		if (ex == null) {
 			return null;
@@ -200,10 +195,7 @@ public class GlobalExceptionHandler {
 		return type + "：" + first;
 	}
 
-	/**
-	 * 业务错误码 → HTTP 状态。默认 400：业务规则拒绝（暂停回收、超出截止时间、回收上限……）
-	 * 本质都是「这次请求不成立」，而不是服务端故障。
-	 */
+	/** 业务错误码 → HTTP 状态 */
 	private static HttpStatus statusFor(ErrorCode errorCode) {
 		switch (errorCode) {
 			case PermVerifyFailed:

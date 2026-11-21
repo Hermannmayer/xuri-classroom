@@ -1,15 +1,4 @@
-/**
- * 签名题：Canvas 手写 → PNG → 上传，答案按后端约定存 { 空位id: fileId }。
- *
- * 三态：
- * - answer：可手写。笔画只留在组件内部，点「保存签名」才导出图片并上传，成功后写回答案，
- *   显示缩略图 +「重签」；上传失败时笔画不动，不用重画。
- * - preview / edit：只读画布。设计器里没有答卷上下文（没有 projectId），禁止上传，
- *   只让设计者看到这块区域长什么样。
- *
- * 回显说明：签名文件在后端是 shared=0，匿名访问 /api/public/preview/{id} 会 403，
-
- */
+/** 签名题：Canvas 手写 → PNG → 上传，答案按后端约定存 { 空位id: fileId } */
 import { useEffect, useRef, useState } from 'react';
 import { App, Button, Segmented } from 'antd';
 import { CheckOutlined, ClearOutlined, EditOutlined, UndoOutlined } from '@ant-design/icons';
@@ -67,16 +56,13 @@ function rememberPreview(fileId: string, dataUrl: string) {
   previewCache.set(fileId, dataUrl);
 }
 
-/* ------ 取值 / 坐标 ------ */
+/** ------ 取值 / 坐标 ------ */
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-/**
- * 从答案里取签名文件 id：优先空位 id，兜底取第一个字符串值
-
- */
+/** 从答案里取签名文件 id：优先空位 id，兜底取第一个字符串值 */
 function signatureFileId(answer: AnswerValue, blank: string): string {
   if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return '';
   const map = answer as Record<string, unknown>;
@@ -90,10 +76,7 @@ function signatureFileId(answer: AnswerValue, blank: string): string {
 
 /* ------ 画布 ------ */
 
-/**
- * 按设备像素比重设后备缓冲（不放大在高分屏上笔迹会发虚），返回 CSS 像素坐标系的上下文。
-
- */
+/** 按设备像素比重设后备缓冲（不放大在高分屏上笔迹会发虚），返回 CSS 像素坐标系的上下文 */
 function canvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
@@ -111,11 +94,7 @@ function canvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | nu
   return ctx;
 }
 
-/**
- * 画一条笔画。二次贝塞尔中点平滑：每段用「上一段中点 → 当前点 → 本段中点」连曲线，
- * 手写笔的高频抖动被抹平，速度变化的线宽过渡也不会出现折角。
- * from 表示前 from 段已经画过（指针移动时只补最后一段），全量重绘传 0。
- */
+/** 画一条笔画 */
 function traceStroke(
   ctx: CanvasRenderingContext2D,
   stroke: InkStroke,
@@ -173,10 +152,7 @@ function repaint(canvas: HTMLCanvasElement, strokes: InkStroke[], extra?: InkStr
   if (extra) traceStroke(ctx, extra, width, height);
 }
 
-/**
-
- * 导出用的是画布的 2 倍分辨率，缩略图和打印都够清晰。
- */
+/** 导出用的是画布的 2 倍分辨率，缩略图和打印都够清晰 */
 function exportSignature(canvas: HTMLCanvasElement, strokes: InkStroke[]): string {
   const width = Math.max(320, Math.round((canvas.clientWidth || 640) * 2));
   const height = Math.max(120, Math.round((canvas.clientHeight || 200) * 2));
@@ -205,7 +181,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
-/* ------ 组件 ------ */
+/** ------ 组件 ------ */
 
 export default function Signature(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;

@@ -1,22 +1,5 @@
 #!/usr/bin/env bash
-# ============================================================
 # 旭日云课堂 · Docker 一键部署
-#
-# 用法：
-#   curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
-#
-# 可用环境变量（写在 sudo 后面才会被保留）：
-#   XURI_HOME      安装目录，默认 /opt/xuri-classroom
-#   APP_PORT       对外端口，默认 8080（仅首次生成 .env 时生效）
-#   VERSION        镜像 tag，默认 latest（仅首次生成 .env 时生效）
-#   XURI_RAW_BASE  GitHub raw 前缀，默认 official 仓库 main 分支（fork/镜像时覆盖）
-#
-# 说明：
-#   · 首次运行：建目录、下载 compose 与 init-mysql.sql、生成随机密码的 .env、启动
-#   · 重复运行：保留 .env 与数据卷，只更新 compose 文件后 up -d
-#   · 本脚本绝不执行 docker compose down -v，不会删除数据库或上传文件
-#   · 需要 root、docker、docker compose v2；不会自动安装任何软件包
-# ============================================================
 set -euo pipefail
 
 RAW_BASE="${XURI_RAW_BASE:-https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main}"

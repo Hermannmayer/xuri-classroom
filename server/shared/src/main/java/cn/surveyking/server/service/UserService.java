@@ -21,30 +21,26 @@ public interface UserService extends UserDetailsService {
 
 	void createSystemUser(UserRequest request);
 
-	/** 班主任在班级管理里新增学员：角色固定为系统内置学员角色。 */
+	/** 班主任在班级管理里新增学员：角色固定为系统内置学员角色 */
 	void createClassStudent(UserRequest request);
 
-	/** 班级管理里编辑学员：只改姓名/手机/邮箱/状态/密码，不改角色与组。 */
+	/** 班级管理里编辑学员：只改姓名/手机/邮箱/状态/密码，不改角色与组 */
 	void updateClassStudent(UserRequest request);
 
-	/** 班级管理里删除学员账号（调用方先校验班级可见性）。 */
+	/** 班级管理里删除学员账号（调用方先校验班级可见性） */
 	void deleteClassStudent(String userId);
 
-	/** 只读用户候选项（授权选人用），只返回 id/姓名/账号/组。 */
+	/** 只读用户候选项（授权选人用），只返回 id/姓名/账号/组 */
 	List<UserOptionView> listUserOptions(String keyword, String userType);
 
 	void updateUser(UserRequest request);
 
 	void updateUserProfile(String userId, UserProfileRequest request);
 
-	/**
-	 * 保存当前账号的界面缩放（只改 ui_zoom 一个字段）。
-	 */
+	/** 保存当前账号的界面缩放（只改 ui_zoom 一个字段） */
 	void updateUiZoom(UserRequest request);
 
-	/**
-	 * 保存当前账号的主题（light / dark）。
-	 */
+	/** 保存当前账号的主题（light / dark） */
 	void updateUiTheme(UserRequest request);
 
 	void deleteUser(String id);
@@ -61,10 +57,10 @@ public interface UserService extends UserDetailsService {
 
 	void register(RegisterRequest request);
 
-	/** 注册页可选的班级：只返回 dept_type=class、class_kind=teaching 且 allow_register=1 的节点。 */
+	/** 注册页可选的班级：只返回 dept_type=class、class_kind=teaching 且 allow_register=1 的节点 */
 	List<RegisterClassView> getRegisterClasses();
 
-	/** 注册入口可用性：全局总闸 + 是否有教学班开放注册。 */
+	/** 注册入口可用性：全局总闸 + 是否有教学班开放注册 */
 	RegisterOptionsView getRegisterOptions();
 
 	List<RegisterRoleView> getRegisterRoles();

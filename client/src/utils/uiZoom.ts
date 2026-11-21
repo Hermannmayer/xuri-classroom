@@ -1,10 +1,4 @@
-/**
- * 全局界面缩放：一处控制，全站生效。
- *
- * 之前是两套：外壳（BasicLayout）一套 6 档 zoom，练习/答题页又各自维护 fontScale，
- * 于是首页和答题页的缩放比例、档位都不一样。现在统一成 4 档，写进 localStorage，
-
- */
+/** 全局界面缩放：一处控制，全站生效 */
 export const ZOOM_PRESETS = [0.9, 1, 1.15, 1.3] as const;
 export const ZOOM_MIN = ZOOM_PRESETS[0];
 export const ZOOM_MAX = ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
@@ -33,7 +27,7 @@ export function readZoom(): number {
   }
 }
 
-/** 应用缩放（挂到 <html> 上，弹窗/抽屉/公开页都跟着缩放） */
+/** 应用缩放（挂到  上，弹窗/抽屉/公开页都跟着缩放） */
 export function applyZoom(value: number): number {
   const snapped = snapZoom(value);
   document.documentElement.style.zoom = String(snapped);

@@ -73,11 +73,6 @@ public class UserAuthService {
 
 	private final UserDeptMembershipService deptService;
 
-	/**
-	 * @param username 账号密码登录认证使用
-	 * @return
-	 * @throws UsernameNotFoundException
-	 */
 	public UserInfo loadUserByUsername(String username) throws UsernameNotFoundException {
 		LambdaQueryWrapper<Account> queryWrapper = Wrappers.<Account>lambdaQuery()
 				.eq(Account::getAuthType, AppConsts.AUTH_TYPE.PWD.name()).eq(Account::getAuthAccount, username);
@@ -133,13 +128,7 @@ public class UserAuthService {
 		return userInfo;
 	}
 
-	/**
-	 * 最终权限集合：t_user_role（直挂角色）∪ t_dept_role（组链上绑定的角色）。
-	 *
-	 * <p>
-	 * 只查两次关联表：一次 user_role、一次 dept_role（按整条组链 in），角色再按 id 批量取一次，
-	 * 不做「按角色逐条 getById」的 N+1。已停用的角色与直挂角色一样被忽略。
-	 */
+	/** 最终权限集合：t_user_role（直挂角色）∪ t_dept_role（组链上绑定的角色） */
 	private Set<String> resolveUserAuthorities(String userId, List<String> deptChainIds) {
 		Set<String> roleIds = new LinkedHashSet<>();
 		userRoleMapper.selectList(Wrappers.<UserRole>lambdaQuery().eq(UserRole::getUserId, userId)).stream()

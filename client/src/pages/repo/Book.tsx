@@ -111,12 +111,7 @@ export function bookListParams(filter: BookFilter): Record<string, unknown> {
   };
 }
 
-/**
- * 这几个条件是「新加的」：wrongTimesMin / status / projectId / note。
- * 后端可能还没上线（Query DTO 里没有字段时 Spring 会静默忽略），
-
- * 错题本量级是「个人错题」，拉全量可以接受。
- */
+/** 这几个条件是「新加的」：wrongTimesMin / status / projectId / note */
 export function bookNeedsClientFilter(filter: BookFilter): boolean {
   return (
     filter.wrongTimesMin != null ||
@@ -156,10 +151,7 @@ export function bookFilterFromParams(params: URLSearchParams): BookFilter {
   };
 }
 
-/**
- * 筛选条件 → 练习页查询串。
- * scope=all 表示不带上筛选（整本错题都练）；scope=project 表示只练某一场考试的错题。
- */
+/** 筛选条件 → 练习页查询串 */
 export function bookQueryString(filter: BookFilter, scope: 'filter' | 'all' | 'project' = 'filter'): string {
   const params = new URLSearchParams();
   params.set('scope', scope);
@@ -204,7 +196,7 @@ export async function loadProjectOptions(): Promise<ProjectOption[]> {
 type TypeFilter = 'all' | 'wrong' | 'favorite';
 type RangePreset = 'all' | '7d' | '30d' | 'custom';
 
-/** 预设时间窗 → 后端要的日期区间。结束日 +1 天：后端按 00:00 解析，不加会漏掉当天 */
+/** 预设时间窗 → 后端要的日期区间 */
 function presetRange(preset: RangePreset): { startDate?: string; endDate?: string } {
   if (preset === '7d') {
     return { startDate: dayjs().subtract(6, 'day').format('YYYY-MM-DD'), endDate: dayjs().add(1, 'day').format('YYYY-MM-DD') };
@@ -372,7 +364,7 @@ export default function RepoBook() {
     }
   };
 
-  /** 行内星标：重点 ↔ 普通。status 用 2/0，不动笔记与正确次数 */
+  /** 行内星标：重点 ↔ 普通 */
   const toggleFocus = async (row: UserBookView) => {
     const next = (row.status ?? 0) === BOOK_STATUS_FOCUS ? 0 : BOOK_STATUS_FOCUS;
     try {
@@ -384,10 +376,7 @@ export default function RepoBook() {
     }
   };
 
-  /**
-   * 批量改状态。后端只有单条 update（body { id, status }），
-   * 因此按 id 顺序逐条提交，统计成功数；失败的不中断整批。
-   */
+  /** 批量改状态 */
   const batchStatus = async (status: number) => {
     const ids = selectedKeys.map(String);
     if (!ids.length) return;

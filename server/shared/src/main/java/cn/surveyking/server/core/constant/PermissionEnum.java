@@ -33,7 +33,7 @@ import java.util.Map;
 @Getter
 public enum PermissionEnum {
 
-	/* ---------------------------------------------------------------- 考试 / 项目 */
+	/** ---------------------------------------------------------------- 考试 / 项目 */
 
 	PROJECT_LIST("project:list", "查看考试列表", Group.EXAM, "考试与问卷列表；学员的「我的考试」用 exercise:list 兜底"),
 	PROJECT_DETAIL("project:detail", "查看考试详情", Group.EXAM, "读取考试基本信息与设置、答题页与预览"),
@@ -45,7 +45,7 @@ public enum PermissionEnum {
 	PROJECT_PARTNER("project:partner", "协作者与班级授权", Group.EXAM, "把考试授权给协作者或班级，目前混在编辑考试里", false),
 	PROJECT_ANSWER("project:answer", "开始答题", Group.EXAM, "进入考试/问卷答题页作答；学员功能，老师/管理员默认不给", false, true),
 
-	/* ---------------------------------------------------------------- 答卷 */
+	/** ---------------------------------------------------------------- 答卷 */
 
 	ANSWER_LIST("answer:list", "查看答卷列表", Group.ANSWER, "答卷列表与答卷数据页"),
 	ANSWER_DETAIL("answer:detail", "查看单份答卷", Group.ANSWER, "查看单份答卷的作答明细"),
@@ -57,7 +57,7 @@ public enum PermissionEnum {
 	ANSWER_UPLOAD("answer:upload", "上传答卷附件", Group.ANSWER, "为答卷补充附件材料"),
 	ANSWER_RESTORE("answer:restore", "恢复答卷", Group.ANSWER, "从回收站恢复答卷，与删除答卷对称", false),
 
-	/* ---------------------------------------------------------------- 题库 */
+	/** ---------------------------------------------------------------- 题库 */
 
 	REPO_LIST("repo:list", "查看题库列表", Group.REPO, "题库列表、练习册入口"),
 	REPO_DETAIL("repo:detail", "查看题库详情", Group.REPO, "读取题库信息与题目；管理员/老师的管理入口"),
@@ -71,18 +71,18 @@ public enum PermissionEnum {
 	REPO_REPORT("repo:report", "查看题库统计", Group.REPO, "题库整体练习情况、题目正确率与薄弱题；只看不改，学员不可见"),
 	REPO_GRANT("repo:grant", "题库授权给教师", Group.REPO, "把题库授权给教师用户组/个人；学员不在这里授权，统一走班级资源分配", false),
 
-	/* ---------------------------------------------------------------- 题目 */
+	/** ---------------------------------------------------------------- 题目 */
 
 	TEMPLATE_LIST("template:list", "查看题目列表", Group.TEMPLATE, "题目列表与题目详情"),
 	TEMPLATE_CREATE("template:create", "新增题目", Group.TEMPLATE, "新建题目并入库"),
 	TEMPLATE_UPDATE("template:update", "修改题目", Group.TEMPLATE, "修改题干、选项与属性"),
 	TEMPLATE_DELETE("template:delete", "删除题目", Group.TEMPLATE, "删除题库中的题目，不可恢复"),
 
-	/* ---------------------------------------------------------------- 练习 */
+	/** ---------------------------------------------------------------- 练习 */
 
 	EXERCISE_LIST("exercise:list", "练习记录与练习页", Group.EXERCISE, "我的练习、练习作答；学员专属，管理员不自动拥有", false, true),
 
-	/* ---------------------------------------------------------------- 班级 */
+	/** ---------------------------------------------------------------- 班级 */
 
 	CLASS_LIST("class:list", "查看班级管理", Group.CLASS, "班级管理页入口；班主任看自己创建/负责的班，其他人看被授权的班"),
 	CLASS_DETAIL("class:detail", "查看班级成员与学情", Group.CLASS, "查看班级成员名单与成员信息"),
@@ -97,19 +97,19 @@ public enum PermissionEnum {
 	CLASS_MEMBER_ASSIGN("class:member:assign", "调整学员班级归属", Group.CLASS,
 			"设置主班与兼报班（1 个主班 + 最多 2 个兼报班）；只能操作自己有管理权限的班"),
 
-	/* ---------------------------------------------------------------- 文件 */
+	/** ---------------------------------------------------------------- 文件 */
 
 	FILE_LIST("file:list", "查看附件列表", Group.FILE, "附件与导入文件列表"),
 	FILE_DETAIL("file:detail", "下载/预览附件", Group.FILE, "按 id 读取附件内容"),
 	FILE_IMPORT("file:import", "导入文件", Group.FILE, "上传并导入外部文件"),
 	FILE_DELETE("file:delete", "删除文件", Group.FILE, "删除已上传的附件"),
 
-	/* ---------------------------------------------------------------- 用户 */
+	/** ---------------------------------------------------------------- 用户 */
 
 	USER_UPDATE("user:update", "修改本人资料", Group.USER, "改自己的资料与密码，三个角色都应具备"),
 	USER_IMPORT("user:import", "批量导入用户", Group.USER, "目前隐含在新建用户里，单独拆出来便于审计", false),
 
-	/* ---------------------------------------------------------------- 系统 */
+	/** ---------------------------------------------------------------- 系统 */
 
 	SYSTEM_USER_LIST("system:user:list", "查看用户列表", Group.SYSTEM, "用户管理列表、协作者候选"),
 	SYSTEM_USER_CREATE("system:user:create", "新建用户", Group.SYSTEM, "后台创建账号"),
@@ -137,7 +137,7 @@ public enum PermissionEnum {
 	SYSTEM_SETTING_UPDATE("system:setting:update", "修改系统设置", Group.SYSTEM, "水印、防复制、协作者策略都在这里；现在靠查看角色兜底，必须独立", false),
 	SYSTEM_LOG_LIST("system:log:list", "查看操作日志", Group.SYSTEM, "审计能力的前提：谁导出了什么、谁改了谁的权限"),
 
-	/* ---------------------------------------------------------------- 内容保护 */
+	/** ---------------------------------------------------------------- 内容保护 */
 
 	FILE_UPLOAD("file:upload", "通用文件上传", Group.FILE, "系统 Logo 等通用上传；与「导入模板/题库文件」分开", false),
 	TEMPLATE_IMPORT("template:import", "批量导入题目", Group.TEMPLATE, "从 Excel/题库文件导入题目；原 repo:import 已合并到这里", false),
@@ -146,13 +146,13 @@ public enum PermissionEnum {
 	PORTAL_STUDENT("portal:student", "学员视角", Group.PORTAL, "显示「我的任务」：考试安排 / 练习记录 / 我的成绩", false, true),
 	PORTAL_TEACHER("portal:teacher", "教师视角", Group.PORTAL, "显示「教学管理」与「班级学情」", false),
 	PORTAL_ADMIN("portal:admin", "管理视角", Group.PORTAL, "显示系统管理（用户 / 用户组 / 系统设置 / 权限 / 日志）", false),
-	/* ------ 公告 */
+	/** ------ 公告 */
 
 	NOTICE_LIST("notice:list", "查看公告", Group.NOTICE, "站内公告中心与顶栏未读数；全角色可见"),
 	NOTICE_MANAGE_SYSTEM("notice:manage:system", "管理全站公告", Group.NOTICE, "受众可选 all / admin / teacher / student；只给管理员", false),
 	NOTICE_MANAGE_CLASS("notice:manage:class", "管理班级公告", Group.NOTICE, "只能发给「自己可见的班」；老师用这个，发不了全站", false),
 
-	/* ------ AI */
+	/** ------ AI */
 
 	AI_USE("ai:use", "使用 AI 助手", Group.AI, "AI 出卷 / 改题 / 批改建议 / 学情总结；默认给 admin 与 teacher，学员不给", false),
 
@@ -266,10 +266,7 @@ public enum PermissionEnum {
 
 	}
 
-	/**
-	 * 目录按分组输出；空分组不出现在结果里。
-	 * @return 按 {@link Group} 声明顺序排列的分组列表
-	 */
+	/** 目录按分组输出；空分组不出现在结果里；返回 按 Group 声明顺序排列的分组列表 */
 	public static List<PermissionGroupView> grouped() {
 		Map<Group, List<PermissionItem>> buckets = new LinkedHashMap<>();
 		for (Group group : Group.values()) {

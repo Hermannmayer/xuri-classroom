@@ -31,9 +31,7 @@ public final class AuditActionCatalog {
 	private AuditActionCatalog() {
 	}
 
-	/**
-	 * 动作码转中文名；未收录时按 token 兜底翻译，再不行回退原码。
-	 */
+	/** 动作码转中文名；未收录时按 token 兜底翻译，再不行回退原码 */
 	public static String nameOf(String action) {
 		if (!StringUtils.hasText(action)) {
 			return action;

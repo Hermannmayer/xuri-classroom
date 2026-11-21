@@ -12,12 +12,12 @@ public interface SurveyService {
 
 	PublicProjectView loadProject(ProjectQuery projectQuery);
 
-	/** 返回不含题干和选项的答题项目元数据与最小题目大纲。 */
+	/** 返回不含题干和选项的答题项目元数据与最小题目大纲 */
 	PublicProjectView loadProjectOutline(ProjectQuery query);
 
 	PublicProjectView validateProjectOutline(ProjectQuery query);
 
-	/** 在完成 loadProject 同等访问校验后，返回指定题目并剥离标准答案与解析。 */
+	/** 在完成 loadProject 同等访问校验后，返回指定题目并剥离标准答案与解析 */
 	SurveySchema loadPublicQuestion(PublicQuestionRequest request);
 
 	PublicStatisticsView statProject(ProjectQuery query);
@@ -35,7 +35,7 @@ public interface SurveyService {
 	PublicLinkResult loadLinkResult(PublicLinkRequest request);
 
 
-	/** 当前登录用户在某场考试里的历次已提交答卷，按时间倒序。 */
+	/** 当前登录用户在某场考试里的历次已提交答卷，按时间倒序 */
 	List<PublicAttemptView> listPublicAttempts(PublicAttemptRequest request);
 
 	void validateProject(ProjectView project);

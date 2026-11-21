@@ -3,18 +3,8 @@ import { Alert, Button, Drawer, Empty, Radio, Space, Spin, Tag, message } from '
 import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { rewriteAiQuestion, type AiRewriteStyle, type AiRewriteSuggestion } from '../../../api/ai';
 
-/**
- * AI 改题（计划文档 §6.3 ②）。
- *
- * 选中题目 -> 侧栏给 3 条改写建议（text + reason）-> 老师挑一条采纳。
- * 采纳只把新题干回传给编辑器（由编辑器写进画布并留 before 快照），
- * 选项 / 分值 / 正确答案一律不动 —— 改的是「怎么问」，不是「考什么」。
- */
 
-/**
- * 题干可能是富文本（Word 导入的题带图片），侧栏里只做纯文本预览：
- * 正则剥标签用于**展示**，不承担消毒职责（React 本身会把内容当文本渲染）。
- */
+/** 题干可能是富文本（Word 导入的题带图片），侧栏里只做纯文本预览： 正则剥标签用于**展示**，不承担消毒职责（React 本身会把内容当文本渲染） */
 function plainText(value?: string): string {
   if (!value) return '';
   return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();

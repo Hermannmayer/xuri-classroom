@@ -4,11 +4,7 @@ import type { QuestionComponentProps } from '../types';
 import { QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 import { blankAnswer, blankId, blankText, inputRule } from './answers';
 
-/**
- * 填空：answer = { [空位id]: 文本 }
- * 输入过滤在 onChange / onCompositionEnd / onPaste 三处都做一遍，
-
- */
+/** 填空：answer = { [空位id]: 文本 } 输入过滤在 onChange / onCompositionEnd / onPaste 三处都做一遍， */
 export default function FillBlank(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
   const [answer, setAnswer] = useAnswerState(props);

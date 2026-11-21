@@ -177,10 +177,7 @@ public final class McpToolCatalog {
 		return ALL.stream().filter(tool -> tool.name().equals(name)).findFirst();
 	}
 
-	/**
-	 * 按令牌白名单过滤。
-	 * @param caller 调用者；{@code scopes} 为空表示不限制
-	 */
+	/** 按令牌白名单过滤 */
 	public static List<McpToolDefinition> visibleTo(McpCaller caller) {
 		List<McpToolDefinition> result = new ArrayList<>(ALL.size());
 		for (McpToolDefinition tool : ALL) {

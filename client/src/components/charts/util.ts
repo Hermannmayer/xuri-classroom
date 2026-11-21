@@ -1,9 +1,4 @@
-/**
- * 手写 SVG 图表的共用小工具。
- *
-
- * （见 client/scripts/smoke-charts.tsx）；组件里只负责把坐标算出来交给 SVG。
- */
+/** 手写 SVG 图表的共用小工具 */
 
 export interface Point {
   x: number;
@@ -12,12 +7,7 @@ export interface Point {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/**
- * 把后端/接口里可能出现的 null、undefined、NaN、数字字符串统一收敛成 number | null。
- *
- * 首页的统计接口是并行开发的，字段缺失、JSON 里给字符串数字都可能发生；
- * 图表和卡片只认 number | null，null 一律按「没有这个数据」处理（显示 —）。
- */
+/** 把后端/接口里可能出现的 null、undefined、NaN、数字字符串统一收敛成 number | null */
 export function num(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value === 'string' && value.trim() !== '') {
@@ -39,10 +29,7 @@ export function fmtDecimal(value: number | null | undefined, digits = 1, fallbac
   return value.toFixed(digits);
 }
 
-/**
- * 百分数：入参就是 0~100 的百分数（后端 DashboardOverviewView.Scores.passRate 的口径），
- * 只补百分号与位数，不做 0~1 与 0~100 的猜测 —— 猜错会把 1% 显示成 100%。
- */
+/** 百分数：入参就是 0~100 的百分数（后端 DashboardOverviewView.Scores.passRate 的口径）， 只补百分号与位数，不做 0~1 与 0~100 的猜测 —— 猜错会把 1% 显示成 100% */
 export function fmtPercent(value: number | null | undefined, digits = 1, fallback = '—'): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return fallback;
   return `${value.toFixed(digits)}%`;
@@ -76,12 +63,7 @@ export function niceCeil(value: number): number {
   return 10 * base;
 }
 
-/**
- * 算出纵轴的上界与刻度间隔：`top` 一定落在 step 的整数倍上，刻度从 0 到 top 均匀分布。
- *
- * 比「直接 niceCeil(max)」更贴合数据：最大值 129 时给 top=150（刻度 0/50/100/150），
- * 而不是 200（柱子只占 65% 高度，看着像被压扁）。
- */
+/** 算出纵轴的上界与刻度间隔：`top` 一定落在 step 的整数倍上，刻度从 0 到 top 均匀分布 */
 export function niceScale(max: number, ticks = 4): { top: number; step: number } {
   if (!Number.isFinite(max) || max <= 0) return { top: 1, step: 1 };
   const rough = max / Math.max(1, ticks - 1);
@@ -124,10 +106,7 @@ export function segments(
   return out;
 }
 
-/**
- * 平滑折线（Catmull-Rom → 三次贝塞尔，tension 固定 1/6 的等价换算）。
- * 单点时只画一个起点，调用方自己补圆点。
- */
+/** 平滑折线（Catmull-Rom → 三次贝塞尔，tension 固定 1/6 的等价换算） */
 export function smoothPath(points: Point[]): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${round2(points[0].x)} ${round2(points[0].y)}`;

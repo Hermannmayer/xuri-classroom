@@ -1,17 +1,5 @@
-# ============================================================
 # 旭日云课堂 · Docker 发布编排（GHCR 镜像 + MySQL 8.0）
-#
-# 组件只有两个：
-#   db  ：mysql:8.0，数据落命名卷
-#   app ：GHCR 镜像，jar 内已打包前端 SPA，直接对外提供 8080
-# 不需要 nginx 容器；需要反代/HTTPS 时在宿主机或上层网关做。
-#
-# 用法（在 docker/ 目录）：
-#   cp .env.example .env && vi .env
-#   docker compose --env-file .env -f docker-compose.release.yml up -d
-#
 
-# ============================================================
 name: xuri-classroom
 
 services:

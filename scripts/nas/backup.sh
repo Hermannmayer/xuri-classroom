@@ -1,56 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · NAS 生产备份脚本（当前形态：手工 docker run 的 H2 单机生产）
-#
-# 为什么不能直接复用 scripts/deploy/backup.sh：
-#   那边 db 是 compose 里能进容器 exec 的 MySQL（mysqldump 可用）；
-#   这边的生产是手工 docker run 的容器 surveyking，数据库是 H2 单文件库，
-#   数据在宿主机 bind mount 里（下面四条都是实测路径）：
-#       /vol2/1000/surveyking/db     → 容器内 /app/db   （H2 单文件库）
-#       /vol2/1000/surveyking/files  → 容器内 /app/files（上传附件）
-#       /vol2/1000/surveyking/config → 容器内 /app/config
-#       /vol2/1000/surveyking/logs   → 容器内 /app/logs
-#   H2 在进程运行期间对库文件持有独占锁，直接 cp/tar 可能拷到「写了一半」的库，
-#   恢复时可能报 corrupt 或丢最近事务。所以默认采用**停机拷贝**：
-#       docker stop → tar db → docker start（停机窗口只覆盖 db 目录，通常几十 MB）
-#   附件/config 的打包放在容器恢复之后做，让停机窗口尽量短。
-#
-# 为什么不做 H2 在线 BACKUP TO：
-#   H2 的 BACKUP TO 必须由持有库连接的那个 JVM 执行；从第二个进程连同一个文件库会撞
-#   文件锁（这个库没开 AUTO_SERVER）。上游镜像里也没有可核实的 H2 工具入口，
-#   在脚本里硬编一个 /app/xxx.jar 路径等同于编造。故这里不做「假在线备份」，
-#   需要在线备份请在应用层另行实现，并先按本目录 README 的演练流程验证过再用。
-#
-# 归档内容（backup_YYYYmmdd-HHMMSS.tar.gz，默认在 /vol2/1000/xuri/backup）：
-#   db.tar.gz      H2 数据库目录快照（停机拷贝；--hot 时是不一致风险快照）
-#   files.tar.gz   上传附件（/app/files）
-#   config.tar.gz  应用配置
-#   logs.tar.gz    容器日志（仅 --with-logs）
-#   manifest.txt   元信息：镜像版本、模式、路径、容器暴露端口、备份范围
-#   SHA256SUMS     上面各 tar.gz 的校验和（解包后可 sha256sum -c SHA256SUMS）
-# 归档旁边另写 backup_<时间戳>.tar.gz.sha256 与 .manifest.txt，不解包即可核对/查看。
-#
-# 用法（需要 root 或能读生产目录 + 操作 docker 的账号）：
-#   sudo CONFIRM=yes bash scripts/nas/backup.sh                 # 默认：短暂停机备份
-#   sudo CONFIRM=yes bash scripts/nas/backup.sh --retention 7 --output /vol2/1000/xuri/backup
-#   sudo bash scripts/nas/backup.sh --dry-run                   # 只打印将执行的动作，不动生产
-#   sudo CONFIRM=yes bash scripts/nas/backup.sh --with-logs
-#   sudo bash scripts/nas/backup.sh --hot                       # 不停机直接拷，危险，见提示
-#   无人值守（cron）：CONFIRM=yes 写进 crontab 行首，或加 --yes 显式承担短暂停机风险
-#
-# 安全约定：
-#   - 停机模式会先打印将执行的命令，并要求 CONFIRM=yes（--yes 等价）；--dry-run 可先看
-#   - 脚本内没有任何删数据的命令；retention 只删匹配 backup_*.tar.gz 的旧归档，且跳过刚生成的那份
-#   - 只要容器是「本脚本停的」，任何异常退出都会在 trap 里重新拉起并等健康检查
-#
-# 退出码：
-#   0  备份成功（归档 + 校验和 + 清单已生成）
-#   1  参数/环境错误，或缺少 CONFIRM=yes（未做任何破坏性动作）
-#   2  备份过程失败（容器已尝试恢复；若恢复也失败则是 3）
-#   3  容器恢复失败 —— 生产可能处于停止状态，必须立刻人工处理
-#
-# 首次使用请先：chmod +x scripts/nas/backup.sh
-# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

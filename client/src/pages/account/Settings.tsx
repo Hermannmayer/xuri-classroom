@@ -12,11 +12,7 @@ const PASSWORD_RULE = {
   message: '8-16 位，需同时包含大写字母、小写字母和数字，不能使用特殊字符',
 };
 
-/**
- * 账号设置：个人资料 + 修改密码。
- * 两者都走 POST /api/user（UserProfileRequest），后端按字段非空合并：
- * 只提交密码不会清掉资料，只提交资料也不会动密码。
- */
+/** 账号设置：个人资料 + 修改密码 */
 export default function AccountSettings() {
   const [profileForm] = Form.useForm();
   const [pwdForm] = Form.useForm();

@@ -1,26 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · live 数据库 + 附件备份（在 backup 容器里执行）
-#
-# 为什么容器化而不是挂系统 cron：
-#   飞牛 OTA 升级会替换系统分区，/etc/cron.d、/var/spool/cron 这类系统文件有丢失风险；
-#   放进 compose 之后，备份任务跟着容器走，升级飞牛不影响，重启自动恢复
-#   （restart: unless-stopped）。
-#
-# 做什么（一次一份、带校验、可对账）：
-#   1. mysqldump（--single-transaction，不锁表）
-#   2. gzip -t 校验 + sha256
-#   3. tar.gz 打包附件目录
-#   4. 写 manifest（时间、库名、大小、sha256、dumptime）
-#   5. 按 --retention 清理旧备份（默认 28 份 ≈ 7 天，每 6 小时一份）
-#
-# 环境变量（由 compose 注入）：
-#   DB_HOST / DB_PORT / DB_NAME / DB_PASSWORD / BACKUP_DIR / FILES_DIR / RETENTION
-#
-# 手动跑一次：
-#   cd /vol2/1000/xuri/src/work/deploy/nas/live
-#   docker compose run --rm backup /opt/backup/backup-live.sh
-# =============================================================================
 set -euo pipefail
 
 DB_HOST="${DB_HOST:-db}"

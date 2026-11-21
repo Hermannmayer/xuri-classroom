@@ -1,36 +1,5 @@
 #!/usr/bin/env bash
-# ======
 # 旭日云课堂 · Docker 一键升级（在解压后的新发布包里运行）
-#
-# 小白用法（只有这一条）：
-#   tar -xzf xuri-classroom-<新版本>-docker.tar.gz
-#   cd xuri-classroom-<新版本>-docker
-#   sudo bash upgrade.sh
-#
-# 它做什么（顺序固定，任何一步失败都停，并且把服务恢复到升级前的状态）：
-#   1. 身份检测：找不到已安装实例就提示"这是全新部署"，一个字节都不动
-#   2. 版本检查：新包版本必须高于已装版本（降级要显式 --force）
-#   3. 停应用（保留数据库运行）
-#   4. 备份：数据库 dump + 附件卷 + .env（含密钥），并校验备份可解压、非空
-#   5. 用包内 jar 构建新镜像，旧镜像打上 :previous
-#   6. 改 .env 的 VERSION → 启动 → 轮询 /api/system/version 校验版本与库结构版本
-#   7. 校验失败 → 自动回滚到 :previous 并重启
-#
-# 数据安全约定：
-#   · 备份不通过 → 恢复启动旧程序 → 中止升级（不会在没备份的情况下动数据库）
-#   · 数据库结构迁移由应用启动时自动完成，迁移脚本只做"加表/加列/加索引"，
-#     不做 DROP/DELETE/无 WHERE 的 UPDATE，所以程序回滚通常就能恢复服务
-#   · 脚本**不会**执行 docker compose down -v，不会删除任何卷
-#   · 升级日志落盘：<安装目录>/logs/upgrade-<时间>.log
-#
-# 用法：
-#   sudo bash upgrade.sh                     # 升级到本包版本（交互确认一次）
-#   sudo bash upgrade.sh --dir /opt/xuri-classroom
-#   sudo bash upgrade.sh --backup-dir /data/backup --yes
-#   sudo bash upgrade.sh --whatif            # 只打印计划，不做任何改动
-#   sudo bash upgrade.sh --force             # 允许同版本重装/降级
-#   sudo bash upgrade.sh --skip-backup       # 明确跳过备份（不推荐，出事没有还原点）
-# ======
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

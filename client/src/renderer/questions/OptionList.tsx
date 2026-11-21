@@ -19,13 +19,7 @@ interface OptionListProps {
   onPick: (value: string) => void;
 }
 
-/**
- * 单选/多选/判断共用的整行选项卡片（蓝图风格：直角、白线、选中描橙）。
- * 三个题型只是在「怎么把点击转成答案」上不同，渲染逻辑收敛在这里。
- *
- * 无障碍：外层是 radiogroup（多选为 group），选项是 radio / checkbox 并带 aria-checked，
- * 读屏才会念「单选按钮，已选中」而不是「按钮」；组名指向题干 id。
- */
+/** 单选/多选/判断共用的整行选项卡片（蓝图风格：直角、白线、选中描橙） */
 export default function OptionList({ options, picked, locked, mark, optionRole, onPick }: OptionListProps) {
   const a11y = useQuestionA11y();
   const role = optionRole ?? a11y?.optionRole ?? 'radio';

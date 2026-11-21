@@ -28,15 +28,7 @@ interface RoleOption {
   status?: number;
 }
 
-/**
- * 用户组（班级）管理。
- *
- * 设计要点（见 docs/permissions-ia.md）：
- * - 组只负责「是哪批人 + 拥有哪些角色 + 有效期」，**不直接挂权限串**；
- *   权限点挂在角色上，在「权限配置」页维护。
- * - 有效期为空表示永久；过期后组员无法登录（后端在鉴权链路校验）。
- * - 组树默认全部展开，避免层数一多就找不到班级。
- */
+/** 用户组（班级）管理 */
 function buildTree(list: Dept[]): Dept[] {
   const map = new Map<string, Dept & { children: Dept[] }>();
   list.forEach((d) => map.set(d.id, { ...d, children: [] }));
@@ -147,12 +139,7 @@ export default function SystemGroup({ embedded = false }: { embedded?: boolean }
 
   const allKeys = useMemo(() => collectIds(tree), [tree]);
 
-  /**
-   * 角色下拉的候选：
-   * - 正常读到了角色的账号直接用 /role/options 的结果，停用角色打「已停用」标记；
-   * - 读不到角色（403）时，用 /dept/list 已返回的 roleIds/roleNames 把当前组已有角色回显出来，
-   *   免得禁用状态的下拉框里只剩一串 id。
-   */
+  /** 角色下拉的候选： */
   const roleSelectOptions = useMemo(() => {
     const options = roles.map((r) => ({
       value: r.id,

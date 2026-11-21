@@ -1,9 +1,4 @@
 # 本地/线上两用的接口级冒烟：验证「能登录 + 能拿数据 + 验证码可用」这条主链路。
-# 与 scripts/nas/smoke-test.py 的区别：那个是发布脚本的守门，这个是开发期自测，PowerShell 起手即可。
-#
-# 用法：
-#   pwsh scripts/dev/smoke-newstack.ps1                                   # 本地 7007
-#   pwsh scripts/dev/smoke-newstack.ps1 -Base http://192.168.0.2:201 -User admin -Password 123456
 param(
   [string]$Base = 'http://127.0.0.1:7007',
   [string]$User = 'admin',

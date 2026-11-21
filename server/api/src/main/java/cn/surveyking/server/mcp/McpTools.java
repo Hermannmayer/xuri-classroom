@@ -79,12 +79,7 @@ public class McpTools {
 
 
 
-	/**
-
-	 *
-	 * <p>这里算的 {@code allowed} 只是**展示**用的近似值（管理员视为全通过），
-	 * 真正的闸门仍然是各方法上的 {@code @PreAuthorize}。
-	 */
+	/** 真正的闸门仍然是各方法上的 @PreAuthorize */
 	public Map<String, Object> capabilities(McpCaller caller) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		Map<String, Object> token = new LinkedHashMap<>();
@@ -338,11 +333,7 @@ public class McpTools {
 				: reportService.getData(projectId, true);
 	}
 
-	/**
-	 * view=exam：按「答卷得分」聚合（提交数、已判分数、平均分、最高最低、及格率、整卷满分）。
-	 *
-	 * <p>与 view=questions 的区别：那边是逐题数值统计，这边是整卷口径，考试复盘时看这个。
-	 */
+	/** view=exam：按「答卷得分」聚合（提交数、已判分数、平均分、最高最低、及格率、整卷满分） */
 	private void fillExamView(Map<String, Object> result, String projectId) {
 		ProjectView project = projectService.getProject(projectId);
 		double scoreTotal = project == null ? 0D : sumExamScore(project.getSurvey());
@@ -399,13 +390,7 @@ public class McpTools {
 		return item;
 	}
 
-	/**
-	 * 把结构校验结果附在写操作的返回值里（不阻断保存）。
-	 *
-	 * <p>为什么不阻断：{@code sk_project_create} / {@code sk_project_update} 承担的是「存草稿」，
-	 * 老师本来就是边建边改；真正拦人的地方是 {@link #projectValidate} 与发布前的自查。
-	 * 但只回一个「成功」也不合适——模型看不到问题就会一路建到发布才发现整卷 0 分。
-	 */
+	/** 把结构校验结果附在写操作的返回值里（不阻断保存） */
 	private void appendSchemaCheck(Map<String, Object> result, SurveySchema survey, ProjectModeEnum mode) {
 		if (survey == null) {
 			return;

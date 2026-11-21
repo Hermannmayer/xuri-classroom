@@ -66,7 +66,7 @@ class AnswerPdfJobFilterScopeTest {
 
 	private LambdaQueryWrapper<Answer> lastWrapper;
 
-	/** 单测不启动 MyBatis，Lambda 缓存是空的：{@code Answer::getGradeStatus} 解析不出列名 */
+	/** 单测不启动 MyBatis，Lambda 缓存是空的：Answer::getGradeStatus 解析不出列名 */
 	@BeforeAll
 	static void initTableInfo() {
 		TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),
@@ -74,7 +74,7 @@ class AnswerPdfJobFilterScopeTest {
 		LambdaUtils.installCache(tableInfo);
 	}
 
-	/* ====== DTO → 任务快照 ====== */
+	/** ====== DTO → 任务快照 ====== */
 
 	@Test
 	@DisplayName("导出请求 → 任务快照：批改状态 / 姓名 / 分数段 / 仅实名 一个都不许漏拷")
@@ -103,7 +103,7 @@ class AnswerPdfJobFilterScopeTest {
 		assertTrue(spec.isIncludeImages());
 	}
 
-	/* ====== 筛选条件进 SQL ====== */
+	/** ====== 筛选条件进 SQL ====== */
 
 	@Test
 	@DisplayName("批改状态：进 SQL 的是 GRADE_STATUS = ?，绑定参数就是界面选中的那一档")
@@ -187,7 +187,7 @@ class AnswerPdfJobFilterScopeTest {
 		assertFalse(sql(wrapperOf(spec -> spec.includeAnonymous(Boolean.TRUE))).contains("is_anonymous"));
 	}
 
-	/* ====== 不受影响的部分 ====== */
+	/** ====== 不受影响的部分 ====== */
 
 	@Test
 	@DisplayName("什么都没传：筛选条件一条都不加，取数范围与以前完全一样")
@@ -220,13 +220,7 @@ class AnswerPdfJobFilterScopeTest {
 
 
 
-	/**
-	 * 跑一次 {@code countAnswers}（私有）并把交给 Mapper 的 Wrapper 抓下来。
-	 *
-	 * <p>为什么要反射：导出任务建完就丢进线程池，对外只有一个 jobId，范围本身没有任何出口；
-	 * 而 {@code countAnswers} 与真正取数的 {@code queryAnswers} 共用同一个 {@code baseWrapper}，
-	 * 盯住它等于盯住了任务实际执行的取数条件。
-	 */
+	/** 跑一次 countAnswers（私有）并把交给 Mapper 的 Wrapper 抓下来 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private LambdaQueryWrapper<Answer> wrapperOf(Consumer<AnswerPdfJobServiceImpl.ExportSpec> customizer)
 			throws Exception {

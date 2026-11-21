@@ -110,10 +110,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		return result;
 	}
 
-	/**
-	 * 按班级查答卷（报表）：可见性由调用方（ClassService#assertVisible）判定，这里不再套
-	 * canManageProject，也不加 create_by = 当前用户，保证「班级可见就能看本班全部」。
-	 */
+	/** 按班级查答卷（报表）：可见性由调用方（ClassService#assertVisible）判定，这里不再套 canManageProject，也不加 create_by = 当前用户，保证「班级可见就能看本班全部」 */
 	@Override
 	public PaginationResponse<AnswerView> listAnswerByClass(AnswerQuery query) {
 		if (query == null || !StringUtils.hasText(query.getProjectId()) || !StringUtils.hasText(query.getClassId())) {
@@ -155,10 +152,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 
 
 
-	/**
-	 * 批量回填「这份答卷里是否还有 AI 预批改的题」。
-	 * <p>一次 in 查询，页大小几十条，成本可以忽略；列表靠它显示「AI 待复核」标签。
-	 */
+	/** 批量回填「这份答卷里是否还有 AI 预批改的题」 */
 	private void fillAiGraded(List<AnswerView> views) {
 		if (views == null || views.isEmpty()) {
 			return;
@@ -194,12 +188,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		});
 	}
 
-	/**
-	 * 姓名模糊查询的 LIKE 模式串：转义 {@code \ % _}，让「张_」只按字面量匹配
-	 * （MySQL LIKE 的默认转义符就是 {@code \}）。
-	 * <p>这个值只作为绑定参数进 SQL（{@code apply(..., {0})}），不会被拼进 SQL 文本，注入不了；
-	 * 转义只是为了让搜索框里的 % 和 _ 当普通字符，而不是「匹配所有人的通配符」。
-	 */
+	/** 姓名模糊查询的 LIKE 模式串：转义 \ % _，让「张_」只按字面量匹配 （MySQL LIKE 的默认转义符就是 \） */
 	private static String answererNameLike(String keyword) {
 		String text = keyword.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
 		return "%" + text + "%";
@@ -233,10 +222,6 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		return listAnswer(query, withSnapshot, true);
 	}
 
-	/**
-	 * @param withSnapshot 是否读取整卷快照（统计路径为 false）
-	 * @param withAnswer 是否读取 {@code t_answer.answer} 原文（导出走投影时为 false）
-	 */
 	private PaginationResponse<AnswerView> listAnswer(AnswerQuery query, boolean withSnapshot, boolean withAnswer) {
 		Page<Answer> page = new Page<>(query.getCurrent(), query.getPageSize());
 
@@ -465,20 +450,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 				&& Boolean.TRUE.equals(project.getSetting().getAnswerSetting().getLoginRequired());
 	}
 
-	/**
-	 * 解析答卷上的「答题人姓名」。
-	 *
-	 * <p>取值优先级：请求里填的 → 库里已有/继承的（fallbackName）→ 登录用户的 t_user.name。
-	 * 只是个人展示信息，不做富文本清洗，但要 trim 并按列宽截断。
-	 *
-	 * <p>项目开了 {@code answerSetting.answererNameRequired} 时，**正式交卷**（tempSave=1）
-
-	 * @param request 本次提交
-	 * @param answer 待保存的答卷（用它的 tempSave 判断是否正式交卷）
-	 * @param fallbackName 库里已有的姓名（更新答卷时沿用，不会因为这次没传就清空）
-	 * @param actor 答题人账号 id（为空表示匿名答卷）
-	 * @return 最终写入 t_answer.answerer_name 的值，可能为 null
-	 */
+	/** 解析答卷上的「答题人姓名」；返回 最终写入 t_answer.answerer_name 的值，可能为 null */
 	private String resolveAnswererName(AnswerRequest request, Answer answer, String fallbackName, String actor) {
 		String name = request != null && StringUtils.hasText(request.getAnswererName())
 				? request.getAnswererName().trim() : null;
@@ -641,11 +613,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		return answerExporter.downloadSurvey(project, answerViews);
 	}
 
-	/**
-	 * 按班级导出答卷（xlsx）：只含该班已提交答卷，走真源 JSON（不做投影优化）。
-	 *
-	 * <p>班级可见性由调用方（AnswerApi → ClassService#assertVisible）先校验。
-	 */
+	/** 按班级导出答卷（xlsx）：只含该班已提交答卷，走真源 JSON（不做投影优化） */
 	@Override
 	public DownloadData downloadByClass(DownloadQuery query) {
 		if (query == null || !StringUtils.hasText(query.getProjectId()) || !StringUtils.hasText(query.getClassId())) {
@@ -678,30 +646,14 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		return answerExporter.downloadSurvey(project, answerViews);
 	}
 
-	/**
-	 * 按班级导出答卷 PDF（每人一份，整体打成 ZIP）：交给 {@link AnswerPdfJobService} 异步渲染。
-	 *
-	 * <p>
-	 * 为什么不搞「≤20 份同步返回、>20 走任务」：同步渲染 20 份也要十几秒，期间一直占着 HTTP 连接
-
-	 *
-	 * <p>
-	 * 班级可见性（{@code ClassService#assertVisible}）与导出密码/一次性 token 由调用方
-	 * （{@code AnswerExportApi}）先校验；这里只负责把范围固化成任务快照。
-	 * @param query 导出范围（项目 + 班级 + 轮次 + 交卷时间范围 + 是否含解析/图片）
-	 * @return 任务 id
-	 */
+	/** 按班级导出答卷 PDF（每人一份，整体打成 ZIP）：交给 AnswerPdfJobService 异步渲染；返回 任务 id */
 	public String downloadPdfByClass(DownloadQuery query) {
 
 
 		return answerPdfJobService.createJob(query);
 	}
 
-	/**
-	 * 下载附件要使用 InputStreamResource，避免 Byte... 加载到内存
-	 * @param query
-	 * @return
-	 */
+	/** 下载附件要使用 InputStreamResource，避免 Byte... 加载到内存 */
 	@Override
 	public DownloadData downloadAttachment(DownloadQuery query) {
 		Project project = projectMapper.selectById(query.getProjectId());
@@ -779,7 +731,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		runAfterCommit(() -> fileService.deleteByAnswers(ids));
 	}
 
-	/** 事务提交后再执行（无事务时立即执行）。用于「物理文件删除」这类不可回滚的副作用。 */
+	/** 事务提交后再执行（无事务时立即执行） */
 	private static void runAfterCommit(Runnable action) {
 		if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
 			org.springframework.transaction.support.TransactionSynchronizationManager
@@ -806,15 +758,7 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
 		return answerUploadParser.upload(request, this::saveImportedAnswers);
 	}
 
-	/**
-	 * Excel 导入的答卷落库前补齐「交卷语义」。
-	 *
-	 * <p>解析器只填 projectId 与 answer，temp_save / 判分 / 批改状态一概没有：
-	 * 导入的卷子在数据页显示成「暂存」、不进「已交」，也不会进待批改。
-	 * 这里按项目口径补 temp_save=1，考试项目再跑一次判分与批改状态机——
-	 * 与 {@code AnswerScoringService#beforeSaveAnswer} 用同一个评估器，但不跑计时与附件校验
-	 * （导入的是已经完成的答卷，不该被「最短答题时间」拦下）。
-	 */
+	/** Excel 导入的答卷落库前补齐「交卷语义」 */
 	private void saveImportedAnswers(List<Answer> answers) {
 		if (answers == null || answers.isEmpty()) {
 			return;

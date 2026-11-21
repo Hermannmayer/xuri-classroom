@@ -7,21 +7,13 @@ package cn.surveyking.server.core.constant;
 
 public enum ProjectPartnerTypeEnum {
 
-	/**
-	 * 所有者
-	 */
+	/** 所有者 */
 	OWNER(1),
-	/**
-	 * 协作者
-	 */
+	/** 协作者 */
 	COLLABORATOR(2),
-	/**
-	 * 答卷人(系统用户)
-	 */
+	/** 答卷人(系统用户) */
 	RESPONDENT_SYS_USER(3),
-	/**
-	 * 答卷人(外部导入用户)
-	 */
+	/** 答卷人(外部导入用户) */
 	RESPONDENT_IMP_USER(4);
 
 	private int type;

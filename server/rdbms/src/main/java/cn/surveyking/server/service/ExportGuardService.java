@@ -44,12 +44,7 @@ public class ExportGuardService {
 
 	private static final long TOKEN_TTL_MS = 60_000L;
 
-	/**
-	 * 校验导出密码。设置里没配密码时直接放行（仍受权限注解约束）。
-	 *
-
-	 * 后者为了安全会把密码置空（公开接口不回显），走它会导致密码校验永远通过。
-	 */
+	/** 校验导出密码 */
 	public void assertExportAllowed(String provided) {
 		String expected = currentExportPassword();
 		if (!StringUtils.hasText(expected)) {
@@ -66,12 +61,7 @@ public class ExportGuardService {
 		return info != null && info.getSetting() != null ? info.getSetting().getExportPassword() : null;
 	}
 
-	/**
-	 * 用密码换一个一次性令牌。
-	 *
-	 * <p>导出是 GET 下载，如果直接把密码放 query 里，它会永久留在服务器访问日志和浏览器历史里。
-	 * 改成「先换 token，再拿 token 下载」：token 60 秒过期、用一次即失效、并且绑定当前用户。
-	 */
+	/** 用密码换一个一次性令牌 */
 	public java.util.Map<String, Object> issueToken(String password) {
 		assertExportAllowed(password);
 		String token = java.util.UUID.randomUUID().toString().replace("-", "");
@@ -84,10 +74,7 @@ public class ExportGuardService {
 		return result;
 	}
 
-	/**
-	 * 校验一次性令牌：未设置导出密码时直接放行；设置后必须持有效、未过期、同用户的令牌。
-	 * 令牌用一次就删除。
-	 */
+	/** 校验一次性令牌：未设置导出密码时直接放行；设置后必须持有效、未过期、同用户的令牌 */
 	public void assertTokenAllowed(String token) {
 		if (!StringUtils.hasText(currentExportPassword())) {
 			return;
@@ -125,24 +112,12 @@ public class ExportGuardService {
 		auditRecorder.record(action, targetId, targetName, detail, true, null);
 	}
 
-	/**
-	 * 记一条带「导出口径」的审计。
-	 *
-	 * <p>导出是只读动作，没有「改后」状态，所以把筛选范围记进 before_json：
-	 * 项目 / 班级 / 第几次作答 / 请求条数 / 类型。**只记范围，不复制任何导出内容**——
-	 * 审计表长期保留，把答卷正文放进去等于又开了一个数据出口。
-	 * @param scope 导出口径，由各导出接口按自己关心的筛选条件拼
-	 */
+	/** 记一条带「导出口径」的审计 */
 	public void record(String action, String targetId, String targetName, String detail, Map<String, Object> scope) {
 		auditRecorder.recordWithDiff(action, targetId, targetName, detail, true, null, scope, null);
 	}
 
-	/**
-	 * 答卷导出口径：只记筛选范围（项目 / 班级 / 第几次作答 / 请求条数 / 导出类型），不记任何答卷内容。
-	 *
-	 * <p>{@code requestedIds=0} 表示没有按 id 过滤，导出的就是该范围内全部答卷——
-	 * 真实条数要到导出那一刻才知道，这里有筛选条件已经足够回答「这次带走多大范围」。
-	 */
+	/** 答卷导出口径：只记筛选范围（项目 / 班级 / 第几次作答 / 请求条数 / 导出类型），不记任何答卷内容 */
 	public static Map<String, Object> answerExportScope(cn.surveyking.server.domain.dto.DownloadQuery query) {
 		Map<String, Object> scope = new LinkedHashMap<>();
 		if (query == null) {

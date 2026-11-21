@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
 
-/**
- * 图表的空态/失败态占位。
- *
-
- * 至少告诉用户「这里本来有东西，但现在取不到」，而不是留一块空白让人以为页面坏了。
- */
+/** 图表的空态/失败态占位 */
 export function ChartEmpty({
   height,
   reason,

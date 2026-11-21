@@ -1,19 +1,5 @@
 #requires -version 5.1
-<#
-  旭日云课堂 · Windows 便携版启动器
-  ---------------------------------------------------------------------------
-  这个脚本只做一件事：把「解压出来的包」变成「能访问的网站」，并且尽量不让人工介入。
-
-  子命令（由同目录的 .cmd 包装）：
-    setup    引导安装：环境检查 → JRE → MySQL → 建库导入 → 启动应用
-    start    日常启动：已安装则直接起；没装过会自动进入引导安装
-    stop     停止应用和内置 MySQL
-    status   查看端口、PID、访问地址
-    doctor   体检并输出诊断报告（--fix 尝试自动修复）
-
-  兼容性：Windows PowerShell 5.1（Windows 10/11 自带），不使用 PowerShell 7 专有语法。
-  编码：本文件是 UTF-8（带 BOM）+ CRLF；中文注释和提示在 5.1 下不会乱码。
-#>
+# 旭日云课堂 · Windows 便携版启动器 这个脚本只做一件事：把「解压出来的包」变成「能访问的网站」，并且尽量不让人工介入。
 
 $ErrorActionPreference = 'Stop'
 
@@ -69,9 +55,7 @@ $script:CheckPass = 0
 $script:CheckWarn = 0
 $script:CheckFail = 0
 
-# ===========================================================================
 # 1. 输出与日志
-# ===========================================================================
 
 function Add-LogText([string]$Text) {
   if ([string]::IsNullOrEmpty($script:LogPath)) { return }
@@ -137,9 +121,7 @@ function Out-Header([string]$Title) {
   Add-LogText $bar
 }
 
-# ===========================================================================
 # 2. 基础工具
-# ===========================================================================
 
 function Get-Timestamp {
   return (Get-Date -Format 'yyyyMMdd-HHmmss')
@@ -213,9 +195,7 @@ function Get-DirectorySizeMB([string]$Path) {
   return [math]::Round($sum / 1MB, 1)
 }
 
-# Start-Process -ArgumentList 传数组时，PowerShell 只是用空格拼接，不会自动给含空格的
-# 参数补引号（实测：@('-File','C:\dir with space\x.ps1') 会被拆成两个参数）。
-# 所以含空格的单个参数必须自己带引号。下面两个函数就是干这个的。
+# Start-Process -ArgumentList 传数组时，PowerShell 只是用空格拼接，不会自动给含空格的 参数补引号（实测：@('-File','C:\dir with space\x.ps1') 会被拆成两个参数）。
 function Quote-NativeArg([string]$Text) {
   $value = [string]$Text
   if ($value.Length -eq 0) { return '""' }
@@ -306,9 +286,7 @@ function New-RandomBase64([int]$ByteCount) {
   return [Convert]::ToBase64String((New-RandomBytes $ByteCount))
 }
 
-# ===========================================================================
 # 3. 进程、端口、HTTP
-# ===========================================================================
 
 function Get-ProcessRecord([int]$ProcessId) {
   if ($ProcessId -le 0) { return $null }
@@ -490,9 +468,7 @@ function Open-Url([string]$Url) {
   }
 }
 
-# ===========================================================================
 # 4. 文件校验与解压
-# ===========================================================================
 
 function Get-Sha256([string]$Path) {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -550,9 +526,7 @@ function Find-ExtractedRoot([string]$Directory, [string]$RelativeExe) {
   return ''
 }
 
-# ===========================================================================
 # 5. 配置解析（.env 风格，支持重复键、注释、引号）
-# ===========================================================================
 
 function ConvertTo-EnvMap([string[]]$Lines) {
   $map = @{}
@@ -626,9 +600,7 @@ function Remove-PidFile([string]$Path) {
   }
 }
 
-# ===========================================================================
 # 6. 应用配置（config/app.env）与运行时配置（config/runtime.env）
-# ===========================================================================
 
 function Get-AppEnvLines($Config) {
   $lines = New-Object System.Collections.ArrayList
@@ -830,9 +802,7 @@ function Get-RuntimeConfig {
 }
 
 
-# ===========================================================================
 # 6.5 命令行参数（支持 --step jre / --step=jre / -Step jre 三种写法）
-# ===========================================================================
 
 function Get-CommandList {
   return @('start', 'stop', 'status', 'setup', 'doctor', 'init-db', 'upgrade', 'help', 'version')
@@ -1001,9 +971,7 @@ function Show-Usage {
   Out-Line ''
 }
 
-# ===========================================================================
 # 7. 下载（curl.exe 优先，BITS 兜底；支持断点续传与多源回退）
-# ===========================================================================
 
 function Get-CacheFileName([string]$Url) {
   $value = ([string]$Url).Trim()
@@ -1258,9 +1226,7 @@ function Invoke-ComponentDownload {
   throw ('无法获取 ' + $Label + '（' + $lastError + '）。请按上面的手动下载指引操作后重试。')
 }
 
-# ===========================================================================
 # 8. JRE
-# ===========================================================================
 
 function Get-JavaVersionInfo([string]$JavaExe) {
   $info = @{ Ok = $false; Version = ''; Text = '' }
@@ -1275,7 +1241,6 @@ function Get-JavaVersionInfo([string]$JavaExe) {
 }
 
 # 旧格式的版本串以 1 开头（主版本在 “1.” 之后），Java 9+ 直接给主版本号（“25.0.5”）。
-# 返回 $true 表示这个版本能跑本项目：要求主版本 >= 25（jar 的 class 文件目标是 Java 25）。
 function Test-Java25Version([string]$Version) {
   if ([string]::IsNullOrWhiteSpace($Version)) { return $false }
   $majorText = $Version.Trim()
@@ -1353,9 +1318,7 @@ function Ensure-JreInstalled {
   Out-Ok ('JRE 安装完成：' + $installed.Version + '（runtime\jre25，' + (Get-DirectorySizeMB $script:P.Jre) + ' MB）')
 }
 
-# ===========================================================================
 # 9. MySQL 安装、初始化与启停
-# ===========================================================================
 
 function Get-MySqlVersionText([string]$MySqldPath) {
   if (-not (Test-Path -LiteralPath $MySqldPath)) { return '未安装' }
@@ -1404,9 +1367,7 @@ function Optimize-MySqlTree([string]$MysqlDir) {
   Out-Ok ('裁剪完成：' + $before + ' MB → ' + $after + ' MB')
 }
 
-# MySQL 8 在 Windows 上不支持含中文/非 ASCII 字符的路径：它会截断路径，然后报
-# “Failed to set datadir ... No such file or directory”。所以在下载/初始化/启动之
-# 前就拦住，给出能照做的解决办法，而不是让人等 120 秒再看天书。
+# MySQL 8 在 Windows 上不支持含中文/非 ASCII 字符的路径：它会截断路径，然后报 “Failed to set datadir ... No such file or directory”。
 function Assert-MySqlPathSupported {
   if ($script:Root -match '[^\x00-\x7E]') {
     $message = '当前安装路径含中文或其他非 ASCII 字符：' + $script:Root + '。MySQL 8 在 Windows 上无法从这种路径启动（会截断路径并报 datadir 不存在）。请把整个文件夹移动到纯英文路径（例如 C:\xuri 或 D:\xuri），config 与 data 会一起搬走，不需要重装，然后重新运行 start.cmd。'
@@ -1712,9 +1673,7 @@ function Stop-MySqlServer {
   return $true
 }
 
-# ===========================================================================
 # 10. 数据库初始化（建库、建账号、导入、校验）
-# ===========================================================================
 
 function Invoke-SqlClient {
   param(
@@ -1878,9 +1837,7 @@ function Ensure-DatabaseSchema {
 }
 
 
-# ===========================================================================
 # 11. 应用启动
-# ===========================================================================
 
 function Get-AppJar {
   if (-not (Test-Path -LiteralPath $script:P.App)) {
@@ -2152,9 +2109,7 @@ function Ensure-AppStarted {
   if ($OpenBrowser) { Open-Url $url }
 }
 
-# ===========================================================================
 # 12. 防火墙
-# ===========================================================================
 
 function Get-FirewallRule([int]$Port) {
   $name = 'xuri-classroom-' + $Port
@@ -2253,9 +2208,7 @@ function Ensure-FirewallRule([int]$Port) {
   return $ok
 }
 
-# ===========================================================================
 # 13. 安装状态、日志清理与引导步骤
-# ===========================================================================
 
 function Test-SetupDone {
   if (-not (Test-Path -LiteralPath $script:P.SetupDone)) { return $false }
@@ -2501,9 +2454,7 @@ function Invoke-SetupCommand {
   return 0
 }
 
-# ===========================================================================
 # 14. 顶层命令：start / stop / status / doctor
-# ===========================================================================
 
 function Invoke-StartCommand {
   Out-Header ('旭日云课堂 · Windows 便携版 ' + (Get-PackageVersion))
@@ -2548,12 +2499,7 @@ function Invoke-StartCommand {
   return 0
 }
 
-# ======
 # 13.5 升级（upgrade.cmd）
-#
-# 与 setup.cmd 的分工：setup 负责"从没有到装好"，upgrade 负责"从旧版本到新版本"。
-# 升级前一定先停应用再备份，备份或校验不过就恢复旧程序 —— 不在没备份的情况下动数据库。
-# ======
 
 function Get-JarInventory {
   $list = New-Object System.Collections.ArrayList
@@ -3326,9 +3272,7 @@ function Invoke-DoctorCommand {
   return 0
 }
 
-# ===========================================================================
 # 15. 失败诊断
-# ===========================================================================
 
 function Get-StepDiagnostics([string]$StepKey) {
   switch ($StepKey) {

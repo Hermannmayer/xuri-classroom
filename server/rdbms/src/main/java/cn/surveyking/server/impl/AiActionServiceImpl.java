@@ -122,7 +122,7 @@ public class AiActionServiceImpl implements AiActionService {
 		}
 	}
 
-	/* ====== 动作：批改 ====== */
+	/** ====== 动作：批改 ====== */
 
 	private AiChatAction gradePending(AiChatRequest.Context context, JsonNode args) {
 		String projectId = context == null ? null : context.getProjectId();
@@ -156,7 +156,7 @@ public class AiActionServiceImpl implements AiActionService {
 		return action;
 	}
 
-	/* ====== 动作：打开工具（不写库） ====== */
+	/** ====== 动作：打开工具（不写库） ====== */
 
 	private AiChatAction openTool(String tool, AiChatRequest.Context context, JsonNode args, String title) {
 		String projectId = context == null ? null : context.getProjectId();
@@ -227,7 +227,7 @@ public class AiActionServiceImpl implements AiActionService {
 		return action;
 	}
 
-	/* ====== 动作：只读问答 ====== */
+	/** ====== 动作：只读问答 ====== */
 
 	private AiChatAction reportSummary(AiChatRequest.Context context) {
 		String projectId = context == null ? null : context.getProjectId();
@@ -275,12 +275,7 @@ public class AiActionServiceImpl implements AiActionService {
 
 
 
-	/**
-	 * 值不值得做一次意图识别：消息里出现动作关键词，或者这是本轮第一句且页面有可操作对象。
-	 *
-	 * <p>为什么限制「第一句」：上下文里只要有试卷，后面每句追问（「为什么」「那第 3 题呢」）
-	 * 都会命中「有上下文」；每句都多花一次模型调用做识别，纯属把钱花在确认「这不是指令」上。
-	 */
+	/** 值不值得做一次意图识别：消息里出现动作关键词，或者这是本轮第一句且页面有可操作对象 */
 	private boolean shouldTry(String message, AiChatRequest.Context context, boolean firstTurn) {
 		for (String hint : ACTION_HINTS) {
 			if (message.contains(hint)) {
@@ -349,12 +344,7 @@ public class AiActionServiceImpl implements AiActionService {
 		return text.length() == 0 ? "（没有可操作的对象，除 usage_query / notice_draft 外只返回 none）" : text.toString();
 	}
 
-	/**
-	 * 只接收白名单里的参数，且只保留标量。
-	 *
-	 * <p>为什么不用「遍历所有 key」：模型偶尔会自己发明字段（比如把整段题干塞进 args），
-	 * 白名单能让「未知参数」直接消失，而不是被当成正经参数传给前端去预填。
-	 */
+	/** 只接收白名单里的参数，且只保留标量 */
 	private Map<String, Object> sanitizeArgs(JsonNode args) {
 		Map<String, Object> params = new LinkedHashMap<>();
 		if (args == null || !args.isObject()) {

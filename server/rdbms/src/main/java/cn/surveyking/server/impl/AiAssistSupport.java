@@ -84,14 +84,6 @@ public class AiAssistSupport {
 
 
 
-	/**
-
-	 *
-	 * @param scene 场景（{@link AiUsageService} 里的 SCENE_*）
-	 * @param userId 调用人（后台线程里没有登录态，必须显式传）
-	 * @param request 提示词 / 温度；后台任务请用 {@code AiRequest.builder().background(true)}
-	 * @param json true 时剥掉 JSON 围栏（模型爱写 &#96;&#96;&#96;json）
-	 */
 	public AiCompletion call(String scene, String userId, AiRequest request, boolean json) {
 		long start = System.currentTimeMillis();
 		try {
@@ -258,7 +250,7 @@ public class AiAssistSupport {
 		return UUID.randomUUID().toString().replace("-", "");
 	}
 
-	/** 给前端摘要用的「第 N 题」列表，最多列 {@code max} 个，超出写「等 N 题」 */
+	/** 给前端摘要用的「第 N 题」列表，最多列 max 个，超出写「等 N 题」 */
 	public static String joinTitles(List<String> titles, int max) {
 		if (CollectionUtils.isEmpty(titles)) {
 			return "";

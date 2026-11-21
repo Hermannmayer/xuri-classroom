@@ -1,16 +1,6 @@
--- ======
 -- 题库全局开放期：t_repo.open_start_at / open_end_at（2026-11，幂等）
---
 
--- 任意时间。这里给题库加一对全局开放期：
---   open_start_at  全局开放期开始；留空=不限
---   open_end_at    全局开放期结束；留空=不限
--- 班级窗口（t_class_resource.start_at/end_at）非空时必须落在 [open_start_at, open_end_at] 内；
--- 班级窗口为空表示继承全局。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 32-repo-open-window.sql
--- ======
+-- 任意时间。
 SET NAMES utf8mb4;
 
 

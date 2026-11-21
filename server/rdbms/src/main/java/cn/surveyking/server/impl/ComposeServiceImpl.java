@@ -141,9 +141,7 @@ public class ComposeServiceImpl implements ComposeService {
 		return plan;
 	}
 
-	/**
-	 * 整套拆分：题库里符合条件的题全部用上，按题型均匀拆成 N 套，套间不重复。
-	 */
+	/** 整套拆分：题库里符合条件的题全部用上，按题型均匀拆成 N 套，套间不重复 */
 	private ComposePlan planSplit(ComposeRequest request, List<QuestionType> types, List<Template> all, int sets,
 			long seed) {
 		if (all.size() < sets) {

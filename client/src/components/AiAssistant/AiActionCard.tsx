@@ -4,20 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAiJob, undoAiGrade } from '../../api/ai';
 import type { AiChatAction, AiGradeBatchResult, AiJobView } from '../../api/ai';
 
-/**
- * 对话里那张「AI 真的做了什么」的卡片。
- *
- * <p>三种形态：
- * <ol>
- * <li>open_tool：给一个「打开」按钮，点了跳到对应页面并自动展开面板（?ai=xxx）；</li>
- * <li>grade_batch：带 jobId，卡片自己轮询进度，批完显示「批了几份 / 几题 / 几题要复核」，
- * 并给「去查看」与「撤销」（24 小时内有效）；</li>
-
- * </ol>
- *
- * <p>为什么撤销放在这里而不是藏在批改页：批改是 AI 替老师做的，最该有「反悔」的地方
- * 就是它被做出来的那一屏。
- */
+/** 对话里那张「AI 真的做了什么」的卡片 */
 export default function AiActionCard({ action }: { action: AiChatAction }) {
   const { message } = App.useApp();
   const navigate = useNavigate();

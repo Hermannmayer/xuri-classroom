@@ -355,7 +355,7 @@ public class UserQueryService {
 
 	}
 
-	/** 与 {@code BaseService.pageByQuery(PageQuery, Wrapper)} 等价：组件不继承 ServiceImpl，直接走 Mapper */
+	/** 与 BaseService.pageByQuery(PageQuery, Wrapper) 等价：组件不继承 ServiceImpl，直接走 Mapper */
 	private Page<User> pageByQuery(PageQuery query, Wrapper<User> wrapper) {
 		Page<User> page = new Page<>(query.getCurrent(), query.getPageSize());
 		return userMapper.selectPage(page, wrapper);

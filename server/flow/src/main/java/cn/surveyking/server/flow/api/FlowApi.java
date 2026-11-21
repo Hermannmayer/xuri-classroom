@@ -46,27 +46,19 @@ public class FlowApi {
 		return flowService.getFlowTasks(query);
 	}
 
-	/**
-	 * 加载问卷 schema
-	 * @param query
-	 * @return
-	 */
+	/** 加载问卷 schema */
 	@GetMapping("/loadSchema")
 	public SurveySchema loadSchema(SchemaQuery query) {
 		return flowService.loadSchemaByPermission(query);
 	}
 
-	/**
-	 * 获取任务信息
-	 */
+	/** 获取任务信息 */
 	@GetMapping("/getTaskInfo")
 	public void getTaskInfo() {
 
 	}
 
-	/**
-	 * 任务回退
-	 */
+	/** 任务回退 */
 	@GetMapping("/getRevertNodes")
 	public List<RevokeView> getRevertNodes(String processInstanceId) {
 		return flowService.getRevertNodes(processInstanceId);

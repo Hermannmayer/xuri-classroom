@@ -1,9 +1,4 @@
-/**
- * 数据页过滤条：班级 / 交卷时间 / 交卷状态 / 批改状态 / 分数段 / 姓名 / 匿名。
- *
- * <p>纯受控组件：状态都由 Data.tsx 持有（classId 还得跟 URL 同步），这里只负责把条件摆成一行
- * 并发回补丁。手机上每个条件各占一行——390px 下把六个控件挤一排，点哪个都点不准。
- */
+/** 数据页过滤条：班级 / 交卷时间 / 交卷状态 / 批改状态 / 分数段 / 姓名 / 匿名 */
 import type { ReactNode } from 'react';
 import { Button, DatePicker, Input, InputNumber, Segmented, Select } from 'antd';
 import { ClearOutlined, SearchOutlined } from '@ant-design/icons';

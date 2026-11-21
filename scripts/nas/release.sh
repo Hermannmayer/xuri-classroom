@@ -1,45 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · NAS 发布脚本（目标态 xuri-prod：db(MySQL) + app + web）
-#
-# 这个脚本只对「定制分支的 xuri-prod compose 栈」发版，不碰当前手工 docker run 的
-# surveyking(H2) 容器——那是切换前的旧生产，切换步骤见 deploy/nas/prod/README.md。
-#
-# 流程（每一步都会中文打印）：
-#   0. 前置校验：docker / docker compose v2 / compose 文件 / .env / 目标镜像存在
-#   1. preflight.sh 体检（只读）：退出码 0 或 2 继续，1 立即中止（还没动生产）
-#   2. 打印完整动作表 + 要求 CONFIRM=yes（--yes 等价）
-#   3. 备份：自动选工具——
-#        · 目标栈已在跑（有 compose app 容器）→ 走 scripts/deploy/backup.sh（容器内 mysqldump）
-#        · 目标栈没在跑（首次切换前）      → 走 scripts/nas/backup.sh（H2 + files 停机拷贝）
-#   4. 记录当前版本：docker tag <当前 app 镜像> <repo>:previous（web 同理）
-#   5. docker compose up -d（带 XURI_APP_IMAGE / XURI_WEB_IMAGE 指向新镜像）
-#   6. 轮询健康检查（默认最长 120s）
-#   7. 失败 → 自动回滚到 <repo>:previous，打印 app/web 日志尾部，再轮询一次
-#
-# 用法：
-#   # 发一个新构建的镜像（镜像要先能 docker image inspect 到）
-#   CONFIRM=yes bash scripts/nas/release.sh --image xuri-classroom:20261107-1
-#   # 只给仓库名时用 --tag 补时间戳（默认就是当前时间）
-#   CONFIRM=yes bash scripts/nas/release.sh --image xuri-classroom --web-image xuri-classroom-web
-#   # 先看计划不落地
-#   bash scripts/nas/release.sh --image xuri-classroom:test --dry-run
-#
-# 安全约定：
-#   - 第 2 步之前没有任何写操作；未确认时直接退出（不动生产）
-#   - 不会执行 docker compose down / down -v / docker rm -v 这类会对数据下手的命令
-#   - 失败自动回滚，并给出下一步人工指令
-#
-# 退出码：
-#   0  发布成功（新版本健康检查通过）
-#   1  参数/环境/前置检查失败，或未确认 —— 生产未被改动
-#   2  备份失败 —— 未切镜像
-#   3  记录 previous 失败（docker tag）—— 未切镜像
-#   4  新版本不健康，已自动回滚到 previous（生产在旧版本上）
-#   5  新版本不健康且回滚也失败/回滚后仍不健康 —— 立即人工处理
-#
-# 首次使用请先：chmod +x scripts/nas/release.sh
-# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

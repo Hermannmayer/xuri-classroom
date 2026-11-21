@@ -1,27 +1,7 @@
 #!/usr/bin/env python3
-# =============================================================================
 # 第 3 步：把 H2 的 CSV 转成 MySQL 的 INSERT 脚本
-#
-# 输入：
-#   --csv-dir   02-export-csv.sh 导出的 CSV 目录（NULL 用 ##NULL## 标记）
-#   --schema    仓库里的 init-mysql.sql（目标表结构 + 种子数据）
-# 输出：
-#   --out       可以直接喂给 mysql 客户端的 SQL 文件
-#
-# 规则（都是实测出来的，不是猜的）：
-#   · H2 的列名是全大写，MySQL 是小写 → 按名字不区分大小写对齐
-#   · MySQL 里有、H2 里没有的列 → 不写，交给默认值（只有 4 个可空新列）
-#   · H2 里有、MySQL 里没有的列 → 丢弃并报告
-#   · 生成列（GENERATED ALWAYS AS）不能 INSERT → 跳过（实测只有 t_account.oauth_identity_key）
 
-#   · 导入前先 DELETE 整表，避免和 init-mysql.sql 里的种子数据撞主键
-#
-# 用法（在 NAS 上）：
-#   python3 scripts/nas/migrate/03-build-import.py \
-#     --csv-dir /vol2/1000/xuri/work/csv \
-#     --schema  server/rdbms/src/main/resources/scripts/init-mysql.sql \
-#     --out     /vol2/1000/xuri/work/import.sql
-# =============================================================================
+# · 导入前先 DELETE 整表，避免和 init-mysql.sql 里的种子数据撞主键
 import argparse, csv, io, os, re, sys
 
 NULL_TOKEN = '##NULL##'

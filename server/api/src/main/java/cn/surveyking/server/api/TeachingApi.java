@@ -88,13 +88,7 @@ public class TeachingApi {
 		return teachingService.listClasses(projectId);
 	}
 
-	/**
-	 * 某个班在某场考试里的答卷列表（答卷明细下钻）。
-	 *
-	 * <p>按 t_answer.class_id 过滤（答题时所在班级，学员换班后历史答卷仍算在原班）。
-	 * 双重保险：注解管「有没有资格看报表」，{@link ClassService#assertVisible(String)} 管
-	 * 「这个班在不在你的可见范围」；答卷本身的数据范围仍由 AnswerService 内部判定。
-	 */
+	/** 某个班在某场考试里的答卷列表（答卷明细下钻） */
 	@GetMapping("/classes/answers")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public PaginationResponse<AnswerView> classAnswers(@RequestParam String projectId, @RequestParam String deptId,
@@ -109,13 +103,7 @@ public class TeachingApi {
 		return answerService.listAnswerByClass(query);
 	}
 
-	/**
-	 * 未交卷名单：这个班在某场考试里还有谁没交（班级管理 → 答卷管理 / 查看数据）。
-	 *
-	 * <p>注解只做粗筛（有没有班级视角的权限），服务层再校验「班级可见 + 项目可读」。
-	 * 交卷口径按 create_by 而不是 t_answer.class_id，理由见
-	 * {@link ClassService#listUnsubmittedStudents(String, String)} 的注释。
-	 */
+	/** 未交卷名单：这个班在某场考试里还有谁没交（班级管理 → 答卷管理 / 查看数据） */
 	@GetMapping("/classes/unsubmitted")
 	@PreAuthorize("hasAuthority('class:detail') or hasRole('admin')")
 	public UnsubmittedStudentView unsubmittedStudents(@RequestParam String projectId, @RequestParam String deptId) {
@@ -124,35 +112,21 @@ public class TeachingApi {
 
 
 
-	/**
-	 * 当前用户能看到的班级树。
-	 *
-	 * <p>班主任看自己创建/负责的班，老师看被授权的班，管理员与 class:grant 看全部；
-	 * 被授权的班会自动补上祖先节点，保证树有路径可显示。节点上的 {@code manageable}
-	 * 表示当前用户能不能改这个班的学员（只读授权为 false）。
-	 */
+	/** 当前用户能看到的班级树 */
 	@GetMapping("/classes/tree")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public List<ClassNodeView> classTree(@RequestParam(required = false) String keyword) {
 		return classService.listClassTree(keyword);
 	}
 
-	/**
-	 * 新建班级。
-	 *
-	 * <p>老师有 {@code class:list} 就能建班：服务端固定 dept_type=class、不绑角色，
-	 * create_by 由框架自动写成当前用户，建完就能在自己的班级树里看到。
-	 */
+	/** 新建班级 */
 	@PostMapping("/classes/create")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public void createClass(@RequestBody DeptRequest request) {
 		classService.createClass(request);
 	}
 
-	/**
-	 * 修改班级（名称 / 上级 / 有效期）。只能改自己「可管理」的班，
-	 * 权限判定在 {@code ClassServiceImpl#updateClass}（管理员 / class:grant / 班主任 / 可管理授权）。
-	 */
+	/** 修改班级（名称 / 上级 / 有效期） */
 	@PostMapping("/classes/update")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public void updateClass(@RequestBody DeptRequest request) {
@@ -161,11 +135,7 @@ public class TeachingApi {
 
 
 
-	/**
-	 * 某班已分配的资源面板。
-	 *
-	 * <p>只有能管理这个班的人能看（服务层 assertManage）：面板就是写入口，读也不外包。
-	 */
+	/** 某班已分配的资源面板 */
 	@GetMapping("/classes/resources")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public List<ClassResourceView> classResources(@RequestParam String deptId,
@@ -180,7 +150,7 @@ public class TeachingApi {
 
 
 
-	/** 生成/读取班级 × 考试的专属公开链接 token；只有能管理该班的人可调用。 */
+	/** 生成/读取班级 × 考试的专属公开链接 token；只有能管理该班的人可调用 */
 	@PostMapping("/classes/resources/link")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public ClassShareLinkView classShareLink(@RequestBody ClassShareLinkRequest request) {
@@ -194,11 +164,7 @@ public class TeachingApi {
 		classResourceService.assign(request);
 	}
 
-	/**
-	 * 修改一条分配：班级窗口与班级级开关。
-	 *
-	 * <p>body {@code {id, startAt?, endAt?, status?}}；startAt/endAt 传 null 表示回退到继承全局。
-	 */
+	/** 修改一条分配：班级窗口与班级级开关 */
 	@PostMapping("/classes/resources/update")
 	@PreAuthorize("hasAuthority('class:list') or hasRole('admin')")
 	public void updateClassResource(@RequestBody ClassResourceUpdateRequest request) {
@@ -218,19 +184,14 @@ public class TeachingApi {
 		return classService.listClassMembers(deptId);
 	}
 
-	/**
-	 * 待审核学员：自己注册、账号尚未启用的学员。
-	 *
-	 * <p>学员注册时已经选过班级，所以按 t_user.dept_id 就能定位；只返回当前用户可见班级里的记录，
-	 * 管理员 / class:grant 看全部。只读老师也能看到名单，但通过按钮需要 {@code class:member:update}。
-	 */
+	/** 待审核学员：自己注册、账号尚未启用的学员 */
 	@GetMapping("/classes/pending-students")
 	@PreAuthorize("hasAuthority('class:detail') or hasRole('admin')")
 	public List<ClassMemberView> pendingStudents() {
 		return classService.listPendingStudents();
 	}
 
-	/** 审核通过：启用账号；body 里的 deptId 为空表示沿用注册时选的班级。 */
+	/** 审核通过：启用账号；body 里的 deptId 为空表示沿用注册时选的班级 */
 	@PostMapping("/classes/pending-students/approve")
 	@PreAuthorize("hasAuthority('class:member:approve') or hasRole('admin')")
 	public void approvePendingStudent(@RequestBody PendingStudentApproveRequest request) {
@@ -238,7 +199,7 @@ public class TeachingApi {
 	}
 
 
-	/** 拒绝注册申请：删除待审核账号，手机号可重新注册；已审核通过的不能走这里。 */
+	/** 拒绝注册申请：删除待审核账号，手机号可重新注册；已审核通过的不能走这里 */
 	@PostMapping("/classes/pending-students/reject")
 	@PreAuthorize("hasAuthority('class:member:approve') or hasRole('admin')")
 	public void rejectPendingStudent(@RequestBody PendingStudentApproveRequest request) {
@@ -288,24 +249,14 @@ public class TeachingApi {
 		return classService.listTeacherOptions(keyword);
 	}
 
-	/**
-	 * 分配 / 重新分配老师。
-	 *
-	 * <p>body {@code {deptId, userIds, accessLevel?}}：{@code accessLevel} 缺省按 1（只读）；
-	 * 对已存在的 (dept_id, user_id) 是 upsert —— 会更新级别，而不是像以前那样直接跳过。
-	 */
+	/** 分配 / 重新分配老师 */
 	@PostMapping("/classes/partner/create")
 	@PreAuthorize("hasAuthority('class:grant') or hasRole('admin')")
 	public void addClassPartners(@RequestBody ClassPartnerRequest request) {
 		classService.addClassPartners(request);
 	}
 
-	/**
-	 * 修改某条已授权老师的级别。
-	 *
-	 * <p>body {@code {deptId, id, accessLevel}}，{@code accessLevel} 只能是 1（只读）或 2（可管理）；
-
-	 */
+	/** 修改某条已授权老师的级别 */
 	@PostMapping("/classes/partner/update")
 	@PreAuthorize("hasAuthority('class:grant') or hasRole('admin')")
 	public void updateClassPartner(@RequestBody ClassPartnerRequest request) {
@@ -318,12 +269,7 @@ public class TeachingApi {
 		classService.deleteClassPartner(request);
 	}
 
-	/**
-	 * 班主任在自己可见的班里新增学员（角色固定为学员）。
-	 *
-	 * <p>登录账号 = 手机号，{@code phone} 必填且为 11 位大陆手机号；body 里的 {@code username}
-	 * 仅为兼容旧前端保留，服务端忽略。只读授权（access_level=1）的老师会被 403 拒绝。
-	 */
+	/** 班主任在自己可见的班里新增学员（角色固定为学员） */
 	@PostMapping("/classes/member/create")
 	@PreAuthorize("hasAuthority('class:member:create') or hasRole('admin')")
 	public void createClassMember(@RequestBody ClassMemberCreateRequest request) {
@@ -342,13 +288,7 @@ public class TeachingApi {
 		classService.deleteClassMember(request.getDeptId(), request.getId());
 	}
 
-	/**
-	 * 班级学员批量导入（multipart/form-data：deptId + file）。
-	 *
-	 * <p>模板第 1 行表头，数据列：0 姓名（必填）、1 手机号（必填，同时是登录账号）、
-	 * 2 初始密码（可空，默认 12345678）、3 邮箱（可空）。整批事务：任一行失败全部回滚，
-	 * 异常信息是「第 N 行：原因」。返回 {@code {imported: 成功行数}}。
-	 */
+	/** 班级学员批量导入（multipart/form-data：deptId + file） */
 	@PostMapping(value = "/classes/member/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@PreAuthorize("hasAuthority('class:member:create') or hasRole('admin')")
 	public ClassMemberImportResult importClassMembers(ClassMemberImportRequest request) {

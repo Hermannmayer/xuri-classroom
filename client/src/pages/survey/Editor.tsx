@@ -315,12 +315,7 @@ export default function SurveyEditor() {
 
   const [aiChip, setAiChip] = useState<{ top: number; left: number } | null>(null);
 
-  /**
-   * 关掉 AI 面板就把 ?ai= 去掉。
-   *
-   * 用 replace 而不是 push：参数是「一次性开门指令」，留着会让刷新页面又弹一次，
-   * 也会在浏览器后退时莫名重开面板。
-   */
+  /** 关掉 AI 面板就把 ?ai= 去掉 */
   const clearAiParam = useCallback(() => {
     if (!searchParams.has('ai')) return;
     const next = new URLSearchParams(searchParams);
@@ -703,12 +698,7 @@ export default function SurveyEditor() {
     [survey, selectedId, setSurvey],
   );
 
-  /**
-   * 保存指定的树。
-   *
-
-   * 调用方把算好的树传进来，落库和 baseline 都用同一份，避免「保存的是旧的、画布是新的」。
-   */
+  /** 保存指定的树 */
   const persist = async (tree: SurveySchema, hint = '已保存') => {
     setSaving(true);
     try {
@@ -727,12 +717,7 @@ export default function SurveyEditor() {
     await persist(survey);
   };
 
-  /**
-   * AI 组卷的结果写进画布。
-   *
-   * 和「从题库添加」一个套路：包成一个题组追加到末尾，一次 setSurvey = 一个撤销步。
-   * **不落库**：题目先落在画布上，老师确认后点「保存」才写库（组卷面板里也不写库）。
-   */
+  /** AI 组卷的结果写进画布 */
   const handleAiAdopt = (questions: SurveySchema[]) => {
     if (!questions.length) return;
     const group: SurveySchema = {
@@ -750,23 +735,13 @@ export default function SurveyEditor() {
     message.success('已写入 ' + questions.length + ' 题，记得保存');
   };
 
-  /**
-   * 打开 AI 优化侧栏。
-   *
-
-   * 老师刚改完的题干也能立刻让 AI 改。
-   */
+  /** 打开 AI 优化侧栏 */
   const openAiRewrite = (nodeId: string) => {
     if (!findNode(survey, nodeId)) return;
     setAiRewriteId(nodeId);
   };
 
-  /**
-   * 打开试卷质检。
-   *
-   * 体检接口吃的是 projectId，读的是**服务端那份**卷子；画布上没保存的改动不参与。
-   * 这里不替老师自动保存（保存是明确动作，不该被看报告顺手触发），只提醒一句。
-   */
+  /** 打开试卷质检 */
   const openAiCheck = () => {
     setAiCheckOpen(true);
     if (dirty) message.info('质检读的是已保存的试卷，刚才的改动要先保存才会算进去');

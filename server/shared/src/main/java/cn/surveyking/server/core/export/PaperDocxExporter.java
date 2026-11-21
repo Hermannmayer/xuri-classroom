@@ -100,9 +100,7 @@ public final class PaperDocxExporter {
 		font(run, size, bold);
 	}
 
-	/**
-	 * 递归渲染：只有 dataType 才编号，QuestionSet 只当大题标题，选项不再被当题号。
-	 */
+	/** 递归渲染：只有 dataType 才编号，QuestionSet 只当大题标题，选项不再被当题号 */
 	private static void renderNodes(XWPFDocument doc, List<SurveySchema> nodes, List<SurveySchema> questions,
 			int[] number) {
 		if (nodes == null) {

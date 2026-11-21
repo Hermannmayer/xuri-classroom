@@ -2,10 +2,7 @@ import type { QuestionComponentProps } from '../types';
 import { firstSelectedId, npsRange } from './answers';
 import { QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 
-/**
- * NPS 净推荐值：answer = { [分值]: true }，分值范围取 attribute.npsStartNum/npsTotalNum（默认 0..10）。
- * 无障碍：整排是 radiogroup，每个分值是 radio + aria-checked，读屏会念「7 分，单选按钮，已选中」。
- */
+/** NPS 净推荐值：answer = { [分值]: true }，分值范围取 attribute.npsStartNum/npsTotalNum（默认 0..10） */
 export default function Nps(props: QuestionComponentProps) {
   const { schema, mode, disabled, number } = props;
   const [answer, setAnswer] = useAnswerState(props);

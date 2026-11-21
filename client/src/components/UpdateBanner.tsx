@@ -24,15 +24,7 @@ const LAST_CHECK_KEY = 'sk-update-last-check';
 
 const MIN_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
-/**
- * 管理员登录后检查更新；只提示，不执行升级。
- *
- * 检查策略（按"不打扰"设计）：
- *  - 只在挂载时查一次，**不再监听 window focus**（切窗口就查是最烦人的）；
- *  - 12 小时内查过就直接跳过；
- *  - 同一个版本点过"关闭"后按版本记 localStorage，不再出现；
- *  - 后端连不上 GitHub 时返回 error、hasUpdate=false，这里什么都不显示。
- */
+/** 管理员登录后检查更新；只提示，不执行升级 */
 export default function UpdateBanner({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const [info, setInfo] = useState<UpdateInfo>();

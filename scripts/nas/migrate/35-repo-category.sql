@@ -1,15 +1,4 @@
--- ======
 -- 题库分类（空文件夹）：t_repo_category（2026-11，幂等）
---
--- 背景：t_repo.category 是自由文本，只能表达「题库身上写了什么分类」，表达不了：
---   1) 只建目录、还没放题库的空文件夹；
---   2) 同名分类的规范化（首尾空格、重复 / 由接口统一处理，这里只保证 path 唯一）。
--- 于是加一张「目录登记表」：path 用 / 连接表示层级（如 保育员/初级），唯一键防重复。
--- 表里刻意没有 is_deleted：删目录就是真删（题库自己的 category 字段不受影响）。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 35-repo-category.sql
--- ======
 SET NAMES utf8mb4;
 
 

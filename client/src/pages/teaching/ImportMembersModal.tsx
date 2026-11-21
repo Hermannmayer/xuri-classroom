@@ -8,12 +8,7 @@ interface ImportResult {
   imported?: number;
 }
 
-/**
- * 班级学员批量导入。
- *
- * 流程：下载 xlsx 模板 → 填好（姓名/手机号/初始密码/邮箱）→ 上传 → 看导入结果。
-
- */
+/** 班级学员批量导入 */
 export default function ImportMembersModal({
   open,
   deptId,

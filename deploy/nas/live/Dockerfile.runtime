@@ -1,17 +1,4 @@
-# =============================================================================
 # 旭日云课堂 · live 后端运行时镜像（只做一次）
-#
-# 为什么不用仓库根目录的 Dockerfile：
-#   那份 Dockerfile 是「多阶段从源码构建生产镜像」，每次改后端都要重新
-#   npm ci + gradle build，8GB 的飞牛 NAS 上要几分钟。live 模式要的是
-#   「编译一次、重启一下」，所以这里只准备一个带 curl 的 JRE 底座，
-#   jar 通过 bind mount 挂进来，改完只重启容器。
-#
-# 构建（只需一次）：
-#   docker build -f deploy/nas/live/Dockerfile.runtime -t xuri-runtime:25 .
-# 也可以直接：
-#   bash scripts/nas/live-bootstrap.sh
-# =============================================================================
 
 FROM eclipse-temurin:25-jre-alpine
 

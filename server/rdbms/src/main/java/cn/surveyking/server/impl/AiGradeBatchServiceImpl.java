@@ -283,7 +283,7 @@ public class AiGradeBatchServiceImpl implements AiGradeBatchService {
 		return restored;
 	}
 
-	/* ====== 内部：调模型 → 建议分 ====== */
+	/** ====== 内部：调模型 → 建议分 ====== */
 
 	private Suggestion grade(AnswerGradeItemView item, double maxScore, String userId) {
 		Map<String, String> vars = new LinkedHashMap<>();

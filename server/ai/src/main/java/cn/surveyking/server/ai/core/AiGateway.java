@@ -100,12 +100,7 @@ public class AiGateway {
 
 	private final RateLimiter rateLimiter;
 
-	/**
-	 * 单轮补全：系统提示 + 用户输入。
-	 * @param request 系统提示 + 用户输入 + 可选模型/温度
-	 * @return 正文与用量
-	 * @throws ErrorCodeException AI 未启用、key/模型没配、被限流或调用最终失败（消息都是中文，可直接弹给老师）
-	 */
+	/** 单轮补全：系统提示 + 用户输入；返回 正文与用量 */
 	public AiCompletion complete(AiRequest request) {
 		if (request == null || (!StringUtils.hasText(request.getSystemPrompt())
 				&& !StringUtils.hasText(request.getUserPrompt()))) {
@@ -119,12 +114,7 @@ public class AiGateway {
 		return dispatch(turns, request.getModel(), request.getTemperature(), request.isBackground());
 	}
 
-	/**
-	 * 多轮对话补全：消息顺序原样下发给模型（第一条通常是 system）。
-	 * @param conversation 消息列表 + 可选模型/温度
-	 * @return 正文与用量
-	 * @throws ErrorCodeException 与 {@link #complete(AiRequest)} 同一套原因（配置 / 限流 / 调用失败）
-	 */
+	/** 多轮对话补全：消息顺序原样下发给模型（第一条通常是 system）；返回 正文与用量 */
 	public AiCompletion completeConversation(AiConversation conversation) {
 		if (conversation == null || CollectionUtils.isEmpty(conversation.getTurns())) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "AI 对话内容为空");
@@ -137,15 +127,7 @@ public class AiGateway {
 		return dispatch(turns, conversation.getModel(), conversation.getTemperature(), conversation.isBackground());
 	}
 
-	/**
-	 * 要 JSON 的场景（出卷 / 改题 / 批改建议）：取回正文后把 json 围栏剥掉，只留最外层 JSON。
-	 *
-	 * <p>返回的仍是 {@link AiCompletion}（正文已换成纯净 JSON），这样调用方还能拿到 token 用量去记账——
-	 * 只返回字符串会让记账丢掉用量。
-	 *
-	 * <p>不依赖 provider 的 {@code response_format}：不是所有 OpenAI 兼容端点都支持它，
-	 * 而「提示词里要求只输出 JSON」+ 这里剥围栏，在所有端点上都成立。
-	 */
+	/** 要 JSON 的场景（出卷 / 改题 / 批改建议）：取回正文后把 json 围栏剥掉，只留最外层 JSON */
 	public AiCompletion completeJson(AiRequest request) {
 		AiCompletion completion = complete(request);
 		return AiCompletion.builder().text(stripJsonFence(completion.getText())).model(completion.getModel())
@@ -164,11 +146,7 @@ public class AiGateway {
 		return resolveDefaultModel(systemService.getSystemAiSetting());
 	}
 
-	/**
-	 * 「现在能不能聊」的自检：口径与 {@link #complete} 完全一致，但<b>不抛异常、不调模型</b>。
-	 *
-	 * <p>侧栏打开时先问一次：不能聊就直接显示引导（并给出原因），而不是让用户打完字、点了发送才看到 400。
-	 */
+	/** 「现在能不能聊」的自检：口径与 #complete 完全一致，但不抛异常、不调模型 */
 	public AiReadiness readiness() {
 		Resolution resolution = resolve();
 		if (resolution.reason() != null) {
@@ -198,7 +176,7 @@ public class AiGateway {
 		return callWithRetry(url, resolution.apiKey(), buildPayload(turns, model, temperature), model);
 	}
 
-	/** 解析「现在能不能调模型」：不能调时把中文原因带出来（{@link #readiness()} 与 {@link #dispatch} 共用） */
+	/** 解析「现在能不能调模型」：不能调时把中文原因带出来（#readiness() 与 #dispatch 共用） */
 	private Resolution resolve() {
 		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
 		if (setting == null || !Boolean.TRUE.equals(setting.getEnabled())) {
@@ -215,16 +193,7 @@ public class AiGateway {
 	private record Resolution(SystemInfo.AiSetting setting, String apiKey, String model, String reason) {
 	}
 
-	/**
-	 * 每用户窗口限流。
-	 *
-	 * <p>两个例外必须说清楚：
-	 * <ul>
-	 * <li><b>后台任务不限流</b>：批量批改 / 组卷 / 题库体检本身就是「一次请求里连调几十次模型」，
-	 * 按人限流会把自己卡死在第三次；它们的成本由每日 token 限额兜底、并发由 {@code AiJobService} 兜底。</li>
-	 * <li><b>频率可配</b>：默认 10 次/分钟，管理员在系统设置里能调（大校自建模型时想放开）。</li>
-	 * </ul>
-	 */
+	/** 每用户窗口限流 */
 	private void assertNotTooFrequent(boolean background) {
 		if (background) {
 			return;
@@ -333,28 +302,12 @@ public class AiGateway {
 		return models.isEmpty() ? null : models.get(0);
 	}
 
-	/**
-	 * 拉取服务商支持的模型列表（OpenAI 兼容的 `GET {base}/models`）。
-	 *
-	 * <p>为什么由后端代理：admin 在设置页点一下就要看到可选模型，而 API Key 只存在服务端、
-	 * 也绝不下发到浏览器；同时把「网关不支持 /models」「Key 无权限」这类错误翻成中文，
-	 * 老师不用去翻 401 响应体。
-	 *
-	 * @return 去重排序后的模型 id；为空时抛中文错误（说明可能不是标准 OpenAI 兼容端点）
-	 */
+	/** 拉取服务商支持的模型列表（OpenAI 兼容的 `GET {base}/models`）；返回 去重排序后的模型 id；为空时抛中文错误（说明可能不是标准 OpenAI 兼容端点） */
 	public java.util.List<String> listModels() {
 		return listModels(null);
 	}
 
-	/**
-	 * 同上，但允许用「表单里还没保存的值」先试一次。
-	 *
-	 * <p>为什么需要 preview：管理员通常先填 Base URL / API Key，再点「获取模型」，
-	 * 这时候值还没落库。逼他先保存再看列表，等于每次换服务商都要多按一次保存、
-	 * 而且保存失败时连列表都拿不到。这里只把这两个字段临时覆盖进来，不写库。
-	 *
-	 * @param preview 可为 null；只读 baseUrl / apiKey 两个字段
-	 */
+	/** 同上，但允许用「表单里还没保存的值」先试一次 */
 	public java.util.List<String> listModels(SystemInfo.AiSetting preview) {
 		SystemInfo.AiSetting effective = effectiveSetting(preview);
 		String apiKey = resolveApiKey(effective);
@@ -446,7 +399,7 @@ public class AiGateway {
 		return baseUrl;
 	}
 
-	/** 与 {@code OpenAiCompatibleChatServiceImpl} 同一套 baseUrl 规则（含旧 SiliconFlow token 的兜底） */
+	/** 与 OpenAiCompatibleChatServiceImpl 同一套 baseUrl 规则（含旧 SiliconFlow token 的兜底） */
 	private String chatCompletionsUrl(SystemInfo.AiSetting setting) {
 		return apiBase(setting) + "/chat/completions";
 	}

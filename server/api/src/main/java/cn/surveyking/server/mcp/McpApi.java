@@ -42,12 +42,7 @@ public class McpApi {
 
 	private final McpServer mcpServer;
 
-	/**
-	 * JSON-RPC 入口。
-	 *
-	 * <p>状态码约定：令牌问题 401（带 {@code WWW-Authenticate}）；其它一律 200，
-	 * 业务/协议错误放在 JSON-RPC 的 {@code error} 或工具结果的 {@code isError} 里。
-	 */
+	/** JSON-RPC 入口 */
 	@PostMapping("/mcp")
 	public void handle(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		String body;

@@ -1,17 +1,4 @@
--- ======
 -- 班级老师授权级别：t_class_partner.access_level（2026-11，幂等）
---
--- 背景：原来「分配老师」只有一档——被授权的老师能看这个班（含下级班），写学员时却和
--- 班主任一样放行，等于「只读授权」并不存在。这里把授权拆成两档：
---   access_level = 1  只读：能看班级树 / 成员名单，不能增删改学员、不能批量导入
---   access_level = 2  可管理：能增删改本班与下级班的学员、批量导入
---
--- 存量数据：新列默认值 1，老授权一律按「只读」解释，行为不放宽；要放开某个老师，
--- 由管理员在「分配老师」里把级别改成「可管理」。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 29-class-partner-access-level.sql
--- ======
 SET NAMES utf8mb4;
 
 

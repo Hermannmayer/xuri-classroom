@@ -1,25 +1,5 @@
 #Requires -RunAsAdministrator
-<#
-.SYNOPSIS
-  Windows 卸载脚本：停止并删除 xuri-classroom Windows 服务。
-
-.DESCRIPTION
-  停止/删除服务并移除防火墙规则；默认保留安装目录（app.env、files/ 等数据）。
-  加 -Purge 才会删除安装目录。
-
-.PARAMETER InstallDir
-  安装目录，默认 C:\xuri-classroom。
-
-.PARAMETER ServiceName
-  Windows 服务名，默认 xuri-classroom。
-
-.PARAMETER Purge
-  删除安装目录（数据库不会删除）。
-
-.EXAMPLE
-  .\uninstall.ps1
-  .\uninstall.ps1 -Purge
-#>
+# Windows 卸载脚本：停止并删除 xuri-classroom Windows 服务。
 [CmdletBinding()]
 param(
     [string]$InstallDir = 'C:\xuri-classroom',

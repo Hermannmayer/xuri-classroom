@@ -113,12 +113,7 @@ public class McpServer {
 	@Value("${version:}")
 	private String serverVersion = "";
 
-	/**
-	 * 处理一次 MCP 请求。
-	 * @param body 请求体（可能为空）
-	 * @param request 当前请求，用于取 Authorization
-	 * @throws McpUnauthorizedException 令牌缺失 / 无效 / 已撤销 / 已过期
-	 */
+	/** 处理一次 MCP 请求 */
 	public HttpResult handle(String body, HttpServletRequest request) {
 		McpCaller caller = tokenResolver.resolve(request);
 		try {
@@ -226,11 +221,7 @@ public class McpServer {
 		return result;
 	}
 
-	/**
-	 * {@code tools/call} 的实现：白名单 → 幂等 → 执行 → 审计。
-	 *
-
-	 */
+	/** tools/call 的实现：白名单 → 幂等 → 执行 → 审计 */
 	private Object callTool(JsonNode params, McpCaller caller) {
 		if (params == null || !params.isObject()) {
 			throw new McpInvalidParamsException("tools/call 缺少 params");
@@ -548,12 +539,7 @@ public class McpServer {
 		return null;
 	}
 
-	/**
-	 * 403 的可读原因。
-	 *
-	 * <p>Spring Security 自己抛的 {@code AccessDeniedException} message 恒为「Access Denied」，
-	 * 对模型毫无信息量；业务代码抛的（班级不可见、只能改自己的……）则是一句中文原因，必须原样透出。
-	 */
+	/** 403 的可读原因 */
 	private static String reasonOf(AccessDeniedException e, McpToolDefinition definition) {
 		String raw = e.getMessage();
 		boolean generic = !StringUtils.hasText(raw) || "Access Denied".equalsIgnoreCase(raw.trim())

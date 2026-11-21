@@ -72,12 +72,7 @@ public class ClassStudentImportService {
 
 	private final AccountMapper accountMapper;
 
-	/**
-	 * 导入一个 Excel 的学员到指定班级。
-	 * @param deptId 目标班级（调用方已经校验过管理权限与班级存在）
-	 * @param file 模板文件
-	 * @return 成功建号的行数
-	 */
+	/** 导入一个 Excel 的学员到指定班级；返回 成功建号的行数 */
 	public ClassMemberImportResult importMembers(String deptId, MultipartFile file) {
 		if (!StringUtils.hasText(deptId)) {
 			throw new ValidationException("缺少班级 id");
@@ -214,10 +209,7 @@ public class ClassStudentImportService {
 		return normalizeNumberCell(value.replaceAll("[\\s-]", ""));
 	}
 
-	/**
-	 * 手机号/初始密码在 Excel 里被当成「数字」时，读出来可能带小数位或科学计数法
-	 * （{@code 13800138000.0}、{@code 1.3800138E10}）。只在形如数字时还原成整数字面量，其它原样返回。
-	 */
+	/** 手机号/初始密码在 Excel 里被当成「数字」时，读出来可能带小数位或科学计数法 （13800138000.0、1.3800138E10） */
 	private String normalizeNumberCell(String value) {
 		if (!StringUtils.hasText(value)) {
 			return value;

@@ -1,18 +1,4 @@
-/**
- * 答卷导出弹窗：Excel 明细（同步下载）+ 多种「每人一份」产物（异步任务，2 秒轮询进度）。
- *
- * <p>两个出口的令牌是分开的：Excel 走 /api/repo/export/token、异步任务走 /api/answer/export/token，
-
- * 各自换一个新的——这和教学页的 ClassAnswersDrawer 是同一套实现，这里只是多了「仅勾选」范围。
- *
- * <p>范围默认「当前筛选结果」；表格里勾了卷子就多一个「仅勾选」并默认选中——老师从一大张表里
- * 挑了几份再点导出，意图几乎总是「就导这几份」。勾选范围只按 ids 取数，班级/时间/分数一律不再叠加，
- * 免得「我明明勾了 5 份，导出只有 3 份」。
- *
- * <p>异步产物现在有四种（成绩单 / 答题卷还原 / 长图 PNG / 成绩确认单），但只建一个任务：
- * 后端按 outputs 一次渲染完，统一打进一个 ZIP 并分子目录。拆成四次导出只是在 4 核机器上
- * 把同一批答卷多渲染三遍、多等三倍，没有任何收益。
- */
+/** 答卷导出弹窗：Excel 明细（同步下载）+ 多种「每人一份」产物（异步任务，2 秒轮询进度） */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, App, Checkbox, Input, Modal, Progress, Radio, Space } from 'antd';
 import {
@@ -253,12 +239,7 @@ export default function ExportModal({
     setExporting(false);
   }, [open, selectedIds.length]);
 
-  /**
-   * 勾/取消一种异步产物。
-   *
-   * <p>写成「先拷贝再按键赋值」而不是物化计算属性：四种产物都是 boolean，这样 TS 能确认
-   * next[key] 的赋值类型对得上，不会把整个 options 摊成索引签名（那样其它字段就悄悄失去类型了）。
-   */
+  /** 勾/取消一种异步产物 */
   const toggleFormat = (key: PdfOutput, checked: boolean) =>
     setOptions((prev) => {
       const next: ExportOptions = { ...prev };

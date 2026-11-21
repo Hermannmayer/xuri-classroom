@@ -48,12 +48,7 @@ const DEFAULT_EXPIRE = '90';
 /** 后端时间是 `yyyy-MM-dd HH:mm:ss`（GMT+8）：dayjs 能直接解析，展示到分钟就够 */
 const fmt = (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm');
 
-/**
- * 令牌指纹：优先用后端拼好的 maskedToken，只给前后各 4 位时前端补「****」。
- *
- * 这 8 个字符取的是**哈希**的首尾，不是明文片段（表里只有 SHA-256，见 V2.2.5 迁移），
-
- */
+/** 令牌指纹：优先用后端拼好的 maskedToken，只给前后各 4 位时前端补「****」 */
 function maskOf(row: ApiTokenView): string {
   if (row.maskedToken) return row.maskedToken;
   const head = row.tokenPrefix ?? '';
@@ -102,10 +97,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
     setCreateOpen(true);
   };
 
-  /**
-   * 签发：名称必填；有效期按快捷选项折算成具体时间。
-   * 「30 天」= 第 30 天的 23:59:59，免得用户以为当天就被停用。
-   */
+  /** 签发：名称必填；有效期按快捷选项折算成具体时间 */
   const submitCreate = async () => {
     let name = '';
     try {
@@ -144,10 +136,7 @@ export default function ApiTokenPanel({ canManage }: { canManage: boolean }) {
     }
   };
 
-  /**
-   * 复制明文：优先 clipboard（只有 https / localhost 可用）；
-   * 非安全上下文或用户拒权时退回 prompt 让用户手抄，避免「点了复制没反应」。
-   */
+  /** 复制明文：优先 clipboard（只有 https / localhost 可用）； 非安全上下文或用户拒权时退回 prompt 让用户手抄，避免「点了复制没反应」 */
   const copyPlain = async (text: string) => {
     try {
       if (navigator.clipboard && window.isSecureContext) {

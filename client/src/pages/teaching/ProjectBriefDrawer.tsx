@@ -50,16 +50,7 @@ const fmtScore = (value: number) => String(Math.round(value * 100) / 100);
 /** 设置里没填时间 = 不限 */
 const fmtTime = (value?: number) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '不限');
 
-/**
- * 试卷速览抽屉：在班级资源面板点试卷名打开，先让老师确认「这套卷是不是我要的那套」。
- *
- * <p>数据只走已有的 GET /api/project（project:detail），题量与总分用 flattenSchema
- * 在前端现算，不新增接口。答卷数只能从已有的答卷列表接口拿 total——/api/project
- * 的 total 只有列表接口才回填，详情接口是空的。
- *
- * <p>三个底部操作按权限逐个渲染：没有 project:update 不出现「去编辑」，
- * 没有 answer:list 不出现「看数据」（点进去也会被路由守卫挡回来）。
- */
+/** 试卷速览抽屉：在班级资源面板点试卷名打开，先让老师确认「这套卷是不是我要的那套」 */
 export default function ProjectBriefDrawer({
   open,
   projectId,

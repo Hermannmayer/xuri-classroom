@@ -44,33 +44,21 @@ public class ProjectApi {
 
 	private final ProjectStatisticsService projectStatisticsService;
 
-	/**
-	 * 获取项目列表
-	 * @param query 分页查询参数
-	 * @return 项目列表分页结果
-	 */
+	/** 获取项目列表；返回 项目列表分页结果 */
 	@GetMapping("/list")
 	@PreAuthorize("hasAuthority('project:list') or hasAuthority('exercise:list')")
 	public PaginationResponse<ProjectView> listProject(ProjectQuery query) {
 		return projectService.listProject(query);
 	}
 
-	/**
-	 * 考试/问卷分类列表（分类名 + 数量），用于列表页的分类筛选。
-	 *
-	 * <p>只统计当前用户可见的项目；空/空白分类归到「未分类」，按数量降序返回。
-	 */
+	/** 考试/问卷分类列表（分类名 + 数量），用于列表页的分类筛选 */
 	@GetMapping("/categories")
 	@PreAuthorize("hasAuthority('project:list') or hasRole('admin')")
 	public List<ProjectCategoryView> categories() {
 		return projectService.listCategories();
 	}
 
-	/**
-	 * 考试/问卷分类树：文件夹 + 其下的考试/问卷，count 是子树里的项目数。
-	 *
-	 * <p>可见性与 /list 一致；父文件夹不可见的项目会作为根节点返回。
-	 */
+	/** 考试/问卷分类树：文件夹 + 其下的考试/问卷，count 是子树里的项目数 */
 	@GetMapping("/tree")
 	@PreAuthorize("hasAuthority('project:list') or hasRole('admin')")
 	public List<ProjectTreeNode> tree() {
@@ -89,7 +77,7 @@ public class ProjectApi {
 		return projectService.getProject(id);
 	}
 
-	/** 总面板：匿名答卷总量 + 按班级拆分（公开链接匿名无班级归入 unassignedAnonymous）。 */
+	/** 总面板：匿名答卷总量 + 按班级拆分（公开链接匿名无班级归入 unassignedAnonymous） */
 	@GetMapping("/class-anonymous-stats")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	@EnableDataPerm(key = "#projectId")
@@ -131,10 +119,7 @@ public class ProjectApi {
 		projectService.updateProject(project);
 	}
 
-	/**
-	 * 只改发布状态（开启/关闭收集）。独立端点 + 独立权限，老师可以「只发不编」。
-	 * @param request id + status
-	 */
+	/** 只改发布状态（开启/关闭收集） */
 	@PostMapping("/status")
 	@PreAuthorize("hasAuthority('project:publish') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.id")
@@ -165,10 +150,7 @@ public class ProjectApi {
 		return projectPartnerService.listProjectPartner(query);
 	}
 
-	/**
-	 * 添加项目参与者
-	 * @param request
-	 */
+	/** 添加项目参与者 */
 	@PostMapping("/partner/create")
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
@@ -178,10 +160,7 @@ public class ProjectApi {
 		projectPartnerService.addProjectPartner(request);
 	}
 
-	/**
-	 * 删除项目参与者
-	 * @param request
-	 */
+	/** 删除项目参与者 */
 	@PostMapping("/partner/delete")
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
@@ -189,12 +168,7 @@ public class ProjectApi {
 		projectPartnerService.deleteProjectPartner(request);
 	}
 
-	/**
-	 * 调整项目成员的授权级别（1 只读 / 2 可编辑 / 3 可授权）。
-	 *
-	 * <p>权限由 {@code ProjectPartnerService#assertCanGrant} 判定（owner / admin / access_level=3 的协作者）；
-	 * 这里不加 @EnableDataPerm：请求体可能只带 id + accessLevel，拿不到 projectId 的 SpEL 会直接 403。
-	 */
+	/** 调整项目成员的授权级别（1 只读 / 2 可编辑 / 3 可授权） */
 	@PostMapping("/partner/update")
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	public void updateProjectPartner(@RequestBody ProjectPartnerRequest request) {
@@ -213,10 +187,7 @@ public class ProjectApi {
 		projectPartnerService.downloadPartner(query);
 	}
 
-	/**
-	 * 导入项目参与者列表
-	 * @param request
-	 */
+	/** 导入项目参与者列表 */
 	@PostMapping("/partner/import")
 	@PreAuthorize("hasAuthority('project:partner') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")
@@ -312,31 +283,19 @@ public class ProjectApi {
 		return dictService.selectDict();
 	}
 
-	/**
-	 * 编辑器里面获取题库模板
-	 * @param request
-	 * @return
-	 */
+	/** 编辑器里面获取题库模板 */
 	@PostMapping("/selectTemplate")
 	public Map<String, List<TemplateView>> selectTemplate(@RequestBody SelectTemplateRequest request) {
 		return templateService.selectTemplate(request);
 	}
 
-	/**
-	 * 编辑器里面获取题库
-	 * @param request
-	 * @return
-	 */
+	/** 编辑器里面获取题库 */
 	@PostMapping("/selectRepo")
 	public List<RepoView> selectRepo(@RequestBody SelectRepoRequest request) {
 		return repoService.selectRepo(request);
 	}
 
-	/**
-	 * 编辑器里面获取标签
-	 * @param request
-	 * @return
-	 */
+	/** 编辑器里面获取标签 */
 	@PostMapping("/selectTag")
 	public Set<String> selectTag(@RequestBody SelectTagRequest request) {
 		return tagService.selectTag(request);

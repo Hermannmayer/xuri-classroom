@@ -42,12 +42,7 @@ public class AnswerScoringService {
 
 	private final AnswerGradeService answerGradeService;
 
-	/**
-	 * 答案保存之前计算考试分值、每题得分情况
-	 * @param answer
-	 * @param previousAnswer 库里已存的答卷（可能带随机卷快照），可空
-	 * @return
-	 */
+	/** 答案保存之前计算考试分值、每题得分情况 */
 	public Answer beforeSaveAnswer(Answer answer, Answer previousAnswer) {
 		ProjectView project = projectService.getProject(answer.getProjectId());
 
@@ -83,13 +78,7 @@ public class AnswerScoringService {
 				});
 	}
 
-	/**
-	 * 服务端裁决最长/最短答题时间。
-	 *
-	 * <p>
-	 * 起点不再只认「库里的答卷」：首次提交也会拿到一个起点（客户端上报或估算），所以首次提交同样参与判定。 例外是
-	 * {@code estimated}（既没库里的答卷、客户端也没给开始时间）：这时硬判最短交卷会把每一次 首次提交都拒掉（耗时恒为 0），因此这种情况只记录不拦截。
-	 */
+	/** 服务端裁决最长/最短答题时间 */
 	private static void assertWithinTimeLimit(Answer answer, ProjectView project,
 			AnswerTimer.AttemptStart attemptStart) {
 		if (project == null || project.getSetting() == null || project.getSetting().getExamSetting() == null) {
@@ -116,17 +105,7 @@ public class AnswerScoringService {
 		}
 	}
 
-	/**
-	 * 计算考试分值。
-	 *
-	 * <p>
-	 * 判分用的 schema **只能来自服务端**：库里已存的快照（随机卷由 loadProject 时的服务端逻辑写入） → 项目
-
-	 * 就能刷满分。
-	 *
-	 * <p>
-	 * 历史答卷快照缺失时仍然回退到项目 schema（保持原有兼容行为）。
-	 */
+	/** 计算考试分值 */
 	private void computeExamScore(Answer answer, ProjectView project, Answer previousAnswer) {
 		if (project != null && scoringEnabled(project) && answer != null
 				&& answer.getAnswer() != null && !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
@@ -142,18 +121,13 @@ public class AnswerScoringService {
 		}
 	}
 
-	/** 计分开关：显式配置优先；未配置时考试默认计分、问卷默认不计分。 */
+	/** 计分开关：显式配置优先；未配置时考试默认计分、问卷默认不计分 */
 	private static boolean scoringEnabled(ProjectView project) {
 		Boolean flag = project.getSetting() == null || project.getSetting().getExamSetting() == null ? null
 				: project.getSetting().getExamSetting().getScoringEnabled();
 		return flag != null ? flag : ProjectModeEnum.exam.equals(project.getMode());
 	}
 
-	/**
-
-	 * @param project 服务端项目视图
-	 * @param previousAnswer 库里已存的答卷（可能带随机卷快照），可空
-	 */
 	private static SurveySchema trustedScoreSchema(ProjectView project, Answer previousAnswer) {
 		if (previousAnswer != null && previousAnswer.getSurvey() != null) {
 			return previousAnswer.getSurvey();

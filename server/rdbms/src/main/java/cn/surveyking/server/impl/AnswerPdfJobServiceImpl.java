@@ -193,30 +193,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 
 
-	/**
-	 * 从导出请求创建任务（Controller 与 {@code AnswerServiceImpl#downloadPdfByClass} 共用）：
-	 * 校验项目/班级/类型后固化成 {@link ExportSpec} 快照，再交给线程池。
-	 *
-	 * <p>
-	 * 之所以把这段放在这里而不是 Controller：任务一旦创建就在后台线程里按 spec 取数，
-
-	 * 这类漏洞迟早会出现。
-	 * <p>
-	 * classId 是可选的：不传 = 整个项目（可再用 ids / 时间范围收窄），对应「勾选若干份导出」和
-	 * 「整卷导出」。ids 为空数组同样按「不限」处理，所以空选不会导出一份空 ZIP 之外的意外内容。
-	 *
-	 * <p>
-	 * 数据页 / 班级抽屉上筛过的条件（批改状态、答题人姓名、分数段、是否含匿名）也要一起固化进
-	 * {@link ExportSpec}：PDF / 答题卷 / 长图 / 确认单的取数条件必须和屏幕上的列表逐条相同。
-	 * 少带一条，老师「筛了 60 分以下」却拿到整场答卷，这就是最容易被当成「系统算错」的隐患。
-	 *
-	 * <p>
-	 * 格式由 {@code outputs} 决定（见 {@link #resolveOutputs(DownloadQuery)}）：不传就按 {@code type}
-	 * 走老逻辑（只出成绩单），传了就按列出的顺序全部生成。includeImages 一律按 true 处理，
-	 * DTO 里那个字段已经废弃。
-	 * @param query 导出请求（projectId 必填；classId / ids / 时间范围 / 轮次 / 筛选条件 / outputs 可选）
-	 * @return 任务 id
-	 */
+	/** 从导出请求创建任务（Controller 与 AnswerServiceImpl#downloadPdfByClass 共用）： 校验项目/班级/类型后固化成 ExportSpec 快照，再交给线程池；返回 任务 id */
 	@Override
 	public String createJob(DownloadQuery query) {
 		if (query == null || !StringUtils.hasText(query.getProjectId())) {
@@ -229,18 +206,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return createJob(specOf(query, outputs));
 	}
 
-	/**
-	 * 把导出请求固化成任务快照。
-	 *
-	 * <p>包内可见是为了让单测能直接盯住「DTO → 快照」这一步：漏拷一个筛选字段，任务状态照样是
-	 * done、文件也照样生成，只是里面多了一堆不该出现的答卷 —— 这种错没有任何报错可查。
-	 *
-	 * <p>屏幕上筛过的条件原样带进来：批改状态 / 姓名 / 分数段 / 仅实名。空值一律表示「不限」，
-	 * 语义与 {@link DownloadQuery} 一致（不传就不会多出条件）。
-	 * @param query 导出请求
-	 * @param outputs 已经归一过的格式列表
-	 * @return 任务快照
-	 */
+	/** 把导出请求固化成任务快照；返回 任务快照 */
 	static ExportSpec specOf(DownloadQuery query, List<DownloadQuery.DownloadType> outputs) {
 		return new ExportSpec().projectId(query.getProjectId()).classId(query.getClassId()).ids(query.getIds())
 				.attemptNo(query.getAttemptNo()).startTime(query.getStartTime()).endTime(query.getEndTime())
@@ -258,15 +224,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 					DownloadQuery.DownloadType.answerSheetPdf, DownloadQuery.DownloadType.answerImage,
 					DownloadQuery.DownloadType.confirmSheetPdf));
 
-	/**
-	 * 把导出台账（outputs / type）归一成真正要生成的文件类型列表。
-	 *
-	 * <p>
-	 * 独立成静态方法是为了能被单测直接盯住：这里错一次，老师拿到的就是一包缺格式的 ZIP，
-	 * 而任务状态还是 done —— 这种「静默少文件」比报错更难发现。
-	 * @param query 导出请求
-	 * @return 去重后的格式列表（顺序即渲染顺序），永不为空
-	 */
+	/** 把导出台账（outputs / type）归一成真正要生成的文件类型列表；返回 去重后的格式列表（顺序即渲染顺序），永不为空 */
 	static List<DownloadQuery.DownloadType> resolveOutputs(DownloadQuery query) {
 		List<DownloadQuery.DownloadType> requested = query == null ? null : query.getOutputs();
 		if (requested == null || requested.isEmpty()) {
@@ -294,11 +252,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/**
-	 * 创建导出任务。
-	 * @param spec 导出范围（项目必填；班级 / 勾选 id / 轮次 / 时间范围 / 选项可选）
-	 * @return 任务 id
-	 */
+	/** 创建导出任务；返回 任务 id */
 	public String createJob(ExportSpec spec) {
 		if (spec == null || !StringUtils.hasText(spec.getProjectId())) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, "导出答卷需要项目 id");
@@ -341,12 +295,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return job.getId();
 	}
 
-	/**
-	 * 查任务状态（带归属校验：只能看自己发起的，管理员除外）。
-	 *
-	 * <p>返回 Map 而不是内部任务对象：接口在 shared 模块，不能反向依赖 rdbms 的任务类型；
-	 * 另外 projectId/classId 一起带出来，Controller 据此做「取文件时再查一次班级可见性」和审计。
-	 */
+	/** 查任务状态（带归属校验：只能看自己发起的，管理员除外） */
 	@Override
 	public Map<String, Object> describeJob(String jobId) {
 		ExportJob job = JOBS.get(jobId);
@@ -449,7 +398,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return names;
 	}
 
-	/* ======================= 任务执行 ======================= */
+	/** ======================= 任务执行 ======================= */
 
 	private void run(ExportJob job) {
 		job.setStatus(STATUS_RUNNING);
@@ -562,26 +511,13 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/**
-	 * 渲染一份答卷的所有格式（真渲染器），逐个写进 ZIP；单份/单格式失败只记失败数，不中断整批。
-	 *
-	 * <p>
-	 * 包内可见：单测既可以用它走一遍真链路（四种格式真的出 PDF/PNG），
-	 * 也可以走下面那个带渲染函数的重载替换掉渲染器。
-	 */
+	/** 渲染一份答卷的所有格式（真渲染器），逐个写进 ZIP；单份/单格式失败只记失败数，不中断整批 */
 	void renderOne(ZipOutputStream zip, ProjectView project, String className, Answer answer, AnswerView view,
 			Set<String> usedNames, ExportJob job) throws IOException {
 		renderOne(zip, project, className, answer, view, usedNames, job, this::renderOutput);
 	}
 
-	/**
-	 * 渲染一份答卷的所有格式（包内可见，单测用假渲染器替换真正的 PDF/PNG 生成）。
-	 *
-	 * <p>
-	 * 失败粒度是「学员 × 格式」：长图因为某张图坏了失败，不该把同一份的成绩单 PDF 也一起丢掉；
-	 * 反过来，某个学员所有格式都失败时，他就不算 done，失败明细里也会带上格式名，
-	 * 老师才知道去找哪一份的哪一种。
-	 */
+	/** 渲染一份答卷的所有格式（包内可见，单测用假渲染器替换真正的 PDF/PNG 生成） */
 	void renderOne(ZipOutputStream zip, ProjectView project, String className, Answer answer, AnswerView view,
 			Set<String> usedNames, ExportJob job, OutputRenderer renderer) throws IOException {
 		String displayName = displayName(answer);
@@ -615,13 +551,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/**
-	 * 名册：整班/整卷一张表，只写一个文件（确认单不再一人一页）。
-	 *
-	 * <p>
-	 * 失败记 1 个文件（"成绩确认单"），不影响其它格式交付；
-	 * 但如果这次任务只要了确认单，filesWritten 会停在 0，落到「全部失败」，整任务按 failed 处理。
-	 */
+	/** 名册：整班/整卷一张表，只写一个文件（确认单不再一人一页） */
 	void writeRoster(ZipOutputStream zip, Set<String> usedNames, ProjectView project, String className,
 			List<AnswerConfirmSheetExporter.Entry> rows, ExportJob job) throws IOException {
 		try {
@@ -645,17 +575,14 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/** 名册文件名主体：成绩确认单-<班级名或项目名>-<yyyyMMddHHmm>（去重与扩展名交给 uniqueEntryName） */
+	/** 名册文件名主体：成绩确认单--（去重与扩展名交给 uniqueEntryName） */
 	private String rosterBaseName(ProjectView project, String className) {
 		String scope = StringUtils.hasText(className) ? className
 				: (project != null && StringUtils.hasText(project.getName()) ? project.getName() : "答卷");
 		return "成绩确认单-" + scope + "-" + new SimpleDateFormat("yyyyMMddHHmm").format(new Date());
 	}
 
-	/**
-	 * 名册「班级」列：按班导出时全班同名（直接用任务上的班级名）；
-	 * 整卷/勾选导出时每份答卷各自的班不同，去查一次班级名并缓存（一个班只查一次）。
-	 */
+	/** 名册「班级」列：按班导出时全班同名（直接用任务上的班级名）； 整卷/勾选导出时每份答卷各自的班不同，去查一次班级名并缓存（一个班只查一次） */
 	private String classLabelOf(Answer answer, String jobClassName, Map<String, String> cache) {
 		if (StringUtils.hasText(jobClassName)) {
 			return jobClassName;
@@ -757,20 +684,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 
 
-	/**
-	 * 导出取数条件：与数据页列表（{@code AnswerServiceImpl#listAnswer}）逐条同口径。
-	 *
-	 * <p>为什么这些条件必须长在「取数」而不是「建任务」里：Excel 明细是同步导出、PDF 是异步任务，
-	 * 两条路各自翻译一遍筛选条件，迟早有一处漏掉。老师筛完看到 12 份、导出却拿到整场 50 份，
-	 * 只会认为系统算错。所以这里照抄列表的空值语义：
-	 * <ul>
-	 * <li>字符串条件用 {@link StringUtils#hasText} 判空（null 与 "" 都算「不限」）；</li>
-	 * <li>分数段给的是闭区间 {@code >= / <=}（60 分及格的人不能被漏掉）；</li>
-	 * <li>姓名要同时命中「答卷上的姓名快照」与「账号名」两条路，且整组用 and 包起来，
-
-	 * <li>布尔条件只在显式 false 时生效（{@code includeAnonymous=false} 才是「仅实名」）。</li>
-	 * </ul>
-	 */
+	/** 导出取数条件：与数据页列表（AnswerServiceImpl#listAnswer）逐条同口径 */
 	private LambdaQueryWrapper<Answer> baseWrapper(ExportSpec spec) {
 		return Wrappers.<Answer>lambdaQuery().eq(Answer::getProjectId, spec.getProjectId())
 
@@ -805,17 +719,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 				.lt(spec.getEndTime() != null, Answer::getCreateAt, spec.getEndTime());
 	}
 
-	/**
-	 * 姓名模糊查询的 LIKE 模式串：转义 {@code \ % _}，让「张_」只按字面量匹配
-	 * （MySQL LIKE 的默认转义符就是 {@code \}）。
-	 *
-	 * <p>语义必须与 {@code AnswerServiceImpl#answererNameLike} 逐字一致：同一个搜索词在列表里筛出 3 条、
-	 * 导出的 PDF 却有 4 条，就是「屏幕与文件不一致」。这里是照抄而不是抽公共方法，因为两边都是各自
-	 * 模块的私有细节；口径一致性由 {@code AnswerPdfJobFilterScopeTest} 盯着。
-	 *
-	 * <p>这个值只作为绑定参数进 SQL（{@code apply(..., {0})}），不会被拼进 SQL 文本，注入不了；
-	 * 转义只是为了让搜索框里的 % 和 _ 当普通字符，而不是「匹配所有人的通配符」。
-	 */
+	/** 姓名模糊查询的 LIKE 模式串：转义 \ % _，让「张_」只按字面量匹配 （MySQL LIKE 的默认转义符就是 \） */
 	static String answererNameLike(String keyword) {
 		String text = keyword.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
 		return "%" + text + "%";
@@ -883,7 +787,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return dept == null ? null : dept.getName();
 	}
 
-	/* ======================= 文件名 / 产物 ======================= */
+	/** ======================= 文件名 / 产物 ======================= */
 
 	private String displayName(Answer answer) {
 		if (StringUtils.hasText(answer.getAnswererName())) {
@@ -904,13 +808,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return name.toString();
 	}
 
-	/**
-	 * ZIP 条目名：{@code 子目录/姓名.扩展名}，重名在同一个子目录里加 (2)、(3)…
-	 *
-	 * <p>
-	 * 去重必须按「子目录 + 文件名」整体算：叫「张三」的同学在同一批里可能既有一份成绩单
-	 * 又有一份确认单，那是两个不同的文件，不能因为重名就把其中一个改名成「张三(2)」。
-	 */
+	/** ZIP 条目名：子目录/姓名.扩展名，重名在同一个子目录里加 (2)、(3)… */
 	private String uniqueEntryName(Set<String> usedNames, String dir, DownloadQuery.DownloadType output,
 			String baseName) {
 		String ext = outputExt(output);
@@ -925,10 +823,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return candidate;
 	}
 
-	/**
-	 * ZIP 子目录名。这四个名字是前端导出弹窗里写死给老师看的提示（「内部按格式分子目录：成绩单/、答题卷/…」），
-	 * 改一个名字，老师按目录认内容就认错了，所以别动。
-	 */
+	/** ZIP 子目录名 */
 	static String outputDir(DownloadQuery.DownloadType output) {
 		switch (output) {
 			case answerSheetPdf:
@@ -969,14 +864,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return result.length() > 120 ? result.substring(0, 120) : result;
 	}
 
-	/**
-	 * ZIP 文件名：{@code 项目名[-班级]-格式标签-时间.zip}。
-	 *
-	 * <p>
-	 * 格式标签按勾选的格式拼（「答题卷+长图」），老师不用解压就知道里面有什么；
-	 * 只有一种格式时沿用单格式命名 —— 其中成绩单仍然是历史上的「答卷PDF」，
-	 * 免得按文件名找归档的老脚本/老习惯突然对不上。
-	 */
+	/** ZIP 文件名：项目名[-班级]-格式标签-时间.zip */
 	private String zipFileName(Project project, String className, List<DownloadQuery.DownloadType> outputs) {
 		StringBuilder name = new StringBuilder();
 		name.append(StringUtils.hasText(project.getName()) ? project.getName() : "答卷");
@@ -988,7 +876,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		return name.toString();
 	}
 
-	/** ZIP 名里的格式标签（见 {@link #zipFileName}），单独抽出来是为了能被单测直接盯住 */
+	/** ZIP 名里的格式标签（见 #zipFileName），单独抽出来是为了能被单测直接盯住 */
 	static String zipFormatTag(List<DownloadQuery.DownloadType> outputs) {
 		if (outputs == null || outputs.isEmpty()) {
 			return "答卷PDF";
@@ -1062,7 +950,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/* ======================= 系统设置 / 并发 / 考试闸门 ======================= */
+	/** ======================= 系统设置 / 并发 / 考试闸门 ======================= */
 
 	private SystemInfo.SystemSetting systemSetting() {
 		SysInfo info = sysInfoMapper.selectById(SYS_INFO_ID);
@@ -1092,10 +980,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/**
-	 * 考试期间暂停：只要有一场「已发布 + 时间窗覆盖当前时刻」的考试在跑，就不让 PDF 导出抢 CPU。
-	 * Excel 明细导出不走这里，因此不受影响（提示里也说清楚）。
-	 */
+	/** 考试期间暂停：只要有一场「已发布 + 时间窗覆盖当前时刻」的考试在跑，就不让 PDF 导出抢 CPU */
 	private void assertNotDuringExam() {
 		SystemInfo.SystemSetting setting = systemSetting();
 
@@ -1126,10 +1011,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 
 
 
-	/**
-	 * 每小时清理一次：JOBS 里超过 24h 的记录连同产物一起删掉；目录里超过 24h 的孤儿文件（进程重启后
-	 * JOBS 是空的）也一并清掉。
-	 */
+	/** 每小时清理一次：JOBS 里超过 24h 的记录连同产物一起删掉；目录里超过 24h 的孤儿文件（进程重启后 JOBS 是空的）也一并清掉 */
 	@Scheduled(cron = "0 17 * * * ?")
 	public void cleanupExpiredArtifacts() {
 		long deadline = System.currentTimeMillis() - ARTIFACT_TTL_MILLIS;
@@ -1171,7 +1053,7 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 		}
 	}
 
-	/* ======================= 归属校验 ======================= */
+	/** ======================= 归属校验 ======================= */
 
 	private void assertOwner(ExportJob job) {
 		String operatorId = job.getOperatorId();

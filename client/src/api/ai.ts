@@ -261,10 +261,7 @@ export interface AiRewriteSuggestion {
   reason?: string;
 }
 
-/**
- * 改题：同步接口，1~3 秒，正常给 3 条建议。
- * title / type 可选：带上就不读库、直接拿这份题干改写，老师的题还没保存也能用。
- */
+/** 改题：同步接口，1~3 秒，正常给 3 条建议 */
 export const rewriteAiQuestion = (data: {
   projectId: string;
   questionId: string;

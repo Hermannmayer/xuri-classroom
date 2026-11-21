@@ -6,17 +6,11 @@ package cn.surveyking.server.core.constant;
 
 public enum LocalStoragePathStrategyEnum {
 
-	/**
-	 * 所有文件存储在 rootPath 下
-	 */
+	/** 所有文件存储在 rootPath 下 */
 	BY_NO("byNo"),
-	/**
-	 * 按照项目的short-id分文件夹存储,例如 rootPath/RyP2rR
-	 */
+	/** 按照项目的short-id分文件夹存储,例如 rootPath/RyP2rR */
 	BY_ID("byId"),
-	/**
-	 * 按照上传日期存储，例如 rootPath/2022/06/01
-	 */
+	/** 按照上传日期存储，例如 rootPath/2022/06/01 */
 	BY_DATE("byDate");
 
 	private final String strategy;

@@ -73,13 +73,7 @@ final class RepoQuestionExcelExporter {
 	private RepoQuestionExcelExporter() {
 	}
 
-	/**
-	 * 按题型分 sheet 写出 xlsx 字节；空题型不建 sheet，写出顺序固定为
-	 * 单选 → 多选 → 判断 → 填空 → 简答 → 下拉 → 评分 → NPS → 级联 → 矩阵单选 → 矩阵多选 → 上传 → 矩阵填空
-	 * （即 {@link RepoTemplateI18n.SheetType} 的声明顺序，与导入模板一致）。
-	 * @param questions 题库里的题目（{@code template} 为空的行会被跳过）
-	 * @return xlsx 字节
-	 */
+	/** 按题型分 sheet 写出 xlsx 字节；空题型不建 sheet，写出顺序固定为 单选 → 多选 → 判断 → 填空 → 简答 → 下拉 → 评分 → NPS → 级联 → 矩阵单选 → 矩阵多选 → 上传 → 矩阵填空 （即 RepoTemplateI18n.SheetType 的声明顺序，与导入模板一致）；返回 xlsx 字节 */
 	static byte[] export(List<Template> questions) {
 		Map<RepoTemplateI18n.SheetType, List<List<Object>>> rowsBySheet = buildRows(questions);
 		if (rowsBySheet.isEmpty()) {
@@ -103,24 +97,7 @@ final class RepoQuestionExcelExporter {
 		}
 	}
 
-	/**
-	 * 把 fastexcel 产出的 zip 按中央目录重写一遍。
-	 *
-	 * <p>
-	 * 实测 fastexcel 0.20.2 写出的每个条目：本地头 csize/size 都是 0、flag 置了 bit3（数据描述符），
-	 * 而描述符里的<b>未压缩长度恒为 0</b>（压缩长度是对的）。Excel、POI、Python zipfile 都按中央目录读，
-	 * 所以看不出来；但流式读取（{@code java.util.zip.ZipInputStream}）会当场抛
-	 * {@code ZipException: invalid entry size (expected 0 but got N bytes)}——而导入侧的安全校验
-	 * （{@link cn.surveyking.server.core.uitls.ExcelImportSecurity}）正是流式读的。
-	 *
-	 * <p>
-	 * 结果就是「我们自己导出的文件，我们自己导不回来」：老师导出 → 改 → 再导入会直接报「文件解析失败」。
-	 * 与其放宽导入的安全校验，不如让导出产出标准 zip：代价是一个临时文件 + 一次内存拷贝，
-	 * xlsx 只有几十 KB 到几 MB，跟「导出完自己导不回来」比完全值得。
-	 *
-	 * <p>
-	 * 包级可见是给单测用的：测试里用同一套 fastexcel 造 fixture 也会有同样的毛病，不先规范化连解析都进不去。
-	 */
+	/** 把 fastexcel 产出的 zip 按中央目录重写一遍 */
 	static byte[] normalizeZip(byte[] source) throws IOException {
 		Path temp = Files.createTempFile("repo-export", ".xlsx");
 		ByteArrayOutputStream out = new ByteArrayOutputStream(source.length);
@@ -435,14 +412,7 @@ final class RepoQuestionExcelExporter {
 		return null;
 	}
 
-	/**
-	 * 分数列。
-	 *
-	 * <p>
-	 * 评分题的「满星」与 NPS 的「最高分」在库里可能只存在于 {@code scope} / {@code npsTotalNum} 上
-	 * （设计器建题时不一定写 {@code examScore}），而导入是拿「分数」列还原它们的——这里反推一次，
-
-	 */
+	/** 分数列 */
 	private static Object scoreOf(RepoTemplateI18n.SheetType sheetType, SurveySchema.Attribute attribute) {
 		if (attribute.getExamScore() != null) {
 			return attribute.getExamScore();
@@ -490,11 +460,7 @@ final class RepoQuestionExcelExporter {
 		return "";
 	}
 
-	/**
-	 * 标签列：优先题库的 tag 列（老导出口径），没有就退回 {@code schema.tags}。
-	 *
-	 * <p>导入按 {@code [s,]+} 拆，这里统一用逗号拼。
-	 */
+	/** 标签列：优先题库的 tag 列（老导出口径），没有就退回 schema.tags */
 	private static String tagsOf(Template template, SurveySchema schema) {
 		if (template.getTag() != null && template.getTag().length > 0) {
 			String joined = Arrays.stream(template.getTag()).filter(StringUtils::hasText).map(String::trim)
@@ -567,10 +533,7 @@ final class RepoQuestionExcelExporter {
 		return headers;
 	}
 
-	/**
-	 * 写一个 sheet：第一行表头、其余行为数据。抽成一处，是为了让 13 种题型共用同一套
-	 * 「列宽自适应 / 空值跳过 / 数字与文本分别写」的规则，也方便单测直接比对表头。
-	 */
+	/** 写一个 sheet：第一行表头、其余行为数据 */
 	private static void writeSheet(Workbook workbook, RepoTemplateI18n.SheetType sheetType, List<String> headers,
 			List<List<Object>> rows) {
 

@@ -234,14 +234,7 @@ public final class AnswerConfirmSheetExporter {
 
 
 
-	/**
-	 * 渲染一页成绩确认单。
-	 * @param project 试卷（取考试名称；可为空，为空时标题退回「考试」）
-	 * @param answer 答卷（取姓名/时间/分数/examInfo 的逐题得分）
-	 * @param className 班级名（可为空；学员换班后导出的历史答卷也可能没有班级）
-	 * @param options 选项（及格线 / 作答轮次 / 账号），可为空
-	 * @return PDF 字节内容
-	 */
+	/** 渲染一页成绩确认单；返回 PDF 字节内容 */
 	public static byte[] renderConfirmSheet(ProjectView project, AnswerView answer, String className,
 			ConfirmOptions options) {
 		if (!AnswerPdfExporter.isFontAvailable()) {
@@ -280,7 +273,7 @@ public final class AnswerConfirmSheetExporter {
 		}
 	}
 
-	/* ====== 抬头 ====== */
+	/** ====== 抬头 ====== */
 
 	private static float drawHeader(Canvas canvas) throws IOException {
 		float y = TOP_Y;
@@ -294,13 +287,7 @@ public final class AnswerConfirmSheetExporter {
 
 
 
-	/**
-	 * 两列三行的信息表：姓名/账号、班级/考试名称、交卷时间/作答轮次。
-	 *
-	 * <p>
-	 * 只放确认身份与核对成绩必需的六项。手机号、IP、设备这些属于隐私/运维信息，
-	 * 不该出现在要发给学员或张贴的纸上。
-	 */
+	/** 两列三行的信息表：姓名/账号、班级/考试名称、交卷时间/作答轮次 */
 	private static float drawInfoTable(Canvas canvas, ProjectView project, AnswerView answer, String className,
 			ConfirmOptions opts, float top) throws IOException {
 		List<String[]> rows = new ArrayList<>();
@@ -363,14 +350,7 @@ public final class AnswerConfirmSheetExporter {
 
 
 
-	/**
-	 * 灰底得分卡片：大字总分 + 是否及格 + 客观/主观小计 + 及格线。
-	 *
-	 * <p>
-	 * 客观/主观拆分口径：{@code examAnswerMode == manual} 的是人工批改题（主观），其余计分题算客观。
-	 * 每题得分取 {@code examInfo.questionScore}，缺失按 0 —— 和成绩单版式完全一致，
-
-	 */
+	/** 灰底得分卡片：大字总分 + 是否及格 + 客观/主观小计 + 及格线 */
 	private static float drawScoreArea(Canvas canvas, AnswerView answer, ProjectView project, ConfirmOptions opts,
 			float top) throws IOException {
 		ScoreSummary summary = summarize(project, answer);
@@ -474,10 +454,7 @@ public final class AnswerConfirmSheetExporter {
 		return summary;
 	}
 
-	/**
-	 * 按卷面顺序收集计分题：只收 dataType（和成绩单的题号口径一致），
-	 * 容器（Survey/Pagination/QuestionSet）继续往下钻，选项/填空位不算题。
-	 */
+	/** 按卷面顺序收集计分题：只收 dataType（和成绩单的题号口径一致）， 容器（Survey/Pagination/QuestionSet）继续往下钻，选项/填空位不算题 */
 	private static void collectQuestions(SurveySchema node, List<SurveySchema> out) {
 		if (node == null) {
 			return;
@@ -520,25 +497,12 @@ public final class AnswerConfirmSheetExporter {
 		return isPassed(total, opts, maxScore) ? COLOR_PASS : COLOR_FAIL;
 	}
 
-	/**
-	 * 及格判定：总分缺失算未知（返回 false，但调用方要显示「未评分」而不是「不及格」）。
-	 *
-	 * <p>
-	 * 公开：导出任务要按同一条及格线填名册的「是否及格」列，两边各写一份迟早会分叉。
-	 * 及格线用 {@code options} 上的 passScore / maxScore 推算；渲染确认单时用带
-	 * {@code maxScore} 的重载把卷面满分一起传进来，两处口径才会真的一致。
-	 */
+	/** 及格判定：总分缺失算未知（返回 false，但调用方要显示「未评分」而不是「不及格」） */
 	public static boolean isPassed(Double total, ConfirmOptions options) {
 		return isPassed(total, options, null);
 	}
 
-	/**
-	 * 及格判定（已知卷面满分时用这个重载）。
-	 * @param total 总分，null 表示还没出分 → 一律 false，由调用方显示「未评分」
-	 * @param options 选项（显式 passScore 优先，其次它自带的 maxScore）
-	 * @param maxScore 卷面满分，可为空：options 里也没给时用它算默认及格线
-	 * @return 是否达到及格线
-	 */
+	/** 及格判定（已知卷面满分时用这个重载）；返回 是否达到及格线 */
 	public static boolean isPassed(Double total, ConfirmOptions options, Double maxScore) {
 		if (total == null) {
 			return false;
@@ -546,17 +510,7 @@ public final class AnswerConfirmSheetExporter {
 		return total.doubleValue() >= passScore(options, maxScore);
 	}
 
-	/**
-	 * 及格线的唯一算法：显式配置 &gt; 卷面满分×60%（保留 1 位小数）&gt; {@link #DEFAULT_PASS_SCORE}。
-	 *
-	 * <p>
-	 * 为什么按比例而不是继续写死 60：满分 120 的卷子 60 分才及格等于放水一半，
-	 * 满分 50 的卷子又全员不及格。取不到满分（老数据没有 examScore、题目没配分）时才回退 60，
-	 * 因为「不知道满分」的情况下 60 仍然是最不坏的口径。
-	 * @param configured 调用方显式指定的及格线，null 表示没指定
-	 * @param maxScore 卷面满分，null / 非正数表示取不到
-	 * @return 及格线（分）
-	 */
+	/** 及格线的唯一算法：显式配置 &gt; 卷面满分×60%（保留 1 位小数）&gt; #DEFAULT_PASS_SCORE；返回 及格线（分） */
 	static double resolvePassScore(Double configured, Double maxScore) {
 		if (configured != null) {
 			return configured.doubleValue();
@@ -581,13 +535,7 @@ public final class AnswerConfirmSheetExporter {
 		return passScore(opts, null);
 	}
 
-	/**
-	 * 得分卡片上的「是否及格 · 及格线 X 分」。
-	 *
-	 * <p>
-	 * 默认及格线是算出来的（满分×60%）时把算式写出来：学员看到「及格线 72 分」，
-	 * 会拿满分 120 去核 60 分对不对，写清「满分 120 的 60%」省掉一轮解释。
-	 */
+	/** 得分卡片上的「是否及格 · 及格线 X 分」 */
 	private static String passLineText(ScoreSummary summary, ConfirmOptions opts) {
 		ConfirmOptions options = opts == null ? new ConfirmOptions() : opts;
 		Double max = options.getMaxScore() != null && options.getMaxScore().doubleValue() > 0d ? options.getMaxScore()
@@ -609,7 +557,7 @@ public final class AnswerConfirmSheetExporter {
 		return text.toString();
 	}
 
-	/* ====== 声明 / 签字栏 ====== */
+	/** ====== 声明 / 签字栏 ====== */
 
 	private static float drawDeclaration(Canvas canvas, float top) throws IOException {
 
@@ -619,13 +567,7 @@ public final class AnswerConfirmSheetExporter {
 		return y - 44f;
 	}
 
-	/**
-	 * 签字栏：考生签名 + 日期两条横线（每条上方至少 80pt 手写高度），右下角再留一个教师/管理员盖章位。
-	 *
-	 * <p>
-	 * 为什么盖章位放右下：确认单收回去是「学员签字 + 老师确认」两方留痕，
-	 * 两个签字挤在同一行容易压到名字上；右下角是纸质表单的惯例位置。
-	 */
+	/** 签字栏：考生签名 + 日期两条横线（每条上方至少 80pt 手写高度），右下角再留一个教师/管理员盖章位 */
 	private static void drawSignature(Canvas canvas, float top) throws IOException {
 		float labelY = top - 6f;
 
@@ -776,22 +718,7 @@ public final class AnswerConfirmSheetExporter {
 
 	private static final String ROSTER_DECLARATION = "以上成绩经考生本人核对无误，签名即确认。";
 
-	/**
-	 * 渲染「成绩确认单」名册：整班一张表，每人一行，最后一列签名留空给考生手写。
-	 *
-	 * <p>
-	 * 版式跟着班级数走：<b>单班纵向 A4，跨班横向 A4</b>。跨班要多一列「班级」，
-	 * 纵向排 8 列会把签名格子压到 130pt 以下 —— 一页纸上挤满签不了字的名字等于没做。
-	 *
-	 * <p>
-	 * 分页：每页最多 {@value #ROSTER_MAX_ROWS_PER_PAGE} 行（横向按可用高度更少），
-	 * 翻页时<b>重画表头</b>：老师拿着第二页对照表头找列，比记住列顺序靠谱。
-	 * @param project 试卷（取考试名称；可为空）
-	 * @param rows 名册行（空列表直接报错：生成一张只有表头的空表没有意义）
-	 * @param className 班级名（单班时进副标题；跨班时用「N 个班」代替）
-	 * @param options 选项（及格线用于副标题）
-	 * @return PDF 字节内容
-	 */
+	/** 渲染「成绩确认单」名册：整班一张表，每人一行，最后一列签名留空给考生手写；返回 PDF 字节内容 */
 	public static byte[] renderRoster(ProjectView project, List<Entry> rows, String className, ConfirmOptions options) {
 		if (!AnswerPdfExporter.isFontAvailable()) {
 			throw new InternalServerError(AnswerPdfExporter.FONT_MISSING_MESSAGE);
@@ -850,10 +777,7 @@ public final class AnswerConfirmSheetExporter {
 		}
 	}
 
-	/**
-	 * 从一份答卷算出名册里的一行：口径与单人确认单完全一致（同一条及格线、同一个总分），
-
-	 */
+	/** 从一份答卷算出名册里的一行：口径与单人确认单完全一致（同一条及格线、同一个总分）， */
 	public static Entry entryOf(ProjectView project, AnswerView answer, String className, ConfirmOptions options) {
 		ScoreSummary summary = summarize(project, answer);
 		return new Entry().name(answererName(answer)).className(trim(className)).totalScore(answer.getExamScore())
@@ -881,13 +805,7 @@ public final class AnswerConfirmSheetExporter {
 
 	}
 
-	/**
-	 * 列宽：签名列吃掉剩下的全部宽度。
-	 *
-	 * <p>
-	 * 固定列宽是刻意不按内容自适应的：几十行数据里只要有一个长名字就会把整列撑开，
-	 * 表格每次导出的列位置都不一样，老师没法拿上一张纸对照。
-	 */
+	/** 列宽：签名列吃掉剩下的全部宽度 */
 	private static List<Column> rosterColumns(boolean withClass, float contentWidth) {
 		List<Column> columns = new ArrayList<>();
 		columns.add(new Column("序号", 32f, 1));
@@ -971,15 +889,7 @@ public final class AnswerConfirmSheetExporter {
 		return String.join("    ", parts);
 	}
 
-	/**
-	 * 名册副标题的及格线文案（如「及格线：72 分（满分 120 的 60%）」）。
-	 *
-	 * <p>
-	 * 必须和每行的「是否及格」用同一条线：每行的满分由 {@link #entryOf} 从卷面汇总得到，
-	 * 这里取「所有行都一样」的那个满分；各行满分不同（整卷导出混了几个班、卷子还不一样）时
-	 * 不拿任何一行的满分去当整表的满分——写「及格线 72 分」配一张 50 分满分的表，
-	 * 老师第一反应就是系统算错了。
-	 */
+	/** 名册副标题的及格线文案（如「及格线：72 分（满分 120 的 60%）」） */
 	private static String rosterPassLine(List<Entry> rows, ConfirmOptions opts) {
 		ConfirmOptions options = opts == null ? new ConfirmOptions() : opts;
 		Double max = options.getMaxScore() != null && options.getMaxScore().doubleValue() > 0d ? options.getMaxScore()
@@ -1323,10 +1233,7 @@ public final class AnswerConfirmSheetExporter {
 			stream.stroke();
 		}
 
-		/**
-		 * 单元格超宽时按字截断并补「…」：表格格子不能换行，一个长名字把列撑开，
-		 * 整张表的列位置就每次都不同了（老师没法拿上一张纸对照）。
-		 */
+		/** 单元格超宽时按字截断并补「…」：表格格子不能换行，一个长名字把列撑开， 整张表的列位置就每次都不同了（老师没法拿上一张纸对照） */
 		private String ellipsis(String text, float size, float maxWidth) {
 			if (text == null) {
 				return "";

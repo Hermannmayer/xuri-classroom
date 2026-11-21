@@ -76,15 +76,7 @@ public class ClassStudentService {
 
 	private final UserAuthService userAuthService;
 
-	/**
-	 * 班级管理里由班主任新增学员：角色固定成系统内置学员角色，不接受请求方指定角色。
-	 *
-	 * <p>不走 {@link #assertRoleGrantScope}：老师没有学员的 portal:student / repo:practice 等权限串，
-	 * 但这不代表不能在自己班里建学员；入口由 class:member:create 控制，班级可见性由 ClassService 校验。
-	 *
-	 * <p>登录账号强制取手机号：前端就算传了 username 也一律覆盖，避免出现「账号是姓名、手机号是另一个」
-	 * 这种只有前端约定、后端没兜住的口径。
-	 */
+	/** 班级管理里由班主任新增学员：角色固定成系统内置学员角色，不接受请求方指定角色 */
 	public void createClassStudent(UserRequest request) {
 		if (request == null) {
 			throw new ValidationException("缺少学员信息");
@@ -107,10 +99,7 @@ public class ClassStudentService {
 		userAdminService.createUser(request, false);
 	}
 
-	/**
-	 * 班级管理里删除学员：调用方（ClassService）已经校验过班级可见性与「目标是学员」，
-	 * 这里不再走 system:user:delete 的 manage 校验，但仍然清账号、附加组与角色绑定。
-	 */
+	/** 班级管理里删除学员：调用方（ClassService）已经校验过班级可见性与「目标是学员」， 这里不再走 system:user:delete 的 manage 校验，但仍然清账号、附加组与角色绑定 */
 	public void deleteClassStudent(String userId) {
 		User user = userMapper.selectById(userId);
 		if (user == null || !"student".equals(user.getUserType())) {
@@ -124,13 +113,7 @@ public class ClassStudentService {
 		userAdminService.evictUserAfterCommit(userId);
 	}
 
-	/**
-	 * 班级管理里编辑学员：只允许改姓名、手机、邮箱、状态与重置密码；
-	 * 不允许改角色/所属组（防提权），也不走 system:user:update 的 manage 校验。
-	 *
-	 * <p>手机号是登录账号，改号时同步改 {@code t_account.auth_account}（auth_type=PWD）：
-	 * 先做唯一性校验，账号行不存在直接报错，避免「界面显示改成功、人还是用旧号登录」。
-	 */
+	/** 班级管理里编辑学员：只允许改姓名、手机、邮箱、状态与重置密码； 不允许改角色/所属组（防提权），也不走 system:user:update 的 manage 校验 */
 	public void updateClassStudent(UserRequest request) {
 		if (request == null || !StringUtils.hasText(request.getId())) {
 			throw new ValidationException("缺少学员 id");
@@ -177,10 +160,7 @@ public class ClassStudentService {
 		userAdminService.evictUserAfterCommit(request.getId());
 	}
 
-	/**
-	 * 目标节点必须是班级（dept_type=class）：用户组是教职工的组织，学员不该混进去。
-	 * 没传 deptId 时跳过（允许未分组学员），传了就必须存在且是班级。
-	 */
+	/** 目标节点必须是班级（dept_type=class）：用户组是教职工的组织，学员不该混进去 */
 	private void assertStudentDeptIsClass(String deptId) {
 		if (!StringUtils.hasText(deptId)) {
 			return;
@@ -217,12 +197,7 @@ public class ClassStudentService {
 						.ne(StringUtils.hasText(excludeUserId), Account::getUserId, excludeUserId));
 	}
 
-	/**
-	 * 班级建学员时不能跳过「组绑定角色」的风险：把用户放进某个组会连带继承该组（含祖先链）的角色。
-	 *
-	 * <p>这里不允许目标组链绑定任何高于「学员角色」的角色；学员角色本身或权限是它子集的角色放行。
-	 * 这样班主任能往普通班级加学员，但不能借班级配置提权。
-	 */
+	/** 班级建学员时不能跳过「组绑定角色」的风险：把用户放进某个组会连带继承该组（含祖先链）的角色 */
 	private void assertClassDeptRoleSafe(String deptId, Role studentRole) {
 		if (SecurityContextUtils.isAdmin() || !StringUtils.hasText(deptId)) {
 			return;

@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { App, Button } from 'antd';
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 
-/**
- * 可复制的代码块：MCP 配置片段、curl 验证、示例需求共用。
- *
- * 复制逻辑与 ApiTokenPanel 保持一致：优先 Clipboard API（只有 https / localhost 可用），
- * 非安全上下文或用户拒权时退回 window.prompt，避免「点了复制没反应」。
- */
+/** 可复制的代码块：MCP 配置片段、curl 验证、示例需求共用 */
 export async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && window.isSecureContext) {

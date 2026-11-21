@@ -1,7 +1,4 @@
-/**
- * 手工补录 / 编辑一份答卷：直接复用答题态的 SchemaRenderer，
- * 保存时把 values 原样交给 /api/answer/create | update，格式与公开答题一致。
- */
+/** 手工补录 / 编辑一份答卷：直接复用答题态的 SchemaRenderer， 保存时把 values 原样交给 /api/answer/create | update，格式与公开答题一致 */
 import { useEffect, useState } from 'react';
 import { Alert, Modal } from 'antd';
 import SchemaRenderer from '../../../renderer/SchemaRenderer';

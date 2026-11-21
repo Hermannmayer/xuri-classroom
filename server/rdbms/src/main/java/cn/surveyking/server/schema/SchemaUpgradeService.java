@@ -84,10 +84,7 @@ public class SchemaUpgradeService {
 		this.objectMapper = objectMapper;
 	}
 
-	/**
-	 * 检查并升级结构。幂等：没有待执行的迁移就什么都不做。
-	 * @return 本次结果（也缓存给 /api/system）
-	 */
+	/** 检查并升级结构；返回 本次结果（也缓存给 /api/system） */
 	public synchronized SchemaUpgradeResult ensureUpToDate() {
 		if (!enabled) {
 			SchemaUpgradeResult result = SchemaUpgradeResult.of(appVersion, null, Status.DISABLED,
@@ -190,13 +187,7 @@ public class SchemaUpgradeService {
 		}
 	}
 
-	/**
-	 * 升级/放行之前逐个对象校验：把 schema.json 里所有「不超过程序版本」的版本声明的对象对照一遍，
-	 * 缺任何一个就抛异常并点名缺的是什么。
-	 *
-	 * <p>没有这一步，「用户直接覆盖程序、没跑迁移」只会表现为运行期报
-	 * {@code Unknown column 'xxx'}，既看不出根因也看不出该补哪一步。
-	 */
+	/** 升级/放行之前逐个对象校验：把 schema.json 里所有「不超过程序版本」的版本声明的对象对照一遍， 缺任何一个就抛异常并点名缺的是什么 */
 	void assertStructureComplete(SchemaSpec spec, String appVersion) {
 		Set<String> snapshot;
 		try {
@@ -224,9 +215,7 @@ public class SchemaUpgradeService {
 		}
 	}
 
-	/**
-	 * 读 t_schema_version 里最高的版本；表不存在（老库）或没有记录时返回 null，交回结构探测。
-	 */
+	/** 读 t_schema_version 里最高的版本；表不存在（老库）或没有记录时返回 null，交回结构探测 */
 	String readRecordedVersion() {
 		List<String> versions = new ArrayList<>();
 		try (Connection connection = dataSource.getConnection();
@@ -292,7 +281,7 @@ public class SchemaUpgradeService {
 				+ "可能是库被手工改过，或程序与数据库不是同一套发布。请先备份数据库，再联系维护人员。");
 	}
 
-	/** 加载 classpath 下所有命名合规的迁移脚本（不按版本过滤）。 */
+	/** 加载 classpath 下所有命名合规的迁移脚本（不按版本过滤） */
 	List<MigrationScript> loadAllScripts() {
 		List<MigrationScript> scripts = new ArrayList<>();
 		Resource[] resources;
@@ -328,20 +317,7 @@ public class SchemaUpgradeService {
 		return scripts;
 	}
 
-	/**
-	 * 拒绝启动：存在「比程序新、且数据库也还没到」的迁移脚本。
-	 *
-	 * <p>典型事故（2026-11-17）：加了 {@code V2.2.1__*.sql} 却忘了改仓库根 {@code VERSION}。
-	 * {@link #pendingScripts} 的过滤条件是「脚本版本 ≤ 程序版本」，于是这批脚本被**静默丢弃**，
-	 * 数据库缺列；而实体已经带上新字段，MyBatis 的 SELECT 直接报 Unknown column，
-	 * 表现为答卷列表/成绩单/批改大面积 500 —— 比启动失败难排查得多。
-	 *
-	 * <p>判定条件刻意带上 {@code dbVersion}：**只拦「库也还没到这个版本」的情况**。
-
-	 * 迁移只加不删，旧程序读新结构是安全的。
-	 * @param appVersion 当前程序版本（仓库根 VERSION）
-	 * @param dbVersion 当前数据库结构版本
-	 */
+	/** 拒绝启动：存在「比程序新、且数据库也还没到」的迁移脚本 */
 	void assertNoFutureScripts(String appVersion, String dbVersion) {
 		List<String> newer = new ArrayList<>();
 		for (MigrationScript script : loadAllScripts()) {
@@ -389,9 +365,7 @@ public class SchemaUpgradeService {
 		}
 	}
 
-	/**
-	 * 语义化版本比较：只比较 主.次.修订 的数字段，缺省按 0。
-	 */
+	/** 语义化版本比较：只比较 主.次.修订 的数字段，缺省按 0 */
 	public static int compare(String left, String right) {
 		int[] a = parse(left);
 		int[] b = parse(right);
@@ -403,7 +377,7 @@ public class SchemaUpgradeService {
 		return 0;
 	}
 
-	/** 探针产出的键已经是小写；这里再兜一层，避免调用方传入大小写混杂的集合。 */
+	/** 探针产出的键已经是小写；这里再兜一层，避免调用方传入大小写混杂的集合 */
 	private static Set<String> normalizeAll(Set<String> snapshot) {
 		Set<String> normalized = new java.util.HashSet<>();
 		for (String key : snapshot) {

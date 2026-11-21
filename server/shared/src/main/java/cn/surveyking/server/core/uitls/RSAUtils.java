@@ -34,11 +34,7 @@ public class RSAUtils {
 		DEFAULT_PRIVATE_KEY = keyPair.get("privateKey");
 	}
 
-	/**
-	 * 生成随机 RSA 密钥对
-	 * @return 包含公钥和私钥的 HashMap
-	 * @throws NoSuchAlgorithmException 如果没有 RSA 算法则抛出异常
-	 */
+	/** 生成随机 RSA 密钥对；返回 包含公钥和私钥的 HashMap */
 	public static HashMap<String, String> genKeyPair() throws NoSuchAlgorithmException {
 		HashMap<String, String> keyMap = new HashMap<>();
 		KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
@@ -53,13 +49,7 @@ public class RSAUtils {
 		return keyMap;
 	}
 
-	/**
-	 * 使用 RSA 公钥加密字符串
-	 * @param str 待加密的字符串
-	 * @param publicKey 公钥
-	 * @return 加密后的字符串，以 Base64 编码
-	 * @throws Exception 加密过程中的异常信息
-	 */
+	/** 使用 RSA 公钥加密字符串；返回 加密后的字符串，以 Base64 编码 */
 	public static String encrypt(String str, String publicKey) throws Exception {
 		byte[] decoded = Base64.getDecoder().decode(publicKey);
 		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
@@ -69,13 +59,7 @@ public class RSAUtils {
 		return Base64.getEncoder().encodeToString(cipher.doFinal(str.getBytes("UTF-8")));
 	}
 
-	/**
-	 * 使用 RSA 私钥解密字符串
-	 * @param str 加密后的字符串
-	 * @param privateKey 私钥
-	 * @return 解密后的明文字符串
-	 * @throws Exception 解密过程中的异常信息
-	 */
+	/** 使用 RSA 私钥解密字符串；返回 解密后的明文字符串 */
 	public static String decrypt(String str, String privateKey) throws Exception {
 		byte[] inputByte = Base64.getDecoder().decode(str);
 		byte[] decoded = Base64.getDecoder().decode(privateKey);
@@ -87,12 +71,7 @@ public class RSAUtils {
 		return new String(cipher.doFinal(inputByte));
 	}
 
-	/**
-	 * 使用 RSA 私钥解密字符串
-	 * @param str 加密后的字符串
-	 * @return 解密后的明文字符串
-	 * @throws Exception 解密过程中的异常信息
-	 */
+	/** 使用 RSA 私钥解密字符串；返回 解密后的明文字符串 */
 	public static String decrypt(String str) throws Exception {
 		return decrypt(str, DEFAULT_PRIVATE_KEY);
 	}

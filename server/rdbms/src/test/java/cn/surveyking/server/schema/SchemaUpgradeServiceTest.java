@@ -45,11 +45,7 @@ class SchemaUpgradeServiceTest {
 		assertEquals("2.0.0", newService().detectVersion(spec, withoutColumn));
 	}
 
-	/**
-	 * 只改数据的版本（requires 为空）不能拿来做结构探测：它永远「匹配」，会把排在它前面的
-	 * 数据迁移（如 V2.3.1 给角色补权限）当成已执行而静默跳过。探测应优先返回有结构要求的版本，
-	 * 只有在没有任何结构匹配时才退回空的兜底版本。
-	 */
+	/** 只改数据的版本（requires 为空）不能拿来做结构探测：它永远「匹配」，会把排在它前面的 数据迁移（如 V2.3.1 给角色补权限）当成已执行而静默跳过 */
 	@Test
 	void dataOnlyVersionsDoNotMaskStructuralVersion() {
 		SchemaSpec spec = new SchemaSpec();
@@ -78,12 +74,7 @@ class SchemaUpgradeServiceTest {
 		assertEquals("2.1.0", newService().detectVersion(spec, upper));
 	}
 
-	/**
-	 * 复现 2026-11-17 的事故：加了 V2.2.1 迁移脚本却忘了改 VERSION（程序还是 2.2.0），
-	 * 数据库也停在 2.2.0。此时 pendingScripts 会把这批脚本静默丢弃、缺少列，
-	 * 而实体已经带新字段 → MyBatis SELECT 报 Unknown column → 答卷相关接口 500。
-	 * 现在必须**拒绝启动**，让部署脚本的「等健康」立刻失败。
-	 */
+	/** 复现 2026-11-17 的事故：加了 V2.2.1 迁移脚本却忘了改 VERSION（程序还是 2.2.0）， 数据库也停在 2.2.0 */
 	@Test
 	void rejectsMigrationScriptsNewerThanBothAppAndDatabase() {
 		SchemaUpgradeService service = newService();
@@ -92,10 +83,7 @@ class SchemaUpgradeServiceTest {
 		assertEquals(true, error.getMessage().contains("VERSION"));
 	}
 
-	/**
-	 * 回滚场景不能拦：库结构已经是 2.2.1，程序退回 2.2.0。
-	 * 迁移只加不删，旧程序读新结构是安全的；拦了回滚就起不来。
-	 */
+	/** 回滚场景不能拦：库结构已经是 2.2.1，程序退回 2.2.0 */
 	@Test
 	void allowsRollbackWhenDatabaseIsAlreadyNewer() {
 		SchemaUpgradeService service = newService();
@@ -103,7 +91,7 @@ class SchemaUpgradeServiceTest {
 		assertDoesNotThrow(() -> service.assertNoFutureScripts("2.0.0", latest));
 	}
 
-	/** 版本对齐（正常发版）时不该报错。 */
+	/** 版本对齐（正常发版）时不该报错 */
 	@Test
 	void allowsWhenAppVersionCoversAllScripts() {
 		SchemaUpgradeService service = newService();
@@ -111,14 +99,7 @@ class SchemaUpgradeServiceTest {
 		assertDoesNotThrow(() -> service.assertNoFutureScripts(latest, latest));
 	}
 
-	/**
-	 * 取 db/migration 下最高的脚本版本。
-	 *
-	 * <p>
-	 * 原来这里写死 2.2.1，每加一个迁移就得回来改一次测试——不改就红，而且是「看起来像功能坏了」
-	 * 的假红。改成从 classpath 现算，测试的语义回到它真正想验证的东西：
-	 * 「程序版本覆盖得住全部脚本时不许拦；覆盖不住时必须拦」。
-	 */
+	/** 取 db/migration 下最高的脚本版本 */
 	private static String latestScriptVersion() {
 		try {
 			Resource[] resources = new PathMatchingResourcePatternResolver()

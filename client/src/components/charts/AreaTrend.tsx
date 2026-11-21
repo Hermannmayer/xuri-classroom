@@ -29,13 +29,7 @@ const PAD = { top: 16, right: 14, bottom: 24, left: 42 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-/**
- * 面积折线图（平均分走势）。
- *
- * - Catmull-Rom 平滑，null 处断开成多段（缺数据的日期不会画成 0 分）；
- * - 面积用同色渐变填充，颜色全走 --bp-* 变量；
- * - hover 显示竖线 + 数据点 + 提示框。
- */
+/** 面积折线图（平均分走势） */
 export function AreaTrend({
   data,
   labels = [],

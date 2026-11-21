@@ -144,12 +144,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		return result;
 	}
 
-	/**
-	 * 批量回填「待批改答卷数」。
-	 *
-	 * <p>原来是一个项目一次 count（一页 20 条就是 20 次往返），改成一条 group by 聚合：
-	 * 一次查询拿回本页所有项目的待批改数，走 idx_answer_project_grade。
-	 */
+	/** 批量回填「待批改答卷数」 */
 	private void fillPendingCount(java.util.List<ProjectView> views) {
 		if (views == null || views.isEmpty()) {
 			return;
@@ -179,12 +174,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		}
 	}
 
-	/**
-	 * 考试/问卷分类树：可见性与 {@link #listProject(ProjectQuery)} 同一口径，一次查出、内存组树。
-	 *
-	 * <p>父文件夹不可见（或 parentId 为空 / "0" / 指向不存在的节点）的项目直接作为根返回，
-	 * 保证「不要把根项目丢掉」。{@code count} 是子树里非 folder 项目数（folder 自身不计）。
-	 */
+	/** 考试/问卷分类树：可见性与 #listProject(ProjectQuery) 同一口径，一次查出、内存组树 */
 	@Override
 	public List<ProjectTreeNode> tree() {
 		String userId = SecurityContextUtils.getUserId();
@@ -351,13 +341,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		return projectViewMapper.toView(project);
 	}
 
-	/**
-	 * 把 ProjectSetting 补齐成完整结构：缺整份就给默认值，缺某一层子结构就补该层。
-	 *
-	 * <p>
-	 * 默认值与前端「新建项目」提交的 DEFAULT_SETTING 对齐（status=0 未发布、进度条与自动保存开启）。
-	 * 显式传入的值（包括 false）不会被覆盖。
-	 */
+	/** 把 ProjectSetting 补齐成完整结构：缺整份就给默认值，缺某一层子结构就补该层 */
 	private ProjectSetting completeSetting(ProjectSetting setting) {
 		ProjectSetting target = setting == null ? new ProjectSetting() : setting;
 		if (target.getStatus() == null) {
@@ -393,11 +377,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		return projectId;
 	}
 
-	/**
-	 * 单独更新发布状态（开启/关闭收集）。
-	 * 拆出来是为了让 project:publish 这个权限真正生效：改整包设置仍走 updateProject（project:update），
-	 * 只有这个开关走 project:publish，老师可以「只发不编」。
-	 */
+	/** 单独更新发布状态（开启/关闭收集） */
 	@Override
 	public void updateProjectStatus(ProjectStatusRequest request) {
 		assertCanEditProject(request == null ? null : request.getId());
@@ -460,10 +440,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		}
 	}
 
-	/**
-	 * spel漏洞修复，只允许更新指定参数
-	 * @param expressionString
-	 */
+	/** spel漏洞修复，只允许更新指定参数 */
 	private void validateSettingKey(String expressionString) {
 		if (projectSettingUpdateKeys == null) {
 			projectSettingUpdateKeys = ClassUtils.flatClassFields(ProjectSetting.class, new ArrayList<>(), 2);
@@ -492,7 +469,7 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 		}
 	}
 
-	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权）。 */
+	/** 项目写操作闸门：管理员/所有者或 access_level>=2 的协作者（含用户组授权） */
 	private void assertCanEditProject(String projectId) {
 
 		int level = projectPartnerService.accessLevel(projectId);

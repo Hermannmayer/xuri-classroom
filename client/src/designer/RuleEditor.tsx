@@ -29,10 +29,7 @@ export interface RuleEditorProps {
 
 const EMPTY: RuleConfig = { conditionLogic: 'AND', conditionItem: [] };
 
-/**
- * 可视化条件编辑器：题目 → 条件 → 选项/比较值。
- * 产出的仍然是 RuleConfig JSON，与后端存储格式一致，存量问卷不受影响。
- */
+/** 可视化条件编辑器：题目 → 条件 → 选项/比较值 */
 export default function RuleEditor({ value, questions, onChange }: RuleEditorProps) {
   const rule = useMemo<RuleConfig>(() => {
     if (!value) return EMPTY;

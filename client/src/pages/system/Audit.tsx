@@ -47,7 +47,7 @@ const RANGE_PRESETS: { label: string; value: [Dayjs, Dayjs] }[] = [
   { label: '近 30 天', value: [dayjs().subtract(29, 'day').startOf('day'), dayjs().endOf('day')] },
 ];
 
-/** 系统管理 → 操作日志：筛选、时间范围、清理。 */
+/** 系统管理 → 操作日志：筛选、时间范围、清理 */
 export default function SystemAudit() {
   const { message } = App.useApp();
   const [rows, setRows] = useState<AuditLog[]>([]);

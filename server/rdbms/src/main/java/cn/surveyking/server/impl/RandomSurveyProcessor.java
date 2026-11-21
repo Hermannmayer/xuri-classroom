@@ -35,11 +35,7 @@ public class RandomSurveyProcessor {
 
 	private final ProjectViewMapper projectViewMapper;
 
-	/**
-	 * 处理随机问题逻辑，包括随机问题和错题练习
-	 * @param project 项目信息
-	 * @param projectView 公开项目视图
-	 */
+	/** 处理随机问题逻辑，包括随机问题和错题练习 */
 	public void processRandomSurvey(ProjectView project, PublicProjectView projectView) {
 		if (ProjectModeEnum.exam != project.getMode()) {
 			return;
@@ -64,10 +60,7 @@ public class RandomSurveyProcessor {
 		}
 	}
 
-	/**
-	 * 处理编辑器中的RandomSurvey题型
-	 * @return true if RandomSurvey was processed, false otherwise
-	 */
+	/** 处理编辑器中的RandomSurvey题型；返回 true if RandomSurvey was processed, false otherwise */
 	private boolean processRandomSurveyInSchema(SurveySchema source, PublicProjectView projectView) {
 		if (source != null && !CollectionUtils.isEmpty(source.getChildren())) {
 			List<SurveySchema> processedChildren = processRandomSurveyInChildren(source.getChildren());
@@ -82,10 +75,7 @@ public class RandomSurveyProcessor {
 		return false;
 	}
 
-	/**
-	 * 处理随机问题选择
-	 * @return true if random question selection was processed, false otherwise
-	 */
+	/** 处理随机问题选择；返回 true if random question selection was processed, false otherwise */
 	private boolean processRandomQuestionSelection(ProjectView project, PublicProjectView projectView,
 			SurveySchema source) {
 		List<ProjectSetting.RandomSurveyCondition> randomSurveyCondition = project.getSetting().getExamSetting()
@@ -113,9 +103,7 @@ public class RandomSurveyProcessor {
 		return false;
 	}
 
-	/**
-	 * 从已有答案中加载schema
-	 */
+	/** 从已有答案中加载schema */
 	private SurveySchema loadSchemaFromExistingAnswer(ProjectView project, PublicProjectView projectView) {
 		String cookieName = AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + project.getId();
 		String answerId = ContextHelper.getCookie(cookieName);
@@ -143,9 +131,7 @@ public class RandomSurveyProcessor {
 		return null;
 	}
 
-	/**
-	 * 从题库中选择题目
-	 */
+	/** 从题库中选择题目 */
 	private List<SurveySchema> selectQuestionsFromRepo(ProjectView project,
 			List<ProjectSetting.RandomSurveyCondition> randomSurveyCondition) {
 		List<SurveySchema> questionSchemaList = repoService.pickQuestionFromRepo(randomSurveyCondition);
@@ -159,9 +145,7 @@ public class RandomSurveyProcessor {
 		return questionSchemaList;
 	}
 
-	/**
-	 * 构建随机问卷结构
-	 */
+	/** 构建随机问卷结构 */
 	private SurveySchema buildRandomSchema(SurveySchema source, List<SurveySchema> questionSchemaList,
 			PublicProjectView projectView) {
 		SurveySchema randomSchema = SurveySchema.builder().id(source.getId()).children(questionSchemaList)
@@ -175,18 +159,14 @@ public class RandomSurveyProcessor {
 		return randomSchema;
 	}
 
-	/**
-	 * 检查是否需要随机化问题顺序
-	 */
+	/** 检查是否需要随机化问题顺序 */
 	private boolean shouldRandomizeOrder(PublicProjectView projectView) {
 		return ProjectModeEnum.exam.equals(projectView.getMode()) && projectView.getSetting() != null
 				&& projectView.getSetting().getExamSetting() != null
 				&& Boolean.TRUE.equals(projectView.getSetting().getExamSetting().getRandomOrder());
 	}
 
-	/**
-	 * 保存随机问卷到答案表并设置Cookie
-	 */
+	/** 保存随机问卷到答案表并设置Cookie */
 	private void saveRandomSchemaToAnswer(ProjectView project, SurveySchema randomSchema,
 			PublicProjectView projectView) {
 		projectView.setSurvey(randomSchema);
@@ -208,11 +188,7 @@ public class RandomSurveyProcessor {
 		}
 	}
 
-	/**
-	 * 递归处理Schema中的RandomSurvey题型
-	 * @param children 原始的children列表
-	 * @return 处理后的children列表
-	 */
+	/** 递归处理Schema中的RandomSurvey题型；返回 处理后的children列表 */
 	private List<SurveySchema> processRandomSurveyInChildren(List<SurveySchema> children) {
 		List<SurveySchema> result = new ArrayList<>();
 
@@ -246,11 +222,7 @@ public class RandomSurveyProcessor {
 		return result;
 	}
 
-	/**
-	 * 处理单个RandomSurvey题型，根据其配置的抽题规则选择对应的问题
-	 * @param randomSurveySchema RandomSurvey题型的schema
-	 * @return 随机选择的问题列表
-	 */
+	/** 处理单个RandomSurvey题型，根据其配置的抽题规则选择对应的问题；返回 随机选择的问题列表 */
 	private List<SurveySchema> processSingleRandomSurvey(SurveySchema randomSurveySchema) {
 		try {
 

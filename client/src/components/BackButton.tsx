@@ -2,15 +2,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
-/**
- * 统一的「返回上一级」按钮。
- *
- * 约定：除匿名页面（公开答题 / 公开查询 / 登录）外，所有二级页面都必须有返回入口，
- * 不然用户只能靠浏览器后退，手机端全屏时甚至退不出去。
- *
- * - 传了 to：直接跳到该路径（用于跨层级跳转，例如题目页固定回题库列表）
-
- */
+/** 统一的「返回上一级」按钮 */
 export default function BackButton({
   to,
   label = '返回',

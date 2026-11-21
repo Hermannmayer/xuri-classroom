@@ -63,9 +63,7 @@ public class ExcelQuestionParser {
 		return preview;
 	}
 
-	/**
-	 * 读内嵌图片；读失败只给 warn 并按无图片继续（图片不该拖垮文字题目的导入）。
-	 */
+	/** 读内嵌图片；读失败只给 warn 并按无图片继续（图片不该拖垮文字题目的导入） */
 	private ExcelRowImages readRowImages(List<ImportPreview.Warning> warnings) {
 		ExcelRowImages rowImages;
 		try {
@@ -103,10 +101,7 @@ public class ExcelQuestionParser {
 		}
 	}
 
-	/**
-	 * 把该行抽到的内嵌图片换成 {@code [[IMG:n]]} token 追加到题干末尾（n 全局递增，与 Word 导入一致），
-	 * 字节放进 attachments，落库前由 ImportServiceImpl.applyAttachments 换成图片地址。
-	 */
+	/** 把该行抽到的内嵌图片换成 [[IMG:n]] token 追加到题干末尾（n 全局递增，与 Word 导入一致）， 字节放进 attachments，落库前由 ImportServiceImpl.applyAttachments 换成图片地址 */
 	private int attachRowImageTokens(List<TemplateRequest> templates, ExcelRowImages rowImages,
 			Map<String, byte[]> attachments) {
 		if (rowImages.isEmpty()) {
@@ -132,9 +127,7 @@ public class ExcelQuestionParser {
 		}
 		return attached;
 	}
-	/**
-	 * 题库模板条目 → 试卷题目树；包级可见，便于单测直接构造条目（章节分组等）。
-	 */
+	/** 题库模板条目 → 试卷题目树；包级可见，便于单测直接构造条目（章节分组等） */
 	static ImportPreview fromTemplates(List<TemplateRequest> templates) {
 		if (templates == null || templates.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "表格里没有可导入的题目");
@@ -197,9 +190,7 @@ public class ExcelQuestionParser {
 				.warnings(warnings).build();
 	}
 
-	/**
-	 * 选项类题目补 dataSource（设计器靠它渲染与改选项；判分仍看 children 的 examCorrectAnswer）。
-	 */
+	/** 选项类题目补 dataSource（设计器靠它渲染与改选项；判分仍看 children 的 examCorrectAnswer） */
 	private static void normalize(SurveySchema question) {
 		SurveySchema.QuestionType type = question.getType();
 		if (type != SurveySchema.QuestionType.Radio && type != SurveySchema.QuestionType.Checkbox

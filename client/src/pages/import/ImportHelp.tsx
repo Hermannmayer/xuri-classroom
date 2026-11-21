@@ -1,11 +1,4 @@
-/**
- * 题目导入：「支持哪些题型」折叠说明 + 预览里的题型/提示/图片渲染（task-37）。
- *
- * 这里只有纯展示与纯函数，导入链路仍然是 ImportWizard → parseImport：
- * - importTypeLabel / countImportAttachments / splitImportWarnings 是纯函数，
- *   importHelp.check.ts 用假数据自检（不连后端）；
- * - 组件只吃 stats / warnings / attachments，自己不发起任何请求。
- */
+/** 题目导入：「支持哪些题型」折叠说明 + 预览里的题型/提示/图片渲染（task-37） */
 import type { ReactNode } from 'react';
 import { Alert, Collapse, Tag } from 'antd';
 import { InfoCircleOutlined, PictureOutlined, QuestionCircleOutlined, WarningOutlined } from '@ant-design/icons';
@@ -78,13 +71,7 @@ export function importTypeLabel(key: string): string {
   return IMPORT_TYPE_LABEL[key] ?? key;
 }
 
-/**
- * 解析出的图片张数。
- *
- * 后端还没把 attachments 的形状定死，这里三种形状都认：
- * 张数（3）、明细数组（[{...}]）、占位 token → 文件的映射；认不出来的值按 0 处理，
- * 宁可少提示一句，也不要在预览里显示「包含 NaN 张图片」。
- */
+/** 解析出的图片张数 */
 export function countImportAttachments(attachments?: unknown): number {
   if (attachments === undefined || attachments === null) return 0;
   if (typeof attachments === 'number') {

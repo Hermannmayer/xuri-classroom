@@ -14,12 +14,7 @@ export {
 
 export const getSystem = () => get<SystemInfo>('/api/system');
 
-/**
- * 拉取服务商支持的模型列表（系统设置 → AI 的「从服务商获取」）。
- *
- * <p>可以带上表单里还没保存的 baseUrl / apiKey：管理员通常先填再点，逼他先保存多一步；
- * apiKey 留空表示沿用服务端已保存的。响应只回模型 id，Key 不会出现在响应里。
- */
+/** 拉取服务商支持的模型列表（系统设置 → AI 的「从服务商获取」） */
 export const getAiModels = (preview?: { baseUrl?: string; apiKey?: string }) =>
   post<{ baseUrl?: string; models: string[]; count: number }>('/api/system/aiModels', preview ?? {});
 
@@ -149,20 +144,11 @@ export interface GradeSubmitItem {
   comment?: string;
 }
 
-/**
- * 批改详情。
- *
- * 老师端默认连参考答案 / 解析一起拿（接口本身默认不下发），批改时才能对照评分标准。
- * 这个接口要求 answer:grade，学生端走的是公开成绩单接口，拿不到这些字段。
- */
+/** 批改详情 */
 export const getGradeDetail = (answerId: string) =>
   get<GradeDetail>('/api/answer/grade/detail', { answerId, includeCorrectAnswer: true });
 
-/**
- * 保存批改：只提交人工评分题的分数。
- *
- * 后端会拒绝客观题传分（400）；submit=true 时若所有主观题都已给分，答卷状态变 graded。
- */
+/** 保存批改：只提交人工评分题的分数 */
 export const submitGrade = (data: {
   answerId: string;
   items: GradeSubmitItem[];
@@ -236,12 +222,7 @@ export interface AnswerPdfJobRequest {
   outputs?: AnswerExportOutput[];
 }
 
-/**
- * 建任务：立即返回 jobId，渲染在后台线程池里跑（50 份也不会把请求拖住）。
- *
- * 导出密码沿用答卷导出那一套：先 POST /api/answer/export/token 换一次性 token，再带上它建任务；
- * 没配置导出密码时 token 可有可无。
- */
+/** 建任务：立即返回 jobId，渲染在后台线程池里跑（50 份也不会把请求拖住） */
 export const createAnswerPdfJob = (data: AnswerPdfJobRequest, exportToken?: string) =>
   post<{ jobId: string }>(
     `/api/answer/export/pdf-job${exportToken ? `?exportToken=${encodeURIComponent(exportToken)}` : ''}`,

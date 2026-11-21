@@ -1,10 +1,4 @@
-/**
- * 规则配置 → 表达式字符串。
- * 移植自逆向产物（前端模块 86343 的 d()），语义与原文逐条对齐。
- *
- * 输入是设计器保存的 RuleConfig（JSON 字符串里解出来的对象），
- * 输出交给 engine.ts 求值。
- */
+/** 规则配置 → 表达式字符串 */
 
 export interface ConditionItem {
   qId: string;
@@ -18,10 +12,7 @@ export interface RuleConfig {
   conditionItem: ConditionItem[];
 }
 
-/**
- * 输出形如 `AND(AND(#{q1.o1} ,#{q1.o2}) ,NOT(#{+q2}))`。
-
- */
+/** 输出形如 `AND(AND(#{q1.o1} ,#{q1.o2}) ,NOT(#{+q2}))` */
 export function buildExpression(rule: RuleConfig): string {
   const parts: string[] = [];
 

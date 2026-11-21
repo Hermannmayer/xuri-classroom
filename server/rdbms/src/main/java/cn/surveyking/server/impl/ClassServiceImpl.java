@@ -174,12 +174,7 @@ public class ClassServiceImpl implements ClassService {
 		return filterByKeyword(roots, keyword.trim());
 	}
 
-	/**
-	 * 新建班级：老师有 class:list 就能建（权限在 TeachingApi 上），这里只保证落库的是班级。
-	 *
-	 * <p>班级不绑角色：角色是用户组（教职工）的能力，班级里只有学员；create_by 由框架自动填当前用户，
-	 * 班级树的可见范围据此判定，所以建完就能看到自己的班。
-	 */
+	/** 新建班级：老师有 class:list 就能建（权限在 TeachingApi 上），这里只保证落库的是班级 */
 	@Override
 	public void createClass(DeptRequest request) {
 		if (request == null) {
@@ -199,11 +194,7 @@ public class ClassServiceImpl implements ClassService {
 		deptService.addDept(request);
 	}
 
-	/**
-	 * 修改班级：只允许改自己「可管理」的班（管理员 / class:grant / 班主任 / 可管理授权）。
-	 *
-	 * <p>只改名称、上级、有效期；类型固定 class，不允许通过更新把班级改成用户组。
-	 */
+	/** 修改班级：只允许改自己「可管理」的班（管理员 / class:grant / 班主任 / 可管理授权） */
 	@Override
 	public void updateClass(DeptRequest request) {
 		if (request == null || !StringUtils.hasText(request.getId())) {
@@ -224,7 +215,7 @@ public class ClassServiceImpl implements ClassService {
 		deptService.updateDept(request);
 	}
 
-	/** 对外暴露的写权限闸门：只做委托，规则全在 {@link #assertClassManage(String)} 里 */
+	/** 对外暴露的写权限闸门：只做委托，规则全在 #assertClassManage(String) 里 */
 	@Override
 	public void assertManage(String deptId) {
 		assertClassManage(deptId);
@@ -236,7 +227,7 @@ public class ClassServiceImpl implements ClassService {
 		assertTeachingClass(deptId);
 	}
 
-	/** 对外暴露的读权限闸门：只做委托，规则全在 {@link #assertClassVisible(String)} 里 */
+	/** 对外暴露的读权限闸门：只做委托，规则全在 #assertClassVisible(String) 里 */
 	@Override
 	public void assertVisible(String deptId) {
 		assertClassVisible(deptId);
@@ -275,16 +266,7 @@ public class ClassServiceImpl implements ClassService {
 		return views;
 	}
 
-	/**
-	 * 未交卷名单（班级管理 → 答卷管理 / 查看数据）。
-	 *
-	 * <p>交卷口径只看 {@code t_answer.create_by}：名单是按「人」算的，一名学员可能换过班、走过兼报班的
-	 * 专属链接、补考过多次，按 {@code t_answer.class_id} 过滤都会算错 —— 换班前的卷留在原班，从新班看
-	 * 就被误判成没交；兼报班只有一份卷，按 class_id 也只会算到其中一个班。所以成员一侧取主组 + 兼报组，
-	 * 答卷一侧只认人。
-	 *
-	 * <p>权限：班级可见（与成员名单同一道闸）+ 项目可读；只读接口，不做写校验。
-	 */
+	/** 未交卷名单（班级管理 → 答卷管理 / 查看数据） */
 	@Override
 	public UnsubmittedStudentView listUnsubmittedStudents(String projectId, String deptId) {
 		if (!StringUtils.hasText(projectId)) {
@@ -338,11 +320,7 @@ public class ClassServiceImpl implements ClassService {
 		return result;
 	}
 
-	/**
-	 * 班级成员口径：主组（t_user.dept_id）或兼报组（t_user_dept）里的学员。
-	 *
-	 * <p>成员名单与未交卷名单共用这一条：两边各写一份 JOIN 条件，早晚会漂移成两种口径。
-	 */
+	/** 班级成员口径：主组（t_user.dept_id）或兼报组（t_user_dept）里的学员 */
 	private LambdaQueryWrapper<User> classStudentQuery(String deptId) {
 		return Wrappers.<User>lambdaQuery()
 
@@ -595,13 +573,7 @@ public class ClassServiceImpl implements ClassService {
 		}
 	}
 
-	/**
-	 * 修改某条授权的级别（1=只读 / 2=可管理）。
-	 *
-	 * <p>不在 {@code ClassService} 接口里：本次改动不允许动 {@code server/shared} 的接口文件，
-	 * 由 {@code TeachingApi} 直接注入本实现类调用（与 {@code SystemProtectionApi} 注入
-	 * {@code SystemServiceImpl} 同一写法）。
-	 */
+	/** 修改某条授权的级别（1=只读 / 2=可管理） */
 	@Override
 	public void updateClassPartner(ClassPartnerRequest request) {
 		if (request == null || !StringUtils.hasText(request.getDeptId()) || !StringUtils.hasText(request.getId())) {
@@ -743,7 +715,7 @@ public class ClassServiceImpl implements ClassService {
 		userService.deleteClassStudent(userId);
 	}
 
-	/** 批量导入学员（见 {@link ClassStudentImportService}） */
+	/** 批量导入学员（见 ClassStudentImportService） */
 	@Override
 	public ClassMemberImportResult importClassMembers(ClassMemberImportRequest request) {
 		if (request == null || !StringUtils.hasText(request.getDeptId())) {
@@ -1007,12 +979,7 @@ public class ClassServiceImpl implements ClassService {
 		return expandDescendants(roots, depts);
 	}
 
-	/**
-	 * 当前用户能「管理」的班级：自己创建/负责的班 + 被授了 access_level=2 的班，并向下覆盖所有下级班。
-	 *
-	 * <p>与 {@link #assertClassManage(String)} 同一套口径（那里是单班向上查祖先，这里是一棵树向下展开），
-	 * 树上的 {@code manageable} 字段就来自这个集合。
-	 */
+	/** 当前用户能「管理」的班级：自己创建/负责的班 + 被授了 access_level=2 的班，并向下覆盖所有下级班 */
 	private Set<String> manageableDeptIds(List<Dept> depts, Map<String, Dept> byId) {
 		if (SecurityContextUtils.isAdmin() || SecurityContextUtils.hasAuthority(PermissionEnum.CLASS_GRANT.getCode())) {
 			return depts.stream().map(Dept::getId).filter(StringUtils::hasText)
@@ -1060,13 +1027,7 @@ public class ClassServiceImpl implements ClassService {
 		return result;
 	}
 
-	/**
-	 * 补上祖先节点，保证被授权的班在树里有路径可显示。
-	 *
-	 * <p>祖先必须是本次查到的真实节点：根组被软删（is_deleted=1）时，
-	 * 子组的 parent_id 仍指向它；如果把这个幽灵祖先加进 include，所有子组都会被判成
-	 * 「父节点存在」而永远进不了 roots，整棵树就是空的。
-	 */
+	/** 补上祖先节点，保证被授权的班在树里有路径可显示 */
 	private Set<String> withAncestors(Set<String> visible, Map<String, Dept> byId) {
 		Set<String> include = new LinkedHashSet<>(visible);
 		for (String id : visible) {
@@ -1160,10 +1121,7 @@ public class ClassServiceImpl implements ClassService {
 		return counts;
 	}
 
-	/**
-	 * 判断当前用户能否看这个班：自己创建/负责、被授权（含授权在祖先班）、或管理员/class:grant。
-	 * @return 班级实体，供调用方复用
-	 */
+	/** 判断当前用户能否看这个班：自己创建/负责、被授权（含授权在祖先班）、或管理员/class:grant；返回 班级实体，供调用方复用 */
 	private Dept assertClassVisible(String deptId) {
 		if (!StringUtils.hasText(deptId)) {
 			throw new ValidationException("缺少班级 id");
@@ -1196,16 +1154,7 @@ public class ClassServiceImpl implements ClassService {
 		throw new AccessDeniedException("没有权限查看该班级，请联系管理员分配");
 	}
 
-	/**
-	 * 判断当前用户能否修改这个班（增删改学员、批量导入）。比查看多一档：
-	 * <ul>
-	 * <li>管理员 / class:grant：全部班级；</li>
-	 * <li>本班或任一祖先班由自己创建（create_by）/负责（manager_id）；</li>
-	 * <li>本班或任一祖先班上有 access_level=2（可管理）的授权。</li>
-	 * </ul>
-	 * 只读授权（access_level=1）能看能打开，但写操作会在这里被挡下。
-	 * @return 班级实体，供调用方复用
-	 */
+	/** 判断当前用户能否修改这个班（增删改学员、批量导入）；返回 班级实体，供调用方复用 */
 	public Dept assertClassManage(String deptId) {
 		if (!StringUtils.hasText(deptId)) {
 			throw new ValidationException("缺少班级 id");
@@ -1244,10 +1193,7 @@ public class ClassServiceImpl implements ClassService {
 		return dept;
 	}
 
-	/**
-	 * 开放注册只允许教学班，并且受全局总闸与 class:register 权限约束。
-	 * 关闭注册（false）不拦，避免老师想关却关不掉。
-	 */
+	/** 开放注册只允许教学班，并且受全局总闸与 class:register 权限约束 */
 	private void assertRegisterAllowedForClassKind(String classKind, Boolean allowRegister) {
 		if (!Boolean.TRUE.equals(allowRegister)) {
 			return;

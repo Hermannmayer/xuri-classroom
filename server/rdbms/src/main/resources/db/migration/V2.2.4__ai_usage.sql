@@ -1,5 +1,4 @@
--- AI 用量记账（2.2.4，幂等）
--- 目的：AI 调用能查、能对账、能按场景看成本。只记用量与结果，不记 prompt 正文与答案正文。
+-- AI 用量记账（2.2.4，幂等） 目的：AI 调用能查、能对账、能按场景看成本。
 SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `t_ai_usage` (

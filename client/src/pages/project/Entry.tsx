@@ -5,11 +5,7 @@ import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 import ProjectList from './List';
 
-/**
- * /project 入口：
- * - 老师/管理员（portal:teacher + project:list）：教学已合并到 /teaching，重定向过去；
- * - 学员 / 只读协作者：保持原「考试安排」视图。
- */
+/** /project 入口： */
 export default function ProjectEntry() {
   const [authorities, setAuthorities] = useState<string[]>();
 

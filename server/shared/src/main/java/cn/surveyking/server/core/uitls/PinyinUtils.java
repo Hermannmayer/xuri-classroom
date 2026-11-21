@@ -14,11 +14,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class PinyinUtils {
 
-	/**
-	 * 汉字转拼音
-	 * @param str 要转换的字符串
-	 * @return 汉字转拼音
-	 */
+	/** 汉字转拼音；返回 汉字转拼音 */
 	public static String chineseToPinyin(String str) {
 		if (isBlank(str)) {
 			return str;

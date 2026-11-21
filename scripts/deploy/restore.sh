@@ -1,23 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Linux 恢复脚本
-#
-# 用途：从 backup_*.tar.gz 恢复 MySQL 全库和 files 上传目录；恢复前先停止服务。
-#       备份中的 app.env 是脱敏副本，不会覆盖线上 app.env。
-#
-# 用法：
-#   sudo ./restore.sh ./backups/backup_20261106_003000.tar.gz
-#   sudo ./restore.sh <备份文件或已解压目录> --install-dir /opt/xuri-classroom --yes
-#
-# 参数：
-#   <backup>               必填，backup_*.tar.gz 或已解压目录（含 db.sql）
-#   --install-dir <dir>    安装目录，默认 /opt/xuri-classroom
-#   --service-name <name>  systemd 服务名，默认 xuri-classroom
-#   --yes                  跳过交互确认（自动化用）
-#   --help                 显示帮助
-#
-# 警告：数据库是覆盖式恢复，请确认选对备份。
-# =============================================================================
 set -euo pipefail
 
 BACKUP_PATH=""

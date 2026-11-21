@@ -1,19 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · live 后端「改完就生效」脚本
-#
-# 做的事：在一次性容器里增量编译后端 jar → 覆盖 live 用的 app.jar → 重启 app 容器。
-# 不改数据库、不碰前端、不动 compose 里其他服务。
-#
-# 用法（在 NAS 上，仓库任意目录）：
-#   bash scripts/nas/live-reload.sh
-#   bash scripts/nas/live-reload.sh --build-only     # 只编译，不重启
-#   bash scripts/nas/live-reload.sh --logs           # 重启后追 30 行日志
-#
-# 耗时：增量编译 5~15 秒 + 容器重启 5~10 秒。
-# 为什么必须编译：Java 是编译型语言，.java 不编译成 .class 没有任何办法生效；
-# 这和前端 .tsx 的「保存即见」不是一回事。
-# =============================================================================
 set -euo pipefail
 
 SRC="${XURI_SRC:-/vol2/1000/xuri/src}"

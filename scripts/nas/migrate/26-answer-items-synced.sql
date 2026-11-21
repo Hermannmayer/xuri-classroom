@@ -1,5 +1,4 @@
 -- 明细投影同步标记：不能用 t_answer_item 的行数判断覆盖（没有选项的答卷展开后是 0 行）。
--- 幂等：列已存在则跳过。
 SET NAMES utf8mb4;
 
 SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS

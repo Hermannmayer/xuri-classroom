@@ -41,6 +41,8 @@ description: "钉住 2026-11 的压测数据与虚拟线程的取舍，避免后
 
 ## 怎么复现这组数据
 
+> 2026-11 起 `scripts/dev/loadtest.mjs` 已按“禁止开发验证工具”的规则移除；以下命令保留为当时的数据复现记录。
+
 ```bash
 node scripts/dev/loadtest.mjs --conns 120 --seconds 25 --scenario login
 node scripts/dev/loadtest.mjs --conns 120 --seconds 30 --scenario exam

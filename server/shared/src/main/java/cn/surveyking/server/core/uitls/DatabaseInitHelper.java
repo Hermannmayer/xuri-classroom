@@ -196,10 +196,7 @@ public class DatabaseInitHelper {
 
 	}
 
-	/**
-	 * 数据库初始化
-	 * @param properties
-	 */
+	/** 数据库初始化 */
 	@SneakyThrows
 	private static void initDatabaseSchema(DatabaseInitProperties properties) {
 		if (!yesOrNo("是否执行数据库初始化操作？")) {
@@ -272,10 +269,7 @@ public class DatabaseInitHelper {
 		return false;
 	}
 
-	/**
-	 * 获取当前 jar 运行目录
-	 * @return
-	 */
+	/** 获取当前 jar 运行目录 */
 	@SneakyThrows
 	public static String getJarFilePath() {
 		String path = DatabaseInitHelper.class.getProtectionDomain().getCodeSource().getLocation().getPath();

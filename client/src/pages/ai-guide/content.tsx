@@ -285,16 +285,7 @@ const TOKEN_PLACEHOLDER = 'Bearer <token>';
 
 const prettyJson = (value: unknown) => JSON.stringify(value, null, 2);
 
-/**
- * 各客户端的配置片段。
- *
- * 形状差异是真实的（2026-11 对照各家文档核实过）：
- * - 通用 / Claude Code：顶层 mcpServers，远程条目要 type；
- * - Cursor：顶层 mcpServers，远程条目不要 type，给 url 即可；
- * - VS Code：顶层 servers（不是 mcpServers），type 写 http；
- * - Codex：TOML，~/.codex/config.toml 的 [mcp_servers.<name>]。
- * 页面只负责按当前站点地址拼出片段，令牌用 <token> 占位，由用户替换成 sk_ 明文。
- */
+/** 各客户端的配置片段 */
 export const MCP_CLIENTS: McpClient[] = [
   {
     key: 'generic',

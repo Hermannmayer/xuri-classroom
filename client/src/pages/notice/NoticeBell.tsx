@@ -19,22 +19,7 @@ const POLL_MS = 60_000;
 const UPDATE_LAST_CHECK_KEY = 'sk-update-last-check';
 const UPDATE_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
-/**
- * 顶栏「公告」铃铛 + 未读 badge。
- *
- * <p>挂在 BasicLayout 的 Header 里，所有登录用户可见（学员也有 notice:list，4.4）。
- * 未读数只认 /api/notice/unread-count；接口没上线或没权限时静默保持 0，
- * 不要在顶栏弹一串红色错误——公告是辅助信息，不该挡路。
- *
- * <p>刷新时机：
- * 1. 挂载时立刻查一次；
- * 2. 每 60 秒轮询（后台标签页会被浏览器降频，靠下面两条兜）；
- * 3. window focus / 标签页重新可见时立即查；
- * 4. 公告中心读掉公告后广播 NOTICE_UNREAD_EVENT，立即查。
- *
- * <p>另外这里接过了「登录后自动检查更新」的那一下（原 UpdateBanner 发起）：只触发检查，
- * 提示改由公告中心的系统更新公告承担（4.1 / 4.7）。
- */
+/** 顶栏「公告」铃铛 + 未读 badge */
 export default function NoticeBell({ authorities }: { authorities: string[] }) {
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);

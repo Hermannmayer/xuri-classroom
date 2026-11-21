@@ -1,10 +1,4 @@
-/**
- * 数据页的过滤条件：班级树怎么拍平、服务端参数怎么拼。
- *
- * <p>为什么单独一个文件：同一组条件要喂三个地方——列表取数（/api/answer/list）、Excel 导出
- * （/api/answer/download）、PDF 任务（/api/answer/export/pdf-job）。三处的口径必须一模一样，
- * 尤其是 endTime 为什么要取「次日零点」这种细节，散在页面里迟早写歪一处。
- */
+/** 数据页的过滤条件：班级树怎么拍平、服务端参数怎么拼 */
 import type { Dayjs } from 'dayjs';
 
 
@@ -23,12 +17,7 @@ export interface ClassOption {
   name?: string;
 }
 
-/**
- * 班级树拍平成下拉候选项。
- *
- * <p>只收「叶子班」：有 children 的节点只是分组（例如年级），选中它导不出任何东西。
- * 路径拼进 label，是为了两个年级下都叫「一班」时不至于选错。
- */
+/** 班级树拍平成下拉候选项 */
 export function flattenClassLeaves(nodes: ClassNode[], prefix = ''): ClassOption[] {
   const result: ClassOption[] = [];
   for (const node of nodes ?? []) {
@@ -98,12 +87,7 @@ export interface AnswerFilterParams {
   includeAnonymous: boolean;
 }
 
-/**
- * 时间范围 → 服务端参数。
- *
-
- * 写成当天 23:59:59 会把 23:59:59.5 这种带毫秒的答卷漏掉。
- */
+/** 时间范围 → 服务端参数 */
 export function toRangeParams(range: FilterState['range']): { startTime?: string; endTime?: string } {
   const from = range?.[0] ?? null;
   const to = range?.[1] ?? null;
@@ -113,12 +97,7 @@ export function toRangeParams(range: FilterState['range']): { startTime?: string
   };
 }
 
-/**
- * 把页面状态摊成后端参数。
- *
- * <p>classId 由调用方从 URL 取（保持「URL 是唯一真源」），createByName 也单独传：
- * 它是 300ms 防抖后的值，不属于页面上的即时状态。
- */
+/** 把页面状态摊成后端参数 */
 export function toFilterParams(
   filters: FilterState,
   classId?: string,

@@ -273,7 +273,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 				.set(Answer::getGradeStatus, status).set(Answer::getGradedBy, null).set(Answer::getGradedAt, null));
 	}
 
-	/* ------ 以下为内部实现 ------ */
+	/** ------ 以下为内部实现 ------ */
 
 	private Answer loadAnswer(String answerId) {
 		if (!StringUtils.hasText(answerId)) {
@@ -295,13 +295,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		return project == null ? null : project.getSurvey();
 	}
 
-	/**
-	 * 批改/复核页要显示参考答案时的 schema。
-	 *
-	 * <p>优先答卷快照（随机卷每份题不同，只有快照是准的），但历史快照可能被剥掉 examCorrectAnswer。
-	 * 这时回退项目卷面——只在项目卷面能覆盖快照里的全部题目 id（固定卷）时才回退；
-	 * 随机卷拿题库池子顶替会让题目对不上、分数全 0。
-	 */
+	/** 批改/复核页要显示参考答案时的 schema */
 	private SurveySchema resolveSchemaWithAnswers(Answer answer) {
 		SurveySchema snapshot = answer.getSurvey();
 		if (snapshot != null && containsCorrectAnswer(snapshot)) {
@@ -405,12 +399,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 				.set(AnswerGrade::getUpdateAt, now));
 	}
 
-	/**
-	 * 重算整卷：机器分照旧走 evaluator，人工分作为 manual 题的覆盖值传进去。
-	 *
-	 * <p>与 {@code AnswerScoringService#computeExamScore} 用的是同一个评估器，保证
-	 * 「批改后的 exam_score」与「学生再交一次卷」算出来的口径一致。
-	 */
+	/** 重算整卷：机器分照旧走 evaluator，人工分作为 manual 题的覆盖值传进去 */
 	private ScoreView evaluate(Answer answer, SurveySchema schema, Map<String, AnswerGrade> grades) {
 		ScoreView view = new ScoreView();
 		if (schema == null) {
@@ -450,12 +439,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		return view;
 	}
 
-	/**
-	 * 落库总分：exam_score / exam_info.question_score / grade_status / graded_by / graded_at。
-	 *
-	 * <p>用 updateById（实体 + 类型处理器）而不是 UpdateWrapper.set，因为 exam_info 是 JSON 字段，
-	 * 走 wrapper 的 set 不会应用 Jackson3TypeHandler。
-	 */
+	/** 落库总分：exam_score / exam_info.question_score / grade_status / graded_by / graded_at */
 	private void persistScore(Answer answer, ScoreView score, String status, String grader, Date now) {
 		AnswerExamInfo examInfo = answer.getExamInfo() == null ? new AnswerExamInfo() : answer.getExamInfo();
 		examInfo.setQuestionScore(score.questions);

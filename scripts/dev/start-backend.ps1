@@ -1,11 +1,4 @@
 # 启动后端（默认 7007 端口）。
-#
-# 端口约定：前端占 80（vite dev / 生产 nginx），后端是内部服务，随便一个端口即可，
-# 因此这里不需要管理员权限（Windows 只有 80 这类保留端口才可能要提权，而我们不等 80）。
-#
-# 用法：
-#   .\start-backend.ps1              # 用默认 7007
-#   .\start-backend.ps1 -Port 8080   # 换端口（同时把 client 的 VITE_API_TARGET 指过去）
 param(
   [int]$Port = 7007
 )

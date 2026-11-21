@@ -63,15 +63,7 @@ public class WebSecurityConfig {
 		SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
 	}
 
-	/**
-	 * 账号密码登录用的认证提供者。
-	 *
-	 * <p>
-	 * 迁移到 Spring Security 7 之前这里是 {@code configure(AuthenticationManagerBuilder)} 里的一句
-	 * {@code auth.userDetailsService(...)}：框架会自动挑一个 {@code PasswordEncoder} Bean 装进
-	 * DaoAuthenticationProvider。适配器被移除后这个「自动挑」不再发生，必须显式装配，
-
-	 */
+	/** 账号密码登录用的认证提供者 */
 	@Bean
 	public AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
 
@@ -81,9 +73,7 @@ public class WebSecurityConfig {
 		return provider;
 	}
 
-	/**
-	 * 暴露给 {@code UserApi} / {@code LoginFormValidator} 手动认证使用。
-	 */
+	/** 暴露给 UserApi / LoginFormValidator 手动认证使用 */
 	@Bean
 	public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
 		return configuration.getAuthenticationManager();

@@ -151,11 +151,7 @@ public class AnswerExporter {
 		return downloadData;
 	}
 
-	/**
-	 * 将单个问卷的附件转成 zip 压缩包
-	 * @param answers
-	 * @return
-	 */
+	/** 将单个问卷的附件转成 zip 压缩包 */
 	private InputStream answerAttachToZip(Project project, List<AnswerView> answers, DownloadQuery query) {
 		try {
 			PipedOutputStream outputStream = new PipedOutputStream();
@@ -237,14 +233,7 @@ public class AnswerExporter {
 				.setColumns(SchemaHelper.parseColumns(schemaDataTypes, scoringMode)).build().exportToStream();
 	}
 
-	/**
-	 * @param answerView 当前答案
-	 * @param nameExp 附件名称表达式
-	 * @param file 当前附件
-	 * @param serialNum 序号
-	 * @param uploadQuestions 问卷上传题 schema
-	 * @return 新的附件名称
-	 */
+	/** 返回 新的附件名称；返回 新的附件名称 */
 	private String parseAttachmentNameByExp(AnswerView answerView, String nameExp, FileView file, int[] serialNum,
 			List<SurveySchema> uploadQuestions) {
 		if (StringUtils.hasText(nameExp)) {
@@ -326,11 +315,7 @@ public class AnswerExporter {
 		}
 	}
 
-	/**
-	 * 获取文件后缀
-	 * @param fileName 文件名称
-	 * @return 文件后缀
-	 */
+	/** 获取文件后缀；返回 文件后缀 */
 	private String getFileExtension(String fileName) {
 		String extension = null;
 		int i = fileName.lastIndexOf('.');

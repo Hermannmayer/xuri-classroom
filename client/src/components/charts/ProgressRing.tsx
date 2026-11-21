@@ -18,12 +18,7 @@ export interface ProgressRingProps {
   error?: string | null;
 }
 
-/**
- * 圆环进度（及格率 / 批改进度）。
- *
- * 用 stroke-dasharray 画弧：dash 长度 = 百分比 × 周长，rotate(-90) 从 12 点方向开始。
- * 百分比超过 100 或小于 0 时截断，避免画成「反向弧」。
- */
+/** 圆环进度（及格率 / 批改进度） */
 export function ProgressRing({
   percent,
   label,

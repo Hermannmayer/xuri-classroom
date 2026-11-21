@@ -1,19 +1,4 @@
--- =============================================================================
 -- 恢复/补齐默认角色（幂等，可重复执行）
---
--- 背景：2026-11-07 从上游 H2 迁移到 MySQL 时，t_role 整表被上游数据覆盖，
---       分支自带的「老师 / 学员」两个默认角色没有合并进来 → 只有超级管理员可用。
---       这个脚本把两个默认角色补回来，并补齐「学员能看题库、能练习」所需的权限点。
---
--- 权限语义（和 PermissionEnum 一致，别凭名字猜）：
---   repo:list    看题库列表        repo:detail  打开题库、看题目
---   repo:update  改题库            repo:create/delete/export/import  同名
---   repo:book    练习册/错题本（做题入口）
---   exercise:list 我的练习页
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 05-default-roles.sql
--- =============================================================================
 SET NAMES utf8mb4;
 
 

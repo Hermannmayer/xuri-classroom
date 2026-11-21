@@ -14,9 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class AnswerMetaEnricher {
 
-	/**
-	 * 补齐答卷的来源信息（IP / 设备 cookie），供「每 IP 限次」「每台设备限次」统计使用。 已有值不覆盖；取不到请求上下文（如异步线程）时原样返回。
-	 */
+	/** 补齐答卷的来源信息（IP / 设备 cookie），供「每 IP 限次」「每台设备限次」统计使用 */
 	public AnswerMetaInfo enrichMetaInfo(AnswerMetaInfo metaInfo) {
 		AnswerMetaInfo meta = metaInfo == null ? new AnswerMetaInfo() : metaInfo;
 		try {

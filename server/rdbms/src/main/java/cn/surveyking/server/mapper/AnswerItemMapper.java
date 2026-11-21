@@ -12,7 +12,7 @@ import java.util.List;
 
 public interface AnswerItemMapper extends BaseMapper<AnswerItem> {
 
-	/** 批量写入（每批 500 条）。 */
+	/** 批量写入（每批 500 条） */
 	int batchInsert(@Param("items") List<AnswerItem> items);
 
 	/** 每题的回答人数（答了该题的人数，去重） */
@@ -24,7 +24,7 @@ public interface AnswerItemMapper extends BaseMapper<AnswerItem> {
 
 	long countSyncedAnswers(@Param("projectId") String projectId);
 
-	/** S2-4：按答卷 id 批量取明细，供导出重建 answer。 */
+	/** S2-4：按答卷 id 批量取明细，供导出重建 answer */
 	List<AnswerItem> selectByAnswerIds(@Param("answerIds") List<String> answerIds);
 
 }

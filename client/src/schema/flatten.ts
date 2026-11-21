@@ -14,10 +14,7 @@ export interface FlatQuestion {
   number?: number;
 }
 
-/**
- * 把整棵树拍平成有序题目列表。
- * 结构节点（Survey/QuestionSet/Pagination/Remark/SplitLine）不产生题目，但会继续下钻。
- */
+/** 把整棵树拍平成有序题目列表 */
 export function flattenSchema(root: SurveySchema): FlatQuestion[] {
   const out: FlatQuestion[] = [];
   let number = 0;

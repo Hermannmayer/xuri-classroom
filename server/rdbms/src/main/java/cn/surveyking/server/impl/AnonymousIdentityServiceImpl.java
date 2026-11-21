@@ -241,7 +241,7 @@ public class AnonymousIdentityServiceImpl implements AnonymousIdentityService {
 		return total;
 	}
 
-	/** 事务提交后再执行（无事务时立即执行）。用于物理文件删除这类不可回滚的副作用。 */
+	/** 事务提交后再执行（无事务时立即执行） */
 	private static void runAfterCommit(Runnable action) {
 		if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
 			org.springframework.transaction.support.TransactionSynchronizationManager

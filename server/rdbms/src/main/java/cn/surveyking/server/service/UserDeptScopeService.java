@@ -66,11 +66,7 @@ public class UserDeptScopeService {
 
 	private final DeptMapper deptMapper;
 
-	/**
-	 * 解析用户的可见组集合：主组 + 附加组 + 各自祖先链。
-	 * @param userId 用户 id；为空（匿名）时返回空集合
-	 * @return 去重后的组 id 集合，按「主组 → 附加组 → 由近到远的祖先」顺序
-	 */
+	/** 解析用户的可见组集合：主组 + 附加组 + 各自祖先链；返回 去重后的组 id 集合，按「主组 → 附加组 → 由近到远的祖先」顺序 */
 	public Set<String> resolveDeptScope(String userId) {
 		Set<String> scope = new LinkedHashSet<>();
 		if (!StringUtils.hasText(userId)) {
@@ -95,7 +91,7 @@ public class UserDeptScopeService {
 		return scope;
 	}
 
-	/** 用户被显式绑定的附加组（不含主组）。 */
+	/** 用户被显式绑定的附加组（不含主组） */
 	public List<String> listExtraDeptIds(String userId) {
 		if (!StringUtils.hasText(userId)) {
 			return new ArrayList<>();

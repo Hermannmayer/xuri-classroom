@@ -1,4 +1,4 @@
-# 启动本地 MySQL（便携版，3306）。已在运行则跳过。
+# 启动本地 MySQL（便携版，3306）。
 $ErrorActionPreference = 'Stop'
 $mysqlBase = "$env:LOCALAPPDATA\mysql\mysql-8.0.24-winx64"
 $mysqlData = "$env:LOCALAPPDATA\mysql\data"

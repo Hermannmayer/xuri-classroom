@@ -1,9 +1,4 @@
--- 答卷列表热路径索引（AnswerServiceImpl.listAnswer）：
---   WHERE project_id = ? [AND create_by = ?] ORDER BY create_at DESC
--- 原来只有 (project_id)，排序与「只看本人答卷」的分支都要 filesort。
--- 加 (project_id, create_by, create_at)：最左前缀继续覆盖纯 project_id 查询，
--- 因此旧的 key_answer_pid 暂不删除——写放大可忽略，留着给回滚留余地。
--- 幂等：索引已存在时跳过，可重复执行。
+-- 答卷列表热路径索引（AnswerServiceImpl.listAnswer）： WHERE project_id = ? [AND create_by = ?] ORDER BY create_at DESC 原来只有 (project_id)，排序与「只看本人答卷」的分支都要 filesort。
 SET NAMES utf8mb4;
 
 SET @idx_exists := (

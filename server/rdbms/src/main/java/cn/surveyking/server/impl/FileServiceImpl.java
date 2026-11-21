@@ -351,11 +351,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		}
 	}
 
-	/**
-	 * 根据存储配置，按照指定规则生成相应的文件名
-	 * @param originalName 原文件名
-	 * @return 文件名
-	 */
+	/** 根据存储配置，按照指定规则生成相应的文件名；返回 文件名 */
 	private String getFileNameByStrategy(String originalName) {
 		String strategy = storageProperties.getLocal().getNameStrategy();
 		int idx = originalName.lastIndexOf('.');
@@ -377,12 +373,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		}
 	}
 
-	/**
-	 * 根据本地存储配置，生成不同方式的文件保存路径
-	 * @param request 文件上传请求
-	 * @param fileName 文件名
-	 * @return 文件保存路径
-	 */
+	/** 根据本地存储配置，生成不同方式的文件保存路径；返回 文件保存路径 */
 	private String getFilePathByStrategy(UploadFileRequest request, String fileId, String fileName) {
 		String strategy = storageProperties.getLocal().getPathStrategy();
 		if (LocalStoragePathStrategyEnum.BY_ID.getStrategy().equals(strategy)) {
@@ -542,16 +533,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		}
 	}
 
-	/**
-	 * 等比缩放到指定宽度，高度按比例四舍五入（至少 1 像素）。
-	 *
-	 * <p>用 {@link Graphics2D} 一次性绘制，而不是 {@code getScaledInstance}：后者每次都要先
-	 * 建一个异步的图片生产者，质量差、速度慢，缩完往往还要再复制一次。这里只走一次双线性插值，
-	 * 并且按原图是否有 alpha 通道选目标类型，手写签名/截图的透明背景不会丢。
-	 * @param source 原图
-	 * @param targetWidth 目标宽度，单位像素
-	 * @return 缩放后的新图（原图不改）
-	 */
+	/** 等比缩放到指定宽度，高度按比例四舍五入（至少 1 像素）；返回 缩放后的新图（原图不改） */
 	private BufferedImage scaleToWidth(BufferedImage source, int targetWidth) {
 		int sourceWidth = source.getWidth();
 		int sourceHeight = source.getHeight();
@@ -571,11 +553,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		return scaled;
 	}
 
-	/**
-	 * 按目标格式重新编码图片：jpeg 走 {@link ImageWriter} 的显式质量参数，png 交给
-	 * {@link ImageIO} 默认的无损压缩（透明通道保留）。
-	 * @return false 表示当前 JDK 没有该格式的 writer
-	 */
+	/** 按目标格式重新编码图片：jpeg 走 ImageWriter 的显式质量参数，png 交给 ImageIO 默认的无损压缩（透明通道保留）；返回 false 表示当前 JDK 没有该格式的 writer */
 	private boolean writeImage(BufferedImage image, String format, ByteArrayOutputStream output) {
 		if (!"jpeg".equals(format)) {
 			try {
@@ -606,7 +584,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		}
 	}
 
-	/** 把带透明通道的图画到白底 RGB 画布上（JPEG 没有透明概念，透明区变白而不是变黑）。 */
+	/** 把带透明通道的图画到白底 RGB 画布上（JPEG 没有透明概念，透明区变白而不是变黑） */
 	private BufferedImage flattenAlpha(BufferedImage source) {
 		BufferedImage flattened = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
 		Graphics2D graphics = flattened.createGraphics();
@@ -621,7 +599,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		return flattened;
 	}
 
-	/** 读取配置里的 JPEG 质量，写错（<=0 或 >1）时回落到默认值，别让一张图因为配置问题传不上去。 */
+	/** 读取配置里的 JPEG 质量，写错（1）时回落到默认值，别让一张图因为配置问题传不上去 */
 	private float imageQuality() {
 		float quality = storageProperties.getImageQuality();
 		return quality > 0f && quality <= 1f ? quality : DEFAULT_IMAGE_QUALITY;
@@ -773,17 +751,7 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements Fi
 		return buildFileResponse(query, file);
 	}
 
-	/**
-	 * 答卷附件（手写签名、上传题图片）回看：这类文件是 {@code shared=0}，但答题人必须能看到原图——
-	 * 答题页刷新、成绩单解析、老师批改都要显示，原来一刀切 403 会让签名「提交完就看不见」。
-	 *
-	 * <p>放开范围刻意收得很窄：**只有 {@code ANSWER_ATTACHMENT} 类型且已绑定 projectId** 的才放行。
-	 * fileId 是服务端生成的 UUID，不可枚举；答卷 JSON 本身还有归属校验（成绩单走
-	 * {@code AnswerLookup}），所以泄露面仅限于「主动把文件 URL 发给别人」。
-	 *
-	 * <p>要更强的隔离时，把这里换成一次性签名 URL（给 fileId + 过期时间 + HMAC），
-	 * 届时 {@code /api/public/preview/{id}} 仍然只服务 shared=1 的文件。
-	 */
+	/** 答卷附件（手写签名、上传题图片）回看：这类文件是 shared=0，但答题人必须能看到原图—— 答题页刷新、成绩单解析、老师批改都要显示，原来一刀切 403 会让签名「提交完就看不见」 */
 	private boolean isAnswerAttachment(File file) {
 		return Objects.equals(file.getStorageType(), StorageTypeEnum.ANSWER_ATTACHMENT.getType())
 				&& StringUtils.isNotBlank(file.getProjectId());

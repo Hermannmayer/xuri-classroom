@@ -6,18 +6,11 @@ import RequirePerm from './components/RequirePerm';
 import Placeholder from './pages/Placeholder';
 import { PERMISSION_CODES } from './auth/permission-codes';
 
-/**
- * 页面全部按路由懒加载。
- *
- * 之前 32 个页面是静态 import，整个后台（含权限目录、系统管理、出卷编辑器）都打进一个 2MB 的
- * 入口 chunk：学员打开 /s/:id 答题也要先下完管理端代码，弱网/旧手机上首屏要好几秒。
- * 改成 lazy 之后，首屏只加载 BasicLayout 与当前路由对应的一页。
- */
+/** 页面全部按路由懒加载 */
 const Login = lazy(() => import('./pages/user/Login'));
 const Register = lazy(() => import('./pages/user/Register'));
 const Home = lazy(() => import('./pages/Home'));
-// AI 与智能体引导页：能力清单 + 模型开通 + MCP 三步接入（task-16）
-// AI 说明页已并入「系统设置 → AI」：这里只保留旧链接的入口组件
+// AI 与智能体引导页：能力清单 + 模型开通 + MCP 三步接入（task-16） AI 说明页已并入「系统设置 → AI」：这里只保留旧链接的入口组件
 const NoticeCenter = lazy(() => import('./pages/notice/NoticeCenter'));
 // 公告管理台：系统管理里的写入口（铃铛进的 /notice 是只读中心）
 const NoticeAdmin = lazy(() => import('./pages/notice/NoticeAdmin'));

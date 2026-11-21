@@ -35,14 +35,7 @@ public class BarcodeReader {
 		return readBarcode(inputStream, hintMap, hintMap_pure);
 	}
 
-	/**
-	 * @param inputStream
-	 * @param hintMap
-	 * @return Qr Code value
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 * @throws NotFoundException
-	 */
+	/** 返回 Qr Code value；返回 Qr Code value */
 	public static String readBarcode(InputStream inputStream, Map hintMap, Map hintMap_pure)
 			throws FileNotFoundException, IOException, NotFoundException {
 		BufferedImage image = Thumbnails.of(inputStream).size(1280, 960).asBufferedImage();

@@ -96,10 +96,7 @@ public class ExcelExporter {
 		rowIndexBySheet.put(sheetName, rowNum);
 	}
 
-	/**
-	 * 收尾并返回字节。**只适用于无参构造**：带参构造写的是调用方的流，这里拿不到那份字节。
-	 * @throws IllegalStateException 本实例是写外部流的（用 exportToStream()），或写盘失败
-	 */
+	/** 收尾并返回字节 */
 	public ByteArrayInputStream export() {
 		if (this.target != this.os) {
 			throw new IllegalStateException("本实例写的是外部流，请改用 exportToStream()；export() 只适用于无参构造");
@@ -113,7 +110,7 @@ public class ExcelExporter {
 		return new ByteArrayInputStream(this.os.toByteArray());
 	}
 
-	/** 收尾（把内容写进构造时给的流）。无参构造时内容进内部缓冲，用 {@link #export()} 取。 */
+	/** 收尾（把内容写进构造时给的流） */
 	public void exportToStream() {
 		try {
 			this.workbook.finish();

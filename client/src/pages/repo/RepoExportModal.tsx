@@ -9,15 +9,7 @@ export interface RepoExportTarget {
   total?: number;
 }
 
-/**
- * 题库导出弹窗：列表页与题目页共用。
- *
- * 关键点：
- * - 系统没设置导出密码时，不再让用户白填密码：打开后直接开始下载；
- * - 设置了密码才显示输入框，密码只走 POST body 换一次性 token，下载 URL 里只出现 token；
- * - 没有配置密码时后端会忽略输入的任何密码（旧实现会让人误以为"密码错误但没提示"）；
- * - 导出成功后给一条明确提示，避免浏览器静默下载被当成"没反应"。
- */
+/** 题库导出弹窗：列表页与题目页共用 */
 export default function RepoExportModal({
   target,
   onClose,

@@ -1,44 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · NAS 发布前体检（只读，安全）
-#
-# 这个脚本不做任何写操作：不停容器、不写生产目录、不切镜像。它只回答一个
-# 问题：**现在能不能发版/做切换**。任何一条「阻塞」都会让 release.sh 停下。
-#
-# 检查项：
-#   1. 环境        docker 命令与守护进程可用
-#   2. 目录        生产数据目录存在、备份目录可写
-#   3. 磁盘        备份所在文件系统剩余空间（默认门槛 5GB）
-#   4. 备份新鲜度  最近一份 backup_*.tar.gz：>24h 警告、>48h 阻塞、没有备份直接阻塞
-#   5. 容器健康    当前生产容器是否在跑、/api/system 是否 200
-#   6. 端口        目标端口（默认 201）被谁占着：docker 容器占用算警告，其它进程算阻塞
-#   7. 发布配置    compose 文件、.env、SK_CRYPTO_KEY / DB_PASSWORD 是否齐
-#   8. 回滚能力    <app 镜像>:previous 是否存在（首次发布没有，给警告）
-#   9. 日志配置    json-file 是否配了 max-size（没配可能把 /vol2 写满）
-#  10. 考试中判定  优先用调用方给的 SQL（--exam-sql / EXAM_CHECK_SQL）；拿不到就降级为
-#                  「打印当前时间 + 要求人工确认 CONFIRM=yes」，绝不猜表名、不猜字段
-#
-# 关于「考试中」：
-#   系统里没有在线会话表，没有任何 SQL 能准确回答「此刻有没有人在答题」。能做的最强
-#   信号是 t_project 里 status=1 且 setting JSON 中 examSetting.startTime/endTime 覆盖
-#   当前时间——但这条查询依赖 JSON 字段格式，**没有在生产库上验证过**，所以本脚本
-#   不内置它，只提供入口；建议查询见 deploy/nas/prod/README.md「考试期间能否发版」。
-#   拿不到结果时，本脚本降级为人工确认：没有 CONFIRM=yes 就算阻塞。
-#
-# 用法：
-#   bash scripts/nas/preflight.sh
-#   bash scripts/nas/preflight.sh --compose-dir deploy/nas/prod --port 201
-#   bash scripts/nas/preflight.sh --exam-sql /vol2/1000/xuri/exam-check.sql
-#   CONFIRM=yes bash scripts/nas/preflight.sh          # 人工确认「此刻无考试」后放行
-#   bash scripts/nas/preflight.sh --force               # 应急：已确认考试中也必须发版
-#
-# 退出码：
-#   0  可以发布（没有阻塞项，也没有警告）
-#   1  有阻塞项 —— 不要发布，先按输出处理
-#   2  仅警告 —— 可以发布，但请看过每条警告
-#
-# 首次使用请先：chmod +x scripts/nas/preflight.sh
-# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

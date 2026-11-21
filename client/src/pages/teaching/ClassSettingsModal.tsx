@@ -53,12 +53,7 @@ function toParentTree(nodes: DeptNode[], exclude: Set<string>): { value: string;
     }));
 }
 
-/**
- * 班级设置：只维护班级本身（名称、上级、有效期）。
- *
- * <p>角色绑定属于「用户组（教职工）」，不在班级里做；学员与任课老师在班级管理页维护。
- * 新建/编辑走 teaching/classes/create|update；删除仍走 system/dept/delete（入口由班级管理页按权限控制）。
- */
+/** 班级设置：只维护班级本身（名称、上级、有效期） */
 export default function ClassSettingsModal({
   open,
   mode,

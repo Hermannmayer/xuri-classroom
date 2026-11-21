@@ -48,7 +48,7 @@ class AnswerPdfJobServiceImplScopeTest {
 			mock(SysInfoMapper.class), mock(FileService.class), mock(StorageProperties.class),
 			mock(AnswerAccessGuard.class));
 
-	/** 单测不启动 MyBatis，Lambda 缓存是空的：{@code Answer::getClassId} 解析不出列名 */
+	/** 单测不启动 MyBatis，Lambda 缓存是空的：Answer::getClassId 解析不出列名 */
 	@BeforeAll
 	static void initTableInfo() {
 		TableInfo tableInfo = TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),
@@ -112,10 +112,7 @@ class AnswerPdfJobServiceImplScopeTest {
 
 
 
-	/**
-	 * {@code baseWrapper} 是私有的（对外只暴露 createJob，任务建完就丢进线程池，没法从外面观察范围）。
-	 * 用反射直接拿它：这条测试要断言的正是「范围翻译成 SQL」这一步。
-	 */
+	/** baseWrapper 是私有的（对外只暴露 createJob，任务建完就丢进线程池，没法从外面观察范围） */
 	private LambdaQueryWrapper<Answer> baseWrapper(Consumer<AnswerPdfJobServiceImpl.ExportSpec> customizer)
 			throws Exception {
 		AnswerPdfJobServiceImpl.ExportSpec spec = new AnswerPdfJobServiceImpl.ExportSpec();

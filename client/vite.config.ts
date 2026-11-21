@@ -1,12 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-/**
- * 端口约定：
- * - 开发态：前端 dev server 占 **80**，后端内部服务用 7007，访问 http://localhost
- * - 生产态（Docker）：nginx 容器内仍然监听 80，但对宿主机**默认发布到 8080**
- *   （四位数端口，避开服务器上已有的 80），改端口只需改 APP_PORT 环境变量。
- */
+/** 端口约定： */
 const target = process.env.VITE_API_TARGET || 'http://127.0.0.1:7007';
 
 export default defineConfig({

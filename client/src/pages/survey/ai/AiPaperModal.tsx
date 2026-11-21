@@ -96,10 +96,7 @@ function initialRatios(): Record<string, number> {
   return out;
 }
 
-/**
- * 题干可能是富文本（Word 导入的题带图片），列表里只做纯文本预览：
- * 正则剥标签用于**展示**，不承担消毒职责（React 本身把内容当文本渲染）。
- */
+/** 题干可能是富文本（Word 导入的题带图片），列表里只做纯文本预览： 正则剥标签用于**展示**，不承担消毒职责（React 本身把内容当文本渲染） */
 function plainText(value?: string): string {
   if (!value) return '';
   return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();

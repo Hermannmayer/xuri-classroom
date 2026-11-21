@@ -1,35 +1,4 @@
-<#
-.SYNOPSIS
-  Windows 备份脚本：备份 MySQL 全库、files 上传目录和脱敏后的 app.env。
-
-.DESCRIPTION
-  输出一个 backup_yyyyMMdd_HHmmss.zip 到输出目录，并按保留份数清理旧备份。
-  备份内包含：
-    - db.sql          mysqldump 全库（含 routines/triggers）
-    - files.zip       <InstallDir>\files 上传目录
-    - app.env         app.env 的脱敏副本（DB_PASSWORD 替换为 ***）
-    - manifest.txt    备份说明
-
-
-.PARAMETER InstallDir
-  安装目录，默认 C:\xuri-classroom（应包含 app.env、files\）。
-
-.PARAMETER OutputDir
-  备份输出目录，默认当前目录下的 .\backups。
-
-.PARAMETER Retention
-  保留份数，默认 7；超出的旧备份自动删除。
-
-.PARAMETER MysqlDumpPath
-  mysqldump 可执行文件；默认从 PATH 查找。
-
-.PARAMETER MysqlPath
-  mysql 可执行文件（本脚本不直接用，保留给下游恢复脚本一致性说明）。
-
-.EXAMPLE
-  .\backup.ps1
-  .\backup.ps1 -InstallDir D:\apps\xuri-classroom -OutputDir D:\backups -Retention 14
-#>
+# Windows 备份脚本：备份 MySQL 全库、files 上传目录和脱敏后的 app.env。
 [CmdletBinding()]
 param(
     [string]$InstallDir = 'C:\xuri-classroom',

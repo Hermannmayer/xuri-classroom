@@ -1,16 +1,4 @@
--- ======
 -- 考试/题库授权三级：t_project_partner.access_level / t_repo_partner.access_level（2026-11，幂等）
---
--- 背景：成员授权原来只有「有/没有」两档，无法表达「只读 / 可编辑 / 可再授权」。
--- 本次加一列 access_level：
---   1 = 可查看（只读）
---   2 = 可编辑（含查看）—— 默认值
---   3 = 可授权（含编辑/查看）—— 最高级，能继续把成员授权给别人
--- 答卷人（t_project_partner.type=3 班级/学员）与外部导入答卷人只读，迁移里回填成 1。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 36-partner-access-level.sql
--- ======
 SET NAMES utf8mb4;
 
 

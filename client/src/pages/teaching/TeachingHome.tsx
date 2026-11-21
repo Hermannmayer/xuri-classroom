@@ -21,16 +21,7 @@ const TAB_PERMISSION: Record<TabKey, string> = {
 
 const LEGACY_TAB: Record<string, TabKey> = { insight: 'classes', class: 'classes' };
 
-/**
- * 教学页：考试/问卷与班级合并成一页两个 Tab。
- *
- * <p>为什么合并：这两件事是同一条动线——先看班、再给班发考试/问卷，拆成两个菜单的代价是
- * 侧栏多一项、老师为一件事跳两次页。原「班级学情」只是班级资源面板的另一种视图，直接删掉，
- * 学员与班级成员统一在「班级」Tab 里维护。
- *
- * <p>权限没有放松：两个 Tab 各自按自己的权限点判定，只留当前账号真能看的那个；
- * 一个都没有时给 403 结果页，而不是渲染一个空 Tabs——空壳页会被当成加载失败。
- */
+/** 教学页：考试/问卷与班级合并成一页两个 Tab */
 export default function TeachingHome() {
   const [searchParams, setSearchParams] = useSearchParams();
   const params = useParams<{ tab?: string }>();

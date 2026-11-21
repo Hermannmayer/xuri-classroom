@@ -111,11 +111,7 @@ public class ClassResourceService {
 
 	private final ObjectMapper objectMapper;
 
-	/**
-	 * 班级资源面板：某个班已分配的资源（project 考试/问卷，repo 题库）。
-	 * @param classId 班级 id（dept_type=class）
-	 * @param resourceType 资源类型；为空按 project 处理
-	 */
+	/** 班级资源面板：某个班已分配的资源（project 考试/问卷，repo 题库） */
 	public List<ClassResourceView> list(String classId, String resourceType) {
 		String id = trim(classId);
 		Dept dept = requireClass(id);
@@ -214,12 +210,7 @@ public class ClassResourceService {
 		return view;
 	}
 
-	/**
-	 * 给班级分配资源：按 (class_id, resource_type, resource_id) upsert。
-	 *
-	 * <p>已存在时更新窗口与班级开关，不改 assignedBy（谁先分的就记谁）。project 的班级窗口必须在
-	 * 项目全局窗口内；repo（题库）没有全局窗口，只校验开始不晚于结束。
-	 */
+	/** 给班级分配资源：按 (class_id, resource_type, resource_id) upsert */
 	@Transactional(rollbackFor = Exception.class)
 	public void assign(ClassResourceAssignRequest request) {
 		if (request == null) {
@@ -331,7 +322,7 @@ public class ClassResourceService {
 		classResourceMapper.hardDelete(record.getId());
 	}
 
-	/** 为班级 × 考试生成/读取专属链接 token；只有能管理该班的人可调用。 */
+	/** 为班级 × 考试生成/读取专属链接 token；只有能管理该班的人可调用 */
 	@Transactional(rollbackFor = Exception.class)
 	public String ensureShareToken(String classId, String resourceId) {
 		String cid = trim(classId);
@@ -353,10 +344,7 @@ public class ClassResourceService {
 		return token;
 	}
 
-	/**
-	 * 公开班级链接解析：只认「token + project + 有效班级分配」；成功返回 classId，失败抛业务错误。
-	 * 匿名/登录用户都走这一个入口，class_id 由服务端决定，不信任前端传的 classId。
-	 */
+	/** 公开班级链接解析：只认「token + project + 有效班级分配」；成功返回 classId，失败抛业务错误 */
 	public String resolveShareToken(String projectId, String token) {
 		if (!StringUtils.hasText(projectId) || !StringUtils.hasText(token)) {
 			return null;
@@ -378,16 +366,13 @@ public class ClassResourceService {
 		return row.getClassId();
 	}
 
-	/** 登录学员是否属于某个班级（班级链接归属校验用）。 */
+	/** 登录学员是否属于某个班级（班级链接归属校验用） */
 	public boolean isStudentInClass(String userId, String classId) {
 		User student = loadStudent(userId);
 		return student != null && StringUtils.hasText(classId) && studentClassIds(student).contains(classId);
 	}
 
-	/**
-	 * 解析某个学生对某个项目的「可参加班级」：返回命中的 classId；不适用（匿名 / staff / 无有效分配）返回 null。
-	 * <p>给新建答卷写 {@code t_answer.class_id} 用：主组优先，主组无效时取任一有效分配。
-	 */
+	/** 解析某个学生对某个项目的「可参加班级」：返回命中的 classId；不适用（匿名 / staff / 无有效分配）返回 null */
 	public String resolveForStudent(String projectId, String userId) {
 		if (!StringUtils.hasText(projectId) || ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(projectId.trim())) {
 
@@ -416,10 +401,7 @@ public class ClassResourceService {
 		return null;
 	}
 
-	/**
-	 * 学生能不能参加这场考试：未登录 / staff / 管理员直接放行；没分配到学生所在班 → ProjectNotFound；
-	 * 未开始 / 已结束 / 手动关闭（或全局停用）分别抛对应业务错误。
-	 */
+	/** 学生能不能参加这场考试：未登录 / staff / 管理员直接放行；没分配到学生所在班 → ProjectNotFound； 未开始 / 已结束 / 手动关闭（或全局停用）分别抛对应业务错误 */
 	public void assertStudentCanAnswer(ProjectView project) {
 		if (project == null || !StringUtils.hasText(project.getId())) {
 			return;
@@ -453,12 +435,7 @@ public class ClassResourceService {
 		throw new ErrorCodeException(reason == null ? ErrorCode.ProjectNotFound : reason);
 	}
 
-	/**
-	 * 资源本身被删除时清理它的班级分配（例如题库删除）。
-	 *
-	 * <p>只按类型 + id 精确删；非法类型直接忽略，避免误删。逻辑删除即可：这些行不会再被列出，
-	 * 资源已经不存在，也不存在「重新分配同一个 id」的场景。
-	 */
+	/** 资源本身被删除时清理它的班级分配（例如题库删除） */
 	@Transactional(rollbackFor = Exception.class)
 	public void removeByResource(String resourceType, String resourceId) {
 		if (!StringUtils.hasText(resourceId) || !StringUtils.hasText(resourceType)) {
@@ -472,11 +449,7 @@ public class ClassResourceService {
 				.eq(ClassResource::getResourceType, type).eq(ClassResource::getResourceId, resourceId.trim()));
 	}
 
-	/**
-	 * 解析某个学生对某个题库的有效分配班级：返回命中的 classId；非学生 / 题库不存在 / 无有效分配返回 null。
-	 *
-	 * <p>有效 = 班级分配 status=1 + 题库全局开放期有效 + 本班窗口（为空继承全局）有效；主组优先。
-	 */
+	/** 解析某个学生对某个题库的有效分配班级：返回命中的 classId；非学生 / 题库不存在 / 无有效分配返回 null */
 	public String resolveForStudentRepo(String repoId, String userId) {
 		if (!StringUtils.hasText(repoId)) {
 			return null;
@@ -501,21 +474,12 @@ public class ClassResourceService {
 		return null;
 	}
 
-	/**
-	 * 当前登录学生能否通过「班级分配」读这个题库（非学生 / 无有效分配 = false）。
-	 *
-	 * <p>给 RepoServiceImpl 的读闸门用：只做判定、不抛错，调用方决定抛什么。
-	 */
+	/** 当前登录学生能否通过「班级分配」读这个题库（非学生 / 无有效分配 = false） */
 	public boolean canStudentReadRepo(String repoId) {
 		return resolveForStudentRepo(repoId, SecurityContextUtils.getUserId()) != null;
 	}
 
-	/**
-	 * 题库练习入口用：学生只能访问分配给自己班的题库。
-	 *
-	 * <p>没分配 → 「无权限访问该题库」；分配了但关闭 / 未开始 / 已结束 → 对应业务错误；
-	 * 非学生（教职工 / 管理员 / 匿名）直接放行。
-	 */
+	/** 题库练习入口用：学生只能访问分配给自己班的题库 */
 	public void assertStudentCanAccessRepo(String repoId) {
 		if (!StringUtils.hasText(repoId)) {
 			return;
@@ -641,11 +605,7 @@ public class ClassResourceService {
 		}
 	}
 
-	/**
-	 * 题库的班级窗口校验：题库全局开放期是硬上限。
-	 *
-	 * <p>start / end 都为空 = 继承全局；非空时先保证开始不晚于结束，再保证非空的那一端不越出全局开放期。
-	 */
+	/** 题库的班级窗口校验：题库全局开放期是硬上限 */
 	private void assertRepoAssignable(Repo repo, Date startAt, Date endAt) {
 		if (repo == null) {
 			throw new ValidationException("题库不存在，请刷新后重试");
@@ -709,11 +669,7 @@ public class ClassResourceService {
 				.collect(Collectors.toMap(User::getId, user -> user, (a, b) -> a));
 	}
 
-	/**
-	 * 本班每个项目的答卷数与平均分：一次查询把 project_id + exam_score 取回来在内存里聚合，
-	 * 避免每个项目各查一次库。口径：t_answer 的 project_id + class_id + temp_save=1
-	 * （逻辑删除由 @TableLogic 处理），平均分等价于 AVG(exam_score)（忽略 null 分数）。
-	 */
+	/** 本班每个项目的答卷数与平均分：一次查询把 project_id + exam_score 取回来在内存里聚合， 避免每个项目各查一次库 */
 	private Map<String, AnswerStat> loadClassAnswerStats(String classId, List<String> projectIds) {
 		Map<String, AnswerStat> stats = new HashMap<>();
 		if (CollectionUtils.isEmpty(projectIds)) {
@@ -737,7 +693,7 @@ public class ClassResourceService {
 		return stats;
 	}
 
-	/** 题库练习记录统计：project_id=exercise + repo_id + class_id + temp_save=1。 */
+	/** 题库练习记录统计：project_id=exercise + repo_id + class_id + temp_save=1 */
 	private Map<String, AnswerStat> loadRepoAnswerStats(String classId, List<String> repoIds) {
 		Map<String, AnswerStat> stats = new HashMap<>();
 		if (CollectionUtils.isEmpty(repoIds)) {
@@ -831,11 +787,7 @@ public class ClassResourceService {
 		return null;
 	}
 
-	/**
-	 * 题库行的不可用原因：班级开关 + 题库全局开放期（硬上限）+ 本班窗口（为空继承全局）。
-	 *
-	 * <p>题库不存在（已删除）视为不可访问；不读 project 的任何状态。
-	 */
+	/** 题库行的不可用原因：班级开关 + 题库全局开放期（硬上限）+ 本班窗口（为空继承全局） */
 	private ErrorCode invalidRepoReason(ClassResource row, Repo repo) {
 		if (row == null || repo == null) {
 			return ErrorCode.ProjectNotFound;
@@ -874,11 +826,7 @@ public class ClassResourceService {
 		return null;
 	}
 
-	/**
-	 * 题库面板状态：班级开关 → 题库全局开放期（硬上限）→ 本班窗口（为空用全局）。
-	 *
-	 * <p>不读 project 的任何状态（题库与考试是两套窗口模型）。
-	 */
+	/** 题库面板状态：班级开关 → 题库全局开放期（硬上限）→ 本班窗口（为空用全局） */
 	private String effectiveStatusForRepo(ClassResource resource, Repo repo) {
 		if (resource == null || !Integer.valueOf(1).equals(resource.getStatus())) {
 			return STATUS_CLOSED;

@@ -1,26 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Linux 生产部署（systemd）
-#
-# 用途：创建运行用户/目录、拷贝 jar、生成 app.env、注册 systemd 服务并启动。
-#
-# 用法：
-#   sudo ./install.sh /path/to/app.jar
-#   sudo ./install.sh /path/to/app.jar --install-dir /opt/xuri-classroom \
-#        --user xuri --port 80 --service-name xuri-classroom
-#
-# 参数：
-#   <jar>                  必填，待部署的 Spring Boot jar
-#   --install-dir <dir>    安装目录，默认 /opt/xuri-classroom
-#   --user <name>          systemd 运行用户，默认 xuri
-#   --port <port>          服务端口，默认 80
-#   --service-name <name>  systemd 服务名，默认 xuri-classroom
-#
-# 说明：
-#   - 重复执行是幂等的：jar/env 存在则保留（env 不覆盖），服务存在则 restart。
-#   - 端口 < 1024 时给 systemd 加 CAP_NET_BIND_SERVICE，无需 root 运行 Java。
-#   - 需要 root/sudo，且机器已安装 Java（可用 JAVA_BIN 环境变量覆盖）。
-# =============================================================================
 set -euo pipefail
 
 JAR_PATH=""

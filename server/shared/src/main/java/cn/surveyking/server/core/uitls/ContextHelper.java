@@ -57,9 +57,7 @@ public class ContextHelper implements ApplicationContextAware {
 		APPLICATION_CONTEXT = applicationContext;
 	}
 
-	/***
-	 * 获取ApplicationContext上下文
-	 */
+	/** 获取ApplicationContext上下文 */
 	public static ApplicationContext getApplicationContext() {
 		if (APPLICATION_CONTEXT == null) {
 			APPLICATION_CONTEXT = ContextLoader.getCurrentWebApplicationContext();
@@ -70,20 +68,12 @@ public class ContextHelper implements ApplicationContextAware {
 		return APPLICATION_CONTEXT;
 	}
 
-	/***
-	 * 根据beanId获取Bean实例
-	 * @param beanId
-	 * @return
-	 */
+	/** 根据beanId获取Bean实例 */
 	public static Object getBean(String beanId) {
 		return getApplicationContext().getBean(beanId);
 	}
 
-	/***
-	 * 获取指定类型的单个Bean实例
-	 * @param clazz
-	 * @return
-	 */
+	/** 获取指定类型的单个Bean实例 */
 	public static <T> T getBean(Class<T> clazz) {
 		try {
 			return getApplicationContext().getBean(clazz);
@@ -94,12 +84,7 @@ public class ContextHelper implements ApplicationContextAware {
 		}
 	}
 
-	/***
-	 * 获取指定类型的全部实现类
-	 * @param type
-	 * @param <T>
-	 * @return
-	 */
+	/** 获取指定类型的全部实现类 */
 	public static <T> List<T> getBeans(Class<T> type) {
 		Map<String, T> map = getApplicationContext().getBeansOfType(type);
 		if (map == null || map.size() == 0) {
@@ -110,11 +95,7 @@ public class ContextHelper implements ApplicationContextAware {
 		return beanList;
 	}
 
-	/***
-	 * 根据注解获取beans
-	 * @param annotationType
-	 * @return
-	 */
+	/** 根据注解获取beans */
 	public static List<Object> getBeansByAnnotation(Class<? extends Annotation> annotationType) {
 		Map<String, Object> map = getApplicationContext().getBeansWithAnnotation(annotationType);
 		if (map == null || map.size() == 0) {

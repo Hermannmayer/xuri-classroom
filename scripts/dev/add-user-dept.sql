@@ -1,6 +1,4 @@
--- 用户「附加组」表（可重复执行）
--- 主组仍存在 t_user.dept_id（大量数据可见性 SQL 依赖它），本表只存附加组；
--- 用户最终所属组 = 主组 ∪ 附加组，权限解析与组有效期校验会对两边各沿祖先链取并集。
+-- 用户「附加组」表（可重复执行） 主组仍存在 t_user.dept_id（大量数据可见性 SQL 依赖它），本表只存附加组； 用户最终所属组 = 主组 ∪ 附加组，权限解析与组有效期校验会对两边各沿祖先链取并集。
 CREATE TABLE IF NOT EXISTS `t_user_dept` (
   `id` varchar(64) NOT NULL COMMENT 'ID',
   `user_id` varchar(64) NOT NULL COMMENT '用户ID',

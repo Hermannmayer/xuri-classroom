@@ -28,10 +28,7 @@ export interface QuestionFavoriteApi {
 
 export const QuestionFavoriteContext = createContext<QuestionFavoriteApi | null>(null);
 
-/**
- * 题干 / 描述的 DOM id：由 schema.id 派生。
- * QuestionFrame 生成它、各题型组件引用它，两边共用同一套规则 —— 各拼一遍字符串迟早会漂。
- */
+/** 题干 / 描述的 DOM id：由 schema.id 派生 */
 export function questionLabelId(schemaId: string): string {
   return `sk-q-${schemaId}-label`;
 }
@@ -78,9 +75,7 @@ export function useQuestionLabelId(): string | undefined {
   return useContext(QuestionA11yContext)?.labelId;
 }
 
-/**
- * 题干：普通题直接出文本；带 richTitle 的题（Word 导入含图片）按富文本消毒后渲染。
- */
+/** 题干：普通题直接出文本；带 richTitle 的题（Word 导入含图片）按富文本消毒后渲染 */
 export function TitleContent({ schema }: { schema: SurveySchema }) {
   if (!schema.title) {
     return <span style={{ color: 'var(--bp-text-soft)' }}>未命名题目</span>;
@@ -97,17 +92,7 @@ export function TitleContent({ schema }: { schema: SurveySchema }) {
   return <>{schema.title}</>;
 }
 
-/**
- * 题目外壳：题号 + 标题 + 必填标记 + description。
- * 题型组件自带外壳，渲染层（SchemaRenderer）只负责布局与显隐，避免重复渲染标题。
- *
- * 题干字号 / 题干与选项的间距走 CSS 变量，默认值 = 设计器与预览页原有的视觉；
- * 答题页在 styles/answer.css 的 .sk-answer 作用域里把它们调大，互不影响。
- *
- * 无障碍：题干 span 挂稳定 id（questionLabelId），子控件用 aria-labelledby 指过来；
- * 描述节点挂 descId 供 aria-describedby 使用；同时把题干 id / 选项角色放进 Context，
- * 供外壳内层（选项列表、矩阵格子）直接取用，不用层层传参。
- */
+/** 题目外壳：题号 + 标题 + 必填标记 + description */
 export function QuestionFrame({
   schema,
   number,
@@ -195,12 +180,7 @@ export function EmptyOptions() {
   return <div style={{ fontSize: 12, color: 'var(--bp-orange)' }}>未配置选项（dataSource 为空）</div>;
 }
 
-/**
- * 三态取值：
- * - answer：受控，onChange 写回外部
- * - preview：内部 state，影响不到外部
- * - edit：只读（输入组件由调用方 disabled）
- */
+/** 三态取值： */
 export function useAnswerState(props: QuestionComponentProps) {
   const { value, onChange, mode, schema } = props;
   const [draft, setDraft] = useState<AnswerValue>(value);

@@ -1,9 +1,4 @@
-/**
- * 未交名单：数据页把「交卷状态」切成「未交」时，列表位置换成这块。
- *
- * <p>数据来自 /api/teaching/classes/unsubmitted（班级在册学员 减 本卷已交答卷），
-
- */
+/** 未交名单：数据页把「交卷状态」切成「未交」时，列表位置换成这块 */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, App, Button, Empty, Space, Spin, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';

@@ -1,16 +1,4 @@
--- ======
 -- 班级资源分配（P1：考试/问卷按班级开放窗口）（2026-11，幂等）
---
--- 背景：t_project.status 与 ProjectSetting.examSetting.startTime/endTime 都是全局的，
--- 老师改一次时间所有班一起变。这里引入 t_class_resource：一行 = 某个班级 + 某个资源，
--- 班级窗口（start_at/end_at）为空时继承全局，非空时必须落在全局窗口内（全局是硬上限）。
---
--- 同时给 t_answer 增加 class_id：记录「答题时属于哪个班」，班级分布统计优先用它，
--- 学员换班后历史答卷仍算在原来的班。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 31-class-resource.sql
--- ======
 SET NAMES utf8mb4;
 
 

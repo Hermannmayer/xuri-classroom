@@ -22,18 +22,14 @@ public class ImportApi {
 
 	private final ImportService importService;
 
-	/**
-	 * 解析导入文件/文本，返回题目树与预览统计。
-	 */
+	/** 解析导入文件/文本，返回题目树与预览统计 */
 	@PostMapping("/parse")
 	@PreAuthorize("hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin')")
 	public ImportPreview parse(ImportParseRequest request) {
 		return importService.parse(request);
 	}
 
-	/**
-	 * 导入完成后的审计记录（幂等，不改任何业务数据）。
-	 */
+	/** 导入完成后的审计记录（幂等，不改任何业务数据） */
 	@PostMapping("/record")
 	@PreAuthorize("hasAnyAuthority('project:update') or hasRole('admin')")
 	@EnableDataPerm(key = "#request.projectId")

@@ -86,12 +86,6 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 		updateTaskAnswer(request);
 	}
 
-	/**
-	 * @param target 当前答案
-	 * @param source 原始答案
-	 * @param fieldPermission 当前答案的数据权限
-	 * @return
-	 */
 	protected LinkedHashMap mergeAnswer(LinkedHashMap target, LinkedHashMap source,
 			LinkedHashMap<String, Integer> fieldPermission) {
 		LinkedHashMap result = new LinkedHashMap(source);
@@ -219,11 +213,7 @@ public abstract class AbstractTaskHandler implements TaskHandler {
 		return true;
 	}
 
-	/**
-	 * 将任务流转记录转换成一棵节点树
-	 * @param processInstanceId 任务实例 ID
-	 * @return 最后一个操作节点
-	 */
+	/** 将任务流转记录转换成一棵节点树；返回 最后一个操作节点 */
 	protected TaskTreeNode getHistoricTree(String processInstanceId) {
 		List<String> approvalTypes = new ArrayList<>();
 		approvalTypes.add(FlowApprovalType.SAVE);

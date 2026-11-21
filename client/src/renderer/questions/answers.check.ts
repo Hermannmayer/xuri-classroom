@@ -1,8 +1,4 @@
-/**
- * 答案格式自检（零框架）。运行：
- *   npx esbuild src/renderer/questions/answers.check.ts --bundle --platform=node --format=esm \
- *     --outfile=node_modules/.cache/answers-check.mjs --log-level=warning && node node_modules/.cache/answers-check.mjs
- */
+/** 答案格式自检（零框架） */
 import assert from 'node:assert/strict';
 import {
   addressAnswer,

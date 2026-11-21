@@ -1,11 +1,4 @@
--- ======
 -- 权限 v8：班级学员编辑/删除（2026-11-08，幂等）
---
--- 配合 18-user-type.sql：学员只在班级管理里维护，因此班主任需要
---   class:member:update  改姓名/联系方式/状态、重置密码
---   class:member:delete  删除学员账号
--- 老师仍然不进入「用户管理」，也不持有 system:user:* 权限。
--- ======
 SET NAMES utf8mb4;
 
 UPDATE t_role

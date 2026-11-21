@@ -106,7 +106,7 @@ class ProjectPartnerFolderGrantTest {
 		assertEquals(2, service.accessLevel("exam-2"));
 	}
 
-	/* ====== helpers ====== */
+	/** ====== helpers ====== */
 
 	private Project project(String id, String parentId, String mode) {
 		Project project = new Project();

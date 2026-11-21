@@ -48,7 +48,7 @@ function aesEncrypt(text: string, secretKey: string): string {
   }).toString();
 }
 
-/** clientUid 与旧前端一致：localStorage["slider"] = "slider-<uuid>"，持久化避免每次刷新都换 */
+/** clientUid 与旧前端一致：localStorage["slider"] = "slider-"，持久化避免每次刷新都换 */
 function getClientUid(): string {
   try {
     const saved = localStorage.getItem('slider');

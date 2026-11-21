@@ -36,15 +36,7 @@ const LINE_SOFT = 'var(--bp-line-soft)';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-/**
- * 柱状图（近 N 天答卷量）。
- *
- * - 宽度用 ResizeObserver 量真实像素，字号不会被拉伸；
- * - 两根柱子（主序列 + 可选对比序列）共用一套比例尺；
- * - hover 显示提示框：日期、数量、以及对比序列的数量。
- *
- * 颜色写在 style 里而不是 fill/stroke 属性：SVG 呈现属性不解析 CSS 变量。
- */
+/** 柱状图（近 N 天答卷量） */
 export function BarSeries({
   data,
   labels = [],

@@ -44,22 +44,14 @@ public class RepoApi {
 		return repoService.listRepo(query);
 	}
 
-	/**
-	 * 题库分类/文件夹列表（**扁平**返回，前端按 path 拆 "/" 建树）。
-	 *
-	 * <p>= 目录登记表（空文件夹）+ 当前用户可见题库的 category distinct 值；count 含子目录。
-	 */
+	/** 题库分类/文件夹列表（**扁平**返回，前端按 path 拆 "/" 建树） */
 	@GetMapping("/categories")
 	@PreAuthorize("hasAuthority('repo:list') or hasRole('admin')")
 	public List<RepoCategoryView> listRepoCategories() {
 		return repoService.listRepoCategories();
 	}
 
-	/**
-	 * 新建题库分类/文件夹（不挂题库也能建，用于先把目录搭出来）。
-	 *
-	 * <p>body：{name, parentId 或 parentPath}；同名路径已存在返回 400「分类已存在」。
-	 */
+	/** 新建题库分类/文件夹（不挂题库也能建，用于先把目录搭出来） */
 	@PostMapping("/categories/create")
 	@PreAuthorize("hasAuthority('repo:create') or hasRole('admin')")
 	public void createRepoCategory(@RequestBody RepoCategoryRequest request) {
@@ -124,12 +116,7 @@ public class RepoApi {
 		repoPartnerService.deleteRepoPartner(request);
 	}
 
-	/**
-	 * 调整题库成员的授权级别（1 只读 / 2 可编辑 / 3 可授权）。
-	 *
-	 * <p>权限由 {@code RepoPartnerService} 内部的 assertManagePermission 判定
-	 * （管理员 / 题库创建者 / access_level=3 的成员，含按组授权）。
-	 */
+	/** 调整题库成员的授权级别（1 只读 / 2 可编辑 / 3 可授权） */
 	@PostMapping("/partner/update")
 	@PreAuthorize("hasAuthority('repo:grant') or hasRole('admin')")
 	public void updateRepoPartner(@RequestBody RepoPartnerRequest request) {

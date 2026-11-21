@@ -64,12 +64,7 @@ public class AuditTargetResolver {
 
 	private final RepoMapper repoMapper;
 
-	/**
-	 * 解析目标名称；解析不到返回 null（前端会回退显示 targetId）。
-	 * @param uri 请求 URI
-	 * @param args Controller 方法参数
-	 * @return 目标名称或 null
-	 */
+	/** 解析目标名称；解析不到返回 null（前端会回退显示 targetId）；返回 目标名称或 null */
 	public String resolve(String uri, Object[] args) {
 		try {
 			String path = pathOf(uri);
@@ -202,10 +197,7 @@ public class AuditTargetResolver {
 		return names.size() > 3 ? head + " 等" + names.size() + "个" : head;
 	}
 
-	/**
-	 * 反射取第一个非空字符串参数。跳过 MultipartFile：它的 {@code getName()} 返回表单字段名，
-	 * 会把「上传文件」的目标误记成 file。
-	 */
+	/** 反射取第一个非空字符串参数 */
 	private static String firstArg(Object[] args, String... getters) {
 		if (args == null || getters == null) {
 			return null;

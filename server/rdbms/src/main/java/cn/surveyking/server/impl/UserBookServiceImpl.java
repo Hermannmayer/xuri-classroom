@@ -46,31 +46,14 @@ public class UserBookServiceImpl extends BaseService<UserBookMapper, UserBook> i
 
 	public static final Integer BOOK_TYPE_FAVORITE = 2;
 
-	/**
-	 * 旧签名，保留只为兼容还没更新的调用点（SurveyServiceImpl#saveAnswer）。
-	 * <p>
-	 * 它拿不到本次答案与 schema，因此退化为「只按 0 分收题」：既不能排除未作答的题，
-	 * 也无法给设计器自建题取题干兜底。
-	 * @deprecated 改用 {@link #saveWrongQuestion(LinkedHashMap, Map, SurveySchema, String, String)}
-	 */
+	/** 旧签名，保留只为兼容还没更新的调用点（SurveyServiceImpl#saveAnswer） */
 	@Deprecated
 	@Async
 	public void saveWrongQuestion(LinkedHashMap<String, Double> questionScore) {
 		saveWrongQuestion(questionScore, null, null, null, null);
 	}
 
-	/**
-	 * 保存错题：把本次考试里「真的有作答且判 0 分」的题收进错题本，并按考试分开累计。
-	 * <p>
-	 * 去重键 = (create_by, type=错题, project_id, template_id)。同一道题在两场考试各错一次会得到
-	 * 两条记录，这样「只练本场错题」不会把另一场的错题带出来；同一场考试里再次做错同一题仍累加
-	 * wrong_times。project_id 为空时（题库练习、历史数据）按 project_id is null 匹配。
-	 * @param questionScore 题目 id → 得分（0 分视为错题）
-	 * @param answer 本次提交的答案；为空时退化为「不校验是否作答」（兼容旧调用）
-	 * @param survey 本次作答使用的 schema；用于给非题库题（设计器自建题）取题干兜底
-	 * @param projectId 来源考试 id（题库练习、匿名场景为空）
-	 * @param repoId 兜底题库 id（模板表里查不到该题时使用，可空）
-	 */
+	/** 保存错题：把本次考试里「真的有作答且判 0 分」的题收进错题本，并按考试分开累计 */
 	@Async
 	public void saveWrongQuestion(LinkedHashMap<String, Double> questionScore, Map<String, Object> answer,
 			SurveySchema survey, String projectId, String repoId) {
@@ -136,10 +119,7 @@ public class UserBookServiceImpl extends BaseService<UserBookMapper, UserBook> i
 		saveBatch(toSave);
 	}
 
-	/**
-	 * 答案里这道题是否真的作答：null / 空白字符串 / 空集合 / 空对象都算没答。
-	 * 选择题答案是 {optionId:true}，填空题是 {blankId:文本} 或纯文本。
-	 */
+	/** 答案里这道题是否真的作答：null / 空白字符串 / 空集合 / 空对象都算没答 */
 	private boolean hasAnswer(Map<String, Object> answer, String questionId) {
 		Object value = answer.get(questionId);
 		if (value == null) {

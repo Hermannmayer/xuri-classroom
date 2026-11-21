@@ -1,23 +1,5 @@
 #!/usr/bin/env bash
-# ======
 # 旭日云课堂 · Docker 一键升级
-#
-# 用法（在服务器上执行，需要 root）：
-#   curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line-upgrade.sh | sudo bash
-#   curl -fsSL ... | sudo VERSION=2.1.2 bash
-#
-# 可选环境变量：
-#   VERSION                 目标版本，默认 latest（从 GitHub Releases 取最新 tag）
-#   XURI_HOME               已安装目录，默认 /opt/xuri-classroom
-#   XURI_GITHUB_REPO        GitHub 仓库，默认 Hermannmayer/xuri-classroom
-#   XURI_GITHUB_API_BASE    GitHub API 前缀，默认 https://api.github.com
-#   XURI_DOWNLOAD_BASE      下载前缀，默认 https://github.com/<repo>/releases/download
-#
-# 说明：
-#   · 只下载并执行官方 Docker 发布包里的 upgrade.sh，不重复实现备份/迁移/回滚
-#   · upgrade.sh 会先备份数据库、附件和 .env，再构建新镜像并启动
-#   · 不会执行 docker compose down -v，不会删除任何数据卷
-# ======
 set -euo pipefail
 
 REPO="${XURI_GITHUB_REPO:-Hermannmayer/xuri-classroom}"

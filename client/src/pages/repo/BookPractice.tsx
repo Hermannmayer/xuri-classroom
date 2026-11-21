@@ -66,12 +66,7 @@ function pickedOptionIds(value: AnswerValue): string[] {
   return Object.keys(value as Record<string, unknown>);
 }
 
-/**
- * 题库里大量题目是从 Excel 导入的：选项只存在 children 里，dataSource 是空的，
- * 而且这些 Option 子节点没有 type（后端 RepoTemplateExcelParseHelper 造节点时没写 type）。
-
-
- */
+/** 题库里大量题目是从 Excel 导入的：选项只存在 children 里，dataSource 是空的， 而且这些 Option 子节点没有 type（后端 RepoTemplateExcelParseHelper 造节点时没写 type） */
 function normalizeChoiceSchema(schema: SurveySchema): SurveySchema {
   if (!CHOICE_TYPES.has(schema.type)) return schema;
   if (schema.dataSource?.length) return schema;
@@ -81,10 +76,7 @@ function normalizeChoiceSchema(schema: SurveySchema): SurveySchema {
   return { ...schema, dataSource: options.map((child) => ({ label: child.title, value: child.id })) };
 }
 
-/**
- * 选择题的正确答案记在选项节点上（children[].attribute.examCorrectAnswer），
- * 与后端 AnswerScoreEvaluator / 题库编辑页同一套约定。
- */
+/** 选择题的正确答案记在选项节点上（children[].attribute.examCorrectAnswer）， 与后端 AnswerScoreEvaluator / 题库编辑页同一套约定 */
 function correctOptionIds(schema: SurveySchema): string[] {
   return (schema.children ?? [])
     .filter((child) => {
@@ -111,10 +103,7 @@ function textMatches(schema: SurveySchema, expected: string, actual: string): bo
   return candidates.some((item) => item === actual);
 }
 
-/**
- * 单题判分。返回 unknown 表示题库没给标准答案（错题本接口会把 examCorrectAnswer 过滤掉），
- * 结果页会提示用户自评，绝不臆造对错。
- */
+/** 单题判分 */
 function gradeAnswer(schema: SurveySchema, value: AnswerValue): Verdict {
   if (CHOICE_TYPES.has(schema.type)) {
     const correct = correctOptionIds(schema);
@@ -217,10 +206,7 @@ function filterChips(filter: BookFilter): string[] {
   return chips;
 }
 
-/**
- * 错题本练习页：按列表页带过来的筛选条件取题，逐题取完整 schema 交给 SchemaRenderer。
- * 这是学员自测，不写后端练习记录，也不改题目任何内容。
- */
+/** 错题本练习页：按列表页带过来的筛选条件取题，逐题取完整 schema 交给 SchemaRenderer */
 export default function BookPractice() {
   const navigate = useNavigate();
   const [search] = useSearchParams();

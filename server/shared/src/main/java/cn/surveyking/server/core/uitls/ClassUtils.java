@@ -11,13 +11,7 @@ import java.util.stream.Collectors;
 
 public class ClassUtils {
 
-	/**
-	 * 将 class的多个层级的field 打平成 . 分割的
-	 * @param cls
-	 * @param parentAttr
-	 * @param maxDepth
-	 * @return
-	 */
+	/** 将 class的多个层级的field 打平成 . 分割的 */
 	public static List<String> flatClassFields(Class cls, List<String> parentAttr, int maxDepth) {
 		List<String> attributes = new ArrayList<>();
 		for (Field field : cls.getDeclaredFields()) {

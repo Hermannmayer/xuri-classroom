@@ -1,7 +1,4 @@
-/**
- * 属性面板字段描述。面板只按这个数组渲染，加字段 = 加一行，不要在组件里手写 Form.Item。
- * key 必须对应 SurveySchema.Attribute 的字段名。
- */
+/** 属性面板字段描述 */
 import type { Attribute } from '../schema/types';
 
 export type AttributeControl = 'text' | 'number' | 'switch' | 'select' | 'textarea';

@@ -1,14 +1,4 @@
--- ======
 -- 匿名答卷主体与 t_answer 匿名标识（P6，2026-11，幂等）
---
--- 背景：公开问卷不要求登录时，之前匿名答卷 create_by 为 NULL，浏览器刷新/换设备后
--- 无法找回自己的历次作答，也无法在登录后认领。这里引入匿名主体：
---   t_anonymous_subject：一行 = 一个浏览器匿名身份，cookie 只存随机 token，表里存 SHA-256；
---   t_answer.anonymous_subject_id / is_anonymous：匿名答卷挂到主体，报表默认只统计 is_anonymous=0。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 33-anonymous-answer.sql
--- ======
 SET NAMES utf8mb4;
 
 

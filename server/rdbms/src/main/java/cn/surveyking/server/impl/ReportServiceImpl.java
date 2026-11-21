@@ -67,11 +67,7 @@ public class ReportServiceImpl implements ReportService {
 		return result;
 	}
 
-	/**
-	 * 选项报表统计
-	 * @param data
-	 * @param answer
-	 */
+	/** 选项报表统计 */
 	private void parseAnswer(Map<String, ReportData.Data> data, LinkedHashMap answer) {
 		Iterator it = answer.entrySet().iterator();
 

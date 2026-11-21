@@ -1,6 +1,4 @@
--- 班级专属考试链接（2.1.2，幂等）
--- t_class_resource.share_token：每个班级 × 考试分配一行；
--- 公开链接 /s/{projectId}?classToken=... 由后端反查 class_id，把匿名答卷归到该班。
+-- 班级专属考试链接（2.1.2，幂等） t_class_resource.share_token：每个班级 × 考试分配一行； 公开链接 /s/{projectId}?classToken=... 由后端反查 class_id，把匿名答卷归到该班。
 SET NAMES utf8mb4;
 
 SET @col_exists := (

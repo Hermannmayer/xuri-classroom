@@ -89,11 +89,7 @@ public class PublicProjectLoader {
 
 	private final MessageSource messageSource;
 
-	/**
-	 * answerService 如果需要验证密码，则只有密码输入正确之后才开始加载 schema
-	 * @param query
-	 * @return
-	 */
+	/** answerService 如果需要验证密码，则只有密码输入正确之后才开始加载 schema */
 	public PublicProjectView loadProject(ProjectQuery query) {
 		ProjectView project = projectService.getProject(query.getId());
 		if (project == null) {
@@ -220,16 +216,7 @@ public class PublicProjectLoader {
 		return projectView;
 	}
 
-	/**
-	 * 预览模式放行判定：是否跳过「能不能答」的校验。
-	 *
-	 * <p>设计器里的「预览答题页」直接打开 {@code /s/{id}?preview=1}，如果照常走
-	 * {@link ProjectAnswerValidator#validateProject}，未发布（status=0）、未到考试时间、
-	 * 班级没分配都会被挡住——老师在编辑阶段根本打不开自己的卷子。
-	 *
-	 * <p>这里只放宽「能不能答」，不放宽「能不能看」：必须是管理员 / 项目所有者 / 协作者
-	 * （含用户组授权）。提交路径不经过这里，预览里交不了卷。
-	 */
+	/** 预览模式放行判定：是否跳过「能不能答」的校验 */
 	private boolean isPreviewAllowed(ProjectQuery query, String projectId) {
 		if (query == null || !Boolean.TRUE.equals(query.getPreview())) {
 			return false;
@@ -243,7 +230,7 @@ public class PublicProjectLoader {
 		return projectPartnerService.getProjectPerms().contains(projectId);
 	}
 
-	/** 首屏只返回必要的大纲元数据，不返回任何题干、选项或题目属性。 */
+	/** 首屏只返回必要的大纲元数据，不返回任何题干、选项或题目属性 */
 	public PublicProjectView loadProjectOutline(ProjectQuery query) {
 		return toOutlineView(loadProject(query));
 	}
@@ -280,10 +267,7 @@ public class PublicProjectLoader {
 		return view;
 	}
 
-	/**
-	 * 按题目 id 下发单题。先走与首屏相同的 loadProject 校验，确保 questionId 存在于当前项目或
-	 * 当前答卷的随机卷快照中；不会相信客户端给出的任意题目 id，也不使用无校验的 answerId 查询。
-	 */
+	/** 按题目 id 下发单题 */
 	public SurveySchema loadPublicQuestion(PublicQuestionRequest request) {
 		if (request == null || StringUtils.isBlank(request.getId()) || StringUtils.isBlank(request.getQuestionId())) {
 			throw new IllegalArgumentException("缺少问卷或题目标识");
@@ -337,11 +321,7 @@ public class PublicProjectLoader {
 		return null;
 	}
 
-	/**
-	 * 验证问卷
-	 * @param query
-	 * @return
-	 */
+	/** 验证问卷 */
 	public PublicProjectView validateProject(ProjectQuery query) {
 		String projectId = query.getId();
 		ProjectView project = projectService.getProject(projectId);
@@ -360,11 +340,7 @@ public class PublicProjectLoader {
 		return projectView;
 	}
 
-	/**
-	 * 获取最近一次的答案
-	 * @param projectView
-	 * @return
-	 */
+	/** 获取最近一次的答案 */
 	private LinkedHashMap<String, Object> getLatestAnswer(PublicProjectView projectView, String whitelistName) {
 
 		ProjectSetting projectSetting = projectView.getSetting();

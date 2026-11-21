@@ -1,7 +1,4 @@
-/**
- * 问卷 DSL 类型 —— 与后端 SurveySchema.java 一一对应。
- * 整棵树作为 t_project.survey 的一个 JSON 字段存取，没有独立的题目表。
- */
+/** 问卷 DSL 类型 —— 与后端 SurveySchema.java 一一对应 */
 
 export type QuestionType =
   | 'FillBlank'

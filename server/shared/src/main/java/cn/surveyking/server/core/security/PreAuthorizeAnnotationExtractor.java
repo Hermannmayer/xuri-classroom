@@ -23,10 +23,7 @@ public class PreAuthorizeAnnotationExtractor {
 
 	private static Set<String> permissions = null;
 
-	/**
-	 * 提取所有的权限定义
-	 * @return
-	 */
+	/** 提取所有的权限定义 */
 	public static Set<String> extractAllApiPermissions() {
 		List<Object> controllerList = ContextHelper.getBeansByAnnotation(RestController.class);
 		if (permissions == null) {
@@ -55,10 +52,7 @@ public class PreAuthorizeAnnotationExtractor {
 		}
 	}
 
-	/**
-	 * 如 @PreAuthorize("hasAuthority='answer:list'")
-	 * @param value
-	 */
+	/** 如 @PreAuthorize("hasAuthority='answer:list'") */
 	private static void parseAnnotationValue(String value) {
 		if (StringUtils.isBlank(value) || !StringUtils.contains(value, "hasAuthority")) {
 			return;
@@ -78,11 +72,7 @@ public class PreAuthorizeAnnotationExtractor {
 		}
 	}
 
-	/**
-	 * 获取类中所有包含注解的方法（包含父类中）
-	 * @param clazz
-	 * @return
-	 */
+	/** 获取类中所有包含注解的方法（包含父类中） */
 	public static List<Method> extractAnnotationMethods(Class<?> clazz, Class<? extends Annotation> annotationClass) {
 		List<Method> methodList = new ArrayList<>();
 		while (clazz != null) {

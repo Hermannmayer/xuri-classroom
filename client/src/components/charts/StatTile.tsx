@@ -77,12 +77,7 @@ function Spark({ values, color }: { values: ReadonlyArray<number | null>; color:
   );
 }
 
-/**
- * 首页的大数字卡片。
- *
- * 结构：小标题 + 大数字（+单位/环比）+ 一行副标题 + 可选图标/迷你走势。
- * 颜色全部走 --bp-* 变量，因此暗色蓝图与米白图纸两套主题都不用改代码。
- */
+/** 首页的大数字卡片 */
 export function StatTile({
   label,
   value,

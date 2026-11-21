@@ -42,12 +42,7 @@ public class AuditLogService {
 
 	private final UserMapper userMapper;
 
-	/**
-	 * 分页查审计日志，并补齐展示字段：动作中文名、操作人姓名。
-	 *
-	 * <p>操作人按 create_by 批量查 t_user（一页最多几十条，一次 IN 查询足够）；
-	 * 账号已被删除或 create_by 是匿名/partner id 时 operatorName 留空，前端回退显示原始 id。
-	 */
+	/** 分页查审计日志，并补齐展示字段：动作中文名、操作人姓名 */
 	public PaginationResponse<AuditLogView> list(long current, long pageSize, String action, String startTime,
 			String endTime, String operator, String keyword, String resultStatus) {
 		Page<AuditLog> page = new Page<>(current, pageSize);
@@ -87,10 +82,7 @@ public class AuditLogService {
 		return new PaginationResponse<>(result.getTotal(), views);
 	}
 
-	/**
-	 * 库里实际出现过的动作 + 中文名，供前端筛选下拉使用。
-	 * 按动作码排序，返回结构 {@code [{code, name}]}。
-	 */
+	/** 库里实际出现过的动作 + 中文名，供前端筛选下拉使用 */
 	public List<Map<String, String>> listActions() {
 		List<AuditLog> rows = auditLogMapper.selectList(Wrappers.<AuditLog>lambdaQuery()
 				.select(AuditLog::getAction).isNotNull(AuditLog::getAction).groupBy(AuditLog::getAction)
@@ -132,14 +124,7 @@ public class AuditLogService {
 		return retentionDays > 0 ? Math.max(retentionDays, MIN_KEEP_DAYS) : retentionDays;
 	}
 
-	/**
-
-	 *
-	 * <p>
-	 * 两条安全线：①保留天数不得低于 {@link #MIN_KEEP_DAYS}（含"截止时间"形态，晚于下限直接拒绝），
-	 * 审计的价值在于可追溯，误删最近几天等于把事故现场抹掉；②按 {@link #CLEAN_BATCH} 分批删，
-	 * 避免大表上一条 DELETE 长时间持锁。
-	 */
+	/** 两条安全线：①保留天数不得低于 #MIN_KEEP_DAYS（含"截止时间"形态，晚于下限直接拒绝）， 审计的价值在于可追溯，误删最近几天等于把事故现场抹掉；②按 #CLEAN_BATCH 分批删， 避免大表上一条 DELETE 长时间持锁 */
 	public int clean(Integer beforeDays, String before, boolean all) {
 		if (all) {
 			return deleteInBatches(null);

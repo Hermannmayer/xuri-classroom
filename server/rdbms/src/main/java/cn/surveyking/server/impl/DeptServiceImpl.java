@@ -225,15 +225,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		}
 	}
 
-	/**
-	 * 改「上级组」会把整棵子树挪到新的祖先链下，组内成员因此继承新祖先绑定的角色——
-	 * 这是一条绕过 {@link #assertGrantableDeptRoles(List)} 的提权路径（自己绑不了 teacher，
-	 * 但把自己所在的组挂到「绑了 teacher 的组」下面就行）。所以这里做两件事：
-	 * <ol>
-	 * <li>禁止成环：上级不能是自己，也不能是自己的子孙；</li>
-	 * <li>非管理员：新祖先链上绑定的角色必须都是他能授予的。</li>
-	 * </ol>
-	 */
+	/** 改「上级组」会把整棵子树挪到新的祖先链下，组内成员因此继承新祖先绑定的角色—— 这是一条绕过 #assertGrantableDeptRoles(List) 的提权路径（自己绑不了 teacher， 但把自己所在的组挂到「绑了 teacher 的组」下面就行） */
 	private void assertParentPlacementAllowed(String deptId, String parentId) {
 		if (!isNotBlank(deptId) || !isNotBlank(parentId) || ROOT_DEPT_PARENT_ID.equals(parentId)) {
 
@@ -256,12 +248,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		assertGrantableDeptChain(parentId, deptMap, "不能把用户组挂到这个上级组下：上级链上绑定的角色");
 	}
 
-	/**
-	 * 非管理员把用户 / 整棵子树放到 {@code targetDeptId} 下时，目标组祖先链（含目标本身）绑定的角色
-
-	 *
-	 * <p>孤儿绑定（角色已被删）不授予任何权限，忽略；管理员不受限。
-	 */
+	/** 非管理员把用户 / 整棵子树放到 targetDeptId 下时，目标组祖先链（含目标本身）绑定的角色 */
 	private void assertGrantableDeptChain(String targetDeptId, Map<String, Dept> deptMap, String messagePrefix) {
 		if (SecurityContextUtils.isAdmin()) {
 			return;
@@ -325,14 +312,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		return authorities;
 	}
 
-	/**
-	 * 组→角色绑定：先删后插，保证与界面勾选一致；用物理删除，避免软删行撞 (dept_id, role_id) 唯一键。
-	 *
-	 * <p>
-	 * 组绑定的角色现在直接决定组内成员的最终权限（见 UserServiceImpl#loadUserById），所以写完必须
-
-	 * 事务内统一注册 afterCommit 清理，避免并发的 loadUserById 把旧结果重新塞回缓存。
-	 */
+	/** 组→角色绑定：先删后插，保证与界面勾选一致；用物理删除，避免软删行撞 (dept_id, role_id) 唯一键 */
 	private void saveDeptRoles(String deptId, List<String> roleIds) {
 		if (!isNotBlank(deptId)) {
 			return;
@@ -350,11 +330,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		evictAllUserCache();
 	}
 
-	/**
-	 * 组绑角色等于「一次性给组内所有人加角色」，不能让人借编辑用户组提权：
-	 * 调用者必须拥有待绑定角色的全部权限串，且不能把超级管理员角色绑到组上。
-	 * 管理员（ROLE_admin）不受此限，规则与「给用户直挂角色」保持一致。
-	 */
+	/** 组绑角色等于「一次性给组内所有人加角色」，不能让人借编辑用户组提权： 调用者必须拥有待绑定角色的全部权限串，且不能把超级管理员角色绑到组上 */
 	private void assertGrantableDeptRoles(List<String> roleIds) {
 		if (CollectionUtils.isEmpty(roleIds)) {
 			return;
@@ -564,13 +540,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 				: Dept.CLASS_KIND_GROUP;
 	}
 
-	/**
-	 * 容器班 ↔ 教学班互转的结构保护：
-	 * <ul>
-	 * <li>有子班的节点不能改成教学班（教学班必须是叶子）；</li>
-
-	 * </ul>
-	 */
+	/** 容器班 ↔ 教学班互转的结构保护：  有子班的节点不能改成教学班（教学班必须是叶子） */
 	private void assertClassKindChangeAllowed(Dept current, String currentKind, String nextKind) {
 		boolean hasChildren = count(Wrappers.<Dept>lambdaQuery().eq(Dept::getParentId, current.getId())
 				.eq(Dept::getDeptType, Dept.TYPE_CLASS)) > 0;
@@ -593,10 +563,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 				Wrappers.<User>lambdaQuery().select(User::getId, User::getName).eq(User::getDeptId, deptId));
 	}
 
-	/**
-	 * 主组成员姓名在前、附加组成员姓名在后，去重后最多 {@link #MEMBER_NAME_LIMIT} 个。
-	 * 只用于展示，不能据此判断成员总数。
-	 */
+	/** 主组成员姓名在前、附加组成员姓名在后，去重后最多 #MEMBER_NAME_LIMIT 个 */
 	private List<String> collectMemberNames(List<User> primaryMembers, List<UserDept> extraBindings) {
 		LinkedHashMap<String, String> names = new LinkedHashMap<>();
 		for (User user : primaryMembers) {
@@ -633,10 +600,7 @@ public class DeptServiceImpl extends BaseService<DeptMapper, Dept> implements De
 		throw new ValidationException("不支持的成员处理方式：" + memberAction);
 	}
 
-	/**
-	 * 迁移目标校验：必须存在、不能是本组，也不能是本组的子孙；非管理员还必须能授予
-	 * 目标组祖先链（含目标本身）绑定的角色，和「改组上级」是同一套提权保护。
-	 */
+	/** 迁移目标校验：必须存在、不能是本组，也不能是本组的子孙；非管理员还必须能授予 目标组祖先链（含目标本身）绑定的角色，和「改组上级」是同一套提权保护 */
 	private void assertMoveTargetAllowed(String sourceDeptId, String targetDeptId) {
 		if (targetDeptId.equals(sourceDeptId)) {
 			throw new ValidationException("不能把成员迁移到正在删除的用户组");

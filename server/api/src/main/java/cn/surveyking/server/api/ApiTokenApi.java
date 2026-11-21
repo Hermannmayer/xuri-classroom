@@ -30,31 +30,21 @@ public class ApiTokenApi {
 
 	private final ApiTokenService apiTokenService;
 
-	/**
-	 * 令牌列表（含已撤销的，按签发时间倒序）。
-	 * @return 数组；{@code token} 字段永远为空（明文只在签发响应里）
-	 */
+	/** 令牌列表（含已撤销的，按签发时间倒序）；返回 数组；token 字段永远为空（明文只在签发响应里） */
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	@GetMapping
 	public List<ApiTokenView> list() {
 		return apiTokenService.list();
 	}
 
-	/**
-	 * 签发令牌：绑定当前登录用户，返回**明文一次**。
-	 * @param request {@code {name, expiresAt?, scopes?}}
-	 * @return 视图 + {@code token}（明文）
-	 */
+	/** 签发令牌：绑定当前登录用户，返回**明文一次**；返回 视图 + token（明文） */
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	@PostMapping
 	public ApiTokenView create(@RequestBody ApiTokenRequest request) {
 		return apiTokenService.issue(request);
 	}
 
-	/**
-	 * 撤销令牌：撤销后该令牌调 {@code /mcp} 立刻 401。
-	 * @param request 只用到 {@code id}
-	 */
+	/** 撤销令牌：撤销后该令牌调 /mcp 立刻 401 */
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	@PostMapping("/revoke")
 	public void revoke(@RequestBody ApiTokenRequest request) {

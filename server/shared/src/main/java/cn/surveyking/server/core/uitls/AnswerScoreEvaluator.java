@@ -31,14 +31,7 @@ public class AnswerScoreEvaluator {
 		this(schema, answer, null);
 	}
 
-	/**
-	 * 带人工批改覆盖分的构造。
-	 *
-	 * <p>覆盖分只对 {@code attribute.examAnswerMode = manual} 的题生效，客观题仍然走原来的 evaluator，
-	 * 因此「批改」不可能改掉机器判出来的客观题分数。
-	 *
-	 * @param manualOverrides 人工批改结果（questionId → 分数），传 null 等价于原两参构造
-	 */
+	/** 带人工批改覆盖分的构造 */
 	public AnswerScoreEvaluator(SurveySchema schema, LinkedHashMap answer, Map<String, Double> manualOverrides) {
 		this.schema = schema;
 		this.answer = answer;
@@ -49,18 +42,12 @@ public class AnswerScoreEvaluator {
 		evaluatorList.add(new SelectEvaluator());
 	}
 
-	/**
-	 * 计算总分
-	 * @return
-	 */
+	/** 计算总分 */
 	public Double eval() {
 		return doEval(schema);
 	}
 
-	/**
-	 * 获取问题的分值
-	 * @return
-	 */
+	/** 获取问题的分值 */
 	public LinkedHashMap<String, Double> getQuestionScore() {
 		return this.questionScore;
 	}
@@ -81,11 +68,7 @@ public class AnswerScoreEvaluator {
 		return score;
 	}
 
-	/**
-	 * 是否人工评分题：只有 {@code attribute.examAnswerMode = manual} 的题允许老师给分。
-	 *
-	 * <p>批改、交卷状态机、成绩单三处都用这一个判断，避免「前端认为是主观题、后端当成客观题」。
-	 */
+	/** 是否人工评分题：只有 attribute.examAnswerMode = manual 的题允许老师给分 */
 	public static boolean isManual(SurveySchema qSchema) {
 		if (qSchema == null || qSchema.getAttribute() == null) {
 			return false;
@@ -103,12 +86,7 @@ public class AnswerScoreEvaluator {
 		return SurveySchema.QuestionType.Textarea.equals(type) || SurveySchema.QuestionType.RichText.equals(type);
 	}
 
-	/**
-	 * 人工分：没有批改记录时按 0 分算（等价于「待批改，暂不给分」）。
-	 *
-	 * <p>分数上下限由批改接口校验（0 ~ 该题 examScore），这里只负责取值，不做二次裁剪，
-	 * 保证「老师给了几分就是几分」。
-	 */
+	/** 人工分：没有批改记录时按 0 分算（等价于「待批改，暂不给分」） */
 	private Double manualScore(SurveySchema qSchema) {
 		if (manualOverrides == null) {
 			return .0;
@@ -119,27 +97,17 @@ public class AnswerScoreEvaluator {
 
 	interface Evaluator {
 
-		/**
-		 * @param qSchema 当前问题的 schema
-		 * @return 当前问题的分值
-		 */
+		/** 返回 当前问题的分值；返回 当前问题的分值。 */
 		Double eval(SurveySchema qSchema);
 
-		/**
-		 * @param qSchema 当前问题的 schema
-		 * @return 是否能使用当前 evaluator 计算分值
-		 */
+		/** 返回 是否能使用当前 evaluator 计算分值；返回 是否能使用当前 evaluator 计算分值。 */
 		boolean support(SurveySchema qSchema);
 
 	}
 
 	class OnlyOneEvaluator implements Evaluator {
 
-		/**
-		 * 只有一个正确答案
-		 * @param qSchema 当前问题的 schema
-		 * @return
-		 */
+		/** 只有一个正确答案 */
 		@Override
 		public Double eval(SurveySchema qSchema) {
 			String qId = qSchema.getId();
@@ -174,11 +142,7 @@ public class AnswerScoreEvaluator {
 
 	class SelectAllEvaluator implements Evaluator {
 
-		/**
-		 * 全部答对才得分
-		 * @param qSchema 当前问题的 schema
-		 * @return
-		 */
+		/** 全部答对才得分 */
 		@Override
 		public Double eval(SurveySchema qSchema) {
 			String qId = qSchema.getId();
@@ -216,11 +180,7 @@ public class AnswerScoreEvaluator {
 
 	class SelectCorrectEvaluator implements Evaluator {
 
-		/**
-		 * 按正确答案计分，选择题答错不得分、填空题按正确答案算分
-		 * @param qSchema 当前问题的 schema
-		 * @return
-		 */
+		/** 按正确答案计分，选择题答错不得分、填空题按正确答案算分 */
 		@Override
 		public Double eval(SurveySchema qSchema) {
 			String qId = qSchema.getId();
@@ -254,11 +214,7 @@ public class AnswerScoreEvaluator {
 
 	class SelectEvaluator implements Evaluator {
 
-		/**
-		 * 按选中的答案算分
-		 * @param qSchema 当前问题的 schema
-		 * @return
-		 */
+		/** 按选中的答案算分 */
 		@Override
 		public Double eval(SurveySchema qSchema) {
 			String qId = qSchema.getId();
@@ -304,12 +260,7 @@ public class AnswerScoreEvaluator {
 
 	}
 
-	/**
-	 * @param qSchema 问题 schema
-	 * @param optionId 选项 id
-	 * @param optionValue 选项的值
-	 * @return 该选项答案是否匹配正确答案
-	 */
+	/** 返回 该选项答案是否匹配正确答案；返回 该选项答案是否匹配正确答案 */
 	private boolean optionValueMatchCorrectAnswer(SurveySchema qSchema, String optionId, Object optionValue) {
 		if (optionValue == null) {
 			return false;
@@ -338,11 +289,7 @@ public class AnswerScoreEvaluator {
 		return false;
 	}
 
-	/**
-	 * 选择题selectCorrect选择了错误的，整题不会得分；填空题selectCorrect只计算正确的分数
-	 * @param qSchema 问题schema
-	 * @return 是否是填空题
-	 */
+	/** 选择题selectCorrect选择了错误的，整题不会得分；填空题selectCorrect只计算正确的分数；返回 是否是填空题 */
 	private boolean isBlank(SurveySchema qSchema) {
 		if (SurveySchema.QuestionType.Radio.equals(qSchema.getType())
 				|| SurveySchema.QuestionType.Checkbox.equals(qSchema.getType())

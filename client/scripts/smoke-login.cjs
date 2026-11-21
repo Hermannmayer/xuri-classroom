@@ -1,5 +1,4 @@
-// 登录链路冒烟：GET /api/system → RSA 加密 → POST /api/public/login → GET /api/currentUser
-// 用法：node scripts/smoke-login.cjs [baseUrl] [username] [password]
+// 登录链路冒烟：GET /api/system → RSA 加密 → POST /api/public/login → GET /api/currentUser 用法：node scripts/smoke-login.cjs [baseUrl] [username] [password]
 
 const JSEncrypt = require('jsencrypt');
 

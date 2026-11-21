@@ -98,21 +98,13 @@ public class UserApi {
 		userService.register(request);
 	}
 
-	/**
-	 * 注册页可选的班级：只返回开启了「开放注册」的班级，未登录可访问。
-	 *
-	 * <p>学员注册时必须选一个班；不提供全局默认班，避免多个班都开放时被分错。
-	 */
+	/** 注册页可选的班级：只返回开启了「开放注册」的班级，未登录可访问 */
 	@GetMapping("/public/registerClasses")
 	public List<RegisterClassView> getRegisterClasses() {
 		return userService.getRegisterClasses();
 	}
 
-	/**
-	 * 注册入口可用性：登录页只有 enabled=true 才显示「注册」。
-	 *
-	 * <p>全局总闸开 + 至少一个教学班开放注册时才可用；reason 用于注册页提示。
-	 */
+	/** 注册入口可用性：登录页只有 enabled=true 才显示「注册」 */
 	@GetMapping("/public/registerOptions")
 	public RegisterOptionsView getRegisterOptions() {
 		return userService.getRegisterOptions();
@@ -143,17 +135,7 @@ public class UserApi {
 		return userService.getRegisterRoles();
 	}
 
-	/**
-	 * 导入用户。
-	 *
-	 * <p>
-	 * 「建用户按角色分权」无法在这一层判断：一行 Excel 里可以带任意角色，而 @PreAuthorize 只看调用方
-	 * 有没有进入导入动作的权限（system:user:create / user:import / admin）。因此这里只守入口，
-	 * 逐行角色分档交给服务层 {@code UserServiceImpl#importUser}：目标角色含 system:* 权限时要求
-	 * {@code system:user:create:teacher}，纯学员类角色只要求 {@code system:user:create:student}
-	 * 或 {@code system:user:create}；管理员不受限。校验不过整批回滚。
-	 * @param request
-	 */
+	/** 导入用户 */
 	@PostMapping("/importUser")
 	@PreAuthorize("hasAnyAuthority('user:import','system:user:create','system:user:create:student','system:user:create:teacher') or hasRole('admin')")
 	public void importUser(UserRequest request) {
@@ -189,11 +171,7 @@ public class UserApi {
 		return userService.queryTask(query);
 	}
 
-	/**
-	 * 查询历史任务
-	 * @param query
-	 * @return
-	 */
+	/** 查询历史任务 */
 	@GetMapping("/listHistoryTask")
 	public PaginationResponse<MyTaskView> myHistoryTask(MyTaskQuery query) {
 		return userService.queryHistoryTask(query);

@@ -83,7 +83,7 @@ public class ProjectStatisticsService {
 		return view;
 	}
 
-	/** 总面板：按 class_id + 匿名标记统计；匿名无 class_id 的单列为「未归属」。 */
+	/** 总面板：按 class_id + 匿名标记统计；匿名无 class_id 的单列为「未归属」 */
 	public ProjectClassAnonymousStatsView statClassAnonymous(String projectId) {
 		ProjectClassAnonymousStatsView view = new ProjectClassAnonymousStatsView();
 		com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<cn.surveyking.server.domain.model.Answer> wrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
@@ -134,9 +134,7 @@ public class ProjectStatisticsService {
 		return view;
 	}
 
-	/**
-	 * 从投影表聚合：只把「题 × 选项」量级的计数读回来，不加载任何答卷 JSON。
-	 */
+	/** 从投影表聚合：只把「题 × 选项」量级的计数读回来，不加载任何答卷 JSON */
 	private PublicStatisticsView statFromProjection(ProjectView project, long total) {
 
 

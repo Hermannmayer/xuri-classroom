@@ -65,15 +65,7 @@ public class ProjectStatHelper {
 		return result;
 	}
 
-	/**
-	 * 从投影表（t_answer_item）的聚合结果组装统计。
-	 * <p>
-	 * 与 {@link #stat()} 的区别：不在内存里遍历全部答卷，只消费 SQL 的 GROUP BY 结果。
-	 * 单场 5000 份 × 100 题时，前者要把几十 MB 的答案 JSON 全读进堆，后者只传回「题 × 选项」量级的计数。
-	 * @param totalAnswers 该场答卷总数（与投影行数一致时才应该走这条路）
-	 * @param questionCounts questionId → 答了该题的人数
-	 * @param optionCounts questionId → optionId → 选了该选项的人数
-	 */
+	/** 从投影表（t_answer_item）的聚合结果组装统计 */
 	public PublicStatisticsView statFromProjection(long totalAnswers, Map<String, Long> questionCounts,
 			Map<String, Map<String, Long>> optionCounts) {
 		PublicStatisticsView result = new PublicStatisticsView();
@@ -92,10 +84,7 @@ public class ProjectStatHelper {
 		return result;
 	}
 
-	/**
-	 * 题目属性、子节点、选项属性都可能为空（历史数据 / 手工改库 / 第三方导入），
-	 * 任何一处直接解引用都会让整个统计接口 500。
-	 */
+	/** 题目属性、子节点、选项属性都可能为空（历史数据 / 手工改库 / 第三方导入）， 任何一处直接解引用都会让整个统计接口 500 */
 	private static boolean isStatable(SurveySchema questionSchema) {
 		if (questionSchema == null || questionSchema.getAttribute() == null) {
 			return false;

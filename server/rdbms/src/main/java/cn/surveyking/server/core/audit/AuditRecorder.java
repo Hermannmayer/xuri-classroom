@@ -119,25 +119,13 @@ public class AuditRecorder {
 		record(action, targetId, targetName, detail, success, error, null);
 	}
 
-	/**
-	 * 写一条审计。
-	 *
-	 * @param targetName 目标名称；由 {@link AuditTargetResolver} 在业务执行前解析，可为空
-	 * @param operatorId 操作人 id；登录成功这类「安全上下文里还没有用户」的场景由调用方显式传入
-	 */
+	/** 写一条审计 */
 	public void record(String action, String targetId, String targetName, String detail, boolean success,
 			String error, String operatorId) {
 		write(action, targetId, targetName, detail, success, error, operatorId, null, null);
 	}
 
-	/**
-	 * 写一条带「改前 / 改后」快照的审计（计划 §5.3 的高危动作）。
-	 *
-	 * <p>快照只放业务关键字段（分数、状态、权限串、导出范围），**不要**塞答案正文、
-	 * 学员姓名/手机号这类个人身份信息：审计表要长期保留，越权读取的代价很高。
-	 * @param before 改前快照，可为 null（例如新建类动作没有改前）
-	 * @param after 改后快照，可为 null（业务失败时没有改后）
-	 */
+	/** 写一条带「改前 / 改后」快照的审计（计划 §5.3 的高危动作） */
 	public void recordWithDiff(String action, String targetId, Object before, Object after) {
 		write(action, targetId, null, null, true, null, null, before, after);
 	}
@@ -179,13 +167,7 @@ public class AuditRecorder {
 		}
 	}
 
-	/**
-	 * 快照序列化：null 原样返回；超过 2KB 时改写成
-	 * {@code {"_truncated":true,"_bytes":N,"_preview":"..."}}。
-	 *
-	 * <p>截断后仍保证是合法 JSON——时间线接口和「操作日志」页面都要直接解析它，
-	 * 半截 JSON 会让前端只能显示一段乱码。预览按字符边界裁，不会把中文或代理对切成半个。
-	 */
+	/** 快照序列化：null 原样返回；超过 2KB 时改写成 {"_truncated":true,"_bytes":N,"_preview":"..."} */
 	private String snapshotJson(Object snapshot) {
 		if (snapshot == null) {
 			return null;

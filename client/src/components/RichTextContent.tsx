@@ -18,10 +18,7 @@ export interface RichTextContentProps {
   className?: string;
 }
 
-/**
- * 只读富文本：消毒后渲染，并把 [data-formula] 用 KaTeX 渲染。
- * KaTeX 按需动态加载，避免所有答题页首屏都背上公式引擎。
- */
+/** 只读富文本：消毒后渲染，并把 [data-formula] 用 KaTeX 渲染 */
 export default function RichTextContent({ html, style, className }: RichTextContentProps) {
   const ref = useRef<HTMLDivElement>(null);
   const clean = DOMPurify.sanitize(html ?? '', {

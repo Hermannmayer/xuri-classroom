@@ -3,10 +3,7 @@ import RichTextEditor from '../../components/RichTextEditor';
 import { QuestionFrame } from './shared';
 import type { QuestionComponentProps } from '../types';
 
-/**
- * 富文本题：答题者可以输入带格式的文字/图片/公式，答案按 HTML 字符串存。
- * 设计器/preview 只显示答题区提示，避免在编辑态误传文件。
- */
+/** 富文本题：答题者可以输入带格式的文字/图片/公式，答案按 HTML 字符串存 */
 export default function RichTextQuestion({ schema, value, onChange, mode, number }: QuestionComponentProps) {
   const { id: projectId = '' } = useParams<{ id: string }>();
   const html = typeof value === 'string' ? value : '';

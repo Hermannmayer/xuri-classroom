@@ -129,20 +129,7 @@ public class SystemServiceImpl implements SystemService {
 		}
 	}
 
-	/**
-	 * 只更新「内容保护」三项：防复制、水印开关、水印内容（{@code POST /api/system/protection}，权限
-	 * {@code content:protect}）。
-	 *
-	 * <p>
-	 * 与 {@link #updateSystemInfo(SystemInfoRequest)} 的区别：那是管理员的整页保存，能写系统名称、
-	 * 注册信息、AI、导出密码等；本方法只服务「有 content:protect、但没有 system:setting:update」
-	 * 的角色，所以**只接受这三个字段**。实现方式是先把请求裁剪成只含这三项的 DTO，再交给
-	 * {@link #mergeSysInfo(SysInfo, SystemInfoRequest)} —— 写入规则与整页保存完全一致（按非空字段
-	 * merge），但请求里其它字段在进 merge 之前就被丢掉了，即使调用方在 JSON 里塞 name / aiSetting /
-	 * exportPassword 也写不进去。
-	 * @param request 请求体，只读 setting.copyProtected / setting.watermarkEnabled /
-	 * setting.watermarkMode
-	 */
+	/** 只更新「内容保护」三项：防复制、水印开关、水印内容（POST /api/system/protection，权限 content:protect） */
 	public void updateProtection(SystemInfoRequest request) {
 		SystemInfo.SystemSetting source = request == null ? null : request.getSetting();
 		if (source == null) {
@@ -276,19 +263,12 @@ public class SystemServiceImpl implements SystemService {
 		evictDeptCache();
 	}
 
-	/**
-	 * 清空组织架构缓存（{@code GET /api/system/dept/list} 会把 roleNames 一起缓存）。
-
-	 */
+	/** 清空组织架构缓存（GET /api/system/dept/list 会把 roleNames 一起缓存） */
 	private void evictDeptCache() {
 		affectedCacheEvict(CacheConsts.deptCacheName);
 	}
 
-	/**
-	 * 清空全量用户权限缓存（userCache 是内存 ConcurrentMap，clear 足够便宜）。
-	 * 角色权限变化会影响「组绑定该角色的成员」，精确反查成本高且容易漏，直接全清最稳。
-	 * 事务内注册 afterCommit，避免并发的 loadUserById 把旧结果重新塞回缓存。
-	 */
+	/** 清空全量用户权限缓存（userCache 是内存 ConcurrentMap，clear 足够便宜） */
 	private void evictAllUserCache() {
 		affectedCacheEvict(CacheConsts.userCacheName);
 	}
@@ -382,11 +362,7 @@ public class SystemServiceImpl implements SystemService {
 		}
 	}
 
-	/**
-	 * 内置超级管理员（<code>t_role.code = admin</code> 或名称「超级管理员」）始终拥有全部权限：
-	 * 权限矩阵页对它的勾选框是全禁用的，这里再兜一层，防止绕过前端直接调接口把 authority 改坏。
-	 * 只拦权限串，给管理员角色增删用户不受影响。
-	 */
+	/** 内置超级管理员（t_role.code = admin 或名称「超级管理员」）始终拥有全部权限： 权限矩阵页对它的勾选框是全禁用的，这里再兜一层，防止绕过前端直接调接口把 authority 改坏 */
 	private void assertBuiltinAdminAuthorityKept(Role role, RoleRequest request) {
 		if (!isBuiltinAdminRole(role) || request.getAuthorities() == null) {
 			return;
@@ -612,12 +588,7 @@ public class SystemServiceImpl implements SystemService {
 		return days;
 	}
 
-	/**
-	 * AI token 限额：负数/0 统一按「不限」处理，上限夹到 1 亿。
-	 *
-	 * <p>为什么不在这里补默认值：null 表示「这次不改这个字段」（前端只改一个开关时不该把限额覆盖成默认值），
-	 * 真正的默认值在 {@code AiUsageServiceImpl#limit} 里兜，只在一处兜才不会「设置里显示 200 万、判断时按不限」。
-	 */
+	/** AI token 限额：负数/0 统一按「不限」处理，上限夹到 1 亿 */
 	private Integer clampTokenLimit(Integer limit) {
 		if (limit == null || limit <= 0) {
 			return Integer.valueOf(0);

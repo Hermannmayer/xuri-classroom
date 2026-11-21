@@ -1,19 +1,5 @@
 #!/usr/bin/env bash
-# ============================================================
 # 旭日云课堂 · Linux 安装器（systemd 直装）
-#
-# 用法：
-#   sudo bash install.sh --db-password '数据库密码' --init-db
-#   sudo bash install.sh --help
-#
-# 说明：
-#   · 安装包不内置 JRE。默认使用系统 java（必须是 Java 25 或更高的运行时）；
-#     系统没有 java 时会给出安装提示，也可以加 --download-jre 从国内镜像
-#     下载 Temurin JRE 25 到安装目录。
-#   · 幂等：重复执行会保留已有的 app.env 与 SK_JWT_SECRET，只更新命令行
-#     显式给出的值，并重启服务。升级时用新包里的 install.sh 再跑一次即可。
-#   · 只支持 bash；请勿使用 sh install.sh。
-# ============================================================
 set -euo pipefail
 
 SERVICE_NAME="xuri-classroom"

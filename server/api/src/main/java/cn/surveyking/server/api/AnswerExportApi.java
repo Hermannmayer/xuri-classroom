@@ -206,11 +206,7 @@ public class AnswerExportApi {
 		answerPdfJobService.cancelJob(id);
 	}
 
-	/**
-	 * 任务里记录的格式列表转成审计里的一个字段值：
-	 * {@code ["answerPdf","answerImage"] → "answerPdf+answerImage"}。任务描述里没有（老任务/异常路径）
-	 * 就退回 answerPdf —— 审计字段不能为空，但也不能瞎编没发生过的格式。
-	 */
+	/** 任务里记录的格式列表转成审计里的一个字段值： ["answerPdf","answerImage"] → "answerPdf+answerImage" */
 	private static String outputNames(Object outputs) {
 		if (!(outputs instanceof List<?>) || ((List<?>) outputs).isEmpty()) {
 			return "answerPdf";
@@ -225,7 +221,7 @@ public class AnswerExportApi {
 		return text.toString();
 	}
 
-	/** 与 {@code /api/answer/download} 同一套校验：优先一次性 token，其次密码，没配置密码时放行 */
+	/** 与 /api/answer/download 同一套校验：优先一次性 token，其次密码，没配置密码时放行 */
 	private void assertExportAllowed(String exportToken, String exportPassword) {
 		if (StringUtils.hasText(exportToken)) {
 			exportGuardService.assertTokenAllowed(exportToken);

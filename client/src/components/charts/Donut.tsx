@@ -27,15 +27,7 @@ export interface DonutProps {
 
 const PALETTE = ['var(--bp-blue)', 'var(--bp-orange)', 'var(--bp-text-soft)', 'var(--bp-blue-strong)'];
 
-/**
- * 环形图（用户构成）。
- *
- * 用 stroke-dasharray 画弧，不写 path 弧线数学：每段一个 circle，
- * dash 长度 = 占比 × 周长，offset 累积。分段之间留一点缝，看起来更清楚。
- *
-
- * 不写 SVG 呈现属性（`stroke="var(--bp-blue)"`）—— 后者不解析 CSS 变量。
- */
+/** 环形图（用户构成） */
 export function Donut({
   data,
   labels = [],

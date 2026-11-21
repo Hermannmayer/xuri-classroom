@@ -1,15 +1,4 @@
-# ============================================================
 # 旭日云课堂 · 运行时镜像
-#
-# 只负责跑 jar：前端 SPA 已打包在 jar 内（SK_WEB_SPA_ENABLED=true），
-# 因此不再需要单独的 nginx 容器。
-#
-# 构建（在 docker/ 目录，先把发布 jar 放进来）：
-#   cp <linux包>/app/xuri-classroom-<version>.jar ./xuri-classroom.jar
-#   docker build -f Dockerfile.runtime -t ghcr.io/hermannmayer/xuri-classroom:local .
-#
-# 只想用官方镜像时无需构建：直接 docker compose pull。
-# ============================================================
 FROM eclipse-temurin:25-jre-jammy
 
 

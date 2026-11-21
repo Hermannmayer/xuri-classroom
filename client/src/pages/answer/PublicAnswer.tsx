@@ -35,10 +35,7 @@ import '../../styles/answer.css';
 
 
 const ERROR_ANSWER_CHANGE_DISABLED = 4020;
-/**
- * 把一道题的答案摊成纯文本（填空题是 { 空位id: 文本 }，兜底把对象里的字符串拼起来）。
- * 只用于「从卷内姓名题里取姓名」，不参与判分。
- */
+/** 把一道题的答案摊成纯文本（填空题是 { 空位id: 文本 }，兜底把对象里的字符串拼起来） */
 function answerPlainText(value: AnswerValue): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
@@ -83,18 +80,8 @@ export function pickQuestionNode(root: SurveySchema, id: string): SurveySchema |
   return undefined;
 }
 
-/**
- * 答题本地存储（草稿 / 匿名 answerId / 标记）统一放在 utils/answerStorage：
- * - 登出时调用 `clearAnswerStorage()` 一键清干净（公用电脑隐私，前端 A 审计 A-DATA-1）；
- * - 草稿带 projectId 归属校验 + 7 天有效期，读不到就按没有处理；
- * - 所有读写都做异常兜底，隐私模式/配额满不影响答题。
- */
 
-/** 探测登录态（决定要不要显示「返回上一级」）。
- * 不能用 auth/permissions 的 loadAuthorities()：它内部走 http()，未登录的 401 会触发全局
- * onUnauthorized，直接把匿名答题者跳到 /user/login，等于毁了匿名答题入口。
- * 这里自己 fetch，401 / 非 JSON / 网络错误一律按匿名处理，静默不打扰。
- */
+/** 探测登录态（决定要不要显示「返回上一级」） */
 async function fetchLoggedIn(): Promise<boolean> {
   try {
     const res = await fetch('/api/currentUser', {
@@ -120,7 +107,7 @@ function pickedOptionIds(value: AnswerValue): string[] {
     .map(([optionId]) => optionId);
 }
 
-/** 练习模式：标准答案文本。选择题记在选项节点的 examCorrectAnswer 上（与题库编辑页/后端一致） */
+/** 练习模式：标准答案文本 */
 function practiceCorrectText(schema: SurveySchema): string {
   if (PRACTICE_CHOICE_TYPES.has(schema.type)) {
     return (schema.children ?? [])
@@ -134,10 +121,7 @@ function practiceCorrectText(schema: SurveySchema): string {
   return (schema.attribute?.examCorrectAnswer ?? schema.children?.[0]?.attribute?.examCorrectAnswer ?? '').trim();
 }
 
-/**
- * 练习模式即时判题：true=对 / false=错 / null=没作答或没有标准答案。
- * 多空填空、矩阵这类结构复杂的题不在这里判，避免判错。
- */
+/** 练习模式即时判题：true=对 / false=错 / null=没作答或没有标准答案 */
 function practiceVerdict(schema: SurveySchema, value: AnswerValue): boolean | null {
   if (isEmptyAnswer(value)) return null;
   if (PRACTICE_CHOICE_TYPES.has(schema.type)) {
@@ -166,10 +150,7 @@ function practiceVerdict(schema: SurveySchema, value: AnswerValue): boolean | nu
   return null;
 }
 
-/**
- * 练习模式：题下即时判题反馈（✓/✕ + 正确答案 + 解析），只读，不写 answer。
- * timedOut=true 时是「练习 × 闯关」组合下本题到点被锁定的展示：即使没作答也把正确答案与解析给出来。
- */
+/** 练习模式：题下即时判题反馈（✓/✕ + 正确答案 + 解析），只读，不写 answer */
 function PracticeFeedback({
   schema,
   value,
@@ -484,10 +465,7 @@ export default function PublicAnswer() {
     [loggedIn, project?.mode, id],
   );
 
-  /**
-   * 标记每次变化都写回本地；清空时把 key 一起删掉，别留空对象。
-   * 只在用户操作时写（不放 effect 里）：路由从一个问卷切到另一个时，effect 会拿上一份的标记覆盖新项目。
-   */
+  /** 标记每次变化都写回本地；清空时把 key 一起删掉，别留空对象 */
   const toggleMark = useCallback(
     (qId: string) => {
       const next = { ...marks };
@@ -766,14 +744,7 @@ export default function PublicAnswer() {
     changeFont(next);
   };
 
-  /**
-   * 交卷用的整卷 schema。
-   *
-   * 原来每道题发一次 `/api/public/question`（100 题 = 100 个请求，任一失败整单交不上）。
-   * 现在优先用 `/api/public/loadProject` **一次**拿回整棵题树（该接口返回的就是完整 survey），
-   * 失败时退回本地已缓存的题目，**不阻塞交卷**：判分与校验都在服务端用自己的 project schema
-   * 做（见 SurveyServiceImpl.saveAnswer），前端传的 survey 只作为「本次作答的题目快照」。
-   */
+  /** 交卷用的整卷 schema */
   const resolveSubmissionSurvey = useCallback(async (): Promise<SurveySchema> => {
     const shell: SurveySchema = project?.survey ?? {
       id: project?.id ?? id,
@@ -796,13 +767,7 @@ export default function PublicAnswer() {
     return { ...shell, children: cached };
   }, [answerId, flatQuestions, id, project]);
 
-  /**
-   * 提交答卷。
-
-   *   submittedRef 静默挡住，只靠 submittingRef 防连点。
-   * - auto：限时到点 / 切屏超限自动交卷，submittedRef 保证同一轮只触发一次。
-   * 只有请求成功才保留标记；失败一律回滚，用户改完答案还能再交。
-   */
+  /** 提交答卷 */
   const doSubmit = async (mode: 'manual' | 'auto') => {
     if (!project || submittingRef.current) return;
     if (mode === 'auto' && submittedRef.current) return;
@@ -1065,14 +1030,7 @@ export default function PublicAnswer() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * 闯关模式：结算当前题（答完 / 超时）→ 记录用时 → 前进；已经是最后一题则自动交卷。
-   * 每道题只结算一次（passSettledRef），避免「答题自动前进」和「到点超时」打架。
-   *
-   * 练习 × 闯关组合（优先级：闯关的时间约束 > 练习的即时反馈）：
-   * 到点不立刻跳走，而是先把本题锁成只读、显示「本题超时（按 0 分计）」+ 正确答案 + 解析，
-   * 1.6s 后再强制进入下一题（最后一题则自动交卷）——既满足闯关的强制推进，也保留练习的反馈。
-   */
+  /** 闯关模式：结算当前题（答完 / 超时）→ 记录用时 → 前进；已经是最后一题则自动交卷 */
   const finishPassQuestion = (timedOut: boolean) => {
     if (!passMode || !currentQuestion) return;
     const questionId = currentQuestion.id;
@@ -1141,11 +1099,7 @@ export default function PublicAnswer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passMode, passModePerSeconds, currentQuestion?.id]);
 
-  /**
-   * 答题写入。闯关模式下单选/判断/下拉选完即代表这题完成：记时并自动进下一题；
-   * 多选/矩阵/填空交给用户点「下一题」，避免选到一半就被推进下一题。
-   * 练习 × 闯关组合下把自动推进延后到 1.2s，先让学员看到 ✓/✕ 与解析（闯关的时间约束仍然优先）。
-   */
+  /** 答题写入 */
   const handleChange = (qId: string, v: AnswerValue) => {
     setValues((prev) => ({ ...prev, [qId]: v }));
     if (!passMode) return;
@@ -1364,15 +1318,7 @@ export default function PublicAnswer() {
   const showSubmit = onePage ? currentIndex >= total - 1 : nearBottom;
 
   const nameRequired = Boolean(project?.setting?.answerSetting?.answererNameRequired);
-  /**
-   * 卷内自带的姓名题：填空 / 多行文本，标题含「姓名」「名字」。
-   * 有这类题时以它为准（问卷星那种「您的姓名：」就是这种），不再额外显示顶部输入框，
 
-   */
-
-  // 无 project / 已提交结果），首屏 loading=true 会先返回；等加载完再渲染到这里，hook 数量就比
-  // 上一次多一个 → React #310「Rendered more hooks than during the previous render」，
-  // 整个答题页白屏。flatQuestions 本身就是 useMemo 的结果，这里再 find 一次成本可忽略。
   const nameQuestion = flatQuestions.find(
     (q) => (q.type === 'FillBlank' || q.type === 'Textarea') && /姓名|名字/.test(q.title ?? ''),
   );

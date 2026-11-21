@@ -2,10 +2,7 @@ import { Button, Input } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { SurveySchema } from '../schema/types';
 
-/**
- * 选项编辑：画布上的题目是只读的，选项只能在这里改。
- * 同时同步 dataSource（渲染用）和 children 里的 Option 节点（答案 key / 计分用）。
- */
+/** 选项编辑：画布上的题目是只读的，选项只能在这里改 */
 export default function OptionEditor({
   schema,
   onPatch,

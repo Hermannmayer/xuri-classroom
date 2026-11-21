@@ -118,9 +118,7 @@ public class AiApi {
 		return aiAssistService.describeJob(jobId);
 	}
 
-	/**
-	 * 把老师采纳的题目追加进项目 schema（不替换原有内容），返回 {projectId, added, total}。
-	 */
+	/** 把老师采纳的题目追加进项目 schema（不替换原有内容），返回 {projectId, added, total} */
 	@PostMapping("/paper/apply")
 	@PreAuthorize("hasAuthority('ai:use') and hasAuthority('project:update')")
 	public AiPaperApplyView applyPaper(@RequestBody AiPaperApplyRequest request) {
@@ -190,11 +188,7 @@ public class AiApi {
 
 
 
-	/**
-	 * 主观题批改建议：{score, confidence, points: [{point, hit}], reason}。
-	 * <p><b>不会写库</b>：老师点「采纳」才走已有的 {@code POST /api/answer/grade}，责任留在人身上。
-	 * <p>要「整卷批掉」用 {@link #batchGrade}：那条路径会写库，但只补未给分的题并且可撤销。
-	 */
+	/** 主观题批改建议：{score, confidence, points: [{point, hit}], reason} */
 	@PostMapping("/grade/suggest")
 	@PreAuthorize("hasAuthority('ai:use') and hasAuthority('answer:grade')")
 	public AiGradeSuggestView suggestGrade(@RequestBody AiGradeSuggestRequest request) {
@@ -203,11 +197,7 @@ public class AiApi {
 
 
 
-	/**
-	 * 批量批改：把「未批改」答卷里还没给分的主观题一次性批掉。
-	 * <p>只处理 grade_status=pending 的答卷、只补没分的题、必须有参考答案；写入走既有批改服务，
-	 * 审计自动记在当前账号名下。
-	 */
+	/** 批量批改：把「未批改」答卷里还没给分的主观题一次性批掉 */
 	@PostMapping("/grade/batch")
 	@PreAuthorize("hasAuthority('ai:use') and hasAuthority('answer:grade')")
 	public Map<String, Object> batchGrade(@RequestBody AiGradeBatchRequest request) {
@@ -217,10 +207,7 @@ public class AiApi {
 		return result;
 	}
 
-	/**
-	 * 撤销一次批量批改：按 undoToken 清空当时写入的分数（24 小时内有效）。
-	 * @return {@code {answers: 被清空的答卷数}}
-	 */
+	/** 撤销一次批量批改：按 undoToken 清空当时写入的分数（24 小时内有效）；返回 {answers: 被清空的答卷数} */
 	@PostMapping("/grade/undo")
 	@PreAuthorize("hasAuthority('ai:use') and hasAuthority('answer:grade')")
 	public Map<String, Object> undoGrade(@RequestParam String token) {

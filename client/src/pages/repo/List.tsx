@@ -130,8 +130,7 @@ export default function RepoList() {
     void loadAuthorities().then((a) => setAuthorities(a));
   }, []);
 
-  // 统一走 permissions.ts 的 can()：它已经处理了「学员专属权限不给管理员兜底」，
-  // 这里再手写一遍 ROLE_admin 放行会把 repo:practice 又放回来。
+  // 统一走 permissions.ts 的 can()：它已经处理了「学员专属权限不给管理员兜底」， 这里再手写一遍 ROLE_admin 放行会把 repo:practice 又放回来。
   const hasPermission = (permission: string) => can(authorities, permission);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -163,8 +162,7 @@ export default function RepoList() {
 
   const canReport = hasPermission(PERMISSION_CODES.repoReport);
 
-  // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）：
-  // 没有练习入口约 260，有练习入口约 380，保证「开始练习」不会被挤成两行。
+  // 操作列宽度按「实际会渲染的动作」估算（中文 18px/字 + 24px 间距）： 没有练习入口约 260，有练习入口约 380，保证「开始练习」不会被挤成两行。
   const actionWidth = (() => {
     const labels = [
       canOpen ? '题目' : '',

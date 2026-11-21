@@ -1,17 +1,4 @@
-/**
- * 答题相关的本地存储（草稿 / 匿名 answerId / 题目标记）。
- *
-
- * 1. **公用电脑隐私**：这些键里是答题者真实填写的内容（姓名、手机、住址答案），
- *    登出时必须能一键清干净，避免下一位用户打开同一份问卷看到上一位的答案。
- *    登出集成只需在登出逻辑里调用 `clearAnswerStorage()`（不改本文件以外的东西）。
- * 2. **归属与有效期**：草稿必须带上 projectId 并校验，避免「换项目/换卷」后脏数据被续答；
- *    超过 7 天自动作废，减少长期堆在公用机上的隐私数据。
- * 3. **健壮性**：隐私模式 / 配额满时 localStorage 会抛异常，这里统一吞掉，
- *    最坏情况是草稿失效，不影响答题与交卷。
- *
-
- */
+/** 答题相关的本地存储（草稿 / 匿名 answerId / 题目标记） */
 
 /** 答题数据用到的键前缀：登出时按前缀整体清理 */
 export const ANSWER_STORAGE_PREFIXES = ['sk-answer-', 'sk-draft-', 'sk-marks-'] as const;
@@ -58,10 +45,7 @@ export function safeRemove(key: string): void {
   }
 }
 
-/**
- * 清空所有答题本地数据（登出 / 切换账号时调用）。
- * 返回被清掉的键数量，便于调用方打点或日志。
- */
+/** 清空所有答题本地数据（登出 / 切换账号时调用） */
 export function clearAnswerStorage(): number {
   const storage = safeStorage();
   if (!storage) return 0;
@@ -81,11 +65,7 @@ export function clearAnswerStorage(): number {
 
 export const LOGOUT_EVENT = 'sk:logout';
 
-/**
- * 注册「登出即清空答题数据」的监听（幂等）。
- * 答题页挂载时会调用一次；BasicLayout 只需在登出逻辑里 dispatch LOGOUT_EVENT（或直接调用
- * `clearAnswerStorage()`），不需要在这里改 layout。返回取消监听的函数。
- */
+/** 注册「登出即清空答题数据」的监听（幂等） */
 export function installAnswerStorageCleanup(): () => void {
   const handler = () => {
     clearAnswerStorage();
@@ -120,10 +100,7 @@ export interface DraftPayload {
   at: number;
 }
 
-/**
- * 读取未提交草稿：校验归属（projectId 必须与键一致）与有效期（7 天）。
- * 任一不满足就删掉并返回 undefined —— 宁可让用户重填，也不能把别人的草稿拿出来续答。
- */
+/** 读取未提交草稿：校验归属（projectId 必须与键一致）与有效期（7 天） */
 export function readDraft(projectId: string): DraftPayload | undefined {
   const raw = safeGet(draftKey(projectId));
   if (!raw) return undefined;

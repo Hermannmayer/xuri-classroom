@@ -1,15 +1,4 @@
-/**
- * 规则表达式求值器。
- *
- * 语法（来自逆向产物，后端只存不算）：
- *   AND(a ,b) / OR(a ,b) / NOT(a)
- *   #{qId} 题目取值      #{qId.oId} 选项是否选中（看 key 是否存在）
- *   #{qId.oId.subId} 矩阵行列       #{_qId} 题目标题
- *   #{$qId} 题目得分    #{qId|默认值}   #{+qId} 已作答   #{-qId} 已显示
- *   #{qId} > 5 / < / ==
- *
- * 关键语义：布尔型选项判断的是「key 是否存在」，不是值真假。
- */
+/** 规则表达式求值器 */
 import { buildExpression, parseRule, type RuleConfig } from './buildExpression';
 import { isEmptyAnswer } from '../empty';
 

@@ -57,9 +57,7 @@ public class CaptchaConfig {
 		return CaptchaServiceFactory.getCache(properties.getCacheType());
 	}
 
-	/**
-	 * 把配置映射成 aj-captcha 核心包认识的 Properties 键（键名来自 1.3.0 的默认装配逻辑）。
-	 */
+	/** 把配置映射成 aj-captcha 核心包认识的 Properties 键（键名来自 1.3.0 的默认装配逻辑） */
 	private static Properties toAnjiProperties(CaptchaProperties p) {
 		Properties props = new Properties();
 		props.put("captcha.type", p.getType());
@@ -96,7 +94,7 @@ public class CaptchaConfig {
 				getResourcesImagesFile(jigsaw + "/slidingBlock/*.png"), getResourcesImagesFile(picClick + "/*.png"));
 	}
 
-	/** 把 classpath 下的底图读成「文件名 → Base64」的映射。 */
+	/** 把 classpath 下的底图读成「文件名 → Base64」的映射 */
 	public static Map<String, String> getResourcesImagesFile(String path) {
 		Map<String, String> imgMap = new HashMap<>();
 		try {

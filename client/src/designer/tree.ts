@@ -89,13 +89,7 @@ export interface OutlineItem {
   node: SurveySchema;
 }
 
-/**
- * 大纲里应该出现哪些节点。
- *
- * - 数据题（DATA_TYPES）：是题目，进大纲
-
- * - 其余（Option 选项、填空空位、Pagination 等结构节点）：不是题目，跳过
- */
+/** 大纲里应该出现哪些节点 */
 function isOutlineNode(node: SurveySchema): boolean {
   if (!node?.type) return false;
   if (node.type === 'Option') return false;

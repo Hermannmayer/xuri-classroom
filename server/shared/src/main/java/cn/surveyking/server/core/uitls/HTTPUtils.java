@@ -12,11 +12,7 @@ import java.net.URLEncoder;
 
 public final class HTTPUtils {
 
-	/**
-	 * 获取下载文件名，避免中文文件名乱码
-	 * @param fileName
-	 * @return
-	 */
+	/** 获取下载文件名，避免中文文件名乱码 */
 	@SneakyThrows
 	public static String getContentDispositionValue(String fileName) {
 

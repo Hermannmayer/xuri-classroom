@@ -1,16 +1,4 @@
--- =============================================================================
 -- 从角色权限串里摘掉 7 个「未实现」的权限（幂等，可重复执行）
---
--- 这 7 个前后端都没实现，已从 PermissionEnum 目录删除：
---   answer:audit, template:export, exercise:manage, user:export,
---   system:log:export, system:backup, system:restore
---
--- 做法：把 authority 首尾补逗号 → 逐个把 ",code," 替换成 "," → 去掉首尾逗号。
--- 这样不会误伤子串（例如不会把 answer:auditX 当成 answer:audit）。
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 07-remove-dead-permissions.sql
--- =============================================================================
 SET NAMES utf8mb4;
 
 UPDATE t_role

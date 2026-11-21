@@ -89,13 +89,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-/**
- * 用户管理：列表 / 新建 / 编辑 / 删除。
- * 后端字段：UserRequest{ id, username, name, password, roles[], phone, email, status }
- *
- * <p>embedded=true 时本页被「用户与权限」的 Tab 嵌进去用：页头（SYSTEM 标签、账号数、说明）交给外层，
-
- */
+/** 用户管理：列表 / 新建 / 编辑 / 删除 */
 export default function SystemUser({ embedded = false }: { embedded?: boolean } = {}) {
   const isMobile = useIsMobile();
   const [rows, setRows] = useState<SysUser[]>([]);

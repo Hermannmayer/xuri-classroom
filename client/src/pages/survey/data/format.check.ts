@@ -1,8 +1,4 @@
-/**
- * 单元格格式化自检（零框架）。运行：
- *   npx esbuild src/pages/survey/data/format.check.ts --bundle --platform=node --format=esm \
- *     --outfile=node_modules/.cache/format-check.mjs --log-level=warning && node node_modules/.cache/format-check.mjs
- */
+/** 单元格格式化自检（零框架） */
 import assert from 'node:assert/strict';
 import type { FlatQuestion } from '../../../schema/flatten';
 import type { QuestionType, SurveySchema } from '../../../schema/types';

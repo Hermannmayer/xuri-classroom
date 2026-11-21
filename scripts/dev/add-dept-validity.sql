@@ -1,5 +1,4 @@
--- 用户组有效期（可重复执行）
--- 语义：valid_from 为空不限开始；valid_to 为空=永久有效。
+-- 用户组有效期（可重复执行） 语义：valid_from 为空不限开始；valid_to 为空=永久有效。
 SET @has = (SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_dept' AND COLUMN_NAME = 'valid_from');
 SET @sql = IF(@has = 0,

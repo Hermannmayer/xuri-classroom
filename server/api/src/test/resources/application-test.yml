@@ -1,5 +1,4 @@
 # 集成测试专用：只在显式提供 S2_TEST_DB_URL 时使用（见 AnswerFlowTest 的 @EnabledIfEnvironmentVariable）。
-# 不写死任何密码：CI/无库机器上测试类会被禁用，不会加载这个配置。
 spring:
   datasource:
     url: ${S2_TEST_DB_URL}

@@ -69,11 +69,7 @@ public class PublicSurveyExtrasService {
 
 	private final AnonymousIdentityService anonymousIdentityService;
 
-	/**
-	 * 成绩查询页面获取成绩信息
-	 * @param request
-	 * @return
-	 */
+	/** 成绩查询页面获取成绩信息 */
 	public PublicExamResult loadExamResult(PublicExamRequest request) {
 		ProjectView project = projectService.getProject(request.getId());
 
@@ -120,13 +116,7 @@ public class PublicSurveyExtrasService {
 		return result;
 	}
 
-	/**
-	 * 递归检查一份 schema 里是否还带着正确答案。
-	 *
-	 * <p>用途：判断答卷上那份 survey 快照能不能用来做答案解析。
-	 * 历史快照在保存时被 {@code ignoreAttributes} 剥掉过 examCorrectAnswer，
-	 * 这类快照不能用来渲染成绩单。
-	 */
+	/** 递归检查一份 schema 里是否还带着正确答案 */
 	private boolean containsCorrectAnswer(SurveySchema schema) {
 		if (schema == null || schema.getChildren() == null) {
 			return false;
@@ -144,11 +134,7 @@ public class PublicSurveyExtrasService {
 
 
 
-	/**
-	 * 当前浏览器/登录用户在这份试卷上的历次已提交答卷（按时间倒序）。
-	 * <p>登录用户按 create_by；未登录且带 sk-anon 主体时按 anonymous_subject_id + is_anonymous=1；
-	 * 两者都没有返回空。
-	 */
+	/** 当前浏览器/登录用户在这份试卷上的历次已提交答卷（按时间倒序） */
 	public List<PublicAttemptView> listPublicAttempts(PublicAttemptRequest request) {
 		if (request == null || isBlank(request.getProjectId())) {
 			return Collections.emptyList();

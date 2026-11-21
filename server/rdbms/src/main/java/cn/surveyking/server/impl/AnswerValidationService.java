@@ -28,13 +28,7 @@ public class AnswerValidationService {
 	private final AnswerService answerService;
 
 
-	/**
-	 * 提交阶段的校验：只做「还能不能交」相关的判断，不做登录/cookie/ip 限次
-	 * （那些是"能不能开始答"的约束，修改已有答卷时不该再拦一次）。
-	 *
-	 * @param project 项目
-	 * @param isNewAnswer true=新建答卷，才校验回收上限；false=修改已有答卷
-	 */
+	/** 提交阶段的校验：只做「还能不能交」相关的判断，不做登录/cookie/ip 限次 （那些是"能不能开始答"的约束，修改已有答卷时不该再拦一次） */
 	public void validateSubmittable(ProjectView project, boolean isNewAnswer) {
 		if (project == null) {
 			throw new ErrorCodeException(ErrorCode.ProjectNotFound);

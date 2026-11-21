@@ -107,13 +107,7 @@ public class AnswerAccessGuard {
 		}
 	}
 
-	/**
-	 * 当前用户能否看到某个项目的全部答卷（项目级口径，不含班级级）。
-	 *
-	 * <p>
-	 * 管理员全量；项目所有者/协作者（含按用户组授权）可看；学员作为答卷人只能看自己的，
-	 * 由 {@link #listAnswer} 的 createBy 条件兜住。
-	 */
+	/** 当前用户能否看到某个项目的全部答卷（项目级口径，不含班级级） */
 	public boolean canManageProject(String projectId) {
 		if (SecurityContextUtils.isAdmin()) {
 			return true;
@@ -140,13 +134,7 @@ public class AnswerAccessGuard {
 		return canManageProject(projectId) || !readableClassIds(projectId).isEmpty();
 	}
 
-	/**
-	 * 当前用户在这个项目上「因班级分配」可读的班级 id：
-	 * 项目被分配给某个班（t_class_resource）且这个班对当前用户可见（自己创建/负责、被授权、或 class:grant）。
-	 *
-	 * <p>
-	 * 只做读判断，不返回 null：调用方直接当集合用，空集表示没有班级级权限。
-	 */
+	/** 当前用户在这个项目上「因班级分配」可读的班级 id： 项目被分配给某个班（t_class_resource）且这个班对当前用户可见（自己创建/负责、被授权、或 class:grant） */
 	public Set<String> readableClassIds(String projectId) {
 		if (!StringUtils.hasText(projectId)) {
 			return Collections.emptySet();
@@ -170,14 +158,7 @@ public class AnswerAccessGuard {
 		return ids;
 	}
 
-	/**
-	 * 当前用户可见的班级 id（含下级班）。
-	 *
-	 * <p>
-	 * 与 {@code ClassServiceImpl#visibleDeptIds} 同一套口径：管理员与 class:grant 看全部；
-	 * 其余人 = 自己创建/负责的班 + 被授权的班，再向下展开。这里直接查 Mapper 而不是注入 ClassService，
-	 * 是因为 ClassServiceImpl 依赖本类（未交名单），反向依赖会成环。
-	 */
+	/** 当前用户可见的班级 id（含下级班） */
 	private Set<String> visibleClassIds() {
 		List<Dept> classes = deptMapper
 				.selectList(Wrappers.<Dept>lambdaQuery().eq(Dept::getDeptType, Dept.TYPE_CLASS));

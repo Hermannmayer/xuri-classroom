@@ -35,12 +35,7 @@ public class RevertTaskHandler extends AbstractTaskHandler {
 		return true;
 	}
 
-	/**
-	 * 只有最近一条的操作记录是自己才能进行驳回操作
-	 * @param taskId 当前操作记录的 id
-	 * @param processInstanceId
-	 * @return
-	 */
+	/** 只有最近一条的操作记录是自己才能进行驳回操作 */
 	public boolean canRevert(String taskId, String processInstanceId) {
 		List<FlowOperation> operationList = getOperations(processInstanceId);
 		if (operationList.size() > 0 && taskId.equals(operationList.get(0).getId())) {
@@ -49,11 +44,7 @@ public class RevertTaskHandler extends AbstractTaskHandler {
 		return false;
 	}
 
-	/**
-	 * 获取当前可以回退的节点列表
-	 * @param processInstanceId
-	 * @return
-	 */
+	/** 获取当前可以回退的节点列表 */
 	public List<TaskTreeNode> getRevertNodes(String processInstanceId) {
 
 		TaskTreeNode lastNode = getHistoricTree(processInstanceId).getParent();

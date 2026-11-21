@@ -1,30 +1,4 @@
-# =============================================================================
-# 旭日云课堂 · NAS 生产「目标态」compose（飞牛 fnOS / <nas-host>）
-#
-# ⚠️⚠️ 当前生产不是这一份 ⚠️⚠️
-#   现在线上跑的是「手工 docker run」的容器 surveyking：
-#       · 上游镜像 surveyking/surveyking:latest（v1.13.2）
-#       · PROFILE=h2、SERVER_PORT=1991、宿主机端口 201
-#       · H2 单文件数据在 /vol2/1000/surveyking/db，附件在 /vol2/1000/surveyking/files
-#       · 不属于任何 compose 项目，`docker compose ls` 里看不到它
-#   本文件是「定制分支（旭日云课堂：Spring Boot 2.7.7 + JDK8 + MySQL 8）」要切过去的目标态。
-#   **切换前必须先迁移数据（H2 → MySQL）并完成演练**，完整步骤见同目录 README.md。
-#   在没走完迁移演练之前，不要在这台机器上 `docker compose up -d` 本文件——
-#   它会在 201 端口和旧容器抢端口，并且用空的 MySQL 库面对一个有数据的生产。
-#
-# 设计要点（都是为了这台 8GB / 4 核的飞牛 NAS）：
-#   1. 所有数据都用 bind mount，不用命名卷 —— 飞牛的「文件夹备份 / 快照」才能覆盖到；
-#   2. 对外端口沿用学校现在的 201（容器内 nginx 仍是 80），换端口要重新通知全校，没必要；
-#   3. 内存上限：app 1g（JVM -Xmx768m）、db 512m、web 128m —— 旧 H2 进程还占着约 1.4GB；
-#   4. 日志一律 json-file 10m × 3，避免再出现日志把 /vol2 写满；
-#   5. **刻意不挂 init-mysql.sql**：那个脚本里有 22 处 DROP TABLE IF EXISTS，
-#      对着有数据的库执行 = 清库；首次建库用 README 里的受控步骤，不要靠挂载自动执行。
-#
-# 用法（在本目录）：
-#   cp .env.example .env && vi .env      # 至少填 DB_PASSWORD、SK_CRYPTO_KEY
-#   docker compose config >/dev/null     # 只校验语法与变量，不启动
-#   docker compose up -d                 # 确认数据已迁移、端口已腾出后再执行
-# =============================================================================
+# 旭日云课堂 · NAS 生产「目标态」compose（飞牛 fnOS / ）
 
 name: xuri-prod
 

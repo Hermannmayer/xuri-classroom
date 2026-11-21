@@ -1,18 +1,4 @@
--- ======
 -- 权限 v7：教职工 / 学员账号彻底分开（2026-11-08，幂等）
---
--- 背景：用户管理里老师和学员混在一张表，班级管理又只能看某一个班；
--- 两个入口对「人」的边界不一致。这里用显式 t_user.user_type 区分：
---   staff   = 老师 / 管理员 / 职工（进「用户管理」）
---   student = 学员（只在「班级管理」里按班维护）
---
--- 回填口径（与 UserServiceImpl 的学员/老师分档一致）：
---   直接角色或所在用户组角色里出现 admin/teacher、portal:teacher、portal:admin、system:* → staff
---   其余（含无角色）→ student
---
--- 用法：
---   docker exec -i xuri-live-db mysql -uroot -p"$DB_PASSWORD" surveyking < 18-user-type.sql
--- ======
 SET NAMES utf8mb4;
 
 

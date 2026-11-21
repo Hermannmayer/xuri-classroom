@@ -28,11 +28,7 @@ public class LinkSurveyUpdater {
 
 	private final AnswerMapper answerMapper;
 
-	/**
-	 * 更新原始问卷答案
-	 * @param answer
-	 * @param project
-	 */
+	/** 更新原始问卷答案 */
 	public void updateLinkSurveyAnswer(Answer answer, ProjectView project) {
 		SchemaHelper.flatSurveySchema(project.getSurvey()).stream()
 

@@ -1,11 +1,4 @@
-<#
-  旭日云课堂 · Windows 本地服务控制台（GUI）
-
-  设计原则：
-  - 只做「壳」：所有启动/停止/备份/升级逻辑仍由 lib\launcher.ps1 执行，这里不重写业务。
-  - 状态通过 `launcher.ps1 status -Json` 拿，避免解析人读文本。
-  - 与 CLI 完全兼容：关掉窗口后用 start.cmd --cli 仍可走命令行。
-#>
+# 旭日云课堂 · Windows 本地服务控制台（GUI）
 param([switch]$Hidden, [string]$SelfTest)
 
 Add-Type -AssemblyName System.Windows.Forms

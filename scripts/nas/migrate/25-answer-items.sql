@@ -1,6 +1,4 @@
 -- 统计投影表：把 answer JSON 展开成「一题一选项一行」，统计改走 SQL 聚合。
--- 真源仍是 t_answer.answer；这张表可以随时用 AnswerItemBackfill 重建。
--- 幂等：IF NOT EXISTS。
 SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `t_answer_item` (

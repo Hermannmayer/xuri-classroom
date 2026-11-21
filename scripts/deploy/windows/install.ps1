@@ -1,32 +1,5 @@
 #Requires -RunAsAdministrator
-<#
-.SYNOPSIS
-  Windows 生产部署脚本：安装 xuri-classroom 为 Windows 服务。
-
-.DESCRIPTION
-  创建安装目录、拷贝 jar、生成 app.env、注册 Windows 服务并放行防火墙端口。
-  优先使用 sc.exe create；如果创建失败，会尝试 nssm；两者都不可用时给出明确提示。
-  重复执行是幂等的：已有同名服务会先停止/删除再创建，app.env 已存在则保留并更新 SERVER_PORT。
-
-.PARAMETER JarPath
-  必填，待部署的 Spring Boot jar 路径。
-
-.PARAMETER InstallDir
-  安装目录，默认 C:\xuri-classroom。
-
-.PARAMETER Port
-  服务端口，默认 80。
-
-.PARAMETER ServiceName
-  Windows 服务名，默认 xuri-classroom。
-
-.PARAMETER JavaPath
-  java.exe 路径；不传则从 PATH 查找。
-
-.EXAMPLE
-  .\install.ps1 -JarPath C:\build\app.jar
-  .\install.ps1 -JarPath C:\build\app.jar -InstallDir D:\apps\xuri-classroom -Port 8080
-#>
+# Windows 生产部署脚本：安装 xuri-classroom 为 Windows 服务。
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]

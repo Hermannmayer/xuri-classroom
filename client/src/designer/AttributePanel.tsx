@@ -19,10 +19,7 @@ export interface AttributePanelProps {
 
 const ITEM_STYLE = { marginBottom: 12 };
 
-/**
- * 数据驱动的属性面板：字段全部来自 attributeSchema，按 group 折叠。
- * 值直接取自 schema.attribute（受控），不另建表单状态，避免与设计器其它入口互相覆盖。
- */
+/** 数据驱动的属性面板：字段全部来自 attributeSchema，按 group 折叠 */
 export function AttributePanel({ schema, onChange, questions, onPatchNode, scoring = true }: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
   const choiceTypes = new Set(['Radio', 'Checkbox', 'Judge', 'Select']);

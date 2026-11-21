@@ -31,15 +31,7 @@ export interface AiPushedContext {
 
 export const AI_ASSISTANT_CONTEXT_EVENT = 'ai-assistant:context';
 
-/**
- * 页面把上下文交给侧栏（可选能力）。
- *
- * 用法（在知道「当前在看哪份答卷/哪道题」的页面里）：
- * ```ts
- * useEffect(() => { pushAiAssistantContext({ answerId, label: 学员姓名 }); }, [answerId]);
- * ```
- * 切换路由后自动作废，不需要页面自己清理。
- */
+/** 页面把上下文交给侧栏（可选能力） */
 export function pushAiAssistantContext(detail: AiPushedContext | undefined) {
   window.dispatchEvent(new CustomEvent<AiPushedContext | undefined>(AI_ASSISTANT_CONTEXT_EVENT, { detail }));
 }

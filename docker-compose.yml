@@ -1,5 +1,4 @@
-# 三个容器：db（MySQL）+ app（后端，内部 7007）+ web（nginx，对外 80）
-# 用户只访问 web 的 80 端口；后端端口不对外暴露，换端口也不影响用户。
+# 三个容器：db（MySQL）+ app（后端，内部 7007）+ web（nginx，对外 80） 用户只访问 web 的 80 端口；后端端口不对外暴露，换端口也不影响用户。
 services:
   db:
     image: mysql:8.0

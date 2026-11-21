@@ -86,10 +86,7 @@ public class UserAdminService {
 		createUser(request, true);
 	}
 
-	/**
-	 * @param assertDeptRoles 是否校验「目标组绑定的角色自己能授予」。班级管理里老师给本班加学员时，
-	 *                        目标是系统内置学员角色，不需要也不应该要求老师拥有学员的全部权限串。
-	 */
+	/** 目标是系统内置学员角色，不需要也不应该要求老师拥有学员的全部权限串 */
 	public void createUser(UserRequest request, boolean assertDeptRoles) {
 
 		if (!StringUtils.hasText(request.getUserType())) {
@@ -122,16 +119,7 @@ public class UserAdminService {
 		deptService.saveUserDepts(user.getId(), user.getDeptId(), request.getDeptIds());
 	}
 
-	/**
-	 * 教职工只能加入用户组（dept_type=org），学员只能加入班级（dept_type=class）。
-	 *
-	 * <p>组类型决定成员继承哪些角色：把学员放进用户组会顺带拿到教职工角色，把 staff 放进班级又会
-	 * 污染班级成员列表（班级成员接口只查 student）。历史数据里 dept_type 为空按 org 处理。
-	 *
-	 * @param userType staff / student；为空表示这次不涉及用户类型，跳过校验
-	 * @param deptId 主组
-	 * @param deptIds 附加组
-	 */
+	/** 教职工只能加入用户组（dept_type=org），学员只能加入班级（dept_type=class） */
 	private void assertUserDeptTypes(String userType, String deptId, List<String> deptIds) {
 		if (!StringUtils.hasText(userType)) {
 			return;

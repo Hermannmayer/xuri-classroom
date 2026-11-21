@@ -166,12 +166,7 @@ public class AiNoticeDraftServiceImpl implements AiNoticeDraftService {
 
 
 
-	/**
-	 * 受众归一化 + 权限闸门。
-	 *
-	 * <p>缺省（没传）时按最保守的口径给：管理员 all、其余人 class；没有班级可用时才看有没有全站权限。
-	 * 这样「老师点开对话框就点生成」也不会意外起草一条全站公告。
-	 */
+	/** 受众归一化 + 权限闸门 */
 	private String resolveAudience(String raw, List<String> classIds, boolean canSystem) {
 		if (!StringUtils.hasText(raw)) {
 			if (SecurityContextUtils.isAdmin()) {
@@ -231,13 +226,7 @@ public class AiNoticeDraftServiceImpl implements AiNoticeDraftService {
 
 
 
-	/**
-	 * 解析草稿：标题按 30 字截断、正文做换行归一与长度上限。
-	 *
-	 * <p>JSON 解析失败时退一步按引号抽字段：公告正文天然是多段文本，模型偶尔会把真实换行直接写进
-	 * JSON 字符串（严格 JSON 不允许裸换行），直接报「解析失败」等于让老师重试一次同样的错误。
-	 * 两条路都拿不到正文才判定失败——脏数据可以重试，但不能 500，也不能给一个空正文的草稿。
-	 */
+	/** 解析草稿：标题按 30 字截断、正文做换行归一与长度上限 */
 	private Draft parse(String json, String subject, String points) {
 		JsonNode root = null;
 		try {
@@ -276,10 +265,7 @@ public class AiNoticeDraftServiceImpl implements AiNoticeDraftService {
 		return StringUtils.hasText(text) ? text.trim() : null;
 	}
 
-	/**
-	 * 宽松抽取：从 {@code "field":"..."} 里按引号取一段文本，处理 \n / \t 等转义。
-	 * <p>只在严格 JSON 解析失败时用，所以可以容忍「字段顺序、缩进、多余尾巴」这些无关噪声。
-	 */
+	/** 宽松抽取：从 "field":"..." 里按引号取一段文本，处理 \n / \t 等转义 */
 	private static String quotedField(String json, String field) {
 		if (!StringUtils.hasText(json) || !StringUtils.hasText(field)) {
 			return null;

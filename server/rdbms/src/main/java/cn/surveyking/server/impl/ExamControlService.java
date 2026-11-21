@@ -47,11 +47,7 @@ public class ExamControlService {
 
 	private final ConcurrentMap<String, Object> switchScreenLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
-	/**
-	 * 切屏计数落库：累加到答卷 metaInfo.switchScreenTimes。
-	 * 优先用前端传的 answerId（校验问卷归属）；没有答卷 id 时退回「本用户在这份问卷上最近一条记录」，
-	 * 这样刷新页面后还能从 projectOutline 的 metaInfo 恢复计数。匿名且没有 answerId 时返回 0。
-	 */
+	/** 切屏计数落库：累加到答卷 metaInfo.switchScreenTimes */
 	public Integer recordSwitchScreen(PublicSwitchScreenRequest request) {
 		if (request == null || isBlank(request.getProjectId())) {
 			throw new IllegalArgumentException("缺少问卷标识");
@@ -95,20 +91,7 @@ public class ExamControlService {
 	}
 
 
-	/**
-	 * 闯关模式（passMode）超时裁决。
-	 *
-	 * 时间基准：逐题用时由前端计时（开始答题 → 答题/单题超时），随交卷放在
-	 * {@link AnswerMetaInfo#getPassModeTimes()} 上报；**裁决与判分在服务端**：只要某题用时
-	 * &gt;= passModePerSeconds（或前端明确标记了超时），就按超时处理。
-	 *
-	 * 判分口径：超时题在 examInfo.questionScore 里记 0 分，总分按各题分数重新求和；
-	 * 非考试模式没有分值体系，只记录耗时与超时清单，不影响答案本身。
-	 *
-	 * @param project 项目
-	 * @param request 提交请求（含前端上报的 metaInfo）
-	 * @param answerView 已保存的答卷视图（方法内就地修正分数）
-	 */
+	/** 闯关模式（passMode）超时裁决 */
 	public void applyPassModePenalty(ProjectView project, AnswerRequest request, AnswerView answerView) {
 		ProjectSetting setting = project.getSetting();
 		ProjectSetting.ExamSetting examSetting = setting == null ? null : setting.getExamSetting();
@@ -157,11 +140,7 @@ public class ExamControlService {
 	}
 
 
-	/**
-	 * 判断考试是否结束，未设置默认为已结束
-	 * @param examSetting
-	 * @return
-	 */
+	/** 判断考试是否结束，未设置默认为已结束 */
 	public boolean examFinished(ProjectSetting.ExamSetting examSetting) {
 		if (examSetting.getEndTime() == null || examSetting.getEndTime() < System.currentTimeMillis()) {
 			return true;

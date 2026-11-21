@@ -77,9 +77,7 @@ public final class RepoTemplateI18n {
 		return input != null && aliases.contains(normalize(input));
 	}
 
-	/**
-	 * 表头写作「选项树(JSON)」「选项树（JSON）」「高级配置(JSON)」都算命中：表头里带不带 (JSON) 后缀不影响识别。
-	 */
+	/** 表头写作「选项树(JSON)」「选项树（JSON）」「高级配置(JSON)」都算命中：表头里带不带 (JSON) 后缀不影响识别 */
 	private static boolean matchesJsonSuffix(String input, Set<String> aliases) {
 		String normalized = normalize(input);
 		if (normalized == null) {
@@ -105,9 +103,7 @@ public final class RepoTemplateI18n {
 		return matches(cellText, OptionHeader.ALL_LABELS);
 	}
 
-	/**
-	 * 选项列表头对应的字母（A ~ H），不是选项列返回 null。定位用列名而非列号，老师插列不会错位。
-	 */
+	/** 选项列表头对应的字母（A ~ H），不是选项列返回 null */
 	public static String optionSuffix(String cellText) {
 		String normalized = normalize(cellText);
 		return normalized == null ? null : OptionHeader.LABEL_TO_SUFFIX.get(normalized);
@@ -141,16 +137,12 @@ public final class RepoTemplateI18n {
 		return message("repo.template.header.advancedJson", "高级配置");
 	}
 
-	/**
-	 * 矩阵行标题列（行标题1 ~ 行标题10）的序号，不是这类表头返回 null。
-	 */
+	/** 矩阵行标题列（行标题1 ~ 行标题10）的序号，不是这类表头返回 null */
 	public static Integer rowTitleIndex(String cellText) {
 		return lookup(MatrixTitleHeader.ROW_LABELS, cellText);
 	}
 
-	/**
-	 * 矩阵列标题列（列标题1 ~ 列标题10）的序号，不是这类表头返回 null。
-	 */
+	/** 矩阵列标题列（列标题1 ~ 列标题10）的序号，不是这类表头返回 null */
 	public static Integer columnTitleIndex(String cellText) {
 		return lookup(MatrixTitleHeader.COLUMN_LABELS, cellText);
 	}
@@ -253,13 +245,7 @@ public final class RepoTemplateI18n {
 			return message(key, defaultLabel);
 		}
 
-		/**
-		 * 导出 xlsx 时的 sheet 名：固定用内置中文名，不走当前语言。
-		 *
-		 * <p>两个原因：一是 Excel 的 sheet 名不允许 {@code / \ ? * [ ] :}，英文名 "True / False" 会被
-		 * fastexcel <b>静默</b>改写成 "True - False"，导入按名字匹配就找不到这张表（判断题整类丢失）；
-		 * 二是导出/导入/模板三处用同一个名字，老师看到的和文档写的一致。
-		 */
+		/** 导出 xlsx 时的 sheet 名：固定用内置中文名，不走当前语言 */
 		public String exportName() {
 			return defaultLabel;
 		}
@@ -297,11 +283,7 @@ public final class RepoTemplateI18n {
 																		(map, index) -> map.put("tags", index)),
 		/** 级联题的选项树（JSON 数组），整列内容就是 dataSource */
 		OPTION_TREE("repo.template.header.optionTree", "选项树", (map, index) -> map.put("optionTree", index), true),
-		/**
-		 * 判分模式：写「人工」= 这道题进人工批改队列（交卷后卷子变待批改）；留空 = 按题型默认。
-		 * <p>没有这一列时，老师只能去设计器里逐题点「判分模式 → 人工打分」，
-		 * 漏设的多行文本题会被当成客观题判 0 分，也永远不会出现在待批改里。
-		 */
+		/** 判分模式：写「人工」= 这道题进人工批改队列（交卷后卷子变待批改）；留空 = 按题型默认 */
 		JUDGE_MODE("repo.template.header.judgeMode", "判分模式",
 				(map, index) -> map.put("judgeMode", index)),
 		/** 通用兜底列：一个 JSON 对象，深度合并到该行生成的题目上 */

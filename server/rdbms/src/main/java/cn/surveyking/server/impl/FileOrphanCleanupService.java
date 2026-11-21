@@ -64,10 +64,7 @@ public class FileOrphanCleanupService {
 		}
 	}
 
-	/**
-	 * 第一步：{@code answer_id} 非空、但 t_answer 里已经没有这份答卷的文件。
-	 * 典型来源是「改造前物理删答卷」和「匿名清理逻辑删后又彻底删」留下的。
-	 */
+	/** 第一步：answer_id 非空、但 t_answer 里已经没有这份答卷的文件 */
 	private int purgeOrphanAnswerFiles() {
 		int removed = 0;
 		String cursor = null;
@@ -100,12 +97,7 @@ public class FileOrphanCleanupService {
 		return removed;
 	}
 
-	/**
-	 * 第二步：答卷附件类型、从来没有绑定过答卷、且创建时间早于保留天数的文件。
-	 * 这类是「传了但最终没提交」的残留（签名重签也会留下前一笔）。
-	 *
-	 * <p>只认 {@code ANSWER_ATTACHMENT}(4)：题面富文本图片是 {@code QUESTION_IMAGE}(3)，不在此列。
-	 */
+	/** 第二步：答卷附件类型、从来没有绑定过答卷、且创建时间早于保留天数的文件 */
 	private int purgeUnboundUploads() {
 		Date cutoff = new Date(System.currentTimeMillis() - UNBOUND_RETENTION_DAYS * 24L * 60L * 60L * 1000L);
 		int removed = 0;

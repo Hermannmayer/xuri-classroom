@@ -1,16 +1,4 @@
-/**
- * 公告相关的共享类型与文案映射。
- *
- * <p>字段对齐后端 NoticeView（server/shared/.../domain/dto/NoticeView.java）与实施计划 4.2 的 t_notice：
- * audience = all / admin / teacher / student，scopeType = null（全站）/ class（某个班），
- * status = draft / published / archived，type = notice / system_update / ai_result。
- *
- * <p>几条来自后端契约（p2-backend 2026-11-17）的要点，改字段前先看这里：
- * - 列表接口**不下发 content**，只给 summary（120 字纯文本），要全文必须走详情接口；
- * - publishAt / expireAt / createAt / readAt 都是 Date，JSON 里是 **epoch 毫秒数字**；
- * - read / manageable 是后端按「当前登录用户」算好的，前端不要自己再推断一遍；
- * - Jackson 不返回空值，字段缺失是正常情况，页面要能降级显示而不是渲染出 undefined。
- */
+/** 公告相关的共享类型与文案映射 */
 export interface NoticeView {
   id: string;
   title?: string;

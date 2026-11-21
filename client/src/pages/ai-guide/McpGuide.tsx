@@ -13,12 +13,7 @@ import {
   type McpTool,
 } from './content';
 
-/**
- * MCP 接入的三步引导（task-16 第 1 节的第 3 部分）。
- *
- * 结构照卷王：①选客户端 → ②建 Token → ③复制配置片段，外加工具清单与验证 / 安全说明。
- * 页面只负责拼出「当前站点地址 + 令牌占位」的片段，不读、不存令牌——明文只在令牌面板出现一次。
- */
+/** MCP 接入的三步引导（task-16 第 1 节的第 3 部分） */
 export default function McpGuide({
   canManageToken,
   canOpenSettings,

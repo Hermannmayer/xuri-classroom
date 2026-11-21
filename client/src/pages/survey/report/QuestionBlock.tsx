@@ -44,10 +44,7 @@ interface OptionRow {
 
 const fmtPercent = (p: number) => `${p.toFixed(2)}%`;
 
-/**
- * 一道题一屏数据：选项题按 dataSource 列（含 0 票选项），其余题按答案文本去重计数。
- * 占比的分母是「答了这道题的人数」，多选题加起来可能超过 100%，和旧版一致。
- */
+/** 一道题一屏数据：选项题按 dataSource 列（含 0 票选项），其余题按答案文本去重计数 */
 function buildRows(q: FlatQuestion, answers: Answer[]) {
   const counts = new Map<string, number>();
   let answered = 0;

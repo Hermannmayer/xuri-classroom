@@ -133,13 +133,7 @@ public class SystemApi {
 		return view;
 	}
 
-	/**
-	 * 手动检查并升级数据库结构。
-	 *
-	 * <p>启动时会自动做一次（{@code SchemaUpgradeRunner}），但「用户直接覆盖了程序、没重启」或者
-	 * 「升级时数据库账号暂时没权限」这类情况，需要一个不重启就能重试的入口。
-	 * 幂等：结构已经最新时什么都不做。
-	 */
+	/** 手动检查并升级数据库结构 */
 	@PostMapping("/schema/upgrade")
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public SchemaUpgradeResult upgradeSchema() {
@@ -221,12 +215,7 @@ public class SystemApi {
 		return view;
 	}
 
-	/**
-	 * 把更新检查结果同步成管理员公告。
-	 *
-	 * <p>这里必须吞掉异常：检查更新本身是只读的运维动作，公告写失败（库慢、表还没建）不该让
-	 * 设置页的「检查更新」跟着报错。
-	 */
+	/** 把更新检查结果同步成管理员公告 */
 	private void recordUpdateNotice(UpdateCheckView view) {
 		try {
 			noticeService.recordSystemUpdate(view);
@@ -236,12 +225,7 @@ public class SystemApi {
 		}
 	}
 
-	/**
-	 * 自建清单：{"version":"2.1.0","notes":"...","url":"...","assets":{"jar":{...}}}。
-	 *
-	 * <p>assets 可选：填了就和 Release 里的 update.json 同构，能走完整的「下载 → 校验 → 待安装」流程；
-	 * 不填就只是「有新版本」的提示。这样内网/自建源也能用一键更新，不必依赖 GitHub Release。
-	 */
+	/** 自建清单：{"version":"2.1.0","notes":"...","url":"...","assets":{"jar":{...}}} */
 	private void fillFromManifest(UpdateCheckView view, String manifestUrl) throws Exception {
 		HttpURLConnection connection = null;
 		try {
@@ -355,10 +339,7 @@ public class SystemApi {
 		return null;
 	}
 
-	/**
-	 * 解析 update.json：版本/通道/说明/各平台资产。
-	 * <p>失败只告警不抛：更新检查是只读运维动作，清单解析不了也不该让设置页报错。
-	 */
+	/** 解析 update.json：版本/通道/说明/各平台资产 */
 	private void fillFromUpdateManifest(UpdateCheckView view, String manifestUrl) {
 		HttpURLConnection connection = null;
 		try {
@@ -589,9 +570,7 @@ public class SystemApi {
 		}
 	}
 
-	/**
-	 * @return 当前系统信息
-	 */
+	/** 返回 当前系统信息；返回 当前系统信息 */
 	@GetMapping
 	public SystemInfo getSystemInfo() {
 		return systemService.getSystemInfo();
@@ -637,16 +616,7 @@ public class SystemApi {
 		return response;
 	}
 
-	/**
-	 * 拉取服务商支持的模型列表，供系统设置 → AI 的「从服务商获取」按钮使用。
-	 *
-	 * <p>为什么用 POST 且允许带 body：管理员通常先改 Base URL / API Key，再点获取；
-	 * 这时值还没保存。带上 `{baseUrl, apiKey}` 可以「先试再存」，API Key 留空则沿用已保存的。
-	 * Key 全程只在服务端使用，响应里只有模型 id。
-	 *
-	 * @param preview 可空；只读 baseUrl / apiKey
-	 * @return {baseUrl, models: [...], count}
-	 */
+	/** 拉取服务商支持的模型列表，供系统设置 → AI 的「从服务商获取」按钮使用；返回 {baseUrl, models: [...], count} */
 	@PostMapping("/aiModels")
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public Map<String, Object> aiModels(@RequestBody(required = false) SystemInfo.AiSetting preview) {
@@ -678,10 +648,7 @@ public class SystemApi {
 		systemService.updateOAuthSetting(request);
 	}
 
-	/**
-	 * 更新系统信息
-	 * @param request 更新请求
-	 */
+	/** 更新系统信息 */
 	@PostMapping("/update")
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public void updateSystemInfo(@RequestBody SystemInfoRequest request) {
@@ -712,13 +679,7 @@ public class SystemApi {
 		return systemService.getRoles(query);
 	}
 
-	/**
-	 * 角色候选（只读）：用户组/班级绑定角色时只需要「可选角色」。
-	 *
-	 * <p>不能复用 /role/list：那个接口返回 authorities，要 system:role:list；
-	 * 只有组织/班级权限的账号打开用户组页时只需要角色名，不该因此拿到权限明细。
-	 * @return 角色候选项（不含权限串）
-	 */
+	/** 角色候选（只读）：用户组/班级绑定角色时只需要「可选角色」；返回 角色候选项（不含权限串） */
 	@GetMapping("/role/options")
 	@PreAuthorize("hasAnyAuthority('system:role:list','system:dept:list','system:dept:update','org:list','class:list') or hasRole('admin')")
 	public List<RoleOptionView> roleOptions() {
@@ -764,12 +725,7 @@ public class SystemApi {
 		systemService.deleteRole(request);
 	}
 
-	/**
-	 * 获取系统权限目录（按分组）。
-	 * 数据来源是 PermissionEnum，包含中文名/分组/说明，供「角色权限矩阵」页面渲染；
-	 * 比注解扫描多了「建议新增但尚未接入」的权限点。
-	 * @return 按分组排列的权限目录
-	 */
+	/** 获取系统权限目录（按分组）；返回 按分组排列的权限目录 */
 	@GetMapping("/permission/list")
 	@PreAuthorize("hasAuthority('system:role:list') or hasRole('admin')")
 	public List<PermissionEnum.PermissionGroupView> permissions() {
@@ -796,11 +752,7 @@ public class SystemApi {
 		return userService.getUsers(query);
 	}
 
-	/**
-	 * 只读用户候选：题库/考试授权选人、班级分配老师用。
-	 *
-	 * <p>与 /user/list 分开，避免把 system:user:list 的完整用户资料面暴露给只有 user:select 的角色。
-	 */
+	/** 只读用户候选：题库/考试授权选人、班级分配老师用 */
 	@GetMapping("/user/options")
 	@PreAuthorize("hasAnyAuthority('system:user:list','user:select') or hasRole('admin')")
 	public List<UserOptionView> userOptions(@RequestParam(required = false) String keyword,
@@ -869,11 +821,7 @@ public class SystemApi {
 		userIds.forEach(userService::deleteUser);
 	}
 
-	/**
-	 * 检查登录名是否存在
-	 * @param username 登录用户名
-	 * @return
-	 */
+	/** 检查登录名是否存在 */
 	@GetMapping("/checkUsernameExist")
 	public boolean checkUsernameExist(String username) {
 		return userService.checkUsernameExist(username);
@@ -950,10 +898,7 @@ public class SystemApi {
 		deptService.updateDept(request);
 	}
 
-	/**
-	 * 删除用户组前的预检：子组、成员数量 / 姓名、是否最后一个组。
-	 * 只给「能删组」的人看，避免把成员名单暴露给只读角色。
-	 */
+	/** 删除用户组前的预检：子组、成员数量 / 姓名、是否最后一个组 */
 	@GetMapping("/dept/delete-check")
 	@PreAuthorize("hasAuthority('system:dept:delete') or hasRole('admin')")
 	public DeptDeleteCheckView deleteCheck(@RequestParam String id) {
@@ -982,12 +927,7 @@ public class SystemApi {
 		deptService.sortDept(request);
 	}
 
-	/**
-	 * 手动清理过期的匿名答卷（按系统设置里的保留天数）。
-	 *
-	 * <p>定时任务每天 03:30 自动跑一次；这里是管理员在「系统设置」里点「立即清理」的入口。
-	 * 返回 {@code {deleted: n}}，前端用它提示清理了多少条。
-	 */
+	/** 手动清理过期的匿名答卷（按系统设置里的保留天数） */
 	@PostMapping("/anonymous/cleanup")
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
 	public Map<String, Object> cleanupAnonymousAnswers() {

@@ -8,15 +8,7 @@ import ExerciseList from '../exercise/List';
 import MyReport from './MyReport';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
-/**
- * 我的任务：把原来左侧「我的考试」和「我的练习」两个入口合并成一个。
- *
- * <p>业务上它们是两回事（考试是待考的卷子，练习是刷过的记录），但对用户来说
- * 「两个列表 + 一个进入按钮」重复感很强。合并成两个 Tab 后，左侧菜单少一项，
- * 文案也更直白：考试安排 / 练习记录。
- *
- * <p>Tab 用 URL 记忆（?tab=practice），刷新、收藏、从别处跳回来都能落在同一个页签。
- */
+/** 我的任务：把原来左侧「我的考试」和「我的练习」两个入口合并成一个 */
 export default function TaskCenter() {
   const [params, setParams] = useSearchParams();
   const [authorities, setAuthorities] = useState<string[]>([]);

@@ -1,16 +1,5 @@
--- =============================================================================
 -- 幂等补齐脚本：老库升级用（MySQL 8）
---
--- 背景：这些列/索引是在开发过程中陆续加的，以前的 init-mysql.sql 没同步，
--- 导致「老库能跑、空库跑不起来」。本脚本把老库补齐到与最新 init 脚本一致，
--- 可以重复执行，不会报 duplicate column / duplicate key。
---
--- 用法：
---   mysql -uroot -p surveyking < scripts/dev/add-indexes.sql
---   （Windows 也可）& "C:\path\mysql.exe" -uroot -p surveyking -e "source scripts/dev/add-indexes.sql"
---
 
--- =============================================================================
 
 SET @db := DATABASE();
 

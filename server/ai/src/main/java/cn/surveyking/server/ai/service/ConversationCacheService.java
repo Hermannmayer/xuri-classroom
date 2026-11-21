@@ -31,16 +31,12 @@ public class ConversationCacheService {
 		scheduler.scheduleAtFixedRate(this::cleanExpiredConversations, 1, 1, TimeUnit.MINUTES);
 	}
 
-	/**
-	 * 创建新对话缓存
-	 */
+	/** 创建新对话缓存 */
 	public void createConversation(String conversationId) {
 		conversationMap.put(conversationId, new ConversationCache());
 	}
 
-	/**
-	 * 添加消息到对话
-	 */
+	/** 添加消息到对话 */
 	public void addMessage(String conversationId, ChatRequest.EnterMessage message) {
 		ConversationCache cache = conversationMap.get(conversationId);
 		if (cache != null) {
@@ -49,9 +45,7 @@ public class ConversationCacheService {
 		}
 	}
 
-	/**
-	 * 获取对话历史消息
-	 */
+	/** 获取对话历史消息 */
 	public List<ChatRequest.EnterMessage> getMessages(String conversationId) {
 		ConversationCache cache = conversationMap.get(conversationId);
 		if (cache != null) {
@@ -61,16 +55,12 @@ public class ConversationCacheService {
 		return new ArrayList<>();
 	}
 
-	/**
-	 * 关闭并清理对话
-	 */
+	/** 关闭并清理对话 */
 	public void closeConversation(String conversationId) {
 		conversationMap.remove(conversationId);
 	}
 
-	/**
-	 * 清理过期的对话（超过10分钟未访问）
-	 */
+	/** 清理过期的对话（超过10分钟未访问） */
 	private void cleanExpiredConversations() {
 		LocalDateTime now = LocalDateTime.now();
 		List<String> expiredIds = conversationMap.entrySet().stream()

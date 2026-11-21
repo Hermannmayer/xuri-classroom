@@ -173,12 +173,7 @@ public class ApiTokenServiceImpl implements ApiTokenService {
 		}
 	}
 
-	/**
-	 * 过期时间解析：{@code yyyy-MM-dd HH:mm:ss} 与 ISO 的 {@code yyyy-MM-ddTHH:mm:ss} 都认。
-	 *
-	 * <p>为什么要宽容：前端可能按 Jackson 全局格式发，也可能按 ISO 发；为一个可选字段让用户
-	 * 反复猜格式不值得。空格统一换成 T 之后交给 {@link DateTimeFormatter#ISO_LOCAL_DATE_TIME}。
-	 */
+	/** 过期时间解析：yyyy-MM-dd HH:mm:ss 与 ISO 的 yyyy-MM-ddTHH:mm:ss 都认 */
 	private Date parseExpiresAt(String raw) {
 		if (!StringUtils.hasText(raw)) {
 			return null;
@@ -210,11 +205,7 @@ public class ApiTokenServiceImpl implements ApiTokenService {
 		return HexFormat.of().formatHex(bytes);
 	}
 
-	/**
-	 * 批量补签发用户显示名。
-	 *
-	 * <p>不逐行 {@code selectById}：令牌列表通常几十条，逐个查库是 N+1。
-	 */
+	/** 批量补签发用户显示名 */
 	private Map<String, String> userNamesOf(List<ApiToken> rows) {
 		Set<String> ids = rows.stream().map(ApiToken::getUserId).filter(StringUtils::hasText)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
@@ -234,12 +225,7 @@ public class ApiTokenServiceImpl implements ApiTokenService {
 		return names;
 	}
 
-	/**
-	 * 实体 → 视图。
-	 *
-	 * <p>指纹取的是**哈希**的首尾 4 位：表里只存 SHA-256（V2.2.5 已落地，不允许加列），
-	 * 明文片段根本拿不到。列表里的主标识是 name，指纹只用来「同一批令牌里区分谁是谁」。
-	 */
+	/** 实体 → 视图 */
 	private ApiTokenView toView(ApiToken row, String userName) {
 		ApiTokenView view = new ApiTokenView();
 		view.setId(row.getId());

@@ -176,7 +176,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		return view;
 	}
 
-	/* ====== ② AI 改题 ====== */
+	/** ====== ② AI 改题 ====== */
 
 	@Override
 	public AiQuestionRewriteView rewriteQuestion(AiQuestionRewriteRequest request) {
@@ -220,7 +220,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		return parseSuggestions(completion.getText());
 	}
 
-	/* ====== ③ AI 批改建议 ====== */
+	/** ====== ③ AI 批改建议 ====== */
 
 	@Override
 	public AiGradeSuggestView suggestGrade(AiGradeSuggestRequest request) {
@@ -265,7 +265,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		return parseGradeSuggestion(completion.getText(), maxScore.doubleValue());
 	}
 
-	/* ====== ④ AI 学情 ====== */
+	/** ====== ④ AI 学情 ====== */
 
 	@Override
 	public AiReportSummaryView summarizeReport(AiReportSummaryRequest request) {
@@ -292,7 +292,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 		return view;
 	}
 
-	/* ====== 解析其它三种场景的结果 ====== */
+	/** ====== 解析其它三种场景的结果 ====== */
 
 	private AiQuestionRewriteView parseSuggestions(String json) {
 		JsonNode root = readJsonTree(json, "AI 改题");
@@ -358,12 +358,7 @@ public class AiAssistServiceImpl implements AiAssistService {
 
 
 
-	/**
-	 * 把 {@link ReportData} 压成一段给模型看的统计文本。
-	 *
-	 * <p>只包含「题号 / 题干 / 作答数 / 合计分 / 平均分 / 最低 / 最高」与每日答卷数，
-	 * <b>不含任何学员答案原文、姓名、账号</b>。
-	 */
+	/** 把 ReportData 压成一段给模型看的统计文本 */
 	private String buildStatisticsText(ProjectView project, ReportData data) {
 		StringBuilder text = new StringBuilder();
 		text.append("项目：").append(StringUtils.hasText(project.getName()) ? project.getName() : "未命名").append('\n');

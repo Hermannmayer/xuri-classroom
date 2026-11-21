@@ -32,9 +32,7 @@ public class AppConfig implements AsyncConfigurer {
 		this.userService = userService;
 	}
 
-	/**
-	 * 一些初始化操作
-	 */
+	/** 一些初始化操作 */
 	@EventListener(ApplicationReadyEvent.class)
 	public void initAfterStartup() {
 

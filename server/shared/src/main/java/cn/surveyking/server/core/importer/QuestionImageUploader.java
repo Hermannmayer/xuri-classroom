@@ -30,12 +30,7 @@ public final class QuestionImageUploader {
 	private QuestionImageUploader() {
 	}
 
-	/**
-	 * 逐张上传并把 {@code <img>} 追加到题干末尾；返回成功挂上的张数。
-	 *
-	 * <p>
-	 * 单张失败只跳过该张（记日志），不让整批导入失败。
-	 */
+	/** 逐张上传并把 {@code } 追加到题干末尾；返回成功挂上的张数 */
 	public static int attach(FileService fileService, SurveySchema schema, List<byte[]> images) {
 		if (fileService == null || schema == null || images == null || images.isEmpty()) {
 			return 0;
@@ -66,10 +61,7 @@ public final class QuestionImageUploader {
 		return attached;
 	}
 
-	/**
-	 * 按 {@link TemplateRequest#getSourceSheet()}/{@link TemplateRequest#getSourceRow()} 把 Excel 内嵌图片挂到
-	 * 每道题的题干末尾（题库导入没有 token 替换那一层，直接挂 HTML）；返回挂上的总张数。
-	 */
+	/** 按 TemplateRequest#getSourceSheet()/TemplateRequest#getSourceRow() 把 Excel 内嵌图片挂到 每道题的题干末尾（题库导入没有 token 替换那一层，直接挂 HTML）；返回挂上的总张数 */
 	public static int attachRowImages(FileService fileService, List<TemplateRequest> templates,
 			ExcelRowImages rowImages) {
 		if (templates == null || rowImages == null || rowImages.isEmpty()) {
@@ -86,7 +78,7 @@ public final class QuestionImageUploader {
 		return attached;
 	}
 
-	/** 把一段 {@code <img>} 追加到题干末尾，并打上富题干标记（渲染层据此消毒后展示）。 */
+	/** 把一段 {@code } 追加到题干末尾，并打上富题干标记（渲染层据此消毒后展示） */
 	public static void appendImage(SurveySchema schema, String html) {
 		String title = schema.getTitle() == null ? "" : schema.getTitle().trim();
 		schema.setTitle(title.isEmpty() ? html : title + " " + html);
@@ -96,9 +88,7 @@ public final class QuestionImageUploader {
 		schema.getAttribute().setRichTitle(true);
 	}
 
-	/**
-	 * 按文件头判断图片类型；不是支持的位图返回 null。
-	 */
+	/** 按文件头判断图片类型；不是支持的位图返回 null */
 	public static String guessImageExtension(byte[] data) {
 		if (data == null || data.length < 8) {
 			return null;

@@ -53,12 +53,7 @@ public class LoginFormValidator {
 
 	private final AnswerLimitGuard answerLimitGuard;
 
-	/**
-	 * 如果问卷需要登录、需要密码答卷、需要白名单答卷进入问卷之前需要弹出验证表单
-	 * @param project 当前项目
-	 * @param answer 查询表单的答案
-	 * @return 返回查询表单的 schema，如果未空，则会直接进入到答卷页面
-	 */
+	/** 如果问卷需要登录、需要密码答卷、需要白名单答卷进入问卷之前需要弹出验证表单；返回 查询表单的 schema，如果未空，则会直接进入到答卷页面 */
 	public SurveySchema convertAndValidateLoginFormIfNeeded(ProjectView project,
 			LinkedHashMap<String, Object> answer) {
 		boolean loginRequired = false;
@@ -229,11 +224,7 @@ public class LoginFormValidator {
 		return null;
 	}
 
-	/**
-	 * 答卷前登录校验用户名和密码
-	 * @param answer
-	 * @return
-	 */
+	/** 答卷前登录校验用户名和密码 */
 	private Authentication validateUsernameAndPassword(LinkedHashMap<String, Object> answer) {
 		try {
 			Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(

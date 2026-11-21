@@ -197,13 +197,7 @@ function toApplyPatch(patch: AiRepoPatch): AiRepoPatch {
   };
 }
 
-/**
- * 取建议题目的原始字段。
- *
-
- * 只为判断「原本是否为空」，按页翻到 id 找齐就停，最多 6 页（300 题）——
- * 再往后翻的代价已经超过重新体检一次了。取不到不影响展示，只是对应行默认不勾。
- */
+/** 取建议题目的原始字段 */
 async function loadOriginals(repoId: string, ids: string[]): Promise<Map<string, TemplateRow>> {
   const PAGE_SIZE = 50;
   const wanted = new Set(ids);

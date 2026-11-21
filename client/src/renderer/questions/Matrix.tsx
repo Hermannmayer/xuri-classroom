@@ -3,10 +3,7 @@ import type { Row } from '../../schema/types';
 import type { Option } from './answers';
 import { useQuestionA11y, useQuestionLabelId } from './shared';
 
-/**
- * 矩阵表格骨架：行标题固定首列，列多时外层横向滚动（375px 不撑破页面）。
- * 无障碍：表格名指向题干 id；单元格的可访问名带上「行 / 列」，读屏才不用自己数格子。
- */
+/** 矩阵表格骨架：行标题固定首列，列多时外层横向滚动（375px 不撑破页面） */
 export function MatrixTable({
   rows,
   columns,
@@ -56,11 +53,7 @@ export function MatrixTable({
   );
 }
 
-/**
- * 矩阵里的方形格子：选中变橙，复用蓝图风格。
- * 无障碍：角色跟着题型走（矩阵单选是 radio、多选是 checkbox，由 QuestionFrame 通过 Context 给），
- * 用 aria-checked 表达选中状态；aria-label 说明这是哪一行哪一列。
- */
+/** 矩阵里的方形格子：选中变橙，复用蓝图风格 */
 export function MatrixMark({
   checked,
   disabled,

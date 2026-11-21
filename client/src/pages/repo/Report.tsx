@@ -13,12 +13,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * 题库统计。
- *
-
- * 只看「这个库有多少题、被练了多少次、哪些题最容易错」。
- */
+/** 题库统计 */
 export default function RepoReport() {
   const { repoId = '' } = useParams();
   const [data, setData] = useState<RepoReportInfo>();

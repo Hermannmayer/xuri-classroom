@@ -167,29 +167,7 @@ interface UpdateCheckInfo {
   assets?: Record<string, UpdateAsset>;
 }
 
-/**
- * 系统设置：基本 / 登录与注册 / 内容与导出 / AI / 系统与更新。
- *
- * 为什么从 7 个 Tab 收到 5 个：原来「内容与隐私」「答卷导出」「匿名答卷」「MCP 令牌」各占一个 Tab，
- * （MCP 令牌后来又从「系统与更新」挪进了「AI」：它服务的是 AI 客户端，不是运维动作）
- * 管理员为了改一个水印要记住它在第几个 Tab 里；合并的规则是「同一类人、同一件事」——
- * 品牌与水印都在「基本」，登录与注册 + 匿名答卷都在「开放入口」，导出密码与 PDF 并发都在「内容与导出」，
- * 检查更新与令牌都是「运维动作」。合并只改归属，不改任何一条接口与权限。
- *
- * 保存方式分三种（合并后仍然三种，没有互相污染）：
- * - 基本 / 登录与注册 / 内容与导出 / AI / 系统与更新走 Form + 各自底部的「保存」（save），
- *   接口是 POST /api/system/update，权限 system:setting:update（或 admin）；
- * - 基本里的水印 / 防复制是「改完即存」，走独立接口 POST /api/system/protection（只写
- *   copyProtected / watermarkEnabled / watermarkMode，其它字段后端一律忽略），权限 content:protect，
- *   保存成功后广播 window 事件，让 main.tsx 里挂的水印 / 防复制组件立即生效；
- * - AI 页签里的「MCP / API 令牌」面板不走保存按钮：列表 / 签发 / 撤销都是即时生效的独立接口，
- *   权限同样是 system:setting:update；没有该权限时不渲染列表、也不发请求。
- *
- * 品牌字段只能用后端 SystemInfoRequest 已支持的：name、description、avatar（Logo）、
- * setting.copyright、setting.recordNum、setting.favicon。
- * 上传走 POST /api/file/create（multipart，publicRead=true），返回文件 id，
- * 前端存公开预览地址 /api/public/preview/<id> 到 avatar，登录页未登录也能加载。
- */
+/** 系统设置：基本 / 登录与注册 / 内容与导出 / AI / 系统与更新。 */
 export default function SystemSetting() {
   const [form] = Form.useForm();
 
@@ -370,10 +348,7 @@ export default function SystemSetting() {
     };
   }, [load]);
 
-  /**
-   * 模型状态与今日用量：两个接口互不依赖，一个失败不该把另一个也吞掉
-   * （比如 ai:use 有、但 AI 总开关关着时，status 仍然可读）。
-   */
+  /** 模型状态与今日用量：两个接口互不依赖，一个失败不该把另一个也吞掉 （比如 ai:use 有、但 AI 总开关关着时，status 仍然可读） */
   const loadAiOverview = useCallback(async () => {
     if (!canAiUse) return;
     setUsageLoading(true);
@@ -419,13 +394,7 @@ export default function SystemSetting() {
     }
   };
 
-  /**
-   * 水印 / 防复制：单项改完立即保存，只提交改动的那一个字段。
-   * 走独立接口 POST /api/system/protection（只认 content:protect / admin）：后端只接受
-   * setting.copyProtected / setting.watermarkEnabled / setting.watermarkMode 三个字段，
-
-   * 先乐观更新界面，失败回滚到改动前并给出错误提示。
-   */
+  /** 水印 / 防复制：单项改完立即保存，只提交改动的那一个字段 */
   const saveProtection = async (patch: Partial<ProtectionSetting>) => {
     const prev = protection;
     const next = { ...prev, ...patch };
@@ -451,10 +420,7 @@ export default function SystemSetting() {
     }
   };
 
-  /**
-   * 导出密码：只写不读（后端不回显明文），输入框留空 + 点保存 = 清除密码、关闭保护。
-   * 清除前二次确认，避免管理员误点把保护关掉。
-   */
+  /** 导出密码：只写不读（后端不回显明文），输入框留空 + 点保存 = 清除密码、关闭保护 */
   const saveExportPassword = async () => {
     const value = exportPassword.trim();
     if (!value && hasExportPassword) {
@@ -564,13 +530,7 @@ export default function SystemSetting() {
     }
   };
 
-  /**
-   * 从服务商拉模型列表（系统设置 → AI →「从服务商获取」）。
-   *
-   * <p>带的是表单里的当前值而不是已保存值：管理员通常「先填 Key → 点获取 → 选模型 → 保存」，
-   * 逼他先保存等于每次换服务商都要多按一次；API Key 留空时后端沿用已保存的那把。
-   * 拉到的模型是**追加**到现有列表，不会把手工加的清掉。
-   */
+  /** 从服务商拉模型列表（系统设置 → AI →「从服务商获取」） */
   const fetchModels = async () => {
     setFetchingModels(true);
     try {
@@ -1592,12 +1552,7 @@ function ProtectionRow({ label, hint, children }: { label: string; hint: string;
 }
 
 /** 每个 Tab 底部的保存条：虚线段 + 保存按钮 */
-/**
- * 分区底部的保存条。
- *
- * <p>原来是普通按钮，跟着表单一路排在最底下：手机上要滚完整个分区才看得见，
- * 用户以为「没有保存按钮」。现在做成吸底条，常驻在可视区底部（并给底部导航让位）。
- */
+/** 分区底部的保存条 */
 function SaveBar({ loading, onSave }: { loading: boolean; onSave: () => void }) {
   return (
     <div className="sk-settings-savebar">

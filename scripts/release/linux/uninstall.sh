@@ -1,17 +1,5 @@
 #!/usr/bin/env bash
-# ============================================================
 # 旭日云课堂 · Linux 卸载器
-#
-# 默认只停止并删除 systemd 服务，保留安装目录（含 app.env 与 files/ 上传文件）。
-# --purge 才会删除安装目录和运行用户；数据库数据与备份永远需要手动处理。
-#
-# 用法：
-#   sudo bash uninstall.sh
-#   sudo bash uninstall.sh --purge          # 连安装目录和运行用户一起删
-#   sudo bash uninstall.sh --install-dir /data/xuri-classroom --purge --yes
-#
-# 支持 bash；请勿使用 sh uninstall.sh。
-# ============================================================
 set -euo pipefail
 
 SERVICE_NAME="xuri-classroom"

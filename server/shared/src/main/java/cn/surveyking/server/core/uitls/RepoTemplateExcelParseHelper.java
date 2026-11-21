@@ -78,9 +78,7 @@ public class RepoTemplateExcelParseHelper {
 		this.templateFile = templateFile;
 	}
 
-	/**
-	 * 非致命提示（JSON 列写错、图片超限等），由调用方并入 ImportPreview.warnings。
-	 */
+	/** 非致命提示（JSON 列写错、图片超限等），由调用方并入 ImportPreview.warnings */
 	public List<ParseWarning> getWarnings() {
 		return warnings;
 	}
@@ -260,13 +258,7 @@ public class RepoTemplateExcelParseHelper {
 		addQuestion(schema, r);
 	}
 
-	/**
-	 * 上传题：题干 + 分数 + 答案列（可选，当「参考答案/示例说明」保留）。
-	 *
-	 * <p>
-	 * 属性跟设计器建题的默认值对齐：前端 Upload 组件读的是 {@code maxFileCount / maxFileSize}
-	 * （client/src/renderer/questions/Upload.tsx），不是 uploadCount。
-	 */
+	/** 上传题：题干 + 分数 + 答案列（可选，当「参考答案/示例说明」保留） */
 	private void parseUpload(Row r) {
 		SurveySchema schema = baseSchema(r);
 		schema.setType(SurveySchema.QuestionType.Upload);
@@ -284,13 +276,7 @@ public class RepoTemplateExcelParseHelper {
 		addQuestion(schema, r);
 	}
 
-	/**
-	 * 矩阵题（单选/多选/填空）：行在 {@code schema.row}，列在 {@code dataSource}，children 同步一份列节点。
-	 *
-	 * <p>
-	 * 这是设计器（client/src/designer/defaults.ts 的 MATRIX_TYPES 分支）真正生成的形状：渲染层按
-	 * {@code row} 画行、按 {@code dataSource}（缺省回落到 children）画列，两层 children 的写法渲染不出来。
-	 */
+	/** 矩阵题（单选/多选/填空）：行在 schema.row，列在 dataSource，children 同步一份列节点 */
 	private void parseMatrix(Row r, SurveySchema.QuestionType questionType) {
 		SurveySchema schema = baseSchema(r);
 		schema.setType(questionType);
@@ -335,13 +321,7 @@ public class RepoTemplateExcelParseHelper {
 		addQuestion(schema, r);
 	}
 
-	/**
-	 * 矩阵答案：按行填写，行之间用 {@code |}，行内多选用 {@code ,}。
-	 *
-	 * <p>
-	 * 矩阵题不参与自动判分（前端 EXAM_TYPES 也不含矩阵），所以答案原样存进
-	 * {@code attribute.examCorrectAnswer}（行之间 {@code |}），不做选项 id 映射。
-	 */
+	/** 矩阵答案：按行填写，行之间用 |，行内多选用 , */
 	private void applyMatrixAnswer(SurveySchema schema, Row r, SurveySchema.QuestionType questionType,
 			int rowCount) {
 		String answer = getCellAsString(r, "examCorrectAnswer");
@@ -406,9 +386,7 @@ public class RepoTemplateExcelParseHelper {
 
 
 
-	/**
-	 * 各类 sheet 共用的题目骨架：题干（含图片 token）、解析、分数、章节、难度、标签。
-	 */
+	/** 各类 sheet 共用的题目骨架：题干（含图片 token）、解析、分数、章节、难度、标签 */
 	private SurveySchema baseSchema(Row r) {
 		String tags = getCellAsString(r, "tags");
 		return SurveySchema.builder().title(getCellAsString(r, "title"))
@@ -446,9 +424,7 @@ public class RepoTemplateExcelParseHelper {
 				.attribute(SurveySchema.Attribute.builder().build()).build();
 	}
 
-	/**
-	 * 组装一条 TemplateRequest：先合并「高级配置(JSON)」，再取题型/标题/章节。
-	 */
+	/** 组装一条 TemplateRequest：先合并「高级配置(JSON)」，再取题型/标题/章节 */
 	private void addQuestion(SurveySchema schema, Row r) {
 
 
@@ -466,10 +442,7 @@ public class RepoTemplateExcelParseHelper {
 		result.add(templateRequest);
 	}
 
-	/**
-	 * 「判分模式」列：写「人工 / 人工批改 / manual / 是」都按人工评分处理，其余（含留空）保持题型默认。
-	 * <p>判不过就什么都不改——导入是批量操作，不该因为一格内容不符合预期就整批失败。
-	 */
+	/** 「判分模式」列：写「人工 / 人工批改 / manual / 是」都按人工评分处理，其余（含留空）保持题型默认 */
 	private SurveySchema applyJudgeMode(SurveySchema schema, Row r) {
 		String raw = getCellAsString(r, "judgeMode");
 		if (isBlank(raw)) {
@@ -598,11 +571,6 @@ public class RepoTemplateExcelParseHelper {
 
 
 
-	/**
-	 * @param currentIndex 当前选项的序号，从 0 开始
-	 * @param rightAnswer 正确答案序号 A/B/C/D
-	 * @return
-	 */
 	private boolean currentChecked(int currentIndex, String rightAnswer) {
 		if (isBlank(rightAnswer)) {
 			return false;
@@ -655,10 +623,7 @@ public class RepoTemplateExcelParseHelper {
 
 	}
 
-	/**
-	 * 根据标题解析出来各个选项的顺序
-	 * @param header
-	 */
+	/** 根据标题解析出来各个选项的顺序 */
 	private void parseHeader(Row header) {
 		name2index = new HashMap<>();
 		List<Integer> optionCellIndexes = new ArrayList<>();
@@ -715,12 +680,7 @@ public class RepoTemplateExcelParseHelper {
 		return r.stream().allMatch(cell -> cell == null || isBlank(cell.getText()));
 	}
 
-	/**
-	 * 避免列索引为空时获取值报错
-	 * @param row
-	 * @param cellName
-	 * @return
-	 */
+	/** 避免列索引为空时获取值报错 */
 	private String getCellAsString(Row row, String cellName) {
 		if (name2index.get(cellName) == null) {
 			return null;

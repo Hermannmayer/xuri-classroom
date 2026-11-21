@@ -114,9 +114,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			+ " WHERE cr.resource_id = t_repo.id AND cr.resource_type = 'repo' AND cr.is_deleted = 0"
 			+ " AND cr.class_id IN (" + UserDeptScopeService.DEPT_SCOPE_SQL + "))";
 
-	/**
-	 * 题库列表排序：只接受白名单字段，避免前端传任意列造成 SQL 注入式排序。
-	 */
+	/** 题库列表排序：只接受白名单字段，避免前端传任意列造成 SQL 注入式排序 */
 	private void applyRepoOrder(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper,
 			RepoQuery query) {
 		boolean desc = Boolean.TRUE.equals(query.getSortDesc());
@@ -180,12 +178,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		return result;
 	}
 
-	/**
-	 * 题库可见性（listRepo 与 listRepoCategories 共用）。
-	 *
-	 * <p>管理员全量；非管理员按「自己创建 / 共享 / 逐个或按组授权 / 按班级分配」收窄。
-	 * @param memberOnly 只算成员可见范围（学员的练习册入口用）
-	 */
+	/** 题库可见性（listRepo 与 listRepoCategories 共用） */
 	private void applyRepoVisibility(
 			com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Repo> wrapper, String currentUserId,
 			boolean memberOnly) {
@@ -216,13 +209,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		});
 	}
 
-	/**
-	 * 题库分类/文件夹列表：目录登记表 + t_repo 现有 category 的 distinct 值，扁平返回。
-	 *
-	 * <p>同一路径只出现一次；t_repo.category 写了多级（如 A/B）会自动补齐祖先节点（A）。
-	 * count = 直接挂在该目录 + 所有子目录的**可见**题库数；返回顺序是「父在前、子紧跟」的前序，
-	 * 同层按名称排序，前端可以直接顺序建树。
-	 */
+	/** 题库分类/文件夹列表：目录登记表 + t_repo 现有 category 的 distinct 值，扁平返回 */
 	@Override
 	public List<RepoCategoryView> listRepoCategories() {
 		String currentUserId = SecurityContextUtils.getUserId();
@@ -398,11 +385,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		return path;
 	}
 
-	/**
-	 * 题库统计：题量、题型/难度分布、练习概况。
-	 *
-	 * <p>练习答卷的判定：t_answer.repo_id 命中且 exam_exercise_type 非空。正式考试的答卷 repo_id 为空，不会混进来。
-	 */
+	/** 题库统计：题量、题型/难度分布、练习概况 */
 	public RepoReportView repoReport(String repoId) {
 
 
@@ -549,11 +532,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		}
 	}
 
-	/**
-	 * 从题库里面挑选题目
-	 * @param repos
-	 * @return
-	 */
+	/** 从题库里面挑选题目 */
 	@Override
 	public List<SurveySchema> pickQuestionFromRepo(List<ProjectSetting.RandomSurveyCondition> repos) {
 		List<Template> templates = new ArrayList<>();
@@ -620,9 +599,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		batchAddRepoTemplate(request);
 	}
 
-	/**
-	 * Word 导入：题库只存题目本体，图片占位符去掉（题库题目不支持富题干）。
-	 */
+	/** Word 导入：题库只存题目本体，图片占位符去掉（题库题目不支持富题干） */
 	private List<TemplateRequest> parseWordToTemplate(MultipartFile file) {
 		ImportPreview preview = new WordQuestionParser(file).parse();
 		List<TemplateRequest> templates = new ArrayList<>();
@@ -641,9 +618,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		return templates;
 	}
 
-	/**
-	 * 文本导入：把解析结果转成题库模板条目（序号从 1 递增，供增量更新）。
-	 */
+	/** 文本导入：把解析结果转成题库模板条目（序号从 1 递增，供增量更新） */
 	private List<TemplateRequest> parseTextToTemplate(String text) {
 		if (!StringUtils.hasText(text)) {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "请提供要导入的题目文本");
@@ -673,13 +648,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		return templates;
 	}
 
-	/**
-	 * 题库导入也吃 Excel 内嵌图片：按「行号」把图片上传成题目图片（公开预览地址），追加到题干末尾。
-	 *
-	 * <p>
-	 * 题库没有 token 替换那一层（ImportServiceImpl.applyAttachments 是试卷导入专用的），所以这里直接挂
-	 * {@code <img>} + {@code richTitle=true}；单张上传失败只跳过该图，不影响整批导入。
-	 */
+	/** 题库导入也吃 Excel 内嵌图片：按「行号」把图片上传成题目图片（公开预览地址），追加到题干末尾 */
 	private void attachExcelRowImages(MultipartFile file, List<TemplateRequest> templates) {
 		ExcelRowImages rowImages;
 		try {
@@ -717,12 +686,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		return new PaginationResponse<>(page.getTotal(), views);
 	}
 
-	/**
-	 * 给每条记录标出「这道题还能不能打开」。
-	 *
-	 * <p>错题本/收藏只存了 template_id 快照：题目被删、来自试卷内临时的自建题、题库取消分配或窗口关闭，
-	 * 记录还在但题面取不到。列表页据此把「练这题」置灰并显示原因，而不是让用户点进去才看到加载失败。
-	 */
+	/** 给每条记录标出「这道题还能不能打开」 */
 	private void fillAvailability(List<UserBookView> views) {
 		if (CollectionUtils.isEmpty(views)) {
 			return;
@@ -1024,16 +988,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		response.getOutputStream().write(content);
 	}
 
-	/**
-	 * 导出题库的全部题目为 xlsx 字节（只拼内容，不碰 HTTP 响应）。
-	 *
-	 * <p>
-	 * 单独拆出来是为了能单测「导出 → 再导入」的闭环：导出与导入共用
-	 * {@link cn.surveyking.server.core.uitls.RepoTemplateI18n} 的 sheet 名与表头，13 种题型各一个 sheet，
-	 * 空题型不建 sheet（细节见 {@link RepoQuestionExcelExporter}）。
-	 * @param request 题库请求（只用 id）
-	 * @return xlsx 字节
-	 */
+	/** 导出题库的全部题目为 xlsx 字节（只拼内容，不碰 HTTP 响应）；返回 xlsx 字节。 */
 	byte[] exportRepoQuestionsBytes(RepoRequest request) {
 		assertReadableRepo(request.getId());
 

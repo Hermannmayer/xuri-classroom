@@ -35,20 +35,14 @@ public class ReportApi {
 
 	private final ClassService classService;
 
-	/**
-	 * 答卷分布统计。
-	 *
-	 * <p>
-	 * 原来挂在 {@code SurveyApi} 的 {@code /api/public} 前缀下（那个前缀只是"不要求登录"），
-	 * 结果一个需要报表权限的管理接口长着公开答题接口的 URL。现在移到报表域，URL 与所需权限一致。
-	 */
+	/** 答卷分布统计 */
 	@PostMapping("/statistics")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public PublicStatisticsView statProject(@RequestBody ProjectQuery query) {
 		return surveyService.statProject(query);
 	}
 
-	/** 班级报表：班级可见即可看本班，不要求项目协作者；只统计该班（含班级链接匿名）；可按提交时间过滤。 */
+	/** 班级报表：班级可见即可看本班，不要求项目协作者；只统计该班（含班级链接匿名）；可按提交时间过滤 */
 	@GetMapping("/class/{shortId}")
 	@PreAuthorize("hasAuthority('project:report') or hasRole('admin')")
 	public ReportData getClassData(@PathVariable String shortId, @RequestParam("classId") String classId,

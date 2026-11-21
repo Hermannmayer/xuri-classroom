@@ -16,14 +16,10 @@ import java.util.List;
 @Mapper
 public interface TeachingMapper {
 
-	/**
-	 * 我参与的考试：自己是所有者，或是协作者（type 1/2），带答卷数与平均分。
-	 */
+	/** 我参与的考试：自己是所有者，或是协作者（type 1/2），带答卷数与平均分 */
 	List<TeachingProjectView> listMyProjects(@Param("userId") String userId);
 
-	/**
-	 * 某场考试按班级（用户组）聚合：交卷数、平均分。
-	 */
+	/** 某场考试按班级（用户组）聚合：交卷数、平均分 */
 	List<TeachingClassView> listClasses(@Param("projectId") String projectId);
 
 }

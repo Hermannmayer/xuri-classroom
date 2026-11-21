@@ -1,30 +1,5 @@
 #!/usr/bin/env bash
-# =============================================================================
 # 旭日云课堂 · NAS 回滚脚本（目标态 xuri-prod: db + app + web）
-#
-# 用途：把生产切回某个已有镜像，默认切回 release.sh 记录的 <repo>:previous。
-#       release.sh 健康检查失败时会自动调用同样的逻辑；本脚本用于人工回滚。
-#
-# 用法：
-#   bash scripts/nas/rollback.sh --list                    # 先看有哪些镜像可回滚
-#   CONFIRM=yes bash scripts/nas/rollback.sh                # 回滚到 previous（默认）
-#   CONFIRM=yes bash scripts/nas/rollback.sh --to 20261101-0930
-#   CONFIRM=yes bash scripts/nas/rollback.sh --image xuri-classroom:20261020-1
-#   bash scripts/nas/rollback.sh --dry-run                  # 只看计划
-#
-# 安全约定：
-#   - 只做 docker tag 之外的两件事：docker compose up -d（换回旧镜像）+ 健康检查
-#   - 不执行 docker compose down / down -v / docker rm -v，不删除任何镜像或卷
-#   - 未确认 CONFIRM=yes（或 --yes）时不做任何改动
-#
-# 退出码：
-#   0  回滚成功，健康检查通过
-#   1  参数/环境错误、未确认，或找不到目标镜像（未改动生产）
-#   3  docker compose up -d 失败（生产状态不确定，需人工看 ps/logs）
-#   4  up -d 成功但健康检查没通过（生产可能不可用，需人工处理）
-#
-# 首次使用请先：chmod +x scripts/nas/rollback.sh
-# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

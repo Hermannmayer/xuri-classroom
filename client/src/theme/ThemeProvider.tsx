@@ -12,7 +12,7 @@ function readMode(): ThemeMode {
   return saved === 'dark' ? 'dark' : 'light';
 }
 
-/** 把主题落到 <html data-theme>，global.css 的 :root[data-theme='light'] 靠它生效 */
+/** 把主题落到 ，global.css 的 :root[data-theme='light'] 靠它生效 */
 function applyMode(mode: ThemeMode) {
   document.documentElement.dataset.theme = mode;
 }

@@ -1,6 +1,4 @@
 -- 富文本图片与项目/题库的引用关系。
--- 为什么要单独一张表：图片可能先挂在题库，组卷后又被试卷引用；删题库时不能把试卷还在用的图删掉。
--- 引用计数为 0 时才删物理文件（见 FileServiceImpl#deleteByOwner / FileRefServiceImpl）。
 CREATE TABLE IF NOT EXISTS `t_file_ref` (
   `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `file_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,

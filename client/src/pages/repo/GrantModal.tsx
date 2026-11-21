@@ -51,13 +51,7 @@ interface UserOption {
 
 type GrantMode = 'dept' | 'user';
 
-/**
- * 题库授权管理。
- *
- * 上半部分列出「已经授权给谁」并可取消，下半部分新增授权（按用户组或按个人）。
- * 后端：t_repo_partner 一条记录 = 一个组（dept_id）或一个人（user_id）；
- * 组授权靠 t_user.dept_id 自动继承，以后进组的人不需要重新授权。
- */
+/** 题库授权管理 */
 export default function GrantModal({
   repoId,
   repoIds,

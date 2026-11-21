@@ -119,10 +119,7 @@ public class AnswerApi {
 		answerService.batchDestroyAnswer(request);
 	}
 
-	/**
-	 * 从回收站里面恢复答案
-	 * @param request
-	 */
+	/** 从回收站里面恢复答案 */
 	@PreAuthorize("hasAuthority('answer:restore') or hasRole('admin')")
 	@PostMapping("/restore")
 	public void restoreAnswer(@RequestBody AnswerRequest request) {
@@ -187,10 +184,7 @@ public class AnswerApi {
 		return exportGuardService.issueToken(body == null ? null : body.get("exportPassword"));
 	}
 
-	/**
-	 * 不带班级范围时的项目数据权限校验，等价于原来的 {@code @EnableDataPerm(key = "#query.projectId")}：
-	 * 管理员放行；其余要求是项目所有者/协作者（含按用户组授权）。
-	 */
+	/** 不带班级范围时的项目数据权限校验，等价于原来的 @EnableDataPerm(key = "#query.projectId")： 管理员放行；其余要求是项目所有者/协作者（含按用户组授权） */
 	private void assertProjectExportAllowed(String projectId) {
 		if (SecurityContextUtils.isAdmin()) {
 			return;

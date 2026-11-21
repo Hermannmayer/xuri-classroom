@@ -74,7 +74,7 @@ function normalizeLink(raw: string): string | null {
   return null;
 }
 
-/** 字号：TextStyle mark 上的 fontSize 属性，存成 16px 这种值。 */
+/** 字号：TextStyle mark 上的 fontSize 属性，存成 16px 这种值 */
 const FontSize = Extension.create({
   name: 'fontSize',
   addGlobalAttributes() {
@@ -146,12 +146,7 @@ const QuestionRef = Node.create({
   },
 });
 
-/**
- * 题库/试卷题目描述用富文本编辑器。
- *
- * <p>编辑态图片按 ownerType/ownerId 登记引用；答题态走 /api/public/upload，
- * 由后端校验项目/题目并把图片挂到本次答卷上下文。
- */
+/** 题库/试卷题目描述用富文本编辑器 */
 export default function RichTextEditor({
   value,
   onChange,

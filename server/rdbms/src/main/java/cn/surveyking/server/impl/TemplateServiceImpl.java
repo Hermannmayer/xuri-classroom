@@ -133,9 +133,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		templates.stream().map(Template::getRepoId).filter(Objects::nonNull).distinct().forEach(this::gcRepoRefs);
 	}
 
-	/**
-	 * 章节/难度以题目 schema 为准回填到实体列（列表筛选/组卷要用）。
-	 */
+	/** 章节/难度以题目 schema 为准回填到实体列（列表筛选/组卷要用） */
 	private void fillChapterAndDifficulty(TemplateRequest request) {
 		SurveySchema schema = request.getTemplate();
 		if (schema != null) {
@@ -332,11 +330,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		throw new ValidationException("没有权限访问该模板");
 	}
 
-	/**
-
-	 * <p>错题本/收藏只存了 template_id 快照，题目被删、题库取消分配、窗口关闭都会让记录变成死链。
-	 * 列表页用它在打开之前就把「练这题」置灰。
-	 */
+	/** 列表页用它在打开之前就把「练这题」置灰 */
 	public String unreadableReason(String templateId) {
 		if (templateId == null || templateId.isBlank()) {
 			return "记录里没有题目 id";

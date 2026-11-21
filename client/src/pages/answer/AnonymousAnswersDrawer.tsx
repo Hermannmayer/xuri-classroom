@@ -13,10 +13,7 @@ interface PublicAttempt {
 const scoreText = (value?: number | null) =>
   value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : `${Number(value).toFixed(1)} 分`;
 
-/**
- * 「我的答卷」抽屉：列出当前身份（登录用户按 create_by，未登录按 sk-anon cookie）
- * 在这份卷子上的答卷；登录后可以把匿名答卷绑定到账号。
- */
+/** 「我的答卷」抽屉：列出当前身份（登录用户按 create_by，未登录按 sk-anon cookie） 在这份卷子上的答卷；登录后可以把匿名答卷绑定到账号 */
 export default function AnonymousAnswersDrawer({
   open,
   projectId,

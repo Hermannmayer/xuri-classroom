@@ -1,6 +1,4 @@
--- 审计日志清理：按 create_at 范围删除（2.2.6，幂等）
--- 现有索引是 (action, create_at) / (create_by) / (target_id, create_at)，前导列都不是 create_at，
--- 单独按时间删会用不上索引，只能全表扫。补一个单列索引。
+-- 审计日志清理：按 create_at 范围删除（2.2.6，幂等） 现有索引是 (action, create_at) / (create_by) / (target_id, create_at)，前导列都不是 create_at， 单独按时间删会用不上索引，只能全表扫。
 SET NAMES utf8mb4;
 
 SET @idx_exists := (

@@ -7,20 +7,7 @@ import { CAPABILITIES, MODEL_FAQS } from './content';
 import type { Capability } from './content';
 import './ai-guide.css';
 
-/**
- * AI 使用说明（可嵌入组件）。
- *
- * 原来是一整个独立页面 /ai（页头 + 左侧目录 + 四节长文）。导航收敛后 /ai 只剩一条重定向，
- * 说明搬进「系统设置 → AI」页签底部折叠展示——用户是在配模型的地方想知道「配完能干什么」，
- * 来回跳页面反而多一步。因此这里只保留内容，页头、目录、章节锚点全部去掉。
- *
- * 三件事必须一直说清楚，缺一条就会有人反复问：
- * 1. 每项能力从哪进（能力卡片的「从哪进」+ 底部直达链接）；
- * 2. 配完 Key 之后还差什么（开通三步 + 没配好时的排查顺序）；
- * 3. 额度怎么算（尤其「后台任务不受每分钟限流」，不然一次批改就以为被限死了）。
- *
- * 权限口径：链接按目标页面的守卫逐个判权，没权限就不渲染，避免「点进去 403」。
- */
+/** AI 使用说明（可嵌入组件） */
 export function AiCapabilityGuide({
 
   authorities,
@@ -223,10 +210,7 @@ export function AiCapabilityGuide({
 
 export default AiCapabilityGuide;
 
-/**
- * 能力卡片底部的「去…」：先看这条能力落在哪类页面，再按该页面的守卫判权。
- * 判权失败就不渲染链接——宁可少一个入口，也不要让人点进去吃 403。
- */
+/** 能力卡片底部的「去…」：先看这条能力落在哪类页面，再按该页面的守卫判权 */
 function entryLink(item: Capability, authorities: string[]): { to: string; label: string } | undefined {
   if (!item.target) return undefined;
   if (item.target === 'notice') {

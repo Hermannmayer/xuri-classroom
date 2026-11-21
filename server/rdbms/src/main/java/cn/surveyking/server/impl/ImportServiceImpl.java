@@ -71,9 +71,7 @@ public class ImportServiceImpl implements ImportService {
 		return preview;
 	}
 
-	/**
-	 * 把解析时抽出的图片落成文件，并把题干里的占位 token 换成图片地址。
-	 */
+	/** 把解析时抽出的图片落成文件，并把题干里的占位 token 换成图片地址 */
 	private void applyAttachments(ImportPreview preview) {
 		Map<String, byte[]> attachments = preview.getAttachments();
 		if (attachments == null || attachments.isEmpty()) {

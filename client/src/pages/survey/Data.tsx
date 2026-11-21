@@ -64,10 +64,7 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
-/**
- * 批改状态还没进公共 Answer 类型（公共类型在 schema/project.ts，本次不改），
- * 这里集中一处取值，避免每个用到的地方都写一遍断言。
- */
+/** 批改状态还没进公共 Answer 类型（公共类型在 schema/project.ts，本次不改）， 这里集中一处取值，避免每个用到的地方都写一遍断言 */
 function gradeStatusOf(row: Answer): string | undefined {
   return (row as GradableAnswer).gradeStatus;
 }
@@ -89,15 +86,7 @@ function useIsMobile() {
 
 type EditorState = { mode: 'create' } | { mode: 'edit'; row: Answer };
 
-/**
- * 数据列表。
- *
-
- * 但**过滤条件尽量下推**——班级 / 交卷时间 / 批改状态 / 姓名 / 分数段都交给服务端
- * （条件定义见 data/filters.ts，和导出共用同一份），前端只留几道兜底。
- *
- * <p>「未交」不是过滤答卷，而是换一份数据源（班级在册学员 - 已交），见 UnsubmittedPanel。
- */
+/** 数据列表 */
 export default function SurveyData() {
   const { id = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -143,11 +132,7 @@ export default function SurveyData() {
 
   const [detail, setDetail] = useState<Answer>();
 
-  /**
-   * 关闭详情抽屉：除了清状态，**必须把 URL 里的 answerId 一起去掉**。
-
-   * 表现就是「点了关闭没反应、抽屉关不掉」。
-   */
+  /** 关闭详情抽屉：除了清状态，**必须把 URL 里的 answerId 一起去掉** */
   const closeDetail = useCallback(() => {
     setDetail(undefined);
     if (searchParams.get('answerId')) {
@@ -207,12 +192,7 @@ export default function SurveyData() {
     if (canBatchGrade && searchParams.get('ai') === 'grade') setBatchOpen(true);
   }, [canBatchGrade, searchParams]);
 
-  /**
-   * 关掉批量批改弹窗：顺手把 ?ai= 抹掉。
-   *
-   * <p>用 replace 而不是 push —— 关掉之后按 F5 不该再弹一次；只删 ai 这个键，
-   * classId 之类的筛选条件要留着（报表页、教学页跳过来时会带）。
-   */
+  /** 关掉批量批改弹窗：顺手把 ?ai= 抹掉 */
   const closeBatch = useCallback(() => {
     setBatchOpen(false);
     if (searchParams.get('ai') === 'grade') {
@@ -224,10 +204,7 @@ export default function SurveyData() {
 
   /* ------ 过滤条件 ------ */
 
-  /**
-   * 选班级只改 URL，不另存一份 state：报表页带着 ?classId= 跳过来时不用做「同步」这件事，
-
-   */
+  /** 选班级只改 URL，不另存一份 state：报表页带着 ?classId= 跳过来时不用做「同步」这件事， */
   const setClassFilter = useCallback(
     (next?: string) => {
       setSearchParams(
@@ -290,13 +267,7 @@ export default function SurveyData() {
   const rangeKey = `${filterParams.startTime ?? ''}|${filterParams.endTime ?? ''}`;
   const hasTimeFilter = Boolean(filterParams.startTime || filterParams.endTime);
 
-  /**
-   * 取一份答卷列表。
-   *
-   * <p>时间范围要不要交给服务端由调用方决定：后端 AnswerQuery.startTime 是 java.util.Date 且没标
-   * @DateTimeFormat，带「yyyy-MM-dd HH:mm:ss」会直接 400（Spring 默认转换器认不了这个格式）。
-   * 那种情况下退回不带时间的查询，时间范围在前端兜一层——「看得见数据」比「过滤全下推」要紧。
-   */
+  /** 取一份答卷列表 */
   const fetchAnswers = useCallback(
     (withTime: boolean) => {
       const { startTime, endTime, ...rest } = filterParams;
@@ -379,12 +350,7 @@ export default function SurveyData() {
     return map;
   }, [rows, questions]);
 
-  /**
-   * 前端只留三道兜底（服务端已经过滤过一遍）：
-   * - 「已交」：后端没有 tempSave 过滤参数，只能在这边剔掉暂存卷；
-   * - 批改状态：老库没有 grade_status 时行上取不到值，不至于把两种状态串在一起；
-   * - 交卷时间：只有降级（后端不认 startTime）时才需要在前端再筛一次。
-   */
+  /** 前端只留三道兜底（服务端已经过滤过一遍）： */
   const filtered = useMemo(() => {
     const [from, to] = filters.range ?? [];
     return rows.filter((row) => {
@@ -639,7 +605,7 @@ export default function SurveyData() {
     return schema ? flattenSchema(schema).filter(isDataQuestion) : [];
   }, [detail, project]);
 
-  /** 逐题得分：examInfo 是弱类型（Record<string, unknown>），这里收窄一次给详情抽屉用 */
+  /** 逐题得分：examInfo 是弱类型（Record），这里收窄一次给详情抽屉用 */
   const detailScores = useMemo(
     () => (detail?.examInfo as { questionScore?: Record<string, number> } | undefined)?.questionScore ?? {},
     [detail],

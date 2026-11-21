@@ -1,10 +1,4 @@
 -- 给 t_user_role 加唯一键 (user_id, role_id)（可重复执行）
---
--- 背景：这张表原本只有普通索引，`updateUser` 是「先删后插」，并发/重复提交时可能插出重复行。
--- 重复行不会放大权限（取并集），但会让「谁有这个角色」的统计失真。
---
--- 步骤：① 先打印重复行；② 同一 (user_id, role_id) 只保留 id 最小的一条；③ 幂等加唯一键。
--- 用法：mysql -uroot -p surveyking < scripts/dev/add-role-unique.sql
 
 -- ① 有重复会打印出来（无重复时返回空结果集）
 SELECT user_id, role_id, COUNT(*) AS duplicate_count, MIN(id) AS keep_id

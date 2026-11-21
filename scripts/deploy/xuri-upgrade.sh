@@ -1,34 +1,8 @@
 #!/usr/bin/env bash
-# ======
 # 旭日云课堂 · Docker 一条命令升级（引导器）
-#
-# 它解决的是"不懂的人也能升级"：不用先下载、不用解压、不用 cd——
-#   curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/xuri-upgrade.sh | sudo bash
-#
-# 它自己完成：
-#   1. 找到已安装实例（默认 /opt/xuri-classroom，或 --dir 指定）
 
 
-#   4. 校验 SHA256（下载 SHA256SUMS 比对）
-#   5. 解压到临时目录，调用包里的 upgrade.sh（备份→构建→切换→校验→回滚）
-#   6. 清理临时文件
-#
-# 用法：
-#   curl -fsSL <本脚本地址> | sudo bash
-#   sudo bash xuri-upgrade.sh --dir /data/xuri-classroom
-#   sudo bash xuri-upgrade.sh --version 2.1.1
-#   sudo bash xuri-upgrade.sh --from /tmp/xuri-classroom-2.1.1-docker.tar.gz
-#   sudo bash xuri-upgrade.sh --whatif          # 只打印计划
-#   sudo bash xuri-upgrade.sh --yes             # 免确认（curl|bash 时自动开启）
-#
-# 环境变量（国内网络可换源）：
-#   XURI_REPO=Hermannmayer/xuri-classroom
-#   XURI_GITHUB_API=https://api.github.com
-#   XURI_DOWNLOAD_BASE=https://github.com   # 只换下载域名时用
-#
-# 安全约定：只下载官方 Release 资产并校验 SHA256；解压后调用包内 upgrade.sh，
-#          由它负责备份、停服、切换、校验、回滚。本脚本不直接动数据库和容器。
-# ======
+# 4. 校验 SHA256（下载 SHA256SUMS 比对）
 set -uo pipefail
 
 INSTALL_DIR="${XURI_HOME:-/opt/xuri-classroom}"

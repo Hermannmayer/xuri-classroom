@@ -32,18 +32,12 @@ public class SecurityContextUtils {
 		return getUser().getUserId();
 	}
 
-	/**
-	 * 用户是否已登录
-	 * @return
-	 */
+	/** 用户是否已登录 */
 	public static boolean isAuthenticated() {
 		return getUserId() != null;
 	}
 
-	/**
-	 * 当前是否是匿名访问
-	 * @return
-	 */
+	/** 当前是否是匿名访问 */
 	public static boolean isAnonymous() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		return authentication instanceof AnonymousAuthenticationToken;

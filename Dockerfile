@@ -1,10 +1,4 @@
-# 前后端分离部署：
-#   web  = nginx，对外 80，托管前端静态文件，并把 /api 反代给后端
-#   app  = Java 后端，只在内网 7007，不对用户暴露
-#
-# 构建：docker compose build
-# 运行：docker compose up -d
-# 访问：http://<服务器地址>（前端 80，用户不需要知道后端端口）
+# 前后端分离部署： web  = nginx，对外 80，托管前端静态文件，并把 /api 反代给后端 app  = Java 后端，只在内网 7007，不对用户暴露
 
 # ---------- 1. 前端产物 ----------
 FROM node:20-alpine AS web
