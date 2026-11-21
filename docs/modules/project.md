@@ -103,8 +103,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-19
-verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+last_verified: 2026-11-21
+verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
 ---
 
 # 考试与问卷（项目）

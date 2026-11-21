@@ -39,8 +39,8 @@ tables:
 tests:
   - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditRecorderTest.java
   - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditDiffSupportTest.java
-last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+last_verified: 2026-11-21
+verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
 ---
 
 # 操作审计

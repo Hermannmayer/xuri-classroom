@@ -202,8 +202,8 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
       - nas:python scripts/nas/smoke-test.py
-    last_verified: 2026-11-18
-    verified_against: 8e240e6419dd02fa223eb90b23c1f535328d33c5
+    last_verified: 2026-11-21
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
   - id: module-audit
     title: 操作审计
     doc: docs/modules/audit.md
@@ -244,8 +244,8 @@ modules:
     tests:
       - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditRecorderTest.java
       - server/rdbms/src/test/java/cn/surveyking/server/core/audit/AuditDiffSupportTest.java
-    last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    last_verified: 2026-11-21
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
   - id: module-auth
     title: 登录与账号
     doc: docs/modules/auth.md
@@ -662,8 +662,8 @@ modules:
       - t_notice_read
     tests:
       - client:npm run check
-    last_verified: 2026-11-19
-    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+    last_verified: 2026-11-21
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
   - id: module-permissions
     title: 权限、角色与用户组
     doc: docs/modules/permissions.md
@@ -809,7 +809,7 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-21
-    verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -914,8 +914,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-19
-    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+    last_verified: 2026-11-21
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
   - id: module-repo
     title: 题库与题目
     doc: docs/modules/repo.md
@@ -1074,8 +1074,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-19
-    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+    last_verified: 2026-11-21
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
   - id: module-teaching
     title: 班级与教学工作台
     doc: docs/modules/teaching.md
@@ -1199,4 +1199,4 @@ modules:
       - client:npm run check
       - docs:npm run docs:check
     last_verified: 2026-11-21
-    verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
+    verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
