@@ -144,7 +144,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-21
-verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
+verified_against: 467a7b2cac1af3e964b3718eed733b33588e13a9
 ---
 
 # 权限、角色与用户组

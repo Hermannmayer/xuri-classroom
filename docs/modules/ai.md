@@ -63,7 +63,7 @@ tables:
   - t_ai_usage
 tests: []
 last_verified: 2026-11-21
-verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
+verified_against: 467a7b2cac1af3e964b3718eed733b33588e13a9
 ---
 
 # AI 助手
