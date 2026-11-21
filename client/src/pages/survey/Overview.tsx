@@ -436,7 +436,7 @@ export default function SurveyOverview() {
       progressBar: Boolean(v.progressBar),
       autoSave: Boolean(v.autoSave),
       onePageOneQuestion: Boolean(v.onePageOneQuestion),
-      autoNextAfterAnswer: Boolean(v.autoNextAfterAnswer) && !Boolean(v.exerciseMode),
+      autoNextAfterAnswer: Boolean(v.autoNextAfterAnswer) && !Boolean(v.exerciseMode) && !Boolean(v.passMode),
       answerSheetVisible: Boolean(v.answerSheetVisible),
       questionNumber: Boolean(v.questionNumber),
 
