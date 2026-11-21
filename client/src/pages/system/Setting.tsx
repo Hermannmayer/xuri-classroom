@@ -181,6 +181,8 @@ interface UpdateDownloadStatus {
   totalBytes?: number;
   percent?: number;
   bytesPerSecond?: number;
+  source?: string;
+  verified?: boolean;
   attempt?: number;
   maxAttempts?: number;
   error?: string;
@@ -1557,10 +1559,10 @@ export default function SystemSetting() {
                           />
                           <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', lineHeight: 1.7 }}>
                             {downloadStatus.phase === 'done'
-                              ? '已下载 v' + (downloadStatus.version || '') + '，sha256 校验通过'
+                              ? '已下载 v' + (downloadStatus.version || '') + (downloadStatus.verified ? '，sha256 校验通过' : '，该 Release 未提供 sha256')
                               : downloadStatus.phase === 'failed'
                                 ? '下载失败：' + (downloadStatus.error || '未知错误')
-                                : formatBytes(downloadStatus.downloadedBytes) + ' / ' + formatBytes(downloadStatus.totalBytes) + ' · ' + formatBytes(downloadStatus.bytesPerSecond) + '/s · 第 ' + (downloadStatus.attempt || 1) + '/' + (downloadStatus.maxAttempts || 3) + ' 次'}
+                                : formatBytes(downloadStatus.downloadedBytes) + ' / ' + formatBytes(downloadStatus.totalBytes) + ' · ' + formatBytes(downloadStatus.bytesPerSecond) + '/s · 第 ' + (downloadStatus.attempt || 1) + '/' + (downloadStatus.maxAttempts || 3) + ' 次' + (downloadStatus.source ? ' · 线路：' + downloadStatus.source : '')}
                           </div>
                         </div>
                       ) : null}
@@ -1572,7 +1574,7 @@ export default function SystemSetting() {
                               type="error"
                               showIcon
                               title="检查失败"
-                              description={`${updateInfo.error}。如果是 GitHub 访问不通，可以在下面把「GitHub API 前缀」换成一个可用镜像，或直接填「自建更新清单」地址。`}
+                              description={`${updateInfo.error}。如果是 GitHub 访问不通，可以配置 UPDATE_DOWNLOAD_MIRRORS（多个镜像用逗号分隔），或直接填「自建更新清单」地址。`}
                             />
                           );
                         }

@@ -45,6 +45,9 @@ public class UpdateDownloadService {
 	@Value("${update.download-proxy:}")
 	private String downloadProxy;
 
+	@Value("${update.download-mirrors:}")
+	private String downloadMirrors;
+
 	private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "update-download");
 		thread.setDaemon(true);
@@ -288,78 +291,130 @@ public class UpdateDownloadService {
 		Path dir = updateDir();
 		Path temp = dir.resolve("app.jar.part");
 		Path history = downloadsDir().resolve(version + ".jar");
+		List<String> candidates = UpdateMirrorResolver.assetUrls(asset.getUrl(), version, asset.getFile(),
+				downloadMirrors, downloadProxy);
+		if (candidates.isEmpty()) {
+			synchronized (lock) {
+				status.setPhase("failed");
+				status.setError("没有可用的下载地址");
+				status.setFinishedAt(System.currentTimeMillis());
+			}
+			return;
+		}
 		try {
 			Files.createDirectories(downloadsDir());
+			String lastError = "下载失败";
 			for (int attempt = 1; attempt <= 3; attempt++) {
-				synchronized (lock) {
-					status.setAttempt(attempt);
-					status.setDownloadedBytes(0);
-					status.setPercent(0);
-					status.setBytesPerSecond(0);
-					status.setError(null);
-					status.setPhase(attempt == 1 ? "downloading" : "retrying");
+				beginAttempt(attempt);
+				if (attempt > 1) {
+					Thread.sleep(2000L * (attempt - 1));
 				}
-				try {
-					if (attempt > 1) {
-						Thread.sleep(2000L * (attempt - 1));
-					}
+				for (String candidate : candidates) {
 					synchronized (lock) {
 						status.setPhase("downloading");
+						status.setSource(UpdateMirrorResolver.label(candidate));
+						status.setDownloadedBytes(0);
+						status.setPercent(0);
+						status.setBytesPerSecond(0);
+						status.setError(null);
 					}
-					long started = System.currentTimeMillis();
-					download(asset.getUrl(), temp, started);
-					synchronized (lock) {
-						status.setPhase("verifying");
-						status.setPercent(100);
-					}
-					String actual = sha256Of(temp);
-					if (asset.getSha256() != null && !asset.getSha256().isBlank()
-							&& !asset.getSha256().equalsIgnoreCase(actual)) {
-						throw new IllegalStateException("sha256 校验失败");
-					}
-					Files.move(temp, history, StandardCopyOption.REPLACE_EXISTING);
-					Path app = dir.resolve("app.jar");
-					Files.deleteIfExists(app);
 					try {
-						Files.createLink(app, history);
+						long started = System.currentTimeMillis();
+						download(candidate, temp, started);
+						synchronized (lock) {
+							status.setPhase("verifying");
+							status.setPercent(100);
+						}
+						String actual = verifyDownload(asset, temp);
+						Files.move(temp, history, StandardCopyOption.REPLACE_EXISTING);
+						Path app = dir.resolve("app.jar");
+						Files.deleteIfExists(app);
+						try {
+							Files.createLink(app, history);
+						}
+						catch (Exception linkError) {
+							Files.copy(history, app, StandardCopyOption.REPLACE_EXISTING);
+						}
+						Files.writeString(dir.resolve("apply.flag"),
+								"version=" + version + "\nsha256=" + actual + "\n", StandardCharsets.UTF_8);
+						synchronized (lock) {
+							status.setPhase("done");
+							status.setPercent(100);
+							status.setVerified(asset.getSha256() != null && !asset.getSha256().isBlank());
+							status.setFile(history.toString());
+							status.setFinishedAt(System.currentTimeMillis());
+						}
+						log.info("更新包下载完成 version={} size={} sha256={} source={}", version,
+								Files.size(history), actual, UpdateMirrorResolver.label(candidate));
+						return;
 					}
-					catch (Exception linkError) {
-						Files.copy(history, app, StandardCopyOption.REPLACE_EXISTING);
+					catch (Exception e) {
+						lastError = shortError(e);
+						Files.deleteIfExists(temp);
+						synchronized (lock) {
+							status.setError(lastError);
+							status.setPhase("retrying");
+						}
+						log.warn("更新包线路失败 version={} attempt={} source={} error={}", version, attempt,
+								UpdateMirrorResolver.label(candidate), lastError);
 					}
-					Files.writeString(dir.resolve("apply.flag"),
-							"version=" + version + "\nsha256=" + actual + "\n", StandardCharsets.UTF_8);
-					synchronized (lock) {
-						status.setPhase("done");
-						status.setPercent(100);
-						status.setFile(history.toString());
-						status.setFinishedAt(System.currentTimeMillis());
-					}
-					log.info("更新包下载完成 version={} size={} sha256={}", version, Files.size(history), actual);
-					return;
 				}
-				catch (Exception e) {
-					Files.deleteIfExists(temp);
-					String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-					synchronized (lock) {
-						status.setError(message);
-						status.setPhase(attempt < 3 ? "retrying" : "failed");
-						status.setFinishedAt(attempt < 3 ? null : System.currentTimeMillis());
-					}
-					log.warn("更新包下载失败 version={} attempt={}", version, attempt, e);
-				}
+			}
+			synchronized (lock) {
+				status.setPhase("failed");
+				status.setError(lastError);
+				status.setFinishedAt(System.currentTimeMillis());
 			}
 		}
 		catch (Exception e) {
 			synchronized (lock) {
 				status.setPhase("failed");
-				status.setError(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+				status.setError(shortError(e));
 				status.setFinishedAt(System.currentTimeMillis());
 			}
 		}
 	}
 
+	private void beginAttempt(int attempt) {
+		synchronized (lock) {
+			status.setAttempt(attempt);
+			status.setDownloadedBytes(0);
+			status.setPercent(0);
+			status.setBytesPerSecond(0);
+			status.setError(null);
+			status.setPhase(attempt == 1 ? "downloading" : "retrying");
+		}
+	}
+
+	private String verifyDownload(UpdateCheckView.Asset asset, Path file) throws Exception {
+		long size = Files.size(file);
+		if (asset.getSize() != null && asset.getSize() > 0 && size != asset.getSize()) {
+			throw new IllegalStateException("文件大小不符：" + size + "/" + asset.getSize());
+		}
+		if (!isJar(file)) {
+			throw new IllegalStateException("下载内容不是 jar");
+		}
+		String actual = sha256Of(file);
+		if (asset.getSha256() != null && !asset.getSha256().isBlank()
+				&& !asset.getSha256().equalsIgnoreCase(actual)) {
+			throw new IllegalStateException("sha256 校验失败");
+		}
+		return actual;
+	}
+
+	private boolean isJar(Path file) throws Exception {
+		try (InputStream input = Files.newInputStream(file)) {
+			return input.read() == 'P' && input.read() == 'K';
+		}
+	}
+
+	private String shortError(Exception e) {
+		String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+		return message.length() > 240 ? message.substring(0, 240) : message;
+	}
+
 	private void download(String url, Path target, long started) throws Exception {
-		String current = proxied(url);
+		String current = url;
 		for (int hop = 0; hop < 5; hop++) {
 			HttpURLConnection connection = (HttpURLConnection) new URL(current).openConnection();
 			connection.setConnectTimeout(10000);
@@ -426,19 +481,13 @@ public class UpdateDownloadService {
 		result.setBytesPerSecond(source.getBytesPerSecond());
 		result.setAttempt(source.getAttempt());
 		result.setMaxAttempts(source.getMaxAttempts());
+		result.setSource(source.getSource());
+		result.setVerified(source.isVerified());
 		result.setError(source.getError());
 		result.setFile(source.getFile());
 		result.setStartedAt(source.getStartedAt());
 		result.setFinishedAt(source.getFinishedAt());
 		return result;
-	}
-
-	private String proxied(String url) {
-		if (downloadProxy == null || downloadProxy.isBlank() || url == null || !url.startsWith("https://github.com/")) {
-			return url;
-		}
-		String base = downloadProxy.trim();
-		return (base.endsWith("/") ? base : base + "/") + url;
 	}
 
 	private Path updateDir() {

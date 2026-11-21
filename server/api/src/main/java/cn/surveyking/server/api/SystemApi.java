@@ -111,6 +111,9 @@ public class SystemApi {
 	@Value("${update.download-proxy:}")
 	private String downloadProxy;
 
+	@Value("${update.download-mirrors:}")
+	private String downloadMirrors;
+
 
 	@Value("${file-storage.local.root-path:./files}")
 	private String fileRootPath;
@@ -216,7 +219,24 @@ public class SystemApi {
 		view.setEnabled(true);
 		try {
 			if (useManifest) {
-				fillFromManifest(view, effectiveManifest);
+				try {
+					fillFromManifest(view, effectiveManifest);
+					if (view.getLatestVersion() == null) {
+						throw new IllegalStateException("更新清单没有版本号");
+					}
+				}
+				catch (Exception manifestError) {
+					if (!useGithub) {
+						throw manifestError;
+					}
+					try {
+						fillFromGithub(view, effectiveRepo, effectiveApiBase);
+					}
+					catch (Exception githubError) {
+						throw new IllegalStateException("更新清单失败：" + shortError(manifestError)
+								+ "；GitHub 检查失败：" + shortError(githubError));
+					}
+				}
 			}
 			else {
 				fillFromGithub(view, effectiveRepo, effectiveApiBase);
@@ -413,13 +433,20 @@ public class SystemApi {
 		return null;
 	}
 
-	/** 解析 update.json：版本/通道/说明/各平台资产 */
+	/** 解析 update.json；GitHub 资产地址按镜像优先级逐个尝试。 */
 	private void fillFromUpdateManifest(UpdateCheckView view, String manifestUrl) {
-		if (downloadProxy != null && !downloadProxy.isBlank() && manifestUrl != null
-				&& manifestUrl.startsWith("https://github.com/")) {
-			String base = downloadProxy.trim();
-			manifestUrl = (base.endsWith("/") ? base : base + "/") + manifestUrl;
+		for (String candidate : UpdateMirrorResolver.manifestUrls(manifestUrl, downloadMirrors, downloadProxy)) {
+			try {
+				fillFromUpdateManifestOnce(view, candidate);
+				return;
+			}
+			catch (Exception e) {
+				log.warn("解析 update.json 失败 url={} error={}", candidate, shortError(e));
+			}
 		}
+	}
+
+	private void fillFromUpdateManifestOnce(UpdateCheckView view, String manifestUrl) throws Exception {
 		HttpURLConnection connection = null;
 		try {
 			connection = (HttpURLConnection) new URL(manifestUrl).openConnection();
@@ -428,7 +455,7 @@ public class SystemApi {
 			connection.setRequestProperty("Accept", "application/json");
 			connection.setRequestProperty("User-Agent", "xuri-classroom/" + currentVersion);
 			if (connection.getResponseCode() / 100 != 2) {
-				return;
+				throw new IllegalStateException("update.json 返回 HTTP " + connection.getResponseCode());
 			}
 			try (InputStream input = connection.getInputStream()) {
 				Map<String, Object> manifest = objectMapper.readValue(input, new TypeReference<Map<String, Object>>() {
@@ -462,14 +489,16 @@ public class SystemApi {
 				}
 			}
 		}
-		catch (Exception e) {
-			log.warn("解析 update.json 失败 url={}", manifestUrl, e);
-		}
 		finally {
 			if (connection != null) {
 				connection.disconnect();
 			}
 		}
+	}
+
+	private static String shortError(Exception e) {
+		String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+		return truncate(message, 240);
 	}
 
 

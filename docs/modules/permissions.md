@@ -500,6 +500,8 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 - 一键安装支持三端：Docker/Linux 直接备份并替换 jar，退出后由 Docker restart policy 或 systemd `Restart=always` 拉起；Windows 便携版生成更新 helper，等主进程退出后替换 jar 并重新运行 `start.cmd`。
 - 通过 `UPDATE_APPLY_ENABLED=false` 可显式关闭；缺少可写 jar 路径时返回不支持，不伪造成功。旧版 `scripts/nas/apply-update.sh` 仍保留作宿主机兜底。
 - GitHub 的 `release-assets.githubusercontent.com` 不可达时，可设置 `UPDATE_DOWNLOAD_PROXY`（例如 `https://ghfast.top/`）；检查会先从 Release assets 兜底填 jar/各端 URL，`update.json` 只用于补充 sha256。
+- 下载默认按 `ghfast.top` → `gh-proxy.com` → `ghproxy.net` → GitHub 直连的顺序切换，任一线路超时/HTTP 错误/文件大小或 sha256 不符会自动试下一个；`UPDATE_DOWNLOAD_MIRRORS` 可覆盖列表（逗号分隔，支持 `{url}`、`{version}`、`{file}`，设为 `none` 只走直连）。
+- 自建 GitCode 镜像可配置为 `https://gitcode.com/<owner>/<repo>/releases/download/v{version}/{file}` 并放在列表首位；GitCode 只负责资产，版本检查仍可用默认 GitHub API，完全离线/被拦时改用 `UPDATE_MANIFEST_URL` 指向 GitCode 上的 `update.json`。
 
 ## 相关文档
 

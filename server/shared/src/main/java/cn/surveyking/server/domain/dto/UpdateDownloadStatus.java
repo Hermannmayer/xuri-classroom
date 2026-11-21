@@ -21,6 +21,10 @@ public class UpdateDownloadStatus {
 
 	private int maxAttempts = 3;
 
+	private String source;
+
+	private boolean verified;
+
 	private String error;
 
 	private String file;
