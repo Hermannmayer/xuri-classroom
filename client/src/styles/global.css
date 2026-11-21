@@ -646,15 +646,20 @@ body {
 
 
   .sk-notice-cats {
-    display: flex !important;
-    flex-direction: row !important;
-    overflow-x: auto;
-    gap: 8px;
-    padding-bottom: 6px !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    overflow-x: visible;
+    padding-bottom: 0 !important;
   }
   .sk-notice-cats > button {
-    flex: 0 0 auto;
-    width: auto !important;
+    width: 100% !important;
+    min-height: 40px;
+    margin-bottom: 0 !important;
+  }
+  .sk-notice-cats > div {
+    grid-column: 1 / -1;
+    margin-top: 4px !important;
   }
 
 
