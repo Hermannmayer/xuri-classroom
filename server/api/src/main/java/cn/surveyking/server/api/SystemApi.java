@@ -108,6 +108,9 @@ public class SystemApi {
 	@Value("${update.check-interval-hours:24}")
 	private long checkIntervalHours;
 
+	@Value("${update.download-proxy:}")
+	private String downloadProxy;
+
 
 	@Value("${file-storage.local.root-path:./files}")
 	private String fileRootPath;
@@ -344,10 +347,41 @@ public class SystemApi {
 				view.setPublishedAt(asText(release.get("published_at")));
 				view.setHasUpdate(latest != null && compareVersion(latest, currentVersion) > 0);
 
+				Map<String, UpdateCheckView.Asset> releaseAssets = new LinkedHashMap<>();
+				if (release.get("assets") instanceof List<?> list) {
+					for (Object item : list) {
+						if (!(item instanceof Map<?, ?> asset)) {
+							continue;
+						}
+						String name = asText(asset.get("name"));
+						String assetUrl = asText(asset.get("browser_download_url"));
+						if (!StringUtils.hasText(name) || !StringUtils.hasText(assetUrl)) {
+							continue;
+						}
+						String key = name.endsWith(".jar") ? "jar"
+								: name.contains("windows") ? "windows"
+										: name.contains("linux") ? "linux" : name.contains("docker") ? "docker" : null;
+						if (key == null || releaseAssets.containsKey(key)) {
+							continue;
+						}
+						UpdateCheckView.Asset resolved = new UpdateCheckView.Asset();
+						resolved.setFile(name);
+						resolved.setUrl(assetUrl);
+						Object size = asset.get("size");
+						resolved.setSize(size instanceof Number number ? number.longValue() : null);
+						releaseAssets.put(key, resolved);
+					}
+				}
+				view.setAssets(releaseAssets);
 
 				String manifestUrl = findUpdateManifest(release);
 				if (manifestUrl != null) {
-					fillFromUpdateManifest(view, manifestUrl);
+					try {
+						fillFromUpdateManifest(view, manifestUrl);
+					}
+					catch (Exception ignored) {
+						// update.json 拉取失败时保留 Release assets，至少保证 jar 下地址可用
+					}
 				}
 			}
 		}
@@ -381,6 +415,11 @@ public class SystemApi {
 
 	/** 解析 update.json：版本/通道/说明/各平台资产 */
 	private void fillFromUpdateManifest(UpdateCheckView view, String manifestUrl) {
+		if (downloadProxy != null && !downloadProxy.isBlank() && manifestUrl != null
+				&& manifestUrl.startsWith("https://github.com/")) {
+			String base = downloadProxy.trim();
+			manifestUrl = (base.endsWith("/") ? base : base + "/") + manifestUrl;
+		}
 		HttpURLConnection connection = null;
 		try {
 			connection = (HttpURLConnection) new URL(manifestUrl).openConnection();

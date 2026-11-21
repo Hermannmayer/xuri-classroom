@@ -499,6 +499,7 @@ docker exec -i mysql mysql -uroot -p"$DB_PASSWORD" surveyking -e "
 - 下载包保存在 `files/update/downloads/<version>.jar`，同时以硬链接/副本生成 `files/update/app.jar` 和 `apply.flag`；`GET /api/system/update/downloads` 可查看，`POST /api/system/update/downloads/delete` / `clear` 可清理。
 - 一键安装支持三端：Docker/Linux 直接备份并替换 jar，退出后由 Docker restart policy 或 systemd `Restart=always` 拉起；Windows 便携版生成更新 helper，等主进程退出后替换 jar 并重新运行 `start.cmd`。
 - 通过 `UPDATE_APPLY_ENABLED=false` 可显式关闭；缺少可写 jar 路径时返回不支持，不伪造成功。旧版 `scripts/nas/apply-update.sh` 仍保留作宿主机兜底。
+- GitHub 的 `release-assets.githubusercontent.com` 不可达时，可设置 `UPDATE_DOWNLOAD_PROXY`（例如 `https://ghfast.top/`）；检查会先从 Release assets 兜底填 jar/各端 URL，`update.json` 只用于补充 sha256。
 
 ## 相关文档
 

@@ -42,6 +42,9 @@ public class UpdateDownloadService {
 	@Value("${update.apply-jar-path:}")
 	private String applyJarPath;
 
+	@Value("${update.download-proxy:}")
+	private String downloadProxy;
+
 	private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "update-download");
 		thread.setDaemon(true);
@@ -356,7 +359,7 @@ public class UpdateDownloadService {
 	}
 
 	private void download(String url, Path target, long started) throws Exception {
-		String current = url;
+		String current = proxied(url);
 		for (int hop = 0; hop < 5; hop++) {
 			HttpURLConnection connection = (HttpURLConnection) new URL(current).openConnection();
 			connection.setConnectTimeout(10000);
@@ -428,6 +431,14 @@ public class UpdateDownloadService {
 		result.setStartedAt(source.getStartedAt());
 		result.setFinishedAt(source.getFinishedAt());
 		return result;
+	}
+
+	private String proxied(String url) {
+		if (downloadProxy == null || downloadProxy.isBlank() || url == null || !url.startsWith("https://github.com/")) {
+			return url;
+		}
+		String base = downloadProxy.trim();
+		return (base.endsWith("/") ? base : base + "/") + url;
 	}
 
 	private Path updateDir() {
