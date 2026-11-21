@@ -62,8 +62,8 @@ apis:
 tables:
   - t_ai_usage
 tests: []
-last_verified: 2026-11-17
-verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+last_verified: 2026-11-21
+verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
 ---
 
 # AI 助手

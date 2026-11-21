@@ -64,8 +64,8 @@ modules:
     tables:
       - t_ai_usage
     tests: []
-    last_verified: 2026-11-17
-    verified_against: f706863fe7da50062717e799e16ad7931cfa49b6
+    last_verified: 2026-11-21
+    verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
   - id: module-answer
     title: 答卷、判分与报表
     doc: docs/modules/answer.md
@@ -390,8 +390,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-17
-    verified_against: fb6206b64d7bc1e157df14c943c985a562477a81
+    last_verified: 2026-11-21
+    verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
   - id: module-exercise
     title: 任务中心、练习与错题本
     doc: docs/modules/exercise.md
@@ -808,8 +808,8 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-19
-    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+    last_verified: 2026-11-21
+    verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
   - id: module-project
     title: 考试与问卷（项目）
     doc: docs/modules/project.md
@@ -1198,5 +1198,5 @@ modules:
     tests:
       - client:npm run check
       - docs:npm run docs:check
-    last_verified: 2026-11-19
-    verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+    last_verified: 2026-11-21
+    verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1

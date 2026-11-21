@@ -58,8 +58,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-17
-verified_against: fb6206b64d7bc1e157df14c943c985a562477a81
+last_verified: 2026-11-21
+verified_against: b3b1c424418493918be0dc68fed8d322c6cb45f1
 ---
 
 # 首页与统计
