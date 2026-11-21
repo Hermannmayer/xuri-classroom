@@ -4,6 +4,19 @@
 
 <!-- version list -->
 
+## v2.3.8 (2026-11-21)
+
+补丁版：修复 GitHub 更新下载在资产域不可达时失败的问题。
+
+### 修复
+
+- **update**：GitHub Release 的 `update.json` 拉取失败或超时时，从 Release assets 直接解析 jar 与各端下载 URL，不再误报「Release 缺 update.json」。
+- **update**：新增 `UPDATE_DOWNLOAD_PROXY` 配置，GitHub 资产域不可达时可指定镜像前缀；仍优先使用 `update.json` 的 sha256 校验。
+
+### 升级
+
+无数据库结构变更。2.3.7 可直接检查 2.3.8；如果服务器访问 GitHub `release-assets` 超时，需要配置 `UPDATE_DOWNLOAD_PROXY` 或改善服务器网络。
+
 ## v2.3.7 (2026-11-21)
 
 本次把更新流程补成可直接使用的闭环：下载可见、可重试、可清理，并支持应用内一键安装。
