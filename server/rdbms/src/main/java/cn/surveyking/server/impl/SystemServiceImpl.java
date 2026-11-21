@@ -24,6 +24,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -127,6 +128,39 @@ public class SystemServiceImpl implements SystemService {
 		else {
 			sysInfoMapper.insert(sysInfo);
 		}
+	}
+
+	@Override
+	public UpdateCheckView getUpdateStatus() {
+		SysInfo info = sysInfoMapper.selectById("1");
+		return info == null || info.getSetting() == null ? null : info.getSetting().getUpdateStatus();
+	}
+
+	@Override
+	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
+	public void saveUpdateStatus(UpdateCheckView view) {
+		SysInfo info = sysInfoMapper.selectById("1");
+		if (info == null) {
+			return;
+		}
+		SystemInfo.SystemSetting setting = info.getSetting();
+		if (setting == null) {
+			setting = new SystemInfo.SystemSetting();
+			info.setSetting(setting);
+		}
+		setting.setUpdateStatus(view);
+		sysInfoMapper.updateById(info);
+	}
+
+	@Override
+	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
+	public void clearUpdateStatus() {
+		SysInfo info = sysInfoMapper.selectById("1");
+		if (info == null || info.getSetting() == null) {
+			return;
+		}
+		info.getSetting().setUpdateStatus(null);
+		sysInfoMapper.updateById(info);
 	}
 
 	/** 只更新「内容保护」三项：防复制、水印开关、水印内容（POST /api/system/protection，权限 content:protect） */

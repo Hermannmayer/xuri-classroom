@@ -165,6 +165,8 @@ public class SystemInfo {
 
 		private Integer updateCheckIntervalHours;
 
+		private UpdateCheckView updateStatus;
+
 
 
 

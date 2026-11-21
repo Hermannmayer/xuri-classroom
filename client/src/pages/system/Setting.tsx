@@ -169,6 +169,7 @@ interface UpdateCheckInfo {
   error?: string;
 
   channel?: string;
+  checkedAt?: number;
 
   assets?: Record<string, UpdateAsset>;
 }
@@ -189,8 +190,8 @@ export default function SystemSetting() {
   const [roleOptions, setRoleOptions] = useState<Role[]>([]);
 
   const [openClassCount, setOpenClassCount] = useState(0);
-  const models = Form.useWatch<string[] | undefined>('models', form) ?? [];
-  const modelMeta = Form.useWatch<Record<string, ModelMeta> | undefined>('modelMeta', form) ?? {};
+  const [models, setModels] = useState<string[]>([]);
+  const [modelMeta, setModelMeta] = useState<Record<string, ModelMeta>>({});
   const defaultModel = Form.useWatch<string | undefined>('defaultModel', form);
   const providerId = Form.useWatch<string | undefined>('provider', form);
   const currentProvider = findAiProvider(providerId);
@@ -211,6 +212,7 @@ export default function SystemSetting() {
   const [cleaning, setCleaning] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<string>();
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
+  const [updateLoading, setUpdateLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState<{ version?: string; file?: string; size?: number; sha256?: string }>();
   const [pendingInfo, setPendingInfo] = useState<{ pending?: boolean; version?: string; size?: number }>();
@@ -330,8 +332,6 @@ export default function SystemSetting() {
       displayName: ai?.displayName,
       baseUrl: ai?.baseUrl,
       apiKey: ai?.apiKey,
-      models: ai?.models ?? [],
-      modelMeta: ai?.modelMeta ?? {},
       defaultModel: ai?.defaultModel,
       prompt: ai?.prompt,
 
@@ -341,6 +341,11 @@ export default function SystemSetting() {
       maxTurnChars: ai?.maxTurnChars ?? 4000,
       rateLimitPerMinute: ai?.rateLimitPerMinute ?? 10,
     });
+
+    const loadedModels = [...(ai?.models ?? [])];
+    if (ai?.defaultModel && !loadedModels.includes(ai.defaultModel)) loadedModels.push(ai.defaultModel);
+    setModels(loadedModels);
+    setModelMeta(ai?.modelMeta ?? {});
 
     setProtection({
       watermarkEnabled: sys?.setting?.watermarkEnabled !== false,
@@ -518,8 +523,23 @@ export default function SystemSetting() {
     }
   };
 
+  const loadUpdateInfo = async () => {
+    setUpdateLoading(true);
+    try {
+      const res = await get<UpdateCheckInfo>('/api/system/update/check');
+      setUpdateInfo(res);
+    } catch {
+      // 检查状态读取失败时保留上一次画面，不阻塞系统设置
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (activeTab === 'system') void loadPendingUpdate();
+    if (activeTab === 'system') {
+      void loadPendingUpdate();
+      void loadUpdateInfo();
+    }
   }, [activeTab]);
 
   const checkUpdateNow = async () => {
@@ -552,9 +572,8 @@ export default function SystemSetting() {
       const baseUrl = String(form.getFieldValue('baseUrl') ?? '').trim();
       const apiKey = String(form.getFieldValue('apiKey') ?? '').trim();
       const result = await getAiModels({ baseUrl: baseUrl || undefined, apiKey: apiKey || undefined });
-      const current = (form.getFieldValue('models') as string[] | undefined) ?? [];
-      const merged = Array.from(new Set([...current, ...(result.models ?? [])]));
-      form.setFieldValue('models', merged);
+      const merged = Array.from(new Set([...models, ...(result.models ?? [])]));
+      setModels(merged);
       if (!form.getFieldValue('defaultModel') && merged.length > 0) {
         form.setFieldValue('defaultModel', merged[0]);
       }
@@ -644,8 +663,8 @@ export default function SystemSetting() {
             displayName: v.displayName,
             baseUrl,
             apiKey: v.apiKey,
-            models: (form.getFieldValue('models') as string[] | undefined) ?? [],
-            modelMeta: (form.getFieldValue('modelMeta') as Record<string, ModelMeta> | undefined) ?? {},
+            models,
+            modelMeta,
             defaultModel: v.defaultModel,
             prompt: v.prompt,
             dailyTokenLimit: Number(v.dailyTokenLimit ?? 0),
@@ -659,6 +678,7 @@ export default function SystemSetting() {
       message.success('已保存');
       await load();
 
+      if (key === 'system') void loadUpdateInfo();
       if (key === 'ai') await loadAiOverview();
     } catch (e) {
       message.error((e as Error).message);
@@ -1177,15 +1197,15 @@ export default function SystemSetting() {
 
                     <Form.Item
                       label="模型目录"
-                      extra="模型 ID 用于实际调用；显示名、上下文窗口和输入类型只影响本页展示"
+                      extra="自动获取只返回模型 ID；每行「能力」可设置上下文窗口、最大输出和输入类型（文本/图片）"
                     >
                       <AiModelCatalog
                         models={models}
                         modelMeta={modelMeta}
                         defaultModel={defaultModel}
                         onChange={(nextModels, nextMeta) => {
-                          form.setFieldValue('models', nextModels);
-                          form.setFieldValue('modelMeta', nextMeta);
+                          setModels(nextModels);
+                          setModelMeta(nextMeta);
                         }}
                         onDefaultModelChange={(value) => form.setFieldValue('defaultModel', value)}
                         onFetch={() => void fetchModels()}
@@ -1341,6 +1361,7 @@ export default function SystemSetting() {
                           { label: '当前版本', value: currentVersion || '—' },
                           { label: '最新版本', value: updateInfo?.latestVersion || '—' },
                           { label: '更新源', value: updateInfo == null ? '读取中' : updateInfo.enabled === false ? '未配置' : '已配置' },
+                          { label: '上次检查', value: updateInfo?.checkedAt ? dayjs(updateInfo.checkedAt).format('MM-DD HH:mm') : '—' },
                           {
                             label: '待安装',
                             value: pendingInfo?.pending ? 'v' + (pendingInfo.version || '?') : '无',
@@ -1382,7 +1403,11 @@ export default function SystemSetting() {
                           );
                         }
                         if (updateInfo == null) {
-                          return <Alert type="info" showIcon title="还没有检查过" description="点「立即检查」读取远端版本信息。" />;
+                          return updateLoading ? (
+                            <Alert type="info" showIcon title="正在读取检查状态…" />
+                          ) : (
+                            <Alert type="info" showIcon title="还没有检查过" description="点「立即检查」读取远端版本信息。" />
+                          );
                         }
                         if (updateInfo.enabled === false) {
                           return (

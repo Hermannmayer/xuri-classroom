@@ -23,6 +23,14 @@ public interface SystemService {
 			@CacheEvict(value = CacheConsts.commonCacheName, key = "'aiInfo'") })
 	void updateSystemInfo(SystemInfoRequest request);
 
+	UpdateCheckView getUpdateStatus();
+
+	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
+	void saveUpdateStatus(UpdateCheckView view);
+
+	@CacheEvict(value = CacheConsts.commonCacheName, key = "'systemInfo'")
+	void clearUpdateStatus();
+
 	PaginationResponse<RoleView> getRoles(RoleQuery query);
 
 	/** 角色候选（只读）：只返回 id/name/code/status，不含权限明细；返回 全部角色（含停用，由调用方按 status 决定是否可选）。 */

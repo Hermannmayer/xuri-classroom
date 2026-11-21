@@ -19,6 +19,8 @@ public class UpdateCheckView {
 
 	private boolean enabled;
 
+	private Long checkedAt;
+
 	private String notes;
 
 	private String downloadUrl;

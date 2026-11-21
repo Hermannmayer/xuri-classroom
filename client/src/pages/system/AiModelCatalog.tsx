@@ -105,6 +105,7 @@ export default function AiModelCatalog({
 
   return (
     <div className="sk-ai-catalog">
+      <div className="sk-ai-catalog-hint">自动获取只返回模型 ID；上下文长度和图片输入需在每行「能力」里设置。</div>
       <div className="sk-ai-catalog-actions">
         <Button
           size="small"
@@ -138,13 +139,9 @@ export default function AiModelCatalog({
                 onChange={(event) => updateMeta(id, { displayName: event.target.value })}
               />
               {defaultModel === id ? <Tag color="orange">默认</Tag> : null}
-              <Button
-                type="text"
-                size="small"
-                aria-label={isOpen ? '收起模型参数' : '展开模型参数'}
-                icon={isOpen ? <UpOutlined /> : <DownOutlined />}
-                onClick={() => toggle(id)}
-              />
+              <Button type="text" size="small" onClick={() => toggle(id)}>
+                {isOpen ? '收起' : '能力'}
+              </Button>
               <Button
                 type="text"
                 size="small"
@@ -169,6 +166,10 @@ export default function AiModelCatalog({
                 icon={<DeleteOutlined />}
                 onClick={() => remove(index)}
               />
+            </div>
+            <div className="sk-ai-model-summary">
+              <span>{meta.contextWindow ? '上下文 ' + Math.round(meta.contextWindow / 1000) + 'K' : '上下文未设置'}</span>
+              <span>{meta.inputTypes?.includes('image') ? '文本 / 图片' : '文本'}</span>
             </div>
             {isOpen ? (
               <div className="sk-ai-model-advanced">

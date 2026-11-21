@@ -166,14 +166,21 @@ public class SystemApi {
 		if (!force && cachedUpdate != null && now - updateCheckedAt < effectiveMs) {
 			return cachedUpdate;
 		}
+		if (!force && cachedUpdate == null) {
+			UpdateCheckView stored = systemService.getUpdateStatus();
+			if (stored != null && stored.getCheckedAt() != null && now - stored.getCheckedAt() < effectiveMs) {
+				cachedUpdate = stored;
+				updateCheckedAt = stored.getCheckedAt();
+				return stored;
+			}
+		}
 
 		UpdateCheckView view = new UpdateCheckView();
 		view.setCurrentVersion(currentVersion);
 		if (!enabled) {
 			view.setEnabled(false);
-			cachedUpdate = view;
-			updateCheckedAt = now;
 			lastCheckFailed = false;
+			rememberUpdate(view, now);
 			return view;
 		}
 
@@ -187,9 +194,8 @@ public class SystemApi {
 		boolean useGithub = StringUtils.hasText(effectiveRepo);
 		if (!useManifest && !useGithub) {
 			view.setEnabled(false);
-			cachedUpdate = view;
-			updateCheckedAt = now;
 			lastCheckFailed = false;
+			rememberUpdate(view, now);
 			return view;
 		}
 
@@ -208,11 +214,22 @@ public class SystemApi {
 			view.setError(e.getMessage() == null ? "检查更新失败" : e.getMessage());
 			lastCheckFailed = true;
 		}
-		cachedUpdate = view;
-		updateCheckedAt = now;
+		rememberUpdate(view, now);
 
 		recordUpdateNotice(view);
 		return view;
+	}
+
+	private void rememberUpdate(UpdateCheckView view, long now) {
+		view.setCheckedAt(now);
+		cachedUpdate = view;
+		updateCheckedAt = now;
+		try {
+			systemService.saveUpdateStatus(view);
+		}
+		catch (RuntimeException e) {
+			log.warn("保存更新检查状态失败", e);
+		}
 	}
 
 	/** 把更新检查结果同步成管理员公告 */
@@ -659,6 +676,7 @@ public class SystemApi {
 
 		cachedUpdate = null;
 		updateCheckedAt = 0;
+		systemService.clearUpdateStatus();
 	}
 
 	private SystemInfo.SystemSetting updateSetting() {
