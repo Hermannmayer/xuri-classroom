@@ -17,7 +17,7 @@
 | `module-import` | 2026-11-19 | `191b87cc5504cdc6038f533ed5c331bd9af6d3a3` | 21 |
 | `module-mcp` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 31 |
 | `module-notice` | 2026-11-21 | `43b4f52f89250d6faaa55da6038f01eed45e0227` | 18 |
-| `module-permissions` | 2026-11-21 | `467a7b2cac1af3e964b3718eed733b33588e13a9` | 111 |
+| `module-permissions` | 2026-11-21 | `28764990360a4889363fdf9bd24c9eb778f47676` | 111 |
 | `module-project` | 2026-11-21 | `43b4f52f89250d6faaa55da6038f01eed45e0227` | 26 |
 | `module-repo` | 2026-11-19 | `191b87cc5504cdc6038f533ed5c331bd9af6d3a3` | 34 |
 | `module-survey` | 2026-11-21 | `43b4f52f89250d6faaa55da6038f01eed45e0227` | 80 |
