@@ -1,4 +1,4 @@
-# 旭日云课堂 · Windows 本地服务控制台（GUI）
+﻿# 旭日云课堂 · Windows 本地服务控制台（GUI）
 param([switch]$Hidden, [string]$SelfTest)
 
 Add-Type -AssemblyName System.Windows.Forms

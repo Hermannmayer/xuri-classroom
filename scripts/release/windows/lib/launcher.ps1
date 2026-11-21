@@ -1,4 +1,4 @@
-#requires -version 5.1
+﻿#requires -version 5.1
 # 旭日云课堂 · Windows 便携版启动器 这个脚本只做一件事：把「解压出来的包」变成「能访问的网站」，并且尽量不让人工介入。
 
 $ErrorActionPreference = 'Stop'
