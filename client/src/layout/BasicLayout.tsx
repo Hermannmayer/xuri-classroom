@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import type { MenuProps } from 'antd';
-import { DatabaseOutlined, FileTextOutlined, HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ProjectOutlined, ReadOutlined, SettingOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, FileTextOutlined, HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ProjectOutlined, QuestionCircleOutlined, ReadOutlined, SettingOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { get, getCurrentUser, getSystem, logout } from '../api';
 import type { SystemInfo, UserInfo } from '../api';
@@ -15,6 +15,8 @@ import MobileTabBar from './MobileTabBar';
 import NoticeBell from '../pages/notice/NoticeBell';
 import { PERMISSION_CODES } from '../auth/permission-codes';
 import { AiAssistantFloat, AiAssistantProvider } from '../components/AiAssistant';
+import HelpCenter from '../components/HelpCenter';
+import { resolveHelpRoles } from '../help/roles';
 
 const { Header, Sider, Content } = Layout;
 
@@ -40,10 +42,12 @@ export default function BasicLayout() {
   const [system, setSystem] = useState<SystemInfo>();
   const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
   const authorities = user?.authorityList ?? [];
+  const helpRoles = useMemo(() => resolveHelpRoles(authorities), [authorities]);
   const { mode, setMode, toggle } = useThemeMode();
   // 页面缩放：整体放大，方便年长老师看清。
   const [zoom, setZoom] = useState<number>(() => readZoom());
@@ -327,6 +331,14 @@ export default function BasicLayout() {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
 
+            <Button
+              type="text"
+              size="small"
+              aria-label="帮助与文档"
+              title="帮助与文档"
+              icon={<QuestionCircleOutlined />}
+              onClick={() => setHelpOpen(true)}
+            />
             <NoticeBell authorities={authorities} />
             <ZoomControl value={zoom} onChange={changeZoom} hideLabel={isMobile} />
             <Button
@@ -365,6 +377,13 @@ export default function BasicLayout() {
             </Dropdown>
           </div>
         </Header>
+
+        <HelpCenter
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          roles={helpRoles}
+          authorities={authorities}
+        />
 
         <Content
           style={

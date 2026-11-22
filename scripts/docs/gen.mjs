@@ -311,6 +311,131 @@ function llmsDoc() {
   return lines.join('\n')
 }
 
+function cleanHelpMarkdown(text) {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/\`/g, '')
+    .replace(/<[^>]+>/g, '')
+    .trim()
+}
+
+function parseHelpMetadata(comment) {
+  const data = {}
+  for (const piece of comment.split(';')) {
+    const index = piece.indexOf(':')
+    if (index < 0) continue
+    const key = piece.slice(0, index).trim()
+    const value = piece.slice(index + 1).trim()
+    if (key) data[key] = value
+  }
+  return data
+}
+
+function helpTopicsFromSection(section, page) {
+  const lines = section.split(/\r?\n/)
+  const title = (lines.shift() || '').trim()
+  if (!title) return null
+  const body = lines.join('\n')
+  const metadataMatch = body.match(/<!--([\s\S]*?)-->/)
+  const metadata = metadataMatch ? parseHelpMetadata(metadataMatch[1]) : {}
+  const content = metadataMatch ? body.replace(metadataMatch[0], '') : body
+  const sections = []
+  let current = { heading: undefined, paragraphs: [], bullets: [] }
+  let firstParagraph = ''
+  const flush = () => {
+    if (current.heading || current.paragraphs.length || current.bullets.length) {
+      sections.push(current)
+    }
+  }
+  for (const raw of content.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line.startsWith('### ')) {
+      flush()
+      current = { heading: cleanHelpMarkdown(line.slice(4)), paragraphs: [], bullets: [] }
+      continue
+    }
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      current.bullets.push(cleanHelpMarkdown(line.slice(2)))
+      continue
+    }
+    if (line.startsWith('>')) continue
+    const text = cleanHelpMarkdown(line)
+    if (!text) continue
+    if (!firstParagraph) firstParagraph = text
+    current.paragraphs.push(text)
+  }
+  flush()
+  if (!sections.length) return null
+  return {
+    id: (page.file.replace(/\.md$/, '') + '-' + title)
+      .toLowerCase()
+      .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-+|-+$/g, ''),
+    title,
+    summary: metadata.summary || firstParagraph || title,
+    category: metadata.category || page.category || '使用指南',
+    audience: page.audience,
+    keywords: (metadata.keywords || '').split(',').map((item) => item.trim()).filter(Boolean),
+    permission: metadata.permission || undefined,
+    sections,
+  }
+}
+
+function helpContentTs() {
+  const guideDir = path.join(docsDir, 'guide')
+  const pageFiles = fs.existsSync(guideDir)
+    ? fs.readdirSync(guideDir)
+        .filter((name) => name.endsWith('.md') && name !== 'index.md')
+        .sort()
+    : []
+  const topics = []
+  for (const name of pageFiles) {
+    const file = path.join(guideDir, name)
+    const { data, body } = readFrontmatter(file)
+    const audience = Array.isArray(data.audience)
+      ? data.audience
+      : data.audience
+        ? [data.audience]
+        : ['teacher']
+    const page = { file: name, audience, category: data.category }
+    const chunks = body.split(/^##\s+/m).slice(1)
+    for (const chunk of chunks) {
+      const topic = helpTopicsFromSection(chunk, page)
+      if (topic) topics.push(topic)
+    }
+  }
+  const lines = [
+    '// 由 npm run docs:gen 从 docs/guide/*.md 生成；不要手改。',
+    '// 文档站与系统帮助中心共用这一份来源。',
+    '',
+    "export type HelpAudience = 'admin' | 'teacher' | 'student';",
+    '',
+    'export interface HelpSection {',
+    '  heading?: string;',
+    '  paragraphs?: string[];',
+    '  bullets?: string[];',
+    '}',
+    '',
+    'export interface HelpTopic {',
+    '  id: string;',
+    '  title: string;',
+    '  summary: string;',
+    '  category: string;',
+    '  audience: HelpAudience[];',
+    '  keywords: string[];',
+    '  permission?: string;',
+    '  sections: HelpSection[];',
+    '}',
+    '',
+    'export const HELP_TOPICS: HelpTopic[] = ' + JSON.stringify(topics, null, 2) + ';',
+    '',
+  ]
+  return lines.join('\n')
+}
+
 function main() {
   if (!fs.existsSync(path.join(docsDir, 'modules'))) {
     console.error('缺少 docs/modules/')
@@ -321,6 +446,7 @@ function main() {
   add('docs/reference/api.md', apiDoc())
   add('docs/reference/permissions.md', permissionsDoc())
   add('client/src/auth/permission-codes.ts', permissionCodesTs())
+  add('client/src/help/helpContent.ts', helpContentTs())
   add('docs/reference/db-schema.md', dbDoc())
   add('docs/status.md', moduleStatus())
   add('docs/public/llms.txt', llmsDoc())

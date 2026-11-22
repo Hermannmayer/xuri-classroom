@@ -44,10 +44,16 @@ keywords:
 source_globs:
   - client/src/pages/project/**
   - client/src/pages/survey/Overview.tsx
+  - client/src/components/HelpCenter.tsx
+  - client/src/help/**
+  - client/src/styles/help.css
   - client/src/router.tsx
   - client/src/layout/BasicLayout.tsx
   - client/src/api/index.ts
   - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/ProjectExportApi.java
+  - server/api/src/main/java/cn/surveyking/server/api/PaperExportApi.java
+  - server/shared/src/main/java/cn/surveyking/server/core/export/PaperDocxExporter.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectAnswerValidator.java
@@ -72,6 +78,8 @@ entrypoints:
   - client/src/pages/survey/PartnerPanel.tsx
   - client/src/pages/project/ProjectCategoryTree.tsx
   - client/src/pages/project/BatchSettingModal.tsx
+  - client/src/pages/project/ProjectExportModal.tsx
+  - client/src/components/HelpCenter.tsx
   - client/src/pages/project/Trash.tsx
   - server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java
@@ -86,6 +94,10 @@ apis:
   - POST /api/project/update
   - POST /api/project/status
   - POST /api/project/delete
+  - POST /api/project/export/token
+  - GET /api/project/{id}/export/json
+  - GET /api/project/{id}/export/docx
+  - GET /api/paper/{id}/docx
   - GET /api/project/trash
   - POST /api/project/restore
   - POST /api/project/destroy
@@ -146,6 +158,7 @@ verified_against: 7f40d2c970d4cbd8169adfb44e34df9389c4c617
 | 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关独立；`/tree`、`/categories` 走 `project:list`；`/partner/update` 调级别 |
 | 本体导出 | `server/api/src/main/java/cn/surveyking/server/api/ProjectExportApi.java` | `/project/export/token` + `/project/{id}/export/json|docx`；权限 `project:detail`，导出密码走 `ExportGuardService`；JSON 含 name/mode/setting/survey |
 | 导出弹窗 | `client/src/pages/project/ProjectExportModal.tsx` | 列表行与编辑器共用；格式 JSON 备份 / Word 文档；系统设置导出密码时要求输入 |
+| 帮助中心 | `client/src/components/HelpCenter.tsx`、`client/src/help/helpContent.ts` | 右上角问号打开的 Drawer；按角色/权限过滤主题，标题/关键词/正文全文搜索；内容为前端静态帮助，不读业务数据 |
 | Word 导出器 | `server/shared/src/main/java/cn/surveyking/server/core/export/PaperDocxExporter.java` | 按 ProjectView 生成可打印 docx；`answers=false`、`card=false` 不导出答卷 |
 | 生命周期 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java` | `addProject` / `updateProject` / `updateProjectStatus` / `deleteProject` / `getDeleted` / `restoreProject`；`tree()` 组文件夹树；`listCategories()` 统计分类；写操作先 `assertCanEditProject`（level>=2） |
 | 项目授权 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java` | `accessLevel`（0/1/2/3）、`assertCanGrant`（owner/admin/level3）、`updateProjectPartner`；教师组/协作者带级别，班级/答卷人固定 1 |
@@ -163,6 +176,15 @@ verified_against: 7f40d2c970d4cbd8169adfb44e34df9389c4c617
 - 教学页的另一个 Tab 是「班级」（`TeachingClasses embedded`，原班级管理页），不是 ProjectList；没有 `class:list` 时不渲染该 Tab。原「学情」Tab 已删除。
 - 菜单只剩一个「教学」`/teaching`，显示条件与路由守卫是同一套判定（`project:list || class:list`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
 - 学员侧不变：菜单/首页仍走「我的任务」，`/project` 是可访问的「考试安排」，不会被重定向。
+
+### 0.0.2 右上角帮助中心
+
+- 入口：`BasicLayout` 右上角问号按钮（公告铃铛左侧），所有登录角色可见；打开的是居中大弹窗，不是侧栏。
+- 角色：`resolveHelpRoles` 用 authorityList 判定——`ROLE_admin` 看管理员+老师+通用；有 project/class/repo/report/answer/template 权限的看老师+通用；`portal:student` / `project:answer` / `exercise:list` 看学员+通用。没有角色时只显示通用主题。
+- 权限：主题可带 `permission`，`HelpCenter` 再用 `can()` 过滤；这是展示层过滤，不是接口鉴权。管理员绕过主题权限，方便排查老师/学员问题。
+- 搜索：顶部输入框对标题、摘要、keywords 和全部段落做小写子串匹配；左侧分类再叠一层筛选；无结果显示引导。
+- **唯一内容源**：用户文档写在 `docs/guide/{common,teacher,student,admin}.md`，同一批 Markdown 同时进 VitePress 文档站；`npm run docs:gen` 把它们生成 `client/src/help/helpContent.ts`，系统只读生成物，不再手维护第二份。新增功能时改文档页并重跑 `docs:gen`，不要直接改生成文件。
+- **离线/国内网络**：生成发生在构建/开发机本地，帮助索引随前端打包；系统运行时不请求 VitePress、GitHub 或任何外部文档地址。GitHub 连不上只影响文档站发布，不影响帮助按钮。
 
 ### 0.0.1 试卷/问卷本体导出
 

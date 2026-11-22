@@ -47,6 +47,16 @@ export default defineConfig({
         ],
       },
       {
+        text: '使用指南',
+        items: [
+          { text: '指南首页', link: '/guide/' },
+          { text: '通用使用指南', link: '/guide/common' },
+          { text: '老师使用指南', link: '/guide/teacher' },
+          { text: '学员使用指南', link: '/guide/student' },
+          { text: '管理员使用指南', link: '/guide/admin' },
+        ],
+      },
+      {
         text: '开始',
         items: [
           { text: '本地开发环境', link: '/start/dev-setup' },
