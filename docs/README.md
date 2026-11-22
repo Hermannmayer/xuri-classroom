@@ -80,11 +80,11 @@ npm run docs:dev                     # 本地预览
 
 ## 模块索引与上下文
 
-- 机器索引：[ai/modules.yaml](ai/modules.yaml)（由各模块 frontmatter 生成）
-- AI 编码规则：[ai/coding-rules.md](ai/coding-rules.md)
-- 常见改动配方：[ai/task-recipes.md](ai/task-recipes.md)
-- 导航自测题：[ai/eval.md](ai/eval.md)
-- 模块页模板：[ai/module-template.md](ai/module-template.md)
+- 机器索引：`docs/ai/modules.yaml`（由各模块 frontmatter 生成，本地文件，不入库）
+- AI 编码规则：`docs/ai/coding-rules.md`（本地）
+- 常见改动配方：`docs/ai/task-recipes.md`（本地）
+- 导航自测题：`docs/ai/eval.md`（本地）
+- 模块页模板：`docs/ai/module-template.md`（本地）
 
 ## 维护边界
 

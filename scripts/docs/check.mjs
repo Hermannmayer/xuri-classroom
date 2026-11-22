@@ -67,13 +67,14 @@ for (const file of docsToCheck) {
       target = path.resolve(path.dirname(file), withoutAnchor)
     }
     const candidates = [target, target + '.md', path.join(target, 'index.md')]
+    if (rel(target).startsWith('docs/ai/')) continue
     if (!candidates.some((candidate) => fs.existsSync(candidate))) {
       errors.push(rel(file) + ' 链接不存在: ' + link)
     }
   }
 }
 
-const generated = ['docs/ai/modules.yaml', 'docs/reference/routes.md', 'docs/reference/api.md', 'docs/reference/permissions.md', 'docs/reference/db-schema.md', 'docs/status.md', 'docs/public/llms.txt']
+const generated = ['docs/reference/routes.md', 'docs/reference/api.md', 'docs/reference/permissions.md', 'docs/reference/db-schema.md', 'docs/status.md', 'docs/public/llms.txt']
 for (const file of generated) if (!fs.existsSync(path.join(root, file))) errors.push('缺少生成文件: ' + file + '（运行 npm run docs:gen）')
 
 try {
