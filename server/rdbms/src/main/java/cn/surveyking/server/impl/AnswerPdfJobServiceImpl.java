@@ -606,7 +606,22 @@ public class AnswerPdfJobServiceImpl implements AnswerPdfJobService {
 	/** 渲染单个格式的字节：四种格式对应四个导出器，这里只负责把选项装好 */
 	private byte[] renderOutput(DownloadQuery.DownloadType output, ProjectView project, AnswerView view, Answer answer,
 			String className, ExportSpec spec) {
-
+		// 导出任务按需取字段；视图缺分/缺答案时用原始 Answer 兜底，避免 PDF 显示 0 分/全错
+		if (view != null && answer != null) {
+			if (view.getExamScore() == null) {
+				view.setExamScore(answer.getExamScore());
+			}
+			if (view.getExamInfo() == null || view.getExamInfo().getQuestionScore() == null
+					|| view.getExamInfo().getQuestionScore().isEmpty()) {
+				view.setExamInfo(answer.getExamInfo());
+			}
+			if (view.getGradeStatus() == null) {
+				view.setGradeStatus(answer.getGradeStatus());
+			}
+			if (view.getAnswer() == null) {
+				view.setAnswer(answer.getAnswer());
+			}
+		}
 		AnswerPdfExporter.PdfOptions options = new AnswerPdfExporter.PdfOptions().attemptNo(answer.getAttemptNo())
 				.includeAnalysis(spec.isIncludeAnalysis())
 

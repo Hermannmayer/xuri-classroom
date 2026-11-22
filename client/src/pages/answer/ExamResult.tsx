@@ -26,8 +26,9 @@ interface PublicExamResult {
   examScore?: number;
   rank?: number;
   answer?: Record<string, AnswerValue>;
-
-
+  examInfo?: {
+    questionScore?: Record<string, number>;
+  };
 
 
   tempSave?: number;
@@ -90,7 +91,7 @@ function fileIdsOf(value: AnswerValue): string[] {
 }
 
 
-type Status = 'correct' | 'wrong' | 'unanswered' | 'unknown' | 'manual';
+type Status = 'correct' | 'wrong' | 'partial' | 'unanswered' | 'unknown' | 'manual';
 
 interface OptionView {
   id: string;
@@ -185,6 +186,13 @@ function prettyCorrect(raw: string): string {
 /* ---------------------------------------------------------------- 选项 / 填空 / 矩阵 */
 
 /** 选择题选项：children 是选项节点（带 examCorrectAnswer），dataSource 只补 label */
+function normalizeOptionLabel(label: string): string {
+  // Word/Excel 导入偶尔把「110」拆成逐字换行；逐字行合并，正常多行选项保持原样
+  const lines = label.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.every((line) => line.length <= 1)) return lines.join('');
+  return label;
+}
+
 function buildOptions(q: FlatQuestion, value: AnswerValue): OptionView[] {
   if (!CHOICE.has(q.type)) return [];
   const record = asRecord(value);
@@ -210,9 +218,9 @@ function buildOptions(q: FlatQuestion, value: AnswerValue): OptionView[] {
     });
   };
 
-  for (const node of nodes) push(node.id, node.title ?? '', node);
+  for (const node of nodes) push(node.id, normalizeOptionLabel(node.title ?? ''), node);
   for (const item of source) {
-    push(item.value, item.label, nodes.find((node) => node.id === item.value));
+    push(item.value, normalizeOptionLabel(item.label ?? ''), nodes.find((node) => node.id === item.value));
   }
   return rows;
 }
@@ -285,7 +293,11 @@ function matrixLines(q: FlatQuestion, value: AnswerValue): string[] {
 
 /** ---------------------------------------------------------------- 一道题的视图模型 */
 
-export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
+export function buildView(
+  q: FlatQuestion,
+  value: AnswerValue,
+  examInfo?: { questionScore?: Record<string, number> },
+): QuestionView {
   const options = buildOptions(q, value);
   const blanks = buildBlanks(q, value);
   const analysis = trimmed(q.schema.attribute?.examAnalysis);
@@ -301,11 +313,27 @@ export function buildView(q: FlatQuestion, value: AnswerValue): QuestionView {
 
   if (options.length > 0) {
     answered = picked.length > 0;
-    judgeable = correct.length > 0;
+    const max = q.schema.attribute?.examScore;
+    const earned = examInfo?.questionScore?.[q.id];
+    const hasScore =
+      typeof max === 'number' && max > 0 && typeof earned === 'number' && Number.isFinite(earned);
+    judgeable = correct.length > 0 || hasScore;
     if (judgeable) {
-      const sameSet =
-        picked.length === correct.length && picked.every((id) => correct.includes(id));
-      status = !answered ? 'unanswered' : sameSet ? 'correct' : 'wrong';
+      if (!answered) {
+        status = 'unanswered';
+      } else if (hasScore) {
+        status = earned >= max - 0.005 ? 'correct' : earned > 0 ? 'partial' : 'wrong';
+      } else {
+        const sameSet =
+          picked.length === correct.length && picked.every((id) => correct.includes(id));
+        status = sameSet ? 'correct' : 'wrong';
+      }
+      if (status === 'correct' && correct.length === 0) {
+        // 成绩单可能把正确标记裁掉；分数已判对时至少把当前选择标成正确
+        for (const option of options) {
+          if (option.picked) option.correct = true;
+        }
+      }
     }
   } else if (blanks.length > 0) {
     answered = blanks.some((blank) => blank.mine.trim() !== '');
@@ -338,6 +366,7 @@ function statusBadge(view: QuestionView): { text: string; tone: string } | undef
   if (view.judgeable) {
     if (!view.answered) return { text: '未作答', tone: 'is-unanswered' };
     if (view.status === 'correct') return { text: '✓ 回答正确', tone: 'is-correct' };
+    if (view.status === 'partial') return { text: '部分正确', tone: 'is-partial' };
     if (view.status === 'wrong') return { text: '✕ 回答错误', tone: 'is-wrong' };
 
     return undefined;
@@ -373,7 +402,7 @@ export function QuestionCard({ view }: { view: QuestionView }) {
       {options.length > 0 && (
         <ul className="sk-opt-list">
           {options.map((option, index) => {
-            const wrong = option.picked && !option.correct;
+            const wrong = option.picked && !option.correct && view.status === 'wrong';
             const className = [
               'sk-opt',
               option.correct ? 'is-correct' : '',
@@ -385,7 +414,11 @@ export function QuestionCard({ view }: { view: QuestionView }) {
             return (
               <li className={className} key={option.id}>
                 <span className="sk-opt-key">{LETTERS[index] ?? String(index + 1)}</span>
-                <span className="sk-opt-label">{option.label}</span>
+                {/<[a-z][\s\S]*>/i.test(option.label) ? (
+                  <RichTextContent className="sk-opt-label" html={option.label} inline />
+                ) : (
+                  <span className="sk-opt-label">{option.label}</span>
+                )}
                 <span className="sk-opt-notes">
                   {option.picked && <span className="sk-opt-note is-picked">我的选择</span>}
                   {option.correct && <span className="sk-opt-note is-correct">✓ 正确答案</span>}
@@ -524,7 +557,7 @@ export default function ExamResult() {
   const views = useMemo(() => {
     if (!data?.schema) return [];
     const answers = data.answer ?? {};
-    return flattenSchema(data.schema).map((q) => buildView(q, answers[q.id]));
+    return flattenSchema(data.schema).map((q) => buildView(q, answers[q.id], data.examInfo));
   }, [data]);
 
 

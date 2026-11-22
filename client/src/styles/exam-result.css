@@ -309,6 +309,12 @@
   background: var(--bp-blue-weak);
 }
 
+.sk-q-status.is-partial {
+  color: var(--bp-orange);
+  border-color: var(--bp-orange-line);
+  background: var(--bp-orange-weak);
+}
+
 .sk-q-status.is-wrong {
   color: var(--bp-orange);
   border-color: var(--bp-orange);
@@ -368,7 +374,8 @@
 .sk-opt-label {
   flex: 1 1 auto;
   min-width: 0;
-  white-space: pre-wrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
