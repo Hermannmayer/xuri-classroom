@@ -40,6 +40,7 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 21MB
+      file-size-threshold: 2MB
   jackson:
     default-property-inclusion: non_null
     date-format: yyyy-MM-dd HH:mm:ss

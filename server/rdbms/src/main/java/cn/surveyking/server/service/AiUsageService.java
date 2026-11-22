@@ -54,6 +54,11 @@ public interface AiUsageService {
 	String SCENE_CHAT_INTENT = "chat_intent";
 
 
+	String SCENE_IMPORT_AI = "import_ai";
+
+
+
+
 	int DEFAULT_DAILY_TOKEN_LIMIT = 2_000_000;
 
 

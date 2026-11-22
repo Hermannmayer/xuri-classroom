@@ -476,7 +476,7 @@ function ManagerProjectList({
   };
 
   /** 文本导入建卷：先解析后建卷，创建失败不会留下空项目 */
-  const handleImportCreate = async ({ preview }: ImportSubmitPayload) => {
+  const handleImportCreate = async ({ preview, format }: ImportSubmitPayload) => {
     const name = String(createForm.getFieldValue('name') ?? '').trim() || '未命名试卷';
     const survey = {
       ...preview.tree,
@@ -488,11 +488,11 @@ function ManagerProjectList({
       mode: 'exam',
       category: String(createForm.getFieldValue('category') ?? '').trim() || undefined,
       parentId,
-      setting: DEFAULT_SETTING,
+      setting: { ...DEFAULT_SETTING, mode: 'exam', examSetting: { scoringEnabled: true } },
       survey,
     } as Parameters<typeof createProject>[0]);
     message.success('已导入 ' + preview.stats.total + ' 题，共 ' + preview.stats.score + ' 分');
-    void recordPaperImport({ projectId: created.id, source: 'text', total: preview.stats.total }).catch(() => undefined);
+    void recordPaperImport({ projectId: created.id, source: format, total: preview.stats.total }).catch(() => undefined);
     setTreeToken((token) => token + 1);
     navigate('/survey/' + created.id + '/edit');
   };
@@ -1237,7 +1237,7 @@ function ManagerProjectList({
                 embedded
                 open={createOpen}
                 target="paper"
-                formats={['text', 'excel', 'word', 'json']}
+                formats={['word', 'excel', 'text', 'json', 'ai']}
                 paperName={(createName || '').trim() || '未命名试卷'}
                 onClose={() => setCreateOpen(false)}
                 onSubmit={handleImportCreate}

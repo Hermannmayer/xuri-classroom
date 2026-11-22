@@ -292,6 +292,7 @@ export interface AiStatus {
   ready: boolean;
   reason?: string;
   model?: string;
+  supportsImage?: boolean;
 }
 
 export const getAiStatus = () => get<AiStatus>('/api/ai/status');

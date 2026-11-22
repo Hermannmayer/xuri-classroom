@@ -345,7 +345,9 @@ export default function SurveyEditor() {
       .then((p) => {
         if (!alive) return;
         setName(p.name ?? '');
-        setSetting(p.setting ?? {});
+        const nextSetting = { ...(p.setting ?? {}) };
+        if (!nextSetting.mode && p.mode && p.mode !== 'folder') nextSetting.mode = p.mode;
+        setSetting(nextSetting);
         reset(p.survey ?? createSurvey(p.name ?? '未命名'));
         baselineRef.current = JSON.stringify({ name: p.name ?? '', survey: p.survey ?? null });
       })
@@ -593,6 +595,13 @@ export default function SurveyEditor() {
     return index < 0 ? flatQuestions : flatQuestions.slice(0, index);
   }, [flatQuestions, selectedId]);
 
+  /** 当前题之后的数据题，跳转规则只能选它们 */
+  const followingQuestions = useMemo(() => {
+    if (!selectedId) return [];
+    const index = flatQuestions.findIndex((q) => q.id === selectedId);
+    return index < 0 ? [] : flatQuestions.slice(index + 1);
+  }, [flatQuestions, selectedId]);
+
 
   const displays = useMemo(() => {
     const rules: Record<string, string | undefined> = {};
@@ -681,21 +690,21 @@ export default function SurveyEditor() {
   const patchNode = useCallback(
     (patch: Partial<SurveySchema>) => {
       if (!selectedId) return;
-      setSurvey(updateNode(survey, selectedId, patch));
+      setSurvey((prev) => updateNode(prev, selectedId, patch));
     },
-    [survey, selectedId, setSurvey],
+    [selectedId, setSurvey],
   );
 
   const patchAttribute = useCallback(
     (attributePatch: Record<string, unknown>) => {
       if (!selectedId) return;
-      setSurvey(
-        updateNode(survey, selectedId, (node) => ({
+      setSurvey((prev) =>
+        updateNode(prev, selectedId, (node) => ({
           attribute: { ...node.attribute, ...attributePatch } as SurveySchema['attribute'],
         })),
       );
     },
-    [survey, selectedId, setSurvey],
+    [selectedId, setSurvey],
   );
 
   /** 保存指定的树 */
@@ -1002,9 +1011,11 @@ export default function SurveyEditor() {
               { key: 'excel', label: '批量导入题目（Excel）' },
               { key: 'word', label: '批量导入题目（Word）' },
               { key: 'json', label: '从 JSON 导入试卷（保留大题）' },
+              { key: 'ai', label: 'AI 智能导入（Word/PDF/Excel/图片）' },
             ],
             onClick: ({ key }) => {
               if (key === 'bank') setBankOpen(true);
+              else if (key === 'ai') openImport(false, ['ai']);
               else if (key === 'whole-word') openImport(true, ['word']);
               else if (key === 'text') openImport(false, ['text']);
               else if (key === 'excel') openImport(false, ['excel']);
@@ -1467,6 +1478,8 @@ export default function SurveyEditor() {
                       schema={selected}
                       onChange={patchAttribute}
                       questions={candidateQuestions}
+                      questionsAfter={followingQuestions}
+                      questionsAll={flatQuestions}
                       onPatchNode={patchNode}
                       scoring={scoringEnabled}
                     />

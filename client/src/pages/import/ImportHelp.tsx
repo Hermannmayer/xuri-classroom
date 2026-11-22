@@ -112,15 +112,35 @@ export function splitImportWarnings(warnings?: ImportWarning[] | null): ImportWa
 
 
 const FORMAT_RULES: Partial<Record<ImportFormat, { title: string; items: string[] }>> = {
+  ai: {
+    title: 'AI 智能识别',
+    items: [
+      '支持 Word / PDF / Excel / TXT，也可上传图片（png / jpg / jpeg）',
+      '文字题直接识别；图片题需要模型勾了「图片」输入，图片会缩放到 1568px、每次最多 10 张，公式可能丢失',
+      '文档 / 图片会发送到系统设置里配置的 AI 服务商，敏感资料请先脱敏或使用内网模型',
+      '识别后务必逐题核对答案与分值',
+    ],
+  },
   excel: {
     title: 'Excel',
-    items: ['一个题型一个 sheet', '图片直接贴在题干所在行即可，会按行归属', '复杂题型可用「高级配置(JSON)」列'],
+    items: [
+      '一个题型一个 sheet，表头按名字识别（插列、换列序不影响）',
+      '图片直接贴在题干所在行即可，会按行归属',
+      '复杂题型可用「高级配置(JSON)」列',
+    ],
   },
   word: {
     title: 'Word',
-    items: ['题干前用【单选】【矩阵单选】等标记题型', '矩阵用「行：/列：/答案：」三行'],
+    items: [
+      '按模板写：题干前用【单选】【矩阵单选】等标记题型',
+      '矩阵用「行：/列：/答案：」三行',
+      '只收 .docx，文档里的图片会随题干提取',
+    ],
   },
-  text: { title: '文本', items: ['题目之间空一行，题型用【单选题】等标记'] },
+  text: {
+    title: '文本',
+    items: ['题目之间空一行，题型用【单选题】等标记', '也可直接读入 .txt / .md 文件（UTF-8）'],
+  },
   json: { title: 'JSON', items: ['系统导出的试卷 JSON，原样导入'] },
 };
 

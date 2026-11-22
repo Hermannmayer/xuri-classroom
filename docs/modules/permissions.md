@@ -143,8 +143,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-21
-verified_against: 28764990360a4889363fdf9bd24c9eb778f47676
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 权限、角色与用户组

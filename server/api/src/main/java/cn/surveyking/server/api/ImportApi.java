@@ -4,6 +4,7 @@ import cn.surveyking.server.core.annotation.EnableDataPerm;
 import cn.surveyking.server.core.importer.ImportParseRequest;
 import cn.surveyking.server.core.importer.ImportPreview;
 import cn.surveyking.server.domain.dto.PaperImportRecordRequest;
+import cn.surveyking.server.service.AiImportService;
 import cn.surveyking.server.service.ImportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,11 +23,20 @@ public class ImportApi {
 
 	private final ImportService importService;
 
+	private final AiImportService aiImportService;
+
 	/** 解析导入文件/文本，返回题目树与预览统计 */
 	@PostMapping("/parse")
 	@PreAuthorize("hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin')")
 	public ImportPreview parse(ImportParseRequest request) {
 		return importService.parse(request);
+	}
+
+	/** AI 读懂上传文件/粘贴文本（含图片）后转成题目，返回与规则导入一致的预览结构 */
+	@PostMapping("/ai/parse")
+	@PreAuthorize("hasAuthority('ai:use') and (hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin'))")
+	public ImportPreview parseByAi(ImportParseRequest request) {
+		return aiImportService.parse(request);
 	}
 
 	/** 导入完成后的审计记录（幂等，不改任何业务数据） */

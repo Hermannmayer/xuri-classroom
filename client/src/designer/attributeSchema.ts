@@ -1,7 +1,7 @@
 /** 属性面板字段描述 */
 import type { Attribute } from '../schema/types';
 
-export type AttributeControl = 'text' | 'number' | 'switch' | 'select' | 'textarea';
+export type AttributeControl = 'text' | 'number' | 'switch' | 'select' | 'textarea' | 'custom';
 
 export const ATTRIBUTE_GROUPS = ['基础', '数据', '校验', '考试', '规则'] as const;
 export type AttributeGroup = (typeof ATTRIBUTE_GROUPS)[number];
@@ -92,6 +92,18 @@ export const attributeSchema: AttributeField[] = [
 
   { key: 'visibleRule', label: '显隐规则', control: 'textarea', group: '规则', hint: RULE_HINT },
   { key: 'requiredRule', label: '必填规则', control: 'textarea', group: '规则', hint: RULE_HINT },
-  { key: 'jumpRule', label: '跳转规则', control: 'textarea', group: '规则', hint: RULE_HINT },
-  { key: 'calculate', label: '计算规则', control: 'textarea', group: '规则', hint: RULE_HINT },
+  {
+    key: 'jumpRule',
+    label: '跳转规则',
+    control: 'custom',
+    group: '规则',
+    hint: '条件成立时跳到后面的某道题，或提前结束答题',
+  },
+  {
+    key: 'calculate',
+    label: '计算规则',
+    control: 'custom',
+    group: '规则',
+    hint: '把来源题的数值按运算结果自动填到本题',
+  },
 ];

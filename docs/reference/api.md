@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 263 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 265 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -70,6 +70,7 @@
 | POST | `${api.prefix}/file/delete` | `FileApi#deleteImage` | `hasAuthority('file:delete')` | — |
 | GET | `${api.prefix}/file/downloadTemplate` | `FileApi#downloadTemplate` | `hasAnyAuthority('file:import','template:import') or hasRole('admin')` | — |
 | POST | `${api.prefix}/import/parse` | `ImportApi#parse` | `hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin')` | — |
+| POST | `${api.prefix}/import/ai/parse` | `ImportApi#parseByAi` | `hasAuthority('ai:use') and (hasAnyAuthority('project:create','project:update','template:import') or hasRole('admin'))` | — |
 | POST | `${api.prefix}/import/record` | `ImportApi#record` | `hasAnyAuthority('project:update') or hasRole('admin')` | 是 |
 | GET | `${api.prefix}/my-report/list` | `MyReportApi#listMine` | `hasAuthority('project:report') or hasRole('admin')` | — |
 | GET | `${api.prefix}/notice/list` | `NoticeApi#list` | `hasAuthority('notice:list') or hasRole('admin')` | — |
@@ -133,6 +134,7 @@
 | POST | `${api.prefix}/repo/unbind` | `RepoApi#batchUnBindTemplate` | `hasAuthority('repo:update')` | — |
 | POST | `${api.prefix}/repo/pick` | `RepoApi#pickQuestionFromRepo` | `hasAnyAuthority('repo:detail','repo:book','repo:practice') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/import` | `RepoApi#importFromTemplate` | `hasAuthority('template:import') or hasRole('admin')` | — |
+| POST | `${api.prefix}/repo/import/questions` | `RepoApi#importQuestions` | `hasAuthority('template:import') or hasRole('admin')` | — |
 | GET | `${api.prefix}/repo/book/list` | `RepoApi#listUserBook` | `hasAnyAuthority('repo:book','repo:practice')` | — |
 | GET | `${api.prefix}/repo/book/question` | `RepoApi#getUserBookQuestion` | `hasAnyAuthority('repo:book','repo:practice')` | — |
 | POST | `${api.prefix}/repo/book/create` | `RepoApi#createUserBook` | `hasAuthority('repo:book')` | — |

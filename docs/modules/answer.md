@@ -135,8 +135,8 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-21
-verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 答卷、判分与报表
@@ -158,7 +158,7 @@ verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 公开答题页 | `client/src/pages/answer/PublicAnswer.tsx` | 首屏大纲、逐题加载、本地草稿、提交、倒计时/切屏/闯关；交卷后「我的答卷」抽屉（匿名/登录都可看） |
+| 公开答题页 | `client/src/pages/answer/PublicAnswer.tsx` | 首屏大纲、逐题加载、本地草稿、提交、倒计时/切屏/闯关；跳转/计算规则在此求值；交卷后「我的答卷」抽屉（匿名/登录都可看） |
 | 匿名答卷抽屉 | `client/src/pages/answer/AnonymousAnswersDrawer.tsx` | `GET /public/anonymous/answers` 列本设备/本人答卷；登录后 `POST /public/anonymous/claim` 认领 |
 | 匿名身份 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java` | `sk-anon` cookie、SHA-256 主体、ensure/current/claim/purge；匿名答卷不写 `create_by` |
 | 匿名清理 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java` | `purgeOlderThan(days)`：只删 `is_anonymous=1` 且过期答卷（逻辑删），主体无剩余匿名答卷时物理删；每日 03:30 + 手动 `/system/anonymous/cleanup` |
@@ -192,6 +192,13 @@ verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
    **PDF ZIP** 走 `POST /api/answer/export/pdf-job`：`classId` 可空（空 = 整卷或按 `ids`/时间范围），不选班级时改为校验项目级权限。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。`DownloadQuery.includeAnonymous` 不传时默认包含匿名（数据页按开关传），导出「提交人」列对匿名答卷写「匿名」。
 9. **报表**：`GET /api/report/{shortId}`（`project:report` + `@EnableDataPerm`）。`ReportServiceImpl.getData` 按 `project_id` 取答卷，递归统计选项/数值，再算每日答卷数；`includeAnonymous=true` 时匿名答卷计入（管理端 UI 默认 true，API 默认 false 兼容旧调用）。前端用项目 schema 或最新答卷快照渲染每题区块。
 10. **回收站**：`POST /api/answer/delete` 只把 `is_deleted` 置 1；`GET /api/answer/trash` 查已删；`/restore` 恢复（`answer:restore` 或 admin），`/destroy` 物理删除（`answer:delete`）。`listAnswer` 默认过滤逻辑删除，回收站列表用 Mapper 的 `selectLogicDeleted`。
+
+### 跳转 / 计算规则
+
+1. **跳转（`jumpRule`）**：`PublicAnswer` 在「下一题」、auto-next、闯关推进三处求值；目标只允许是当前题之后的题，目标被显隐规则隐藏时顺延到其后第一道可见题。
+   `targetType=end` 时把 `visibleQuestions` 截断到触发题，后续题不再显示、也不参与必填校验，仍由用户手动交卷；改答案或手动翻页会清掉截断状态重新求值。
+2. **计算（`calculate`）**：依赖值变化时重算，结果写回本题；`FillBlank` 写成 `{第一个空位id: "数字"}`，其他题型写字符串；来源全为空时清空目标值，不做 0 兜底。
+3. **只在浏览器求值**：服务端不二次裁决；被跳过的题没有答案，判分按未作答计 0 分。改规则语义时同步改 `client/src/schema/rules/jump.ts` / `calculate.ts` 与 `PublicAnswer.tsx`。
 
 ### 按班级作答与 class_id
 

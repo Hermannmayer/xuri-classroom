@@ -8,6 +8,8 @@ keywords:
   - Excel 导入
   - Word 导入
   - JSON 导入
+  - AI 智能导入
+  - 多模态
   - 导入预览
   - 导入向导
   - 题组
@@ -26,6 +28,8 @@ entrypoints:
   - client/src/pages/survey/Editor.tsx
 apis:
   - POST /api/import/parse
+  - POST /api/import/ai/parse
+  - POST /api/repo/import/questions
   - POST /api/import/record
   - POST /api/project/create
   - POST /api/project/update
@@ -55,19 +59,20 @@ verified_against: 9b6e2829
 
 ## 端到端步骤
 
-1. **选来源**：列表「新建」填名称/类型/分类 → 新建方式选「导入试卷」→ 选来源（文本/Excel/Word/JSON）→「下一步：上传」。
-2. **解析**：向导把文件或文本 POST 到 /api/import/parse（只解析不写库）。服务端按 kind 选解析器：
+1. **选来源**：列表「新建」填名称/类型/分类 → 新建方式选「导入试卷」→ 选来源（文本/Excel/Word/JSON/AI 智能识别）→「下一步：上传」。
+2. **解析**：向导把文件或文本 POST 到 /api/import/parse（只解析不写库）；AI 页签走 /api/import/ai/parse（要 ai:use，先抽文本/图片再调模型）。服务端按 kind 选解析器：
    - 文本：TextQuestionParser（【单选题】等标记、答案、解析、分值）；
    - Excel：ExcelQuestionParser（复用题库模板解析，章节列 → QuestionSet）；
    - Word：WordQuestionParser（中文数字大题、编号小题、图片抽成附件）；
    - JSON：JsonQuestionParser（整卷 JSON，重排全部 ID）。
+   - AI：DocumentTextExtractor 抽 docx/pdf/xlsx/txt 文本与图片 → AiImportServiceImpl 分块调模型 → WordQuestionParser.parseSections + TextQuestionParser 归一（图片题用 [[IMG:n]]，只上传被题干引用的图）。
    解析结果统一成 ImportPreview：tree + flat + stats + warnings。
 3. **预览**：向导显示题数/总分/题型分布/警告，可逐题勾选（题库导入除外）。
 4. **选去向**：
    - 列表新建：固定「新建试卷」，提交时 POST /api/project/create 带整份 survey；失败停在向导，不会留下空项目；
    - 编辑器：选「新建题组」或「现有题组」，前端 insertNode/updateNode 合并，一次导入 = 一个撤销步；
    - 编辑器「整份试卷（Word）/JSON」：直接把解析出的 tree.children 追加到试卷末尾；
-   - 题库：POST /api/repo/import?kind=text|word，服务端重新解析后写 t_template。
+   - 题库：规则导入走 POST /api/repo/import?kind=text|word，服务端重新解析后写 t_template；AI 导入走 POST /api/repo/import/questions，直接落预览勾选后的题目。
 5. **收尾**：列表流程跳编辑器；编辑器流程提示「记得保存」并写审计 IMPORT_PROJECT；题库流程刷新列表。
 
 ## 权限与数据范围

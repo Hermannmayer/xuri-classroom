@@ -38,6 +38,7 @@ import { PERMISSION_CODES } from '../../auth/permission-codes';
 import RepoExportModal, { type RepoExportTarget } from './RepoExportModal';
 import AiRepoAuditDrawer from './ai/AiRepoAuditDrawer';
 import ImportWizard from '../import/ImportWizard';
+import { importRepoQuestions } from '../../api/import';
 import { ImportHelp } from '../import/ImportHelp';
 import RichTextEditor from '../../components/RichTextEditor';
 import RichTextContent from '../../components/RichTextContent';
@@ -1221,10 +1222,16 @@ export default function RepoQuestions() {
       <ImportWizard
         open={importOpen}
         target="repo"
-        formats={['text', 'word']}
+        formats={['text', 'word', 'ai']}
         repoName={repoName}
         onClose={() => setImportOpen(false)}
-        onSubmit={async ({ preview, sourceText, sourceFile }) => {
+        onSubmit={async ({ preview, format, sourceText, sourceFile }) => {
+          if (format === 'ai') {
+            await importRepoQuestions({ repoId, questions: preview.flat });
+            message.success('已导入 ' + preview.flat.length + ' 题');
+            await load();
+            return;
+          }
           const form = new FormData();
           form.append('repoId', repoId);
           form.append('kind', sourceFile ? 'word' : 'text');

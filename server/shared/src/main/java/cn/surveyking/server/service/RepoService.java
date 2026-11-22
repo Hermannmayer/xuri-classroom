@@ -50,6 +50,9 @@ public interface RepoService {
 
 	void importFromTemplate(RepoTemplateRequest request);
 
+	/** 把前端预览并勾选后的题目直接落进题库（不重新解析源文件） */
+	void importQuestions(RepoQuestionImportRequest request);
+
 	PaginationResponse<UserBookView> listUserBook(UserBookQuery query);
 
 	/** 取错题本里某道题 */

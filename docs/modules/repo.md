@@ -71,6 +71,7 @@ apis:
   - POST /api/repo/update
   - POST /api/repo/delete
   - POST /api/repo/import
+  - POST /api/repo/import/questions
   - GET /api/repo/export
   - POST /api/repo/export/token
   - POST /api/repo/pick
@@ -92,8 +93,8 @@ tables:
 tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
-last_verified: 2026-11-19
-verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 题库与题目
@@ -124,7 +125,7 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 | 批量移动分类 | `client/src/pages/repo/BatchRepoCategoryModal.tsx` | TreeSelect 扁平分类 path（根「未分类」=空串）+ 可输入新路径；逐个 `POST /repo/update {id,category}`，成功/失败计数，完成后刷新树/列表 |
 | 题目批量设置 | `client/src/pages/repo/Questions.tsx` + `POST /api/template/batchUpdate` | 勾选多题后批量追加/覆盖标签、改难度、改每题分值；后端 `TemplateServiceImpl#batchPatchTemplate` 只改非空字段 |
 | 题库分类树 | `client/src/pages/repo/RepoCategoryTree.tsx` | `GET /api/repo/categories` 扁平列表按 `/` 拆树；根「全部分类」+ 各路径 count；「新建分类文件夹」→ `/categories/create`；选中 path 过滤列表 |
-| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel / 文本 / Word、导入旁「下载模板」+ 题型说明（`ImportHelp`）、导出 xlsx；读取权限与导入/导出权限分开判定 |
+| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel / 文本 / Word / AI 智能识别、导入旁「下载模板」+ 题型说明（`ImportHelp`）、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | AI 题库体检 | `client/src/pages/repo/ai/AiRepoAuditDrawer.tsx` + `POST /api/ai/repo/audit` | 查重复题 / 缺解析 / 缺难度章节标签，逐题给建议；勾选后走 `POST /api/ai/repo/audit/apply` 批量写回（只写勾选的字段）。入口在题目页「AI 体检」，也能从 AI 对话框带 `?ai=audit` 直接打开 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | **只面向教师**：按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树只拉 `deptType=org`，人只拉 `userType=staff`；成员行可改级别。学员/班级不在这里出现 |
@@ -153,11 +154,14 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 1. **题库列表**：`List.tsx` 调 `GET /api/repo/list`（`name`、`category`、`sortBy`、`memberOnly`）。`category` 是**精确值**（前端传分类树的 path，不做 trim/规范化）；`RepoApi.listRepo` 在调用方没有 `repo:list` 时强制 `isPractice=true`、`memberOnly=true`；`RepoServiceImpl.listRepo` 对管理员不加成员条件，对其他人按「自己创建 / 共享 / 逐个授权 / 所属组授权 / 本班在 `t_class_resource` 有 repo 分配」收窄（班级分配只对非管理员生效，实际只影响学员）。列表返回后逐行补题量、标签分布、题型分布；排序走 `applyRepoOrder` 白名单（`name`、`category` 用 GBK 转码实现拼音序）。
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。`/api/repo/detail` 现在接受 `repo:detail` 或 `repo:questions:read`，但服务层仍走 `assertReadableRepo`（管理员/创建者/共享/partner/班级分配），学员只能读可见题库。
 3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` / `kind` / `file`（或 `text`）到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。
-   导入下拉有三项：Excel（按题型分表）/ 文本（粘贴题目）/ Word（按模板），对应 `kind=excel`（默认）/ `text` / `word`：
+   导入下拉有四类：Excel（按题型分表）/ 文本（粘贴题目）/ Word（按模板）/ AI 智能识别，对应 `kind=excel`（默认）/ `text` / `word` / AI：
    Excel 走 `RepoTemplateExcelParseHelper.parse`（13 个题型 sheet）**并按行挂内嵌图片**——`attachExcelRowImages` 复用
    `ExcelRowImages` + `QuestionImageUploader`（与试卷导入同一套抽图/上传逻辑），题干末尾追加 `<img>` 并置 `richTitle=true`；
    Word/文本走 `WordQuestionParser` / `TextQuestionParser`，**图片占位符会被剥掉**（题库题目只存题目本体，不挂图）。
    解析结果进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
+   AI 导入不重新上传原文件：预览确认后 `POST /api/repo/import/questions`（JSON：`repoId` + 勾选后的 `questions`），
+   服务端逐题 `RichTextSanitizer` 后转 `TemplateRequest`（serialNo 递增、mode=exam），题量上限 500；题干里的
+   `<img src="/api/public/preview/...">` 由 `batchAddTemplate` 同步到 `t_file_ref`，保存后长期保留。
    导入按钮旁的「下载模板」调 `GET /api/file/downloadTemplate?name=题库导入模板`（白名单与别名见 [files](./files.md)）。
 4. **导出题目**：入口有两处，都只在有 `repo:export` 时显示——题库列表每行「导出」与题目页右上角「导出」，共用 `RepoExportModal`。
    - 打开弹窗先读 `GET /api/system` 的 `setting.exportPasswordEnabled`：为 `false` 时**直接自动开始下载**，不再让用户对着空密码框猜；为 `true` 才显示密码输入。
@@ -249,7 +253,7 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 | 查看/新建分类 | `repo:list` / `repo:create` | 分类树按当前用户可见题库统计；空目录登记表全局可见；新建目录需要 `repo:create` |
 | 修改题库/题目 | `repo:update`、`template:update` | admin/创建者或 access_level>=2 的成员（含组授权）；level1 只能看 |
 | 删除题库/题目 | `repo:delete`、`template:delete` | admin/创建者或 access_level>=2；删除题库会连带删题目与标签 |
-| 导入题目 | `template:import` | admin/创建者或 access_level>=2；导入旁「下载模板」还要 `file:import`/`template:import` |
+| 导入题目 | `template:import` | admin/创建者或 access_level>=2；导入旁「下载模板」还要 `file:import`/`template:import`；AI 导入另需 `ai:use` 才能解析 |
 | 导出题库 | `repo:export` | 题库可读即可导出；未配置导出密码时直接下载，配置后需密码换 token |
 | 授权/改级别 | `repo:grant` 或管理员 | 服务层 `assertManagePermission`：owner/创建者/admin/access_level=3；可授权到组或人，`POST /partner/update` 调 1/2/3 |
 | 错题本/收藏 | `repo:book` | 只操作自己的 `t_user_book` 记录 |

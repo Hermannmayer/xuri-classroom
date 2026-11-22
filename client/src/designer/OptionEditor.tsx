@@ -34,10 +34,19 @@ export default function OptionEditor({
   const remove = (index: number) => {
     if (options.length <= 1) return;
     const removed = options[index];
-    sync(options.filter((_, i) => i !== index));
-    // 顺带清掉被删选项的 children（避免残留孤儿节点）
-    const children = (schema.children ?? []).filter((child) => child.id !== removed.value);
-    onPatch({ children });
+    const nextOptions = options.filter((_, i) => i !== index);
+    const children = (schema.children ?? [])
+      .filter((child) => child.id !== removed.value)
+      .map((child) => {
+        const hit = nextOptions.find((option) => option.value === child.id);
+        return hit ? { ...child, title: hit.label } : child;
+      });
+    for (const option of nextOptions) {
+      if (!children.some((child) => child.id === option.value)) {
+        children.push({ id: option.value, title: option.label, type: 'Option', attribute: {} });
+      }
+    }
+    onPatch({ dataSource: nextOptions, children });
   };
 
   const add = () => {

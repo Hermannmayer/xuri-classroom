@@ -76,6 +76,10 @@ public class AiGateway {
 
 	private static final long RATE_WINDOW_MILLIS = 60_000L;
 
+	private static final int MAX_IMAGES = 10;
+
+	private static final int MAX_IMAGE_DATA_URL_CHARS = 4 * 1024 * 1024;
+
 	private static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
 	private static final String LEGACY_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1";
@@ -91,6 +95,8 @@ public class AiGateway {
 	private static final String MSG_NO_API_KEY = "AI 的 API Key 未配置，请先在系统设置里填写";
 
 	private static final String MSG_NO_MODEL = "没有可用的 AI 模型，请先在系统设置里添加模型";
+
+	private static final String MSG_IMAGE_NOT_SUPPORTED = "当前模型未开启图片输入，请在 系统设置 → AI → 模型目录 勾选「图片」，或换用支持图片的多模态模型";
 
 	private final WebClient webClient;
 
@@ -110,7 +116,8 @@ public class AiGateway {
 		if (StringUtils.hasText(request.getSystemPrompt())) {
 			turns.add(AiChatTurn.system(request.getSystemPrompt()));
 		}
-		turns.add(AiChatTurn.user(request.getUserPrompt() == null ? "" : request.getUserPrompt()));
+		turns.add(AiChatTurn.user(request.getUserPrompt() == null ? "" : request.getUserPrompt(),
+				normalizeImages(request.getImageDataUrls())));
 		return dispatch(turns, request.getModel(), request.getTemperature(), request.isBackground());
 	}
 
@@ -155,7 +162,42 @@ public class AiGateway {
 		if (!StringUtils.hasText(resolution.model())) {
 			return AiReadiness.notReady(MSG_NO_MODEL);
 		}
-		return AiReadiness.ready(resolution.model());
+		return AiReadiness.ready(resolution.model(), supportsImage(resolution.model()));
+	}
+
+	/** 指定模型（为空时看默认模型）是否在「系统设置 → AI → 模型目录」里勾了图片输入；没配置一律 false */
+	public boolean supportsImage(String model) {
+		SystemInfo.AiSetting setting = systemService.getSystemAiSetting();
+		if (setting == null) {
+			return false;
+		}
+		String target = StringUtils.hasText(model) ? model.trim() : resolveDefaultModel(setting);
+		if (!StringUtils.hasText(target)) {
+			return false;
+		}
+		SystemInfo.AiSetting.ModelMeta meta = modelMeta(setting, target);
+		if (meta == null || CollectionUtils.isEmpty(meta.getInputTypes())) {
+			return false;
+		}
+		return meta.getInputTypes().stream().filter(StringUtils::hasText)
+				.anyMatch(inputType -> "image".equalsIgnoreCase(inputType.trim()));
+	}
+
+	private SystemInfo.AiSetting.ModelMeta modelMeta(SystemInfo.AiSetting setting, String model) {
+		Map<String, SystemInfo.AiSetting.ModelMeta> metas = setting.getModelMeta();
+		if (metas == null || metas.isEmpty()) {
+			return null;
+		}
+		SystemInfo.AiSetting.ModelMeta meta = metas.get(model);
+		if (meta != null) {
+			return meta;
+		}
+		for (Map.Entry<String, SystemInfo.AiSetting.ModelMeta> entry : metas.entrySet()) {
+			if (entry.getKey() != null && model.equalsIgnoreCase(entry.getKey().trim())) {
+				return entry.getValue();
+			}
+		}
+		return null;
 	}
 
 
@@ -171,6 +213,7 @@ public class AiGateway {
 		if (!StringUtils.hasText(model)) {
 			throw new ErrorCodeException(ErrorCode.ValidationError, MSG_NO_MODEL);
 		}
+		assertImageSupport(turns, model);
 		String url = chatCompletionsUrl(resolution.setting());
 		assertNotTooFrequent(background);
 		return callWithRetry(url, resolution.apiKey(), buildPayload(turns, model, temperature), model);
@@ -212,16 +255,70 @@ public class AiGateway {
 		Map<String, Object> payload = new LinkedHashMap<>();
 		payload.put("model", model);
 		payload.put("stream", Boolean.FALSE);
-		List<Map<String, String>> messages = new ArrayList<>(turns.size());
+		List<Map<String, Object>> messages = new ArrayList<>(turns.size());
 		for (AiChatTurn turn : turns) {
-
-			messages.add(Map.of("role", turn.role(), "content", turn.content() == null ? "" : turn.content()));
+			Map<String, Object> message = new LinkedHashMap<>(2);
+			message.put("role", turn.role());
+			message.put("content", turn.hasImages() ? contentWithImages(turn.content(), turn.imageDataUrls())
+					: (turn.content() == null ? "" : turn.content()));
+			messages.add(message);
 		}
 		payload.put("messages", messages);
 		if (temperature != null) {
 			payload.put("temperature", temperature);
 		}
 		return payload;
+	}
+
+	/** 有图消息的 content：OpenAI 兼容的多段数组（文本段 + image_url 段） */
+	private List<Map<String, Object>> contentWithImages(String text, List<String> imageDataUrls) {
+		List<Map<String, Object>> parts = new ArrayList<>(imageDataUrls.size() + 1);
+		Map<String, Object> textPart = new LinkedHashMap<>(2);
+		textPart.put("type", "text");
+		textPart.put("text", text == null ? "" : text);
+		parts.add(textPart);
+		for (String dataUrl : imageDataUrls) {
+			Map<String, Object> imagePart = new LinkedHashMap<>(2);
+			imagePart.put("type", "image_url");
+			imagePart.put("image_url", Map.of("url", dataUrl));
+			parts.add(imagePart);
+		}
+		return parts;
+	}
+
+	/** 图片张数与单张体积的闸门：超限给中文错误，日志只记张数 */
+	private List<String> normalizeImages(List<String> imageDataUrls) {
+		if (imageDataUrls == null || imageDataUrls.isEmpty()) {
+			return List.of();
+		}
+		List<String> kept = new ArrayList<>(Math.min(imageDataUrls.size(), MAX_IMAGES));
+		for (String dataUrl : imageDataUrls) {
+			if (!StringUtils.hasText(dataUrl)) {
+				continue;
+			}
+			if (kept.size() >= MAX_IMAGES) {
+				throw new ErrorCodeException(ErrorCode.ValidationError,
+						"一次最多给 AI 发 " + MAX_IMAGES + " 张图片，请分批量再试");
+			}
+			String value = dataUrl.trim();
+			if (value.length() > MAX_IMAGE_DATA_URL_CHARS) {
+				throw new ErrorCodeException(ErrorCode.ValidationError,
+						"图片过大：单张图片的 data URL 不能超过 4MB，请先压缩或降低分辨率");
+			}
+			kept.add(value);
+		}
+		return kept;
+	}
+
+	private void assertImageSupport(List<AiChatTurn> turns, String model) {
+		int images = turns.stream().filter(AiChatTurn::hasImages).mapToInt(turn -> turn.imageDataUrls().size()).sum();
+		if (images == 0) {
+			return;
+		}
+		if (!supportsImage(model)) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, MSG_IMAGE_NOT_SUPPORTED);
+		}
+		log.info("AI 请求附带图片: model={}, images={}", model, images);
 	}
 
 	/** 带指数退避的调用：只对超时 / 网络 / 5xx / 429 重试，4xx 配置错误直接报中文 */

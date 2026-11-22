@@ -16,6 +16,14 @@ import {
 import { isEmptyAnswer } from '../../schema/empty';
 import { flattenSchema } from '../../schema/flatten';
 import { evaluateVisible } from '../../schema/rules/engine';
+import { evaluateJump, parseJumpRule, type JumpRuleConfig } from '../../schema/rules/jump';
+import {
+  CALCULATE_TARGET_TYPES,
+  calculateValue,
+  parseCalculateRule,
+  type CalculateRuleConfig,
+} from '../../schema/rules/calculate';
+import { blankId } from '../../renderer/questions/answers';
 import type { PublicQuestionOutline, PublicAnswerView, PublicProjectView } from '../../schema/project';
 import type { SurveySchema } from '../../schema/types';
 import {
@@ -63,6 +71,13 @@ async function mapWithConcurrency<T>(items: T[], limit: number, worker: (item: T
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
 }
 
+
+/** 计算结果换成答案形状：填空写第一个空位，其余题型写字符串 */
+function calculatedAnswer(schema: SurveySchema, result: number): AnswerValue {
+  const text = String(result);
+  const id = blankId(schema);
+  return schema.type === 'FillBlank' && id ? { [id]: text } : text;
+}
 
 const FONT_MIN = 0.9;
 const FONT_MAX = 2;
@@ -215,6 +230,7 @@ export default function PublicAnswer() {
   const questionPendingRef = useRef<Map<string, Promise<SurveySchema>>>(new Map());
   const [values, setValues] = useState<Record<string, AnswerValue>>({});
   const [displays, setDisplays] = useState<Record<string, boolean>>({});
+  const [jumpEndId, setJumpEndId] = useState<string>();
   const [needPassword, setNeedPassword] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
   const [password, setPassword] = useState('');
@@ -614,6 +630,45 @@ export default function PublicAnswer() {
     });
   }, [project, questionCache]);
 
+  /** 每题的跳转规则；旧 JSON / 损坏值解析失败时按未配置处理 */
+  const jumpRules = useMemo(() => {
+    const rules = new Map<string, JumpRuleConfig>();
+    for (const question of flatQuestions) {
+      const rule = parseJumpRule(question.schema.attribute?.jumpRule);
+      if (rule) rules.set(question.id, rule);
+    }
+    return rules;
+  }, [flatQuestions]);
+
+  /** 每题的计算规则；来源含本题或与他人互相引用时跳过，避免来回写值 */
+  const calculateRules = useMemo(() => {
+    const byId = new Map<string, CalculateRuleConfig>();
+    for (const question of flatQuestions) {
+      const rule = parseCalculateRule(question.schema.attribute?.calculate);
+      if (rule && rule.questionIds.length) byId.set(question.id, rule);
+    }
+    const dependsOn = (sourceId: string, targetId: string, seen: Set<string>): boolean => {
+      if (sourceId === targetId) return true;
+      if (seen.has(sourceId)) return false;
+      seen.add(sourceId);
+      const source = byId.get(sourceId);
+      return source ? source.questionIds.some((id) => dependsOn(id, targetId, seen)) : false;
+    };
+    const list: { id: string; schema: SurveySchema; rule: CalculateRuleConfig }[] = [];
+    for (const question of flatQuestions) {
+      const rule = byId.get(question.id);
+      if (!rule || !CALCULATE_TARGET_TYPES.has(question.type)) continue;
+      const questionIds = rule.questionIds.filter((sourceId) => {
+        const keep = !dependsOn(sourceId, question.id, new Set());
+        if (!keep) console.warn('计算规则的来源题目存在自引用或循环引用，已跳过：' + sourceId);
+        return keep;
+      });
+      if (!questionIds.length) continue;
+      list.push({ id: question.id, schema: question.schema, rule: { ...rule, questionIds } });
+    }
+    return list;
+  }, [flatQuestions]);
+
   const loadQuestion = useCallback(
     async (questionId: string): Promise<SurveySchema | undefined> => {
       if (!project) return undefined;
@@ -647,14 +702,39 @@ export default function PublicAnswer() {
     [id, answerId, project, message],
   );
 
-  const visibleQuestions = useMemo(
-    () => flatQuestions.filter((q) => displays[q.id] !== false),
-    [flatQuestions, displays],
-  );
+  const visibleQuestions = useMemo(() => {
+    const list = flatQuestions.filter((q) => displays[q.id] !== false);
+    if (!jumpEndId) return list;
+    const cut = list.findIndex((q) => q.id === jumpEndId);
+    return cut < 0 ? list : list.slice(0, cut + 1);
+  }, [flatQuestions, displays, jumpEndId]);
   const total = visibleQuestions.length;
   const currentIndex = Math.min(page, Math.max(total - 1, 0));
   const currentQuestion = visibleQuestions[currentIndex];
 
+  const orderOf = useMemo(() => new Map(flatQuestions.map((q, index) => [q.id, index])), [flatQuestions]);
+
+  const ruleTitles = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const q of flatQuestions) map[q.id] = q.title;
+    return map;
+  }, [flatQuestions]);
+
+  /** 跳转结果：end 表示结束答题，targetId 是下一道可见题；规则不成立或目标不合法时退回默认下一题 */
+  const jumpStep = (qId: string): { end: boolean; targetId?: string } => {
+    const index = visibleQuestions.findIndex((q) => q.id === qId);
+    const fallback = { end: false, targetId: index < 0 ? undefined : visibleQuestions[index + 1]?.id };
+    const rule = jumpRules.get(qId);
+    if (!rule) return fallback;
+    const jump = evaluateJump(rule, { values: valuesRef.current, titles: ruleTitles });
+    if (!jump) return fallback;
+    if (jump.end) return { end: true };
+    const from = orderOf.get(qId) ?? -1;
+    const target = orderOf.get(jump.targetQuestionId ?? '') ?? -1;
+    if (target <= from) return fallback;
+    const next = visibleQuestions.find((q) => (orderOf.get(q.id) ?? -1) >= target);
+    return next ? { end: false, targetId: next.id } : { end: true };
+  };
 
   useEffect(() => {
     if (!project || result || !visibleQuestions.length) return;
@@ -702,6 +782,31 @@ export default function PublicAnswer() {
     }
     setDisplays(evaluateVisible(rules, { values, titles }));
   }, [flatQuestions, values]);
+
+  /** 来源题变化时重算：先算 next，只有目标值真的变了才写回，来源全为空时清空 */
+  useEffect(() => {
+    if (!calculateRules.length || result) return;
+    setValues((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const item of calculateRules) {
+        const computed = calculateValue(item.rule, (questionId) => prev[questionId]);
+        const value = computed === undefined ? undefined : calculatedAnswer(item.schema, computed);
+        if (value === undefined) {
+          if (next[item.id] !== undefined) {
+            delete next[item.id];
+            changed = true;
+          }
+          continue;
+        }
+        if (JSON.stringify(next[item.id] ?? null) !== JSON.stringify(value)) {
+          next[item.id] = value;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [values, calculateRules, result]);
 
   const answered = useMemo(() => {
     const map: Record<string, boolean> = {};
@@ -961,6 +1066,16 @@ export default function PublicAnswer() {
     }
   };
 
+  /** 按跳转规则推进：命中结束答题则截断后续题，命中题目则由 goToQuestion 切页或滚动过去；没有下一道题时不动 */
+  const advanceFrom = (qId: string) => {
+    const step = jumpStep(qId);
+    if (step.end) {
+      setJumpEndId(qId);
+      return;
+    }
+    if (step.targetId) goToQuestion(step.targetId);
+  };
+
   /** 提交：必填没填直接拦下并跳过去；填全了才出二次确认 */
   const confirmSubmit = () => {
     if (previewMode) {
@@ -1028,10 +1143,35 @@ export default function PublicAnswer() {
   const jumpTo = (index: number) => {
     window.clearTimeout(autoNextRef.current);
     if (passMode && index !== currentIndex) return;
+    setJumpEndId(undefined);
     setPage(index);
     setSheetOpen(false);
     contentRef.current?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /** 闯关模式切到指定题：翻页后回到页首 */
+  const goToPage = (qId: string) => {
+    const index = visibleQuestions.findIndex((q) => q.id === qId);
+    if (index < 0) return;
+    setPage(index);
+    setSheetOpen(false);
+    contentRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /** 闯关模式推进：跳转规则优先，没有下一题就自动交卷 */
+  const passAdvance = (questionId: string) => {
+    const step = jumpStep(questionId);
+    if (step.end) {
+      setJumpEndId(questionId);
+      return;
+    }
+    if (step.targetId) {
+      goToPage(step.targetId);
+      return;
+    }
+    void doSubmitRef.current('auto');
   };
 
   /** 闯关模式：结算当前题（答完 / 超时）→ 记录用时 → 前进；已经是最后一题则自动交卷 */
@@ -1057,31 +1197,15 @@ export default function PublicAnswer() {
         currentIndex >= total - 1 ? '本题作答时间到，已自动交卷' : '本题作答时间到，已锁定并跳到下一题',
       );
       if (exerciseMode) {
-
         setPassLockedQuestion(questionId);
         window.setTimeout(() => {
           setPassLockedQuestion(null);
-          if (currentIndex >= total - 1) {
-            void doSubmitRef.current('auto');
-            return;
-          }
-          setPage(currentIndex + 1);
-          setSheetOpen(false);
-          contentRef.current?.scrollTo({ top: 0 });
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          passAdvance(questionId);
         }, 1600);
         return;
       }
     }
-    if (currentIndex >= total - 1) {
-
-      void doSubmitRef.current('auto');
-      return;
-    }
-    setPage(currentIndex + 1);
-    setSheetOpen(false);
-    contentRef.current?.scrollTo({ top: 0 });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    passAdvance(questionId);
   };
 
 
@@ -1105,14 +1229,7 @@ export default function PublicAnswer() {
 
   const advanceAfterAnswer = (qId: string) => {
     if (!autoNext || examLocked) return;
-    if (onePage) {
-      if (currentIndex < total - 1) jumpTo(currentIndex + 1);
-      return;
-    }
-    const index = visibleQuestions.findIndex((question) => question.id === qId);
-    const next = index >= 0 ? visibleQuestions[index + 1] : undefined;
-    if (!next) return;
-    document.querySelector('[data-qid="' + next.id + '"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    advanceFrom(qId);
   };
 
   const scheduleAutoNext = (qId: string, delay: number) => {
@@ -1133,8 +1250,9 @@ export default function PublicAnswer() {
     advanceAfterAnswer(qid);
   };
 
-  /** 答题写入 */
+  /** 答题写入：改答案后解除「按跳转规则结束」的截断，重新求值 */
   const handleChange = (qId: string, v: AnswerValue) => {
+    setJumpEndId(undefined);
     setValues((prev) => ({ ...prev, [qId]: v }));
     if (!passMode) {
       if (autoNext && !isEmptyAnswer(v)) {
@@ -1362,6 +1480,8 @@ export default function PublicAnswer() {
   const failedVisibleQuestions = missingVisibleQuestions.filter((question) => questionErrors[question.id]);
 
   const showSubmit = onePage ? currentIndex >= total - 1 : nearBottom;
+
+  const jumpEnded = Boolean(jumpEndId) && visibleQuestions.some((question) => question.id === jumpEndId);
 
   const nameRequired = Boolean(project?.setting?.answerSetting?.answererNameRequired);
 
@@ -1622,6 +1742,12 @@ export default function PublicAnswer() {
         </div>
       )}
 
+      {jumpEnded && (
+        <div style={{ maxWidth: 1080, margin: '12px auto 0', padding: '0 16px' }}>
+          <Alert type="info" showIcon title="已按跳转规则结束，后面的题不再显示，可直接交卷" />
+        </div>
+      )}
+
       <div
         className="sk-answer-layout"
         ref={contentRef}
@@ -1798,7 +1924,10 @@ export default function PublicAnswer() {
                 <Button
                   type="primary"
                   size="large"
-                  onClick={() => (passMode ? finishPassQuestion(false) : jumpTo(currentIndex + 1))}
+                  onClick={() => {
+                    if (passMode) finishPassQuestion(false);
+                    else if (currentQuestion) advanceFrom(currentQuestion.id);
+                  }}
                 >
                   下一题
                 </Button>

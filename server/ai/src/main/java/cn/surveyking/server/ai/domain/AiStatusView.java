@@ -31,4 +31,6 @@ public class AiStatusView {
 
 	private String model;
 
+	private Boolean supportsImage;
+
 }

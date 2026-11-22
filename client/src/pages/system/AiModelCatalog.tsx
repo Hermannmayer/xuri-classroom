@@ -201,6 +201,9 @@ export default function AiModelCatalog({
                     ]}
                     onChange={(value) => updateMeta(id, { inputTypes: value as string[] })}
                   />
+                  <span className="sk-ai-catalog-hint">
+                    勾选「图片」后，AI 导入才会把图片题交给模型；模型本身需支持多模态
+                  </span>
                 </label>
               </div>
             ) : null}

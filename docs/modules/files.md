@@ -61,8 +61,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-19
-verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 文件、附件与导入模板
@@ -94,7 +94,7 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 | 前端上传 | `client/src/pages/system/Setting.tsx` | 系统 Logo：`FormData` → `/api/file/create` → 存 `/api/public/preview/<id>` |
 | 前端下载 | `client/src/api/request.ts`（`download`） | 先看 `content-type`，是 JSON 就按 `code/message` 抛中文错误，只有二进制才落盘 |
 | 导入模板文件 | `server/api/src/main/resources/template/` | `旭日云课堂用户导入模板.xlsx`、`学员导入模板.xlsx`、`旭日云课堂题库导入模板.xlsx`、`字典导入模板.xlsx`、`白名单导入模板.xlsx`、`旭日云课堂试卷导入模板.docx` |
-| 引用回收 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileRefServiceImpl.java`、`server/rdbms/src/main/java/cn/surveyking/server/impl/FileOrphanCleanupService.java` | `t_file_ref` 记项目/题库富文本图片的引用；每日 03:47 兜底清孤儿（无主答卷附件、7 天仍未绑定的上传件） |
+| 引用回收 | `server/rdbms/src/main/java/cn/surveyking/server/impl/FileRefServiceImpl.java`、`server/rdbms/src/main/java/cn/surveyking/server/impl/FileOrphanCleanupService.java` | `t_file_ref` 记项目/题库富文本图片的引用；每日 03:47 兜底清孤儿（无主答卷附件、7 天仍未绑定的上传件、7 天未被项目/题库引用的题面图） |
 | 学员导入 | `server/api/src/main/java/cn/surveyking/server/api/TeachingApi.java`、`server/rdbms/.../impl/ClassStudentImportService.java` | `POST /api/teaching/classes/member/import`（multipart：deptId + file）；行级校验、整批事务 |
 | Excel 安全限制 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/ExcelImportSecurity.java` | 文件 ≤20MB、解压 ≤100MB、行数 ≤20000、列数 ≤500 等 |
 | 数据表 | `t_file`、`t_file_ref` | `t_file`：`original_name`、`file_path`、`thumb_file_path`、`storage_type`、`shared`、`project_id`、`question_id`、`answer_id`、`file_size`；`t_file_ref`：`file_id` + `owner_type`（project/repo）+ `owner_id` + `question_id` |
@@ -167,7 +167,8 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 1. 上传时可带 `ownerType`（`project`/`repo`）与 `ownerId`：`FileServiceImpl#upload` 落库后再写一条 `t_file_ref`，把这张图挂到项目或题库上。
 2. 保存题面/题库题目时，`ProjectServiceImpl#syncOwnerRefs` 与 `TemplateServiceImpl` 会把 HTML 里的 `/api/public/preview/<fileId>` 扫出来，用 `replaceOwnerRefs` 重建引用：`FileRefServiceImpl#replaceHtml` 先删掉这次消失的引用，再对每个被摘掉的文件判一次「还有没有别的 owner」，没有才物理删。
 3. 逻辑删项目只删引用（`deleteByOwner`）；彻底删项目走 `purgeProjectFiles`，连 `answer_id` 非空的答卷附件一起清，避免留下永远没人认领的孤儿。
-4. 兜底：`FileOrphanCleanupService` 每天 03:47 跑一次、每批 200 条——清「`answer_id` 指向已不存在的答卷」的行，以及 `ANSWER_ATTACHMENT` 里超过 7 天仍未绑定答卷的上传件。题面图（`QUESTION_IMAGE`）不在第二步范围内。
+4. 兜底：`FileOrphanCleanupService` 每天 03:47 跑一次、每批 200 条，分三步——清「`answer_id` 指向已不存在的答卷」的行；清 `ANSWER_ATTACHMENT` 里超过 7 天仍未绑定答卷的上传件；清 `QUESTION_IMAGE` 里超过 7 天、且在 `t_file_ref` 里没有任何项目/题库引用的题面图（导入预览后取消、只预览未保存的残留）。
+5. 导入源文档不落盘：`/api/import/parse` 与 `/api/import/ai/parse` 只读请求里的 `MultipartFile`，解析完即丢弃，不写 `t_file`、不写业务目录；超过 `file-size-threshold`（2MB）的临时文件由容器在请求结束时删除。
 
 ## 修改指南
 
@@ -233,6 +234,7 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 - 学员导入是整批事务：任一行失败全部回滚，不会出现「导入一半」；第 N 行提示里的序号是 Excel 行号（表头是第 1 行）。
 - 当前 React 端没有「附件列表」页面，也没有 `Upload` / `Signature` / `Barcode` 题的作答组件（`client/src/renderer/questions/` 里没有对应文件）；答题附件上传仍由公开接口与旧版页面承担，新页面要接就得补渲染组件。
 - 导出附件 zip 的条目名会做 `sanitizeZipEntryName`（去 `..`、去控制字符、截断 200 字符），改命名逻辑时别把这一步去掉。
+- **导入的源文档不要落库**：`/api/import/parse`、`/api/import/ai/parse` 都是「读 MultipartFile → 解析 → 丢弃」，不要把源文件存进 `t_file` 或业务目录；否则每导入一次就多一份永久占用。预览阶段抽出的题面图会先上传（预览要显示），但只有进入题干、保存后被 `t_file_ref` 引用才长期保留，未引用的 7 天后由每日清理回收。
 
 ## 验证
 

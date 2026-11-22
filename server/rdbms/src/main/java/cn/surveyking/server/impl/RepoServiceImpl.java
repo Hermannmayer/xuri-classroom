@@ -13,6 +13,7 @@ import cn.surveyking.server.core.importer.TextQuestionParser;
 import cn.surveyking.server.core.importer.WordQuestionParser;
 import cn.surveyking.server.core.uitls.AnswerScoreEvaluator;
 import cn.surveyking.server.core.uitls.RepoTemplateExcelParseHelper;
+import cn.surveyking.server.core.uitls.RichTextSanitizer;
 import cn.surveyking.server.core.uitls.SchemaHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.core.uitls.ContextHelper;
@@ -103,6 +104,8 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 
 	private static final String CATEGORY_PATH_SEPARATOR = "/";
+
+	private static final int MAX_IMPORT_QUESTIONS = 500;
 
 
 
@@ -597,6 +600,40 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			request.setTemplates(parseExcelToTemplate(request.getFile()));
 		}
 		batchAddRepoTemplate(request);
+	}
+
+	@Override
+	public void importQuestions(RepoQuestionImportRequest request) {
+		if (request == null || !StringUtils.hasText(request.getRepoId())) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "请先选择题库");
+		}
+		assertManageRepo(request.getRepoId());
+		List<SurveySchema> questions = request.getQuestions();
+		if (questions == null || questions.isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "没有要导入的题目");
+		}
+		if (questions.size() > MAX_IMPORT_QUESTIONS) {
+			throw new ErrorCodeException(ErrorCode.ValidationError,
+					"一次最多导入 " + MAX_IMPORT_QUESTIONS + " 道题，请分批导入");
+		}
+		List<TemplateRequest> templates = new ArrayList<>();
+		int serial = 0;
+		for (SurveySchema schema : questions) {
+			if (schema == null) {
+				continue;
+			}
+			RichTextSanitizer.sanitizeSchema(schema);
+			templates.add(TemplateRequest.builder().serialNo(String.valueOf(++serial))
+					.mode(ProjectModeEnum.exam).name(SchemaHelper.trimHtmlTag(schema.getTitle()))
+					.chapter(schema.getChapter()).difficulty(schema.getDifficulty()).template(schema).build());
+		}
+		if (templates.isEmpty()) {
+			throw new ErrorCodeException(ErrorCode.ValidationError, "没有要导入的题目");
+		}
+		RepoTemplateRequest repoTemplate = new RepoTemplateRequest();
+		repoTemplate.setRepoId(request.getRepoId());
+		repoTemplate.setTemplates(templates);
+		batchAddRepoTemplate(repoTemplate);
 	}
 
 	/** Word 导入：题库只存题目本体，图片占位符去掉（题库题目不支持富题干） */

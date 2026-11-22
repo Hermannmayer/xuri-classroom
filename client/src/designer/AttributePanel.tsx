@@ -1,8 +1,13 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Collapse, Form, Input, InputNumber, Select, Switch } from 'antd';
 import type { Attribute, SurveySchema } from '../schema/types';
 import type { FlatQuestion } from '../schema/flatten';
+import { CALCULATE_TARGET_TYPES } from '../schema/rules/calculate';
 import { ATTRIBUTE_GROUPS, attributeSchema, type AttributeField } from './attributeSchema';
 import RuleEditor from './RuleEditor';
+import JumpRuleEditor, { jumpRuleSummary } from './JumpRuleEditor';
+import CalculateRuleEditor, { calculateRuleSummary } from './CalculateRuleEditor';
+import RuleSettingRow from './RuleSettingRow';
 import OptionEditor from './OptionEditor';
 
 export interface AttributePanelProps {
@@ -12,6 +17,10 @@ export interface AttributePanelProps {
 
   questions?: FlatQuestion[];
 
+  questionsAfter?: FlatQuestion[];
+
+  questionsAll?: FlatQuestion[];
+
   onPatchNode?: (patch: Partial<SurveySchema>) => void;
 
   scoring?: boolean;
@@ -20,7 +29,15 @@ export interface AttributePanelProps {
 const ITEM_STYLE = { marginBottom: 12 };
 
 /** 数据驱动的属性面板：字段全部来自 attributeSchema，按 group 折叠 */
-export function AttributePanel({ schema, onChange, questions, onPatchNode, scoring = true }: AttributePanelProps) {
+export function AttributePanel({
+  schema,
+  onChange,
+  questions,
+  questionsAfter,
+  questionsAll,
+  onPatchNode,
+  scoring = true,
+}: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
   const choiceTypes = new Set(['Radio', 'Checkbox', 'Judge', 'Select']);
   const isChoice = choiceTypes.has(schema.type);
@@ -126,52 +143,111 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode, scori
     </Form.Item>
   );
 
-  /** 规则字段默认收起：四个 textarea 各占一大块，展开才编辑 */
-  const renderRuleField = (field: AttributeField) => {
-    const raw = attribute[field.key];
-    const filled = typeof raw === 'string' && raw.trim().length > 0;
-    return (
-      <Collapse
-        key={field.key}
-        size="small"
-        ghost
-        className="bp-rule-collapse"
-        items={[
-          {
-            key: field.key,
-            label: (
-              <span style={{ fontSize: 12 }}>
-                {field.label}
-                {filled ? <span style={{ color: 'var(--bp-orange)', marginLeft: 6 }}>●</span> : null}
-              </span>
-            ),
-            children: (
-              <div>
-                <Input.TextArea
-                  autoSize={{ minRows: 3, maxRows: 8 }}
-                  value={(raw as string | undefined) ?? ''}
-                  onChange={(e) => set(field.key, e.target.value)}
-                />
-                {field.hint && <pre className="bp-hint">{field.hint}</pre>}
-              </div>
-            ),
-          },
-        ]}
-      />
-    );
+  /** 跳转条件可引用当前题及之前的题 */
+  const jumpQuestions = useMemo<FlatQuestion[]>(() => {
+    const all = questionsAll ?? [];
+    const index = all.findIndex((item) => item.id === schema.id);
+    if (index >= 0) return all.slice(0, index + 1);
+    const current: FlatQuestion = {
+      id: schema.id,
+      title: schema.title,
+      type: schema.type,
+      schema,
+      index: questions?.length ?? 0,
+    };
+    return [...(questions ?? []), current];
+  }, [questionsAll, questions, schema]);
+
+  /** 跳转目标只能是当前题之后的数据题 */
+  const jumpTargets = useMemo<FlatQuestion[]>(() => {
+    if (questionsAfter) return questionsAfter;
+    const all = questionsAll ?? [];
+    const index = all.findIndex((item) => item.id === schema.id);
+    return index >= 0 ? all.slice(index + 1) : [];
+  }, [questionsAfter, questionsAll, schema.id]);
+
+  const calculateSources = useMemo<FlatQuestion[]>(
+    () => (questionsAll ?? questions ?? []).filter((item) => item.id !== schema.id),
+    [questionsAll, questions, schema.id],
+  );
+
+  const [openRule, setOpenRule] = useState<'jumpRule' | 'calculate'>();
+  const [ruleDraft, setRuleDraft] = useState<string>();
+
+  useEffect(() => {
+    setOpenRule(undefined);
+    setRuleDraft(undefined);
+  }, [schema.id]);
+
+  const openRuleSetting = (key: 'jumpRule' | 'calculate') => {
+    setRuleDraft(attribute[key]);
+    setOpenRule(key);
   };
 
-  /** 可视化规则编辑器：显隐 / 必填用条件构建器，其余仍是 JSON（动作语义等 P3） */
-  const renderConditionalField = (field: AttributeField) => (
-    <div key={field.key} style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--bp-text)' }}>{field.label}</div>
-      <RuleEditor
-        value={attribute[field.key] as string | undefined}
-        questions={questions ?? []}
-        onChange={(next) => set(field.key, next)}
-      />
-    </div>
-  );
+  const closeRuleSetting = () => {
+    setOpenRule(undefined);
+    setRuleDraft(undefined);
+  };
+
+  const confirmRuleSetting = () => {
+    if (!openRule) return;
+    set(openRule, ruleDraft);
+    closeRuleSetting();
+  };
+
+  /** 规则分组渲染：显隐/必填仍是条件构建器，跳转/计算是「一行摘要 + 点击设置」弹窗 */
+  const renderRuleGroup = (field: AttributeField) => {
+    if (field.key === 'jumpRule') {
+      return (
+        <RuleSettingRow
+          key="jumpRule"
+          title={field.label}
+          summary={jumpRuleSummary(attribute.jumpRule, questionsAll ?? [])}
+          modalTitle="问卷跳转规则设置"
+          open={openRule === 'jumpRule'}
+          onOpen={() => openRuleSetting('jumpRule')}
+          onCancel={closeRuleSetting}
+          onConfirm={confirmRuleSetting}
+        >
+          <JumpRuleEditor
+            value={ruleDraft}
+            questions={jumpQuestions}
+            targets={jumpTargets}
+            onChange={setRuleDraft}
+          />
+        </RuleSettingRow>
+      );
+    }
+    if (field.key === 'calculate') {
+      const supported = CALCULATE_TARGET_TYPES.has(schema.type);
+      return (
+        <RuleSettingRow
+          key="calculate"
+          title={field.label}
+          summary={supported ? calculateRuleSummary(attribute.calculate) : '当前题型不支持自动计算'}
+          modalTitle="计算题-公式设置"
+          open={openRule === 'calculate'}
+          disabled={!supported}
+          last
+          onOpen={() => openRuleSetting('calculate')}
+          onCancel={closeRuleSetting}
+          onConfirm={confirmRuleSetting}
+        >
+          <CalculateRuleEditor value={ruleDraft} questions={calculateSources} onChange={setRuleDraft} />
+        </RuleSettingRow>
+      );
+    }
+    return (
+      <div key={field.key} style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--bp-text)' }}>{field.label}</div>
+        <RuleEditor
+          value={attribute[field.key] as string | undefined}
+          questions={questions ?? []}
+          onChange={(next) => set(field.key, next)}
+        />
+      </div>
+    );
+  };
 
   const items = ATTRIBUTE_GROUPS.filter((group) => scoring || group !== '考试').map((group) => ({
     key: group,
@@ -181,14 +257,7 @@ export function AttributePanel({ schema, onChange, questions, onPatchNode, scori
         {attributeSchema
           .filter((f) => f.group === group)
           .filter((f) => !['required', 'examScore', 'examAnalysis'].includes(String(f.key)))
-          .map((field) => {
-            if (group === '规则') {
-              const conditional = field.key === 'visibleRule' || field.key === 'requiredRule';
-              if (conditional) return renderConditionalField(field);
-              return renderRuleField(field);
-            }
-            return renderField(field);
-          })}
+          .map((field) => (group === '规则' ? renderRuleGroup(field) : renderField(field)))}
       </div>
     ),
   }));

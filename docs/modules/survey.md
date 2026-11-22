@@ -62,8 +62,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-21
-verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 考试编辑器与题型
@@ -88,10 +88,10 @@ verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
 | 概述/发布设置 | `client/src/pages/survey/Overview.tsx` | 概览与全部 `setting` 合并保存；旧 `/setting` 路由兼容 |
 | 题型定义 | `client/src/designer/defaults.ts` | `QUESTION_META`（面板 20 项）、`createQuestion`、`normalizeSchema` |
 | 大纲/树操作 | `client/src/designer/tree.ts` | `insertNode` / `moveNode` / `cloneNode` / `flattenOutline` |
-| 属性/规则面板 | `client/src/designer/AttributePanel.tsx`、`RuleEditor.tsx`、`attributeSchema.ts` | 通用属性、显隐规则、分值/答案/解析 |
+| 属性/规则面板 | `client/src/designer/AttributePanel.tsx`、`RuleEditor.tsx`、`RuleSettingRow.tsx`、`attributeSchema.ts` | 通用属性、显隐/必填条件、分值/答案/解析；跳转/计算是「一行摘要 + 点击设置」弹窗（`JumpRuleEditor` / `CalculateRuleEditor`，内容在弹窗里） |
 | Schema 类型 | `client/src/schema/types.ts` | 与后端 `SurveySchema.java` 对应的 `QuestionType` / `Attribute` |
 | 拍平/题号 | `client/src/schema/flatten.ts` | 只对 `DATA_TYPES` 递增题号，容器继续下钻 |
-| 规则构建/求值 | `client/src/schema/rules/buildExpression.ts`、`engine.ts` | `RuleConfig` → `AND(...)` 表达式 → 布尔 |
+| 规则构建/求值 | `client/src/schema/rules/buildExpression.ts`、`engine.ts`、`jump.ts`、`calculate.ts` | 显隐/必填：`RuleConfig` → `AND(...)` → 布尔；跳转：条件 → 目标题/END；计算：六种运算 + 系数 + 精度 |
 | 渲染注册表 | `client/src/renderer/registerAll.ts`、`registry.ts` | 17 个题型组件；未注册类型显示占位框 |
 | 渲染入口 | `client/src/renderer/SchemaRenderer.tsx` | 按 `displays` 隐藏、渲染题号/题干/组件、处理题组/说明/分割线 |
 | 公开接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `/api/public/**`，无 `@PreAuthorize`，校验在 Service |
@@ -108,7 +108,10 @@ verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
    - **返回**：`components/BackButton.tsx` 优先 `navigate(-1)`，没有站内历史才回 fallback；概述页只保留一个「返回上一级」，不再重复「项目列表」。
    - **题型分值**：概述页显示每种题型的题数、每题分值、题型小计，以及整卷题数/总分/平均每题；可按整套总分 + 题型比例分配每题分值，再「按题型应用」。
 3. **题型盘点**：设计器面板 `QUESTION_META` 共 **20 项**：选择类 8 项（单选、多选、下拉、NPS、矩阵单选/多选、级联、判断），填写类 9 项（填空、多空填空、多行文本、矩阵填空、地址、富文本、评分、签名、上传），结构类 3 项（题组、说明、分割线）。渲染器实际注册 **17 个组件**；后端 `SurveySchema.QuestionType` 有 31 个枚举值，其中 `dataType()` 24 个、`examType()` 7 个。签名/上传是文件类题：属性面板的 `fileAccept`/`maxFileSize`/`maxFileCount` 管允许的类型、单文件 MB 上限与数量，答案形如 `{题目id: {空位id: fileId}}`，空位 id 必须是 `children[0].id`。README 说的"18 种"是面板早期口径（当时 17 项 + 未进面板的 `Pagination` 容器，README 自己列出的名字也只有 17 个），`docs/scope.md` 的"14 种"是更早的旧口径。
-4. **规则**：属性里的 `visibleRule` / `requiredRule` / `finishRule` 等是 JSON 字符串，内容形如 `{ conditionLogic: 'AND', conditionItem: [...] }`。`buildExpression` 把它拼成 `AND(#{q1.o1} ,NOT(#{+q2}))`（分隔符是空格+逗号，不能改成纯逗号），`engine.evaluateRule` 求值。规则只在**前端**求值，后端只负责存取；解析失败的规则返回 `success=false`，表现为"规则不生效"而不是报错。
+4. **规则**：显隐/必填（`visibleRule` / `requiredRule`）仍是 JSON 条件，内容形如 `{ conditionLogic: 'AND', conditionItem: [...] }`；`buildExpression` 把它拼成 `AND(#{q1.o1} ,NOT(#{+q2}))`（分隔符是空格+逗号，不能改成纯逗号），`engine.evaluateRule` 求值。
+   - **跳转（`jumpRule`）**：`{"targetType":"question","targetQuestionId":"…","conditionLogic":"AND","conditionItem":[...]}`；`targetType=end` 表示提前结束；`conditionItem` 为空 = 始终跳转。目标只能选当前题之后的题，条件可以引用当前题及之前的题。
+   - **计算（`calculate`）**：`{"operation":"sum|avg|product|max|min|count","questionIds":[...],"coefficient":1,"precision":0}`；答题页在来源题变化时重算并回填本题。
+   - 三个规则都只在**前端**求值，后端只负责存取；解析失败的规则返回 `undefined/success=false`，表现为"规则不生效"而不是报错。跳转只在答题页生效：到达 END 后后续题不再显示、也不再参与必填校验，但仍需手动交卷（与卷王一致）。
 5. **预览**：编辑器右上「预览」用 iframe 打开 `/s/:id?preview=1`，跑的是真实答题页（`SchemaRenderer` 的 `mode='preview'` 分支只在答题页用），显隐规则、题号与学员看到的完全一致；编辑态一律按 `mode='edit'` 渲染，隐藏题不会在设计器里消失。`?preview=1` 由后端 `PublicProjectLoader#isPreviewAllowed` 处理：只对管理员/项目所有者/协作者跳过「能不能答」的校验（发布状态、考试时间窗、班级分配），「能不能看」没有放松，交卷也不走这段——所以未发布的卷子能预览，但预览里交不了卷。
 6. **首屏与逐题下发**：答题页先 `POST /api/public/projectOutline`，后端 `loadProjectOutline` 只返回 `outline`（题号/题型/必填）和一个不含题干/选项的 shell；前端再按题 id 调 `POST /api/public/question` 取单题。`loadPublicQuestion` 会重新走 `loadProject` 校验项目访问权限（**包括班级分配**），并校验题目确实属于当前问卷/当前随机卷快照。
 7. **答案剥离**：公开视图由 `ProjectViewMapper.toPublicProjectView` 生成，考试模式且非练习模式时会 `trimExamAnswerInfo` 去掉 `examCorrectAnswer`、`examScore`、`examMatchRule`；`loadPublicQuestion` 默认再剥一次正确答案/解析/分值。只有 `examSetting.exerciseMode=true` 时保留正确答案与解析给前端即时判题，分值仍然不下发。
@@ -156,8 +159,8 @@ verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
 ### 修改规则语义
 
 1. 先改 `buildExpression.ts`（结构 → 表达式）与 `engine.ts`（求值）；两边要保持同一条语法约定。
-2. `RuleEditor.tsx` 的候选题目只取当前题之前的题，避免自引用；不要把候选范围改成全量。
-3. 规则只在浏览器求值，服务端不做二次校验；如果规则影响"必填/分数"，必须在后端再实现一遍。
+2. 显隐/必填的候选题目只取当前题之前的题，避免自引用；跳转条件可以引用当前题（`JumpRuleEditor` 用 `questionsAll` 切到当前题），跳转目标只能取当前题之后的题。
+3. 规则只在浏览器求值，服务端不做二次校验；如果规则影响"必填/分数"，必须在后端再实现一遍。跳转/计算不改变服务端判分口径：被跳过的题没有答案，按未作答计 0 分。
 
 ## 权限与数据范围
 

@@ -165,6 +165,25 @@ public class RepoApi {
 		}
 	}
 
+	/** 把前端预览并勾选后的题目直接落进题库（不重新解析源文件） */
+	@PostMapping("/import/questions")
+	@PreAuthorize("hasAuthority('template:import') or hasRole('admin')")
+	public void importQuestions(@RequestBody RepoQuestionImportRequest request) {
+		try {
+			repoService.importQuestions(request);
+			exportGuardService.record(cn.surveyking.server.service.ExportGuardService.IMPORT_REPO,
+					request == null ? null : request.getRepoId(), null,
+					"导入题库：" + (request == null || request.getQuestions() == null ? 0
+							: request.getQuestions().size()) + " 题");
+		}
+		catch (ErrorCodeException ex) {
+			throw ex;
+		}
+		catch (Exception ex) {
+			throw new InternalServerError(ex.getMessage() != null ? ex.getMessage() : "题库题目导入失败", ex);
+		}
+	}
+
 
 
 

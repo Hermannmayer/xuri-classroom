@@ -120,6 +120,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 		view.setReady(Boolean.valueOf(readiness.isReady()));
 		view.setReason(readiness.getReason());
 		view.setModel(readiness.getModel());
+		view.setSupportsImage(Boolean.valueOf(readiness.isSupportsImage()));
 		return view;
 	}
 

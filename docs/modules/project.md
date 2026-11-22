@@ -103,8 +103,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-21
-verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 考试与问卷（项目）
@@ -211,6 +211,7 @@ verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
 - **已知限制**：`parentId='0'` 表示根；批量移动是逐项 `updateProject`，非事务，中途失败会保留前面已成功的项目；文件夹重名仍只在前端同父校验，后端不拦；批量移动不改变项目名称/分类/setting（除非同时勾选对应项）；Overview 的文件夹候选只在进入页面时拉一次。
 
 1. **创建**：列表页 `submitCreate` 调 `POST /api/project/create`。`ProjectServiceImpl.addProject` 先用 `completeSetting` 补齐默认设置（`status=0`、进度条/自动保存、空 `examSetting`），`normalizeCategory` 把分类 trim/空白转 null，生成 6 位 NanoId（不以数字开头），再写入一条 `t_project_partner`（`type=1 OWNER`、当前用户）。因此后续 `/project/update` 的 `@EnableDataPerm` 才能通过。
+   > 导入建卷（`List.tsx` 的 `handleImportCreate`）必须给 `setting` 带 `mode='exam'` 与 `examSetting.scoringEnabled=true`；编辑器按 `setting.mode` 判断是否显示「正确答案/分值/答案解析」，缺了会把整块「考试」配置隐藏（老导入卷由 `Editor.tsx` 读取项目 `mode` 兜底）。
 2. **列表**：`GET /api/project/list` 只返回根级项目（`parent_id IS NULL OR parent_id='0'`）；进文件夹必须显式带 `parentId`；分类筛选可同时走 `category`（见 0.2，选中分类时前端会清空 parentId）。可见性写在 SQL 的 EXISTS 子查询里，两个条件用 `and(...)` 包住：`t_project_partner` 中 `user_id=当前用户` 或 `group_id` 属于"主组 + 附加组 + 祖先链"（`UserDeptScopeService.DEPT_SCOPE_SQL`）且 `type IN (1,2,3)`；**或** `t_class_resource` 里本班（主组 + 附加组 + 祖先链）有这场考试的分配（`resource_type='project'`、`is_deleted=0`）。文件夹按 `mode='folder'` 排前，再按创建时间倒序。
    注意：班级资源这条只判断「有没有分配」，不判断 `status` 与班级窗口；关闭/已结束的考试仍可能出现在列表里，打开时才报错。
 3. **改名/保存设置**：`POST /api/project/update`。整页保存直接传 `setting` 或 `survey`；只改单项时传 `settingKey` + `settingValue`，`ProjectServiceImpl.validateSettingKey` 用 SpEL 白名单限制可写路径。方法内按 `id.intern()` 串行化，避免并发整包覆盖。

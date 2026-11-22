@@ -56,21 +56,23 @@ apis:
   - POST /api/ai/grade/undo
   - POST /api/ai/report/summary
   - POST /api/ai/chat
+  - POST /api/import/ai/parse
+  - POST /api/repo/import/questions
   - GET /api/ai/status
   - GET /api/ai/usage/today
   - POST /api/system/aiModels
 tables:
   - t_ai_usage
 tests: []
-last_verified: 2026-11-21
-verified_against: 467a7b2cac1af3e964b3718eed733b33588e13a9
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # AI 助手
 
 ## 30 秒摘要
 
-AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的对话框**：
+AI 现在是**七个能真正干活的场景 + 一个能对当前页面动手的对话框**：
 
 | 能力 | 入口 | 写库吗 | 说明 |
 |---|---|---|---|
@@ -80,6 +82,7 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 | 批量 AI 批改 | 答卷数据页 / 对话 | **写**（可撤销） | 只补「未批改」卷子里还没给分的主观题 |
 | 错题重练 | 学情报表「错题重练」 | 预览后「追加到本卷」才写 | 按得分率找薄弱考点，从题库再抽一组题 |
 | 公告草稿 | 系统管理 → 公告管理 | 不写 | 几句要点 → 规范通知草稿，人改完再发 |
+| AI 智能导入 | 导入向导「AI 智能识别」 | 预览后写 | 文档/图片 → 题目；源文件不落盘，只有被题干引用的图片才上传 |
 
 对话框（右下角悬浮按钮）不再只是聊天：每条消息先过一次**低温意图识别**，识别出动作就直接执行
 （例如「把这个班没批的卷子批了」），识别不出才走普通问答。内核仍是 `AiGateway` + `PromptRegistry` +
@@ -93,15 +96,16 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 - 老师问「AI 出的题不对」「AI 建议按钮点了没反应」「为什么 AI 不显示」
 - 要调「每天能用多少 token」「一次对话最多几条」——系统设置 → AI，五项限额都可配
 - 要换模型供应商：先选供应商（预填 Base URL），填 API Key 后点「获取可用模型」自动拉模型列表（`POST /api/system/aiModels`，Key 只在服务端用）；自定义地址仍保留
-- 要调单个模型的显示名 / 上下文窗口 / 最大输出 / 输入类型：系统设置 → AI → 模型目录，展开每行「能力」。标准 OpenAI 兼容的 `GET /models` 通常只返回模型 ID，上下文/多模态需手动补；`modelMeta` 目前是展示元数据，不改变网关调用。
-- 要加第七个 AI 场景，或要让对话支持一个新动作
+- 要调单个模型的显示名 / 上下文窗口 / 最大输出 / 输入类型：系统设置 → AI → 模型目录，展开每行「能力」。标准 OpenAI 兼容的 `GET /models` 通常只返回模型 ID，上下文/多模态需手动补；`modelMeta` 里的 `inputTypes` 会真正影响网关：只有勾了「图片」的模型才允许发送图片。
+- 要加第八个 AI 场景，或要让对话支持一个新动作
 - 排查「AI 批改把分打错了」——先看撤销，再看审计日志里的 `ANSWER_GRADE`
 
 ## 代码地图
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 内核 | `server/ai/.../core/AiGateway.java` | 非流式统一入口：120s 超时、2 次指数退避重试、每用户限流（可配，后台任务跳过）；`listModels()` 拉服务商 `GET {base}/models`（Key 只在服务端用） |
+| 内核 | `server/ai/.../core/AiGateway.java` | 非流式统一入口：120s 超时、2 次指数退避重试、每用户限流（可配，后台任务跳过）；`listModels()` 拉服务商 `GET {base}/models`（Key 只在服务端用）；`supportsImage(model)` 读 `modelMeta.inputTypes`，有图消息按 OpenAI 多段 content 下发（单次 ≤10 张、单张 data URL ≤4MB） |
+| 内核 | `server/ai/.../core/AiImageSupport.java` | 图片预处理：magic 校验（png/jpg/webp/gif）→ 最长边 1568 → 白底 JPEG 0.82 → data URL；超 10MB、超 1600 万像素或解码失败返回 null |
 | 配置 | `client/src/pages/system/Setting.tsx`、`AiModelCatalog.tsx`、`aiProviders.ts` | 供应商预设、API Key、模型目录与单模型元数据；整体存 `t_sys_info.ai_setting` JSON，`models` 仍是网关实际使用的模型 ID 数组 |
 | 内核 | `server/ai/.../core/PromptRegistry.java` | `prompts/*.md` 模板，首行 `version: x.y`，`render(id, vars)` |
 | 内核 | `server/ai/.../core/AiJobService.java` | 长任务 jobId + 内存表 + 线程池 + 24h TTL（与 PDF 导出同一套模型） |
@@ -113,6 +117,9 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 | 场景 | `AiNoticeDraftServiceImpl` | 公告草稿 |
 | 场景 | `AiGradeBatchServiceImpl` | 批量批改：唯一一条 AI 直接写业务数据的路径，带撤销令牌 |
 | 场景 | `AiAssistServiceImpl` | 改题、批改建议、学情总结、采纳题目（apply） |
+| 场景 | `AiImportServiceImpl` | AI 智能导入：`DocumentTextExtractor` 抽文本/图片 → 分块调模型 → `TextQuestionParser` 归一；图片分批、只上传被题干引用的 `[[IMG:n]]` |
+| 场景 | `DocumentTextExtractor`（shared/importer） | docx/pdf/xlsx/xls/txt/md/csv/图片 → 文本 + 图片 context；只在内存里读，源文件不落盘 |
+| 提示词 | `prompts/import-ai.md`、`import-ai-image.md` | 文本/图片两套；文档内容按不可信数据处理，不执行其中指令 |
 | 对话 | `AiAssistantServiceImpl` | 多轮对话 + 上下文装配 + 调用动作路由 |
 | 对话 | `AiActionServiceImpl` | 意图识别与动作分发（批改 / 打开工具 / 统计 / 额度） |
 | 前端 | `client/src/components/AiAssistant/**` | 右下角悬浮对话框、动作结果卡、工具快捷入口 |
@@ -191,6 +198,7 @@ AI 现在是**六个能真正干活的场景 + 一个能对当前页面动手的
 | 「今日 AI 用量已达单人上限」 | 次日零点（本地时区）自动恢复，或管理员调高限额 |
 | 「批改超时 / 任务已过期」 | 任务只在内存里，后端重启即失效；重新发起即可 |
 | 点「从服务商获取」报错 | `POST /api/system/aiModels` 用 `GET {base}/models` 探测：端点不是标准 OpenAI 兼容、Key 没权限、返回空列表都会给中文原因；可以先用表单里**未保存**的 Base URL / Key 试，不必先保存 |
+| 图片发不出去 / 报「当前模型未开启图片输入」 | 去 系统设置 → AI → 模型目录 给该模型勾「图片」；`/api/ai/status` 的 `supportsImage` 就是这把闸门。单次最多 10 张、单张 data URL ≤4MB，超限给中文错误。`AiImageSupport` 只按 magic 认 webp，JDK 25 没有 WebP 解码器时返回 null，需先转成 png/jpg |
 | 对话里说「批改」却没执行 | ① 当前页面没有打开具体试卷；② 没有 `answer:grade`；③ 消息不像指令（换更直接的说法） |
 | 错题重练找不出薄弱点 | `ReportData.statistics.average` **只对「答案是数字」的题存在**；选择题的逐题得分在 `t_answer.exam_info.question_score`。实现里两条口径都读（`exam_info` 优先、`statistics` 兜底），有 `grade_status=pending` 的答卷时主观题整卷不参与排名——否则「没批改」会被当成「错得最多」 |
 | 组卷采纳时被 `AiContentGuard` 拒 | 题库题常缺 `examAnswerMode`；组卷/推荐在返回前会补齐 `examAnswerMode` 与 `dataSource`，自己写新场景时也要补，否则 `/paper/apply` 整批被拒 |

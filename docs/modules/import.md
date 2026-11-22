@@ -17,6 +17,9 @@ keywords:
   - 题组
   - 矩阵题导入
   - Excel 内嵌图片
+  - AI 智能导入
+  - 多模态
+  - 图片题
 source_globs:
   - client/src/pages/import/**
   - client/src/api/import.ts
@@ -28,6 +31,11 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/PaperImportRecordRequest.java
   - server/shared/src/main/java/cn/surveyking/server/domain/dto/RepoTemplateRequest.java
+  - server/shared/src/main/java/cn/surveyking/server/core/importer/DocumentTextExtractor.java
+  - server/shared/src/main/java/cn/surveyking/server/service/AiImportService.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/AiImportServiceImpl.java
+  - server/ai/src/main/resources/prompts/import-ai.md
+  - server/ai/src/main/resources/prompts/import-ai-image.md
   - server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx
   - server/api/src/main/resources/template/旭日云课堂试卷导入模板.docx
 entrypoints:
@@ -38,17 +46,19 @@ entrypoints:
   - server/api/src/main/java/cn/surveyking/server/api/ImportApi.java
 apis:
   - POST /api/import/parse
+  - POST /api/import/ai/parse
   - POST /api/import/record
   - POST /api/repo/import
+  - POST /api/repo/import/questions
   - GET /api/file/downloadTemplate
 tables:
   - t_project
   - t_template
 tests:
   - client:npx tsc --noEmit
-  - server:gradlew :shared:test
-last_verified: 2026-11-19
-verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
+  - server:gradlew :shared:compileJava :rdbms:compileJava :api:compileJava
+last_verified: 2026-11-22
+verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
 ---
 
 # 试卷导入（解析 / 预览 / 落地）
@@ -62,9 +72,13 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 - 落地：试卷走既有的 POST /api/project/create 或 POST /api/project/update（整树 JSON，无新表）；
   题库走 POST /api/repo/import（`kind=excel|word|text`，Excel 还会按行挂内嵌图片）。
 
-四种来源都可用：**文本 / Excel / Word / JSON**。Excel 按题型分 sheet，13 个 sheet 覆盖编辑器里最常用的题型
+五种来源都可用：**文本 / Excel / Word / JSON / AI 智能识别**。Excel 按题型分 sheet，13 个 sheet 覆盖编辑器里最常用的题型
 （单选/多选/判断/填空/简答/下拉/评分/NPS/级联/矩阵单选/矩阵多选/矩阵填空/上传），章节列可选拆大题，
 并支持**按行归属的内嵌图片**与**「高级配置(JSON)」兜底列**；Word 按「一、二、三」拆大题、用【题型】标注、抽取题干图片；JSON 吃本系统导出的整卷。
+
+AI 智能识别是**兜底来源**：上传 .docx / .pdf / .xlsx / .xls / .txt / .md / .csv，或直接给 png/jpg 图片，服务端先抽文本与图片，
+交给当前 AI 模型转成与文本导入完全一致的 DSL，再复用 `TextQuestionParser` 归一。模型不支持图片时只做文字，图片题会明确提示；
+模型勾了「图片」时，图片会被压缩成 JPEG data URL 交给模型，题干里的 `[[IMG:n]]` 只上传**被题目实际引用**的那几张。
 签名题、地址、条码、矩阵评分、矩阵 NPS、矩阵自动、富文本这几类没有 sheet（见「坑与已知限制」）。
 
 > 「排序题」不是本系统的题型：`SurveySchema.QuestionType` 里没有 Rank，前端设计器/渲染器也没有对应组件。
@@ -89,18 +103,22 @@ verified_against: 191b87cc5504cdc6038f533ed5c331bd9af6d3a3
 | 模板 i18n | server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java | sheet 名与表头别名（SheetType / HeaderLabel / 行标题N / 列标题N / 选项树 / 高级配置） |
 | Word 解析 | server/shared/src/main/java/cn/surveyking/server/core/importer/WordQuestionParser.java | 段落/表格拍平 → TextQuestionParser；图片抽成 [[IMG:n]] |
 | 解析编排 | server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java | 限制大小、按 kind 分派、把 [[IMG:n]] 换成 <img src> |
-| 接口 | server/api/src/main/java/cn/surveyking/server/api/ImportApi.java | /parse、/record |
+| 文档抽文本/图 | server/shared/src/main/java/cn/surveyking/server/core/importer/DocumentTextExtractor.java | docx/pdf/xlsx/xls/txt/md/csv/图片 → 文本 + ExtractedImage（context 附近文字），只在内存里读 |
+| AI 解析 | server/rdbms/src/main/java/cn/surveyking/server/impl/AiImportServiceImpl.java | 文本分块 ≤8000 字 / 12 段 → 模型转 DSL → TextQuestionParser；图片分批 ≤5 张、只上传被题干引用的 [[IMG:n]] |
+| AI 提示词 | server/ai/src/main/resources/prompts/import-ai.md、import-ai-image.md | 文本/图片两套；明确不执行文档内指令、不编造答案 |
+| 图片预处理 | server/ai/src/main/java/cn/surveyking/server/ai/core/AiImageSupport.java | magic 校验 → 最长边 1568 → 白底 JPEG 0.82 → data URL；png/jpg/jpeg 可用（JDK 无 WebP 解码器） |
+| 接口 | server/api/src/main/java/cn/surveyking/server/api/ImportApi.java | /parse、/ai/parse、/record |
 | 模板下载 | server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java | GET /api/file/downloadTemplate?name=，白名单映射到 classpath template/ |
-| 模板资源 | server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx / 旭日云课堂试卷导入模板.docx | 跟着解析器一起改，改完跑 ImportTemplateFilesTest |
+| 模板资源 | server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx / 旭日云课堂试卷导入模板.docx | 跟着解析器一起改，改完用两份模板各导一次做冒烟 |
 | 题库落地 | server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java | kind=text 改走文本解析；Excel 调 RepoTemplateExcelParseHelper + 按行挂内嵌图片 |
 | 行图片索引 | server/shared/src/main/java/cn/surveyking/server/core/importer/ExcelRowImages.java | POI 读内嵌图片，按锚点左上角行索引（试卷导入与题库导入共用） |
 | 图片挂题干 | server/shared/src/main/java/cn/surveyking/server/core/importer/QuestionImageUploader.java | 图片上传成 QUESTION_IMAGE（publicRead）并追加 `<img>` |
 | 前端向导 | client/src/pages/import/ImportWizard.tsx | 三步 + 统计 + 警告 + 去向 |
 | 题型说明 | client/src/pages/import/ImportHelp.tsx | 「支持哪些题型」折叠说明（向导与题库页共用）+ 预览里的题型标签、warnings 分级、图片计数；纯展示，不发请求 |
-| 前端接口 | client/src/api/import.ts | parseImport、recordPaperImport |
-| 列表入口 | client/src/pages/project/List.tsx | 新建 → 导入试卷（唯一入口） |
-| 编辑器入口 | client/src/pages/survey/Editor.tsx | 顶部「导入」+ 空卷引导 |
-| 题库入口 | client/src/pages/repo/Questions.tsx | 导入下拉（Excel / 文本 / Word） |
+| 前端接口 | client/src/api/import.ts | parseImport、parseAiImport、importRepoQuestions、recordPaperImport |
+| 列表入口 | client/src/pages/project/List.tsx | 新建 → 导入试卷（唯一入口；AI 页签在最后） |
+| 编辑器入口 | client/src/pages/survey/Editor.tsx | 顶部「导入」+ 空卷引导；AI 智能导入单开 |
+| 题库入口 | client/src/pages/repo/Questions.tsx | 导入下拉（Excel / 文本 / Word / AI） |
 
 ## Excel 模板：13 个 sheet
 
@@ -187,19 +205,34 @@ Word 与文本共用一套规则（`WordQuestionParser` 先把段落/表格拍�
 
 分值/答案/解析/标签仍用 `（10分）`、`答案：A`、`解析：…`、`标签：…`；难度只提示、不落库。
 
+### AI 智能识别（多模态）
+
+- 入口：导入向导的「AI 智能识别」页签，或编辑器「导入 → AI 智能导入」。前端先调 `GET /api/ai/status`：
+  `ready=false` 时禁用并显示后端 reason；`supportsImage=false` 时显示「当前模型未开启图片输入」，仍可导纯文字文档。
+- 文件：`.docx / .pdf / .xlsx / .xls / .txt / .md / .csv` + `.png / .jpg / .jpeg`（WebP 先转 png/jpg）。
+- 链路：`DocumentTextExtractor` 抽文本 + 图片（docx 内嵌图、PDF 按页渲染、Excel 锚点行图、纯图片）；
+  文本按空行切块（≤8000 字、最多 12 段）逐段调模型；图片每批 ≤5 张、每次 ≤10 张，逐张带「附近文字」交给模型；
+  模型输出仍是文本 DSL，经 `WordQuestionParser.parseSections` + `TextQuestionParser` 归一，**不新写题型映射**。
+- 图片题：提示词要求模型在题干/选项里用 `[[IMG:n]]` 标出图片位置；服务端只上传**被题目实际引用**的图片（`QUESTION_IMAGE` + publicRead），
+  替换成 `<img src="/api/public/preview/{id}">` 并置 `richTitle=true`；没被引用的图片一律不上传。
+- 模型没勾「图片」：纯图片文档直接中文报错；图文混合文档保留文字并 warning `AI_IMAGE_SKIPPED`。
+- 落库：AI 预览与规则导入完全同构；题库落地走 `POST /api/repo/import/questions`，直接落前端勾选后的题目，不重新解析源文件。
+
 ## 关键流程
 
 1. 列表「新建」→ 名称/类型/分类 → 新建方式选「导入试卷」→「下一步：上传」。
-2. 向导第一步粘贴文本 / 选文件 → POST /api/import/parse（kind=text|excel|word|json）→ 第二步预览（题数/总分/题型/警告/逐题勾选）。
+2. 向导第一步粘贴文本 / 选文件 / 上传给 AI → `POST /api/import/parse`（kind=text|excel|word|json）或 `POST /api/import/ai/parse` → 第二步预览（题数/总分/题型/警告/逐题勾选）。
 3. 第三步选去向：
    - 列表新建：固定「新建试卷」，提交时 POST /api/project/create（带整份 survey），失败即返回向导，不会残留空项目；
    - 编辑器：选「新建题组」或「现有题组」，前端 insertNode / updateNode 合并，一次导入 = 一个撤销步；
-   - 题库：固定导入当前题库，POST /api/repo/import（Excel / Word / 文本三种 kind；服务端重新解析、整批导入，不能逐题剔除）。
+   - 题库：规则导入走 POST /api/repo/import（Excel / Word / 文本；服务端重新解析、整批导入，不能逐题剔除）；
+     AI 导入走 POST /api/repo/import/questions（题目来自预览勾选结果，服务端只做 sanitize + 落库）。
 4. 成功后：列表流程跳编辑器；编辑器流程提示「记得保存」；题库流程刷新列表。
 
 ## 修改指南
 
-- **加一种来源**：在 core/importer 实现解析器 → 在 ImportServiceImpl 的 switch 里分派 → 前端把 formats 里对应项从「即将开放」改为可选。ImportPreview 不用改。
+- **加一种来源**：在 core/importer 实现解析器 → 在 ImportServiceImpl 的 switch 里分派 → 前端把 formats 里对应项加入。ImportPreview 不用改。
+- **改 AI 识别口径**：只动 `prompts/import-ai*.md` 与 `AiImportServiceImpl` 的抽文本/切块/合并逻辑；不要把题型映射再写一份，所有 DSL 都走 `TextQuestionParser`。
 - **加一种 Excel 题型 sheet**（三步，少一步就「表头认不出来」）：
   1. `RepoTemplateI18n.SheetType` 加枚举值（key 写进 messages.properties / messages_en.properties）；
   2. `RepoTemplateExcelParseHelper.parseDataRow` 加 case + 一个 `parseXxx(Row)`，最后都走 `addQuestion(schema, r)`（它负责合并「高级配置(JSON)」并发警告）；
@@ -212,8 +245,9 @@ Word 与文本共用一套规则（`WordQuestionParser` 先把段落/表格拍�
 ## 权限与数据范围
 
 - 解析：project:create / project:update / template:import 任一，或管理员。
+- AI 解析：额外要 `ai:use`（`/api/import/ai/parse`），并受 AI 每日 token 限额约束。
 - 试卷落地：沿用 project:create（新建）与 project:update（追加）；/api/project/update 仍受 @EnableDataPerm 约束。
-- 题库落地：/api/repo/import 仍是 template:import + assertManageRepo。
+- 题库落地：/api/repo/import 与 /api/repo/import/questions 都是 template:import + assertManageRepo。
 - 模板下载：GET /api/file/downloadTemplate?name= 需要 file:import / template:import 任一（或管理员）。
 - 审计记录：/api/import/record 需要 project:update，并按 projectId 做数据权限校验。
 
@@ -238,21 +272,22 @@ Word 与文本共用一套规则（`WordQuestionParser` 先把段落/表格拍�
 - **老的 5 个 sheet 别混用「选项A…H」和「空1…8」**：单选/多选/判断/填空走的是「列区间内全部单元格」的旧实现，同一 sheet 两套列都在会把空格当成选项。新题型（下拉/评分/NPS/级联/矩阵）改为按列名精确取，混用没有影响。
 - **题库「导出模板」方向只认 5 种题型**：RepoServiceImpl 从题库生成 Excel 时只处理 单选/多选/判断/填空/简答（MultipleBlank 也会被漏掉），新导入的下拉/评分/NPS/级联/矩阵题不会出现在导出的模板里。这是反向导出链路的缺口，不在导入链路。
 - **Excel 表头之前的行会被忽略**：模板第一个 sheet 是「使用说明」（不是合法 sheet 名，解析时跳过）；如果老师在数据 sheet 表头上面加标题行，也按同样规则忽略，不会当成题目。
+- **AI 导入的源文件不落盘**：`/api/import/ai/parse` 只在请求内存里读 MultipartFile，解析完即丢弃，不写 `t_file`、不写业务目录；重试就是重新上传。
+- **AI 图片题依赖模型能力**：模型必须在 系统设置 → AI → 模型目录 勾「图片」，`/api/ai/status` 的 `supportsImage` 才是 true；没勾时纯图片文档直接报错，图文混合只保留文字并给 `AI_IMAGE_SKIPPED`。
+- **只上传被题干引用的图片**：AI 输出里的 `[[IMG:n]]` 才会走 `QUESTION_IMAGE` 上传；没被引用的图片不落盘。上传发生在预览阶段，保存项目/题库后才由 `t_file_ref` 绑定；取消导入的孤儿 7 天后由每日清理回收。
+- **图片格式**：支持 png / jpg / jpeg；WebP 需要先转 png/jpg（JDK 没有 WebP 解码器）。单张 ≤2MB、最长边压到 1568px、每次最多 10 张。
+- **长文档会截断**：文本最多 12 段 × 8000 字；超出会 warning `AI_TRUNCATED`，让老师拆分后分段导入。
+- **供应商差异**：`image_url` + data URL 只在真正支持视觉的 OpenAI 兼容端点上有效（OpenAI、通义 VL、GLM-4V 等）；DeepSeek/纯文本模型会 4xx，报错会带中文提示。
 
 ## 验证
 
-- 解析器单测（importer 包 29 个用例）：
-  - TextQuestionParserTest 10（含题型标记：【下拉题】【评分题】【NPS】【上传题】【矩阵单选/多选/填空】）；
-  - ExcelQuestionParserAllTypesTest 4（13 个 sheet 全题型 / 图片按行 / JSON 兜底与 type+children 覆盖 / 坏 JSON 只警告 / .xls 拒绝）；
-  - ExcelRowImagesTest 2（锚点行归属、坏文件退化成空表）；
-  - QuestionImageUploaderTest 5（挂图、上传失败不炸、非图片字节跳过、按 sourceRow 精确挂图、文件头识别）；
-  - ExcelQuestionParserTest 3（老模板兼容、章节分组、sourceSheet/sourceRow 回填）；
-  - ImportTemplateFilesTest 2（随包的两个模板真的能导入，防模板与解析器漂移）；
-  - WordQuestionParserTest 2、JsonQuestionParserTest 1。
-
+- 当前仓库的 server 测试目录没有 importer 用例（旧版文档写的 29 个已随重构移除），改动解析器时按下面三条验证：
 ~~~bash
-cd server && ./gradlew :shared:test --tests "cn.surveyking.server.core.importer.*"
+cd server && ./gradlew :shared:compileJava :rdbms:compileJava :api:compileJava
 ~~~
+  - 用临时 Runner（放 %TEMP%，不要入库）对样例 .docx/.xlsx 调对应 parser，核对题数/总分/答案/解析；
+  - AI 链路额外用 AiImportServiceImpl 的 buildPreview 喂一段假 AI DSL（含「一、单选题」+ 答案/分值），确认分组与选项答案正确（不真调模型）；
+  - 手工：列表导入「消防安全知识培训测试.docx」这类真实文档，预览里核对 20 题 / 100 分 / 答案。
 
 - 前端类型：cd client && npx tsc --noEmit。
 - 手工：下载 `题库导入模板` → 在「矩阵单选题」sheet 填一行、在「上传题」sheet 填一行、在某行贴一张图 → 题库导入 → 打开题目确认行/列、属性（单文件 5MB）、图片都在位。
