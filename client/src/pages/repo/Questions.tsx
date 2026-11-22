@@ -23,6 +23,7 @@ import {
   DeleteOutlined,
   DownOutlined,
   DownloadOutlined,
+  FontSizeOutlined,
   PlusOutlined,
   SafetyCertificateOutlined,
   UploadOutlined,
@@ -42,6 +43,7 @@ import { importRepoQuestions } from '../../api/import';
 import { ImportHelp } from '../import/ImportHelp';
 import RichTextEditor from '../../components/RichTextEditor';
 import RichTextContent from '../../components/RichTextContent';
+import { optionPlainText } from '../../renderer/questions/answers';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
@@ -252,6 +254,8 @@ export default function RepoQuestions() {
   const [saving, setSaving] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [options, setOptions] = useState<OptionDraft[]>([]);
+  const [editingOption, setEditingOption] = useState<OptionDraft>();
+  const [optionDraft, setOptionDraft] = useState('');
   const [correct, setCorrect] = useState<string | string[]>('');
 
   const [blanks, setBlanks] = useState<string[]>([]);
@@ -484,16 +488,15 @@ export default function RepoQuestions() {
         children = options.map((opt, index): SurveySchema => {
           const previous = oldChildren.find((child) => child.id === opt.id);
           const text = judge ? opt.text || (index === 0 ? '正确' : '错误') : opt.text;
+          const attribute = { ...(previous?.attribute ?? {}) };
+          if (hasHtmlMarkup(text)) attribute.richTitle = true;
+          else delete attribute.richTitle;
+          attribute.examCorrectAnswer = correctIds.includes(opt.id) ? opt.id : undefined;
           return {
             id: opt.id,
             title: text,
             type: 'Option',
-            attribute: {
-              ...(previous?.attribute ?? {}),
-              ...(correctIds.includes(opt.id)
-                ? { examCorrectAnswer: opt.id }
-                : { examCorrectAnswer: undefined }),
-            },
+            attribute,
           };
         });
         dataSource = options.map((opt, index) => ({
@@ -1085,10 +1088,25 @@ export default function RepoQuestions() {
                     <span style={{ width: 18, color: 'var(--bp-text-soft)' }}>
                       {String.fromCharCode(65 + index)}
                     </span>
-                    <Input
-                      value={opt.text}
-                      placeholder={`选项 ${String.fromCharCode(65 + index)}`}
-                      onChange={(e) => changeOption(opt.id, e.target.value)}
+                    {hasHtmlMarkup(opt.text) ? (
+                      <div className="option-rich-preview">
+                        <RichTextContent html={opt.text} />
+                      </div>
+                    ) : (
+                      <Input
+                        value={opt.text}
+                        placeholder={`选项 ${String.fromCharCode(65 + index)}`}
+                        onChange={(e) => changeOption(opt.id, e.target.value)}
+                      />
+                    )}
+                    <Button
+                      type="text"
+                      icon={<FontSizeOutlined />}
+                      title="富文本 / 图片"
+                      onClick={() => {
+                        setEditingOption(opt);
+                        setOptionDraft(opt.text);
+                      }}
                     />
                     {!isJudge && (
                       <Button
@@ -1121,7 +1139,7 @@ export default function RepoQuestions() {
                   onChange={(v) => setCorrect(v)}
                   options={options.map((opt, index) => ({
                     value: opt.id,
-                    label: `${String.fromCharCode(65 + index)}. ${opt.text || '(未填写)'}`,
+                    label: `${String.fromCharCode(65 + index)}. ${optionPlainText(opt.text)}`,
                   }))}
                 />
               ) : (
@@ -1133,8 +1151,8 @@ export default function RepoQuestions() {
                   options={options.map((opt, index) => ({
                     value: opt.id,
                     label: isJudge
-                      ? opt.text || (index === 0 ? '正确' : '错误')
-                      : `${String.fromCharCode(65 + index)}. ${opt.text || '(未填写)'}`,
+                      ? optionPlainText(opt.text)
+                      : `${String.fromCharCode(65 + index)}. ${optionPlainText(opt.text)}`,
                   }))}
                 />
               )
@@ -1207,6 +1225,39 @@ export default function RepoQuestions() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        open={Boolean(editingOption)}
+        title={`选项 ${editingOption ? String.fromCharCode(65 + options.findIndex((opt) => opt.id === editingOption.id)) : ''} 富文本`}
+        width={680}
+        okText="确定"
+        cancelText="取消"
+        destroyOnHidden
+        onOk={() => {
+          if (!editingOption) return;
+          const html = optionDraft.trim();
+          setOptions((prev) =>
+            prev.map((opt) =>
+              opt.id === editingOption.id ? { ...opt, text: html === '<p></p>' ? '' : html } : opt,
+            ),
+          );
+          setEditingOption(undefined);
+        }}
+        onCancel={() => setEditingOption(undefined)}
+      >
+        <RichTextEditor
+          value={optionDraft}
+          onChange={setOptionDraft}
+          minHeight={160}
+          placeholder="输入选项文字，可插入图片、公式和加粗"
+          ownerType="repo"
+          ownerId={repoId}
+          questionId={editing?.id}
+        />
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+          支持在选项里插入图片；保存后按富文本渲染。
+        </div>
       </Modal>
 
       <AiRepoAuditDrawer
