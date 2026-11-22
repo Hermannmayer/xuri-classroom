@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 268 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 270 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -168,7 +168,9 @@
 | POST | `${api.prefix}/public/attempts` | `SurveyApi#listAttempts` | — | — |
 | GET | `${api.prefix}/public/anonymous/answers` | `SurveyApi#anonymousAnswers` | — | — |
 | POST | `${api.prefix}/public/anonymous/claim` | `SurveyApi#claimAnonymousAnswers` | — | — |
-| GET | `${api.prefix}/system/version` | `SystemApi#version` | — | — |
+| GET | `${api.prefix}/system/backup` | `SystemApi#fullSiteBackup` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
+| POST | `${api.prefix}/system` | `SystemApi#restoreBackup` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
+| GET | `${api.prefix}/system/version` | `SystemApi#version` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | POST | `${api.prefix}/system/schema/upgrade` | `SystemApi#upgradeSchema` | `hasRole('admin') or hasAuthority('system:setting:update')` | — |
 | GET | `${api.prefix}/system/update/check` | `SystemApi#checkUpdate` | `isAuthenticated()` | — |
 | GET | `${api.prefix}/system/update/pending` | `SystemApi#updatePending` | `hasAuthority('system:setting:update')` | — |

@@ -9,6 +9,8 @@ import cn.surveyking.server.core.constant.PermissionEnum;
 import cn.surveyking.server.core.diag.DiagnosticsExporter;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.impl.AnonymousCleanupService;
+import cn.surveyking.server.impl.FullSiteBackupService;
+import cn.surveyking.server.service.ExportGuardService;
 import cn.surveyking.server.schema.SchemaUpgradeResult;
 import cn.surveyking.server.schema.SchemaUpgradeService;
 import cn.surveyking.server.domain.dto.*;
@@ -26,18 +28,22 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.io.OutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 
@@ -90,6 +96,10 @@ public class SystemApi {
 
 	private final UpdateDownloadService updateDownloadService;
 
+	private final FullSiteBackupService fullSiteBackupService;
+
+	private final ExportGuardService exportGuardService;
+
 	@Value("${version}")
 	private String currentVersion;
 
@@ -124,6 +134,35 @@ public class SystemApi {
 
 
 	private volatile boolean lastCheckFailed;
+
+	@GetMapping("/backup")
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
+	public void fullSiteBackup(jakarta.servlet.http.HttpServletResponse response) throws IOException {
+		Path file = fullSiteBackupService.createBackup();
+		try {
+			String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+			String fileName = "xuri-classroom-backup-" + stamp + ".zip";
+			response.setContentType("application/zip");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+			response.setContentLengthLong(Files.size(file));
+			Files.copy(file, response.getOutputStream());
+			response.flushBuffer();
+			exportGuardService.record(ExportGuardService.EXPORT_BACKUP, "full-site", "整站备份",
+					"下载整站备份 " + fileName);
+		}
+		finally {
+			Files.deleteIfExists(file);
+		}
+	}
+
+	@PostMapping(value = "/backup/restore", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
+	public Map<String, Object> restoreBackup(@RequestParam("file") MultipartFile file) throws IOException {
+		Map<String, Object> result = fullSiteBackupService.restoreBackup(file);
+		exportGuardService.record(ExportGuardService.RESTORE_BACKUP, "full-site", "整站恢复",
+				"上传备份并恢复整站");
+		return result;
+	}
 
 	@GetMapping("/version")
 	public Map<String, Object> version() {

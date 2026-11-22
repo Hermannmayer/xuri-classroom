@@ -541,7 +541,7 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 		List<Template> templates = new ArrayList<>();
 		repos.forEach(repo -> {
 			assertReadableRepo(repo.getRepoId());
-			List<String> taggedTemplateIds = getTaggedTemplateIds(repo.getTags());
+			List<String> taggedTemplateIds = templateService.listTaggedTemplateIds(repo.getRepoId(), repo.getTags());
 			if (!CollectionUtils.isEmpty(repo.getTags()) && taggedTemplateIds.isEmpty()) {
 				return;
 			}
@@ -1042,16 +1042,6 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 			throw new ValidationException("题库里没有可导出的题目");
 		}
 		return RepoQuestionExcelExporter.export(questions);
-	}
-
-	private List<String> getTaggedTemplateIds(List<String> tags) {
-		if (CollectionUtils.isEmpty(tags)) {
-			return Collections.emptyList();
-		}
-		return tagService
-				.list(Wrappers.<Tag>lambdaQuery().select(Tag::getEntityId)
-						.eq(Tag::getCategory, TagCategoryEnum.template.name()).in(Tag::getName, tags))
-				.stream().map(Tag::getEntityId).collect(Collectors.toList());
 	}
 
 	private void assertTemplatesBelongToRepo(String repoId, Collection<String> templateIds) {

@@ -12,6 +12,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +28,10 @@ public class JsonQuestionParser {
 	private static final ObjectMapper MAPPER = JsonMapper.builder()
 			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
+	private static final String PREVIEW_PREFIX = "/api/public/preview/";
+
+	private static final int MAX_ASSET_BYTES = 8 * 1024 * 1024;
+
 	private final MultipartFile file;
 
 	public JsonQuestionParser(MultipartFile file) {
@@ -37,9 +42,13 @@ public class JsonQuestionParser {
 		if (file == null || file.isEmpty()) {
 			throw new ErrorCodeException(ErrorCode.FileParseError, "请上传 JSON 文件");
 		}
+		Map<String, byte[]> attachments = new LinkedHashMap<>();
 		SurveySchema survey;
 		try {
 			JsonNode root = MAPPER.readTree(file.getInputStream());
+			if (root != null) {
+				collectAssets(root.get("assets"), attachments);
+			}
 			if (root != null && root.has("survey")) {
 				root = root.get("survey");
 			}
@@ -89,7 +98,30 @@ public class JsonQuestionParser {
 		return ImportPreview.builder().title(survey.getTitle()).tree(survey).flat(flat)
 				.stats(ImportPreview.Stats.builder().total(flat.size()).score(score)
 						.groups(survey.getChildren().size()).byType(byType).build())
-				.warnings(warnings).build();
+				.warnings(warnings).attachments(attachments).build();
+	}
+
+	private void collectAssets(JsonNode assets, Map<String, byte[]> target) {
+		if (assets == null || !assets.isObject()) {
+			return;
+		}
+		for (Map.Entry<String, JsonNode> entry : assets.properties()) {
+			String url = entry.getKey();
+			JsonNode value = entry.getValue();
+			if (url == null || !url.startsWith(PREVIEW_PREFIX) || value == null || !value.isString()) {
+				continue;
+			}
+			try {
+				byte[] data = Base64.getDecoder().decode(value.asString());
+				if (data.length == 0 || data.length > MAX_ASSET_BYTES) {
+					continue;
+				}
+				target.put(url, data);
+			}
+			catch (IllegalArgumentException ignored) {
+
+			}
+		}
 	}
 
 	private void reId(SurveySchema node, Set<String> ids) {

@@ -19,6 +19,8 @@ public class TagQuery {
 
 	private Integer shared = 1;
 
-	SurveySchema.QuestionType questionType = SurveySchema.QuestionType.Survey;
+	private SurveySchema.QuestionType questionType;
+
+	private String repoId;
 
 }

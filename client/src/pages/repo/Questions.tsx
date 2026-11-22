@@ -184,6 +184,7 @@ export default function RepoQuestions() {
   const [pageSize, setPageSize] = useState(20);
   const [keyword, setKeyword] = useState('');
   const [questionType, setQuestionType] = useState<string>();
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
 
   const [typeOptions, setTypeOptions] = useState<string[]>([
     'Radio',
@@ -193,6 +194,8 @@ export default function RepoQuestions() {
     'Textarea',
   ]);
   const [tagOptions, setTagOptions] = useState<string[]>([]);
+  const [tagFilterOptions, setTagFilterOptions] = useState<string[]>([]);
+  const [tagFilterLoading, setTagFilterLoading] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchTags, setBatchTags] = useState<string[]>([]);
@@ -268,8 +271,11 @@ export default function RepoQuestions() {
     difficulty?: string;
   }>();
 
+  const requestSeq = useRef(0);
+
   const load = useCallback(async () => {
     if (!repoId) return;
+    const ticket = ++requestSeq.current;
     setLoading(true);
     setLoadError(undefined);
     try {
@@ -279,7 +285,9 @@ export default function RepoQuestions() {
         pageSize,
         name: keyword,
         questionType: questionType || undefined,
+        tag: tagFilter.length ? tagFilter : undefined,
       });
+      if (ticket !== requestSeq.current) return;
       setRows(res.data);
       setTotal(res.total);
       // 下拉选项从当前/已加载数据里累积，避免筛选后选项消失
@@ -288,27 +296,50 @@ export default function RepoQuestions() {
       setTypeOptions((prev) => Array.from(new Set([...prev, ...nextTypes])));
       setTagOptions((prev) => Array.from(new Set([...prev, ...nextTags])));
     } catch (e) {
-
+      if (ticket !== requestSeq.current) return;
 
       const err = e as Error & { code?: number };
       const base = err.code === 403 ? '没有权限查看这个题库的题目' : err.message || '读取题目列表失败';
       setLoadError(err.code ? `${base}（错误码 ${err.code}）` : base);
       message.error(base);
     } finally {
-      setLoading(false);
+      if (ticket === requestSeq.current) setLoading(false);
     }
-  }, [repoId, page, pageSize, keyword, questionType]);
+  }, [repoId, page, pageSize, keyword, questionType, tagFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    setTagFilter((prev) => (prev.length ? [] : prev));
+    setTagFilterOptions((prev) => (prev.length ? [] : prev));
+    if (!repoId) return;
+    let alive = true;
+    setTagFilterLoading(true);
+    get<string[]>('/api/template/listTag', { repoId })
+      .then((list) => {
+        if (!alive) return;
+        const tags = Array.isArray(list)
+          ? Array.from(new Set(list.map((tag) => (typeof tag === 'string' ? tag.trim() : '')).filter(Boolean)))
+          : [];
+        setTagFilterOptions(tags);
+        setTagOptions((prev) => Array.from(new Set([...prev, ...tags])));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setTagFilterLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [repoId]);
 
   useEffect(() => {
     setSelectedKeys([]);
-  }, [repoId, page, pageSize, keyword, questionType]);
+  }, [repoId, page, pageSize, keyword, questionType, tagFilter]);
 
-  const hasFilter = Boolean(keyword || questionType);
+  const hasFilter = Boolean(keyword || questionType || tagFilter.length);
 
   const editType = editing?.questionType ?? editing?.template?.type ?? '';
   const isChoice = CHOICE_TYPES.has(editType);
@@ -730,10 +761,21 @@ export default function RepoQuestions() {
           }}
           options={typeOptions.map((t) => ({ value: t, label: TYPE_LABEL[t] ?? t }))}
         />
-
-
-
-
+        <Select
+          mode="multiple"
+          allowClear
+          maxTagCount="responsive"
+          value={tagFilter}
+          placeholder="标签筛选"
+          loading={tagFilterLoading}
+          notFoundContent={tagFilterLoading ? '加载中…' : '暂无标签'}
+          style={{ width: isMobile ? '100%' : 220, flexShrink: 0 }}
+          onChange={(value) => {
+            setTagFilter(value);
+            setPage(1);
+          }}
+          options={tagFilterOptions.map((tag) => ({ value: tag, label: tag }))}
+        />
         <Input.Search
           allowClear
           placeholder="搜索题干"

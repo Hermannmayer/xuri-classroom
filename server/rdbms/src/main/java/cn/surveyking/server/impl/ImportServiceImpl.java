@@ -39,6 +39,8 @@ public class ImportServiceImpl implements ImportService {
 
 	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
 
+	private static final String PREVIEW_PREFIX = "/api/public/preview/";
+
 	private final ExportGuardService exportGuardService;
 
 	private final FileService fileService;
@@ -71,7 +73,7 @@ public class ImportServiceImpl implements ImportService {
 		return preview;
 	}
 
-	/** 把解析时抽出的图片落成文件，并把题干里的占位 token 换成图片地址 */
+	/** 把解析时抽出的图片落成文件，并把题干里的旧图片地址或占位 token 换成新地址 */
 	private void applyAttachments(ImportPreview preview) {
 		Map<String, byte[]> attachments = preview.getAttachments();
 		if (attachments == null || attachments.isEmpty()) {
@@ -99,9 +101,9 @@ public class ImportServiceImpl implements ImportService {
 			}
 		}
 		if (!urls.isEmpty()) {
-			replaceImageTokens(preview.getTree(), urls);
+			replaceImageRefs(preview.getTree(), urls);
 			for (SurveySchema question : preview.getFlat()) {
-				replaceImageTokens(question, urls);
+				replaceImageRefs(question, urls);
 			}
 		}
 		attachments.clear();
@@ -125,7 +127,7 @@ public class ImportServiceImpl implements ImportService {
 		}
 	}
 
-	private void replaceImageTokens(SurveySchema node, Map<String, String> urls) {
+	private void replaceImageRefs(SurveySchema node, Map<String, String> urls) {
 		if (node == null) {
 			return;
 		}
@@ -133,7 +135,9 @@ public class ImportServiceImpl implements ImportService {
 		if (StringUtils.hasText(title)) {
 			String replaced = title;
 			for (Map.Entry<String, String> entry : urls.entrySet()) {
-				replaced = replaced.replace(entry.getKey(), QuestionImageUploader.imgHtml(entry.getValue()));
+				String replacement = entry.getKey().startsWith(PREVIEW_PREFIX) ? entry.getValue()
+						: QuestionImageUploader.imgHtml(entry.getValue());
+				replaced = replaced.replace(entry.getKey(), replacement);
 			}
 			if (!replaced.equals(title)) {
 				node.setTitle(replaced);
@@ -145,7 +149,7 @@ public class ImportServiceImpl implements ImportService {
 		}
 		if (node.getChildren() != null) {
 			for (SurveySchema child : node.getChildren()) {
-				replaceImageTokens(child, urls);
+				replaceImageRefs(child, urls);
 			}
 		}
 	}

@@ -38,8 +38,8 @@ spring:
       add-mappings: false
   servlet:
     multipart:
-      max-file-size: 20MB
-      max-request-size: 21MB
+      max-file-size: 2048MB
+      max-request-size: 2049MB
       file-size-threshold: 2MB
   jackson:
     default-property-inclusion: non_null

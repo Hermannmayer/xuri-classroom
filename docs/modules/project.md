@@ -190,7 +190,7 @@ verified_against: 0a703cdbe79cd2395ae36052ab956bda89cab50f
 
 - 入口：项目列表行「导出」、编辑器顶部「导出」；两者打开 `ProjectExportModal`。
 - 两种格式：
-  - **JSON 备份**：`GET /api/project/{id}/export/json`，返回 `{version,name,mode,setting,survey}`，完整保留本体设置与题目树；现有 `JsonQuestionParser` 能识别其中的 `survey` 字段并重新导入题目。
+  - **JSON 备份**：`GET /api/project/{id}/export/json`，返回 `{version,name,mode,setting,survey,assets}`，完整保留本体设置与题目树；`assets` 把题干/选项图片按 `/api/public/preview/{id}` 内嵌成 Base64（单图 4MB、总量 8MB 上限）。`JsonQuestionParser` 读取 `assets` 后重新上传图片并把旧 URL 替换成新 URL，旧版无 `assets` 的 JSON 仍兼容。
   - **Word 文档**：`GET /api/project/{id}/export/docx`，走 `PaperDocxExporter`，只导题目本体，不导答卷；题干/选项/描述里的 `<img src="/api/public/preview/{id}">` 会通过 `FileService` 读原图并**内嵌**进 docx，单图按页面宽度等比缩放。
 - 导出密码：`POST /api/project/export/token` 用系统导出密码换一次性 token；两个下载接口都先校验 token/密码，并写 `EXPORT_PROJECT` 审计。未设置导出密码时直接下载。
 - **注意**：JSON 重新走导入向导时只恢复题目树；名称/模式/setting 目前不会自动覆盖新项目（导入向导仍按用户输入的名字和默认设置创建）。要完整恢复设置，后续需要单独做「项目备份导入」入口。

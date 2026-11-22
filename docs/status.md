@@ -13,7 +13,7 @@
 | `module-compose` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 15 |
 | `module-dashboard` | 2026-11-21 | `b3b1c424418493918be0dc68fed8d322c6cb45f1` | 28 |
 | `module-exercise` | 2026-11-19 | `191b87cc5504cdc6038f533ed5c331bd9af6d3a3` | 13 |
-| `module-files` | 2026-11-22 | `35bbc98c9bead384064e644a82b21e40802537e8` | 31 |
+| `module-files` | 2026-11-22 | `35bbc98c9bead384064e644a82b21e40802537e8` | 32 |
 | `module-import` | 2026-11-22 | `e11108160370fc23553493c27513649eb320b4f9` | 26 |
 | `module-mcp` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 31 |
 | `module-notice` | 2026-11-21 | `43b4f52f89250d6faaa55da6038f01eed45e0227` | 18 |

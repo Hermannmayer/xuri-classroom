@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Button, Card, Collapse, ConfigProvider, Form, Input, InputNumber, Modal, Progress, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Collapse, ConfigProvider, Form, Input, InputNumber, Modal, Progress, Segmented, Select, Spin, Switch, Tabs, Tag, Upload, message } from 'antd';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -89,15 +89,21 @@ interface ExportPdfSetting {
   pauseAnswerPdfDuringExam?: boolean;
 }
 
+interface BackupRestoreResult {
+  tables?: number;
+  files?: number;
+  restartRequired?: boolean;
+}
+
 /** 后端 watermarkMode 是 string；老数据 / 脏值（含 null）一律回落到默认的「姓名+手机号」 */
 function normalizeMode(value?: string | null): WatermarkMode {
   return value === 'name' || value === 'phone' ? value : 'name_phone';
 }
 
-type TabKey = 'basic' | 'access' | 'content' | 'ai' | 'system';
+type TabKey = 'basic' | 'access' | 'content' | 'ai' | 'system' | 'backup';
 
 
-const TAB_KEYS: TabKey[] = ['basic', 'access', 'content', 'ai', 'system'];
+const TAB_KEYS: TabKey[] = ['basic', 'access', 'content', 'ai', 'system', 'backup'];
 
 
 
@@ -117,6 +123,7 @@ const TAB_FIELDS: Record<TabKey, string[]> = {
     'anonymousPurgeDelayDays',
   ],
   content: ['answerPdfConcurrency', 'pauseAnswerPdfDuringExam'],
+  backup: [],
   ai: [
     'aiEnabled',
     'provider',
@@ -237,6 +244,13 @@ export default function SystemSetting() {
   const [lastCleanupAt, setLastCleanupAt] = useState<string | number>();
   const [lastCleanupCount, setLastCleanupCount] = useState<number>();
   const [cleaning, setCleaning] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File>();
+  const [restoreConfirmed, setRestoreConfirmed] = useState(false);
+  const [restoreKeyword, setRestoreKeyword] = useState('');
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<BackupRestoreResult>();
   const [currentVersion, setCurrentVersion] = useState<string>();
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckInfo>();
   const [updateLoading, setUpdateLoading] = useState(false);
@@ -296,6 +310,56 @@ export default function SystemSetting() {
   }, []);
 
   /** 切 Tab 写回 ?tab=：刷新、分享链接、浏览器后退都还能停在同一页签 */
+  const backupSite = async () => {
+    setBackupBusy(true);
+    try {
+      await download('/api/system/backup', undefined, '整站备份.zip');
+      message.success('整站备份已开始下载，请查看浏览器下载');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const openRestore = () => {
+    setRestoreFile(undefined);
+    setRestoreConfirmed(false);
+    setRestoreKeyword('');
+    setRestoreResult(undefined);
+    setRestoreOpen(true);
+  };
+
+  const closeRestore = () => {
+    if (restoreBusy) return;
+    setRestoreOpen(false);
+    setRestoreFile(undefined);
+    setRestoreConfirmed(false);
+    setRestoreKeyword('');
+    setRestoreResult(undefined);
+  };
+
+  const runRestore = async () => {
+    if (!restoreFile || !restoreConfirmed || restoreKeyword !== 'RESTORE') return;
+    setRestoreBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', restoreFile);
+      const res = await post<BackupRestoreResult>('/api/system/backup/restore', fd);
+      setRestoreResult(res ?? {});
+      setRestoreFile(undefined);
+      setRestoreConfirmed(false);
+      setRestoreKeyword('');
+      message.success(res?.restartRequired === false ? '备份已恢复' : '备份已恢复，请重启服务后生效');
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
+
+  const restoreReady = Boolean(restoreFile) && restoreConfirmed && restoreKeyword === 'RESTORE';
+
   const changeTab = (key: string) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', key);
@@ -890,6 +954,7 @@ export default function SystemSetting() {
                 { key: 'content', label: '内容' },
                 { key: 'ai', label: 'AI' },
                 { key: 'system', label: '系统' },
+                { key: 'backup', label: '备份' },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -1848,6 +1913,229 @@ export default function SystemSetting() {
                     </div>
 
 
+                  </>
+                ),
+              },
+              {
+                key: 'backup',
+                label: '备份',
+                forceRender: true,
+                children: (
+                  <>
+                    <Card
+                      className="bp-corners bp-card"
+                      title={<span className="bp-title" style={{ fontSize: 12 }}>BACKUP / 整站备份</span>}
+                      extra={<Tag color="blue">ZIP</Tag>}
+                    >
+                      <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.8, marginBottom: 12 }}>
+                        把数据库和本地附件目录一起打包成 ZIP。适合在升级、迁移或重要考试前留一份完整快照。
+                        备份文件只在浏览器下载，不会长期占用服务器空间。
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                        <Button
+                          type="primary"
+                          icon={<DownloadOutlined />}
+                          loading={backupBusy}
+                          disabled={!canUpdate}
+                          onClick={() => void backupSite()}
+                        >
+                          {backupBusy ? '正在打包…' : '立即生成并下载'}
+                        </Button>
+                        <Button
+                          danger
+                          icon={<UploadOutlined />}
+                          disabled={!canUpdate || backupBusy}
+                          onClick={openRestore}
+                        >
+                          上传备份并恢复
+                        </Button>
+                      </div>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                          gap: 8,
+                          marginBottom: 14,
+                        }}
+                      >
+                        {[
+                          { label: '数据库', value: 'database.sql' },
+                          { label: '附件', value: 'files/' },
+                          { label: '清单', value: 'manifest.json' },
+                          { label: '内容', value: '题目/答卷/设置' },
+                        ].map((item) => (
+                          <div key={item.label} style={{ border: '1px solid var(--bp-line-soft)', padding: '7px 9px' }}>
+                            <div style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}>{item.label}</div>
+                            <div style={{ fontSize: 12, marginTop: 2 }}>{item.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <Alert
+                        type="info"
+                        showIcon
+                        title="恢复方式"
+                        description={
+                          <span>
+                            推荐用上方「上传备份并恢复」：自动导入数据库与附件，完成后按提示重启服务。也可以在维护窗口手动恢复：先停服务，导入{' '}
+                            <code>database.sql</code>，再把 <code>files/</code> 放回附件目录。不要在运行中的库上直接覆盖；升级/回滚前先备份。
+                          </span>
+                        }
+                      />
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        title="不包含"
+                        description="浏览器缓存、前端构建产物、系统日志和临时文件不在备份内；这些可在升级后重新生成。"
+                      />
+                    </Card>
+                    <Modal
+                      title="上传备份并恢复"
+                      open={restoreOpen}
+                      onCancel={closeRestore}
+                      onOk={() => {
+                        if (restoreResult) {
+                          closeRestore();
+                          return;
+                        }
+                        void runRestore();
+                      }}
+                      okText={restoreResult ? '关闭' : '开始恢复'}
+                      cancelText="取消"
+                      okButtonProps={{
+                        danger: !restoreResult,
+                        disabled: !restoreResult && !restoreReady,
+                        loading: restoreBusy,
+                      }}
+                      cancelButtonProps={{
+                        disabled: restoreBusy,
+                        style: restoreResult ? { display: 'none' } : undefined,
+                      }}
+                      width={isMobile ? '94%' : 560}
+                      style={isMobile ? { top: 12 } : undefined}
+                      styles={isMobile ? { body: { maxHeight: '72vh', overflowY: 'auto' } } : undefined}
+                      closable={!restoreBusy}
+                      maskClosable={!restoreBusy}
+                      keyboard={!restoreBusy}
+                      destroyOnHidden
+                    >
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 14 }}
+                        title="会覆盖当前数据库和附件"
+                        description="恢复会用备份内容替换现有数据，且不可撤销；建议先点「立即生成并下载」保存一份最新备份。恢复期间不要关闭页面或重复提交。"
+                      />
+                      {restoreResult ? (
+                        <>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                              gap: 8,
+                            }}
+                          >
+                            {[
+                              { label: '数据表', value: String(restoreResult.tables ?? 0) },
+                              { label: '附件', value: String(restoreResult.files ?? 0) },
+                              { label: '重启', value: restoreResult.restartRequired === false ? '不需要' : '需要' },
+                            ].map((item) => (
+                              <div
+                                key={item.label}
+                                style={{ border: '1px solid var(--bp-line-soft)', padding: '7px 9px' }}
+                              >
+                                <div style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}>{item.label}</div>
+                                <div style={{ fontSize: 12, marginTop: 2 }}>{item.value}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <Alert
+                            type="success"
+                            showIcon
+                            style={{ marginTop: 12 }}
+                            title="备份已恢复"
+                            description={
+                              restoreResult.restartRequired === false
+                                ? '服务未要求重启；仍建议重启后确认数据正常。'
+                                : '请重启服务后生效；重启前不要继续录入或修改数据。'
+                            }
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Upload.Dragger
+                            accept=".zip,application/zip"
+                            maxCount={1}
+                            showUploadList={false}
+                            disabled={restoreBusy}
+                            beforeUpload={(file) => {
+                              if (!/\.zip$/i.test(file.name)) {
+                                message.error('请选择 .zip 格式的整站备份');
+                                return false;
+                              }
+                              setRestoreFile(file);
+                              return false;
+                            }}
+                          >
+                            <p className="ant-upload-drag-icon">
+                              <UploadOutlined />
+                            </p>
+                            <p className="ant-upload-text">点击或拖拽备份 ZIP 到这里</p>
+                            <p className="ant-upload-hint">只接受整站备份 .zip（含 database.sql 与 files/）</p>
+                          </Upload.Dragger>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                              marginTop: 8,
+                              fontSize: 12,
+                              color: 'var(--bp-text-soft)',
+                            }}
+                          >
+                            <span style={{ wordBreak: 'break-all' }}>
+                              {restoreFile
+                                ? '已选择：' + restoreFile.name + '（' + formatBytes(restoreFile.size) + '）'
+                                : '还没有选择文件'}
+                            </span>
+                            {restoreFile && (
+                              <Button
+                                size="small"
+                                type="text"
+                                danger
+                                disabled={restoreBusy}
+                                onClick={() => setRestoreFile(undefined)}
+                              >
+                                移除
+                              </Button>
+                            )}
+                          </div>
+                          <div style={{ marginTop: 16 }}>
+                            <Checkbox
+                              checked={restoreConfirmed}
+                              disabled={restoreBusy}
+                              onChange={(e) => setRestoreConfirmed(e.target.checked)}
+                            >
+                              我已确认会覆盖当前数据库和附件
+                            </Checkbox>
+                          </div>
+                          <div style={{ marginTop: 12 }}>
+                            <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', marginBottom: 6 }}>
+                              输入 <code>RESTORE</code>（大写）后提交
+                            </div>
+                            <Input
+                              value={restoreKeyword}
+                              onChange={(e) => setRestoreKeyword(e.target.value)}
+                              placeholder="RESTORE"
+                              autoComplete="off"
+                              aria-label="输入 RESTORE 确认恢复"
+                              disabled={restoreBusy}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </Modal>
                   </>
                 ),
               },

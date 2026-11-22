@@ -80,7 +80,7 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 		if (query.getRepoId() != null) {
 			assertReadableRepo(query.getRepoId());
 		}
-		List<String> taggedTemplateIds = getTaggedTemplateIds(query.getTag());
+		List<String> taggedTemplateIds = listTaggedTemplateIds(query.getRepoId(), query.getTag());
 		if (!query.getTag().isEmpty() && taggedTemplateIds.isEmpty()) {
 			return new PaginationResponse<>(0L, Collections.emptyList());
 		}
@@ -285,13 +285,23 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 
 	@Override
 	public Set<String> getTags(TagQuery query) {
-		Set<String> tags = new HashSet<>();
+		boolean repoScoped = hasText(query.getRepoId());
+		if (repoScoped) {
+			assertReadableRepo(query.getRepoId());
+		}
+		Set<String> tags = new LinkedHashSet<>();
 		list(Wrappers.<Template>lambdaQuery().select(Template::getTag)
-				.eq(Template::getQuestionType, SurveySchema.QuestionType.Survey)
-				.eq(query.getShared() == 0, Template::getCreateBy, SecurityContextUtils.getUserId())
-				.eq(Template::getShared, query.getShared())).forEach(x -> {
-					if (x.getTag() != null) {
-						tags.addAll(Arrays.asList(x.getTag()));
+				.eq(repoScoped, Template::getRepoId, query.getRepoId())
+				.eq(query.getQuestionType() != null, Template::getQuestionType, query.getQuestionType())
+				.eq(!repoScoped && query.getQuestionType() == null, Template::getQuestionType,
+						SurveySchema.QuestionType.Survey)
+				.eq(!repoScoped && query.getShared() != null, Template::getShared, query.getShared())
+				.eq(!repoScoped && query.getShared() != null && query.getShared() == 0, Template::getCreateBy,
+						SecurityContextUtils.getUserId()))
+				.forEach(template -> {
+					if (template.getTag() != null) {
+						Arrays.stream(template.getTag()).filter(tag -> hasText(tag)).map(String::trim)
+								.forEach(tags::add);
 					}
 				});
 		return tags;
@@ -407,14 +417,42 @@ public class TemplateServiceImpl extends BaseService<TemplateMapper, Template> i
 								userId))) > 0);
 	}
 
-	private List<String> getTaggedTemplateIds(List<String> tags) {
-		if (tags.isEmpty()) {
+	/** 按标签名解析模板 id；repoId 非空时限定在该题库内 */
+	public List<String> listTaggedTemplateIds(String repoId, Collection<String> tags) {
+		if (tags == null || tags.isEmpty()) {
 			return Collections.emptyList();
 		}
-		return tagService
-				.list(Wrappers.<Tag>lambdaQuery().select(Tag::getEntityId)
-						.eq(Tag::getCategory, TagCategoryEnum.template.name()).in(Tag::getName, tags))
-				.stream().map(Tag::getEntityId).collect(Collectors.toList());
+		Set<String> names = tags.stream().filter(tag -> hasText(tag)).map(String::trim).collect(Collectors.toSet());
+		if (names.isEmpty()) {
+			return Collections.emptyList();
+		}
+		Set<String> ids = new LinkedHashSet<>();
+		tagService.list(Wrappers.<Tag>lambdaQuery().select(Tag::getEntityId)
+				.eq(Tag::getCategory, TagCategoryEnum.template.name()).in(Tag::getName, names)).forEach(tag -> {
+					if (tag.getEntityId() != null) {
+						ids.add(tag.getEntityId());
+					}
+				});
+		list(Wrappers.<Template>lambdaQuery().select(Template::getId, Template::getTag)
+				.eq(hasText(repoId), Template::getRepoId, repoId).isNotNull(Template::getTag))
+				.forEach(template -> {
+					if (hasAnyTag(template.getTag(), names)) {
+						ids.add(template.getId());
+					}
+				});
+		return new ArrayList<>(ids);
+	}
+
+	private static boolean hasAnyTag(String[] tags, Set<String> names) {
+		if (tags == null) {
+			return false;
+		}
+		for (String tag : tags) {
+			if (tag != null && names.contains(tag.trim())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }

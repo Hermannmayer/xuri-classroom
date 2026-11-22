@@ -92,8 +92,8 @@ export default function ProjectExportModal({
       width={540}
     >
       <div style={{ fontSize: 12, color: 'var(--bp-text-soft)', lineHeight: 1.8, marginBottom: 12 }}>
-        导出的是{isSurvey ? '问卷' : '试卷'}本体，不包含学员答卷。JSON 备份包含名称、模式、完整设置和题目树；
-        Word 文档用于打印或分享。
+        导出的是{isSurvey ? '问卷' : '试卷'}本体，不包含学员答卷。JSON 备份包含名称、模式、完整设置、题目树，
+        并尽量内嵌题目/选项图片；Word 文档用于打印或分享。
       </div>
       <Radio.Group
         value={format}
@@ -103,7 +103,7 @@ export default function ProjectExportModal({
         <Radio value="json">
           <span style={{ fontWeight: 700 }}>JSON 备份（推荐）</span>
           <span style={{ display: 'block', fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 2 }}>
-            完整保留名称、考试/问卷模式、设置和题目树，适合留档与迁移。
+            完整保留名称、考试/问卷模式、设置、题目树和图片，适合留档与迁移；图片多时文件会变大。
           </span>
         </Radio>
         <Radio value="docx">

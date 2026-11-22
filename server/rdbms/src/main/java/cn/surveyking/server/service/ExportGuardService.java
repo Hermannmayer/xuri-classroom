@@ -31,6 +31,10 @@ public class ExportGuardService {
 
 	public static final String EXPORT_PROJECT = "EXPORT_PROJECT";
 
+	public static final String EXPORT_BACKUP = "EXPORT_BACKUP";
+
+	public static final String RESTORE_BACKUP = "RESTORE_BACKUP";
+
 	public static final String IMPORT_REPO = "IMPORT_REPO";
 
 

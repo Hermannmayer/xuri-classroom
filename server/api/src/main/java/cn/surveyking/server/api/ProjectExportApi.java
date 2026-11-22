@@ -24,8 +24,11 @@ import org.springframework.http.ResponseEntity;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** 试卷/问卷本体导出：完整 JSON 备份与 Word 文档，共用系统导出密码守卫 */
 @RequiredArgsConstructor
@@ -33,6 +36,12 @@ import java.util.Map;
 public class ProjectExportApi {
 
 	private static final JsonMapper JSON = JsonMapper.builder().build();
+
+	private static final Pattern PREVIEW = Pattern.compile("/api/public/preview/([A-Za-z0-9_-]{1,64})");
+
+	private static final long MAX_ASSET_BYTES = 4L * 1024 * 1024;
+
+	private static final long MAX_ASSETS_BASE64_LENGTH = 8L * 1024 * 1024;
 
 	private final ProjectService projectService;
 
@@ -61,6 +70,7 @@ public class ProjectExportApi {
 		body.put("mode", project.getMode());
 		body.put("setting", project.getSetting());
 		body.put("survey", project.getSurvey());
+		body.put("assets", collectAssets(project));
 		byte[] bytes = JSON.writeValueAsBytes(body);
 		String fileName = (project.getName() == null ? "试卷" : project.getName()) + "-备份.json";
 		write(response, bytes, "application/json;charset=UTF-8", fileName);
@@ -89,6 +99,36 @@ public class ProjectExportApi {
 		scope.put("mode", project.getMode());
 		scope.put("format", "docx");
 		exportGuardService.record(ExportGuardService.EXPORT_PROJECT, id, project.getName(), "导出试卷/问卷 Word 文档", scope);
+	}
+
+	private Map<String, String> collectAssets(ProjectView project) {
+		Map<String, String> assets = new LinkedHashMap<>();
+		String json;
+		try {
+			json = JSON.writeValueAsString(project.getSetting()) + JSON.writeValueAsString(project.getSurvey());
+		}
+		catch (Exception ex) {
+			return assets;
+		}
+		Matcher matcher = PREVIEW.matcher(json);
+		long encodedSize = 0;
+		while (matcher.find()) {
+			String url = matcher.group();
+			if (assets.containsKey(url)) {
+				continue;
+			}
+			byte[] data = loadImage(matcher.group(1));
+			if (data == null || data.length == 0 || data.length > MAX_ASSET_BYTES) {
+				continue;
+			}
+			String base64 = Base64.getEncoder().encodeToString(data);
+			if (encodedSize + base64.length() > MAX_ASSETS_BASE64_LENGTH) {
+				continue;
+			}
+			assets.put(url, base64);
+			encodedSize += base64.length();
+		}
+		return assets;
 	}
 
 	private byte[] loadImage(String fileId) {

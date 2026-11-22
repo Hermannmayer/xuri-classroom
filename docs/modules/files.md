@@ -14,6 +14,8 @@ keywords:
   - 404
   - 缩略图
   - 配额
+  - 整站备份
+  - 恢复
 source_globs:
   - client/src/pages/system/Setting.tsx
   - client/src/api/request.ts
@@ -32,6 +34,7 @@ source_globs:
   - server/rdbms/src/main/java/cn/surveyking/server/domain/model/File.java
   - server/rdbms/src/main/java/cn/surveyking/server/mapper/FileMapper.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java
+  - server/rdbms/src/main/java/cn/surveyking/server/impl/FullSiteBackupService.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerServiceImpl.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerExporter.java
   - server/rdbms/src/main/java/cn/surveyking/server/impl/AnswerScoringService.java
@@ -51,6 +54,8 @@ apis:
   - GET /api/file/downloadTemplate
   - POST /api/public/upload
   - GET /api/public/preview/{attachmentId}
+  - GET /api/system/backup
+  - POST /api/system/backup/restore
   - POST /api/teaching/classes/member/import
   - GET /api/teaching/classes/member/template
 tables:
@@ -69,6 +74,7 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 
 ## 30 秒摘要
 
+整站备份/恢复由 `FullSiteBackupService` 负责：管理员在「系统设置 → 备份」下载 ZIP（`database.sql` + `files/` + `manifest.json`），也可上传同格式 ZIP 覆盖恢复；数据库不需要 mysqldump，恢复后需重启服务。
 文件能力只有一套实现：本地磁盘 + `t_file` 元数据表，没有对象存储分支（`StorageService` 只由 `LocalStorageService` 实现）。后台上传走 `POST /api/file/create`，要 `file:upload` 或 `file:import`；答题附件走公开的 `POST /api/public/upload`，匿名可传，但受「题目类型 + 扩展名 + 大小 + 频率 + 项目配额」五重限制。读取统一走 `FileService#loadUserFile`（本人或 `shared=1`），预览有 inline 白名单。图片落盘前会先解码校验再重编码（超 1920 宽等比缩小、JPEG 0.85），顺带剥掉 EXIF 与尾部附加数据；题面/题库富文本里的图片用 `t_file_ref` 记引用，引用归零才删物理文件。导入模板走**白名单映射**后从 classpath 的 `template/*` 下发（xlsx / docx，按扩展名给 MIME）：未知 name / 资源缺失统一 `FileNotExists`（404），不再把请求参数拼进路径。答卷提交时 `validateAndBindAnswerFiles` 会把附件与题目/答卷绑定，绑定后不能被别的答卷复用。
 
 ## 什么时候看这篇
