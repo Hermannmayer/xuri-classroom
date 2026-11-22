@@ -140,6 +140,7 @@ export interface Answer {  id: string;
   createAt?: string;
   createBy?: string;
   createByName?: string;
+  answererName?: string;
 
   isAnonymous?: boolean;
   updateAt?: string;

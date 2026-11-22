@@ -424,21 +424,23 @@ export default function SurveyData() {
 
         fixed: 'left',
         sorter: (a: Answer, b: Answer) =>
-          (a.createByName ?? a.createBy ?? '').localeCompare(
-            b.createByName ?? b.createBy ?? '',
+          (a.answererName ?? a.createByName ?? a.createBy ?? '').localeCompare(
+            b.answererName ?? b.createByName ?? b.createBy ?? '',
             'zh-Hans-CN',
           ),
-        render: (v: string | undefined, row: Answer) => (
-          <span style={{ fontSize: 12 }}>
-            {row.isAnonymous ? (
-              <Tag color="default" style={{ marginInlineEnd: 0 }}>
-                匿名
-              </Tag>
-            ) : (
-              v || row.createBy?.slice(0, 8) || '匿名'
-            )}
-          </span>
-        ),
+        render: (v: string | undefined, row: Answer) => {
+          const typed = (row.answererName ?? '').trim();
+          return (
+            <span style={{ fontSize: 12 }}>
+              {typed || (!row.isAnonymous && (v || row.createBy?.slice(0, 8))) || '匿名'}
+              {row.isAnonymous && typed && (
+                <Tag color="default" style={{ marginInlineStart: 6 }}>
+                  匿名
+                </Tag>
+              )}
+            </span>
+          );
+        },
       },
       {
         title: '状态',
@@ -896,7 +898,7 @@ export default function SurveyData() {
           <Space orientation="vertical" size={14} style={{ width: '100%' }}>
             <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
               提交时间 {detail.createAt || EMPTY}
-              {detail.createByName ? ` · ${detail.createByName}` : ''}
+              {detail.answererName || detail.createByName ? ` · ${detail.answererName || detail.createByName}` : ''}
               {scoringEnabled && typeof detail.examScore === 'number' && detail.examScore > 0
                 ? ` · 得分 ${detail.examScore}`
                 : ''}

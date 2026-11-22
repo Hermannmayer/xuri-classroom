@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: 82f9cc841954a67ce6dcd7d0b96696cc62999e2b
+verified_against: d246ed7c225dc7fd78f8f2089e87050ebddfaced
 ---
 
 # 答卷、判分与报表
@@ -339,6 +339,8 @@ verified_against: 82f9cc841954a67ce6dcd7d0b96696cc62999e2b
 3. 登录账号的 `t_user.name` —— 后端在 `resolveAnswererName` 里兜底。
 
 `answerSetting.answererNameRequired`（默认 false）控制必填：只拦**手动交卷**，自动交卷（到点/切屏超限）必须放行，否则没填姓名会把整卷卡在本地。
+
+数据页「答卷人」列按 `answerer_name` → 登录用户名 → `create_by` 前 8 位 → 「匿名」的顺序回退：匿名答卷只要填过姓名就显示姓名，并额外带一个「匿名」标签（2026-11 修复；此前只要 `is_anonymous=1` 就直接渲染「匿名」，把已快照的姓名丢掉了）。
 
 ## 修改指南
 
