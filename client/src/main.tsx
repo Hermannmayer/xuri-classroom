@@ -66,7 +66,10 @@ async function ensureFreshBuild() {
     if (!res.ok) return;
     const body = (await res.json()) as { data?: { version?: string; webBuild?: string }; version?: string; webBuild?: string };
     const data = body?.data ?? body;
-    if (!data?.webBuild || data.webBuild === local) {
+    const localVersion = metaContent('app-version');
+    const buildDiffers = Boolean(data?.webBuild && data.webBuild !== local);
+    const versionDiffers = Boolean(data?.version && localVersion && data.version !== localVersion);
+    if (!buildDiffers && !versionDiffers) {
       sessionStorage.removeItem(BUILD_RELOAD_KEY);
       return;
     }
@@ -83,6 +86,11 @@ async function ensureFreshBuild() {
 
 
 void ensureFreshBuild();
+window.setInterval(() => void ensureFreshBuild(), 5 * 60 * 1000);
+window.addEventListener('focus', () => void ensureFreshBuild());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void ensureFreshBuild();
+});
 
 void fetch('/api/system')
   .then((res) => res.json())

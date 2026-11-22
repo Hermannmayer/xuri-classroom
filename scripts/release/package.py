@@ -95,6 +95,11 @@ def validate_jar(jar: Path, version: str) -> None:
         names = set(archive.namelist())
         if "BOOT-INF/classes/static/index.html" not in names:
             fail("jar 里没有 BOOT-INF/classes/static/index.html，构建时是否漏了 -PwithSpa？")
+        html = archive.read("BOOT-INF/classes/static/index.html").decode("utf-8", "replace")
+        if 'name="app-build"' not in html:
+            fail("jar 里的 index.html 缺少 app-build 标记：前端产物过期，先重新构建 client/dist")
+        if 'content="' + version + '.' not in html:
+            fail("jar 里的前端版本与 VERSION(" + version + ") 不一致：先重新构建前端再打包")
         application = archive.read("BOOT-INF/classes/application.yml").decode("utf-8", "replace")
         if "version: " + version not in application:
             fail("jar 的 application.yml 版本不是 " + version + "，检查 VERSION / Gradle 过滤")
