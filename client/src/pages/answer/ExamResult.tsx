@@ -187,8 +187,16 @@ function prettyCorrect(raw: string): string {
 
 /** 选择题选项：children 是选项节点（带 examCorrectAnswer），dataSource 只补 label */
 function normalizeOptionLabel(label: string): string {
-  // Word/Excel 导入偶尔把「110」拆成逐字换行；逐字行合并，正常多行选项保持原样
-  const lines = label.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  // Word/Excel 导入偶尔把「110」拆成逐字换行；富文本选项还会拆成逐字 <br>，两种都合并，正常多行选项保持原样
+  const rich = /<[a-z][\s\S]*>/i.test(label);
+  const plain = (rich
+    ? label
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+    : label
+  ).replace(/[\u2028\u2029]/g, '\n');
+  const lines = plain.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length > 1 && lines.every((line) => line.length <= 1)) return lines.join('');
   return label;
 }

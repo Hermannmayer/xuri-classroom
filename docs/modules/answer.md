@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: 2b256c55b6df3d435711e81f435eec32c785737e
+verified_against: 179ed0d57c6961f46da233fa22a77236a4daff59
 ---
 
 # 答卷、判分与报表
@@ -162,7 +162,7 @@ verified_against: 2b256c55b6df3d435711e81f435eec32c785737e
 | 匿名答卷抽屉 | `client/src/pages/answer/AnonymousAnswersDrawer.tsx` | `GET /public/anonymous/answers` 列本设备/本人答卷；登录后 `POST /public/anonymous/claim` 认领 |
 | 匿名身份 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousIdentityServiceImpl.java` | `sk-anon` cookie、SHA-256 主体、ensure/current/claim/purge；匿名答卷不写 `create_by` |
 | 匿名清理 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java` | `purgeOlderThan(days)`：只删 `is_anonymous=1` 且过期答卷（逻辑删），主体无剩余匿名答卷时物理删；每日 03:30 + 手动 `/system/anonymous/cleanup` |
-| 成绩单/解析 | `client/src/pages/answer/ExamResult.tsx` | `/api/public/loadExamResult`；逐题对错只是前端预览 |
+| 成绩单/解析 | `client/src/pages/answer/ExamResult.tsx` | `/api/public/loadExamResult`；逐题对错只是前端预览；选项标签先用 `normalizeOptionLabel` 归一化（纯文本换行 / 富文本 `<br>` 与块级标签 / U+2028）再渲染，逐字一行才会合并 |
 | 公开查询 | `client/src/pages/answer/PublicQuery.tsx` | 按条件查询/修改答卷，走 `/api/public/loadQuery` / `getQueryResult` |
 | 数据页 | `client/src/pages/survey/Data.tsx` | 全量答卷表格、筛选/排序、详情、补录/编辑、导入、导出、回收站入口 |
 | 答卷回收站 | `client/src/pages/survey/data/TrashDrawer.tsx` | `answer:list` + `answer:restore`/`answer:delete` |
