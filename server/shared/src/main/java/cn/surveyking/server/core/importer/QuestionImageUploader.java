@@ -25,13 +25,9 @@ public final class QuestionImageUploader {
 
 	public static final String IMG_STYLE = "max-width:100%;height:auto;max-height:360px;object-fit:contain;display:block;margin:6px 0;";
 
-	private static final String IMG_PREFIX = "<img src=\"/api/public/preview/";
-
-	private static final String IMG_SUFFIX = "\" style=\"" + IMG_STYLE + "\" />";
-
-	/** 生成题面图片的 HTML：统一带上响应式尺寸限制，避免超大图撑破卡片 */
-	public static String imgHtml(String url) {
-		return IMG_PREFIX + url + IMG_SUFFIX;
+	/** 生成题面图片的 HTML：src 传完整预览地址，统一带响应式尺寸限制 */
+	public static String imgHtml(String src) {
+		return "<img src=\"" + src + "\" style=\"" + IMG_STYLE + "\" />";
 	}
 
 	private QuestionImageUploader() {
@@ -57,7 +53,7 @@ public final class QuestionImageUploader {
 				if (view == null || !StringUtils.hasText(view.getId())) {
 					continue;
 				}
-				appendImage(schema, imgHtml(view.getId()));
+				appendImage(schema, imgHtml("/api/public/preview/" + view.getId()));
 				attached++;
 			}
 			catch (Exception e) {
