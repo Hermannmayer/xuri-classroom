@@ -52,6 +52,8 @@ services:
 
 
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${DB_NAME:-surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
       SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?请在 .env 里设置 SK_CRYPTO_KEY}
       SK_JWT_SECRET: ${JWT_SECRET:-}
 
