@@ -40,6 +40,7 @@ import type {
   SubmittedSetting,
 } from '../../schema/project';
 import PartnerPanel from './PartnerPanel';
+import WhitelistPanel from './WhitelistPanel';
 import type { SurveySchema } from '../../schema/types';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
@@ -160,6 +161,7 @@ export default function SurveyOverview() {
   const [form] = Form.useForm();
   const exerciseMode = Form.useWatch('exerciseMode', form);
   const passMode = Form.useWatch('passMode', form);
+  const whitelistType = Form.useWatch('whitelistType', form);
 
 
   const [project, setProject] = useState<Project & { category?: string }>();
@@ -297,6 +299,7 @@ export default function SurveyOverview() {
         answererNameRequired: value.answerSetting?.answererNameRequired ?? false,
         copyEnabled: value.answerSetting?.copyEnabled ?? true,
         maxAnswers: value.answerSetting?.maxAnswers,
+        whitelistType: value.answerSetting?.whitelistType ?? 0,
         ipLimitEnabled: Boolean(value.answerSetting?.ipLimit),
         ipLimitNum: value.answerSetting?.ipLimit?.limitNum,
         ipLimitFreq: value.answerSetting?.ipLimit?.limitFreq,
@@ -443,6 +446,7 @@ export default function SurveyOverview() {
       answererNameRequired: Boolean(v.answererNameRequired),
       copyEnabled: Boolean(v.copyEnabled),
       maxAnswers: (v.maxAnswers as number | undefined) ?? undefined,
+      whitelistType: Number(v.whitelistType) || undefined,
 
       ipLimit: v.ipLimitEnabled
         ? {
@@ -926,6 +930,36 @@ export default function SurveyOverview() {
                   </Form.Item>
                 </Col>
               </Row>
+            </Card>
+          </Col>
+
+
+          <Col xs={24} lg={12}>
+            <Card
+              className="bp-corners bp-card"
+              title={cardTitle('WHITELIST', '答题白名单')}
+              style={{ height: '100%' }}
+              styles={{ body: { padding: 16 } }}
+            >
+              <Form.Item
+                name="whitelistType"
+                label="白名单类型"
+                extra="选好后点右上角「保存」生效，切换类型不会删除已有名单"
+              >
+                <Select
+                  options={[
+                    { value: 0, label: '不启用' },
+                    { value: 3, label: '系统用户' },
+                    { value: 4, label: '导入用户' },
+                  ]}
+                />
+              </Form.Item>
+              <WhitelistPanel
+                projectId={id}
+                type={Number(whitelistType) || 0}
+                savedType={Number(current.answerSetting?.whitelistType) || 0}
+                canManage={canManagePartner}
+              />
             </Card>
           </Col>
 

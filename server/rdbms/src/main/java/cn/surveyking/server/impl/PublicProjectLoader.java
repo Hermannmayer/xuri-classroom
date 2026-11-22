@@ -211,6 +211,21 @@ public class PublicProjectLoader {
 
 
 			projectView.setAnswer(getLatestAnswer(projectView, null));
+			if (SecurityContextUtils.isAuthenticated()
+					&& (projectView.getAnswerId() == null || projectView.getAnswer() == null)) {
+				Answer draft = answerService.getOne(Wrappers.<Answer>lambdaQuery()
+						.eq(Answer::getProjectId, project.getId())
+						.eq(Answer::getCreateBy, SecurityContextUtils.getUserId())
+						.eq(Answer::getTempSave, 0)
+						.isNotNull(Answer::getTempAnswer)
+						.orderByDesc(Answer::getUpdateAt)
+						.orderByDesc(Answer::getCreateAt)
+						.last("limit 1"));
+				if (draft != null) {
+					projectView.setAnswerId(draft.getId());
+					projectView.setAnswer(draft.getTempAnswer());
+				}
+			}
 		}
 		projectView.setIsAuthenticated(SecurityContextUtils.isAuthenticated());
 		return projectView;
