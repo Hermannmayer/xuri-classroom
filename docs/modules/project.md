@@ -116,7 +116,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 7f40d2c970d4cbd8169adfb44e34df9389c4c617
+verified_against: 7710bd2ec4b55857a72e4e938fdf279362a8070a
 ---
 
 # 考试与问卷（项目）
