@@ -272,8 +272,11 @@ export async function downloadClassAnswers(params: {
   gradeStatus?: string;
 
   createByName?: string;
+  exportPassword?: string;
 }) {
-  const tokenRes = await post<{ exportToken?: string; expiresIn?: number }>('/api/answer/export/token', {});
+  const tokenRes = await post<{ exportToken?: string; expiresIn?: number }>('/api/answer/export/token', {
+    exportPassword: params.exportPassword?.trim() || undefined,
+  });
   const fileName = `${params.projectName || '考试'}-${params.deptName || '班级'}-答卷.xlsx`;
   await download(
     '/api/answer/download',
@@ -529,6 +532,7 @@ export default function ClassAnswersDrawer({
   const [options, setOptions] = useState<ExportOptions>(DEFAULT_OPTIONS);
   const [job, setJob] = useState<AnswerPdfJobView | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
+  const [exportPassword, setExportPassword] = useState('');
   const pollTimer = useRef<number | null>(null);
   const polling = useRef(false);
   const jobRef = useRef<AnswerPdfJobView | null>(null);
@@ -938,6 +942,7 @@ export default function ClassAnswersDrawer({
             attemptNo: options.attemptNo,
             gradeStatus,
             createByName,
+            exportPassword,
           });
           message.success('Excel 明细已开始下载');
         } catch (e) {
@@ -946,7 +951,9 @@ export default function ClassAnswersDrawer({
       }
 
       if (outputs.length > 0) {
-        const tokenRes = await post<{ exportToken?: string }>('/api/answer/export/token', {});
+        const tokenRes = await post<{ exportToken?: string }>('/api/answer/export/token', {
+          exportPassword: exportPassword.trim() || undefined,
+        });
 
 
 
@@ -1546,6 +1553,19 @@ export default function ClassAnswersDrawer({
         width={540}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <div style={{ marginBottom: 6 }}>导出密码</div>
+            <Input.Password
+              value={exportPassword}
+              disabled={running}
+              onChange={(event) => setExportPassword(event.target.value)}
+              placeholder="系统未设置导出密码时留空"
+              autoComplete="new-password"
+            />
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+              系统设置了导出密码时必填；忘记可由管理员在「系统设置 → 内容与隐私」重置。
+            </div>
+          </div>
           <div>
             <div style={{ marginBottom: 6 }}>作答轮次</div>
             <Select

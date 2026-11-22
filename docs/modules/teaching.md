@@ -122,7 +122,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 984d2e7df00dbf322eab8c6704c1ac2163b7fac0
+verified_against: 7b7086daa4a6bfc540cc56ef7cd80519ffaecc2a
 ---
 
 # 班级与教学工作台
@@ -397,7 +397,7 @@ verified_against: 984d2e7df00dbf322eab8c6704c1ac2163b7fac0
 - **班级可见即可看本班全部答卷**：`/api/teaching/classes/answers` 只校验 `project:report` + `classService.assertVisible`，不要求项目所有者/协作者；班主任/只读授权都能看本班答卷明细。
 - **历史答卷不进按班抽屉**：`listAnswerByClass` 按 `t_answer.class_id` 精确过滤，P1 之前/`class_id` 为空的答卷不会出现；学情概览按 `COALESCE(class_id,dept_id,'')` 回退主组时可能显示，所以「概览有数字、抽屉为空」是正常现象。
 - **按班导出只支持答卷**：`downloadByClass` 对 `type != answer` 直接报「按班级导出暂只支持答卷」；附件按班导出未实现。
-- **班级答卷抽屉没有导出密码输入**：`downloadClassAnswers` 调 `/api/answer/export/token` 时传空 body；如果系统设置了导出密码，这里会失败（提示导出密码错误），需要补密码输入或走无密码场景。
+- **班级答卷抽屉的导出密码**（2026-11-22 已修）：导出弹窗顶部新增「导出密码」输入，密码随 `/api/answer/export/token` 一起提交；系统设置了导出密码时不再只能失败。数据页导出弹窗把密码框移到「导出格式」上方，密码错误会自动聚焦并提示。
 - **按班导出不校验项目协作者**：`/answer/download?classId=` 只要求 `answer:export` + 班级可见；任何能看这个班的老师都能导出该项目的本班答卷。
 - **只读老师看不到资源面板**：班级页的资源面板走 `assertManage`；只读授权只能看成员名单（这也是原学情 Tab 被合并掉的原因之一——两处都要各自判一次权限）。
 - **删除文案与类型**：`DeleteDeptDialog` 的标题/提示仍统一写「用户组」（班级也复用它），以弹窗里的实际名称与后端错误为准；`lastDept` 后端按**同类型**计算（org 与 class 各算一套），前端文案仍写「最后一个用户组」。

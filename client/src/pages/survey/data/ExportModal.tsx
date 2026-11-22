@@ -370,6 +370,23 @@ export default function ExportModal({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
+          <div style={{ marginBottom: 6 }}>导出密码</div>
+          <Input.Password
+            ref={passwordInputRef}
+            value={password}
+            disabled={running}
+            name="export-password"
+            onChange={(e) => setPassword(e.target.value)}
+            onPressEnter={() => void submit()}
+            placeholder="导出密码（系统未设置时留空）"
+            autoComplete="new-password"
+          />
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
+            系统若设置了导出密码，这里必须填写；未设置时留空即可。忘记密码可由管理员在「系统设置 → 内容与隐私」重置。
+          </div>
+        </div>
+
+        <div>
           <div style={{ marginBottom: 6 }}>导出格式</div>
           <Space orientation="vertical" size={4}>
             <Checkbox
@@ -455,22 +472,6 @@ export default function ExportModal({
           </div>
         )}
 
-        <div>
-          <div style={{ marginBottom: 6 }}>导出密码</div>
-          <Input.Password
-            ref={passwordInputRef}
-            value={password}
-            disabled={running}
-            name="export-password"
-            onChange={(e) => setPassword(e.target.value)}
-            onPressEnter={() => void submit()}
-            placeholder="导出密码（系统未设置时留空）"
-            autoComplete="new-password"
-          />
-          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-            系统若设置了导出密码，这里必须填写；未设置时留空即可。忘记密码可由管理员在「系统设置 → 内容与隐私」重置。
-          </div>
-        </div>
 
         {jobError && <Alert type="error" showIcon title={jobError} />}
 
