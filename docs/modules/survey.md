@@ -63,7 +63,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
+verified_against: 9301c88a2dfd0daf22bae1d57c9a5cd1e1e59899
 ---
 
 # 考试编辑器与题型
@@ -88,7 +88,7 @@ verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
 | 概述/发布设置 | `client/src/pages/survey/Overview.tsx` | 概览与全部 `setting` 合并保存；旧 `/setting` 路由兼容 |
 | 题型定义 | `client/src/designer/defaults.ts` | `QUESTION_META`（面板 20 项）、`createQuestion`、`normalizeSchema` |
 | 大纲/树操作 | `client/src/designer/tree.ts` | `insertNode` / `moveNode` / `cloneNode` / `flattenOutline` |
-| 属性/规则面板 | `client/src/designer/AttributePanel.tsx`、`RuleEditor.tsx`、`RuleSettingRow.tsx`、`attributeSchema.ts` | 通用属性、显隐/必填条件、分值/答案/解析；跳转/计算是「一行摘要 + 点击设置」弹窗（`JumpRuleEditor` / `CalculateRuleEditor`，内容在弹窗里） |
+| 属性/规则面板 | `client/src/designer/AttributePanel.tsx`、`RuleEditor.tsx`、`attributeSchema.ts` | 通用属性、显隐/必填条件、分值/答案/解析；跳转/计算与显隐/必填一样在属性面板内联编辑（`JumpRuleEditor` / `CalculateRuleEditor`），不再弹窗 |
 | Schema 类型 | `client/src/schema/types.ts` | 与后端 `SurveySchema.java` 对应的 `QuestionType` / `Attribute` |
 | 拍平/题号 | `client/src/schema/flatten.ts` | 只对 `DATA_TYPES` 递增题号，容器继续下钻 |
 | 规则构建/求值 | `client/src/schema/rules/buildExpression.ts`、`engine.ts`、`jump.ts`、`calculate.ts` | 显隐/必填：`RuleConfig` → `AND(...)` → 布尔；跳转：条件 → 目标题/END；计算：六种运算 + 系数 + 精度 |

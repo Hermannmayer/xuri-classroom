@@ -20,5 +20,5 @@
 | `module-permissions` | 2026-11-22 | `35bbc98c9bead384064e644a82b21e40802537e8` | 111 |
 | `module-project` | 2026-11-22 | `9dc8598640236711dd5f4c86d513257e3fd04e36` | 34 |
 | `module-repo` | 2026-11-22 | `9dc8598640236711dd5f4c86d513257e3fd04e36` | 34 |
-| `module-survey` | 2026-11-22 | `9dc8598640236711dd5f4c86d513257e3fd04e36` | 87 |
+| `module-survey` | 2026-11-22 | `9301c88a2dfd0daf22bae1d57c9a5cd1e1e59899` | 87 |
 | `module-teaching` | 2026-11-22 | `35bbc98c9bead384064e644a82b21e40802537e8` | 41 |
