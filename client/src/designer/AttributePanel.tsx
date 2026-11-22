@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Button, Collapse, Form, Input, InputNumber, Select, Switch } from 'antd';
 import type { Attribute, SurveySchema } from '../schema/types';
 import type { FlatQuestion } from '../schema/flatten';
 import { CALCULATE_TARGET_TYPES } from '../schema/rules/calculate';
 import { ATTRIBUTE_GROUPS, attributeSchema, type AttributeField } from './attributeSchema';
 import RuleEditor from './RuleEditor';
-import JumpRuleEditor, { jumpRuleSummary } from './JumpRuleEditor';
-import CalculateRuleEditor, { calculateRuleSummary } from './CalculateRuleEditor';
-import RuleSettingRow from './RuleSettingRow';
+import JumpRuleEditor from './JumpRuleEditor';
+import CalculateRuleEditor from './CalculateRuleEditor';
 import OptionEditor from './OptionEditor';
 import { optionPlainText } from '../renderer/questions/answers';
 
@@ -181,70 +180,36 @@ export function AttributePanel({
     [questionsAll, questions, schema.id],
   );
 
-  const [openRule, setOpenRule] = useState<'jumpRule' | 'calculate'>();
-  const [ruleDraft, setRuleDraft] = useState<string>();
-
-  useEffect(() => {
-    setOpenRule(undefined);
-    setRuleDraft(undefined);
-  }, [schema.id]);
-
-  const openRuleSetting = (key: 'jumpRule' | 'calculate') => {
-    setRuleDraft(attribute[key]);
-    setOpenRule(key);
-  };
-
-  const closeRuleSetting = () => {
-    setOpenRule(undefined);
-    setRuleDraft(undefined);
-  };
-
-  const confirmRuleSetting = () => {
-    if (!openRule) return;
-    set(openRule, ruleDraft);
-    closeRuleSetting();
-  };
-
-  /** 规则分组渲染：显隐/必填仍是条件构建器，跳转/计算是「一行摘要 + 点击设置」弹窗 */
+  /** 规则分组：显隐/必填、跳转、计算都在属性面板内联编辑，不再弹窗 */
   const renderRuleGroup = (field: AttributeField) => {
     if (field.key === 'jumpRule') {
       return (
-        <RuleSettingRow
-          key="jumpRule"
-          title={field.label}
-          summary={jumpRuleSummary(attribute.jumpRule, questionsAll ?? [])}
-          modalTitle="问卷跳转规则设置"
-          open={openRule === 'jumpRule'}
-          onOpen={() => openRuleSetting('jumpRule')}
-          onCancel={closeRuleSetting}
-          onConfirm={confirmRuleSetting}
-        >
+        <div key="jumpRule" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--bp-text)' }}>{field.label}</div>
           <JumpRuleEditor
-            value={ruleDraft}
+            value={attribute.jumpRule}
             questions={jumpQuestions}
             targets={jumpTargets}
-            onChange={setRuleDraft}
+            onChange={(next) => set('jumpRule', next)}
           />
-        </RuleSettingRow>
+        </div>
       );
     }
     if (field.key === 'calculate') {
       const supported = CALCULATE_TARGET_TYPES.has(schema.type);
       return (
-        <RuleSettingRow
-          key="calculate"
-          title={field.label}
-          summary={supported ? calculateRuleSummary(attribute.calculate) : '当前题型不支持自动计算'}
-          modalTitle="计算题-公式设置"
-          open={openRule === 'calculate'}
-          disabled={!supported}
-          last
-          onOpen={() => openRuleSetting('calculate')}
-          onCancel={closeRuleSetting}
-          onConfirm={confirmRuleSetting}
-        >
-          <CalculateRuleEditor value={ruleDraft} questions={calculateSources} onChange={setRuleDraft} />
-        </RuleSettingRow>
+        <div key="calculate" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--bp-text)' }}>{field.label}</div>
+          {supported ? (
+            <CalculateRuleEditor
+              value={attribute.calculate}
+              questions={calculateSources}
+              onChange={(next) => set('calculate', next)}
+            />
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>当前题型不支持自动计算</div>
+          )}
+        </div>
       );
     }
     return (
