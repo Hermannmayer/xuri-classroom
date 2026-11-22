@@ -704,18 +704,20 @@ export default function ClassResourcesPanel({
                   {' · '}
                   {row.answerCount ?? 0} {kind === 'repo' ? '次练习' : '份答卷'}
                 </div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
                   {kind === 'project' && (
-                    <LinkAction
+                    <Button
+                      size="small"
                       onClick={() =>
                         navigate(`/survey/${row.resourceId}/data?gradeStatus=pending&classId=${classId}`)
                       }
                     >
                       批改
-                    </LinkAction>
+                    </Button>
                   )}
                   {kind === 'project' && manageable && (
-                    <LinkAction
+                    <Button
+                      size="small"
                       onClick={() =>
                         navigate(
                           '/survey/' +
@@ -728,18 +730,28 @@ export default function ClassResourcesPanel({
                       }
                     >
                       数据分析
-                    </LinkAction>
+                    </Button>
                   )}
                   {kind === 'project' && manageable && (
-                    <LinkAction onClick={() => setAnswersRow(row)}>查看答卷</LinkAction>
+                    <Button size="small" onClick={() => setAnswersRow(row)}>
+                      查看答卷
+                    </Button>
                   )}
                   {kind === 'repo' && (
-                    <LinkAction onClick={() => setRepoAnswersRow(row)}>练习记录</LinkAction>
+                    <Button size="small" onClick={() => setRepoAnswersRow(row)}>
+                      练习记录
+                    </Button>
                   )}
                   {kind === 'project' && manageable && (
-                    <LinkAction onClick={() => void openClassLink(row)}>班级链接</LinkAction>
+                    <Button size="small" onClick={() => void openClassLink(row)}>
+                      班级链接
+                    </Button>
                   )}
-                  {manageable && <LinkAction onClick={() => setEditing(row)}>编辑</LinkAction>}
+                  {manageable && (
+                    <Button size="small" onClick={() => setEditing(row)}>
+                      编辑
+                    </Button>
+                  )}
                   {manageable && (
                     <Popconfirm
                       title={'移除「' + (row.resourceName || (kind === 'repo' ? '该题库' : '该考试/问卷')) + '」？'}
@@ -753,7 +765,9 @@ export default function ClassResourcesPanel({
                       cancelText="取消"
                       onConfirm={() => remove(row)}
                     >
-                      <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                      <Button size="small" danger>
+                        删除
+                      </Button>
                     </Popconfirm>
                   )}
                 </div>

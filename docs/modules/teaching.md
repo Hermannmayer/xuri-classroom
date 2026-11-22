@@ -122,7 +122,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
+verified_against: 984d2e7df00dbf322eab8c6704c1ac2163b7fac0
 ---
 
 # 班级与教学工作台
@@ -156,7 +156,7 @@ verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
 | 学员导入 | `client/src/pages/teaching/ImportMembersModal.tsx` | 下载 `学员导入模板.xlsx`、上传 xlsx 批量建号；逐行报错 |
 | 统一删除弹窗 | `client/src/pages/teaching/DeleteDeptDialog.tsx` | 三个入口共用：先 `delete-check`，有成员时二选一 MOVE / UNASSIGN |
 | 用户组页 | `client/src/pages/system/Group.tsx` | 只维护 `dept_type=org` 的教职工组；入口在 系统管理 → 用户与权限 → 用户组（`/system/access?tab=group`） |
-| 班级答卷抽屉 | `client/src/pages/teaching/ClassAnswersDrawer.tsx` | 顶部统计条（应考/已交/未交/平均/最高/最低/及格率）+ 学员/账号/轮次/交卷时间/用时/分数/批改状态/附件/状态列；筛选（姓名、状态、时间、作答轮次）；Tabs「答卷列表 / 未交名单」；导出五种格式（Excel、成绩单 PDF、答题卷 PDF、长图 PNG、成绩确认单=整班一张表格），非 Excel 合并成一次 pdf-job（`outputs`） |
+| 班级答卷抽屉 | `client/src/pages/teaching/ClassAnswersDrawer.tsx` | 顶部统计条（应考/已交/未交/平均/最高/最低/及格率）+ 学员/账号/轮次/交卷时间/用时/分数/批改状态/附件/状态列；筛选（姓名、状态、时间、作答轮次）；Tabs「答卷列表 / 未交名单」；手机端抽屉近全屏，筛选纵向堆叠，答卷与未交名单改为卡片（学员/轮次/交卷时间/得分/批改状态 + 查看答卷/去批改）」；导出五种格式（Excel、成绩单 PDF、答题卷 PDF、长图 PNG、成绩确认单=整班一张表格），非 Excel 合并成一次 pdf-job（`outputs`） |
 | 未交卷名单 | `GET /api/teaching/classes/unsubmitted` | 按「班级成员 − 有正式答卷的 create_by」算，不按 `answer.class_id`（换班/兼报会让按班比对漏人）；容器班直接拒绝 |
 | 考试/问卷 Tab | `client/src/pages/project/List.tsx`（`embedded`） | 复用 ProjectList 管理视图；嵌入时隐藏页头，保留分类树/搜索/新建/回收站/批量工具条；手机端「成员」页签支持勾选 + 底部批量栏（启用/停用/转移/添加/删除），「考试/问卷」卡片补齐数据分析/查看答卷/批改/班级链接/编辑/删除，批量设置/移除走底部批量栏 |
 | 考试分类树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染文件夹，选中后右侧列表按 `parentId` 过滤（见 [project](./project.md)） |

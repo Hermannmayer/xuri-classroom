@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
+verified_against: 984d2e7df00dbf322eab8c6704c1ac2163b7fac0
 ---
 
 # 答卷、判分与报表
@@ -166,7 +166,7 @@ verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
 | 公开查询 | `client/src/pages/answer/PublicQuery.tsx` | 按条件查询/修改答卷，走 `/api/public/loadQuery` / `getQueryResult` |
 | 数据页 | `client/src/pages/survey/Data.tsx` | 全量答卷表格、筛选/排序、详情、补录/编辑、导入、导出、回收站入口；手机端卡片勾选后用底部批量栏（全选当前筛选结果、导出勾选、删除） |
 | 答卷回收站 | `client/src/pages/survey/data/TrashDrawer.tsx` | `answer:list` + `answer:restore`/`answer:delete` |
-| 报表页 | `client/src/pages/survey/Report.tsx`、`pages/survey/report/QuestionBlock.tsx` | 每日趋势、逐题选项分布、数值统计 |
+| 报表页 | `client/src/pages/survey/Report.tsx`、`pages/survey/report/QuestionBlock.tsx` | 每日趋势、逐题选项分布、数值统计；手机端统计卡片两列、逐题/排行/题型表格改卡片列表，选项分布与图表不再被固定列宽挤压 |
 | 数据格式化 | `client/src/pages/survey/data/format.ts` | 答案值 → 表格单元格文本（空值统一 `—`） |
 | 答卷接口 | `server/api/src/main/java/cn/surveyking/server/api/AnswerApi.java` | 管理侧 CRUD、导入导出、回收站；`/download` 带 `classId` 走按班导出；`/export/token` 换一次性 token |
 | 公开匿名接口 | `server/api/src/main/java/cn/surveyking/server/api/SurveyApi.java` | `loadProject` 在未登录且不要求登录时建匿名主体；`GET /anonymous/answers`、`POST /anonymous/claim` |

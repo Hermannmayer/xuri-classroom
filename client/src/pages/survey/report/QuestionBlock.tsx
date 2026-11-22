@@ -6,6 +6,7 @@ import type { Answer } from '../../../schema/project';
 import type { AnswerValue } from '../../../renderer/types';
 import { EMPTY, formatAnswer } from '../data/format';
 import { TABLE_COMPONENTS } from '../../repo/table';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 const CHOICE = new Set(['Radio', 'Checkbox', 'Select', 'Judge']);
 
@@ -90,45 +91,76 @@ export function Bar({ value, max, color = 'var(--bp-blue)' }: { value: number; m
   );
 }
 
-function Bars({ rows }: { rows: OptionRow[] }) {
+function Bars({ rows, mobile }: { rows: OptionRow[]; mobile: boolean }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {rows.map((r) => (
-        <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-          <span
-            title={r.label}
-            style={{
-              flex: '0 0 120px',
-              width: 120,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: 'var(--bp-text-soft)',
-            }}
-          >
-            {r.label}
-          </span>
-          <Bar value={r.count} max={max} color={r.color} />
-          <span style={{ flex: '0 0 88px', width: 88, textAlign: 'right', color: 'var(--bp-text-soft)' }}>
-            {r.count} · {fmtPercent(r.percent)}
-          </span>
-        </div>
-      ))}
+      {rows.map((r) =>
+        mobile ? (
+          <div key={r.key} style={{ fontSize: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', color: 'var(--bp-text-soft)' }}>
+                {r.label}
+              </span>
+              <span style={{ flex: '0 0 auto', color: 'var(--bp-text-soft)', fontVariantNumeric: 'tabular-nums' }}>
+                {r.count} · {fmtPercent(r.percent)}
+              </span>
+            </div>
+            <Bar value={r.count} max={max} color={r.color} />
+          </div>
+        ) : (
+          <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            <span
+              title={r.label}
+              style={{
+                flex: '0 0 120px',
+                width: 120,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: 'var(--bp-text-soft)',
+              }}
+            >
+              {r.label}
+            </span>
+            <Bar value={r.count} max={max} color={r.color} />
+            <span style={{ flex: '0 0 88px', width: 88, textAlign: 'right', color: 'var(--bp-text-soft)' }}>
+              {r.count} · {fmtPercent(r.percent)}
+            </span>
+          </div>
+        ),
+      )}
     </div>
   );
 }
 
 const COLUMN_HEIGHT = 130;
 
-function Columns({ rows }: { rows: OptionRow[] }) {
+function Columns({ rows, mobile }: { rows: OptionRow[]; mobile: boolean }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, minHeight: COLUMN_HEIGHT + 60, paddingTop: 8 }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: 8,
+        minHeight: COLUMN_HEIGHT + 60,
+        paddingTop: 8,
+        overflowX: mobile ? 'auto' : undefined,
+        paddingBottom: mobile ? 4 : undefined,
+      }}
+    >
       {rows.map((r) => (
         <div
           key={r.key}
-          style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+          style={{
+            flex: mobile ? '0 0 56px' : 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 4,
+          }}
         >
           <span style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}>{fmtPercent(r.percent)}</span>
           <div
@@ -146,9 +178,11 @@ function Columns({ rows }: { rows: OptionRow[] }) {
               maxWidth: '100%',
               fontSize: 10,
               color: 'var(--bp-text-soft)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              overflow: mobile ? 'visible' : 'hidden',
+              textOverflow: mobile ? undefined : 'ellipsis',
+              whiteSpace: mobile ? 'normal' : 'nowrap',
+              overflowWrap: mobile ? 'anywhere' : undefined,
+              lineHeight: mobile ? 1.3 : undefined,
             }}
           >
             {r.label}
@@ -160,7 +194,7 @@ function Columns({ rows }: { rows: OptionRow[] }) {
 }
 
 /** conic-gradient 画饼，不引 SVG 路径计算 */
-function Pie({ rows }: { rows: OptionRow[] }) {
+function Pie({ rows, mobile }: { rows: OptionRow[]; mobile: boolean }) {
   const sum = rows.reduce((s, r) => s + r.count, 0);
   if (sum === 0) {
     return <div style={{ color: 'var(--bp-text-soft)', fontSize: 12, padding: '48px 0', textAlign: 'center' }}>暂无数据</div>;
@@ -174,24 +208,49 @@ function Pie({ rows }: { rows: OptionRow[] }) {
   });
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: mobile ? 12 : 20,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+      }}
+    >
       <div
         title={rows.map((r) => `${r.label}：${r.count} 条`).join('\n')}
         style={{
-          width: 168,
-          height: 168,
+          width: mobile ? 132 : 168,
+          height: mobile ? 132 : 168,
           borderRadius: '50%',
           border: '1px solid var(--bp-line-soft)',
           background: `conic-gradient(from -90deg, ${stops.join(', ')})`,
         }}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, minWidth: 150, maxWidth: 240 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          fontSize: 12,
+          minWidth: mobile ? 0 : 150,
+          maxWidth: mobile ? '100%' : 240,
+          flex: mobile ? '1 1 100%' : undefined,
+        }}
+      >
         {rows.map((r) => (
           <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ flex: '0 0 8px', width: 8, height: 8, background: r.color }} />
             <span
               title={r.label}
-              style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: mobile ? 'visible' : 'hidden',
+                textOverflow: mobile ? undefined : 'ellipsis',
+                whiteSpace: mobile ? 'normal' : 'nowrap',
+                overflowWrap: mobile ? 'anywhere' : undefined,
+              }}
             >
               {r.label}
             </span>
@@ -216,6 +275,7 @@ export default function QuestionBlock({
   defaultOpen?: boolean;
 }) {
   const [kind, setKind] = useState<ChartKind>('bar');
+  const isMobile = useIsMobile();
 
 
 
@@ -308,34 +368,79 @@ export default function QuestionBlock({
 
   const detail = (
     <>
-      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginBottom: 10, lineHeight: 1.8 }}>
         类型：{TYPE_NAME[q.type] ?? q.type}　必填：{q.schema.attribute?.required ? '是' : '否'}　共 {answered} 条数据
       </div>
 
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: isMobile ? 14 : 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 300px', minWidth: 0 }}>
           {rows.length === 0 || answered === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
           ) : kind === 'bar' ? (
-            <Bars rows={rows} />
+            <Bars rows={rows} mobile={isMobile} />
           ) : kind === 'column' ? (
-            <Columns rows={rows} />
+            <Columns rows={rows} mobile={isMobile} />
           ) : (
-            <Pie rows={rows} />
+            <Pie rows={rows} mobile={isMobile} />
           )}
         </div>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-          <Table<OptionRow>
-            rowKey="key"
-            size="small"
-            bordered
-            tableLayout="fixed"
-            pagination={false}
-            columns={columns}
-            dataSource={rows}
-            components={TABLE_COMPONENTS}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" /> }}
-          />
+          {isMobile ? (
+            <div style={{ borderTop: '1px solid var(--bp-line-soft)' }}>
+              {rows.length === 0 ? (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+              ) : (
+                rows.map((row) => {
+                  const wrong = correctKeys.size === 0 || correctKeys.has(row.key) ? '—' : row.count;
+                  return (
+                    <div key={row.key} style={{ padding: '8px 0', borderBottom: '1px dashed var(--bp-line-soft)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12 }}>
+                        <span style={{ flex: '0 0 8px', width: 8, height: 8, marginTop: 6, background: row.color }} />
+                        <span style={{ flex: 1, minWidth: 0, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+                          {row.label}
+                        </span>
+                        {correctKeys.size === 0 ? (
+                          <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-hint)' }}>未设答案</span>
+                        ) : correctKeys.has(row.key) ? (
+                          <Tag color="green">正确</Tag>
+                        ) : (
+                          <Tag color="red">错选</Tag>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '2px 12px',
+                          paddingLeft: 16,
+                          marginTop: 2,
+                          fontSize: 11,
+                          color: 'var(--bp-text-soft)',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        <span>数据量 {row.count}</span>
+                        <span>占比 {fmtPercent(row.percent)}</span>
+                        {correctKeys.size > 0 ? <span>错选人数 {wrong}</span> : null}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+            <Table<OptionRow>
+              rowKey="key"
+              size="small"
+              bordered
+              tableLayout="fixed"
+              pagination={false}
+              columns={columns}
+              dataSource={rows}
+              components={TABLE_COMPONENTS}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" /> }}
+            />
+          )}
         </div>
       </div>
     </>
@@ -354,36 +459,48 @@ export default function QuestionBlock({
         onClick={() => setOpen((v) => !v)}
         style={{
           display: 'flex',
-          alignItems: 'flex-start',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'flex-start',
           gap: 10,
           marginBottom: open ? 8 : 0,
           cursor: 'pointer',
         }}
       >
-        <span className="bp-tag" style={{ marginTop: 2 }}>
-          {q.number ?? q.index + 1}
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: 'break-word' }}>
-            {q.title || TYPE_NAME[q.type] || q.type}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            flex: isMobile ? '0 0 auto' : 1,
+            minWidth: 0,
+          }}
+        >
+          <span className="bp-tag" style={{ marginTop: 2 }}>
+            {q.number ?? q.index + 1}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.6, wordBreak: 'break-word' }}>
+              {q.title || TYPE_NAME[q.type] || q.type}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
+              答题 {answered} 人
+              {score.scored > 0 && ` · 判分 ${score.scored} 人 · 正确率 ${score.rate?.toFixed(1)}%`}
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 4 }}>
-            答题 {answered} 人
-            {score.scored > 0 && ` · 判分 ${score.scored} 人 · 正确率 ${score.rate?.toFixed(1)}%`}
-          </div>
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 2 }}>{open ? '▾' : '▸'}</span>
         </div>
-        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)', marginTop: 2 }}>{open ? '▾' : '▸'}</span>
-        <div onClick={(event) => event.stopPropagation()}>
-        <Segmented
-          size="small"
-          value={kind}
-          onChange={(v) => setKind(v as ChartKind)}
-          options={[
-            { label: '条形图', value: 'bar' },
-            { label: '柱形图', value: 'column' },
-            { label: '扇形图', value: 'pie' },
-          ]}
-        />
+        <div onClick={(event) => event.stopPropagation()} style={isMobile ? { width: '100%' } : undefined}>
+          <Segmented
+            size="small"
+            block={isMobile}
+            value={kind}
+            onChange={(v) => setKind(v as ChartKind)}
+            options={[
+              { label: '条形图', value: 'bar' },
+              { label: '柱形图', value: 'column' },
+              { label: '扇形图', value: 'pie' },
+            ]}
+          />
         </div>
       </div>
 

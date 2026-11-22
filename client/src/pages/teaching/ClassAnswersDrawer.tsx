@@ -11,9 +11,11 @@ import {
   Empty,
   Input,
   Modal,
+  Pagination,
   Progress,
   Select,
   Space,
+  Spin,
   Table,
   Tabs,
   Tag,
@@ -41,6 +43,7 @@ import {
   post,
 } from '../../api';
 import type { AnswerExportOutput, AnswerPdfJobRequest, AnswerPdfJobView } from '../../api';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { flattenSchema } from '../../schema/flatten';
 import type { Project } from '../../schema/project';
 import type { QuestionType, SurveySchema } from '../../schema/types';
@@ -348,6 +351,132 @@ function Metric({
   );
 }
 
+/** 卡片里的一格「小标签 + 值」：手机端把表格的列竖着排 */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>{children}</div>
+    </div>
+  );
+}
+
+/** 手机端的一份答卷：姓名/账号、轮次、交卷时间、得分与状态，以及详情/批改入口 */
+function AnswerCard({
+  row,
+  fullScore,
+  onDetail,
+  onGrade,
+}: {
+  row: AnswerRowView;
+  fullScore?: number;
+  onDetail: () => void;
+  onGrade: () => void;
+}) {
+  const name = row.answererName || row.createByName || '—';
+  const account = row.createBy && row.createBy !== name ? row.createBy : undefined;
+  const gradeTag = row.gradeStatus ? GRADE_TAGS[row.gradeStatus] : undefined;
+  return (
+    <div className="bp-card" style={{ padding: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{name}</span>
+        {row.isAnonymous && <Tag style={{ marginInlineEnd: 0 }}>匿名</Tag>}
+        <div style={{ flex: 1 }} />
+        {row.tempSave === 1 ? (
+          <Tag color="success" style={{ marginInlineEnd: 0 }}>
+            已交卷
+          </Tag>
+        ) : (
+          <Tag style={{ marginInlineEnd: 0 }}>暂存</Tag>
+        )}
+      </div>
+      {account && <div style={{ marginTop: 2, fontSize: 11, color: 'var(--bp-text-soft)' }}>{account}</div>}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: '8px 10px',
+          marginTop: 10,
+        }}
+      >
+        <Field label="轮次">{row.attempt === undefined ? '—' : `第 ${row.attempt + 1} 次`}</Field>
+        <Field label="交卷时间">{row.createAt ? dayjs(row.createAt).format('MM-DD HH:mm') : '—'}</Field>
+        <Field label="得分">
+          {row.examScore === null || row.examScore === undefined ? (
+            '—'
+          ) : (
+            <>
+              {scoreText(row.examScore)}
+              {fullScore ? (
+                <span style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}> / {scoreText(fullScore)}</span>
+              ) : null}
+            </>
+          )}
+          {(typeof row.objectiveScore === 'number' || typeof row.manualScore === 'number') && (
+            <div style={{ fontSize: 10, color: 'var(--bp-text-soft)' }}>
+              客观 {scoreText(row.objectiveScore)} / 主观 {scoreText(row.manualScore)}
+            </div>
+          )}
+        </Field>
+        <Field label="批改状态">
+          {gradeTag ? (
+            <Tag color={gradeTag.color} style={{ marginInlineEnd: 0 }}>
+              {gradeTag.text}
+            </Tag>
+          ) : (
+            '—'
+          )}
+        </Field>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+        <Button size="small" onClick={onDetail}>
+          查看答卷
+        </Button>
+        {row.gradeStatus === 'pending' && (
+          <Button size="small" onClick={onGrade}>
+            去批改
+          </Button>
+        )}
+        {row.duration ? (
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>用时 {formatDuration(row.duration)}</span>
+        ) : null}
+        <div style={{ flex: 1 }} />
+        {(row.hasSignature || row.uploadCount > 0) && (
+          <Space size={6}>
+            {row.hasSignature && <FileImageOutlined style={{ color: 'var(--bp-blue)' }} aria-label="含手写签名" />}
+            {row.uploadCount > 0 && (
+              <PaperClipOutlined
+                style={{ color: 'var(--bp-orange)' }}
+                aria-label={`含 ${row.uploadCount} 个上传图片/文件`}
+              />
+            )}
+          </Space>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 手机端未交名单的一项：姓名、手机号与提醒方式 */
+function RosterCard({ item }: { item: RosterStudent }) {
+  return (
+    <div
+      className="bp-card"
+      style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+    >
+      <span style={{ fontSize: 13, fontWeight: 600 }}>{item.name || '—'}</span>
+      <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>{item.phone || '没有手机号'}</span>
+      <div style={{ flex: 1 }} />
+      <Tag color="warning" style={{ marginInlineEnd: 0 }}>
+        未交卷
+      </Tag>
+      <span style={{ fontSize: 11, color: 'var(--bp-text-soft)', flexBasis: '100%' }}>
+        {item.phone ? '可发短信/微信提醒' : '没有手机号，只能线下提醒'}
+      </span>
+    </div>
+  );
+}
+
 /** 某个班的答卷抽屉：查看本班学员答卷（统计/筛选在前端做），并支持导出本班答卷 （Excel 明细走同步下载；PDF/长图/确认单走异步任务 + 进度轮询，产物是一个 ZIP） */
 export default function ClassAnswersDrawer({
   open,
@@ -366,6 +495,7 @@ export default function ClassAnswersDrawer({
 }) {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
 
   const [rows, setRows] = useState<ClassAnswerRow[]>([]);
@@ -391,6 +521,7 @@ export default function ClassAnswersDrawer({
   const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [rosterPage, setRosterPage] = useState(1);
 
 
   const [exporting, setExporting] = useState(false);
@@ -489,6 +620,7 @@ export default function ClassAnswersDrawer({
     setStatusFilter('all');
     setRange(null);
     setPage(1);
+    setRosterPage(1);
   }, [open, projectId, deptId]);
 
   useEffect(() => {
@@ -620,6 +752,11 @@ export default function ClassAnswersDrawer({
 
   const unsubmittedCount =
     rosterTotal !== undefined ? Math.max(rosterTotal - (rosterSubmitted ?? 0), rosterList.length) : undefined;
+
+  const rosterPageSize = 20;
+  const rosterLastPage = Math.max(1, Math.ceil(rosterList.length / rosterPageSize));
+  const safeRosterPage = Math.min(rosterPage, rosterLastPage);
+  const pagedRoster = rosterList.slice((safeRosterPage - 1) * rosterPageSize, safeRosterPage * rosterPageSize);
 
   /** ------ 筛选 + 前端分页 ------ */
   const filteredRows = useMemo(() => {
@@ -1022,20 +1159,36 @@ export default function ClassAnswersDrawer({
   const submittedText =
     rosterSubmitted !== undefined ? `${rosterSubmitted} 人` : rowsError ? '—' : `${statistics.submittedPeople} 人`;
 
+  /** 打开某份答卷详情：和桌面表格行点击是同一个入口 */
+  const openAnswerDetail = (answerId: string) => {
+    onClose();
+    navigate(`/survey/${projectId}/data?answerId=${answerId}`);
+  };
+
+  /** 去本班待批改列表：沿用教学页「批改」入口的同一套路由参数 */
+  const openPendingGrading = (answerId: string) => {
+    onClose();
+    navigate(
+      `/survey/${projectId}/data?classId=${encodeURIComponent(deptId)}&gradeStatus=pending&answerId=${answerId}`,
+    );
+  };
+
   return (
     <Drawer
       title={`答卷：${projectName || '考试'} / ${deptName || '班级'}`}
       open={open}
       onClose={onClose}
-      size="min(1180px, 96vw)"
+      size={isMobile ? 'calc(100vw - 8px)' : 'min(1180px, 96vw)'}
       destroyOnHidden
-      styles={{ body: { paddingTop: 12 } }}
+      styles={{ body: isMobile ? { paddingTop: 12, paddingInline: 10, paddingBottom: 20 } : { paddingTop: 12 } }}
     >
 
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))',
+          gridTemplateColumns: isMobile
+            ? 'repeat(auto-fit, minmax(min(132px, 100%), 1fr))'
+            : 'repeat(auto-fit, minmax(112px, 1fr))',
           gap: 8,
           marginBottom: 10,
         }}
@@ -1104,15 +1257,28 @@ export default function ClassAnswersDrawer({
       )}
 
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: isMobile ? 'stretch' : 'center',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: 8,
+          flexWrap: 'wrap',
+          marginBottom: 4,
+        }}
+      >
         <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
           {rowsLoading
             ? '正在读取答卷…'
             : `共 ${truncated ? `${rows.length}/${rowsTotal}` : rowsTotal} 份答卷`}
           {truncated ? `（统计与筛选基于已加载的 ${rows.length} 份）` : ''}
         </span>
-        <div style={{ flex: 1 }} />
-        <Button icon={<DownloadOutlined />} onClick={openExportModal}>
+        {!isMobile && <div style={{ flex: 1 }} />}
+        <Button
+          icon={<DownloadOutlined />}
+          onClick={openExportModal}
+          style={isMobile ? { width: '100%' } : undefined}
+        >
           导出本班答卷
         </Button>
       </div>
@@ -1127,26 +1293,35 @@ export default function ClassAnswersDrawer({
             children: (
               <>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: isMobile ? 'stretch' : 'center',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    marginBottom: 10,
+                  }}
+                >
                   <Input
                     allowClear
                     placeholder="搜索姓名 / 账号"
                     value={keyword}
                     onChange={(event) => setKeyword(event.target.value)}
-                    style={{ width: 180 }}
+                    style={{ width: isMobile ? '100%' : 180 }}
                   />
                   <Select
                     value={statusFilter}
                     onChange={(value) => setStatusFilter(value as StatusFilter)}
                     options={STATUS_OPTIONS}
-                    style={{ width: 118 }}
+                    style={{ width: isMobile ? '100%' : 118 }}
                   />
                   <DatePicker.RangePicker
                     showTime
                     value={range ?? undefined}
                     placeholder={['交卷时间起', '交卷时间止']}
                     onChange={(value) => setRange(value && value[0] && value[1] ? [value[0], value[1]] : null)}
-                    style={{ width: 320 }}
+                    style={{ width: isMobile ? '100%' : 320 }}
                   />
                   {(keyword || statusFilter !== 'all' || range) && (
                     <Button
@@ -1163,6 +1338,52 @@ export default function ClassAnswersDrawer({
                   )}
                 </div>
 
+                {isMobile ? (
+                  <>
+                    {rowsLoading && pagedRows.length === 0 ? (
+                      <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                        <Spin size="small" />
+                      </div>
+                    ) : pagedRows.length === 0 ? (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={
+                          rowsError
+                            ? '答卷读取失败，先点上面的「重试」'
+                            : rows.length > 0
+                              ? '没有符合筛选条件的答卷'
+                              : '这个班还没有答卷'
+                        }
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {pagedRows.map((row) => (
+                          <AnswerCard
+                            key={row.id}
+                            row={row}
+                            fullScore={fullScore}
+                            onDetail={() => openAnswerDetail(row.id)}
+                            onGrade={() => openPendingGrading(row.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {filteredRows.length > pageSize ? (
+                      <Pagination
+                        simple
+                        size="small"
+                        current={safePage}
+                        pageSize={pageSize}
+                        total={filteredRows.length}
+                        onChange={(nextPage, nextSize) => {
+                          setPage(nextPage);
+                          if (nextSize && nextSize !== pageSize) setPageSize(nextSize);
+                        }}
+                        style={{ marginTop: 12, textAlign: 'right' }}
+                      />
+                    ) : null}
+                  </>
+                ) : (
                 <Table<AnswerRowView>
                   rowKey="id"
                   size="small"
@@ -1207,6 +1428,7 @@ export default function ClassAnswersDrawer({
                     ),
                   }}
                 />
+                )}
               </>
             ),
           },
@@ -1215,7 +1437,16 @@ export default function ClassAnswersDrawer({
             label: `未交名单（共 ${unsubmittedCount ?? '—'} 人）`,
             children: (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: isMobile ? 'stretch' : 'center',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    marginBottom: 10,
+                  }}
+                >
                   <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>
                     {projectId === EXERCISE_PROJECT_ID
                       ? '题库练习没有班级花名册，不统计未交'
@@ -1224,11 +1455,53 @@ export default function ClassAnswersDrawer({
                         : `班级 ${rosterTotal} 人 · 已交 ${rosterSubmitted ?? 0} 人`}
                     {rosterList.length < (unsubmittedCount ?? 0) ? ` · 只列出前 ${rosterList.length} 条` : ''}
                   </span>
-                  <div style={{ flex: 1 }} />
-                  <Button icon={<CopyOutlined />} disabled={rosterList.length === 0} onClick={() => void copyRoster()}>
+                  {!isMobile && <div style={{ flex: 1 }} />}
+                  <Button
+                    icon={<CopyOutlined />}
+                    disabled={rosterList.length === 0}
+                    onClick={() => void copyRoster()}
+                    style={isMobile ? { width: '100%' } : undefined}
+                  >
                     复制名单
                   </Button>
                 </div>
+                {isMobile ? (
+                  <>
+                    {rosterLoading && rosterList.length === 0 ? (
+                      <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                        <Spin size="small" />
+                      </div>
+                    ) : rosterList.length === 0 ? (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={
+                          projectId === EXERCISE_PROJECT_ID
+                            ? '题库练习是按题作答的练习记录，没有花名册'
+                            : rosterError
+                              ? '名单读取失败，先点上面的「重试」'
+                              : '这个班的人都交了'
+                        }
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {pagedRoster.map((item) => (
+                          <RosterCard key={item.id} item={item} />
+                        ))}
+                      </div>
+                    )}
+                    {rosterList.length > rosterPageSize ? (
+                      <Pagination
+                        simple
+                        size="small"
+                        current={safeRosterPage}
+                        pageSize={rosterPageSize}
+                        total={rosterList.length}
+                        onChange={(nextPage) => setRosterPage(nextPage)}
+                        style={{ marginTop: 12, textAlign: 'right' }}
+                      />
+                    ) : null}
+                  </>
+                ) : (
                 <Table<RosterStudent>
                   rowKey="id"
                   size="small"
@@ -1252,6 +1525,7 @@ export default function ClassAnswersDrawer({
                     ),
                   }}
                 />
+                )}
               </>
             ),
           },

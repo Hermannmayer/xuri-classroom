@@ -19,7 +19,9 @@ export default function AiAssistantFloat({ isMobile }: { isMobile: boolean }) {
       style={{
         position: 'fixed',
         right: isMobile ? 16 : 24,
-        bottom: isMobile ? 'calc(56px + env(safe-area-inset-bottom, 0px) + 16px)' : 28,
+        bottom: isMobile
+          ? 'calc(56px + env(safe-area-inset-bottom, 0px) + 16px + var(--sk-batch-bar-offset, 0px))'
+          : 28,
         zIndex: 1000,
         boxShadow: '0 4px 14px rgba(0, 0, 0, 0.28)',
       }}

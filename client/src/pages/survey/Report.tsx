@@ -4,6 +4,7 @@ import { ReadOutlined, ReloadOutlined, RobotOutlined, SearchOutlined } from '@an
 import { useParams, useSearchParams } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import BackButton from '../../components/BackButton';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
@@ -146,11 +147,38 @@ function scoreStat(q: FlatQuestion, answers: Answer[]): QuestionScoreStat {
   return { answered, scored, correct, rate: scored > 0 ? (correct / scored) * 100 : undefined };
 }
 
+function rateText(rate: number | null): string {
+  return rate === null ? '—' : `${rate.toFixed(1)}%`;
+}
+
+/** 错题排行难度标签：rate 为空时显示占位，<60 偏难，<85 一般，否则简单 */
+function WeakLevelTag({ rate }: { rate: number | null }) {
+  if (rate === null) return <Tag>—</Tag>;
+  if (rate < 60) return <Tag color="red">偏难</Tag>;
+  if (rate < 85) return <Tag color="orange">一般</Tag>;
+  return <Tag color="green">简单</Tag>;
+}
+
+/** 逐题分析难度标签：rate 为空时显示占位，≥80 易，≥40 中，其余难 */
+function ItemLevelTag({ rate }: { rate: number | null }) {
+  if (rate === null) return <Tag>—</Tag>;
+  if (rate >= 80) return <Tag color="green">易</Tag>;
+  if (rate >= 40) return <Tag color="orange">中</Tag>;
+  return <Tag color="red">难</Tag>;
+}
+
+const MOBILE_CARD_STYLE = {
+  border: '1px solid var(--bp-line)',
+  background: 'var(--bp-panel)',
+  padding: '8px 10px',
+} as const;
+
 export default function SurveyReport() {
   const { id = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const classId = searchParams.get('classId') || undefined;
   const className = searchParams.get('className') || undefined;
+  const isMobile = useIsMobile();
 
   /** 时间范围从 URL 解析（URL 是唯一真源）：刷新页面、把链接发给同事都保持同一口径 */
   const timeRange = useMemo<[Dayjs | null, Dayjs | null] | null>(() => {
@@ -543,6 +571,9 @@ export default function SurveyReport() {
 
   const [detailQid, setDetailQid] = useState<string>();
 
+  /** 手机端逐题卡片一次先展示 20 题，避免长问卷一屏刷不完 */
+  const [visibleItems, setVisibleItems] = useState(20);
+
   /** 分值统计：绝对分数段（按满分自动选桶宽）+ 均分/中位数/标准差/极值/及格率/优秀率 */
   const scoreStats = useMemo(() => {
     const totalScore = questions.reduce(
@@ -616,48 +647,70 @@ export default function SurveyReport() {
   return (
     <div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-        <BackButton label="返回" fallback={'/survey/' + id} style={{ paddingLeft: 0 }} />
-        <div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: 12,
+          marginBottom: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <BackButton
+          label="返回"
+          fallback={'/survey/' + id}
+          style={{ paddingLeft: 0, alignSelf: isMobile ? 'flex-start' : undefined }}
+        />
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--bp-text-soft)' }}>REPORT / 分析</div>
-          <div className="bp-title" style={{ fontSize: 16, marginTop: 4 }}>
+          <div className="bp-title" style={{ fontSize: 16, marginTop: 4, overflowWrap: 'anywhere' }}>
             {scopeText} · 共 {totalAnswers} 份答卷 · {blocks.length} 题
           </div>
         </div>
-        <div style={{ flex: 1 }} />
-        <Input
-          allowClear
-          prefix={<SearchOutlined />}
-          placeholder="搜索题目"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: 200 }}
-        />
-        {canUseAi ? (
-          <Button
-            icon={<RobotOutlined />}
-            loading={aiLoading}
-            disabled={answers.length === 0}
-            title={answers.length === 0 ? '当前筛选下没有答卷，生成学情总结没有意义' : undefined}
-            onClick={() => void generateSummary()}
-          >
-            AI 学情总结
-          </Button>
-        ) : null}
+        {isMobile ? null : <div style={{ flex: 1 }} />}
+        <div style={{ display: isMobile ? 'flex' : 'contents', flexDirection: 'column', gap: 8 }}>
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="搜索题目"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: isMobile ? '100%' : 200 }}
+          />
+          {canUseAi ? (
+            <Button
+              icon={<RobotOutlined />}
+              loading={aiLoading}
+              disabled={answers.length === 0}
+              title={answers.length === 0 ? '当前筛选下没有答卷，生成学情总结没有意义' : undefined}
+              onClick={() => void generateSummary()}
+              style={isMobile ? { width: '100%', height: 36 } : undefined}
+            >
+              AI 学情总结
+            </Button>
+          ) : null}
 
-        {canUseAi ? (
+          {canUseAi ? (
+            <Button
+              icon={<ReadOutlined />}
+              disabled={answers.length === 0}
+              title={answers.length === 0 ? '当前筛选下没有答卷，算不出哪些考点最弱' : undefined}
+              onClick={() => setRecommendOpen(true)}
+              style={isMobile ? { width: '100%', height: 36 } : undefined}
+            >
+              错题重练
+            </Button>
+          ) : null}
           <Button
-            icon={<ReadOutlined />}
-            disabled={answers.length === 0}
-            title={answers.length === 0 ? '当前筛选下没有答卷，算不出哪些考点最弱' : undefined}
-            onClick={() => setRecommendOpen(true)}
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => void load()}
+            style={isMobile ? { width: '100%', height: 36 } : undefined}
           >
-            错题重练
+            刷新
           </Button>
-        ) : null}
-        <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load()}>
-          刷新
-        </Button>
+        </div>
       </div>
 
 
@@ -667,7 +720,8 @@ export default function SurveyReport() {
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
           gap: 10,
           flexWrap: 'wrap',
           marginBottom: 14,
@@ -687,7 +741,7 @@ export default function SurveyReport() {
             placeholder="全部班级"
             value={classId}
             loading={classLoading}
-            style={{ width: 240 }}
+            style={{ width: isMobile ? '100%' : 240 }}
             options={classSelectOptions}
             notFoundContent={classLoading ? '加载中…' : '没有可筛选的班级'}
             onChange={(value?: string) => pickClass(value)}
@@ -699,19 +753,28 @@ export default function SurveyReport() {
           format={TIME_FORMAT}
           placeholder={['开始时间', '结束时间']}
           value={timeRange}
-          style={{ width: 360 }}
+          style={{ width: isMobile ? '100%' : 360 }}
           onChange={(dates) => pickRange(dates)}
         />
         {hasFilter ? (
-          <Button type="text" size="small" onClick={resetFilters}>
+          <Button
+            type="text"
+            size="small"
+            onClick={resetFilters}
+            style={isMobile ? { alignSelf: 'flex-start' } : undefined}
+          >
             清除筛选
           </Button>
         ) : null}
-        <div style={{ flex: 1 }} />
+        {isMobile ? null : <div style={{ flex: 1 }} />}
         {classError ? (
-          <span style={{ fontSize: 11, color: 'var(--bp-orange)' }}>班级列表读取失败：{classError}</span>
+          <span style={{ fontSize: 11, color: 'var(--bp-orange)', overflowWrap: 'anywhere' }}>
+            班级列表读取失败：{classError}
+          </span>
         ) : hasFilter ? (
-          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>筛选条件已写进地址栏，可复制分享</span>
+          <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+            筛选条件已写进地址栏，可复制分享
+          </span>
         ) : null}
       </div>
 
@@ -751,7 +814,13 @@ export default function SurveyReport() {
                 className="bp-corners bp-card"
                 title={<span className="bp-title" style={{ fontSize: 12 }}>OVERVIEW / 答卷概览</span>}
               >
-                <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12 }}>
+                <div
+                  style={
+                    isMobile
+                      ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, fontSize: 12 }
+                      : { display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12 }
+                  }
+                >
                   <div><div style={{ color: 'var(--bp-text-soft)' }}>已开始</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.started}</div></div>
                   <div><div style={{ color: 'var(--bp-text-soft)' }}>已提交</div><div style={{ fontSize: 22, fontWeight: 600, color: 'var(--bp-blue)' }}>{overview.submitted}</div></div>
                   <div><div style={{ color: 'var(--bp-text-soft)' }}>完成率</div><div style={{ fontSize: 22, fontWeight: 600 }}>{overview.completion.toFixed(1)}%</div></div>
@@ -817,14 +886,24 @@ export default function SurveyReport() {
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>DAILY / 每日答卷</span>}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {daily.entries.map(([day, count]) => (
-                      <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, lineHeight: 1.5 }}>
-                        <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
-                        <Bar value={count} max={daily.max} />
-                        <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 2 }}>
+                    {daily.entries.map(([day, count]) =>
+                      isMobile ? (
+                        <div key={day} style={{ fontSize: 11, lineHeight: 1.5 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                            <span style={{ flex: 1, color: 'var(--bp-text-soft)' }}>{day}</span>
+                            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{count} 份</span>
+                          </div>
+                          <Bar value={count} max={daily.max} />
+                        </div>
+                      ) : (
+                        <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, lineHeight: 1.5 }}>
+                          <span style={{ width: 90, color: 'var(--bp-text-soft)' }}>{day}</span>
+                          <Bar value={count} max={daily.max} />
+                          <span style={{ width: 40, textAlign: 'right' }}>{count}</span>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </Card>
               )}
@@ -838,7 +917,7 @@ export default function SurveyReport() {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
+                      gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(96px, 1fr))',
                       gap: 6,
                       marginBottom: 10,
                     }}
@@ -861,22 +940,36 @@ export default function SurveyReport() {
                       },
                     ].map((item) => (
                       <div key={item.label} style={{ border: '1px solid var(--bp-line-soft)', padding: '5px 8px' }}>
-                        <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', whiteSpace: 'nowrap' }}>{item.label}</div>
+                        <div style={{ fontSize: 10, color: 'var(--bp-text-soft)', whiteSpace: isMobile ? 'normal' : 'nowrap' }}>
+                          {item.label}
+                        </div>
                         <div style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
                       </div>
                     ))}
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {scoreStats.buckets.map((bucket) => (
-                      <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                        <span style={{ width: 70, color: 'var(--bp-text-soft)' }}>{bucket.label}</span>
-                        <Bar value={bucket.count} max={Math.max(1, ...scoreStats.buckets.map((b) => b.count))} />
-                        <span style={{ width: 96, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                          {bucket.count} 人 · {((bucket.count / scoreStats.scored) * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 3 }}>
+                    {scoreStats.buckets.map((bucket) =>
+                      isMobile ? (
+                        <div key={bucket.label} style={{ fontSize: 11, lineHeight: 1.5 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ color: 'var(--bp-text-soft)' }}>{bucket.label}</span>
+                            <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                              {bucket.count} 人 · {((bucket.count / scoreStats.scored) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <Bar value={bucket.count} max={Math.max(1, ...scoreStats.buckets.map((b) => b.count))} />
+                        </div>
+                      ) : (
+                        <div key={bucket.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                          <span style={{ width: 70, color: 'var(--bp-text-soft)' }}>{bucket.label}</span>
+                          <Bar value={bucket.count} max={Math.max(1, ...scoreStats.buckets.map((b) => b.count))} />
+                          <span style={{ width: 96, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                            {bucket.count} 人 · {((bucket.count / scoreStats.scored) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </Card>
               )}
@@ -886,66 +979,98 @@ export default function SurveyReport() {
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>WEAK / 错题排行（正确率最低 10 题）</span>}
                 >
-                  <Table<any>
-                    rowKey="id"
-                    size="small"
-                    pagination={false}
-                    dataSource={weakQuestions}
+                  {isMobile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {weakQuestions.map((row) => (
+                        <div key={row.id} className="bp-corners" style={MOBILE_CARD_STYLE}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                              #{row.number}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+                              {row.title}
+                              {row.max > 0 ? (
+                                <span style={{ color: 'var(--bp-text-soft)', fontSize: 11 }}>　满分 {row.max}</span>
+                              ) : null}
+                            </div>
+                            <WeakLevelTag rate={row.rate} />
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '2px 12px',
+                              marginTop: 6,
+                              fontSize: 11,
+                              color: 'var(--bp-text-soft)',
+                            }}
+                          >
+                            <span>答题 {row.answered}</span>
+                            <span>答错 {row.wrong}</span>
+                            <span>
+                              正确率{' '}
+                              <span style={{ color: row.rate !== null && row.rate < 60 ? 'var(--bp-orange)' : undefined }}>
+                                {rateText(row.rate)}
+                              </span>
+                            </span>
+                            <span>均分 {row.avg === null ? '—' : row.avg.toFixed(1)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Table<any>
+                      rowKey="id"
+                      size="small"
+                      pagination={false}
+                      dataSource={weakQuestions}
 
-                    scroll={{ x: 620 }}
-                    columns={[
-                      { title: '#', dataIndex: 'number', width: 54, align: 'right' },
-                      {
-                        title: '题目',
-                        dataIndex: 'title',
-                        ellipsis: true,
-                        render: (title: string, row: { max: number }) => (
-                          <span title={title}>
-                            {title}
-                            {row.max > 0 ? (
-                              <span style={{ color: 'var(--bp-text-soft)', fontSize: 11 }}>　满分 {row.max}</span>
-                            ) : null}
-                          </span>
-                        ),
-                      },
-                      { title: '答题', dataIndex: 'answered', width: 68, align: 'right' },
-                      { title: '答错', dataIndex: 'wrong', width: 68, align: 'right' },
-                      {
-                        title: '正确率',
-                        dataIndex: 'rate',
-                        width: 88,
-                        align: 'right',
-                        sorter: (a: { rate: number | null }, b: { rate: number | null }) =>
-                          (a.rate ?? 0) - (b.rate ?? 0),
-                        render: (rate: number | null) =>
-                          rate === null ? '—' : (
-                            <span style={{ color: rate < 60 ? 'var(--bp-orange)' : undefined }}>{rate.toFixed(1)}%</span>
+                      scroll={{ x: 620 }}
+                      columns={[
+                        { title: '#', dataIndex: 'number', width: 54, align: 'right' },
+                        {
+                          title: '题目',
+                          dataIndex: 'title',
+                          ellipsis: true,
+                          render: (title: string, row: { max: number }) => (
+                            <span title={title}>
+                              {title}
+                              {row.max > 0 ? (
+                                <span style={{ color: 'var(--bp-text-soft)', fontSize: 11 }}>　满分 {row.max}</span>
+                              ) : null}
+                            </span>
                           ),
-                      },
-                      {
-                        title: '均分',
-                        dataIndex: 'avg',
-                        width: 74,
-                        align: 'right',
-                        render: (avg: number | null) => (avg === null ? '—' : avg.toFixed(1)),
-                      },
-                      {
-                        title: '难度',
-                        key: 'level',
-                        width: 76,
-                        render: (_: unknown, row: { rate: number | null }) =>
-                          row.rate === null ? (
-                            <Tag>—</Tag>
-                          ) : row.rate < 60 ? (
-                            <Tag color="red">偏难</Tag>
-                          ) : row.rate < 85 ? (
-                            <Tag color="orange">一般</Tag>
-                          ) : (
-                            <Tag color="green">简单</Tag>
-                          ),
-                      },
-                    ]}
-                  />
+                        },
+                        { title: '答题', dataIndex: 'answered', width: 68, align: 'right' },
+                        { title: '答错', dataIndex: 'wrong', width: 68, align: 'right' },
+                        {
+                          title: '正确率',
+                          dataIndex: 'rate',
+                          width: 88,
+                          align: 'right',
+                          sorter: (a: { rate: number | null }, b: { rate: number | null }) =>
+                            (a.rate ?? 0) - (b.rate ?? 0),
+                          render: (rate: number | null) =>
+                            rate === null ? '—' : (
+                              <span style={{ color: rate < 60 ? 'var(--bp-orange)' : undefined }}>{rate.toFixed(1)}%</span>
+                            ),
+                        },
+                        {
+                          title: '均分',
+                          dataIndex: 'avg',
+                          width: 74,
+                          align: 'right',
+                          render: (avg: number | null) => (avg === null ? '—' : avg.toFixed(1)),
+                        },
+                        {
+                          title: '难度',
+                          key: 'level',
+                          width: 76,
+                          render: (_: unknown, row: { rate: number | null }) => <WeakLevelTag rate={row.rate} />,
+                        },
+                      ]}
+                    />
+                  )}
                 </Card>
               )}
 
@@ -954,32 +1079,52 @@ export default function SurveyReport() {
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>TYPE / 题型正确率</span>}
                 >
-                  <Table
-                    rowKey="type"
-                    size="small"
-                    pagination={false}
-                    dataSource={typeSummary}
-                    columns={[
-                      { title: '题型', dataIndex: 'label', render: (label: string) => <Tag>{label}</Tag> },
-                      { title: '题数', dataIndex: 'questionCount', width: 70, align: 'right' },
-                      { title: '答题人数', dataIndex: 'answered', width: 100, align: 'right' },
-                      {
-                        title: '已判分',
-                        dataIndex: 'scored',
-                        width: 90,
-                        align: 'right',
-                        render: (value: number) => value,
-                      },
-                      {
-                        title: '正确率',
-                        key: 'rate',
-                        width: 100,
-                        align: 'right',
-                        render: (_: unknown, row: { scored: number; correct: number }) =>
-                          row.scored > 0 ? `${((row.correct / row.scored) * 100).toFixed(1)}%` : '—',
-                      },
-                    ]}
-                  />
+                  {isMobile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {typeSummary.map((row) => (
+                        <div
+                          key={row.type}
+                          className="bp-corners"
+                          style={{ ...MOBILE_CARD_STYLE, display: 'flex', alignItems: 'center', gap: 8 }}
+                        >
+                          <Tag>{row.label}</Tag>
+                          <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                            {row.questionCount} 题 · 答题 {row.answered} · 已判分 {row.scored}
+                          </div>
+                          <span style={{ fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                            {rateText(row.scored > 0 ? (row.correct / row.scored) * 100 : null)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Table
+                      rowKey="type"
+                      size="small"
+                      pagination={false}
+                      dataSource={typeSummary}
+                      columns={[
+                        { title: '题型', dataIndex: 'label', render: (label: string) => <Tag>{label}</Tag> },
+                        { title: '题数', dataIndex: 'questionCount', width: 70, align: 'right' },
+                        { title: '答题人数', dataIndex: 'answered', width: 100, align: 'right' },
+                        {
+                          title: '已判分',
+                          dataIndex: 'scored',
+                          width: 90,
+                          align: 'right',
+                          render: (value: number) => value,
+                        },
+                        {
+                          title: '正确率',
+                          key: 'rate',
+                          width: 100,
+                          align: 'right',
+                          render: (_: unknown, row: { scored: number; correct: number }) =>
+                            row.scored > 0 ? `${((row.correct / row.scored) * 100).toFixed(1)}%` : '—',
+                        },
+                      ]}
+                    />
+                  )}
                 </Card>
               )}
 
@@ -988,80 +1133,135 @@ export default function SurveyReport() {
                 <Card
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>ITEM / 逐题分析</span>}
-                  extra={<span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>点任意行看选项分布</span>}
+                  extra={
+                    <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                      {isMobile ? '点任意卡片看选项分布' : '点任意行看选项分布'}
+                    </span>
+                  }
                 >
-                  <Table<any>
-                    rowKey="id"
-                    size="small"
-                    bordered
-                    pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
-                    dataSource={itemRows}
+                  {isMobile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {itemRows.slice(0, visibleItems).map((row) => (
+                        <div
+                          key={row.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setDetailQid(row.id)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            event.preventDefault();
+                            setDetailQid(row.id);
+                          }}
+                          className="bp-corners"
+                          style={{ ...MOBILE_CARD_STYLE, cursor: 'pointer' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <span style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                              #{row.number}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+                              {row.title}
+                            </div>
+                            <ItemLevelTag rate={row.rate} />
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '2px 12px',
+                              marginTop: 6,
+                              fontSize: 11,
+                              color: 'var(--bp-text-soft)',
+                            }}
+                          >
+                            <span>答题 {row.answered}</span>
+                            <span>答对 {row.scored - row.wrong}</span>
+                            <span>
+                              正确率{' '}
+                              <span style={{ color: row.rate !== null && row.rate < 60 ? 'var(--bp-orange)' : undefined }}>
+                                {rateText(row.rate)}
+                              </span>
+                            </span>
+                            <span>均分 {row.avg === null ? '—' : row.avg.toFixed(1)}</span>
+                            <span>未答 {row.blank > 0 ? <Tag color="orange">{row.blank}</Tag> : 0}</span>
+                            <span>区分度 {row.discrimination === null ? '—' : row.discrimination.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {itemRows.length > visibleItems ? (
+                        <Button style={{ height: 36 }} onClick={() => setVisibleItems((value) => value + 20)}>
+                          显示更多（还有 {itemRows.length - visibleItems} 题）
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <Table<any>
+                      rowKey="id"
+                      size="small"
+                      bordered
+                      pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
+                      dataSource={itemRows}
 
-                    scroll={{ x: 820 }}
-                    onRow={(row: { id: string }) => ({ onClick: () => setDetailQid(row.id), style: { cursor: 'pointer' } })}
-                    columns={[
-                      { title: '#', dataIndex: 'number', width: 52, align: 'right' },
-                      { title: '题目', dataIndex: 'title', ellipsis: true },
-                      { title: '答题', dataIndex: 'answered', width: 62, align: 'right' },
-                      {
-                        title: '答对',
-                        key: 'correct',
-                        width: 62,
-                        align: 'right',
-                        render: (_: unknown, row: { scored: number; wrong: number }) => row.scored - row.wrong,
-                      },
-                      {
-                        title: '正确率',
-                        dataIndex: 'rate',
-                        width: 82,
-                        align: 'right',
-                        sorter: (a: { rate: number | null }, b: { rate: number | null }) => (a.rate ?? 0) - (b.rate ?? 0),
-                        render: (value: number | null) =>
-                          value === null ? '—' : <span style={{ color: value < 60 ? 'var(--bp-orange)' : undefined }}>{value.toFixed(1)}%</span>,
-                      },
-                      {
-                        title: '均分',
-                        dataIndex: 'avg',
-                        width: 66,
-                        align: 'right',
-                        render: (value: number | null) => (value === null ? '—' : value.toFixed(1)),
-                      },
-                      {
-                        title: '未答',
-                        dataIndex: 'blank',
-                        width: 62,
-                        align: 'right',
-                        render: (value: number) => (value > 0 ? <Tag color="orange">{value}</Tag> : 0),
-                      },
-                      {
-                        title: '难度',
-                        key: 'level',
-                        width: 70,
-                        render: (_: unknown, row: { rate: number | null }) =>
-                          row.rate === null ? (
-                            <Tag>—</Tag>
-                          ) : row.rate >= 80 ? (
-                            <Tag color="green">易</Tag>
-                          ) : row.rate >= 40 ? (
-                            <Tag color="orange">中</Tag>
-                          ) : (
-                            <Tag color="red">难</Tag>
-                          ),
-                      },
-                      {
-                        title: '区分度',
-                        dataIndex: 'discrimination',
-                        width: 76,
-                        align: 'right',
-                        sorter: (a: { discrimination: number | null }, b: { discrimination: number | null }) =>
-                          (a.discrimination ?? -1) - (b.discrimination ?? -1),
-                        render: (value: number | null) =>
-                          value === null ? '—' : (
-                            <span style={{ color: value < 0.2 ? 'var(--bp-orange)' : undefined }}>{value.toFixed(2)}</span>
-                          ),
-                      },
-                    ]}
-                  />
+                      scroll={{ x: 820 }}
+                      onRow={(row: { id: string }) => ({
+                        onClick: () => setDetailQid(row.id),
+                        style: { cursor: 'pointer' },
+                      })}
+                      columns={[
+                        { title: '#', dataIndex: 'number', width: 52, align: 'right' },
+                        { title: '题目', dataIndex: 'title', ellipsis: true },
+                        { title: '答题', dataIndex: 'answered', width: 62, align: 'right' },
+                        {
+                          title: '答对',
+                          key: 'correct',
+                          width: 62,
+                          align: 'right',
+                          render: (_: unknown, row: { scored: number; wrong: number }) => row.scored - row.wrong,
+                        },
+                        {
+                          title: '正确率',
+                          dataIndex: 'rate',
+                          width: 82,
+                          align: 'right',
+                          sorter: (a: { rate: number | null }, b: { rate: number | null }) => (a.rate ?? 0) - (b.rate ?? 0),
+                          render: (value: number | null) =>
+                            value === null ? '—' : <span style={{ color: value < 60 ? 'var(--bp-orange)' : undefined }}>{value.toFixed(1)}%</span>,
+                        },
+                        {
+                          title: '均分',
+                          dataIndex: 'avg',
+                          width: 66,
+                          align: 'right',
+                          render: (value: number | null) => (value === null ? '—' : value.toFixed(1)),
+                        },
+                        {
+                          title: '未答',
+                          dataIndex: 'blank',
+                          width: 62,
+                          align: 'right',
+                          render: (value: number) => (value > 0 ? <Tag color="orange">{value}</Tag> : 0),
+                        },
+                        {
+                          title: '难度',
+                          key: 'level',
+                          width: 70,
+                          render: (_: unknown, row: { rate: number | null }) => <ItemLevelTag rate={row.rate} />,
+                        },
+                        {
+                          title: '区分度',
+                          dataIndex: 'discrimination',
+                          width: 76,
+                          align: 'right',
+                          sorter: (a: { discrimination: number | null }, b: { discrimination: number | null }) =>
+                            (a.discrimination ?? -1) - (b.discrimination ?? -1),
+                          render: (value: number | null) =>
+                            value === null ? '—' : (
+                              <span style={{ color: value < 0.2 ? 'var(--bp-orange)' : undefined }}>{value.toFixed(2)}</span>
+                            ),
+                        },
+                      ]}
+                    />
+                  )}
                 </Card>
               )}
 
@@ -1077,13 +1277,43 @@ export default function SurveyReport() {
                   className="bp-corners bp-card"
                   title={<span className="bp-title" style={{ fontSize: 12 }}>NUMERIC / 数值统计</span>}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 10, fontSize: 12 }}>
                     {numeric.map(({ qId, stat, question }) => (
-                      <div key={qId} style={{ display: 'flex', gap: 16 }}>
-                        <span style={{ flex: 1 }}>{question?.title || question?.type}</span>
-                        <span style={{ color: 'var(--bp-text-soft)' }}>
-                          均 {stat.average ?? '—'} / 最小 {stat.min ?? '—'} / 最大 {stat.max ?? '—'} / 合计 {stat.sum ?? '—'}
+                      <div
+                        key={qId}
+                        style={{
+                          display: 'flex',
+                          flexDirection: isMobile ? 'column' : 'row',
+                          gap: isMobile ? 2 : 16,
+                          paddingBottom: isMobile ? 8 : 0,
+                          borderBottom: isMobile ? '1px dashed var(--bp-line-soft)' : undefined,
+                        }}
+                      >
+                        <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
+                          {question?.title || question?.type}
                         </span>
+                        {isMobile ? (
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                              gap: '2px 12px',
+                              fontSize: 11,
+                              color: 'var(--bp-text-soft)',
+                              fontVariantNumeric: 'tabular-nums',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            <span>均 {stat.average ?? '—'}</span>
+                            <span>最小 {stat.min ?? '—'}</span>
+                            <span>最大 {stat.max ?? '—'}</span>
+                            <span>合计 {stat.sum ?? '—'}</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--bp-text-soft)' }}>
+                            均 {stat.average ?? '—'} / 最小 {stat.min ?? '—'} / 最大 {stat.max ?? '—'} / 合计 {stat.sum ?? '—'}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
