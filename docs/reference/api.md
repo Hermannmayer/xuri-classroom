@@ -2,7 +2,7 @@
 
 # 接口表（生成）
 
-> 共 265 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
+> 共 268 个方法级映射。`${api.prefix}` 在运行时由配置替换；权限列为空表示方法上没有 `@PreAuthorize`。
 
 | 方法 | 路径 | 类/方法 | 权限 | 数据权限 |
 |---|---|---|---|---|
@@ -118,6 +118,9 @@
 | POST | `${api.prefix}/project/selectTemplate` | `ProjectApi#selectTemplate` | `hasAnyAuthority('project:detail','project:create','project:update')` | — |
 | POST | `${api.prefix}/project/selectRepo` | `ProjectApi#selectRepo` | — | — |
 | POST | `${api.prefix}/project/selectTag` | `ProjectApi#selectTag` | — | — |
+| POST | `${api.prefix}/project/export/token` | `ProjectExportApi#exportToken` | `hasAuthority('project:detail') or hasRole('admin')` | — |
+| GET | `${api.prefix}/project/{id}/export/json` | `ProjectExportApi#exportJson` | `hasAuthority('project:detail') or hasRole('admin')` | — |
+| GET | `${api.prefix}/project/{id}/export/docx` | `ProjectExportApi#exportDocx` | `hasAuthority('project:detail') or hasRole('admin')` | — |
 | GET | `${api.prefix}/repo/list` | `RepoApi#listRepo` | `hasAnyAuthority('repo:list', 'exercise:list')` | — |
 | GET | `${api.prefix}/repo/categories` | `RepoApi#listRepoCategories` | `hasAuthority('repo:list') or hasRole('admin')` | — |
 | POST | `${api.prefix}/repo/categories/create` | `RepoApi#createRepoCategory` | `hasAuthority('repo:create') or hasRole('admin')` | — |

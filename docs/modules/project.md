@@ -104,7 +104,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
+verified_against: 7f40d2c970d4cbd8169adfb44e34df9389c4c617
 ---
 
 # 考试与问卷（项目）
@@ -144,6 +144,9 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 | 回收站 | `client/src/pages/project/Trash.tsx` | 只读数组结果；恢复/彻底删除两个动作分别鉴权 |
 | 前端请求 | `client/src/api/index.ts` | `listProjects` / `createProject` / `updateProject` / `updateProjectStatus` / `deleteProject` |
 | 项目接口 | `server/api/src/main/java/cn/surveyking/server/api/ProjectApi.java` | `@PreAuthorize` + `@EnableDataPerm`；发布开关独立；`/tree`、`/categories` 走 `project:list`；`/partner/update` 调级别 |
+| 本体导出 | `server/api/src/main/java/cn/surveyking/server/api/ProjectExportApi.java` | `/project/export/token` + `/project/{id}/export/json|docx`；权限 `project:detail`，导出密码走 `ExportGuardService`；JSON 含 name/mode/setting/survey |
+| 导出弹窗 | `client/src/pages/project/ProjectExportModal.tsx` | 列表行与编辑器共用；格式 JSON 备份 / Word 文档；系统设置导出密码时要求输入 |
+| Word 导出器 | `server/shared/src/main/java/cn/surveyking/server/core/export/PaperDocxExporter.java` | 按 ProjectView 生成可打印 docx；`answers=false`、`card=false` 不导出答卷 |
 | 生命周期 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectServiceImpl.java` | `addProject` / `updateProject` / `updateProjectStatus` / `deleteProject` / `getDeleted` / `restoreProject`；`tree()` 组文件夹树；`listCategories()` 统计分类；写操作先 `assertCanEditProject`（level>=2） |
 | 项目授权 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java` | `accessLevel`（0/1/2/3）、`assertCanGrant`（owner/admin/level3）、`updateProjectPartner`；教师组/协作者带级别，班级/答卷人固定 1 |
 | 授权实现 | `server/rdbms/src/main/java/cn/surveyking/server/impl/ProjectPartnerServiceImpl.java` | `assertProjectOwner`、`addProjectPartner`、`getProjectPerms`、缓存失效 |
@@ -160,6 +163,15 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 - 教学页的另一个 Tab 是「班级」（`TeachingClasses embedded`，原班级管理页），不是 ProjectList；没有 `class:list` 时不渲染该 Tab。原「学情」Tab 已删除。
 - 菜单只剩一个「教学」`/teaching`，显示条件与路由守卫是同一套判定（`project:list || class:list`）；`/project` 不再出现在侧栏，但 `/project/trash` 仍可用（`project:list` 守卫），直接访问即可。
 - 学员侧不变：菜单/首页仍走「我的任务」，`/project` 是可访问的「考试安排」，不会被重定向。
+
+### 0.0.1 试卷/问卷本体导出
+
+- 入口：项目列表行「导出」、编辑器顶部「导出」；两者打开 `ProjectExportModal`。
+- 两种格式：
+  - **JSON 备份**：`GET /api/project/{id}/export/json`，返回 `{version,name,mode,setting,survey}`，完整保留本体设置与题目树；现有 `JsonQuestionParser` 能识别其中的 `survey` 字段并重新导入题目。
+  - **Word 文档**：`GET /api/project/{id}/export/docx`，走 `PaperDocxExporter`，只导题目本体，不导答卷；题干/选项/描述里的 `<img src="/api/public/preview/{id}">` 会通过 `FileService` 读原图并**内嵌**进 docx，单图按页面宽度等比缩放。
+- 导出密码：`POST /api/project/export/token` 用系统导出密码换一次性 token；两个下载接口都先校验 token/密码，并写 `EXPORT_PROJECT` 审计。未设置导出密码时直接下载。
+- **注意**：JSON 重新走导入向导时只恢复题目树；名称/模式/setting 目前不会自动覆盖新项目（导入向导仍按用户输入的名字和默认设置创建）。要完整恢复设置，后续需要单独做「项目备份导入」入口。
 
 ### 0.1 双栏列表与文件夹树（P5）
 
