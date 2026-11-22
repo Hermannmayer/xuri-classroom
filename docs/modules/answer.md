@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: d246ed7c225dc7fd78f8f2089e87050ebddfaced
+verified_against: 2b256c55b6df3d435711e81f435eec32c785737e
 ---
 
 # 答卷、判分与报表
@@ -225,7 +225,7 @@ verified_against: d246ed7c225dc7fd78f8f2089e87050ebddfaced
 2. 身份：`AnonymousIdentityServiceImpl` 在公开答题页未登录且项目 `answerSetting.loginRequired != true` 时写 `sk-anon` cookie（HttpOnly、SameSite=Lax、Secure=request.isSecure、path=/、90 天）；cookie 只放 32 字节随机 token，库里只存 SHA-256，过期主体靠 `purgeExpired()` 清理。
 3. 提交：`SurveyApi#loadProject` 先 ensureSubject；`AnswerServiceImpl#createAnswer` 再兜底 ensure，并写 `create_by=null`、`is_anonymous=1`、`anonymous_subject_id=<subject>`；已登录、教职工、白名单伪身份保持原 `create_by` 逻辑。`updateAnswer` 不重算匿名标识（与 `class_id` 同原则），否则第二次保存会把匿名改成非匿名。
 4. 找回/认领：`GET /api/public/anonymous/answers?projectId=` 未登录按 `sk-anon` 主体、登录按 `create_by` 返回 `List<PublicAttemptView>`（`answerId / examScore / createAt`），没有身份返回空。`POST /api/public/anonymous/claim` 必须登录；把当前 cookie 主体的匿名答卷改成 `create_by=userId`、`is_anonymous=0`、`anonymous_subject_id=null`，按 `ClassResourceService#resolveForStudent` 重算 `class_id`、重新分配 `attempt_no`（避免撞唯一键），返回认领条数。
-5. 管理端可见性（2026-11 修复）：`listAnswer` / `downloadSurvey` / `ReportServiceImpl` 都支持 `includeAnonymous`；数据页默认「含匿名」，概览/报表/导出跟随同一口径，导出「提交人」写「匿名」。班级链接匿名带 `class_id`，因此 `listAnswerByClass` 与班级资源统计也能看到，但只显示「匿名」标识。`listAnswer` / `ReportServiceImpl` 的 API 默认仍是 `false`（旧调用方兼容），`downloadSurvey` 不传时默认包含。`listAnswerByClass` / `downloadByClass` / `downloadAttachment` 仍不含匿名（匿名答卷 `class_id` 为 NULL，无法按班归属）。
+5. 管理端可见性（2026-11 修复）：`listAnswer` / `downloadSurvey` / `ReportServiceImpl` 都支持 `includeAnonymous`；数据页默认「含匿名」，概览/报表/导出跟随同一口径；导出「提交人」优先写 `answerer_name`，没有姓名时匿名答卷才写「匿名」。班级链接匿名带 `class_id`，因此 `listAnswerByClass` 与班级资源统计也能看到，但只显示「匿名」标识。`listAnswer` / `ReportServiceImpl` 的 API 默认仍是 `false`（旧调用方兼容），`downloadSurvey` 不传时默认包含。`listAnswerByClass` / `downloadByClass` / `downloadAttachment` 仍不含匿名（匿名答卷 `class_id` 为 NULL，无法按班归属）。
 6. 统计：`listAnswersForStat` 与 `ProjectStatisticsService` 包含匿名答卷，选项配额/投票/公开统计按实际提交计数；`ReportServiceImpl` 的 `includeAnonymous` 由管理端传 true。`ProjectServiceImpl` 的项目列表/回收站 total 也包含匿名。班级资源面板/班级学情仍不含匿名（按 `class_id` 归属）。
 7. 成绩单归属：匿名答卷没有 `create_by`，`PublicAnswerSubmitter` 提交成功后写 `rd_result_<projectId>` cookie（HttpOnly、7 天），`AnswerLookup` 在 `rd_answer_id_` 之外接受它，用于成绩单/结果页/「我的答卷」回看；`rd_answer_id_` 仍只负责随机卷续答，不复用。
 8. 已知限制：匿名身份只靠 cookie + 前端 localStorage，**换设备/清 cookie/历史匿名数据找不回**；`claim` 只认当前 cookie 主体，不自动合并多个匿名主体。匿名答卷在管理端可见，但详情不显示身份，导出只有「匿名」标识。
@@ -411,7 +411,7 @@ verified_against: d246ed7c225dc7fd78f8f2089e87050ebddfaced
 - **彻底删除不清理附件**：`batchDestroyAnswer` 只执行 `DELETE FROM t_answer`，没有看到删除 `t_file` 或物理附件的代码；回收站提示"附件也会一起清掉"与当前实现不完全一致，需另行确认/补清理任务。
 - **导出 token 在内存里**：`ExportGuardService` 的 token 存在 `ConcurrentHashMap`，60 秒过期、用一次即失效、绑定用户；后端重启或多实例部署会失效/互不认。不要把它当持久下载链接。
 - **旧的 `exportPassword` 参数仍兼容**：`AnswerApi#download` 同时接受 `exportToken` 和 `exportPassword`，优先 token。密码出现在 URL 会进访问日志，前端应继续走"先换 token"。
-- **匿名答卷默认包含（2026-11 起）**：数据页/概览/报表/通用导出默认 `includeAnonymous=true`，导出「提交人」写「匿名」；`listAnswer` / `ReportServiceImpl` 的 API 默认 false 以兼容旧调用方。班级维度仍排除匿名（`class_id` 为 NULL），按班导出/班级资源面板/班级学情不受影响。
+- **匿名答卷默认包含（2026-11 起）**：数据页/概览/报表/通用导出默认 `includeAnonymous=true`，导出「提交人」优先写答卷人姓名、没有姓名时写「匿名」；`listAnswer` / `ReportServiceImpl` 的 API 默认 false 以兼容旧调用方。班级维度仍排除匿名（`class_id` 为 NULL），按班导出/班级资源面板/班级学情不受影响。
 - **匿名身份只靠 cookie + localStorage**：`sk-anon` 只存在当前浏览器；换设备/清 cookie/隐私模式/历史匿名数据都找不回。`claim` 只处理当前 cookie 主体，不自动合并多个匿名主体；`purgeExpired()` 仍负责 cookie 主体过期清理，但未接调度；按保留天数的清理由 P7 的 `purgeOlderThan`/`AnonymousCleanupService` 负责。
 - **匿名清理只做逻辑删**：`purgeOlderThan` 与 `purgeExpired` 都走 `@TableLogic`，给 `t_answer.is_deleted=1`，不物理清 `t_answer`，也不清 `t_answer_item` 投影/附件；需要释放空间要另做物理清理。
 - **保留期清理的配置默认/边界**：`anonymousCleanupEnabled` 默认开启（缺省/空也视为开），`anonymousRetentionDays` 默认 90、夹到 1~3650；`anonymousLastCleanupAt/Count` 只由任务写，`mergeSysInfo` 不接收客户端值。

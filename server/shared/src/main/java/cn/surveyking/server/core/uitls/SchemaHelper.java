@@ -437,7 +437,11 @@ public class SchemaHelper {
 	private static void parseMetaData(AnswerView answerInfo, List<Object> rowData) {
 
 
-		rowData.add(Boolean.TRUE.equals(answerInfo.getIsAnonymous()) ? "匿名" : answerInfo.getCreateByName());
+		String submitter = answerInfo.getAnswererName();
+		if (StringUtils.isBlank(submitter)) {
+			submitter = Boolean.TRUE.equals(answerInfo.getIsAnonymous()) ? "匿名" : answerInfo.getCreateByName();
+		}
+		rowData.add(submitter);
 
 
 		Format formatter = new SimpleDateFormat(DATE_TIME_FORMAT);
