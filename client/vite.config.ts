@@ -22,13 +22,14 @@ function detectVersion(): string {
   }
 }
 
-const appVersion = detectVersion();
+
 
 /** 把版本与本次构建标识写进 index.html，后端 /api/system/version 读同一份 meta 做前后端比对 */
-function appBuildMeta(version: string): Plugin {
+function appBuildMeta(): Plugin {
   return {
     name: 'app-build-meta',
     transformIndexHtml(html) {
+      const version = detectVersion();
       const buildId = version + '.' + Date.now().toString(36);
       return html.replace(
         '</head>',
@@ -43,7 +44,7 @@ function appBuildMeta(version: string): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), appBuildMeta(appVersion)],
+  plugins: [react(), appBuildMeta()],
   server: {
     // 0.0.0.0：局域网内手机/同事也能用 http://<本机IP> 访问
     host: true,
