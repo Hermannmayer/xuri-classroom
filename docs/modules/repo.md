@@ -94,7 +94,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: e11108160370fc23553493c27513649eb320b4f9
+verified_against: a8ed1e1bf4d22be69f7116f73ff2e7e16ea1ae0d
 ---
 
 # 题库与题目
@@ -158,6 +158,7 @@ verified_against: e11108160370fc23553493c27513649eb320b4f9
    Excel 走 `RepoTemplateExcelParseHelper.parse`（13 个题型 sheet）**并按选项列/行挂内嵌图片**——`attachExcelRowImages` 复用
    `ExcelRowImages` + `QuestionImageUploader`（与试卷导入同一套抽图/上传逻辑），图片追加到对应选项或题干并置 `richTitle=true`；
    Word/文本走 `WordQuestionParser` / `TextQuestionParser`，**图片占位符会被剥掉**（题库题目只存题目本体，不挂图）。
+   单题编辑弹窗也支持选项富文本：选项行的「富文本 / 图片」按钮打开 `RichTextEditor`，保存时按 HTML 设置选项节点的 `richTitle`，并同步 `dataSource.label`。
    解析结果进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
    AI 导入不重新上传原文件：预览确认后 `POST /api/repo/import/questions`（JSON：`repoId` + 勾选后的 `questions`），
    服务端逐题 `RichTextSanitizer` 后转 `TemplateRequest`（serialNo 递增、mode=exam），题量上限 500；题干里的
