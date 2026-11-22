@@ -58,7 +58,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:compileJava :rdbms:compileJava :api:compileJava
 last_verified: 2026-11-22
-verified_against: 8e9886a12b322d543a26c9d38d15f084b62f2c8e
+verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 ---
 
 # 试卷导入（解析 / 预览 / 落地）
