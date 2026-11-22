@@ -4,6 +4,21 @@
 
 <!-- version list -->
 
+## v2.4.1 (2026-11-22)
+
+## v2.4.1 修复说明
+
+补丁版：修复容器重建/应用内更新后，后端因数据库账号密码环境变量缺失而无法启动的问题。
+
+### 修复
+
+- **部署**：NAS live/prod compose 为应用补上 `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD`，不再依赖容器内临时生成的 `application.properties`。
+- **配置回退**：`application.yml` 支持从 `DB_USER` / `DB_PASSWORD` 回退读取数据库账号密码；即使容器重建后没有配置文件，也能启动。
+- 解决登录页提示「系统信息未就绪，请刷新页面」、后端日志出现 `Access denied ... (using password: NO)` 的问题。
+
+### 升级
+
+无数据库结构变更。升级前建议先在「系统设置 → 备份」下载整站 ZIP。使用 NAS 的用户只需正常升级到 2.4.1；本次不会再依赖容器内旧配置文件。
 ## v2.4.0 (2026-11-22)
 
 本次是功能版本，重点补齐帮助中心、整站备份/恢复、导出与答题体验。
