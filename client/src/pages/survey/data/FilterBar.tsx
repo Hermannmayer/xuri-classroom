@@ -144,6 +144,8 @@ export default function FilterBar({
 
       <Input
         allowClear
+        autoComplete="off"
+        name="answerer-name-search"
         prefix={<SearchOutlined />}
         placeholder="姓名（模糊）"
         value={nameValue}

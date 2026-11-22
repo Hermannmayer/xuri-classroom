@@ -163,6 +163,11 @@ export default function SurveyData() {
 
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportScope, setExportScope] = useState<{
+    filters: AnswerFilterParams;
+    count: number;
+    ids: string[];
+  }>();
 
   useEffect(() => {
     void loadAuthorities().then(setAuthorities);
@@ -568,8 +573,11 @@ export default function SurveyData() {
 
   const removeSelected = () => removeRows(selected);
 
-  /** 导出弹窗自己管密码/令牌/进度（见 data/ExportModal），这里只负责开 */
-  const openExport = () => setExportOpen(true);
+  /** 导出弹窗自己管密码/令牌/进度（见 data/ExportModal），这里只负责开；范围在打开时快照，避免后台筛选/自动填充把范围改掉 */
+  const openExport = () => {
+    setExportScope({ filters: filterParams, count: filtered.length, ids: selected });
+    setExportOpen(true);
+  };
 
   /** 切到分析页时带上当前班级：老师看的就是同一个班，过去不该再选一次 */
   const goReport = () => {
@@ -864,10 +872,13 @@ export default function SurveyData() {
         open={exportOpen}
         projectId={id}
         projectName={project?.name}
-        filters={filterParams}
-        filteredCount={filtered.length}
-        selectedIds={selected}
-        onClose={() => setExportOpen(false)}
+        filters={exportScope?.filters ?? filterParams}
+        filteredCount={exportScope?.count ?? filtered.length}
+        selectedIds={exportScope?.ids ?? selected}
+        onClose={() => {
+          setExportOpen(false);
+          setExportScope(undefined);
+        }}
       />
 
 

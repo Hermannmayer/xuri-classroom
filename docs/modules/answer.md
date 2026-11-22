@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: 179ed0d57c6961f46da233fa22a77236a4daff59
+verified_against: 151a5da5d3cd362f3187cc3fb20a28ee095b489e
 ---
 
 # 答卷、判分与报表
@@ -189,7 +189,7 @@ verified_against: 179ed0d57c6961f46da233fa22a77236a4daff59
 6. **成绩单**：`/s/:id/exam-result/:answerId` 调 `POST /api/public/loadExamResult`。只有 `submittedSetting.answerAnalysis=true` 且考试已结束（`examFinished`）才返回答案/schema/examInfo；`transcriptVisible` 控制总分，`rankVisible` 控制排名。随机卷快照若已剥掉正确答案，会回退项目 schema 渲染解析。匿名答卷没有 `create_by`，成绩单页靠提交成功后写入的 `rd_result_<projectId>` cookie 通过 `AnswerLookup` 归属校验。
 7. **数据页**：`/survey/:id/data`（`answer:list`）用 `pageSize=-1` 拉全量，前端筛选/排序/分页。列由项目 schema 的 `flattenSchema(...).filter(isDataQuestion)` 生成；单元格文本由 `data/format.ts` 统一格式化。补录走 `POST /api/answer/create`，编辑走 `POST /api/answer/update`，删除走 `/delete`（进回收站）。管理端默认 `includeAnonymous=true`，页面有「含匿名/仅实名」开关；匿名行显示「匿名」标签。
 8. **导出**：先 `POST /api/repo/export/token { exportPassword }`（数据页）或 `POST /api/answer/export/token`（班级答卷抽屉 / 数据页 PDF）换一次性 token（60 秒、绑定用户、用一次失效），再 `GET /api/answer/download?projectId=...&pageSize=-1&exportToken=...`（按班再加 `classId`，勾选导出加 `ids`）。
-   **PDF ZIP** 走 `POST /api/answer/export/pdf-job`：`classId` 可空（空 = 整卷或按 `ids`/时间范围），不选班级时改为校验项目级权限。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。`DownloadQuery.includeAnonymous` 不传时默认包含匿名（数据页按开关传），导出「提交人」列对匿名答卷写「匿名」。
+   **PDF ZIP** 走 `POST /api/answer/export/pdf-job`：`classId` 可空（空 = 整卷或按 `ids`/时间范围），不选班级时改为校验项目级权限。后端 `ExportGuardService` 校验 token/密码，导出成功后写一条 `EXPORT_ANSWER` 审计；没有配置导出密码时直接放行。`DownloadQuery.includeAnonymous` 不传时默认包含匿名（数据页按开关传），导出「提交人」列优先写 `answerer_name`、没有姓名时匿名答卷写「匿名」。数据页导出弹窗在打开时快照当前范围（筛选份数 / 勾选 ids），后台筛选变化不会把本次导出改成 0；姓名搜索框与导出密码框都关闭了浏览器自动填充。
 9. **报表**：`GET /api/report/{shortId}`（`project:report` + `@EnableDataPerm`）。`ReportServiceImpl.getData` 按 `project_id` 取答卷，递归统计选项/数值，再算每日答卷数；`includeAnonymous=true` 时匿名答卷计入（管理端 UI 默认 true，API 默认 false 兼容旧调用）。前端用项目 schema 或最新答卷快照渲染每题区块。
 10. **回收站**：`POST /api/answer/delete` 只把 `is_deleted` 置 1；`GET /api/answer/trash` 查已删；`/restore` 恢复（`answer:restore` 或 admin），`/destroy` 物理删除（`answer:delete`）。`listAnswer` 默认过滤逻辑删除，回收站列表用 Mapper 的 `selectLogicDeleted`。
 

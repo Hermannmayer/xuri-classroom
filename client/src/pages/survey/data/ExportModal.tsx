@@ -453,10 +453,11 @@ export default function ExportModal({
           <Input.Password
             value={password}
             disabled={running}
+            name="export-password"
             onChange={(e) => setPassword(e.target.value)}
             onPressEnter={() => void submit()}
             placeholder="导出密码（系统未设置时留空）"
-            autoComplete="off"
+            autoComplete="new-password"
           />
           <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
             管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
