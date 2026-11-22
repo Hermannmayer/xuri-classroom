@@ -8,7 +8,21 @@ import { fileURLToPath } from 'node:url';
 const target = process.env.VITE_API_TARGET || 'http://127.0.0.1:7007';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const appVersion = readFileSync(resolve(here, '../VERSION'), 'utf8').trim();
+
+/** 版本优先取仓库根 VERSION；容器里只挂 client 目录时退回 package.json */
+function detectVersion(): string {
+  try {
+    return readFileSync(resolve(here, '../VERSION'), 'utf8').trim();
+  } catch {
+    try {
+      return String(JSON.parse(readFileSync(resolve(here, 'package.json'), 'utf8')).version || '');
+    } catch {
+      return '';
+    }
+  }
+}
+
+const appVersion = detectVersion();
 
 /** 把版本与本次构建标识写进 index.html，后端 /api/system/version 读同一份 meta 做前后端比对 */
 function appBuildMeta(version: string): Plugin {
