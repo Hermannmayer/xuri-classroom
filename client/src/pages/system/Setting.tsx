@@ -719,6 +719,23 @@ export default function SystemSetting() {
     }
   };
 
+  const reloadFrontend = () => window.location.reload();
+
+  /** 手机/微信内置浏览器偶发缓存旧 HTML：清掉 Cache Storage 后带时间戳重开，绕开本机缓存 */
+  const forceReloadFrontend = async () => {
+    try {
+      if ('caches' in window) {
+        const keys = await window.caches.keys();
+        await Promise.all(keys.map((key) => window.caches.delete(key)));
+      }
+    } catch {
+      // 清缓存失败也要继续重载
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('_r', String(Date.now()));
+    window.location.replace(url.toString());
+  };
+
   const removeDownload = (version: string) => {
     Modal.confirm({
       title: '删除下载记录 v' + version + '？',
@@ -1589,6 +1606,18 @@ export default function SystemSetting() {
                           当前页面加载的前端包与后端版本不一致，请强制刷新；刷新后仍提示说明前端资源没有随升级一起更新。
                         </div>
                       )}
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                        <Button size="small" onClick={reloadFrontend}>
+                          重新加载前端
+                        </Button>
+                        <Button size="small" onClick={() => void forceReloadFrontend()}>
+                          强制重载（清缓存）
+                        </Button>
+                        <span style={{ fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                          页面提示前端版本过期时点这里；强制重载会清掉本机缓存再打开。
+                        </span>
+                      </div>
 
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                         <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>

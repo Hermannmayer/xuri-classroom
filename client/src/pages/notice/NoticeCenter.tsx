@@ -655,7 +655,16 @@ export default function NoticeCenter({ mode = 'read' }: { mode?: NoticeMode }) {
         </div>
 
 
-        <div className="bp-card sk-notice-panel" style={{ ...PANEL_STYLE, flex: '3 1 calc(40% - 8px)', minWidth: 300 }}>
+        <div
+          className="bp-card sk-notice-panel"
+          style={{
+            ...PANEL_STYLE,
+            flex: isMobile ? '1 1 auto' : '3 1 calc(40% - 8px)',
+            minWidth: isMobile ? 0 : 300,
+            height: isMobile ? 'auto' : PANEL_STYLE.height,
+            maxWidth: '100%',
+          }}
+        >
           <div style={PANEL_HEAD_STYLE}>
             <span className="bp-title" style={{ fontSize: 13 }}>
               公告详情

@@ -6,6 +6,7 @@ import {
   Drawer,
   Empty,
   message,
+  Popconfirm,
   Segmented,
   Space,
   Spin,
@@ -27,6 +28,7 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import BackButton from '../../components/BackButton';
+import MobileBatchBar from '../../components/MobileBatchBar';
 import LinkAction from '../../components/LinkAction';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { get, getWithPagination, post } from '../../api';
@@ -748,7 +750,7 @@ export default function SurveyData() {
           {!mobile && <div style={{ flex: 1 }} />}
         </div>
 
-        {!unsubmittedMode && selected.length > 0 && (
+        {!mobile && !unsubmittedMode && selected.length > 0 && (
           <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginBottom: 8 }}>
             已选中 {selected.length} 条
           </div>
@@ -890,6 +892,37 @@ export default function SurveyData() {
         onChanged={() => void load()}
         onReview={(answerId) => setGrading(answerId)}
       />
+
+      {mobile && !unsubmittedMode && (
+        <MobileBatchBar
+          allIds={filtered.map((row) => row.id)}
+          selected={selected}
+          onChange={setSelected}
+          unit="条"
+          actions={
+            <>
+              {canExport && (
+                <Button size="small" onClick={openExport}>
+                  导出勾选
+                </Button>
+              )}
+              {canDelete && (
+                <Popconfirm
+                  title={`删除选中的 ${selected.length} 份答卷？`}
+                  description="可在回收站恢复（有权限时）。"
+                  okText="删除"
+                  cancelText="取消"
+                  onConfirm={removeSelected}
+                >
+                  <Button danger size="small">
+                    删除
+                  </Button>
+                </Popconfirm>
+              )}
+            </>
+          }
+        />
+      )}
 
       <GradeDrawer
         open={Boolean(grading)}

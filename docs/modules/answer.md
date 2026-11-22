@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: 151a5da5d3cd362f3187cc3fb20a28ee095b489e
+verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
 ---
 
 # 答卷、判分与报表
@@ -164,7 +164,7 @@ verified_against: 151a5da5d3cd362f3187cc3fb20a28ee095b489e
 | 匿名清理 | `server/rdbms/src/main/java/cn/surveyking/server/impl/AnonymousCleanupService.java` | `purgeOlderThan(days)`：只删 `is_anonymous=1` 且过期答卷（逻辑删），主体无剩余匿名答卷时物理删；每日 03:30 + 手动 `/system/anonymous/cleanup` |
 | 成绩单/解析 | `client/src/pages/answer/ExamResult.tsx` | `/api/public/loadExamResult`；逐题对错只是前端预览；选项标签先用 `normalizeOptionLabel` 归一化（纯文本换行 / 富文本 `<br>` 与块级标签 / U+2028）再渲染，逐字一行才会合并 |
 | 公开查询 | `client/src/pages/answer/PublicQuery.tsx` | 按条件查询/修改答卷，走 `/api/public/loadQuery` / `getQueryResult` |
-| 数据页 | `client/src/pages/survey/Data.tsx` | 全量答卷表格、筛选/排序、详情、补录/编辑、导入、导出、回收站入口 |
+| 数据页 | `client/src/pages/survey/Data.tsx` | 全量答卷表格、筛选/排序、详情、补录/编辑、导入、导出、回收站入口；手机端卡片勾选后用底部批量栏（全选当前筛选结果、导出勾选、删除） |
 | 答卷回收站 | `client/src/pages/survey/data/TrashDrawer.tsx` | `answer:list` + `answer:restore`/`answer:delete` |
 | 报表页 | `client/src/pages/survey/Report.tsx`、`pages/survey/report/QuestionBlock.tsx` | 每日趋势、逐题选项分布、数值统计 |
 | 数据格式化 | `client/src/pages/survey/data/format.ts` | 答案值 → 表格单元格文本（空值统一 `—`） |

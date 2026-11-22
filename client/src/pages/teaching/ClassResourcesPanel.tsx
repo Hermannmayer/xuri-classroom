@@ -4,6 +4,7 @@ import {
   Alert,
   App,
   Button,
+  Checkbox,
   DatePicker,
   Empty,
   Form,
@@ -28,6 +29,7 @@ import QRCode from 'qrcode';
 import { get, getWithPagination, post } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import LinkAction from '../../components/LinkAction';
+import MobileBatchBar from '../../components/MobileBatchBar';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import ClassAnswersDrawer from './ClassAnswersDrawer';
 import ProjectBriefDrawer from './ProjectBriefDrawer';
@@ -625,7 +627,7 @@ export default function ClassResourcesPanel({
         <Alert type="warning" showIcon style={{ marginBottom: 10 }} title={loadError} />
       )}
 
-      {manageable && selectedResourceIds.length > 0 && (
+      {!isMobile && manageable && selectedResourceIds.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
           <span style={{ fontSize: 12, color: 'var(--bp-text-soft)' }}>已选 {selectedResourceIds.length} 项</span>
           <Button size="small" type="primary" onClick={openBatch}>批量设置</Button>
@@ -650,17 +652,22 @@ export default function ClassResourcesPanel({
             description={kind === 'repo' ? '还没有给这个班分配题库' : '还没有给这个班分配考试/问卷'}
           />
         ) : (
+          <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rows.map((row) => (
-              <div
-                key={row.id}
-                className="bp-card"
-                style={{ padding: 12, cursor: manageable ? 'pointer' : undefined }}
-                onClick={() => {
-                  if (manageable) setEditing(row);
-                }}
-              >
+              <div key={row.id} className="bp-card" style={{ padding: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {manageable && (
+                    <Checkbox
+                      checked={selectedResourceIds.includes(row.id)}
+                      aria-label="选择这项资源"
+                      onChange={(e) =>
+                        setSelectedResourceIds((prev) =>
+                          e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id),
+                        )
+                      }
+                    />
+                  )}
                   <span
                     style={{
                       flex: 1,
@@ -686,52 +693,105 @@ export default function ClassResourcesPanel({
                     {row.resourceMode === 'survey' ? '问卷' : kind === 'repo' ? '题库' : '考试'}
                   </span>
                 </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    marginTop: 6,
-                    fontSize: 11,
-                    color: 'var(--bp-text-soft)',
-                  }}
-                >
-                  <span>
-                    {row.effectiveStatus === 'OPEN'
-                      ? '进行中'
-                      : row.effectiveStatus === 'NOT_STARTED'
-                        ? '未开始'
-                        : row.effectiveStatus === 'ENDED'
-                          ? '已结束'
-                          : '已关闭'}
-                    {' · '}
-                    {row.answerCount ?? 0} 份答卷
-                  </span>
-                  {kind === 'project' ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        navigate(`/survey/${row.resourceId}/data?gradeStatus=pending&classId=${classId}`);
-                      }}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: 11,
-                        border: '1px solid var(--bp-orange)',
-                        color: 'var(--bp-orange)',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        flex: '0 0 auto',
-                      }}
+                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--bp-text-soft)' }}>
+                  {row.effectiveStatus === 'OPEN'
+                    ? '进行中'
+                    : row.effectiveStatus === 'NOT_STARTED'
+                      ? '未开始'
+                      : row.effectiveStatus === 'ENDED'
+                        ? '已结束'
+                        : '已关闭'}
+                  {' · '}
+                  {row.answerCount ?? 0} {kind === 'repo' ? '次练习' : '份答卷'}
+                </div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+                  {kind === 'project' && (
+                    <LinkAction
+                      onClick={() =>
+                        navigate(`/survey/${row.resourceId}/data?gradeStatus=pending&classId=${classId}`)
+                      }
                     >
-                      去批改
-                    </button>
-                  ) : null}
+                      批改
+                    </LinkAction>
+                  )}
+                  {kind === 'project' && manageable && (
+                    <LinkAction
+                      onClick={() =>
+                        navigate(
+                          '/survey/' +
+                            row.resourceId +
+                            '/report?classId=' +
+                            encodeURIComponent(row.classId || classId) +
+                            '&className=' +
+                            encodeURIComponent(row.className || ''),
+                        )
+                      }
+                    >
+                      数据分析
+                    </LinkAction>
+                  )}
+                  {kind === 'project' && manageable && (
+                    <LinkAction onClick={() => setAnswersRow(row)}>查看答卷</LinkAction>
+                  )}
+                  {kind === 'repo' && (
+                    <LinkAction onClick={() => setRepoAnswersRow(row)}>练习记录</LinkAction>
+                  )}
+                  {kind === 'project' && manageable && (
+                    <LinkAction onClick={() => void openClassLink(row)}>班级链接</LinkAction>
+                  )}
+                  {manageable && <LinkAction onClick={() => setEditing(row)}>编辑</LinkAction>}
+                  {manageable && (
+                    <Popconfirm
+                      title={'移除「' + (row.resourceName || (kind === 'repo' ? '该题库' : '该考试/问卷')) + '」？'}
+                      description={
+                        kind === 'repo'
+                          ? '只解除本班的分配，不会删除题库本身。'
+                          : '只解除本班的分配，不会删除考试/问卷本身。'
+                      }
+                      okText="移除"
+                      okButtonProps={{ danger: true }}
+                      cancelText="取消"
+                      onConfirm={() => remove(row)}
+                    >
+                      <LinkAction style={{ color: 'var(--bp-orange)' }}>删除</LinkAction>
+                    </Popconfirm>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+          {manageable && (
+            <MobileBatchBar
+              allIds={rows.map((row) => row.id)}
+              selected={selectedResourceIds}
+              onChange={setSelectedResourceIds}
+              unit="项"
+              actions={
+                <>
+                  <Button size="small" type="primary" onClick={openBatch}>
+                    批量设置
+                  </Button>
+                  <Popconfirm
+                    title={'移除选中的 ' + selectedResourceIds.length + ' 项？'}
+                    description={
+                      kind === 'repo'
+                        ? '只解除本班分配，不会删除题库本身。'
+                        : '只解除本班分配，不会删除考试/问卷本身。'
+                    }
+                    okText="移除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={() => void removeBatch()}
+                  >
+                    <Button size="small" danger>
+                      批量移除
+                    </Button>
+                  </Popconfirm>
+                </>
+              }
+            />
+          )}
+          </>
         )
       ) : (
       <TableScrollRegion label="班级考试/问卷与题库（可横向滚动）">

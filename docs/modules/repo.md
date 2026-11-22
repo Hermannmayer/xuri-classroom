@@ -94,7 +94,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
+verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
 ---
 
 # 题库与题目
@@ -125,7 +125,7 @@ verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
 | 批量移动分类 | `client/src/pages/repo/BatchRepoCategoryModal.tsx` | TreeSelect 扁平分类 path（根「未分类」=空串）+ 可输入新路径；逐个 `POST /repo/update {id,category}`，成功/失败计数，完成后刷新树/列表 |
 | 题目批量设置 | `client/src/pages/repo/Questions.tsx` + `POST /api/template/batchUpdate` | 勾选多题后批量追加/覆盖标签、改难度、改每题分值；后端 `TemplateServiceImpl#batchPatchTemplate` 只改非空字段 |
 | 题库分类树 | `client/src/pages/repo/RepoCategoryTree.tsx` | `GET /api/repo/categories` 扁平列表按 `/` 拆树；根「全部分类」+ 各路径 count；「新建分类文件夹」→ `/categories/create`；选中 path 过滤列表 |
-| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel / 文本 / Word / AI 智能识别、导入旁「下载模板」+ 题型说明（`ImportHelp`）、导出 xlsx；读取权限与导入/导出权限分开判定 |
+| 题目页 | `client/src/pages/repo/Questions.tsx` | 题目表格、单题编辑、选中后批量设置标签/难度/分值、批量删除、导入 Excel / 文本 / Word / AI 智能识别；手机端题目卡片用底部批量栏（全选当前筛选、批量设置、批量删除）、导入旁「下载模板」+ 题型说明（`ImportHelp`）、导出 xlsx；读取权限与导入/导出权限分开判定 |
 | AI 题库体检 | `client/src/pages/repo/ai/AiRepoAuditDrawer.tsx` + `POST /api/ai/repo/audit` | 查重复题 / 缺解析 / 缺难度章节标签，逐题给建议；勾选后走 `POST /api/ai/repo/audit/apply` 批量写回（只写勾选的字段）。入口在题目页「AI 体检」，也能从 AI 对话框带 `?ai=audit` 直接打开 |
 | 导出弹窗 | `client/src/pages/repo/RepoExportModal.tsx` | 列表页/题目页共用：未设导出密码直接下载；设了密码先换一次性 token，再走 `/api/repo/export` |
 | 授权弹窗 | `client/src/pages/repo/GrantModal.tsx` | **只面向教师**：按用户组或按人授权，选择 access_level（1 可查看/2 可编辑/3 可授权）；组树只拉 `deptType=org`，人只拉 `userType=staff`；成员行可改级别。学员/班级不在这里出现 |

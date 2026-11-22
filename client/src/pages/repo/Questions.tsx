@@ -30,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
+import MobileBatchBar from '../../components/MobileBatchBar';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { download, get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -787,7 +788,7 @@ export default function RepoQuestions() {
         />
       </div>
 
-      {(canEdit || canDelete) && selectedKeys.length > 0 && (
+      {!isMobile && (canEdit || canDelete) && selectedKeys.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -1043,6 +1044,37 @@ export default function RepoQuestions() {
         ]}
       />
       </TableScrollRegion>
+      )}
+
+      {isMobile && (
+        <MobileBatchBar
+          allIds={rows.map((row) => row.id)}
+          selected={selectedKeys}
+          onChange={setSelectedKeys}
+          unit="道题"
+          actions={
+            <>
+              {canEdit && (
+                <Button size="small" onClick={openBatchEdit}>
+                  批量设置标签 / 难度 / 分值
+                </Button>
+              )}
+              {canDelete && (
+                <Popconfirm
+                  title={`删除选中的 ${selectedKeys.length} 道题？`}
+                  description="删除后不可恢复。"
+                  okText="删除"
+                  cancelText="取消"
+                  onConfirm={() => batchDelete()}
+                >
+                  <Button danger size="small" icon={<DeleteOutlined />} loading={deleting}>
+                    批量删除
+                  </Button>
+                </Popconfirm>
+              )}
+            </>
+          }
+        />
       )}
 
       <Modal

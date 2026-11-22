@@ -47,8 +47,8 @@ tables:
   - t_notice_read
 tests:
   - client:npm run check
-last_verified: 2026-11-21
-verified_against: 43b4f52f89250d6faaa55da6038f01eed45e0227
+last_verified: 2026-11-22
+verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
 ---
 
 # 通知公告
@@ -133,6 +133,7 @@ npm run docs:check
 ## 手机端（2026-11-21）
 
 - 公告中心/公告管理在手机端把分类面板与列表改为上下堆叠，面板高度由内容决定，不再强制桌面 `clamp` 高度。
+- 详情面板在手机端不再固定 `minWidth: 300` 与 `clamp` 高度（2026-11-22）：窄屏下「已归档」「草稿」等分类不会再被撑成横向桌面布局。
 - 分类、列表仍共用同一套数据和已读逻辑，仅调整布局。
 
 ## 相关文档

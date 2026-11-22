@@ -3,6 +3,7 @@ import { Alert, AutoComplete, Breadcrumb, Button, Checkbox, Dropdown, Empty, For
 import { DeleteOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import LinkAction from '../../components/LinkAction';
+import MobileBatchBar from '../../components/MobileBatchBar';
 import { createProject, deleteProject, get, listProjects, updateProject, updateProjectStatus } from '../../api';
 import type { ProjectMode, ProjectView } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -423,6 +424,8 @@ function ManagerProjectList({
     (row) => selectedKeys.includes(row.id) && row.mode !== 'folder',
   );
 
+  const selectableIds = rows.filter((row) => row.mode !== 'folder').map((row) => row.id);
+
   const openCreate = () => {
     createForm.setFieldsValue({
       name: '',
@@ -762,7 +765,7 @@ function ManagerProjectList({
         </div>
         <div style={{ flex: '1 1 auto', width: '100%', minWidth: 0 }}>
 
-      {selectedKeys.length > 0 && (
+      {!isMobile && selectedKeys.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -1314,6 +1317,37 @@ function ManagerProjectList({
           )}
         </Form>
       </Modal>
+
+      {isMobile && canBatch && (
+        <MobileBatchBar
+          allIds={selectableIds}
+          selected={selectedKeys}
+          onChange={setSelectedKeys}
+          unit="项"
+          actions={
+            <>
+              {canUpdate && (
+                <Button size="small" onClick={() => setBatchSettingOpen(true)}>
+                  批量设置
+                </Button>
+              )}
+              {canDelete && (
+                <Popconfirm
+                  title={`删除选中的 ${selectedKeys.length} 个考试/问卷？`}
+                  description="可在回收站恢复。"
+                  okText="删除"
+                  cancelText="取消"
+                  onConfirm={() => batchDelete()}
+                >
+                  <Button danger size="small" loading={batchDeleting}>
+                    批量删除
+                  </Button>
+                </Popconfirm>
+              )}
+            </>
+          }
+        />
+      )}
     </>
   );
 }

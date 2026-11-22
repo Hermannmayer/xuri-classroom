@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import LinkAction from '../../components/LinkAction';
+import MobileBatchBar from '../../components/MobileBatchBar';
 import TableScrollRegion from '../../components/TableScrollRegion';
 import { get, getWithPagination, post } from '../../api';
 import { can, loadAuthorities } from '../../auth/permissions';
@@ -429,10 +430,10 @@ export default function RepoList() {
               : '浏览题库题目；练习记录在「我的练习」。'}
           </div>
         </div>
-        {canUpdate && selectedIds.length > 0 && (
+        {!isMobile && canUpdate && selectedIds.length > 0 && (
           <Button onClick={() => setMoveOpen(true)}>移动到分类（{selectedIds.length}）</Button>
         )}
-        {canGrant && selectedIds.length > 0 && (
+        {!isMobile && canGrant && selectedIds.length > 0 && (
           <Button icon={<TeamOutlined />} onClick={() => setBatchGrantIds(selectedIds)}>
             批量授权（{selectedIds.length}）
           </Button>
@@ -1024,6 +1025,29 @@ export default function RepoList() {
         }}
       />
       <RepoExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
+
+      {isMobile && (canGrant || canUpdate) && (
+        <MobileBatchBar
+          allIds={rows.map((row) => row.id)}
+          selected={selectedIds}
+          onChange={setSelectedIds}
+          unit="个"
+          actions={
+            <>
+              {canUpdate && (
+                <Button size="small" onClick={() => setMoveOpen(true)}>
+                  移动到分类
+                </Button>
+              )}
+              {canGrant && (
+                <Button size="small" onClick={() => setBatchGrantIds(selectedIds)}>
+                  批量授权
+                </Button>
+              )}
+            </>
+          }
+        />
+      )}
     </>
   );
 }

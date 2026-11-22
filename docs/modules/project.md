@@ -116,7 +116,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
+verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
 ---
 
 # 考试与问卷（项目）
@@ -144,7 +144,7 @@ verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
 
 | 层 | 入口 | 说明 |
 |---|---|---|
-| 项目列表 | `client/src/pages/project/List.tsx` | 管理视图与学员视图二选一；管理视图 = 左「项目分类 + 文件夹」双树 + 右紧凑列表（`size=small`、行内一级操作）；创建/改名/发布/删除/批量/回收站保留；`embedded` 时隐藏自己的页头，保留工具条 |
+| 项目列表 | `client/src/pages/project/List.tsx` | 管理视图与学员视图二选一；管理视图 = 左「项目分类 + 文件夹」双树 + 右紧凑列表（`size=small`、行内一级操作）；创建/改名/发布/删除/批量/回收站；手机端卡片勾选后用底部批量栏（全选当前筛选、批量设置、批量删除）保留；`embedded` 时隐藏自己的页头，保留工具条 |
 | 项目分类树 | `client/src/pages/project/ProjectCategoryTree.tsx` | `GET /api/project/categories`；根「全部分类」+ 各分类 count；选中分类与文件夹互斥，右侧列表按 `category` 过滤；窗口 focus/visibilitychange 静默刷新（1s 节流） |
 | 文件夹树 | `client/src/pages/project/ProjectTree.tsx` | `GET /api/project/tree`；只渲染 `mode=folder` 的节点与 count；选中文件夹清空分类；标题旁「新建文件夹」（`project:create`）→ `createProject({name,mode:'folder',parentId})` |
 | `/project` 入口 | `client/src/pages/project/Entry.tsx` | 有 portal:teacher + project:list → `/teaching?tab=exam`；其余账号（学员/无门户权限的只读）→ 原 ProjectList |
