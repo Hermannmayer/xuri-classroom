@@ -453,6 +453,8 @@ function main() {
 
   let changed = 0
   for (const item of outputs) {
+    const relPath = rel(item.file)
+    if (checkOnly && relPath.startsWith('docs/ai/')) continue
     fs.mkdirSync(path.dirname(item.file), { recursive: true })
     const result = writeIfChanged(item.file, item.content, checkOnly)
     if (result.changed) {

@@ -8,7 +8,7 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const docsDir = path.join(root, 'docs')
 export const modulesDir = path.join(docsDir, 'modules')
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'target', '.gradle', '.vitepress', '.idea'])
+const SKIP_DIRS = new Set(['.git', '.agents', '__pycache__', 'node_modules', 'dist', 'build', 'target', '.gradle', '.vitepress', '.idea'])
 
 export function walk(dir = root, out = []) {
   if (!fs.existsSync(dir)) return out
