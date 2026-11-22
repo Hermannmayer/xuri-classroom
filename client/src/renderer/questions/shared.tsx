@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { FlagFilled, FlagOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
-import DOMPurify from 'dompurify';
 import RichTextContent from '../../components/RichTextContent';
 import type { QuestionType, SurveySchema } from '../../schema/types';
 import type { AnswerValue, QuestionComponentProps } from '../types';
@@ -81,13 +80,7 @@ export function TitleContent({ schema }: { schema: SurveySchema }) {
     return <span style={{ color: 'var(--bp-text-soft)' }}>未命名题目</span>;
   }
   if (schema.attribute?.richTitle) {
-    return (
-      <span
-        dangerouslySetInnerHTML={{
-          __html: DOMPurify.sanitize(schema.title, { ADD_TAGS: ['img'], ADD_ATTR: ['src', 'alt', 'style'] }),
-        }}
-      />
-    );
+    return <RichTextContent className="rich-text-content sk-question-rich" html={schema.title} />;
   }
   return <>{schema.title}</>;
 }
@@ -114,10 +107,11 @@ export function QuestionFrame({
   return (
     <QuestionA11yContext.Provider value={a11y}>
       <div style={{ marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="sk-question-head" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {number !== undefined && <span className="bp-tag">{String(number).padStart(2, '0')}</span>}
-          <span
+          <div
             id={labelId}
+            className="sk-question-title"
             style={{ flex: 1, minWidth: 0, fontSize: 'var(--sk-stem-size, 14px)', letterSpacing: '0.02em' }}
           >
             {schema.attribute?.required && (
@@ -128,7 +122,7 @@ export function QuestionFrame({
               </>
             )}
             <TitleContent schema={schema} />
-          </span>
+          </div>
           {markApi && (
             <button
               type="button"

@@ -760,7 +760,7 @@ public class AiImportServiceImpl implements AiImportService {
 	}
 
 	private String imageHtml(String url) {
-		return "<img src=\"" + url + "\" style=\"max-width:100%;\" />";
+		return QuestionImageUploader.imgHtml(url);
 	}
 
 	private ImportPreview.Warning warn(String code, String message) {

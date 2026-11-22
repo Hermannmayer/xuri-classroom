@@ -401,6 +401,28 @@
 
 
 
+@media (max-width: 767.98px) {
+  .sk-mark-text {
+    display: none;
+  }
+  .sk-mark {
+    padding: 1px 5px;
+  }
+  .sk-question-head {
+    flex-wrap: wrap;
+  }
+  .sk-question-head .sk-question-title {
+    order: 3;
+    flex: 1 1 100% !important;
+  }
+  .sk-question-head .sk-mark {
+    order: 2;
+  }
+  .sk-question-head .bp-tag {
+    order: 1;
+  }
+}
+
 .sk-answer .sk-option:focus-visible,
 .sk-answer .sk-matrix-cell:focus-visible,
 .sk-answer .sk-mark:focus-visible,

@@ -115,8 +115,7 @@ public class ImportServiceImpl implements ImportService {
 		if (StringUtils.hasText(title)) {
 			String replaced = title;
 			for (Map.Entry<String, String> entry : urls.entrySet()) {
-				replaced = replaced.replace(entry.getKey(),
-						"<img src=\"" + entry.getValue() + "\" style=\"max-width:100%;\" />");
+				replaced = replaced.replace(entry.getKey(), QuestionImageUploader.imgHtml(entry.getValue()));
 			}
 			if (!replaced.equals(title)) {
 				node.setTitle(replaced);
