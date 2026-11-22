@@ -21,7 +21,7 @@ export interface AnswerCardsProps {
 
 const CARD_STYLE = {
   border: '1px solid var(--bp-line)',
-  background: 'rgba(30,58,95,0.55)',
+  background: 'var(--bp-panel-soft)',
   padding: 12,
   marginBottom: 10,
 } as const;
@@ -61,7 +61,14 @@ export default function AnswerCards({
         const who = row.isAnonymous ? '匿名' : row.createByName || row.createBy?.slice(0, 8) || '匿名';
 
         return (
-          <div key={row.id} style={CARD_STYLE} className="bp-corners">
+          <div
+            key={row.id}
+            style={{
+              ...CARD_STYLE,
+              ...(checked ? { boxShadow: 'inset 3px 0 0 var(--bp-orange)', background: 'var(--bp-orange-tint)' } : null),
+            }}
+            className="bp-corners"
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Checkbox
                 checked={checked}
