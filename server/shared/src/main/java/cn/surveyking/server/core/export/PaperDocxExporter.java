@@ -3,6 +3,8 @@ package cn.surveyking.server.core.export;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.dto.SurveySchema.QuestionType;
+import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.usermodel.Document;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
@@ -11,10 +13,15 @@ import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 
@@ -25,10 +32,27 @@ public final class PaperDocxExporter {
 
 	private static final char[] LETTERS = "ABCDEFGH".toCharArray();
 
+	private static final Pattern IMAGE = Pattern.compile("<img\\b[^>]*\\bsrc=\"/api/public/preview/([A-Za-z0-9_-]{1,64})\"[^>]*>",
+			Pattern.CASE_INSENSITIVE);
+
+	private static final int MAX_IMAGE_WIDTH = 420;
+
+	private static final int MAX_OPTION_IMAGE_WIDTH = 260;
+
+	@FunctionalInterface
+	public interface ImageResolver {
+		byte[] resolve(String fileId);
+	}
+
 	private PaperDocxExporter() {
 	}
 
 	public static byte[] export(ProjectView project, boolean includeAnswers, boolean includeCard) {
+		return export(project, includeAnswers, includeCard, null);
+	}
+
+	public static byte[] export(ProjectView project, boolean includeAnswers, boolean includeCard,
+			ImageResolver imageResolver) {
 		SurveySchema survey = project.getSurvey();
 		String title = survey != null && survey.getTitle() != null ? survey.getTitle() : project.getName();
 		try (XWPFDocument doc = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -47,7 +71,7 @@ public final class PaperDocxExporter {
 
 			List<SurveySchema> questions = new ArrayList<>();
 			int[] number = new int[] { 0 };
-			renderNodes(doc, survey == null ? null : survey.getChildren(), questions, number);
+			renderNodes(doc, survey == null ? null : survey.getChildren(), questions, number, imageResolver);
 
 			if (includeCard) {
 				pageBreak(doc);
@@ -102,7 +126,7 @@ public final class PaperDocxExporter {
 
 	/** 递归渲染：只有 dataType 才编号，QuestionSet 只当大题标题，选项不再被当题号 */
 	private static void renderNodes(XWPFDocument doc, List<SurveySchema> nodes, List<SurveySchema> questions,
-			int[] number) {
+			int[] number, ImageResolver imageResolver) {
 		if (nodes == null) {
 			return;
 		}
@@ -112,13 +136,13 @@ public final class PaperDocxExporter {
 			}
 			QuestionType type = node.getType();
 			if (type == QuestionType.Survey || type == QuestionType.Pagination) {
-				renderNodes(doc, node.getChildren(), questions, number);
+				renderNodes(doc, node.getChildren(), questions, number, imageResolver);
 			}
 			else if (type == QuestionType.QuestionSet) {
 				if (hasText(node.getTitle())) {
 					heading(doc, node.getTitle());
 				}
-				renderNodes(doc, node.getChildren(), questions, number);
+				renderNodes(doc, node.getChildren(), questions, number, imageResolver);
 			}
 			else if (type == QuestionType.Remark) {
 				if (hasText(node.getTitle())) {
@@ -131,10 +155,10 @@ public final class PaperDocxExporter {
 			else if (QuestionType.dataType().contains(type)) {
 				number[0]++;
 				questions.add(node);
-				question(doc, number[0], node);
+				question(doc, number[0], node, imageResolver);
 			}
 			else {
-				renderNodes(doc, node.getChildren(), questions, number);
+				renderNodes(doc, node.getChildren(), questions, number, imageResolver);
 			}
 		}
 	}
@@ -143,22 +167,82 @@ public final class PaperDocxExporter {
 		return text != null && !text.trim().isEmpty();
 	}
 
-	private static void question(XWPFDocument doc, int number, SurveySchema question) {
-		paragraph(doc, number + ". " + stripHtml(question.getTitle()), 11, false);
+	private static void question(XWPFDocument doc, int number, SurveySchema question, ImageResolver imageResolver) {
+		richParagraph(doc, number + ". " + question.getTitle(), 11, false, MAX_IMAGE_WIDTH, imageResolver);
+		if (hasText(question.getDescription())) {
+			richParagraph(doc, question.getDescription(), 10, false, MAX_IMAGE_WIDTH, imageResolver);
+		}
 		List<SurveySchema> options = question.getChildren();
 		if (options != null && !options.isEmpty()
 				&& ("Radio".equals(String.valueOf(question.getType())) || "Checkbox".equals(String.valueOf(question.getType()))
 						|| "Judge".equals(String.valueOf(question.getType())) || "Select".equals(String.valueOf(question.getType())))) {
-			StringBuilder line = new StringBuilder("    ");
 			for (int i = 0; i < options.size() && i < LETTERS.length; i++) {
-				line.append(LETTERS[i]).append(". ").append(stripHtml(options.get(i).getTitle())).append("    ");
+				XWPFParagraph option = doc.createParagraph();
+				addText(option, "    " + LETTERS[i] + ". ", 10, false);
+				addRich(option, options.get(i).getTitle(), 10, false, MAX_OPTION_IMAGE_WIDTH, imageResolver);
 			}
-			paragraph(doc, line.toString(), 10, false);
 		}
 		if ("Textarea".equals(String.valueOf(question.getType()))) {
 			for (int i = 0; i < 3; i++) {
 				paragraph(doc, "____________________________________________________________", 10, false);
 			}
+		}
+	}
+
+	private static void richParagraph(XWPFDocument doc, String html, int size, boolean bold, int maxWidth,
+			ImageResolver imageResolver) {
+		XWPFParagraph paragraph = doc.createParagraph();
+		addRich(paragraph, html, size, bold, maxWidth, imageResolver);
+	}
+
+	private static void addRich(XWPFParagraph paragraph, String html, int size, boolean bold, int maxWidth,
+			ImageResolver imageResolver) {
+		if (html == null || html.isEmpty()) {
+			return;
+		}
+		Matcher matcher = IMAGE.matcher(html);
+		int last = 0;
+		while (matcher.find()) {
+			addText(paragraph, html.substring(last, matcher.start()), size, bold);
+			addImage(paragraph, matcher.group(1), maxWidth, imageResolver);
+			last = matcher.end();
+		}
+		addText(paragraph, html.substring(last), size, bold);
+	}
+
+	private static void addText(XWPFParagraph paragraph, String html, int size, boolean bold) {
+		String text = stripHtml(html);
+		if (!text.isEmpty()) {
+			XWPFRun run = paragraph.createRun();
+			run.setText(text);
+			font(run, size, bold);
+		}
+	}
+
+	private static void addImage(XWPFParagraph paragraph, String fileId, int maxWidth, ImageResolver imageResolver) {
+		if (imageResolver == null) {
+			return;
+		}
+		byte[] bytes = imageResolver.resolve(fileId);
+		if (bytes == null || bytes.length == 0) {
+			return;
+		}
+		try {
+			BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
+			if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
+				return;
+			}
+			double scale = Math.min(1.0, Math.min(maxWidth / (double) image.getWidth(),
+					(maxWidth < 300 ? 170 : 300) / (double) image.getHeight()));
+			int width = Math.max(1, (int) Math.round(image.getWidth() * scale));
+			int height = Math.max(1, (int) Math.round(image.getHeight() * scale));
+			int type = (bytes.length > 2 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8)
+					? Document.PICTURE_TYPE_JPEG : Document.PICTURE_TYPE_PNG;
+			XWPFRun run = paragraph.createRun();
+			run.addPicture(new ByteArrayInputStream(bytes), type, "image", Units.toEMU(width), Units.toEMU(height));
+		}
+		catch (Exception ignored) {
+
 		}
 	}
 
@@ -208,7 +292,15 @@ public final class PaperDocxExporter {
 	}
 
 	private static String stripHtml(String text) {
-		return text == null ? "" : text.replaceAll("<[^>]+>", "").trim();
+		if (text == null) {
+			return "";
+		}
+		return text.replaceAll("<[^>]+>", "")
+				.replace("&nbsp;", " ")
+				.replace("&amp;", "&")
+				.replace("&lt;", "<")
+				.replace("&gt;", ">")
+				.trim();
 	}
 
 	private static void font(XWPFRun run, int size, boolean bold) {

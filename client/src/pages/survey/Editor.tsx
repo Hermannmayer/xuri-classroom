@@ -19,6 +19,7 @@ import {
   ThunderboltOutlined,
   UndoOutlined,
   UpOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -42,6 +43,7 @@ import RichTextEditor from '../../components/RichTextEditor';
 import BankPickModal from './BankPickModal';
 import AiPaperCheckDrawer from './ai/AiPaperCheckDrawer';
 import AiPaperModal from './ai/AiPaperModal';
+import ProjectExportModal, { type ProjectExportTarget } from '../project/ProjectExportModal';
 import AiRewriteDrawer from './ai/AiRewriteDrawer';
 import { can, loadAuthorities } from '../../auth/permissions';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
@@ -256,6 +258,7 @@ export default function SurveyEditor() {
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonText, setJsonText] = useState('');
+  const [exportTarget, setExportTarget] = useState<ProjectExportTarget | null>(null);
   const [themeOpen, setThemeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
@@ -1031,6 +1034,14 @@ export default function SurveyEditor() {
         <Button icon={<PrinterOutlined />} onClick={() => void leaveTo('/survey/' + id + '/print')}>
           打印
         </Button>
+        <Button
+          icon={<DownloadOutlined />}
+          onClick={() =>
+            setExportTarget({ id, name, mode: setting.mode === 'survey' ? 'survey' : 'exam' })
+          }
+        >
+          导出
+        </Button>
         <Button type="primary" ghost loading={publishing} onClick={publish}>
           {setting.status === 1 ? '已发布' : '发布考试'}
         </Button>
@@ -1710,6 +1721,8 @@ export default function SurveyEditor() {
         onClose={() => setImportOpen(false)}
         onSubmit={handleImportSubmit}
       />
+
+      <ProjectExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
 
 
       <Drawer

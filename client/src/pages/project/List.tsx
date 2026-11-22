@@ -13,6 +13,7 @@ import ImportWizard, { type ImportSubmitPayload } from '../import/ImportWizard';
 import ComposePanel from '../compose/ComposePage';
 import { recordPaperImport } from '../../api/import';
 import FolderAuthModal from './FolderAuthModal';
+import ProjectExportModal, { type ProjectExportTarget } from './ProjectExportModal';
 import ProjectTree from './ProjectTree';
 import { PERMISSION_CODES } from '../../auth/permission-codes';
 
@@ -364,6 +365,7 @@ function ManagerProjectList({
   }>({ open: false, name: '' });
   const [renaming, setRenaming] = useState<ProjectRow | null>(null);
   const [folderAuth, setFolderAuth] = useState<ProjectRow | null>(null);
+  const [exportTarget, setExportTarget] = useState<ProjectExportTarget | null>(null);
 
   const [treeOpen, setTreeOpen] = useState(false);
 
@@ -927,6 +929,7 @@ function ManagerProjectList({
                                 items: [
                                   canDetail ? { key: 'setting', label: '设置' } : null,
                                   canUpdate ? { key: 'edit', label: '编辑' } : null,
+                                  canDetail ? { key: 'export', label: '导出' } : null,
                                   canPartner ? { key: 'auth', label: '授权' } : null,
                                   canPublish
                                     ? { key: 'status', label: row.status === 1 ? '关闭（停止收集）' : '开启' }
@@ -936,6 +939,7 @@ function ManagerProjectList({
                                 onClick: ({ key }) => {
                                   if (key === 'setting') navigate(`/survey/${row.id}`);
                                   if (key === 'edit') navigate(`/survey/${row.id}/edit`);
+                                  if (key === 'export') setExportTarget(row);
                                   if (key === 'auth') navigate(`/survey/${row.id}`);
                                   if (key === 'status') void setStatus(row, row.status === 1 ? 0 : 1);
                                   if (key === 'delete') {
@@ -1093,7 +1097,7 @@ function ManagerProjectList({
           },
           {
             title: '操作',
-            width: 400,
+            width: 460,
             render: (_: unknown, row) => (
               <Space size={10} wrap={false} style={{ whiteSpace: 'nowrap' }}>
                 {row.mode !== 'folder' && (
@@ -1103,6 +1107,9 @@ function ManagerProjectList({
                     )}
                     {canUpdate && (
                       <LinkAction onClick={() => navigate(`/survey/${row.id}/edit`)}>编辑</LinkAction>
+                    )}
+                    {canDetail && (
+                      <LinkAction onClick={() => setExportTarget(row)}>导出</LinkAction>
                     )}
                     {canData && (
                       <LinkAction
@@ -1279,6 +1286,8 @@ function ManagerProjectList({
           void load();
         }}
       />
+
+      <ProjectExportModal target={exportTarget} onClose={() => setExportTarget(null)} />
 
       <Modal
         title="重命名"
