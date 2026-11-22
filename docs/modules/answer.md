@@ -136,7 +136,7 @@ tests:
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
 last_verified: 2026-11-22
-verified_against: d28fb44f6d557cec86e4f2bdbe93228c6df351ed
+verified_against: 82f9cc841954a67ce6dcd7d0b96696cc62999e2b
 ---
 
 # 答卷、判分与报表
@@ -391,6 +391,7 @@ verified_against: d28fb44f6d557cec86e4f2bdbe93228c6df351ed
 管理员与项目所有者/协作者仍是项目级全量。数据页 / 报表这类带 `@EnableDataPerm` 的接口也认这条：`ProjectPartnerService#hasProjectAccess` 先看协作者缓存，再实时查班级分配，否则老师从考试列表点「数据」会 403。
 ## 坑与已知限制
 
+- **题面图/富文本图必须受尺寸约束**：`QuestionImageUploader.IMG_STYLE` 给新图片统一带 `max-width:100%;height:auto;max-height:360px;object-fit:contain`；`RichTextContent` 统一加点击放大（antd Image 预览，支持缩放/旋转/移动端手势）。`.sk-question-rich img` 在 ≤767.98px 时 max-height 240px，题干行在该断点换行，让图片占满可用宽度。改渲染层时不要去掉这些类名或 lightbox。
 - **预览模式要把 `preview=1` 透传到后端**：`PublicAnswer` 的 `/api/public/projectOutline` 与 `/api/public/question` 都必须带 `preview: previewMode`，否则 `PublicProjectLoader#isPreviewAllowed` 看不到 preview，草稿卷会被当成「已暂停回收」。只在前端判断 `previewMode` 不够。
 - **答题页的 hook 绝对不能写在提前返回之后**（2026-11-17 线上白屏事故）：`PublicAnswer` 里有
   6 处提前返回（loading / fatal / 需要密码 / 需要登录 / 无 project / 已提交结果），首屏

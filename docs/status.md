@@ -7,7 +7,7 @@
 | 模块 | 最后核对 | 核对 commit | 覆盖文件数 |
 |---|---|---|---|
 | `module-ai` | 2026-11-22 | `35bbc98c9bead384064e644a82b21e40802537e8` | 109 |
-| `module-answer` | 2026-11-22 | `d28fb44f6d557cec86e4f2bdbe93228c6df351ed` | 60 |
+| `module-answer` | 2026-11-22 | `82f9cc841954a67ce6dcd7d0b96696cc62999e2b` | 60 |
 | `module-audit` | 2026-11-21 | `43b4f52f89250d6faaa55da6038f01eed45e0227` | 16 |
 | `module-auth` | 2026-11-17 | `a2d304a31f0d64d28a8502fdcda02ef55c9a55de` | 14 |
 | `module-compose` | 2026-11-17 | `f706863fe7da50062717e799e16ad7931cfa49b6` | 15 |
