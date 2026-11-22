@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, Input, Modal, Tag } from 'antd';
+import { Button, Empty, Input, Modal, Segmented, Tag } from 'antd';
 import { ArrowLeftOutlined, SearchOutlined } from '@ant-design/icons';
 import { can } from '../auth/permissions';
 import { HELP_TOPICS, type HelpTopic } from '../help/helpContent';
@@ -33,17 +33,18 @@ export default function HelpCenter({ open, onClose, roles, authorities }: HelpCe
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('全部');
   const [selected, setSelected] = useState<HelpTopic>();
+  const canPreviewRoles = roles.includes('admin');
+  const [activeRole, setActiveRole] = useState<'admin' | 'teacher' | 'student'>('admin');
 
-  const visibleTopics = useMemo(
-    () =>
-      HELP_TOPICS.filter((topic) => {
-        if (!roles.length) return topic.audience.length === 3;
-        if (!topic.audience.some((audience) => roles.includes(audience))) return false;
-        if (!topic.permission) return true;
-        return authorities.includes('ROLE_admin') || can(authorities, topic.permission);
-      }),
-    [roles, authorities],
-  );
+  const visibleTopics = useMemo(() => {
+    const allowedRoles = canPreviewRoles ? [activeRole] : roles;
+    return HELP_TOPICS.filter((topic) => {
+      if (!allowedRoles.length) return topic.audience.length === 3;
+      if (!topic.audience.some((audience) => allowedRoles.includes(audience))) return false;
+      if (!topic.permission) return true;
+      return authorities.includes('ROLE_admin') || can(authorities, topic.permission);
+    });
+  }, [roles, authorities, canPreviewRoles, activeRole]);
 
   const categories = useMemo(
     () => ['全部', ...Array.from(new Set(visibleTopics.map((topic) => topic.category)))],
@@ -63,11 +64,12 @@ export default function HelpCenter({ open, onClose, roles, authorities }: HelpCe
       setSelected(undefined);
       setQuery('');
       setCategory('全部');
+      setActiveRole('admin');
     }
   }, [open]);
 
-  const roleLabel = roles.includes('admin')
-    ? ROLE_LABEL.admin
+  const roleLabel = canPreviewRoles
+    ? ROLE_LABEL[activeRole]
     : roles.includes('teacher')
       ? ROLE_LABEL.teacher
       : roles.length
@@ -101,6 +103,26 @@ export default function HelpCenter({ open, onClose, roles, authorities }: HelpCe
     >
       <div className="bp-help">
         <div className="bp-help-top">
+          {canPreviewRoles && (
+            <div className="bp-help-role-tabs">
+              <Segmented
+                size="small"
+                value={activeRole}
+                onChange={(value) => {
+                  setActiveRole(value as 'admin' | 'teacher' | 'student');
+                  setSelected(undefined);
+                  setQuery('');
+                  setCategory('全部');
+                }}
+                options={[
+                  { label: '管理员文档', value: 'admin' },
+                  { label: '老师文档', value: 'teacher' },
+                  { label: '学员文档', value: 'student' },
+                ]}
+              />
+              <span>管理员可切换三种视角检查帮助；老师/学员只看到自己的文档。</span>
+            </div>
+          )}
           <Input
             allowClear
             autoFocus

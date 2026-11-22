@@ -180,7 +180,7 @@ verified_against: 7710bd2ec4b55857a72e4e938fdf279362a8070a
 ### 0.0.2 右上角帮助中心
 
 - 入口：`BasicLayout` 右上角问号按钮（公告铃铛左侧），所有登录角色可见；打开的是居中大弹窗，不是侧栏。
-- 角色：`resolveHelpRoles` 用 authorityList 判定——`ROLE_admin` 看管理员+老师+通用；有 project/class/repo/report/answer/template 权限的看老师+通用；`portal:student` / `project:answer` / `exercise:list` 看学员+通用。没有角色时只显示通用主题。
+- 角色：`resolveHelpRoles` 用 authorityList 判定——`ROLE_admin` 默认进管理员视角，弹窗内可切换「管理员文档 / 老师文档 / 学员文档」三种视角（管理员有绕过主题权限的能力）；有 project/class/repo/report/answer/template 权限的看老师+通用；`portal:student` / `project:answer` / `exercise:list` 看学员+通用。没有角色时只显示通用主题。
 - 权限：主题可带 `permission`，`HelpCenter` 再用 `can()` 过滤；这是展示层过滤，不是接口鉴权。管理员绕过主题权限，方便排查老师/学员问题。
 - 搜索：顶部输入框对标题、摘要、keywords 和全部段落做小写子串匹配；左侧分类再叠一层筛选；无结果显示引导。
 - **唯一内容源**：用户文档写在 `docs/guide/{common,teacher,student,admin}.md`，同一批 Markdown 同时进 VitePress 文档站；`npm run docs:gen` 把它们生成 `client/src/help/helpContent.ts`，系统只读生成物，不再手维护第二份。新增功能时改文档页并重跑 `docs:gen`，不要直接改生成文件。

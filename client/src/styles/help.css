@@ -32,6 +32,24 @@
   padding: 14px 20px 10px;
   border-bottom: 1px solid var(--bp-line-soft);
 }
+.bp-help-role-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.bp-help-role-tabs .ant-segmented {
+  border-radius: 0;
+}
+.bp-help-role-tabs .ant-segmented-item {
+  border-radius: 0;
+}
+.bp-help-role-tabs > span {
+  color: var(--bp-text-soft);
+  font-size: 10px;
+  line-height: 1.6;
+}
 .bp-help-meta {
   margin-top: 6px;
   color: var(--bp-text-soft);
