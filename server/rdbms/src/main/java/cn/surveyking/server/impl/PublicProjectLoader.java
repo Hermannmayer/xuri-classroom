@@ -275,6 +275,7 @@ public class PublicProjectLoader {
 		ProjectQuery query = new ProjectQuery();
 		query.setId(request.getId());
 		query.setAnswerId(request.getAnswerId());
+		query.setPreview(request.getPreview());
 		PublicProjectView view = loadProject(query);
 		if (view.getSurvey() == null) {
 			throw new AccessDeniedException("当前问卷尚未完成访问验证");

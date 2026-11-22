@@ -12,4 +12,6 @@ public class PublicQuestionRequest {
 
 	private String questionId;
 
+	private Boolean preview;
+
 }

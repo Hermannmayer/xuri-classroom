@@ -355,13 +355,20 @@ export default function PublicAnswer() {
       }
 
       const savedId = freshAttempt ? undefined : (routeAnswerId ?? readAnswerId(id) ?? undefined);
-      applyProject(await post<PublicProjectView>('/api/public/projectOutline', { id, answerId: savedId, classToken }));
+      applyProject(
+        await post<PublicProjectView>('/api/public/projectOutline', {
+          id,
+          answerId: savedId,
+          classToken,
+          preview: previewMode,
+        }),
+      );
     } catch (e) {
       setFatal((e as Error).message || '加载失败');
     } finally {
       setLoading(false);
     }
-  }, [id, routeAnswerId, applyProject, freshAttempt, classToken]);
+  }, [id, routeAnswerId, applyProject, freshAttempt, classToken, previewMode]);
 
 
   useEffect(() => {
@@ -682,6 +689,7 @@ export default function PublicAnswer() {
         answerId,
         questionId,
         classToken,
+        preview: previewMode,
       });
       questionPendingRef.current.set(questionId, request);
       try {
@@ -699,7 +707,7 @@ export default function PublicAnswer() {
         setQuestionLoading((prev) => ({ ...prev, [questionId]: false }));
       }
     },
-    [id, answerId, project, message],
+    [id, answerId, project, message, previewMode],
   );
 
   const visibleQuestions = useMemo(() => {
