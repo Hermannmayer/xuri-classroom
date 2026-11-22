@@ -64,6 +64,21 @@ public final class RichTextSanitizer {
 		if (schema.getChildren() != null) {
 			schema.getChildren().forEach(RichTextSanitizer::sanitizeSchema);
 		}
+		if (schema.getDataSource() != null && schema.getChildren() != null) {
+			for (SurveySchema.DataSource dataSource : schema.getDataSource()) {
+				if (dataSource == null || dataSource.getValue() == null) {
+					continue;
+				}
+				for (SurveySchema child : schema.getChildren()) {
+					if (child != null && dataSource.getValue().equals(child.getId())
+							&& Boolean.TRUE.equals(child.getAttribute() == null ? null
+									: child.getAttribute().getRichTitle())) {
+						dataSource.setLabel(clean(dataSource.getLabel()));
+						break;
+					}
+				}
+			}
+		}
 	}
 
 }

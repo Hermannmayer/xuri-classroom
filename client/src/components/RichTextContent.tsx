@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { Image } from 'antd';
 import DOMPurify from 'dompurify';
 import 'katex/dist/katex.min.css';
@@ -19,11 +19,24 @@ export interface RichTextContentProps {
   html?: string;
   style?: CSSProperties;
   className?: string;
+  /** 行内渲染（选项标签等）：根节点用 span，避免在 button 里生成 div */
+  inline?: boolean;
+  /** 是否挂点击放大；选项内部关闭，避免点击图片时误触选项 */
+  zoomable?: boolean;
+  /** 自定义图片点击（选项内使用），优先于内置 lightbox */
+  onImageClick?: (src: string) => void;
 }
 
 /** 只读富文本：消毒后渲染，并把 [data-formula] 用 KaTeX 渲染 */
-export default function RichTextContent({ html, style, className }: RichTextContentProps) {
-  const ref = useRef<HTMLDivElement>(null);
+export default function RichTextContent({
+  html,
+  style,
+  className,
+  inline = false,
+  zoomable = true,
+  onImageClick,
+}: RichTextContentProps) {
+  const ref = useRef<HTMLElement>(null);
   const [previewSrc, setPreviewSrc] = useState<string>();
   const clean = DOMPurify.sanitize(html ?? '', {
     ALLOWED_TAGS,
@@ -33,6 +46,7 @@ export default function RichTextContent({ html, style, className }: RichTextCont
   });
 
   useEffect(() => {
+    if (!zoomable && !onImageClick) return;
     const root = ref.current;
     if (!root) return;
     const images = Array.from(root.querySelectorAll<HTMLImageElement>('img'));
@@ -44,11 +58,15 @@ export default function RichTextContent({ html, style, className }: RichTextCont
       if (!(target instanceof HTMLImageElement)) return false;
       const src = target.currentSrc || target.src;
       if (!src) return false;
-      setPreviewSrc(src);
+      if (onImageClick) onImageClick(src);
+      else setPreviewSrc(src);
       return true;
     };
     const onClick = (event: MouseEvent) => {
-      if (openImage(event.target)) event.preventDefault();
+      if (openImage(event.target)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -60,7 +78,7 @@ export default function RichTextContent({ html, style, className }: RichTextCont
       root.removeEventListener('click', onClick);
       root.removeEventListener('keydown', onKeyDown);
     };
-  }, [clean]);
+  }, [clean, zoomable, onImageClick]);
 
   useEffect(() => {
     const root = ref.current;
@@ -84,25 +102,32 @@ export default function RichTextContent({ html, style, className }: RichTextCont
     return () => { alive = false; };
   }, [clean]);
 
+  const content = {
+    className,
+    style,
+    dangerouslySetInnerHTML: { __html: clean },
+  };
+
   return (
     <>
-      <div
-        ref={ref}
-        className={className}
-        style={style}
-        dangerouslySetInnerHTML={{ __html: clean }}
-      />
-      <Image
-        src={previewSrc ?? BLANK_IMAGE}
-        alt=""
-        style={{ display: 'none' }}
-        preview={{
-          visible: Boolean(previewSrc),
-          onVisibleChange: (visible) => {
-            if (!visible) setPreviewSrc(undefined);
-          },
-        }}
-      />
+      {inline ? (
+        <span ref={ref as unknown as Ref<HTMLSpanElement>} {...content} />
+      ) : (
+        <div ref={ref as unknown as Ref<HTMLDivElement>} {...content} />
+      )}
+      {zoomable && !onImageClick && (
+        <Image
+          src={previewSrc ?? BLANK_IMAGE}
+          alt=""
+          style={{ display: 'none' }}
+          preview={{
+            visible: Boolean(previewSrc),
+            onVisibleChange: (visible) => {
+              if (!visible) setPreviewSrc(undefined);
+            },
+          }}
+        />
+      )}
     </>
   );
 }

@@ -676,31 +676,35 @@ public class RepoServiceImpl extends BaseService<RepoMapper, Repo> implements Re
 
 	@SneakyThrows
 	private List<TemplateRequest> parseExcelToTemplate(MultipartFile file) {
-		RepoTemplateExcelParseHelper helper = new RepoTemplateExcelParseHelper(file);
+		ExcelRowImages rowImages = readExcelImages(file);
+		RepoTemplateExcelParseHelper helper = new RepoTemplateExcelParseHelper(file, rowImages);
 		List<TemplateRequest> templates = helper.parse();
-		attachExcelRowImages(file, templates);
+		attachExcelRowImages(rowImages, templates);
 		for (RepoTemplateExcelParseHelper.ParseWarning warning : helper.getWarnings()) {
 			log.warn("题库导入提示：{}", warning.getMessage());
 		}
 		return templates;
 	}
 
-	/** 题库导入也吃 Excel 内嵌图片：按「行号」把图片上传成题目图片（公开预览地址），追加到题干末尾 */
-	private void attachExcelRowImages(MultipartFile file, List<TemplateRequest> templates) {
-		ExcelRowImages rowImages;
+	private ExcelRowImages readExcelImages(MultipartFile file) {
 		try {
-			rowImages = ExcelRowImages.read(file.getBytes());
+			ExcelRowImages rowImages = ExcelRowImages.read(file.getBytes());
+			for (ExcelRowImages.Warning warning : rowImages.getWarnings()) {
+				log.warn("题库导入提示：{}", warning.getMessage());
+			}
+			return rowImages;
 		}
 		catch (Exception e) {
 			log.warn("题库导入：读取 Excel 内嵌图片失败，已按无图片导入：{}", e.getMessage());
-			return;
+			return ExcelRowImages.empty();
 		}
-		for (ExcelRowImages.Warning warning : rowImages.getWarnings()) {
-			log.warn("题库导入提示：{}", warning.getMessage());
-		}
+	}
+
+	/** 题库导入也吃 Excel 内嵌图片：按选项列挂到选项，其余按行挂到题干 */
+	private void attachExcelRowImages(ExcelRowImages rowImages, List<TemplateRequest> templates) {
 		int attached = QuestionImageUploader.attachRowImages(fileService, templates, rowImages);
 		if (attached > 0) {
-			log.info("题库导入：已把 {} 张 Excel 内嵌图片挂到题干末尾", attached);
+			log.info("题库导入：已把 {} 张 Excel 内嵌图片挂到选项/题干", attached);
 		}
 	}
 

@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 
 
@@ -93,5 +94,9 @@ public class TemplateRequest {
 
 	@JsonIgnore
 	private Integer sourceRow;
+
+	/** 选项 id → Excel 选项列（0 基），只用于把单元格内嵌图片挂到对应选项 */
+	@JsonIgnore
+	private Map<String, Integer> sourceOptionColumns;
 
 }

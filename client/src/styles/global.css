@@ -1009,6 +1009,26 @@ body {
 .rich-text-content .rt-question-ref { color: var(--bp-orange); border-bottom: 1px dashed var(--bp-orange); }
 
 
+.option-rich-preview {
+  flex: 1;
+  min-width: 0;
+  max-height: 110px;
+  overflow: auto;
+  padding: 3px 7px;
+  border: 1px solid var(--bp-line-soft);
+  background: var(--bp-panel);
+}
+.option-rich-preview p {
+  margin: 0;
+}
+.option-rich-preview img {
+  display: block;
+  max-width: 100% !important;
+  max-height: 84px !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
 .rich-text-content img,
 .sk-question-rich img {
   display: block;

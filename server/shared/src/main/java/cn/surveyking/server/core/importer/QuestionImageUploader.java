@@ -10,7 +10,10 @@ import cn.surveyking.server.service.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 
 
@@ -64,7 +67,7 @@ public final class QuestionImageUploader {
 		return attached;
 	}
 
-	/** 按 TemplateRequest#getSourceSheet()/TemplateRequest#getSourceRow() 把 Excel 内嵌图片挂到 每道题的题干末尾（题库导入没有 token 替换那一层，直接挂 HTML）；返回挂上的总张数 */
+	/** 按选项列/行把 Excel 内嵌图片挂到选项或题干（题库导入没有 token 替换那一层，直接挂 HTML）；返回挂上的总张数 */
 	public static int attachRowImages(FileService fileService, List<TemplateRequest> templates,
 			ExcelRowImages rowImages) {
 		if (templates == null || rowImages == null || rowImages.isEmpty()) {
@@ -76,9 +79,39 @@ public final class QuestionImageUploader {
 			if (schema == null) {
 				continue;
 			}
-			attached += attach(fileService, schema, rowImages.imagesOf(template.getSourceSheet(), template.getSourceRow()));
+			Map<String, Integer> optionColumns = template.getSourceOptionColumns();
+			Set<Integer> optionColumnSet = new LinkedHashSet<>();
+			if (optionColumns != null) {
+				optionColumnSet.addAll(optionColumns.values());
+				for (SurveySchema child : schema.getChildren() == null ? List.<SurveySchema>of() : schema.getChildren()) {
+					Integer column = optionColumns.get(child.getId());
+					if (column == null) {
+						continue;
+					}
+					int count = attach(fileService, child,
+							rowImages.imagesOfCell(template.getSourceSheet(), template.getSourceRow(), column));
+					if (count > 0) {
+						attached += count;
+						syncDataSourceLabel(schema, child);
+					}
+				}
+			}
+			attached += attach(fileService, schema, rowImages.imagesOfRowExcept(template.getSourceSheet(),
+					template.getSourceRow(), optionColumnSet));
 		}
 		return attached;
+	}
+
+	private static void syncDataSourceLabel(SurveySchema schema, SurveySchema option) {
+		if (schema.getDataSource() == null) {
+			return;
+		}
+		for (SurveySchema.DataSource dataSource : schema.getDataSource()) {
+			if (dataSource != null && dataSource.getValue() != null && dataSource.getValue().equals(option.getId())) {
+				dataSource.setLabel(option.getTitle());
+				return;
+			}
+		}
 	}
 
 	/** 把一段 {@code } 追加到题干末尾，并打上富题干标记（渲染层据此消毒后展示） */

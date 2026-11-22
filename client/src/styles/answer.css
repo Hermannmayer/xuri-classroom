@@ -239,6 +239,29 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+.sk-option-rich {
+  display: block;
+  white-space: normal;
+}
+.sk-option-rich p {
+  margin: 0 0 2px;
+}
+.sk-option-rich p:last-child {
+  margin-bottom: 0;
+}
+.sk-option-rich img {
+  display: block;
+  max-width: 100% !important;
+  max-height: 120px !important;
+  height: auto !important;
+  margin: 2px 0;
+  object-fit: contain;
+}
+@media (max-width: 767.98px) {
+  .sk-option-rich img {
+    max-height: 96px !important;
+  }
+}
 
 
 .sk-blanks {

@@ -1,6 +1,7 @@
 import { Select as AntSelect } from 'antd';
+import RichTextContent from '../../components/RichTextContent';
 import type { QuestionComponentProps } from '../types';
-import { optionAnswer, optionsOf, selectedIds } from './answers';
+import { optionAnswer, optionPlainText, optionsOf, selectedIds } from './answers';
 import { EmptyOptions, QuestionFrame, questionA11yIds, useAnswerState } from './shared';
 
 /** 下拉单选：answer = { [optionId]: option.label } */
@@ -27,7 +28,27 @@ export default function Select(props: QuestionComponentProps) {
           disabled={locked}
           allowClear
           showSearch
-          optionFilterProp="label"
+          filterOption={(input, option) =>
+            optionPlainText(String(option?.label ?? ''))
+              .toLowerCase()
+              .includes(input.trim().toLowerCase())
+          }
+          optionRender={(option) => {
+            const data = option.data as { label: string; rich?: boolean };
+            return data.rich ? (
+              <RichTextContent inline zoomable={false} html={data.label} />
+            ) : (
+              option.label
+            );
+          }}
+          labelRender={(props) => {
+            const selected = options.find((option) => option.value === props.value);
+            return selected?.rich ? (
+              <RichTextContent inline zoomable={false} html={selected.label} />
+            ) : (
+              props.label
+            );
+          }}
           onChange={(id) => {
             const option = options.find((o) => o.value === id);
             setAnswer(option ? optionAnswer(option) : null);

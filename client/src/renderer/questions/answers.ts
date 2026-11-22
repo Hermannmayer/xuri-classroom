@@ -5,20 +5,55 @@ import { isOptionSelected, type AnswerValue } from '../types';
 export interface Option {
   label: string;
   value: string;
+  rich?: boolean;
+}
+
+/** 选项标签是否按富文本渲染：导入/AI 写入的图片、加粗等 HTML */
+export function isRichOptionLabel(label?: string): boolean {
+  return Boolean(label && /<\/?(?:img|p|br|strong|b|em|i|u|s|strike|span|div|ul|ol|li|table|a)\b/i.test(label));
+}
+
+/** 下拉/答案下拉等纯文本位置的选项摘要：去掉 HTML，只保留可读文字 */
+export function optionPlainText(label?: string): string {
+  const text = (label ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text || '（图片选项）';
 }
 
 /** dataSource → 选项；value 即后端 answer 里的 optionId */
 export function toOptions(dataSource?: DataSource[]): Option[] {
-  return (dataSource ?? []).map(({ label, value }) => ({ label, value }));
+  return (dataSource ?? []).map(({ label, value }) => ({
+    label,
+    value,
+    rich: isRichOptionLabel(label),
+  }));
 }
 
-/** 取一道题的选项，带兜底： */
+/** 取一道题的选项，带兜底；richTitle 以选项节点上的属性为准 */
 export function optionsOf(schema: SurveySchema): Option[] {
+  const children = new Map((schema.children ?? []).map((child) => [child.id, child]));
   const fromDataSource = toOptions(schema.dataSource);
-  if (fromDataSource.length) return fromDataSource;
+  if (fromDataSource.length) {
+    return fromDataSource.map((option) => {
+      const child = children.get(option.value);
+      const rich = Boolean(child?.attribute?.richTitle) || option.rich;
+      return {
+        ...option,
+        label: rich && child?.title ? child.title : option.label,
+        rich,
+      };
+    });
+  }
   return (schema.children ?? [])
     .filter((child) => Boolean(child.id) && String(child.title ?? '').trim() !== '')
-    .map((child) => ({ label: child.title ?? '', value: child.id }));
+    .map((child) => ({
+      label: child.title ?? '',
+      value: child.id,
+      rich: Boolean(child.attribute?.richTitle) || isRichOptionLabel(child.title),
+    }));
 }
 
 /** 已选的 optionId（key 存在即选中，不看值真假） */

@@ -223,7 +223,7 @@ public class WordQuestionParser {
 		List<ImportPreview.Warning> warnings = new ArrayList<>(sectioned.warnings());
 		if (!attachments.isEmpty()) {
 			warnings.add(ImportPreview.Warning.builder().level("info").code("IMAGE_IMPORTED")
-					.message("已提取 " + attachments.size() + " 张图片，导入后随题干展示").build());
+					.message("已提取 " + attachments.size() + " 张图片，导入后随题干/选项展示").build());
 		}
 		if (skippedImages > 0) {
 			warnings.add(ImportPreview.Warning.builder().level("warn").code("IMAGE_SKIPPED")

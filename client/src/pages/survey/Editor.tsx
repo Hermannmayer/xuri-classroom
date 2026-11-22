@@ -1481,6 +1481,8 @@ export default function SurveyEditor() {
                       questionsAfter={followingQuestions}
                       questionsAll={flatQuestions}
                       onPatchNode={patchNode}
+                      ownerType="project"
+                      ownerId={id}
                       scoring={scoringEnabled}
                     />
                   </>

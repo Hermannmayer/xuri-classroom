@@ -443,6 +443,7 @@ public class AiImportServiceImpl implements AiImportService {
 		applyImageUrls(preview.getTree(), urls, visited, replaced);
 		for (SurveySchema question : preview.getFlat()) {
 			applyImageUrls(question, urls, visited, replaced);
+			syncOptionLabels(question);
 		}
 		if (replaced[0]) {
 			Set<String> synced = new HashSet<>();
@@ -516,6 +517,21 @@ public class AiImportServiceImpl implements AiImportService {
 		if (node.getChildren() != null) {
 			for (SurveySchema child : node.getChildren()) {
 				collectImageIndexes(child, indexes, visited);
+			}
+		}
+	}
+
+	private void syncOptionLabels(SurveySchema schema) {
+		if (schema == null || schema.getDataSource() == null || schema.getChildren() == null) {
+			return;
+		}
+		for (SurveySchema.DataSource dataSource : schema.getDataSource()) {
+			for (SurveySchema child : schema.getChildren()) {
+				if (dataSource != null && child != null && dataSource.getValue() != null
+						&& dataSource.getValue().equals(child.getId())) {
+					dataSource.setLabel(child.getTitle());
+					break;
+				}
 			}
 		}
 	}

@@ -9,6 +9,7 @@ import JumpRuleEditor, { jumpRuleSummary } from './JumpRuleEditor';
 import CalculateRuleEditor, { calculateRuleSummary } from './CalculateRuleEditor';
 import RuleSettingRow from './RuleSettingRow';
 import OptionEditor from './OptionEditor';
+import { optionPlainText } from '../renderer/questions/answers';
 
 export interface AttributePanelProps {
   schema: SurveySchema;
@@ -23,6 +24,10 @@ export interface AttributePanelProps {
 
   onPatchNode?: (patch: Partial<SurveySchema>) => void;
 
+  ownerType?: 'project' | 'repo';
+
+  ownerId?: string;
+
   scoring?: boolean;
 }
 
@@ -36,6 +41,8 @@ export function AttributePanel({
   questionsAfter,
   questionsAll,
   onPatchNode,
+  ownerType,
+  ownerId,
   scoring = true,
 }: AttributePanelProps) {
   const attribute: Attribute = schema.attribute ?? {};
@@ -48,7 +55,10 @@ export function AttributePanel({
     const letter = String.fromCharCode(65 + index);
     return {
       value: child.id,
-      label: schema.type === 'Judge' ? child.title || letter : letter + '. ' + (child.title || '(未填写)'),
+      label:
+        schema.type === 'Judge'
+          ? optionPlainText(child.title) || letter
+          : letter + '. ' + (optionPlainText(child.title) || '(未填写)'),
     };
   });
   const correctIds = optionNodes
@@ -288,7 +298,15 @@ export function AttributePanel({
       </div>
       <hr className="bp-dim" style={{ margin: '0 0 10px' }} />
 
-      {onPatchNode && <OptionEditor schema={schema} onPatch={onPatchNode} />}
+      {onPatchNode && (
+        <OptionEditor
+          schema={schema}
+          onPatch={onPatchNode}
+          ownerType={ownerType}
+          ownerId={ownerId}
+          questionId={schema.id}
+        />
+      )}
       {onPatchNode && MATRIX_TYPES.has(schema.type) && <MatrixEditor schema={schema} onPatch={onPatchNode} />}
 
       <Form layout="vertical" size="small" requiredMark={false}>

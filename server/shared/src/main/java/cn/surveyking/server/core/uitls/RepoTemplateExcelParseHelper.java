@@ -3,6 +3,7 @@ package cn.surveyking.server.core.uitls;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.importer.ExcelRowImages;
 import cn.surveyking.server.domain.dto.SurveySchema;
 import cn.surveyking.server.domain.dto.TemplateRequest;
 import lombok.SneakyThrows;
@@ -61,6 +62,10 @@ public class RepoTemplateExcelParseHelper {
 
 	private final MultipartFile templateFile;
 
+	private final ExcelRowImages rowImages;
+
+	private Map<String, Integer> currentOptionColumns = new LinkedHashMap<>();
+
 	private List<TemplateRequest> result = new ArrayList<>();
 
 	private Set<String> ids = new HashSet<>();
@@ -75,7 +80,12 @@ public class RepoTemplateExcelParseHelper {
 	private String currentSheetName;
 
 	public RepoTemplateExcelParseHelper(MultipartFile templateFile) {
+		this(templateFile, null);
+	}
+
+	public RepoTemplateExcelParseHelper(MultipartFile templateFile, ExcelRowImages rowImages) {
 		this.templateFile = templateFile;
+		this.rowImages = rowImages;
 	}
 
 	/** 非致命提示（JSON 列写错、图片超限等），由调用方并入 ImportPreview.warnings */
@@ -130,6 +140,7 @@ public class RepoTemplateExcelParseHelper {
 	}
 
 	private void parseDataRow(Row r, RepoTemplateI18n.SheetType sheetType) {
+		currentOptionColumns.clear();
 		switch (sheetType) {
 			case SINGLE_CHOICE:
 				parseRadioOrJudge(r, SurveySchema.QuestionType.Radio);
@@ -402,18 +413,31 @@ public class RepoTemplateExcelParseHelper {
 	private void applyOptionChildren(SurveySchema schema, Row r, String correctAnswer) {
 		List<SurveySchema> children = new ArrayList<>();
 		List<SurveySchema.DataSource> dataSources = new ArrayList<>();
+		currentOptionColumns.clear();
 		for (String suffix : OPTION_SUFFIXES) {
+			int column = name2index.getOrDefault("option" + suffix, -1);
+			boolean hasImage = rowImages != null && column >= 0
+					&& !rowImages.imagesOfCell(currentSheetName, r.getRowNum(), column).isEmpty();
 			String optionText = getCellAsString(r, "option" + suffix);
-			if (isBlank(optionText)) {
+			if (isBlank(optionText) && !hasImage) {
 				continue;
 			}
+			String label = optionText == null ? "" : optionText;
 			String optionId = generateId();
 			boolean correct = currentChecked(suffix.charAt(0) - 'A', correctAnswer);
-			children.add(SurveySchema.builder().id(optionId).title(optionText)
+			SurveySchema.Attribute optionAttribute = SurveySchema.Attribute.builder()
+					.examCorrectAnswer(correct ? optionId : null).build();
+			if (hasImage) {
+				optionAttribute.setRichTitle(true);
+			}
+			children.add(SurveySchema.builder().id(optionId).title(label)
 					.type(SurveySchema.QuestionType.Option)
-					.attribute(SurveySchema.Attribute.builder().examCorrectAnswer(correct ? optionId : null).build())
+					.attribute(optionAttribute)
 					.build());
-			dataSources.add(new SurveySchema.DataSource(optionText, optionId, null));
+			dataSources.add(new SurveySchema.DataSource(label, optionId, null));
+			if (column >= 0) {
+				currentOptionColumns.put(optionId, column);
+			}
 		}
 		schema.setChildren(children);
 		schema.setDataSource(dataSources.isEmpty() ? null : dataSources);
@@ -439,6 +463,8 @@ public class RepoTemplateExcelParseHelper {
 
 		templateRequest.setSourceSheet(currentSheetName);
 		templateRequest.setSourceRow(r.getRowNum());
+		templateRequest.setSourceOptionColumns(new LinkedHashMap<>(currentOptionColumns));
+		currentOptionColumns.clear();
 		result.add(templateRequest);
 	}
 
@@ -589,6 +615,8 @@ public class RepoTemplateExcelParseHelper {
 		Double examScore = getCellAsDouble(r, "examScore");
 		String tags = getCellAsString(r, "tags");
 
+		List<SurveySchema.DataSource> dataSources = new ArrayList<>();
+		currentOptionColumns.clear();
 		List<SurveySchema> optionSchemaList = r.stream()
 				.filter(cell -> cell != null && name2index.get("minOptionIndex") != null
 						&& cell.getColumnIndex() >= name2index.get("minOptionIndex")
@@ -597,8 +625,9 @@ public class RepoTemplateExcelParseHelper {
 					String optionTitle = x.getText();
 					String examCorrectAnswer = x.getText();
 					String optionId = generateId();
-
 					if (name2index.get("isChoice") != null) {
+						dataSources.add(new SurveySchema.DataSource(optionTitle, optionId, null));
+						currentOptionColumns.put(optionId, x.getColumnIndex());
 
 						int columnIndex = x.getColumnIndex() - name2index.get("minOptionIndex");
 						boolean currentCorrect = currentChecked(columnIndex, correctAnswer);
@@ -613,14 +642,47 @@ public class RepoTemplateExcelParseHelper {
 							.build();
 				}).collect(Collectors.toList());
 
-		return SurveySchema.builder().title(title).attribute(SurveySchema.Attribute.builder()
+		if (name2index.get("isChoice") != null) {
+			int min = name2index.getOrDefault("minOptionIndex", -1);
+			int max = name2index.getOrDefault("maxOptionIndex", -1);
+			for (int column = min; column >= 0 && column <= max; column++) {
+				if (currentOptionColumns.containsValue(column)) {
+					continue;
+				}
+				boolean hasImage = rowImages != null
+						&& !rowImages.imagesOfCell(currentSheetName, r.getRowNum(), column).isEmpty();
+				if (!hasImage) {
+					continue;
+				}
+				String optionId = generateId();
+				boolean currentCorrect = currentChecked(column - min, correctAnswer);
+				SurveySchema.Attribute optionAttribute = SurveySchema.Attribute.builder()
+						.examCorrectAnswer(currentCorrect ? optionId : null).richTitle(true).build();
+				optionSchemaList.add(SurveySchema.builder().id(optionId).title("")
+						.type(SurveySchema.QuestionType.Option).attribute(optionAttribute).build());
+				dataSources.add(new SurveySchema.DataSource("", optionId, null));
+				currentOptionColumns.put(optionId, column);
+			}
+		}
+
+		if (name2index.get("isChoice") != null) {
+			optionSchemaList.sort(Comparator.comparingInt(
+					option -> currentOptionColumns.getOrDefault(option.getId(), Integer.MAX_VALUE)));
+			dataSources.sort(Comparator.comparingInt(
+					dataSource -> currentOptionColumns.getOrDefault(dataSource.getValue(), Integer.MAX_VALUE)));
+		}
+
+		SurveySchema schema = SurveySchema.builder().title(title).attribute(SurveySchema.Attribute.builder()
 
 				.examAnalysis(getCellAsString(r, "examAnalysis"))
 
 				.examScore(examScore).build()).id(generateId())
 				.chapter(getCellAsString(r, "chapter")).difficulty(getCellAsString(r, "difficulty"))
 				.tags(tags != null ? Arrays.asList(tags.split("\\s|,")) : null).children(optionSchemaList).build();
-
+		if (!dataSources.isEmpty()) {
+			schema.setDataSource(dataSources);
+		}
+		return schema;
 	}
 
 	/** 根据标题解析出来各个选项的顺序 */

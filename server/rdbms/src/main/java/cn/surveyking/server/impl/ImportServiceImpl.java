@@ -105,6 +105,24 @@ public class ImportServiceImpl implements ImportService {
 			}
 		}
 		attachments.clear();
+		for (SurveySchema question : preview.getFlat()) {
+			syncOptionLabels(question);
+		}
+	}
+
+	private void syncOptionLabels(SurveySchema schema) {
+		if (schema == null || schema.getDataSource() == null || schema.getChildren() == null) {
+			return;
+		}
+		for (SurveySchema.DataSource dataSource : schema.getDataSource()) {
+			for (SurveySchema child : schema.getChildren()) {
+				if (dataSource != null && child != null && dataSource.getValue() != null
+						&& dataSource.getValue().equals(child.getId())) {
+					dataSource.setLabel(child.getTitle());
+					break;
+				}
+			}
+		}
 	}
 
 	private void replaceImageTokens(SurveySchema node, Map<String, String> urls) {

@@ -45,7 +45,7 @@ public class ExcelQuestionParser {
 		ExcelImportSecurity.validateFile(file);
 		List<ImportPreview.Warning> warnings = new ArrayList<>();
 		ExcelRowImages rowImages = readRowImages(warnings);
-		RepoTemplateExcelParseHelper helper = new RepoTemplateExcelParseHelper(file);
+		RepoTemplateExcelParseHelper helper = new RepoTemplateExcelParseHelper(file, rowImages);
 		List<TemplateRequest> templates = helper.parse();
 		Map<String, byte[]> attachments = new LinkedHashMap<>();
 		attachRowImageTokens(templates, rowImages, attachments);
@@ -57,7 +57,7 @@ public class ExcelQuestionParser {
 		preview.setAttachments(attachments);
 		if (!attachments.isEmpty()) {
 			warnings.add(ImportPreview.Warning.builder().level("info").code("IMAGE_IMPORTED")
-					.message("已提取 " + attachments.size() + " 张 Excel 内嵌图片，按所在行挂到题干末尾").build());
+					.message("已提取 " + attachments.size() + " 张 Excel 内嵌图片，按选项/题干位置挂载").build());
 		}
 		preview.getWarnings().addAll(warnings);
 		return preview;
@@ -101,7 +101,7 @@ public class ExcelQuestionParser {
 		}
 	}
 
-	/** 把该行抽到的内嵌图片换成 [[IMG:n]] token 追加到题干末尾（n 全局递增，与 Word 导入一致）， 字节放进 attachments，落库前由 ImportServiceImpl.applyAttachments 换成图片地址 */
+	/** 把选项单元格/行内图片换成 [[IMG:n]] token；选项图片挂选项，其余挂题干 */
 	private int attachRowImageTokens(List<TemplateRequest> templates, ExcelRowImages rowImages,
 			Map<String, byte[]> attachments) {
 		if (rowImages.isEmpty()) {
@@ -113,7 +113,28 @@ public class ExcelQuestionParser {
 			if (schema == null) {
 				continue;
 			}
-			for (byte[] data : rowImages.imagesOf(template.getSourceSheet(), template.getSourceRow())) {
+			Map<String, Integer> optionColumns = template.getSourceOptionColumns();
+			Set<Integer> optionColumnSet = new LinkedHashSet<>();
+			if (optionColumns != null) {
+				optionColumnSet.addAll(optionColumns.values());
+				for (SurveySchema child : schema.getChildren() == null ? List.<SurveySchema>of() : schema.getChildren()) {
+					Integer column = optionColumns.get(child.getId());
+					if (column == null) {
+						continue;
+					}
+					for (byte[] data : rowImages.imagesOfCell(template.getSourceSheet(), template.getSourceRow(), column)) {
+						if (QuestionImageUploader.guessImageExtension(data) == null) {
+							continue;
+						}
+						String token = "[[IMG:" + (++attached) + "]]";
+						attachments.put(token, data);
+						String title = child.getTitle() == null ? "" : child.getTitle().trim();
+						child.setTitle(title.isEmpty() ? token : title + " " + token);
+					}
+				}
+			}
+			for (byte[] data : rowImages.imagesOfRowExcept(template.getSourceSheet(), template.getSourceRow(),
+					optionColumnSet)) {
 				if (QuestionImageUploader.guessImageExtension(data) == null) {
 
 					continue;
