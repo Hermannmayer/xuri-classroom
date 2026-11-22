@@ -1,6 +1,6 @@
 /** 答卷导出弹窗：Excel 明细（同步下载）+ 多种「每人一份」产物（异步任务，2 秒轮询进度） */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, App, Checkbox, Input, Modal, Progress, Radio, Space } from 'antd';
+import { Alert, App, Checkbox, Input, Modal, Progress, Radio, Space, type InputRef } from 'antd';
 import {
   cancelAnswerPdfJob,
   createAnswerPdfJob,
@@ -124,6 +124,7 @@ export default function ExportModal({
   const jobRef = useRef<AnswerPdfJobView | null>(null);
 
   const passwordRef = useRef('');
+  const passwordInputRef = useRef<InputRef>(null);
 
   const running = !!job && (job.status === 'queued' || job.status === 'running');
   const hasSelection = selectedIds.length > 0;
@@ -288,6 +289,7 @@ export default function ExportModal({
           );
           message.success('Excel 明细已开始下载');
         } catch (e) {
+          if ((e as Error).message.includes('密码')) throw e;
           excelFailed = (e as Error).message;
         }
       }
@@ -337,8 +339,13 @@ export default function ExportModal({
         setJobError(`Excel 明细导出失败：${excelFailed}`);
       }
     } catch (e) {
-
-      setJobError((e as Error).message);
+      const text = (e as Error).message || '导出失败';
+      if (text.includes('密码')) {
+        setJobError('导出密码不正确：系统已设置导出密码，请填写后再试；忘记可让管理员在「系统设置 → 内容与隐私」重置。');
+        passwordInputRef.current?.focus();
+        return;
+      }
+      setJobError(text);
     } finally {
       setExporting(false);
     }
@@ -451,6 +458,7 @@ export default function ExportModal({
         <div>
           <div style={{ marginBottom: 6 }}>导出密码</div>
           <Input.Password
+            ref={passwordInputRef}
             value={password}
             disabled={running}
             name="export-password"
@@ -460,7 +468,7 @@ export default function ExportModal({
             autoComplete="new-password"
           />
           <div style={{ marginTop: 4, fontSize: 12, color: 'var(--bp-text-soft)' }}>
-            管理员可在「系统设置 → 内容与隐私」里设置导出密码；未设置密码时直接留空导出即可。
+            系统若设置了导出密码，这里必须填写；未设置时留空即可。忘记密码可由管理员在「系统设置 → 内容与隐私」重置。
           </div>
         </div>
 
