@@ -94,7 +94,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
+verified_against: e11108160370fc23553493c27513649eb320b4f9
 ---
 
 # 题库与题目
@@ -146,7 +146,7 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 | 题库全局开放期 | `server/rdbms/.../domain/model/Repo.java`、`server/shared/.../dto/RepoRequest.java`、`RepoView.java`、`init-mysql.sql`、`scripts/nas/migrate/32-repo-open-window.sql` | `t_repo.open_start_at/open_end_at`（datetime，NULL=不限）；`RepoServiceImpl#updateRepo` 显式 set，支持清空 |
 | 统计 SQL | `server/rdbms/src/main/java/cn/surveyking/server/mapper/RepoMapper.java` | 每个题库的题量、题型分布、标签分布 |
 | 数据表 | `t_repo`、`t_repo_category`、`t_template`、`t_repo_partner`、`t_class_resource`、`t_tag`、`t_user_book`、`t_file_ref` | 题库、分类目录、题目、授权（含 access_level）、班级分配、标签、错题/收藏、富文本图片引用 |
-| Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析（13 种），行级安全校验；结果带 `sourceSheet/sourceRow` 供挂内嵌图片 |
+| Excel 解析 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java` | 按 sheet 名分题型解析（13 种），行级安全校验；结果带 `sourceSheet/sourceRow/sourceOptionColumns` 供挂内嵌图片 |
 | Excel 文案 | `server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java` | sheet 名与表头的中英文别名（`SheetType` / `HeaderLabel` / 行标题N / 列标题N / 选项树 / 高级配置），导入导出共用 |
 
 ## 关键流程
@@ -155,8 +155,8 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 2. **题目列表**：`Questions.tsx` 调 `GET /api/template/list?repoId=...`。`TemplateApi.listQuestionTemplate` 接受 `template:list`、`repo:detail`、`repo:questions:read` 三者之一；`TemplateServiceImpl.listTemplate` 先用 `assertReadableRepo` 校验题库可读，再分页查题目。题库名从路由 state、`?repoName=`、或 `GET /api/repo/detail` 依次兜底。`/api/repo/detail` 现在接受 `repo:detail` 或 `repo:questions:read`，但服务层仍走 `assertReadableRepo`（管理员/创建者/共享/partner/班级分配），学员只能读可见题库。
 3. **导入题目**：`Questions.tsx` 用 `FormData` 提交 `repoId` / `kind` / `file`（或 `text`）到 `POST /api/repo/import`（权限 `template:import`，管理员放行）。
    导入下拉有四类：Excel（按题型分表）/ 文本（粘贴题目）/ Word（按模板）/ AI 智能识别，对应 `kind=excel`（默认）/ `text` / `word` / AI：
-   Excel 走 `RepoTemplateExcelParseHelper.parse`（13 个题型 sheet）**并按行挂内嵌图片**——`attachExcelRowImages` 复用
-   `ExcelRowImages` + `QuestionImageUploader`（与试卷导入同一套抽图/上传逻辑），题干末尾追加 `<img>` 并置 `richTitle=true`；
+   Excel 走 `RepoTemplateExcelParseHelper.parse`（13 个题型 sheet）**并按选项列/行挂内嵌图片**——`attachExcelRowImages` 复用
+   `ExcelRowImages` + `QuestionImageUploader`（与试卷导入同一套抽图/上传逻辑），图片追加到对应选项或题干并置 `richTitle=true`；
    Word/文本走 `WordQuestionParser` / `TextQuestionParser`，**图片占位符会被剥掉**（题库题目只存题目本体，不挂图）。
    解析结果进 `batchAddRepoTemplate`：同一题库里「序号 + 题型」都相同的题目会更新，否则新增；成功后写一条 `IMPORT_REPO` 审计。
    AI 导入不重新上传原文件：预览确认后 `POST /api/repo/import/questions`（JSON：`repoId` + 勾选后的 `questions`），

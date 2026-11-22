@@ -65,7 +65,7 @@ tables:
   - t_ai_usage
 tests: []
 last_verified: 2026-11-22
-verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
+verified_against: e11108160370fc23553493c27513649eb320b4f9
 ---
 
 # AI 助手
@@ -82,7 +82,7 @@ AI 现在是**七个能真正干活的场景 + 一个能对当前页面动手的
 | 批量 AI 批改 | 答卷数据页 / 对话 | **写**（可撤销） | 只补「未批改」卷子里还没给分的主观题 |
 | 错题重练 | 学情报表「错题重练」 | 预览后「追加到本卷」才写 | 按得分率找薄弱考点，从题库再抽一组题 |
 | 公告草稿 | 系统管理 → 公告管理 | 不写 | 几句要点 → 规范通知草稿，人改完再发 |
-| AI 智能导入 | 导入向导「AI 智能识别」 | 预览后写 | 文档/图片 → 题目；源文件不落盘，只有被题干引用的图片才上传 |
+| AI 智能导入 | 导入向导「AI 智能识别」 | 预览后写 | 文档/图片 → 题目；源文件不落盘，只有被题干/选项引用的图片才上传 |
 
 对话框（右下角悬浮按钮）不再只是聊天：每条消息先过一次**低温意图识别**，识别出动作就直接执行
 （例如「把这个班没批的卷子批了」），识别不出才走普通问答。内核仍是 `AiGateway` + `PromptRegistry` +
@@ -117,7 +117,7 @@ AI 现在是**七个能真正干活的场景 + 一个能对当前页面动手的
 | 场景 | `AiNoticeDraftServiceImpl` | 公告草稿 |
 | 场景 | `AiGradeBatchServiceImpl` | 批量批改：唯一一条 AI 直接写业务数据的路径，带撤销令牌 |
 | 场景 | `AiAssistServiceImpl` | 改题、批改建议、学情总结、采纳题目（apply） |
-| 场景 | `AiImportServiceImpl` | AI 智能导入：`DocumentTextExtractor` 抽文本/图片 → 分块调模型 → `TextQuestionParser` 归一；图片分批、只上传被题干引用的 `[[IMG:n]]` |
+| 场景 | `AiImportServiceImpl` | AI 智能导入：`DocumentTextExtractor` 抽文本/图片 → 分块调模型 → `TextQuestionParser` 归一；图片分批、只上传被题干/选项引用的 `[[IMG:n]]` |
 | 场景 | `DocumentTextExtractor`（shared/importer） | docx/pdf/xlsx/xls/txt/md/csv/图片 → 文本 + 图片 context；只在内存里读，源文件不落盘 |
 | 提示词 | `prompts/import-ai.md`、`import-ai-image.md` | 文本/图片两套；文档内容按不可信数据处理，不执行其中指令 |
 | 对话 | `AiAssistantServiceImpl` | 多轮对话 + 上下文装配 + 调用动作路由 |

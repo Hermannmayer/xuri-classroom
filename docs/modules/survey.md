@@ -63,7 +63,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
+verified_against: e11108160370fc23553493c27513649eb320b4f9
 ---
 
 # 考试编辑器与题型
@@ -179,6 +179,7 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 - **"18 种题型"是旧文案**：`QUESTION_META` 实际 20 项（2026-11 加了签名、上传）；`Pagination` 是 schema 支持但面板不提供的容器，`MatrixAuto`/`Barcode` 等后端枚举也不进面板。写文档/答复用户时不要按 18 去数，否则会和代码对不上。
 - **未注册题型不会报错，只会占位**：`SchemaRenderer` 找不到组件时渲染橙色"[未注册题型] xxx"，答卷仍可提交但该题没有输入控件。加后端枚举/导入题时尤其容易踩。
 - **选项有两份数据**：`dataSource`（渲染器读）和 `children` 的 `Option` 节点（答案 key、统计、计分读）必须同时存在。导入的题库题常常只有 `children`，练习页会补 `dataSource`；编辑器保存前也会 `normalizeSchema`。
+- **选项可以是富文本/图片**：选项节点用 `attribute.richTitle=true` 标记，编辑器 `OptionEditor` 的「富文本」弹窗用 `RichTextEditor` 编辑并上传图片；渲染层 `OptionList` 用 `RichTextContent inline` 展示，图片点开是独立 lightbox（不会误触选项）。导入/编辑保存后 `dataSource.label` 必须与 `children[].title` 同步，后端 `RichTextSanitizer` 会对 rich 选项的 dataSource.label 再做白名单消毒。
 - **考试模式公开视图会剥答案**：如果自定义页面直接读 `/api/public/loadProject` 的 `survey` 找 `examCorrectAnswer`，在非练习模式下永远拿不到；这是防泄题，不是 bug。
 - **成绩单解析可能回退到项目 schema**：随机卷的历史快照可能已被剥掉正确答案，`loadExamResult` 只有在快照里确实有答案时才用快照，否则回退项目 schema。
 - **规则表达式分隔符敏感**：`buildExpression` 输出用 `" ,"` 连接；把分隔符改成 `","` 会让 `splitTopLevel` 解析出空参数，规则静默失效。

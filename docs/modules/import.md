@@ -58,7 +58,7 @@ tests:
   - client:npx tsc --noEmit
   - server:gradlew :shared:compileJava :rdbms:compileJava :api:compileJava
 last_verified: 2026-11-22
-verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
+verified_against: e11108160370fc23553493c27513649eb320b4f9
 ---
 
 # 试卷导入（解析 / 预览 / 落地）
@@ -70,15 +70,15 @@ verified_against: 35bbc98c9bead384064e644a82b21e40802537e8
 - 解析：POST /api/import/parse，服务端按来源选解析器，统一返回 ImportPreview（题目树 + 扁平列表 + 统计 + 警告）。
 - 预览：前端 ImportWizard 三步（选择来源 → 预览确认 → 选择去向），可逐题剔除（题库导入除外）。
 - 落地：试卷走既有的 POST /api/project/create 或 POST /api/project/update（整树 JSON，无新表）；
-  题库走 POST /api/repo/import（`kind=excel|word|text`，Excel 还会按行挂内嵌图片）。
+  题库走 POST /api/repo/import（`kind=excel|word|text`，Excel 还会按选项列/行挂内嵌图片）。
 
 五种来源都可用：**文本 / Excel / Word / JSON / AI 智能识别**。Excel 按题型分 sheet，13 个 sheet 覆盖编辑器里最常用的题型
 （单选/多选/判断/填空/简答/下拉/评分/NPS/级联/矩阵单选/矩阵多选/矩阵填空/上传），章节列可选拆大题，
-并支持**按行归属的内嵌图片**与**「高级配置(JSON)」兜底列**；Word 按「一、二、三」拆大题、用【题型】标注、抽取题干图片；JSON 吃本系统导出的整卷。
+并支持**按选项列/行归属的内嵌图片**与**「高级配置(JSON)」兜底列**；Word 按「一、二、三」拆大题、用【题型】标注、抽取题干/选项图片；JSON 吃本系统导出的整卷。
 
 AI 智能识别是**兜底来源**：上传 .docx / .pdf / .xlsx / .xls / .txt / .md / .csv，或直接给 png/jpg 图片，服务端先抽文本与图片，
 交给当前 AI 模型转成与文本导入完全一致的 DSL，再复用 `TextQuestionParser` 归一。模型不支持图片时只做文字，图片题会明确提示；
-模型勾了「图片」时，图片会被压缩成 JPEG data URL 交给模型，题干里的 `[[IMG:n]]` 只上传**被题目实际引用**的那几张。
+模型勾了「图片」时，图片会被压缩成 JPEG data URL 交给模型，题干/选项里的 `[[IMG:n]]` 只上传**被题目实际引用**的那几张。
 签名题、地址、条码、矩阵评分、矩阵 NPS、矩阵自动、富文本这几类没有 sheet（见「坑与已知限制」）。
 
 > 「排序题」不是本系统的题型：`SurveySchema.QuestionType` 里没有 Rank，前端设计器/渲染器也没有对应组件。
@@ -98,21 +98,21 @@ AI 智能识别是**兜底来源**：上传 .docx / .pdf / .xlsx / .xls / .txt /
 |---|---|---|
 | 解析契约 | server/shared/src/main/java/cn/surveyking/server/core/importer/ImportPreview.java | 前端预览的唯一数据源；attachments 存图片字节（@JsonIgnore） |
 | 文本解析 | server/shared/src/main/java/cn/surveyking/server/core/importer/TextQuestionParser.java | 标题/【题型】标记/选项/答案/解析/分值/多空/矩阵行与列 |
-| Excel 解析 | server/shared/src/main/java/cn/surveyking/server/core/importer/ExcelQuestionParser.java | 复用题库模板；用 POI 抽内嵌图片，按锚点行写 [[IMG:n]]；补 dataSource |
+| Excel 解析 | server/shared/src/main/java/cn/surveyking/server/core/importer/ExcelQuestionParser.java | 复用题库模板；用 POI 抽内嵌图片，按选项列/锚点行写 [[IMG:n]]；补 dataSource |
 | Excel 模板解析 | server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateExcelParseHelper.java | 按 sheet 名分发到 13 种题型，按**表头名字**定位列 |
 | 模板 i18n | server/shared/src/main/java/cn/surveyking/server/core/uitls/RepoTemplateI18n.java | sheet 名与表头别名（SheetType / HeaderLabel / 行标题N / 列标题N / 选项树 / 高级配置） |
-| Word 解析 | server/shared/src/main/java/cn/surveyking/server/core/importer/WordQuestionParser.java | 段落/表格拍平 → TextQuestionParser；图片抽成 [[IMG:n]] |
+| Word 解析 | server/shared/src/main/java/cn/surveyking/server/core/importer/WordQuestionParser.java | 段落/表格拍平 → TextQuestionParser；题干/选项图片抽成 [[IMG:n]] |
 | 解析编排 | server/rdbms/src/main/java/cn/surveyking/server/impl/ImportServiceImpl.java | 限制大小、按 kind 分派、把 [[IMG:n]] 换成 <img src> |
 | 文档抽文本/图 | server/shared/src/main/java/cn/surveyking/server/core/importer/DocumentTextExtractor.java | docx/pdf/xlsx/xls/txt/md/csv/图片 → 文本 + ExtractedImage（context 附近文字），只在内存里读 |
-| AI 解析 | server/rdbms/src/main/java/cn/surveyking/server/impl/AiImportServiceImpl.java | 文本分块 ≤8000 字 / 12 段 → 模型转 DSL → TextQuestionParser；图片分批 ≤5 张、只上传被题干引用的 [[IMG:n]] |
+| AI 解析 | server/rdbms/src/main/java/cn/surveyking/server/impl/AiImportServiceImpl.java | 文本分块 ≤8000 字 / 12 段 → 模型转 DSL → TextQuestionParser；图片分批 ≤5 张、只上传被题干/选项引用的 [[IMG:n]] |
 | AI 提示词 | server/ai/src/main/resources/prompts/import-ai.md、import-ai-image.md | 文本/图片两套；明确不执行文档内指令、不编造答案 |
 | 图片预处理 | server/ai/src/main/java/cn/surveyking/server/ai/core/AiImageSupport.java | magic 校验 → 最长边 1568 → 白底 JPEG 0.82 → data URL；png/jpg/jpeg 可用（JDK 无 WebP 解码器） |
 | 接口 | server/api/src/main/java/cn/surveyking/server/api/ImportApi.java | /parse、/ai/parse、/record |
 | 模板下载 | server/rdbms/src/main/java/cn/surveyking/server/impl/FileServiceImpl.java | GET /api/file/downloadTemplate?name=，白名单映射到 classpath template/ |
 | 模板资源 | server/api/src/main/resources/template/旭日云课堂题库导入模板.xlsx / 旭日云课堂试卷导入模板.docx | 跟着解析器一起改，改完用两份模板各导一次做冒烟 |
-| 题库落地 | server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java | kind=text 改走文本解析；Excel 调 RepoTemplateExcelParseHelper + 按行挂内嵌图片 |
-| 行图片索引 | server/shared/src/main/java/cn/surveyking/server/core/importer/ExcelRowImages.java | POI 读内嵌图片，按锚点左上角行索引（试卷导入与题库导入共用） |
-| 图片挂题干 | server/shared/src/main/java/cn/surveyking/server/core/importer/QuestionImageUploader.java | 图片上传成 QUESTION_IMAGE（publicRead）并追加 `<img>` |
+| 题库落地 | server/rdbms/src/main/java/cn/surveyking/server/impl/RepoServiceImpl.java | kind=text 改走文本解析；Excel 调 RepoTemplateExcelParseHelper + 按选项列/行挂内嵌图片 |
+| 选项/行图片索引 | server/shared/src/main/java/cn/surveyking/server/core/importer/ExcelRowImages.java | POI 读内嵌图片，按锚点左上角行 + 列索引（试卷导入与题库导入共用） |
+| 图片挂题干/选项 | server/shared/src/main/java/cn/surveyking/server/core/importer/QuestionImageUploader.java | 图片上传成 QUESTION_IMAGE（publicRead）并追加 `<img>`；选项图同时更新 dataSource.label 与 richTitle |
 | 前端向导 | client/src/pages/import/ImportWizard.tsx | 三步 + 统计 + 警告 + 去向 |
 | 题型说明 | client/src/pages/import/ImportHelp.tsx | 「支持哪些题型」折叠说明（向导与题库页共用）+ 预览里的题型标签、warnings 分级、图片计数；纯展示，不发请求 |
 | 前端接口 | client/src/api/import.ts | parseImport、parseAiImport、importRepoQuestions、recordPaperImport |
@@ -177,18 +177,18 @@ AI 智能识别是**兜底来源**：上传 .docx / .pdf / .xlsx / .xls / .txt /
 - 某行 JSON 写错 → 只给一条 `ADVANCED_JSON_INVALID` 警告（含工作表名 + 行号 + 原因），该行按模板列照常导入，整份导入继续。
 - 这是「不改模板也能加新题型」的兜底口子，但**模板列才是给老师用的**，别拿 JSON 当主路径。
 
-### Excel 内嵌图片（按行归属）
+### Excel 内嵌图片（选项列 / 题干行）
 
 - fastexcel 不读图片：`ExcelRowImages`（POI `XSSFWorkbook`）把同一个文件的字节再开一次，遍历 `getDrawingPatriarch()` 里的 `XSSFPicture`；**试卷导入（ExcelQuestionParser）和题库导入（RepoServiceImpl）共用这一层**。
-- 归属规则：按 `XSSFClientAnchor` **左上角所在行**（`row1 + 1`）挂到该行题目，token `[[IMG:n]]` 追加到题干末尾（与 Word 一致），字节进 `ImportPreview.attachments`。
+- 归属规则：先按 `XSSFClientAnchor` 的**左上角列**匹配表头 `选项A…选项H`，命中选项列就挂到对应选项（支持该单元格只有图片、没有文字）；否则按 **左上角行**（`row1 + 1`）挂到该行题干。token 都是 `[[IMG:n]]`，字节进 `ImportPreview.attachments`。
 - 只认「纵向落在一行之内」的图片：`row2 == row1 + 1 && rowOff2 == 0`（正好填满一个单元格，Excel/POI 的标准写法）或 `row2 <= row1`（比格子矮）。
   **跨行、或压进下一行的图片直接跳过**并给一条 `IMAGE_ANCHOR_SPANS_ROWS` 警告（带工作表名与行号，提示「请把图片贴到单个单元格内」）——
   这种图片按左上角硬挂就是猜，挂错了会变成「图贴到别的题上」，比少一张图更难发现。
   注意别把规则写成 `row1 != row2`：单格图片的 `row2` 本来就是 `row1 + 1`，那样会把所有正常图片全丢掉。
 - 超过 2MB 单张、或整份超过 50 张 → 跳过并给 warning；emf/wmf 这类前端渲染不了的矢量图静默跳过。
 - 只支持 .xlsx；.xls 提示「请在 Excel 里另存为 .xlsx 后重试」（按文件内容判断，改名成 .xls 的 xlsx 仍可导）。
-- 两条链路挂图方式不同：试卷导入产出 `[[IMG:n]]` token（落库时由 `ImportServiceImpl.applyAttachments` 换地址）；题库导入没有 token 这层，`QuestionImageUploader.attachRowImages` 直接把 `<img>` + `richTitle=true` 写进题干。
-- `RepoTemplateExcelParseHelper` 给每条 `TemplateRequest` 填 `sourceSheet/sourceRow`（`@JsonIgnore`，不下发前端），图片就按这两个字段回挂到行。
+- 两条链路挂图方式不同：试卷导入产出 `[[IMG:n]]` token（落库时由 `ImportServiceImpl.applyAttachments` 换地址并同步选项 dataSource）；题库导入没有 token 这层，`QuestionImageUploader.attachRowImages` 直接把 `<img>` + `richTitle=true` 写进选项/题干。
+- `RepoTemplateExcelParseHelper` 给每条 `TemplateRequest` 填 `sourceSheet/sourceRow/sourceOptionColumns`（后两者 `@JsonIgnore`，不下发前端），图片就按这些字段回挂到选项或行。图片只有落在**单个单元格高度内**才会被接受，跨行仍按原规则跳过并给 warning。
 
 ### Word / 文本的题型标记
 
@@ -202,6 +202,7 @@ Word 与文本共用一套规则（`WordQuestionParser` 先把段落/表格拍�
   答案行数与「行：」条数不符只给 `MATRIX_ANSWER_MISMATCH` 警告、照常导入；
 - `【欢迎语】` 是说明块，不算题目；
 - 没有【排序题】：DSL 里没有 Rank 题型，写了只会拿到 `TYPE_UNKNOWN` 提示并按内容推断。
+- **选项图片**：图片放在 `A. ` 这一行内，或紧跟在选项行后的下一段，会被归到该选项；只放一个图片、不写文字的选项也支持。Word 图片在落库前由 `ImportServiceImpl` 递归替换 `[[IMG:n]]`，选项节点的 `richTitle` 和 `dataSource.label` 会同步。
 
 分值/答案/解析/标签仍用 `（10分）`、`答案：A`、`解析：…`、`标签：…`；难度只提示、不落库。
 
@@ -212,6 +213,7 @@ Word 与文本共用一套规则（`WordQuestionParser` 先把段落/表格拍�
 - 文件：`.docx / .pdf / .xlsx / .xls / .txt / .md / .csv` + `.png / .jpg / .jpeg`（WebP 先转 png/jpg）。
 - 链路：`DocumentTextExtractor` 抽文本 + 图片（docx 内嵌图、PDF 按页渲染、Excel 锚点行图、纯图片）；
   文本按空行切块（≤8000 字、最多 12 段）逐段调模型；图片每批 ≤5 张、每次 ≤10 张，逐张带「附近文字」交给模型；
+  提示词明确允许把 `[[IMG:n]]` 放在选项行（如 `A. [[IMG:1]]`），也允许图片只作为某道题的配图；
   模型输出仍是文本 DSL，经 `WordQuestionParser.parseSections` + `TextQuestionParser` 归一，**不新写题型映射**。
 - 图片题：提示词要求模型在题干/选项里用 `[[IMG:n]]` 标出图片位置；服务端只上传**被题目实际引用**的图片（`QUESTION_IMAGE` + publicRead），
   替换成 `<img src="/api/public/preview/{id}">` 并置 `richTitle=true`；没被引用的图片一律不上传。
