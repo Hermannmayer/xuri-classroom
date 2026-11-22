@@ -266,11 +266,19 @@ export default function SystemSetting() {
 
   const [schemaInfo, setSchemaInfo] = useState<{
     version?: string;
+    webBuild?: string;
     schemaVersion?: string;
     schemaStatus?: string;
     schemaAppVersion?: string;
     schemaMessage?: string;
   }>();
+  const localAppVersion =
+    document.querySelector<HTMLMetaElement>('meta[name="app-version"]')?.content || '';
+  const localAppBuild =
+    document.querySelector<HTMLMetaElement>('meta[name="app-build"]')?.content || '';
+  const frontendStale = Boolean(
+    schemaInfo?.webBuild && localAppBuild && schemaInfo.webBuild !== localAppBuild,
+  );
   const [upgradingSchema, setUpgradingSchema] = useState(false);
 
   const [aiStatus, setAiStatus] = useState<AiStatus>();
@@ -1560,6 +1568,7 @@ export default function SystemSetting() {
                       >
                         {[
                           { label: '当前版本', value: currentVersion || '—' },
+                          { label: '前端版本', value: localAppVersion || '—' },
                           { label: '最新版本', value: updateInfo?.latestVersion || '—' },
                           { label: '更新源', value: updateInfo == null ? '读取中' : updateInfo.enabled === false ? '未配置' : '已配置' },
                           { label: '上次检查', value: updateInfo?.checkedAt ? dayjs(updateInfo.checkedAt).format('MM-DD HH:mm') : '—' },
@@ -1574,6 +1583,12 @@ export default function SystemSetting() {
                           </div>
                         ))}
                       </div>
+
+                      {frontendStale && (
+                        <div style={{ fontSize: 11, color: 'var(--bp-orange)', marginBottom: 12 }}>
+                          当前页面加载的前端包与后端版本不一致，请强制刷新；刷新后仍提示说明前端资源没有随升级一起更新。
+                        </div>
+                      )}
 
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                         <Button loading={checkingUpdate} onClick={() => void checkUpdateNow()}>

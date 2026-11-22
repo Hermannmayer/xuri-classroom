@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -128,12 +129,36 @@ public class SystemApi {
 	@Value("${file-storage.local.root-path:./files}")
 	private String fileRootPath;
 
+	private volatile String webBuildCache;
+
 	private volatile UpdateCheckView cachedUpdate;
 
 	private volatile long updateCheckedAt;
 
 
 	private volatile boolean lastCheckFailed;
+
+	/** 当前 jar 内前端产物的构建标识；由 vite 构建时写进 index.html，用来判断页面是否还是旧包 */
+	private String webBuild() {
+		if (webBuildCache != null) {
+			return webBuildCache;
+		}
+		ClassPathResource index = new ClassPathResource("static/index.html");
+		if (!index.exists()) {
+			return null;
+		}
+		try (InputStream in = index.getInputStream()) {
+			String html = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+			var matcher = java.util.regex.Pattern.compile("<meta\\s+name=\"app-build\"\\s+content=\"([^\"]+)\"")
+					.matcher(html);
+			webBuildCache = matcher.find() ? matcher.group(1) : "";
+		}
+		catch (IOException e) {
+			log.warn("读取前端构建标识失败：{}", e.getMessage());
+			webBuildCache = "";
+		}
+		return webBuildCache;
+	}
 
 	@GetMapping("/backup")
 	@PreAuthorize("hasRole('admin') or hasAuthority('system:setting:update')")
@@ -168,6 +193,7 @@ public class SystemApi {
 	public Map<String, Object> version() {
 		Map<String, Object> view = new LinkedHashMap<>();
 		view.put("version", currentVersion);
+		view.put("webBuild", webBuild());
 
 		SchemaUpgradeResult schema = schemaUpgradeService.getLastResult();
 		if (schema != null) {
