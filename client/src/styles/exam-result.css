@@ -351,6 +351,7 @@
 .sk-opt {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--bp-line);
@@ -373,7 +374,7 @@
 
 .sk-opt-label {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 8ch;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -385,6 +386,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+  margin-left: auto;
 }
 
 .sk-opt-note {
