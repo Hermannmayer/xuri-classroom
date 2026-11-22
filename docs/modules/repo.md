@@ -94,7 +94,7 @@ tests:
   - client:npx tsc --noEmit
   - docs:npm run docs:check
 last_verified: 2026-11-22
-verified_against: a8ed1e1bf4d22be69f7116f73ff2e7e16ea1ae0d
+verified_against: 9dc8598640236711dd5f4c86d513257e3fd04e36
 ---
 
 # 题库与题目
