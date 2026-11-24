@@ -88,12 +88,18 @@ public class PublicAnswerSubmitter {
 		else if (isNotBlank(request.getId())
 				&& !ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(request.getProjectId())) {
 
-			answerLookup.getAnswerForProject(projectId, request.getId());
-			boolean enableUpdate = Boolean.TRUE.equals(project.getSetting().getSubmittedSetting().getEnableUpdate());
+			AnswerView existing = answerLookup.findAnswerForProject(projectId, request.getId());
+			if (existing == null) {
 
-			boolean tempSaving = Integer.valueOf(0).equals(request.getTempSave());
-			if (!enableUpdate && !tempSaving) {
-				throw new ErrorCodeException(ErrorCode.AnswerChangeDisabled);
+				answerId = null;
+			}
+			else {
+				boolean enableUpdate = Boolean.TRUE.equals(project.getSetting().getSubmittedSetting().getEnableUpdate());
+
+				boolean tempSaving = Integer.valueOf(0).equals(request.getTempSave());
+				if (!enableUpdate && !tempSaving) {
+					throw new ErrorCodeException(ErrorCode.AnswerChangeDisabled);
+				}
 			}
 		}
 		else {
