@@ -391,12 +391,18 @@ export default function SurveyData() {
 
   const filtering = hasActiveFilter(filters, classId, nameInput);
 
+  const aiEmptyText = '「AI 待复核」只显示已由 AI 预批改、等待人工复核的答卷，可先用「批量 AI 批改」生成';
+
   const emptyText = rows.length
     ? filters.gradeStatus === 'pending'
       ? '没有待批改的答卷'
-      : '当前筛选没有匹配的答卷'
+      : filters.gradeStatus === 'ai'
+        ? aiEmptyText
+        : '当前筛选没有匹配的答卷'
     : filtering
-      ? '当前筛选没有匹配的答卷'
+      ? filters.gradeStatus === 'ai'
+        ? aiEmptyText
+        : '当前筛选没有匹配的答卷'
       : canCreate
         ? '还没有答卷，点「添加数据」补录一份'
         : '还没有答卷';

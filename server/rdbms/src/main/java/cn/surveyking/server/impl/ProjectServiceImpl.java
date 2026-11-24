@@ -429,6 +429,9 @@ public class ProjectServiceImpl extends BaseService<ProjectMapper, Project> impl
 					project.setStatus((Integer) request.getSettingValue());
 				}
 			}
+			else if (project.getSetting() != null && project.getSetting().getStatus() != null) {
+				project.setStatus(project.getSetting().getStatus());
+			}
 			updateById(project);
 			if (request.getSurvey() != null) {
 				syncOwnerRefs(request.getId(), request.getSurvey());

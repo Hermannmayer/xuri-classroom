@@ -115,8 +115,8 @@ tables:
 tests:
   - client:npm run check
   - docs:npm run docs:check
-last_verified: 2026-11-22
-verified_against: 51510c763d13894ebb216ea00f83f6d02568b7d9
+last_verified: 2026-11-24
+verified_against: 3800d1cfd7e127d3049b9bc26f7b1163b5917b0f
 ---
 
 # 考试与问卷（项目）
@@ -389,6 +389,11 @@ npm run docs:check
 20. 批量设置勾「文件夹」并选一个 folder：只移动所选项目的 parentId，名称/分类/setting 不变；选根目录传 '0'；与分类/setting/授权同时勾选时同一项目只计一次；中途失败保留已移动项目，提示计数按成功项目。
 21. 把一场考试放进文件夹并设分类「保育员」→ 在分类树选「保育员」：即使考试不在根目录也应出现在右侧列表；文件夹行不应混进分类结果。把文件夹分类留空也不会出现在「未分类」。
 22. 对文件夹行点「授权」应打开 FolderAuthModal（不再跳 `/survey/:id`）；给某老师/组授权 type=1/2/3：该文件夹的子考试、孙考试（父/祖父两层）应出现在其 `/project/list`/tree/categories；曾孙项目不应出现。文件夹 level>=2 时子项目编辑闸门应放行；成员管理仍只看子项目自己的 level3。
+
+## 2026-11-24 发布状态的列与 JSON 同步
+
+- `t_project.status` 列与 `setting.status` 是两份存储：列表/统计/班级准入读**列**，作答校验读 **setting**。`addProject` 早就会把两者对齐，`updateProjectStatus` 也会同时写；但 `updateProject` 全量保存只在 `settingKey='status'` 时同步列，编辑器「发布考试」（`Editor.tsx` 的 `publish`，只发 `setting.status=1`、不发顶层 status）就会留下「JSON=1、列=0」：后台列表显示未发布、学员却能答。
+- 现在 `updateProject` 在 `settingKey` 为空且请求带了 `setting.status` 时，把列一起写成同一个值，两处同源。
 
 ## 2026-11-21 答题后自动下一题
 

@@ -84,6 +84,8 @@ public class PublicProjectLoader {
 
 	private final AnswerLookup answerLookup;
 
+	private final AnswerValidationService answerValidationService;
+
 
 	private final ProjectPartnerMapper projectPartnerMapper;
 
@@ -187,8 +189,19 @@ public class PublicProjectLoader {
 		}
 		else {
 
-			AnswerView answerView = answerLookup.getAnswerForProject(project.getId(), query.getAnswerId());
-			if (answerView != null) {
+			AnswerView answerView = answerLookup.findAnswerForProject(project.getId(), query.getAnswerId());
+			if (answerView == null) {
+
+				loginFormSchema = loginFormValidator.convertAndValidateLoginFormIfNeeded(project, null);
+
+				if (!isPreviewAllowed(query, project.getId())) {
+					projectAnswerValidator.validateProject(project);
+				}
+			}
+			else {
+
+				assertResumableAnswer(query, project);
+
 				projectView.setAnswerId(answerView.getId());
 				projectView.setMetaInfo(answerView.getMetaInfo());
 				projectView.setAnswer(answerView.getAnswer());
@@ -196,8 +209,8 @@ public class PublicProjectLoader {
 
 					projectView.setSurvey(answerView.getSurvey());
 				}
+				return projectView;
 			}
-			return projectView;
 		}
 
 
@@ -243,6 +256,15 @@ public class PublicProjectLoader {
 			return true;
 		}
 		return projectPartnerService.getProjectPerms().contains(projectId);
+	}
+
+	/** 继续作答（带历史 answerId）时的闸门：只判断「还能不能答」，即回收是否暂停、班级开关是否关掉、是否已过截止时间，不重复做限次与密码类校验 */
+	private void assertResumableAnswer(ProjectQuery query, ProjectView project) {
+		if (isPreviewAllowed(query, project.getId())) {
+			return;
+		}
+		classResourceService.assertStudentCanAnswer(project);
+		answerValidationService.validateSubmittable(project, false);
 	}
 
 	/** 首屏只返回必要的大纲元数据，不返回任何题干、选项或题目属性 */

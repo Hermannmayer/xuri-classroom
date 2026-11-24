@@ -33,6 +33,16 @@ public class AnswerLookup {
 		return getAnswerForProject(projectId, answerId, false);
 	}
 
+	/** 取历史答卷：查不到、已被删除、已换项目或不属于当前访问者一律返回 null，由调用方按「没有历史答卷」降级，绝不返回他人数据 */
+	public AnswerView findAnswerForProject(String projectId, String answerId) {
+		try {
+			return getAnswerForProject(projectId, answerId);
+		}
+		catch (AccessDeniedException e) {
+			return null;
+		}
+	}
+
 	public AnswerView getAnswerForProject(String projectId, String answerId, boolean rankEnabled) {
 		if (isBlank(projectId) || isBlank(answerId)) {
 			throw new AccessDeniedException("无权限访问该答案");

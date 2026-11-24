@@ -323,6 +323,9 @@ export default function PublicAnswer() {
     if (data.answerId) {
       setAnswerId(data.answerId);
       writeAnswerId(id, data.answerId);
+    } else {
+      setAnswerId(undefined);
+      removeAnswerId(id);
     }
     if (data.answer) setValues(data.answer as Record<string, AnswerValue>);
 
