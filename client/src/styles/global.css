@@ -65,7 +65,7 @@
   --bp-selection-text: #ffffff;
   --bp-option-border: rgba(255, 255, 255, 0.45);
   --bp-option-selected-bg: #33608f;
-  --bp-option-selected-border: #ff8a5c;
+  --bp-option-selected-border: #ffb08a;
   --bp-option-selected-text: #ffffff;
   --bp-option-key-selected-bg: #ff8a5c;
   --bp-option-key-selected-text: #152a44;
@@ -80,7 +80,7 @@
 :root[data-theme='light'] {
   --bp-bg: #f7f5f0;
   --bp-bg-deep: #efece4;
-  --bp-line: #8f8775;
+  --bp-line: #857d6b;
   --bp-line-soft: #9b927f;
   --bp-grid: rgba(30, 58, 95, 0.06);
   --bp-text: #1e3a5f;
