@@ -63,7 +63,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-24
-verified_against: 3800d1cfd7e127d3049b9bc26f7b1163b5917b0f
+verified_against: 1e29363232128f76c76fb3c987c813b73ab7801b
 ---
 
 # 考试编辑器与题型
@@ -221,7 +221,8 @@ npm run docs:check
 
 - `loadProject` 的 `answerId` 分支过去直接 `return`，既不校验「还能不能答」，也不容忍失效 id。现在拆成两条：
   - **续答**（answer 存在）：走 `assertResumableAnswer` → `ClassResourceService#assertStudentCanAnswer` + `AnswerValidationService#validateSubmittable`，回收暂停 / 班级开关关闭 / 已过截止时间都会照常报 `SurveySuspend`、`ExamFinished`，不再出现「后台已停止收集，学员带旧 answerId 仍能接着答」。
-  - **降级**（answer 查不到）：`AnswerLookup#findAnswerForProject` 把「已删除、跨项目、不属于当前访问者」统一返回 `null`，按首次作答处理（重新下发空白卷 + 走 `validateProject`），学员不会再卡在「无权限访问该答案」的死页。
+  - **降级**（answer 不存在）：`AnswerLookup#findAnswerForProject` 先用 `AnswerMapper#selectById` 探测，逻辑删除后查不到就返回 `null`，按首次作答处理（重新下发空白卷 + 走 `validateProject`），学员不会再卡在「无权限访问该答案」的死页；答卷存在但**不属于当前访问者**时仍抛越权异常——不能在 `@Transactional` 里吞异常，否则事务被标记 rollback-only、提交时报 500。
+- 交卷同理：`PublicAnswerSubmitter` 遇到不存在的 `answerId` 时把 id 置空、按新答卷落库，不再直接抛越权。
 - 前端 `PublicAnswer` 在服务端没回 `answerId` 时同步 `removeAnswerId(id)`，清掉 localStorage 里指向已删除答卷的 `sk-answer-<projectId>`，避免下一次交卷又带着失效 id。
 - 续答闸门刻意不复用 `validateProject`：回收上限、登录/密码/白名单/限次属于「能不能开始答」，对已经答过的人不该再拦一次。
 
