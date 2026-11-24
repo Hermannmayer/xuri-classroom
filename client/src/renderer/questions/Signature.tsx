@@ -25,8 +25,21 @@ const THIN_RATIO = 0.45;
 const FAST_SPEED = 2.2;
 
 
-const INK_COLOR = '#111111';
-const PAPER_COLOR = '#ffffff';
+const INK_FALLBACK = '#111111';
+const PAPER_FALLBACK = '#ffffff';
+
+function themeColor(name: string, fallback: string): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function inkColor(): string {
+  return themeColor('--bp-paper-ink', INK_FALLBACK);
+}
+
+function paperColor(): string {
+  return themeColor('--bp-paper', PAPER_FALLBACK);
+}
 
 
 const PREVIEW_CACHE_LIMIT = 20;
@@ -90,7 +103,7 @@ function canvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | nu
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = INK_COLOR;
+  ctx.strokeStyle = inkColor();
   return ctx;
 }
 
@@ -112,7 +125,7 @@ function traceStroke(
 
     const only = points[0];
     ctx.beginPath();
-    ctx.fillStyle = INK_COLOR;
+    ctx.fillStyle = inkColor();
     ctx.arc(only.x, only.y, only.w / 2, 0, Math.PI * 2);
     ctx.fill();
     return;
@@ -161,11 +174,11 @@ function exportSignature(canvas: HTMLCanvasElement, strokes: InkStroke[]): strin
   out.height = height;
   const ctx = out.getContext('2d');
   if (!ctx) throw new Error('当前浏览器不支持 canvas，无法导出签名');
-  ctx.fillStyle = PAPER_COLOR;
+  ctx.fillStyle = paperColor();
   ctx.fillRect(0, 0, width, height);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = INK_COLOR;
+  ctx.strokeStyle = inkColor();
   for (const stroke of strokes) traceStroke(ctx, stroke, width, height);
   return out.toDataURL('image/png');
 }
@@ -275,7 +288,7 @@ export default function Signature(props: QuestionComponentProps) {
     const ctx = canvasContext(canvas);
     if (ctx) {
       ctx.beginPath();
-      ctx.fillStyle = INK_COLOR;
+      ctx.fillStyle = inkColor();
       ctx.arc(
         point.x * canvas.clientWidth,
         point.y * canvas.clientHeight,

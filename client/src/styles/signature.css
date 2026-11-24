@@ -7,14 +7,14 @@
   position: relative;
   width: 100%;
   height: 200px;
-  background: #ffffff;
-  border: 1px dashed #c9c2b4;
+  background: var(--bp-paper);
+  border: 1px dashed var(--bp-control-border);
   overflow: hidden;
 }
 
 
 .sk-sign-pad.locked {
-  background: #fbfaf7;
+  background: var(--bp-paper);
 }
 
 .sk-sign-canvas {
@@ -41,7 +41,7 @@
   text-align: center;
   font-size: 12px;
   letter-spacing: 0.08em;
-  color: #9aa3ad;
+  color: var(--bp-hint);
   pointer-events: none;
   user-select: none;
 }
@@ -70,17 +70,17 @@
   display: block;
   max-width: 100%;
   max-height: 240px;
-  background: #ffffff;
-  border: 1px solid #c9c2b4;
+  background: var(--bp-paper);
+  border: 1px solid var(--bp-control-border);
 }
 
 
 .sk-sign-broken {
   padding: 10px 12px;
   font-size: 12px;
-  color: #6b7280;
-  background: #fbfaf7;
-  border: 1px dashed #c9c2b4;
+  color: var(--bp-text-soft);
+  background: var(--bp-paper);
+  border: 1px dashed var(--bp-control-border);
 }
 
 @media (max-width: 640px) {

@@ -20,8 +20,8 @@
   gap: 6px;
   max-width: 220px;
   padding: 6px;
-  background: #ffffff;
-  border: 1px solid #c9c2b4;
+  background: var(--bp-paper);
+  border: 1px solid var(--bp-control-border);
 }
 
 
@@ -29,7 +29,7 @@
   display: block;
   max-width: 100%;
   max-height: 160px;
-  background: #ffffff;
+  background: var(--bp-paper);
 }
 
 .sk-upload-foot {
@@ -45,7 +45,7 @@
   min-width: 0;
   overflow: hidden;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--bp-text-soft);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -62,13 +62,13 @@
 
 .sk-upload-file-icon {
   flex: none;
-  color: #6b7280;
+  color: var(--bp-text-soft);
 }
 
 .sk-upload-file-name {
   min-width: 0;
   font-size: 12px;
-  color: #1f6feb;
+  color: var(--bp-blue);
   text-decoration: underline;
   overflow-wrap: anywhere;
 }
@@ -83,15 +83,15 @@
   height: 22px;
   padding: 0;
   font-size: 12px;
-  color: #6b7280;
-  background: #fbfaf7;
-  border: 1px solid #c9c2b4;
+  color: var(--bp-text-soft);
+  background: var(--bp-paper);
+  border: 1px solid var(--bp-control-border);
   cursor: pointer;
 }
 
 .sk-upload-remove:hover:not(:disabled) {
-  color: #d4380d;
-  border-color: #d4380d;
+  color: var(--bp-red);
+  border-color: var(--bp-red);
 }
 
 .sk-upload-remove:disabled {

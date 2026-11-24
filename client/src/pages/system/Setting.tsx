@@ -962,7 +962,7 @@ export default function SystemSetting() {
         style={
           isMobile
             ? { border: 'none', background: 'transparent' }
-            : { border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }
+            : { border: '1px solid var(--bp-line)', background: 'var(--bp-panel)' }
         }
         styles={isMobile ? { body: { padding: 0 } } : undefined}
       >

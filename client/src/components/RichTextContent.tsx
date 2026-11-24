@@ -104,7 +104,7 @@ export default function RichTextContent({
 
   const content = {
     className,
-    style,
+    style: { color: 'var(--bp-text)', ...style },
     dangerouslySetInnerHTML: { __html: clean },
   };
 

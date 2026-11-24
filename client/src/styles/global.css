@@ -3,8 +3,8 @@
 :root[data-theme='dark'] {
   --bp-bg: #1e3a5f;
   --bp-bg-deep: #152a44;
-  --bp-line: rgba(255, 255, 255, 0.3);
-  --bp-line-soft: rgba(255, 255, 255, 0.15);
+  --bp-line: rgba(255, 255, 255, 0.38);
+  --bp-line-soft: rgba(255, 255, 255, 0.18);
   --bp-grid: rgba(255, 255, 255, 0.05);
   --bp-text: #ffffff;
 
@@ -28,7 +28,7 @@
 
   --bp-blue-weak: rgba(74, 144, 217, 0.22);
   --bp-blue-strong: rgba(74, 144, 217, 0.55);
-  --bp-orange-line: rgba(255, 107, 53, 0.5);
+  --bp-orange-line: rgba(255, 107, 53, 0.95);
   --bp-orange-weak: rgba(255, 107, 53, 0.05);
   --bp-orange-tint: rgba(255, 107, 53, 0.12);
   --bp-answered-bg: rgba(74, 144, 217, 0.32);
@@ -37,7 +37,7 @@
   --bp-handle-bg-idle: rgba(74, 144, 217, 0.35);
 
 
-  --bp-control-border: rgba(255, 255, 255, 0.4);
+  --bp-control-border: rgba(255, 255, 255, 0.48);
   --bp-hover-border: rgba(255, 255, 255, 0.6);
   --bp-primary-bg: rgba(74, 144, 217, 0.18);
   --bp-primary-bg-hover: rgba(74, 144, 217, 0.3);
@@ -54,8 +54,8 @@
   --bp-fill-weak: rgba(255, 255, 255, 0.03);
   --bp-fill-soft: rgba(255, 255, 255, 0.06);
   --bp-hint: rgba(207, 226, 246, 0.8);
-  --bp-track: rgba(255, 255, 255, 0.1);
-  --bp-option-hover: rgba(74, 144, 217, 0.14);
+  --bp-track: rgba(255, 255, 255, 0.20);
+  --bp-option-hover: rgba(74, 144, 217, 0.22);
   --bp-matrix-inner: rgba(21, 42, 68, 0.9);
   --bp-slider-rail: rgba(255, 255, 255, 0.22);
   --bp-scroll-track: rgba(0, 0, 0, 0.15);
@@ -63,13 +63,25 @@
   --bp-scroll-thumb-hover: rgba(255, 255, 255, 0.4);
   --bp-selection-bg: rgba(74, 144, 217, 0.5);
   --bp-selection-text: #ffffff;
+  --bp-option-border: rgba(255, 255, 255, 0.45);
+  --bp-option-selected-bg: #33608f;
+  --bp-option-selected-border: #ff6b35;
+  --bp-option-selected-text: #ffffff;
+  --bp-option-key-selected-bg: #ff6b35;
+  --bp-option-key-selected-text: #152a44;
+  --bp-paper: #24446c;
+  --bp-paper-ink: #ffffff;
+  --bp-red: #ff6b35;
+  --bp-bg-soft: rgba(255, 255, 255, 0.04);
+  --bp-hover: rgba(255, 255, 255, 0.08);
+  --bp-mono: 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
 }
 
 :root[data-theme='light'] {
   --bp-bg: #f7f5f0;
   --bp-bg-deep: #efece4;
-  --bp-line: #d8d3c8;
-  --bp-line-soft: #e6e1d6;
+  --bp-line: #b8b1a2;
+  --bp-line-soft: #d8d3c8;
   --bp-grid: rgba(30, 58, 95, 0.06);
   --bp-text: #1e3a5f;
   --bp-text-soft: #3f4c5c;
@@ -90,7 +102,7 @@
 
   --bp-blue-weak: rgba(47, 93, 140, 0.12);
   --bp-blue-strong: rgba(47, 93, 140, 0.22);
-  --bp-orange-line: rgba(232, 89, 12, 0.45);
+  --bp-orange-line: #c2410c;
   --bp-orange-weak: rgba(232, 89, 12, 0.08);
   --bp-orange-tint: rgba(232, 89, 12, 0.1);
   --bp-answered-bg: rgba(232, 89, 12, 0.14);
@@ -99,7 +111,7 @@
   --bp-handle-bg-idle: rgba(232, 89, 12, 0.8);
 
 
-  --bp-control-border: #c9c2b4;
+  --bp-control-border: #8f8775;
   --bp-hover-border: #a89f8c;
   --bp-primary-bg: #1e3a5f;
   --bp-primary-bg-hover: #2f5d8c;
@@ -115,7 +127,7 @@
   --bp-fill-weak: rgba(30, 58, 95, 0.03);
   --bp-fill-soft: rgba(30, 58, 95, 0.06);
   --bp-hint: rgba(63, 76, 92, 0.82);
-  --bp-track: rgba(30, 58, 95, 0.1);
+  --bp-track: rgba(30, 58, 95, 0.22);
   --bp-option-hover: rgba(232, 89, 12, 0.06);
   --bp-matrix-inner: #fffdf8;
   --bp-slider-rail: rgba(30, 58, 95, 0.18);
@@ -124,6 +136,18 @@
   --bp-scroll-thumb-hover: rgba(30, 58, 95, 0.32);
   --bp-selection-bg: rgba(232, 89, 12, 0.22);
   --bp-selection-text: #1e3a5f;
+  --bp-option-border: #8f8775;
+  --bp-option-selected-bg: #f2c3a4;
+  --bp-option-selected-border: #c2410c;
+  --bp-option-selected-text: #1e3a5f;
+  --bp-option-key-selected-bg: #c2410c;
+  --bp-option-key-selected-text: #fffdf8;
+  --bp-paper: #fffdf8;
+  --bp-paper-ink: #1e3a5f;
+  --bp-red: #c0392b;
+  --bp-bg-soft: rgba(30, 58, 95, 0.04);
+  --bp-hover: rgba(30, 58, 95, 0.08);
+  --bp-mono: 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
 }
 
 html,

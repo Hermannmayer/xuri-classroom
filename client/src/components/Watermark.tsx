@@ -62,7 +62,7 @@ function watermarkText(user: UserInfo, mode: WatermarkMode) {
 /** 当前主题的文字色：canvas 不支持 CSS 变量，只能读 --bp-text 的计算值 */
 function themeTextColor() {
   const value = getComputedStyle(document.documentElement).getPropertyValue('--bp-text').trim();
-  return value || '#ffffff';
+  return value || 'currentColor';
 }
 
 /** 画一块倾斜文字砖并转成 dataURL；作为背景 repeat 后就是满屏水印 */

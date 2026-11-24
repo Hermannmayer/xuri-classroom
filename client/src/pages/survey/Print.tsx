@@ -407,7 +407,7 @@ export default function SurveyPrintPage() {
 
   const title = project.survey?.title || project.name || '试卷';
   const printCss =
-    '@media print { html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; } .no-print { display: none !important; } .print-root { padding: 0 !important; background: #fff !important; min-height: 0 !important; } .print-scroll { overflow: visible !important; } .sheet { box-shadow: none !important; margin: 0 !important; break-after: page; } } @page { size: ' +
+    '@media print { html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; color: #000 !important; } .no-print { display: none !important; } .print-root { padding: 0 !important; background: #fff !important; color: #000 !important; min-height: 0 !important; } .print-scroll { overflow: visible !important; } .sheet { box-shadow: none !important; margin: 0 !important; break-after: page; } } @page { size: ' +
     (size === 'A3' ? 'A3 landscape' : 'A4') +
     '; margin: 0; }';
   const sheetStyle = size === 'A3'
@@ -416,7 +416,7 @@ export default function SurveyPrintPage() {
   const pageStyle = { width: '210mm', height: '297mm', padding: marginMm + 'mm', boxSizing: 'border-box' as const, position: 'relative' as const, overflow: 'hidden' as const };
 
   return (
-    <div className="print-root" style={{ background: '#eef1f5', minHeight: '100vh', padding: '16px 0 40px' }}>
+    <div className="print-root" style={{ background: 'var(--bp-bg-deep)', minHeight: '100vh', padding: '16px 0 40px' }}>
       <style>{printCss}</style>
 
       {isMobile && (

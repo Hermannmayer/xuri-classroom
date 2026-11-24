@@ -108,7 +108,7 @@ export default function AccountSettings() {
       <Card
         className="bp-corners"
         title={<span className="bp-title">个人资料</span>}
-        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}
+        style={{ border: '1px solid var(--bp-line)', background: 'var(--bp-panel)' }}
       >
         <Form form={profileForm} layout="vertical" size="small" requiredMark={false}>
           <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
@@ -140,7 +140,7 @@ export default function AccountSettings() {
       <Card
         className="bp-corners"
         title={<span className="bp-title">修改密码</span>}
-        style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)', marginTop: 14 }}
+        style={{ border: '1px solid var(--bp-line)', background: 'var(--bp-panel)', marginTop: 14 }}
       >
         <Form form={pwdForm} layout="vertical" size="small" requiredMark={false}>
           <Form.Item name="oldPassword" label="原密码" rules={[{ required: true, message: '请输入原密码' }]}>

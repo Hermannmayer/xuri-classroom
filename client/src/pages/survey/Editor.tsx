@@ -1186,7 +1186,7 @@ export default function SurveyEditor() {
             minWidth: 0,
             overflow: 'auto',
             border: '1px solid var(--bp-line)',
-            background: 'rgba(30,58,95,0.45)',
+            background: 'var(--bp-panel-soft)',
           }}
           styles={{ body: { padding: 20 } }}
         >

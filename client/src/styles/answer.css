@@ -198,7 +198,7 @@
   width: 100%;
   text-align: left;
   padding: 12px 14px;
-  border: 1px solid var(--bp-line);
+  border: 1px solid var(--bp-option-border);
   background: var(--bp-panel-soft);
   color: var(--bp-text);
   font-family: inherit;
@@ -207,17 +207,21 @@
   cursor: pointer;
   transition: border-color 100ms, background 100ms;
 }
-.sk-option:hover:not(:disabled) {
+.sk-option:hover:not(:disabled):not(.selected) {
   border-color: var(--bp-hover-border);
   background: var(--bp-option-hover);
 }
-.sk-option.selected {
-  border-color: var(--bp-orange);
-  background: var(--bp-orange-tint);
+.sk-option.selected,
+.sk-option.selected:hover:not(:disabled) {
+  border-color: var(--bp-option-selected-border);
+  border-width: 2px;
+  background: var(--bp-option-selected-bg);
+  color: var(--bp-option-selected-text);
+  font-weight: 600;
 }
 .sk-option:disabled {
   cursor: default;
-  opacity: 0.85;
+  color: var(--bp-text-soft);
 }
 .sk-option-key {
   flex: 0 0 24px;
@@ -230,8 +234,10 @@
   letter-spacing: 0.06em;
 }
 .sk-option.selected .sk-option-key {
-  border-color: var(--bp-orange);
-  color: var(--bp-orange);
+  border-color: var(--bp-option-key-selected-bg);
+  background: var(--bp-option-key-selected-bg);
+  color: var(--bp-option-key-selected-text);
+  font-weight: 700;
 }
 .sk-option-label {
   flex: 1;

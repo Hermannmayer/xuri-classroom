@@ -82,7 +82,7 @@ export default function ProjectTrash() {
         </Button>
       </div>
 
-      <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'rgba(30,58,95,0.55)' }}>
+      <Card className="bp-corners" style={{ border: '1px solid var(--bp-line)', background: 'var(--bp-panel)' }}>
         <Table<Project>
           rowKey="id"
           size="small"

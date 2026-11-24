@@ -31,7 +31,7 @@ const TYPE_NAME: Record<string, string> = {
 };
 
 
-const PALETTE = ['#5398ff', '#39d2d9', '#f16b79', '#b18160', '#94ed8c', '#ffb878', '#99a4ff', '#808bea', '#c36cff'];
+const PALETTE = ['#2b86ef', '#1d93a1', '#ff2e42', '#ce6b25', '#1c9b29', '#9b851c', '#7276ff', '#ab58ff', '#ef2bbe'];
 
 type ChartKind = 'bar' | 'column' | 'pie';
 
@@ -85,7 +85,7 @@ function buildRows(q: FlatQuestion, answers: Answer[]) {
 export function Bar({ value, max, color = 'var(--bp-blue)' }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
-    <div style={{ height: 8, background: 'rgba(255,255,255,0.08)', flex: 1 }}>
+    <div style={{ height: 8, background: 'var(--bp-track)', flex: 1 }}>
       <div style={{ width: `${pct}%`, height: 8, background: color, transition: 'width 200ms' }} />
     </div>
   );
