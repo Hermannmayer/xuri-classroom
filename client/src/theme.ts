@@ -209,7 +209,7 @@ const lightTheme: ThemeConfig = {
     colorText: PAPER.text,
     colorTextSecondary: PAPER.textSoft,
     colorTextTertiary: '#66717f',
-    colorTextQuaternary: '#6b7787',
+    colorTextQuaternary: '#66717f',
     colorBorder: '#b8b1a2',
     colorBorderSecondary: '#d8d3c8',
     colorFillSecondary: 'rgba(30,58,95,0.06)',
