@@ -142,3 +142,8 @@ docs/.vitepress/cache/
 # DatabaseInitHelper 在【工作目录】写出来的临时外部配置（spring.application.name/server.port）；
 # 误提交会变成外部配置源，覆盖 jar 内的 application.yml
 /application.properties
+
+# DSH 工具在本机生成的项目卡状态，不属于项目本身
+PROJECT-CARDS.md
+# Windows 保留设备名误建的空文件
+NUL
