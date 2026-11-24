@@ -5,6 +5,7 @@ import cn.surveyking.server.core.uitls.ContextHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.AnswerQuery;
 import cn.surveyking.server.domain.dto.AnswerView;
+import cn.surveyking.server.mapper.AnswerMapper;
 import cn.surveyking.server.service.AnswerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,18 +30,18 @@ public class AnswerLookup {
 
 	private final AnswerService answerService;
 
+	private final AnswerMapper answerMapper;
+
 	public AnswerView getAnswerForProject(String projectId, String answerId) {
 		return getAnswerForProject(projectId, answerId, false);
 	}
 
-	/** 取历史答卷：查不到、已被删除、已换项目或不属于当前访问者一律返回 null，由调用方按「没有历史答卷」降级，绝不返回他人数据 */
+	/** 取历史答卷：查不到或已被删除返回 null，由调用方按「没有历史答卷」降级；存在但不属于当前访问者仍抛越权异常，避免把异常吞进事务导致提交失败 */
 	public AnswerView findAnswerForProject(String projectId, String answerId) {
-		try {
-			return getAnswerForProject(projectId, answerId);
-		}
-		catch (AccessDeniedException e) {
+		if (isBlank(answerId) || answerMapper.selectById(answerId) == null) {
 			return null;
 		}
+		return getAnswerForProject(projectId, answerId);
 	}
 
 	public AnswerView getAnswerForProject(String projectId, String answerId, boolean rankEnabled) {
