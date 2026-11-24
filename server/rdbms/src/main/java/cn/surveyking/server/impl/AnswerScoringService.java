@@ -47,6 +47,8 @@ public class AnswerScoringService {
 		ProjectView project = projectService.getProject(answer.getProjectId());
 
 		AnswerTimer.dropClientSnapshotForExam(answer, project);
+
+		stampServerSnapshot(answer, project);
 		AnswerTimer.AttemptStart attemptStart = AnswerTimer.resolveAttemptStart(answer, project, previousAnswer);
 		assertWithinTimeLimit(answer, project, attemptStart);
 		AnswerTimer.stampAttemptTime(answer, previousAnswer, attemptStart);
@@ -126,6 +128,32 @@ public class AnswerScoringService {
 		Boolean flag = project.getSetting() == null || project.getSetting().getExamSetting() == null ? null
 				: project.getSetting().getExamSetting().getScoringEnabled();
 		return flag != null ? flag : ProjectModeEnum.exam.equals(project.getMode());
+	}
+
+	/** 考试模式把「交卷这一刻的题目」由服务端自己存一份快照，改卷/重导入后回看仍能对上题目；随机抽题已有自己的快照，这里不覆盖 */
+	private static void stampServerSnapshot(Answer answer, ProjectView project) {
+		if (answer == null || project == null || project.getSurvey() == null) {
+			return;
+		}
+		if (!ProjectModeEnum.exam.equals(project.getMode())
+				|| ExerciseProjectTemplate.EXERCISE_PROJECT_ID.equals(project.getId())) {
+			return;
+		}
+		if (answer.getSurvey() != null) {
+			return;
+		}
+		if (hasRandomSetting(project)) {
+			return;
+		}
+		answer.setSurvey(project.getSurvey().deepCopy());
+	}
+
+	private static boolean hasRandomSetting(ProjectView project) {
+		if (project.getSetting() == null || project.getSetting().getExamSetting() == null) {
+			return false;
+		}
+		return project.getSetting().getExamSetting().getRandomSurvey() != null
+				|| Boolean.TRUE.equals(project.getSetting().getExamSetting().getRandomOrder());
 	}
 
 	private static SurveySchema trustedScoreSchema(ProjectView project, Answer previousAnswer) {

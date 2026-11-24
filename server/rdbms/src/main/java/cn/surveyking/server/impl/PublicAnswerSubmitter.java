@@ -185,6 +185,8 @@ public class PublicAnswerSubmitter {
 			return;
 		}
 		answerLookup.getAnswerForProject(projectId, answerId);
+
+		answerValidationService.validateSubmittable(projectService.getProject(projectId), false);
 		AnswerRequest answerRequest = new AnswerRequest();
 		answerRequest.setId(answerId);
 		answerRequest.setTempSave(0);

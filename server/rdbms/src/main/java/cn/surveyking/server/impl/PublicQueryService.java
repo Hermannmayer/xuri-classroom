@@ -59,6 +59,9 @@ public class PublicQueryService {
 	private final WechatAccessGuard wechatAccessGuard;
 
 	private final MessageSource messageSource;
+
+	private final AnswerValidationService answerValidationService;
+
 	@SneakyThrows
 	public PublicQueryVerifyView loadQuery(PublicQueryRequest request) {
 		Tuple2<ProjectView, ProjectSetting.PublicQuery> projectAndQuery = getProjectAndQueryThenValidate(request);
@@ -103,6 +106,8 @@ public class PublicQueryService {
 		if (project == null || project.getSetting() == null || project.getSetting().getSubmittedSetting() == null) {
 			throw new ErrorCodeException(ErrorCode.QueryNotExist);
 		}
+
+		answerValidationService.validateSubmittable(project, false);
 		List<ProjectSetting.PublicQuery> queries = project.getSetting().getSubmittedSetting().getPublicQuery();
 		if (queries == null || queries.size() == 0) {
 			throw new ErrorCodeException(ErrorCode.QueryNotExist);

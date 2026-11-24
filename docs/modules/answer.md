@@ -135,8 +135,8 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
   - nas:python scripts/nas/smoke-test.py
-last_verified: 2026-11-22
-verified_against: 984d2e7df00dbf322eab8c6704c1ac2163b7fac0
+last_verified: 2026-11-24
+verified_against: bc2dc48b1fceff09d6e249f5e093edd63a0eeb78
 ---
 
 # 答卷、判分与报表
@@ -474,6 +474,12 @@ npm run docs:check
 - 多选题在最后一次变更后 900ms 触发，填空题失焦后触发；一页一题最后一题不会自动提交，仍由用户确认。
 - 练习模式（`examSetting.exerciseMode`）和闯关模式（`passMode`）强制不生效；练习模式下设置开关禁用，保存时也会清掉。
 - 只改项目设置 JSON（`ProjectSetting.AnswerSetting`），无数据库迁移；逻辑在 `PublicAnswer.tsx`，入口在 `Overview.tsx` 的「答题显示」卡片。
+
+## 2026-11-24 客观题可人工改分 / 用时上报（answer）
+
+- **可改分范围扩到全卷**：`AnswerGradeServiceImpl#scorableQuestions` 把所有 `examScore > 0` 的题都算作可改分题，含单选/多选/判断等客观题。老师能把机器误判的分改成正确分，写入同一条 `t_answer_grade`（`source=manual`），并同步 `exam_info.question_score` 与总分。
+- **纯客观卷也能提交批改**：不再要求「必须先有主观题」，`submit` 时只要题有分值即可；纯客观卷提交后 `grade_status` 置 `graded`（`评估结果 allGraded || manualQuestions.isEmpty()`）。
+- **用时**：提交时前端上报 `metaInfo.answerInfo.startTime`（服务端 `AnswerTimer#clientStartedAt` 校验：不晚于当前、不早于 24 小时、不早于开考时间），首次交卷就能显示「用时」；缺失或非法才回退到服务端时间（此时 start≈end，不显示）。
 
 ## 相关文档
 

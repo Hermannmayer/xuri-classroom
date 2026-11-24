@@ -1,8 +1,10 @@
 package cn.surveyking.server.impl;
 
+import cn.surveyking.server.core.constant.AppConsts;
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
+import cn.surveyking.server.core.uitls.ContextHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
 import cn.surveyking.server.domain.dto.AnswerMetaInfo;
 import cn.surveyking.server.domain.dto.AnswerRequest;
@@ -62,6 +64,17 @@ public class ExamControlService {
 			if (answer == null || !Objects.equals(request.getProjectId(), answer.getProjectId())) {
 				throw new AccessDeniedException("无权限访问该答案");
 			}
+
+			String userId = SecurityContextUtils.getUserId();
+			boolean owned = isNotBlank(userId) && Objects.equals(userId, answer.getCreateBy());
+			if (!owned && !isNotBlank(userId)) {
+				String cookieAnswerId = ContextHelper
+						.getCookie(AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + answer.getProjectId());
+				owned = isNotBlank(cookieAnswerId) && Objects.equals(cookieAnswerId, answer.getId());
+			}
+			if (!owned) {
+				throw new AccessDeniedException("无权限访问该答案");
+			}
 		}
 		else if (SecurityContextUtils.getUserId() != null) {
 			answer = answerService.getOne(Wrappers.<Answer>lambdaQuery()
@@ -84,8 +97,11 @@ public class ExamControlService {
 			int times = metaInfo.getSwitchScreenTimes() == null ? 0 : metaInfo.getSwitchScreenTimes();
 			times += 1;
 			metaInfo.setSwitchScreenTimes(times);
-			latest.setMetaInfo(metaInfo);
-			answerService.updateById(latest);
+
+			Answer patch = new Answer();
+			patch.setId(latest.getId());
+			patch.setMetaInfo(metaInfo);
+			answerService.updateById(patch);
 			return times;
 		}
 	}

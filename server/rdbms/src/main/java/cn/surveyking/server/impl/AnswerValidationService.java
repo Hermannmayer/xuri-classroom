@@ -1,6 +1,7 @@
 package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.constant.ErrorCode;
+import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.domain.dto.AnswerQuery;
 import cn.surveyking.server.domain.dto.ProjectSetting;
@@ -44,6 +45,7 @@ public class AnswerValidationService {
 		if (endTime != null && System.currentTimeMillis() > endTime) {
 			throw new ErrorCodeException(ErrorCode.ExceededEndTime);
 		}
+		assertWithinExamWindow(project);
 		if (isNewAnswer) {
 			Long maxAnswers = setting.getAnswerSetting().getMaxAnswers();
 			if (maxAnswers != null) {
@@ -53,6 +55,21 @@ public class AnswerValidationService {
 					throw new ErrorCodeException(ErrorCode.ExceededMaxAnswers);
 				}
 			}
+		}
+	}
+
+	/** 考试时间窗：已开始未结束才允许作答。只看 examSetting 的起止，练手模式与问卷不计 */
+	private static void assertWithinExamWindow(ProjectView project) {
+		ProjectSetting.ExamSetting examSetting = project.getSetting().getExamSetting();
+		if (examSetting == null || !ProjectModeEnum.exam.equals(project.getMode())) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (examSetting.getStartTime() != null && now < examSetting.getStartTime()) {
+			throw new ErrorCodeException(ErrorCode.ExamUnStarted);
+		}
+		if (examSetting.getEndTime() != null && now > examSetting.getEndTime()) {
+			throw new ErrorCodeException(ErrorCode.ExamFinished);
 		}
 	}
 

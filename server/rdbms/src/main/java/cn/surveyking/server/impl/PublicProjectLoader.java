@@ -2,6 +2,7 @@ package cn.surveyking.server.impl;
 
 import cn.surveyking.server.core.constant.ErrorCode;
 import cn.surveyking.server.core.constant.ExamExerciseTypeEnum;
+import cn.surveyking.server.core.constant.ProjectModeEnum;
 import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.core.uitls.SchemaHelper;
 import cn.surveyking.server.core.uitls.SecurityContextUtils;
@@ -207,7 +208,7 @@ public class PublicProjectLoader {
 				projectView.setAnswer(answerView.getAnswer());
 				if (answerView.getSurvey() != null) {
 
-					projectView.setSurvey(answerView.getSurvey());
+					projectView.setSurvey(trimSnapshotForPublic(project, answerView.getSurvey()));
 				}
 				return projectView;
 			}
@@ -265,6 +266,23 @@ public class PublicProjectLoader {
 		}
 		classResourceService.assertStudentCanAnswer(project);
 		answerValidationService.validateSubmittable(project, false);
+	}
+
+	/** 答卷快照里可能带着正确答案：考试模式下发前按公开视图同一口径剥掉，练手模式除外 */
+	private static SurveySchema trimSnapshotForPublic(ProjectView project, SurveySchema snapshot) {
+		if (project == null || snapshot == null || !ProjectModeEnum.exam.equals(project.getMode())) {
+			return snapshot;
+		}
+		ProjectSetting.ExamSetting examSetting = project.getSetting() == null ? null
+				: project.getSetting().getExamSetting();
+		if (examSetting != null && Boolean.TRUE.equals(examSetting.getExerciseMode())) {
+			return snapshot;
+		}
+		if (snapshot.getAttribute() == null) {
+			snapshot.setAttribute(SurveySchema.Attribute.builder().build());
+		}
+		SchemaHelper.ignoreAttributes(snapshot, "examCorrectAnswer", "examScore", "examMatchRule");
+		return snapshot;
 	}
 
 	/** 首屏只返回必要的大纲元数据，不返回任何题干、选项或题目属性 */

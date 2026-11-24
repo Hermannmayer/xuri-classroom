@@ -40,6 +40,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -191,9 +192,7 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		}
 
 		Map<String, SurveySchema> manualQuestions = manualQuestions(schema);
-		if (manualQuestions.isEmpty()) {
-			throw new ValidationException("这份答卷没有需要人工评分的题目");
-		}
+		Map<String, SurveySchema> scorableQuestions = scorableQuestions(schema);
 		Map<String, AnswerGradeRequest.Item> items = indexItems(request.getItems());
 		if (items.isEmpty()) {
 			throw new ValidationException("没有需要保存的分数");
@@ -202,9 +201,9 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		String grader = SecurityContextUtils.getUserId();
 		Date now = new Date();
 		for (AnswerGradeRequest.Item item : items.values()) {
-			SurveySchema question = manualQuestions.get(item.getQuestionId());
+			SurveySchema question = scorableQuestions.get(item.getQuestionId());
 			if (question == null) {
-				throw new ValidationException("该题不是人工评分题，客观题分数由系统判定，不能人工改分");
+				throw new ValidationException("该题没有分值，不能人工改分");
 			}
 			if (item.getScore() == null) {
 				throw new ValidationException("分数不能为空");
@@ -220,10 +219,13 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 		Map<String, AnswerGrade> grades = loadGrades(answer.getId());
 		ScoreView score = evaluate(answer, schema, grades);
 
-		boolean graded = Boolean.TRUE.equals(request.getSubmit()) && score.allGraded;
+		boolean graded = Boolean.TRUE.equals(request.getSubmit()) && (score.allGraded || manualQuestions.isEmpty());
 		String status = graded ? GRADE_GRADED : GRADE_PENDING;
 		persistScore(answer, score, status, grader, now);
-		syncItemScores(answer.getId(), grades, manualQuestions.keySet());
+
+		Set<String> touched = new LinkedHashSet<>(manualQuestions.keySet());
+		touched.addAll(grades.keySet());
+		syncItemScores(answer.getId(), grades, touched);
 	}
 
 	@Override
@@ -330,6 +332,21 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			}
 		}
 		return false;
+	}
+
+	/** 卷内所有设了分值的题（含客观题）：人工改分的合法范围，用来纠正机器判错 */
+	private Map<String, SurveySchema> scorableQuestions(SurveySchema schema) {
+		Map<String, SurveySchema> result = new LinkedHashMap<>();
+		if (schema == null) {
+			return result;
+		}
+		for (SurveySchema question : SchemaHelper.flatSurveySchema(schema)) {
+			Double maxScore = question.getAttribute() == null ? null : question.getAttribute().getExamScore();
+			if (maxScore != null && maxScore > 0) {
+				result.put(question.getId(), question);
+			}
+		}
+		return result;
 	}
 
 	/** 卷内所有人工评分题：questionId → schema */
@@ -505,16 +522,19 @@ public class AnswerGradeServiceImpl implements AnswerGradeService {
 			item.setMaxScore(question.getAttribute() == null ? null : question.getAttribute().getExamScore());
 			item.setAnswer(answer == null ? null : answer.get(question.getId()));
 			boolean manual = AnswerScoreEvaluator.isManual(question);
-			item.setEditable(manual);
+			AnswerGrade grade = grades.get(question.getId());
+			Double maxScore = question.getAttribute() == null ? null : question.getAttribute().getExamScore();
+			item.setEditable(maxScore != null && maxScore > 0);
 			if (manual) {
-				AnswerGrade grade = grades.get(question.getId());
-
 				item.setScore(grade == null ? null : grade.getScore());
-				item.setComment(grade == null ? null : grade.getComment());
-				item.setSource(grade == null ? null : grade.getSource());
 			}
 			else {
-				item.setScore(machineScores.get(question.getId()));
+				item.setScore(
+						grade != null && grade.getScore() != null ? grade.getScore() : machineScores.get(question.getId()));
+			}
+			if (grade != null) {
+				item.setComment(grade.getComment());
+				item.setSource(grade.getSource());
 			}
 			if (includeCorrectAnswer) {
 				item.setCorrectAnswer(correctAnswerOf(question));

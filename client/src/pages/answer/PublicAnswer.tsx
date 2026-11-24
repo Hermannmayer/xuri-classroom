@@ -932,9 +932,12 @@ export default function PublicAnswer() {
 
         freshAttempt: freshAttempt && !answerId,
 
-        metaInfo: passMode
-          ? { passModeTimes: passTimesRef.current, passModeTimeouts: passTimeoutsRef.current }
-          : undefined,
+        metaInfo: {
+          ...(passMode
+            ? { passModeTimes: passTimesRef.current, passModeTimeouts: passTimeoutsRef.current }
+            : {}),
+          ...(startedAt ? { answerInfo: { startTime: startedAt } } : {}),
+        },
       });
       if (res?.answerId) {
         setAnswerId(res.answerId);

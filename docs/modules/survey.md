@@ -63,7 +63,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-24
-verified_against: 26e347041713dc6aec2a1012453e80a3ed95a98e
+verified_against: bc2dc48b1fceff09d6e249f5e093edd63a0eeb78
 ---
 
 # 考试编辑器与题型
@@ -227,6 +227,13 @@ npm run docs:check
 - 答题页「无法打开这份问卷」不再是无出口死页：提供「重新填写」与「去掉班级参数重试」，并先清掉本机保存的 `sk-answer-*` / `sk-draft-*`，避免刷新无限复现。
 - 前端 `PublicAnswer` 在服务端没回 `answerId` 时同步 `removeAnswerId(id)`，清掉 localStorage 里指向已删除答卷的 `sk-answer-<projectId>`，避免下一次交卷又带着失效 id。
 - 续答闸门刻意不复用 `validateProject`：回收上限、登录/密码/白名单/限次属于「能不能开始答」，对已经答过的人不该再拦一次。
+
+## 2026-11-24 交卷快照与时间窗（survey）
+
+- **考试模式由服务端存题目快照**：`AnswerScoringService#stampServerSnapshot` 在首次保存时把 `project.getSurvey()` 深拷贝进 `t_answer.survey`（不信任客户端上报的 survey；随机抽题/乱序已有自己的快照，跳过）。改卷、重导入后回看旧答卷，题目仍能对上，不再出现「答案凭空少了」。
+- **快照下发前必须剥离**：`PublicProjectLoader#trimSnapshotForPublic` 对考试模式（非练习）的快照再剥一次 `examCorrectAnswer/examScore/examMatchRule`，否则带 answerId 的 `/api/public/loadProject` 会绕过成绩单的显示开关泄露答案。
+- **交卷补考试时间窗**：`AnswerValidationService#assertWithinExamWindow` 在 `validateSubmittable` 里校验 `examSetting.startTime/endTime`，未开始报 `ExamUnStarted`、已结束报 `ExamFinished`；未配置时间窗的问卷不受影响。
+- **其余公开入口补齐同一口径**：`tempSaveAnswer`（草稿暂存）与 `PublicQueryService`（公开查询）都会先过 `validateSubmittable`；`ExamControlService#recordSwitchScreen` 补答卷归属校验，并把「整行回写」改成只更新 `meta_info`，避免与同一时刻的答案保存互相覆盖。
 
 ## 相关文档
 
