@@ -63,7 +63,7 @@ tests:
   - client:npm run check
   - docs:npm run docs:check
 last_verified: 2026-11-24
-verified_against: ee4af3459b99590ac0c2b35a589840bfc2476c44
+verified_against: 26e347041713dc6aec2a1012453e80a3ed95a98e
 ---
 
 # 考试编辑器与题型
