@@ -1331,9 +1331,21 @@ export default function PublicAnswer() {
   }
 
   if (fatal) {
+    const retry = (keepClassToken: boolean) => {
+      removeAnswerId(id);
+      removeDraft(id);
+      const base = keepClassToken && classToken ? `/s/` + id + `?classToken=` + encodeURIComponent(classToken) + `&fresh=1` : `/s/` + id + `?fresh=1`;
+      navigate(base, { replace: true });
+    };
     return (
       <div style={{ maxWidth: 480, margin: '80px auto', padding: 16 }}>
         <Alert type="warning" showIcon title="无法打开这份问卷" description={fatal} />
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <Button type="primary" onClick={() => retry(true)}>
+            重新填写
+          </Button>
+          <Button onClick={() => retry(false)}>去掉班级参数重试</Button>
+        </div>
       </div>
     );
   }

@@ -77,8 +77,11 @@ public class PublicAnswerSubmitter {
 
 		String randomSurveyCookieName = AppConsts.COOKIE_RANDOM_PROJECT_PREFIX + project.getId();
 		String answerIdFromCookie = ContextHelper.getCookie(randomSurveyCookieName);
+		if (isNotBlank(answerIdFromCookie) && answerLookup.findAnswerForProject(projectId, answerIdFromCookie) == null) {
+			expireCookie(randomSurveyCookieName, answerIdFromCookie);
+			answerIdFromCookie = null;
+		}
 		if (isNotBlank(answerIdFromCookie)) {
-			answerLookup.getAnswerForProject(projectId, answerIdFromCookie);
 			answerId = answerIdFromCookie;
 		}
 		else if (isNotBlank(request.getQueryId())) {
@@ -159,6 +162,13 @@ public class PublicAnswerSubmitter {
 			ContextHelper.getCurrentHttpResponse().addCookie(resultCookie);
 		}
 		return result;
+	}
+
+	/** 让一个 Cookie 立即失效：沿用原值 + maxAge=0，避免与写入时的 path/域不匹配而清不掉 */
+	private void expireCookie(String name, String value) {
+		Cookie cookie = new Cookie(name, value);
+		cookie.setMaxAge(0);
+		ContextHelper.getCurrentHttpResponse().addCookie(cookie);
 	}
 
 	public void tempSaveAnswer(AnswerRequest request) {
