@@ -8,7 +8,7 @@
 |---|---|---|
 | 一台 Windows 电脑（不折腾服务器） | `xuri-classroom-<版本>-windows-x64.zip` | 解压 → 双击 `setup.cmd` → 跟着向导走（首次会下载 JRE 25 + MySQL 8） |
 | 一台 Linux 服务器 | `xuri-classroom-<版本>-linux-x64.tar.gz` | `tar -xzf …` → `sudo bash install.sh --port 8080`（装成 systemd 服务） |
-| 已有 Docker | `xuri-classroom-<版本>-docker.tar.gz` | `docker compose -f docker-compose.release.yml up -d` |
+| 已有 Docker | 仓库默认 `docker-compose.yml`（或 Release 的 `xuri-classroom-<版本>-docker.tar.gz`） | `cp .env.example .env` 改密码 → `docker compose up -d`（拉镜像，不编译） |
 | 只是想看看代码怎么跑 | 本仓库 | 见下面「本地开发」 |
 
 **运行环境**：需要 **Java 25 运行时**（jar 的字节码目标就是 25，Java 17/21 起不来）。
@@ -24,7 +24,7 @@
 |---|---|
 | Windows 便携包 | 下载新包 → 解压覆盖 → `upgrade.cmd`（会先备份数据库） |
 | Linux 安装包 | 下载新包 → `sudo bash upgrade.sh` |
-| Docker | 拉新镜像 → `docker compose up -d`（数据库迁移在启动时自动执行） |
+| Docker | 改 `.env` 的 `VERSION` → `docker compose pull app && docker compose up -d`（数据库迁移在启动时自动执行） |
 
 **升级前请先备份**：数据库 + 附件。三种装法的备份命令见各部署页的「备份」小节。
 

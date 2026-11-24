@@ -203,8 +203,8 @@ def build_docker(version: str, jar: Path, out: Path) -> Path:
 
     if not DOCKER_TEMPLATE.exists():
         fail("Docker 模板目录不存在：" + str(DOCKER_TEMPLATE))
-    for file_name in ["Dockerfile.runtime", "docker-compose.release.yml", ".env.example", "README.md",
-                      "upgrade.sh", "migrate.sh"]:
+    for file_name in ["Dockerfile.runtime", "docker-compose.release.yml", "compose-online.yaml", ".env.example",
+                      "README.md", "upgrade.sh", "migrate.sh"]:
         source = DOCKER_TEMPLATE / file_name
         if not source.exists():
             fail("Docker 模板缺少 " + file_name)

@@ -22,7 +22,7 @@ description: "Windows 单机、Linux 服务器、Docker 三种安装方式总览
 
 - **只有一台 Windows 电脑，装完就要用** → [Windows 便携包](windows.md)。解压双击 `setup.cmd`，向导会把 JRE 25 和 MySQL 8 一起装好。
 - **有一台 Linux 服务器，希望开机自启、多人长期使用** → [Linux 安装包](linux.md)。装成 systemd 服务 `xuri-classroom`。
-- **服务器上已经有 Docker / 要做统一编排、离线分发** → [Docker](docker.md)。一条 compose 起 app + mysql，或一行脚本装好。
+- **服务器上已经有 Docker / 要做统一编排、离线分发** → [Docker](docker.md)。在线单文件编排一条命令起 app + mysql，或用仓库里的 `docker-compose.yml`（镜像版，不编译）。
 - **已经有 MySQL 8，只想要一个 jar** → 任意一种方式都可以，或直接看[环境变量](../reference/env.md)手工起 jar。
 
 ## 系统要求

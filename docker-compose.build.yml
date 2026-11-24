@@ -1,0 +1,60 @@
+# 从源码自己编译的编排：需要 Node 20+ 与 JDK 25，首次构建约 5-10 分钟（docker compose -f docker-compose.build.yml up -d --build）。
+# 只想跑起来用默认的 docker-compose.yml：拉 GHCR 预构建镜像，不触发任何编译。
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-surveyking}
+      TZ: Asia/Shanghai
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./server/rdbms/src/main/resources/scripts/init-mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-surveyking}
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      SK_JWT_SECRET: ${JWT_SECRET:-}
+      TZ: Asia/Shanghai
+    expose:
+      - '7007'
+    volumes:
+      - app-files:/app/files
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-final
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-8080}:80'
+    depends_on:
+      app:
+        condition: service_started
+
+volumes:
+  db-data:
+  app-files:

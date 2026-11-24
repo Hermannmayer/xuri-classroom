@@ -1,70 +1,73 @@
-# 三个容器：db（MySQL）+ app（后端，内部 7007）+ web（nginx，对外 80） 用户只访问 web 的 80 端口；后端端口不对外暴露，换端口也不影响用户。
+# 默认编排：只拉 GHCR 预构建镜像，不触发任何编译（docker compose up -d 即可）。
+# 想从源码自己编译（需要 Node + JDK 25，约 5-10 分钟）用 docker-compose.build.yml。
+# Release 部署包里那份叫 docker/docker-compose.release.yml，与本文件等价。
+name: xuri-classroom
+
 services:
+
   db:
     image: mysql:8.0
     restart: unless-stopped
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME:-surveyking}
+      MYSQL_USER: ${DB_USER:-xuri}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
       TZ: Asia/Shanghai
     volumes:
       - db-data:/var/lib/mysql
-
-      - ./server/rdbms/src/main/resources/scripts/init-mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ${INIT_SQL_FILE:-./server/rdbms/src/main/resources/scripts/init-mysql.sql}:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1']
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent']
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 30s
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: app
+    image: ${XURI_IMAGE:-ghcr.io/hermannmayer/xuri-classroom}:${VERSION:-latest}
     restart: unless-stopped
-    environment:
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_NAME: ${DB_NAME:-surveyking}
-      DB_USER: root
-      DB_PASSWORD: ${DB_PASSWORD:-123456}
-
-
-
-      SK_CRYPTO_KEY: ${SK_CRYPTO_KEY:?Set SK_CRYPTO_KEY to a base64-encoded 32-byte key}
-
-
-      SK_JWT_SECRET: ${JWT_SECRET:-}
-      TZ: Asia/Shanghai
-
-    expose:
-      - '7007'
-    volumes:
-
-      - app-files:/app/files
     depends_on:
       db:
         condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: web-final
-    restart: unless-stopped
     ports:
-
-
-      - '${APP_PORT:-9527}:80'
-    depends_on:
-      app:
-        condition: service_started
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: ${DB_NAME:-surveyking}
+      DB_USER: ${DB_USER:-xuri}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      SPRING_DATASOURCE_URL: "jdbc:mysql://db:3306/${DB_NAME:-surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-xuri}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      SK_JWT_SECRET: ${JWT_SECRET:?请在 .env 里设置 JWT_SECRET}
+      SK_WEB_SPA_ENABLED: 'true'
+      FILE_STORAGE_LOCAL_ROOT_PATH: /app/files
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
+      TZ: Asia/Shanghai
+    volumes:
+      - app-files:/app/files
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
 
 volumes:
+
   db-data:
+    name: xuri-classroom-db-data
   app-files:
+    name: xuri-classroom-app-files

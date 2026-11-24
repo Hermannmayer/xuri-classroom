@@ -23,7 +23,7 @@ description: "版本号规则、如何查看当前版本、升级与回滚步骤
 |---|---|
 | 安装目录 | Windows：解压目录根下的 `VERSION`；Linux：安装包解压后根目录的 `VERSION`（与系统里 `app.jar` 同版本） |
 | 安装包名 | `xuri-classroom-<版本>-windows-x64.zip`、`-linux-x64.tar.gz` |
-| Docker | `docker compose -f docker-compose.release.yml images` 或 `.env` 里的 `VERSION` |
+| Docker | `docker compose images`（或 `docker compose -f docker-compose.release.yml images`）或 `.env` 里的 `VERSION` |
 | 发布说明 | Releases 页面每个版本的 `RELEASE_NOTES.md` |
 
 ## 下载与校验
@@ -34,7 +34,7 @@ description: "版本号规则、如何查看当前版本、升级与回滚步骤
 |---|---|
 | `xuri-classroom-<version>-windows-x64.zip` | Windows 便携包 |
 | `xuri-classroom-<version>-linux-x64.tar.gz` | Linux 安装包 |
-| `xuri-classroom-<version>-docker.tar.gz` | Docker 部署包（compose + `.env.example` + README + `Dockerfile.runtime` + jar + 初始化 SQL，**不是镜像 tar**） |
+| `xuri-classroom-<version>-docker.tar.gz` | Docker 部署包（compose + `compose-online.yaml` + `.env.example` + README + `Dockerfile.runtime` + jar + 初始化 SQL，**不是镜像 tar**） |
 | `xuri-classroom-<version>.jar` | 可独立运行的 jar |
 | `SHA256SUMS` | 全部文件的校验和 |
 | `RELEASE_NOTES.md` | 本版本说明 |

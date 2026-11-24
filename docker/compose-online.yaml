@@ -1,0 +1,998 @@
+# 旭日云课堂 · 在线单文件编排（GHCR 镜像 + mysql:8.0，内联空库初始化 SQL）
+#
+# 与 docker/docker-compose.release.yml 等价，区别是 init-mysql.sql 内联在文件末尾的
+# configs.init_sql.content 里，所以除了 .env 之外不需要在机器上准备任何文件：
+#
+#   mkdir -p /opt/xuri-classroom && cd /opt/xuri-classroom
+#   umask 077
+#   { echo "DB_PASSWORD=$(openssl rand -hex 16)"; echo "JWT_SECRET=$(openssl rand -base64 48)"; } > .env
+#   curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/docker/compose-online.yaml \
+#     | docker compose --env-file .env -f - up -d
+#
+# 注意：
+#   · Compose 不支持直接读 HTTP URL（-f https://... 会被当成相对路径），只能走管道
+#   · 本文件由 scripts/deploy/gen-compose-online.py 生成，不要手改
+#   · 内联 SQL 含 25 处 DROP TABLE，只在数据卷为空时执行一次
+
+name: xuri-classroom
+
+services:
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-surveyking}
+      MYSQL_USER: ${DB_USER:-xuri}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - db-data:/var/lib/mysql
+    configs:
+      - source: init_sql
+        target: /docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  app:
+    image: ${XURI_IMAGE:-ghcr.io/hermannmayer/xuri-classroom}:${VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: ${DB_NAME:-surveyking}
+      DB_USER: ${DB_USER:-xuri}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      SPRING_DATASOURCE_URL: "jdbc:mysql://db:3306/${DB_NAME:-surveyking}?rewriteBatchedStatements=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-xuri}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      SK_JWT_SECRET: ${JWT_SECRET:?请在 .env 里设置 JWT_SECRET}
+      SK_WEB_SPA_ENABLED: 'true'
+      FILE_STORAGE_LOCAL_ROOT_PATH: /app/files
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xmx768m}
+      TZ: Asia/Shanghai
+    volumes:
+      - app-files:/app/files
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+
+  db-data:
+    name: xuri-classroom-db-data
+  app-files:
+    name: xuri-classroom-app-files
+
+configs:
+
+  init_sql:
+    content: |
+      SET NAMES utf8mb4;
+      SET FOREIGN_KEY_CHECKS = 0;
+
+
+
+
+      DROP TABLE IF EXISTS `t_account`;
+      CREATE TABLE `t_account` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `user_type` varchar(100) NOT NULL DEFAULT 'SysUser' COMMENT '用户类型',
+        `user_id` varchar(64) NOT NULL COMMENT '用户ID',
+        `auth_type` varchar(20) NOT NULL DEFAULT 'PWD' COMMENT '认证方式',
+        `auth_account` varchar(100) NOT NULL COMMENT '用户名',
+        `auth_secret` varchar(64) DEFAULT NULL COMMENT '密码',
+        `secret_salt` varchar(32) DEFAULT NULL COMMENT '加密盐',
+        `status` int NOT NULL DEFAULT '1' COMMENT '用户状态',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `oauth_identity_key` varchar(220) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin GENERATED ALWAYS AS ((case when ((`is_deleted` = 0) and (`auth_type` in (_utf8mb3'GOOGLE',_utf8mb3'WECHAT'))) then concat(`auth_type`,_utf8mb3':',`auth_account`) else NULL end)) STORED,
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_account_oauth_identity` (`oauth_identity_key`),
+        KEY `idx_account_user_auth` (`user_id`,`auth_type`,`is_deleted`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='登录账号';
+
+
+
+
+      BEGIN;
+      INSERT INTO `t_account` (`id`, `user_type`, `user_id`, `auth_type`, `auth_account`, `auth_secret`, `secret_salt`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', 'SysUser', '1457995481966747649', 'PWD', 'admin', '$$2a$$10$$vZk9P3XtbD2KrdLbQYPvBuPAkkUda0OlkDg7io1Q6VEtfFPig/tqO', NULL, 1, 0, '2021-11-09 16:56:26', NULL, '2022-02-01 23:57:27', '1457995481966747649');
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_answer`;
+      CREATE TABLE `t_answer` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `temp_answer` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '暂存答案',
+        `survey` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷',
+        `answer` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷答案',
+        `attachment` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '问卷元数据',
+        `meta_info` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷元数据',
+        `temp_save` int DEFAULT NULL COMMENT '0暂存 1已完成',
+        `exam_info` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '考试信息',
+        `exam_exercise_type` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '考试练习类型',
+        `exam_score` float DEFAULT NULL COMMENT '考试分数',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `items_synced` tinyint(1) NOT NULL DEFAULT '0' COMMENT '明细投影是否已同步',
+        `attempt_no` int NOT NULL DEFAULT '0' COMMENT '同项目同答题人的第几次作答（从 0 开始）',
+        `class_id` varchar(64) DEFAULT NULL COMMENT '答题时所在班级',
+        `anonymous_subject_id` varchar(64) DEFAULT NULL COMMENT '匿名答题主体（t_anonymous_subject.id）；登录用户为 NULL',
+        `is_anonymous` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否匿名答卷：1 是 0 否',
+        `answerer_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '答题人姓名（交卷时快照，选填；成绩单与 PDF 抬头用）',
+        `grade_status` varchar(16) NOT NULL DEFAULT 'none' COMMENT '批改状态：none 无需批改 / pending 待批改 / graded 已批改',
+        `graded_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '最近一次批改人（t_user.id）',
+        `graded_at` datetime DEFAULT NULL COMMENT '最近一次批改时间',
+        PRIMARY KEY (`id`) USING BTREE,
+        KEY `key_answer_pid` (`project_id`) USING BTREE,
+        KEY `key_answer_pid_user_time` (`project_id`,`create_by`,`create_at`) USING BTREE,
+        KEY `idx_answer_class` (`class_id`) USING BTREE,
+        KEY `idx_answer_anon_subject` (`anonymous_subject_id`) USING BTREE,
+        KEY `idx_answer_project_anon` (`project_id`,`is_anonymous`) USING BTREE,
+        KEY `idx_answer_project_grade` (`project_id`,`grade_status`) USING BTREE,
+        UNIQUE KEY `uk_answer_pid_user_attempt` (`project_id`,`create_by`,`attempt_no`) USING BTREE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答案';
+
+
+
+
+      DROP TABLE IF EXISTS `t_anonymous_subject`;
+      CREATE TABLE `t_anonymous_subject` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `token_hash` varchar(128) NOT NULL COMMENT '匿名 cookie token 的 SHA-256 十六进制',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `last_seen_at` timestamp NULL DEFAULT NULL COMMENT '最近访问时间',
+        `expires_at` timestamp NOT NULL COMMENT '过期时间',
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_anonymous_token_hash` (`token_hash`),
+        KEY `idx_anonymous_expires` (`expires_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='匿名答题主体';
+
+
+
+
+      DROP TABLE IF EXISTS `t_answer_item`;
+      CREATE TABLE `t_answer_item` (
+        `id` varchar(64) NOT NULL,
+        `answer_id` varchar(64) NOT NULL,
+        `project_id` varchar(64) NOT NULL,
+        `question_id` varchar(64) NOT NULL,
+        `question_type` varchar(32) DEFAULT NULL,
+        `option_id` varchar(64) DEFAULT NULL,
+        `value_json` text COMMENT '该选项对应的答案值（JSON，保留类型）',
+        `value_key` varchar(64) DEFAULT NULL,
+        `score` double DEFAULT NULL,
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_item_answer` (`answer_id`),
+        KEY `idx_item_project_question` (`project_id`,`question_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='答卷明细投影（统计专用）';
+
+
+
+
+      DROP TABLE IF EXISTS `t_answer_grade`;
+      CREATE TABLE `t_answer_grade` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `answer_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 't_answer.id',
+        `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '冗余项目 id，便于按项目统计批改进度',
+        `question_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '题目 id（只允许 examAnswerMode=manual 的题）',
+        `score` double NOT NULL DEFAULT '0' COMMENT '人工给定分数',
+        `comment` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '批改评语',
+        `grader` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '批改人（t_user.id）',
+        `source` varchar(8) NOT NULL DEFAULT 'manual' COMMENT '分数来源：manual 人工 / ai AI 预批改（老师复核后可覆盖）',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次批改时间',
+        `update_at` datetime DEFAULT NULL COMMENT '最近一次改分时间',
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_answer_grade_answer_question` (`answer_id`,`question_id`),
+        KEY `idx_answer_grade_project` (`project_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='主观题人工批改明细';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_comm_dict`;
+      CREATE TABLE `t_comm_dict` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `code` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '字典编码',
+        `name` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '字典中文名称',
+        `remark` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '备注信息',
+        `dict_type` int DEFAULT '1' COMMENT '字典类型 1:问卷字典 2:系统字典',
+        `create_at` datetime DEFAULT NULL COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` datetime DEFAULT NULL COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`) USING BTREE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC;
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_comm_dict_item`;
+      CREATE TABLE `t_comm_dict_item` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `dict_code` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '字典编码',
+        `item_name` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '字典项中文名称',
+        `item_value` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '字典项值',
+        `item_order` int DEFAULT NULL COMMENT '字典顺序',
+        `item_level` int DEFAULT NULL COMMENT '层级',
+        `parent_item_value` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '父字典项值',
+        `create_at` datetime DEFAULT NULL COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` datetime DEFAULT NULL COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`,`item_value`) USING BTREE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC;
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_dashboard`;
+      CREATE TABLE `t_dashboard` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `key` varchar(256) NOT NULL COMMENT '仪表盘组件key',
+        `type` int DEFAULT NULL COMMENT '仪表盘分类',
+        `project_id` varchar(64) DEFAULT NULL COMMENT '项目ID',
+        `setting` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '仪表盘设置',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='仪表盘';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_dept`;
+      CREATE TABLE `t_dept` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `parent_id` varchar(64) NOT NULL,
+        `dept_type` varchar(16) NOT NULL DEFAULT 'org' COMMENT 'org=用户组(教职工) class=班级(学员)',
+        `class_kind` varchar(16) NOT NULL DEFAULT 'group' COMMENT 'group=容器班(只做层级) teaching=教学班(可收学员/开放注册/分资源)',
+        `allow_register` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=开放学员自助注册（只对 teaching 班有效）',
+        `name` varchar(64) DEFAULT NULL COMMENT '名称',
+        `short_name` varchar(64) NOT NULL COMMENT '简称',
+        `code` varchar(64) DEFAULT NULL COMMENT '数据权限类型',
+        `manager_id` varchar(64) DEFAULT NULL COMMENT '扩展字段',
+        `valid_from` timestamp NULL DEFAULT NULL COMMENT '组有效期开始（组员在此区间内才允许登录/作答）',
+        `valid_to` timestamp NULL DEFAULT NULL COMMENT '组有效期结束',
+        `sort_code` int DEFAULT NULL,
+        `property_json` varchar(256) DEFAULT NULL COMMENT '扩展字段',
+        `status` varchar(20) DEFAULT NULL COMMENT '扩展字段',
+        `remark` varchar(256) DEFAULT NULL COMMENT '扩展字段',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_dept_parent` (`parent_id`),
+        KEY `idx_dept_type` (`dept_type`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='组织机构';
+
+
+
+
+      BEGIN;
+      INSERT INTO `t_dept` (`id`, `parent_id`, `name`, `short_name`, `code`, `manager_id`, `sort_code`, `property_json`, `status`, `remark`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '0', '旭日云课堂', 'surveyking', 'surveyking', '1457995481966747649', NULL, NULL, NULL, NULL, 0, '2021-11-21 14:12:08', NULL, '2021-11-21 14:22:58', '1457995481966747649');
+      COMMIT;
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_class_partner` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `dept_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id）',
+        `user_id` varchar(64) NOT NULL COMMENT '被授权的老师（t_user.id）',
+        `access_level` tinyint NOT NULL DEFAULT '1' COMMENT '1=只读 2=可管理',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_class_partner` (`dept_id`,`user_id`),
+        KEY `idx_class_partner_user` (`user_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级授权给老师';
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_class_resource` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `class_id` varchar(64) NOT NULL COMMENT '班级（t_dept.id，dept_type=class）',
+        `resource_type` varchar(16) NOT NULL COMMENT 'project=考试/问卷；repo=题库(P2)；course=课程(预留)',
+        `resource_id` varchar(64) NOT NULL COMMENT '资源 id（project: t_project.id）',
+        `share_token` varchar(64) DEFAULT NULL COMMENT '班级专属考试链接 token；空=未生成',
+        `status` tinyint NOT NULL DEFAULT '1' COMMENT '0=关闭 1=开放（班级级手动开关）',
+        `start_at` datetime DEFAULT NULL COMMENT '本班开始时间；空=继承全局',
+        `end_at` datetime DEFAULT NULL COMMENT '本班结束时间；空=继承全局',
+        `assigned_by` varchar(64) DEFAULT NULL COMMENT '分配人',
+        `settings` text COMMENT '预留',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_class_resource` (`class_id`,`resource_type`,`resource_id`),
+        UNIQUE KEY `uk_class_resource_share` (`share_token`),
+        KEY `idx_cr_resource` (`resource_type`,`resource_id`),
+        KEY `idx_cr_class` (`class_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级资源分配（按班级的考试窗口）';
+
+
+
+
+      DROP TABLE IF EXISTS `t_file`;
+      CREATE TABLE `t_file` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `original_name` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `file_name` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `file_path` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `thumb_file_path` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `storage_type` int DEFAULT NULL,
+        `shared` int DEFAULT '0',
+        `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '所属项目',
+        `question_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '所属问题',
+        `answer_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '绑定答卷',
+        `file_size` bigint DEFAULT NULL COMMENT '文件大小（字节）',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_file_project_id` (`project_id`),
+        KEY `idx_file_answer_id` (`answer_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='附件';
+
+
+
+
+      CREATE TABLE `t_file_ref` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `file_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `owner_type` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'project 或 repo',
+        `owner_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `question_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_file_ref_owner` (`file_id`,`owner_type`,`owner_id`),
+        KEY `idx_file_ref_owner` (`owner_type`,`owner_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='文件与项目/题库的引用关系';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_position`;
+      CREATE TABLE `t_position` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `name` varchar(50) NOT NULL,
+        `code` varchar(20) DEFAULT NULL,
+        `is_virtual` tinyint(1) NOT NULL COMMENT '是否虚拟岗',
+        `data_permission_type` varchar(256) DEFAULT NULL COMMENT '数据权限类型',
+        `property_json` varchar(20) DEFAULT NULL COMMENT '扩展字段',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='岗位';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_project`;
+      CREATE TABLE `t_project` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `parent_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT '0' COMMENT '父ID',
+        `name` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '项目名称',
+        `category` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '分类名（如 保育员/养老护理员/育婴员）',
+        `survey` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷',
+        `setting` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '问卷设置',
+        `status` int DEFAULT '0' COMMENT '0未发布 1已发布',
+        `mode` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '问卷模式',
+        `priority` int DEFAULT '1000' COMMENT '优先级',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_project_create_by` (`create_by`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='项目';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_project_partner`;
+      CREATE TABLE `t_project_partner` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `uid` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '项目内唯一ID',
+        `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '项目id',
+        `type` int DEFAULT NULL COMMENT '参与者类型',
+        `status` int DEFAULT '0' COMMENT '0未访问 1已访问 2已答题',
+        `user_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '参与者id',
+        `user_name` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '参与者姓名',
+        `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '参与组id',
+        `data_permission` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '数据权限',
+        `access_level` tinyint NOT NULL DEFAULT '2' COMMENT '授权级别 1只读 2可编辑(含只读) 3可授权(含编辑)',
+        `initial_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '初始值',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_pp_project` (`project_id`),
+        KEY `idx_pp_user` (`user_id`),
+        KEY `idx_pp_group` (`group_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_repo`;
+      CREATE TABLE `t_repo` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '标题',
+        `description` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '备注',
+        `category` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '题库分类',
+        `mode` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'survey问卷 exam考试',
+        `shared` tinyint(1) DEFAULT '0' COMMENT '1共享 0私有',
+        `tag` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '标签',
+        `priority` int DEFAULT NULL COMMENT '排序优先级',
+        `setting` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '设置',
+        `open_start_at` datetime DEFAULT NULL COMMENT '全局开放期开始，留空=不限',
+        `open_end_at` datetime DEFAULT NULL COMMENT '全局开放期结束，留空=不限',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `is_practice` tinyint DEFAULT NULL COMMENT '添加到练习题库 1是 0否',
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='模板组';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_repo_category`;
+      CREATE TABLE `t_repo_category` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '分类名（单段，不含 /）',
+        `parent_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '上级分类 id；为空表示根',
+        `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '全路径，用 / 连接（如 保育员/初级）',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_repo_category_path` (`path`),
+        KEY `idx_repo_category_parent` (`parent_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='题库分类（含空文件夹）';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_repo_partner`;
+      CREATE TABLE `t_repo_partner` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `repo_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '题库id',
+        `user_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '成员id',
+        `dept_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '部门/用户组id（授权给整组时使用）',
+        `access_level` tinyint NOT NULL DEFAULT '2' COMMENT '授权级别 1只读 2可编辑(含只读) 3可授权(含编辑)',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_repo_partner_repo` (`repo_id`),
+        KEY `idx_repo_partner_user` (`user_id`),
+        KEY `idx_repo_partner_dept` (`dept_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='题库成员';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_repo_template`;
+      CREATE TABLE `t_repo_template` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `template_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板id',
+        `repo_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板库id',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='模板库模板';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_role`;
+      CREATE TABLE `t_role` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `name` varchar(50) NOT NULL COMMENT '名称',
+        `code` varchar(50) NOT NULL COMMENT '编码',
+        `remark` varchar(100) DEFAULT NULL COMMENT '备注',
+        `authority` varchar(3000) DEFAULT NULL COMMENT '权限列表',
+        `status` tinyint(1) DEFAULT '1' COMMENT '1激活 0失活',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='角色';
+
+
+
+
+      BEGIN;
+      INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1457995481928998914', '超级管理员', 'admin', '系统初始化角色', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:delete,answer:export,answer:grade,answer:upload,answer:restore,repo:list,repo:detail,repo:create,repo:update,repo:delete,repo:export,repo:report,repo:grant,template:list,template:create,template:update,template:delete,class:list,class:detail,class:grant,class:member:create,class:member:update,class:member:delete,file:list,file:detail,file:import,file:delete,user:update,user:import,system:user:list,system:user:create,system:user:update,system:user:delete,system:role:list,system:role:create,system:role:update,system:role:delete,system:dept:list,org:list,user:select,system:dept:create,system:dept:update,system:dept:delete,system:dict:list,system:dict:create,system:dict:update,system:dict:delete,system:dictItem:list,system:dictItem:create,system:dictItem:update,system:dictItem:import,system:dictItem:delete,system:setting:update,system:log:list,file:upload,template:import,system:user:create:student,system:user:create:teacher,portal:teacher,portal:admin,content:protect,notice:list,notice:manage:system,notice:manage:class,ai:use', 1, 0, '2021-11-09 16:56:26', NULL, '2025-08-08 10:04:12', '1457995481966747649');
+
+
+
+
+
+      INSERT INTO `t_role` (`id`, `name`, `code`, `remark`, `authority`, `status`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES
+      ('teacher', '老师', 'teacher', '配置考试与题库、查看答卷数据', 'project:list,project:detail,project:create,project:update,project:delete,project:report,project:publish,project:partner,answer:list,answer:detail,answer:create,answer:update,answer:export,answer:grade,answer:upload,answer:delete,answer:restore,repo:list,repo:detail,template:list,file:detail,file:list,file:import,file:delete,user:update,file:upload,repo:grant,portal:teacher,class:list,class:detail,class:member:create,org:list,user:select,class:member:update,class:member:delete,class:register,class:member:approve,class:member:assign,template:import,notice:list,notice:manage:class,ai:use,repo:create,repo:update,repo:delete,repo:export,repo:report,template:create,template:update,template:delete', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL),
+      ('student', '学员', 'student', '答题、练习、看题库与考试，无后台管理权限', 'project:list,project:detail,project:report,project:answer,exercise:list,repo:list,repo:questions:read,repo:book,repo:practice,answer:list,answer:detail,answer:upload,user:update,portal:student,notice:list', 1, 0, '2021-11-09 16:56:26', NULL, NULL, NULL);
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_sys_info`;
+      CREATE TABLE `t_sys_info` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '主键',
+        `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '系统名称',
+        `description` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '系统描述信息',
+        `avatar` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '图标',
+        `locale` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '默认语言',
+        `version` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '版本号',
+        `setting` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '其他系统设置',
+        `ai_setting` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT 'AI设置',
+        `oauth_setting` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '第三方登录设置',
+        `register_info` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '注册信息',
+        `is_default` tinyint(1) DEFAULT NULL COMMENT '是否默认设置',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='系统信息';
+
+
+
+
+      BEGIN;
+      INSERT INTO `t_sys_info` (`id`, `name`, `description`, `avatar`, `locale`, `version`, `setting`, `ai_setting`, `oauth_setting`, `register_info`, `is_default`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1', '考试与学习平台', '在线考试、练习与题库管理', NULL, 'zh-CN', '2.0.0', '{"captchaEnabled":false,"copyProtected":true,"watermarkEnabled":true,"watermarkMode":"name_phone","collaboratorAuthority":"project:create"}', NULL, NULL, '{"registerEnabled":true,"roles":["student"],"strongPasswordEnabled":true}', 1, '2022-02-11 10:13:19', NULL, '2022-11-07 15:13:02', NULL);
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_tag`;
+      CREATE TABLE `t_tag` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `entity_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '实体ID',
+        `name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '名称',
+        `category` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '分类',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='模板组';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_template`;
+      CREATE TABLE `t_template` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `repo_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `serial_no` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '序号',
+        `name` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板标题',
+        `question_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '问题类型',
+        `template` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '模板',
+        `mode` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板模式 survey/exam',
+        `category` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板分类',
+        `tag` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '标签',
+        `chapter` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '章节',
+        `difficulty` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '难度（易/中/难）',
+        `priority` int DEFAULT NULL COMMENT '排序优先级',
+        `preview_url` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '预览地址',
+        `shared` tinyint(1) DEFAULT '0',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_template_repo` (`repo_id`),
+        KEY `idx_template_chapter` (`repo_id`, `chapter`),
+        KEY `idx_template_difficulty` (`repo_id`, `difficulty`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_user`;
+      CREATE TABLE `t_user` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `name` varchar(50) NOT NULL COMMENT '真实姓名',
+        `dept_id` varchar(20) DEFAULT NULL,
+        `gender` varchar(10) DEFAULT NULL COMMENT '性别',
+        `birthday` date DEFAULT NULL COMMENT '出生日期',
+        `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
+        `email` varchar(50) DEFAULT NULL COMMENT 'Email',
+        `avatar` varchar(200) DEFAULT NULL COMMENT '头像地址',
+        `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '用户状态',
+        `user_type` varchar(16) NOT NULL DEFAULT 'student' COMMENT '用户类型 staff/student',
+        `ui_zoom` decimal(4,2) DEFAULT '1.00' COMMENT '界面缩放',
+        `ui_theme` varchar(10) DEFAULT 'light' COMMENT '主题 light/dark',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        `profile` varchar(255) DEFAULT NULL COMMENT '个人简介',
+        `correct_times` int DEFAULT NULL COMMENT '错题答对清除次数',
+        PRIMARY KEY (`id`),
+        KEY `idx_user_dept` (`dept_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='系统用户';
+
+
+
+
+      BEGIN;
+      INSERT INTO `t_user` (`id`, `name`, `dept_id`, `gender`, `birthday`, `phone`, `email`, `avatar`, `status`, `user_type`, `is_deleted`, `create_at`, `create_by`, `update_at`, `update_by`, `profile`, `correct_times`) VALUES ('1457995481966747649', 'Admin', '1', 'F', NULL, '13800138000', 'surveyking@qq.com', NULL, 1, 'staff', 0, '2021-11-09 16:56:26', NULL, '2022-02-11 13:29:17', '1457995481966747649', 'hello surveyking~', NULL);
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_user_book`;
+      CREATE TABLE `t_user_book` (
+        `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+        `name` varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '问题名称',
+        `template_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '模板ID',
+        `wrong_times` int DEFAULT NULL COMMENT '错误次数',
+        `correct_times` int DEFAULT NULL COMMENT '正确次数',
+        `note` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '笔记',
+        `status` int DEFAULT NULL COMMENT '1标记为简单',
+        `type` int DEFAULT NULL COMMENT '1错题 2收藏',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `repo_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+        `project_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT '来源考试ID（错题本按考试分开记）',
+        `is_marked` tinyint DEFAULT NULL,
+        PRIMARY KEY (`id`) USING BTREE,
+        KEY `idx_user_book_project` (`create_by`,`project_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='错题本';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_user_dept`;
+      CREATE TABLE `t_user_dept` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `user_id` varchar(64) NOT NULL COMMENT '用户ID',
+        `dept_id` varchar(64) NOT NULL COMMENT '用户组ID（附加组）',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_user_dept` (`user_id`,`dept_id`),
+        KEY `idx_user_dept_user` (`user_id`),
+        KEY `idx_user_dept_dept` (`dept_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户-用户组（附加组）';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_user_position`;
+      CREATE TABLE `t_user_position` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `user_id` varchar(64) NOT NULL,
+        `dept_id` varchar(64) DEFAULT NULL,
+        `position_id` varchar(64) DEFAULT NULL COMMENT '数据权限类型',
+        `is_primary_position` tinyint(1) DEFAULT NULL COMMENT '是否主岗',
+        `propertyJson` varchar(256) DEFAULT NULL COMMENT '扩展字段',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户岗位';
+
+
+
+
+      BEGIN;
+      COMMIT;
+
+
+
+
+      DROP TABLE IF EXISTS `t_user_role`;
+      CREATE TABLE `t_user_role` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `user_type` varchar(100) NOT NULL DEFAULT 'SysUser' COMMENT '用户类型',
+        `user_id` varchar(64) NOT NULL COMMENT '用户ID',
+        `role_id` varchar(64) NOT NULL COMMENT '角色ID',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_user_role` (`user_id`,`role_id`),
+        KEY `idx_t_user_role` (`user_type`,`user_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户角色关联';
+
+
+
+
+      BEGIN;
+      INSERT INTO `t_user_role` (`id`, `user_type`, `user_id`, `role_id`, `create_at`, `create_by`, `update_at`, `update_by`) VALUES ('1488542015867121666', 'SysUser', '1457995481966747649', '1457995481928998914', '2022-02-01 23:57:27', '1457995481966747649', NULL, NULL);
+      COMMIT;
+
+      SET FOREIGN_KEY_CHECKS = 1;
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_notice` (
+        `id`            varchar(64)  NOT NULL COMMENT 'ID',
+        `title`         varchar(200) NOT NULL COMMENT '标题',
+        `content`       longtext     NOT NULL COMMENT '正文富文本，入库前服务端白名单消毒',
+        `type`          varchar(32)  NOT NULL DEFAULT 'notice' COMMENT 'notice / system_update / ai_result',
+        `audience`      varchar(16)  NOT NULL DEFAULT 'all' COMMENT 'all / admin / teacher / student',
+        `scope_type`    varchar(16)  DEFAULT NULL COMMENT 'NULL=全站 / class=某个班 / project=某场考试',
+        `scope_id`      varchar(64)  DEFAULT NULL COMMENT 'scope_type 对应的 id',
+        `pinned`        tinyint(1)   NOT NULL DEFAULT 0 COMMENT '是否置顶',
+        `require_ack`   tinyint(1)   NOT NULL DEFAULT 0 COMMENT '是否要求已读回执',
+        `status`        varchar(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft / published / archived',
+        `publish_at`    datetime     DEFAULT NULL COMMENT '发布时间',
+        `expire_at`     datetime     DEFAULT NULL COMMENT '过期时间',
+        `create_by`     varchar(256) DEFAULT NULL,
+        `create_at`     timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `update_at`     datetime     DEFAULT NULL,
+        `is_deleted`    tinyint(1)   NOT NULL DEFAULT 0,
+        PRIMARY KEY (`id`),
+        KEY `idx_notice_audience` (`audience`, `status`, `publish_at`),
+        KEY `idx_notice_scope` (`scope_type`, `scope_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知公告';
+
+      CREATE TABLE IF NOT EXISTS `t_notice_read` (
+        `id`         varchar(64) NOT NULL COMMENT 'ID',
+        `notice_id`  varchar(64) NOT NULL COMMENT '公告 id',
+        `user_id`    varchar(64) NOT NULL COMMENT '已读用户 id',
+        `read_at`    datetime    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '已读时间',
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_notice_read` (`notice_id`, `user_id`),
+        KEY `idx_notice_read_user` (`user_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告已读记录';
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_api_token` (
+        `id`           varchar(64)  NOT NULL COMMENT 'ID',
+        `user_id`      varchar(64)  NOT NULL COMMENT '按哪个用户签发；MCP 调用的权限就是它的权限',
+        `name`         varchar(100) NOT NULL COMMENT '给用户辨认用：如 Claude / 我的脚本',
+        `token_hash`   varchar(128) NOT NULL COMMENT 'SHA-256，明文只返回一次',
+        `scopes`       varchar(500) DEFAULT NULL COMMENT '逗号分隔的工具白名单；空=按用户权限',
+        `expires_at`   datetime     DEFAULT NULL,
+        `last_used_at` datetime     DEFAULT NULL,
+        `revoked`      tinyint(1)   NOT NULL DEFAULT 0,
+        `create_at`    timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_api_token_hash` (`token_hash`),
+        KEY `idx_api_token_user` (`user_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MCP/API 访问令牌';
+
+      CREATE TABLE IF NOT EXISTS `t_api_idempotency` (
+        `id`          varchar(64)  NOT NULL COMMENT 'ID',
+        `user_id`     varchar(64)  NOT NULL,
+        `key_value`   varchar(128) NOT NULL COMMENT '客户端传的幂等键',
+        `result_json` longtext     COMMENT '第一次调用的结果，重复调用直接返回',
+        `create_at`   timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_api_idem` (`user_id`, `key_value`),
+        KEY `idx_api_idem_time` (`create_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MCP 写操作幂等';
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_ai_usage` (
+        `id`                varchar(64)  NOT NULL COMMENT 'ID',
+        `user_id`           varchar(64)  NOT NULL COMMENT '调用人（t_user.id）',
+        `scene`             varchar(32)  NOT NULL COMMENT '场景：paper_generate / question_rewrite / grade_suggest / report_summary',
+        `model`             varchar(120) DEFAULT NULL COMMENT '模型 id',
+        `prompt_tokens`     int          NOT NULL DEFAULT 0 COMMENT '输入 token',
+        `completion_tokens` int          NOT NULL DEFAULT 0 COMMENT '输出 token',
+        `total_tokens`      int          NOT NULL DEFAULT 0 COMMENT '合计 token',
+        `cost_ms`           bigint       NOT NULL DEFAULT 0 COMMENT '耗时（毫秒）',
+        `status`            varchar(16)  NOT NULL DEFAULT 'ok' COMMENT 'ok / error / rejected',
+        `error`             varchar(500) DEFAULT NULL COMMENT '失败原因摘要',
+        `create_at`         timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_ai_usage_user_day` (`user_id`, `create_at`),
+        KEY `idx_ai_usage_scene` (`scene`, `create_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 用量记账';
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_audit_log` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `action` varchar(64) NOT NULL COMMENT '动作：EXPORT_REPO/EXPORT_ANSWER/IMPORT_REPO',
+        `target_id` varchar(64) DEFAULT NULL COMMENT '目标 id',
+        `target_name` varchar(256) DEFAULT NULL COMMENT '目标名称',
+        `detail` varchar(512) DEFAULT NULL COMMENT '附加说明',
+        `before_json` text NULL COMMENT '操作前快照（仅高危动作）',
+        `after_json` text NULL COMMENT '操作后快照（仅高危动作）',
+        `source` varchar(16) DEFAULT 'web' COMMENT '来源：web / mcp / api',
+        `request_id` varchar(64) DEFAULT NULL COMMENT '同一次请求关联 id',
+        `ip` varchar(64) DEFAULT NULL COMMENT '操作人 IP',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_audit_action_time` (`action`, `create_at`),
+        KEY `idx_audit_create_by` (`create_by`),
+        KEY `idx_audit_target` (`target_id`, `create_at`),
+        KEY `idx_audit_create_at` (`create_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='操作审计日志';
+
+
+
+
+      CREATE TABLE IF NOT EXISTS `t_dept_role` (
+        `id` varchar(64) NOT NULL COMMENT 'ID',
+        `dept_id` varchar(64) NOT NULL COMMENT '用户组ID',
+        `role_id` varchar(64) NOT NULL COMMENT '角色ID',
+        `is_deleted` tinyint(1) NOT NULL DEFAULT '0',
+        `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `create_by` varchar(256) DEFAULT NULL,
+        `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+        `update_by` varchar(256) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_dept_role` (`dept_id`,`role_id`),
+        KEY `idx_dept` (`dept_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COMMENT='用户组-角色绑定';

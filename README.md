@@ -18,14 +18,20 @@
 |---|---|---|
 | 一台 Windows 电脑 | [Windows 便携包](https://hermannmayer.github.io/xuri-classroom/deploy/windows) | 解压 → 双击 `setup.cmd`，首次向导自动下载 JRE 25 + MySQL 8 并初始化 |
 | Linux 服务器 | [Linux 安装包](https://hermannmayer.github.io/xuri-classroom/deploy/linux) | `tar -xzf …` → `sudo bash install.sh --port 8080`，装成 systemd 服务 |
-| 已有 Docker | [Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker) | 一行脚本，或 `docker compose -f docker-compose.release.yml up -d` |
+| 已有 Docker | [Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker) | `docker compose up -d`（默认编排只拉 GHCR 预构建镜像，不编译） |
 
-### Docker 一行部署
+### Docker 一键部署
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
+# 在线单文件编排：compose 里已内联空库初始化 SQL，只需先放一份 .env
+mkdir -p /opt/xuri-classroom && cd /opt/xuri-classroom
+umask 077
+{ echo "DB_PASSWORD=$(openssl rand -hex 16)"; echo "JWT_SECRET=$(openssl rand -base64 48)"; } > .env
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/docker/compose-online.yaml \
+  | docker compose --env-file .env -f - up -d
 ```
 
+- 仓库里默认的 `docker-compose.yml` 同样是镜像版：`cp .env.example .env` 改两个密码后 `docker compose up -d` 即可，**不触发任何编译**。
 - 默认地址 `http://<本机IP>:8080`；默认管理员 `admin / 123456`，**首次登录立即修改**（程序不强制，属运维要求）。
 - 数据库使用 **MySQL 8**。
 - 装不上、起不来、打不开：[部署常见问题](https://hermannmayer.github.io/xuri-classroom/deploy/faq)；版本与升级：[版本与升级](https://hermannmayer.github.io/xuri-classroom/deploy/versioning)。
@@ -168,12 +174,16 @@ sudo bash install.sh --port 8080 --db-password '改成强密码'   # 没有 Java
 ### Docker
 
 ```bash
-# 方式一：一行脚本（国内可加 ghproxy 前缀，第三方代理有风险）
-curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
+# 方式一：仓库默认编排（镜像版，不编译）
+cp .env.example .env      # 改 DB_PASSWORD / JWT_SECRET，按需改 APP_PORT
+docker compose up -d
 
-# 方式二：compose（Release 的 docker.tar.gz 部署包里就是这些文件）
-cp .env.example .env      # 改 DB_PASSWORD / JWT_SECRET / APP_PORT
+# 方式二：Release 的 docker.tar.gz 部署包（包内就是 docker/ 目录那份）
+cp .env.example .env
 docker compose -f docker-compose.release.yml up -d
+
+# 方式三：从源码自己编译（需要 Node 20+ / JDK 25，首次约 5-10 分钟）
+docker compose -f docker-compose.build.yml up -d --build
 ```
 
 - 镜像 `ghcr.io/hermannmayer/xuri-classroom:<版本>` + `mysql:8.0`；端口 `APP_PORT`（默认 8080）；数据卷 `xuri-classroom-db-data`、`xuri-classroom-app-files`；`.env` 里 `DB_PASSWORD`、`JWT_SECRET` 必填。

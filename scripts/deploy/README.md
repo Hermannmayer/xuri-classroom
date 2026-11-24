@@ -9,7 +9,7 @@
 cp .env.example .env
 #    编辑 .env，至少改掉 DB_PASSWORD
 
-# 2. 构建并启动（首次会拉镜像 + 构建前后端，约 5-10 分钟）
+# 2. 启动（镜像版，只拉 GHCR 镜像，不编译）
 docker compose up -d
 
 # 3. 查看状态
@@ -28,12 +28,16 @@ docker compose logs -f app
 
 **首次启动建表**：`docker-compose.yml` 把 `server/rdbms/src/main/resources/scripts/init-mysql.sql` 挂到 MySQL 的 `docker-entrypoint-initdb.d`，**只在数据卷为空时执行一次**。
 
+**想从源码编译**：改用 `docker-compose.build.yml`（需要 Node 20+ 与 JDK 25），`docker compose -f docker-compose.build.yml up -d --build`，首次约 5-10 分钟。
+
 **升级**：
 
 ```bash
-git pull
-docker compose build app
-docker compose up -d app
+# 镜像版：改 .env 的 VERSION 后
+docker compose pull app && docker compose up -d app
+
+# 源码编译版
+git pull && docker compose -f docker-compose.build.yml up -d --build
 ```
 
 **备份**：
@@ -47,7 +51,7 @@ bash scripts/deploy/backup.sh --output /var/backups --retention 14
 
 ```bash
 docker compose exec db mysqldump -u root -p"$DB_PASSWORD" --no-tablespaces surveyking > backup.sql
-docker run --rm -v xuri-classroom_app-files:/files -v "$PWD":/out alpine tar czf /out/files.tar.gz -C /files .
+docker run --rm -v xuri-classroom-app-files:/files -v "$PWD":/out alpine tar czf /out/files.tar.gz -C /files .
 ```
 
 > 为什么必须 `docker compose exec`：MySQL 端口没有发布到宿主机（只在 compose 内网），
@@ -133,7 +137,7 @@ Docker 构建里已经自动做了这一步（见 `Dockerfile`）。
 | `DB_USER` | `root` | 用户 |
 | `DB_PASSWORD` | `123456` | 密码 |
 | `SERVER_PORT` | 见 `application-dev.yml`（7007） | 后端端口；Docker 里固定 80 |
-| `SK_CRYPTO_KEY` | 无（未配置则题库明文存储） | 题库字段加密密钥，Base64 的 32 字节；**Docker 部署必填**，丢失后已加密数据无法解密 |
+| `SK_CRYPTO_KEY` | 无 | **当前未实现**：Java 里零引用，compose 已不再要求设置；填了也不生效 |
 | `JWT_SECRET` | 空（每次启动随机） | JWT 签名密钥，`openssl rand -base64 48` 生成。不配则重启后所有人要重新登录、多实例无法共享会话 |
 
 > 生产环境务必改掉 `DB_PASSWORD`，并修改默认管理员密码。

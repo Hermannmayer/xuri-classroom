@@ -45,7 +45,7 @@ command -v docker >/dev/null 2>&1 || die "找不到 docker 命令，请先安装
 COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
 [[ -f "$COMPOSE_FILE" ]] || die "在 $COMPOSE_DIR 下找不到 docker-compose.yml（可用 --compose-dir 指定）"
 ENV_FILE="${ENV_FILE:-$COMPOSE_DIR/.env}"
-[[ -f "$ENV_FILE" ]] || die "找不到 env 文件：$ENV_FILE（从 .env.example 复制一份并填好 DB_PASSWORD / SK_CRYPTO_KEY）"
+[[ -f "$ENV_FILE" ]] || die "找不到 env 文件：$ENV_FILE（从 .env.example 复制一份并填好 DB_PASSWORD / JWT_SECRET）"
 OUTPUT_DIR="${OUTPUT_DIR:-$COMPOSE_DIR/backups}"
 
 

@@ -20,9 +20,10 @@
 三条必须记住的事实（都已在仓库/机器上核实过）：
 
 1. **应用启动时不做任何建表/迁移**：没有 Flyway / Liquibase。库是空的，应用起不来。
-2. `server/rdbms/src/main/resources/scripts/init-mysql.sql` 里有 **22 处 `DROP TABLE IF EXISTS`**：
-   **对着有数据的库执行 = 清库**。所以这个文件绝对不能挂在 `docker-entrypoint-initdb.d` 下自动跑
-   （根目录 `docker-compose.yml` 是那样做的，那个文件**不能拿来上生产**）。
+2. `server/rdbms/src/main/resources/scripts/init-mysql.sql` 里有 **25 处 `DROP TABLE IF EXISTS`**：
+   **对着有数据的库执行 = 清库**。发版用的 `docker/docker-compose.release.yml` 会把它挂到
+   `docker-entrypoint-initdb.d`，安全前提是「卷为空」——已经有数据的库不要重新初始化；
+   `deploy/nas/*` 这套自建编排同样不依赖它（首次导入走 `scripts/nas/migrate/04-import.sh`）。
 3. 系统里**没有在线会话表**，没有任何 SQL 能准确回答「此刻有没有人在答题」。
    能做的最强信号见第 5 节，且**未在生产库验证**。
 

@@ -69,7 +69,7 @@ description: "写了但没接上的功能、配了但没读的开关、建了但
 
 ### 2.1 `SK_CRYPTO_KEY`
 
-- `docker-compose.yml:73` 把它列为**必填**（缺失直接拒绝启动）；
+- 曾经在 `docker-compose.yml` 里是**必填**（缺失直接拒绝启动），默认编排已改为不要求设置（2026-11-24）；
 - `server/**/*.java` 里**零引用**（`grep SK_CRYPTO_KEY` 为 0）；
 - README 自己写着"当前未启用"。
 

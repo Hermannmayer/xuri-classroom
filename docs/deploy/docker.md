@@ -1,13 +1,13 @@
 ---
 title: "Docker 部署"
-description: "一行脚本或 docker compose 起 app + mysql；含 GHCR 镜像、离线安装、备份升级与回滚"
+description: "在线单文件编排、一行脚本或 docker compose 起 app + mysql；含 GHCR 镜像、离线安装、备份升级与回滚"
 ---
 
 # Docker 部署
 
 Docker 方式起两个容器：`app`（旭日云课堂，端口 8080）和 `db`（`mysql:8.0`），数据放在两个卷里。
 
-- compose 文件：`docker/docker-compose.release.yml`（项目名 `xuri-classroom`）
+- compose 文件：仓库根目录 `docker-compose.yml`（镜像版默认入口）、`docker/docker-compose.release.yml`（发布包内同一份）、`docker-compose.build.yml`（从源码编译）；项目名都是 `xuri-classroom`
 - 镜像：`ghcr.io/hermannmayer/xuri-classroom:<tag>`（GHCR，带 `:latest`；`.env` 的 `VERSION` 决定 tag，`XURI_IMAGE` 可换成国内镜像源）
 - 默认端口：`8080`（`.env` 的 `APP_PORT`）
 - 数据卷：`xuri-classroom-db-data`（MySQL）、`xuri-classroom-app-files`（附件），卷名固定，备份不用猜项目前缀
@@ -22,7 +22,23 @@ Docker 方式起两个容器：`app`（旭日云课堂，端口 8080）和 `db`�
 | 磁盘 | 2GB 起，附件与备份另算 |
 | 网络 | 能访问 `ghcr.io`；不能就按下面的[离线安装](#离线安装) |
 
-## 方式一：一行脚本（最快）
+## 方式一：在线单文件编排（最快）
+
+`docker/compose-online.yaml` 把空库初始化 SQL 内联进了 compose，所以机器上只需要一份 `.env`：
+
+```bash
+mkdir -p /opt/xuri-classroom && cd /opt/xuri-classroom
+umask 077
+{ echo "DB_PASSWORD=$(openssl rand -hex 16)"; echo "JWT_SECRET=$(openssl rand -base64 48)"; } > .env
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/docker/compose-online.yaml \
+  | docker compose --env-file .env -f - up -d
+```
+
+> Compose 不支持 `-f https://...`（会被当成相对路径），所以必须走管道：`-f -` 从标准输入读编排。
+> 首次启动会拉 `ghcr.io/hermannmayer/xuri-classroom` 与 `mysql:8.0`，不触发任何编译。
+> 实测（Compose v2.40.3）：空库初始化跑完约 2 分钟，app 启动约 15 秒，`/api/system` 200；库里建出 36 张表、`admin` 账号在位。
+
+## 方式二：一行脚本（会落盘三个文件，便于长期维护）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
@@ -39,21 +55,21 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 ```bash
 # 下载后再执行，便于先看一眼脚本内容
 curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh -o docker-one-line.sh
-sudo APP_PORT=9090 VERSION=2.0.0 bash docker-one-line.sh
+sudo APP_PORT=9090 VERSION=2.4.3 bash docker-one-line.sh   # VERSION 填当前版本，不带 v
 ```
 
 > **国内网络**：GitHub raw 可能很慢或不通，可以在 URL 前加第三方代理前缀，例如
 > `curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash`。
 > **风险提示**：ghproxy 之类的第三方代理不是本项目维护的，可能不可用、限速或被篡改。用代理时请先把脚本下载到本地看一眼内容，并核对发布说明里的 SHA256；有条件就用官方地址或离线安装。
 
-## 方式二：手动 compose（推荐长期使用）
+## 方式三：手动 compose（推荐长期使用）
 
 1. 从 Releases 下载 `xuri-classroom-<version>-docker.tar.gz`（**部署包，不是镜像 tar**），解压：
 
    ```bash
    tar -xzf xuri-classroom-<version>-docker.tar.gz
    cd xuri-classroom-<version>-docker
-   ls    # docker-compose.release.yml  .env.example  README.md  Dockerfile.runtime  VERSION  xuri-classroom.jar  init-mysql.sql
+   ls    # docker-compose.release.yml  compose-online.yaml  .env.example  README.md  Dockerfile.runtime  VERSION  xuri-classroom.jar  init-mysql.sql
    ```
 
    > 也可以在仓库里直接用 `docker/` 目录。
@@ -76,7 +92,7 @@ sudo APP_PORT=9090 VERSION=2.0.0 bash docker-one-line.sh
    | 变量 | 默认 | 说明 |
    |---|---|---|
    | `APP_PORT` | `8080` | 对外端口 |
-   | `VERSION` | `latest` | 镜像 tag，**不带 `v`**（例如 `2.0.0`）；生产建议固定版本 |
+   | `VERSION` | `latest` | 镜像 tag，**不带 `v`**（例如 `2.4.3`）；生产建议固定版本 |
    | `DB_NAME` / `DB_USER` | `surveyking` / `xuri` | 库名与连接账号 |
    | `XURI_IMAGE` | `ghcr.io/hermannmayer/xuri-classroom` | 换国内镜像源，如 `ghcr.nju.edu.cn/hermannmayer/xuri-classroom` |
    | `JAVA_OPTS` | `-Xmx768m` | JVM 堆上限（4GB 机器用 768m，8GB 可用 1536m） |
@@ -172,7 +188,7 @@ cd xuri-classroom-<version>-docker
 docker build -f Dockerfile.runtime -t ghcr.io/hermannmayer/xuri-classroom:<tag> .
 ```
 
-然后照"方式二"用部署包里的 compose 启动（`.env` 的 `VERSION` 与 load/构建出来的标签一致即可）。`mysql:8.0` 也要一起 `save/load`，或在目标机能访问的镜像仓库里。
+然后照"方式三"用部署包里的 compose 启动（`.env` 的 `VERSION` 与 load/构建出来的标签一致即可）。`mysql:8.0` 也要一起 `save/load`，或在目标机能访问的镜像仓库里。
 
 ## 常见问题
 

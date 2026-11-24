@@ -11,6 +11,7 @@
 | **docker-compose.release.yml** | 发布编排：db（mysql:8.0）+ app（GHCR 镜像） |
 | **.env.example** | 环境变量模板，复制为 .env |
 | **Dockerfile.runtime** | 可选：本地构建运行时镜像（离线/私有仓库场景） |
+| **compose-online.yaml** | 在线单文件编排：内联空库初始化 SQL，可用 `curl … \| docker compose -f - up -d` 直接起（由 `scripts/deploy/gen-compose-online.py` 生成） |
 | **README.md** | 本文件 |
 
 从 Releases 下载的 **xuri-classroom-<version>-docker.tar.gz** 是部署包（不是镜像），解压后还包含：
@@ -68,6 +69,18 @@ docker compose --env-file .env -f docker-compose.release.yml up -d
 
 访问 **http://<服务器IP>:8080**，初始账号 **admin / 123456**（由 init-mysql.sql 导入），登录后立即修改密码。
 
+### 在线单文件编排（不落盘 compose 与 SQL）
+
+```bash
+mkdir -p /opt/xuri-classroom && cd /opt/xuri-classroom
+umask 077
+{ echo "DB_PASSWORD=$(openssl rand -hex 16)"; echo "JWT_SECRET=$(openssl rand -base64 48)"; } > .env
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/docker/compose-online.yaml \
+  | docker compose --env-file .env -f - up -d
+```
+
+Compose 不支持 `-f https://...`，必须走管道（`-f -` 读标准输入）。这份编排把 `init-mysql.sql` 内联在 `configs.init_sql.content` 里，所以除 `.env` 外不需要任何文件。
+
 ### 一行命令（脚本会做上面这些事）
 
 ~~~bash
@@ -77,7 +90,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 可用环境变量覆盖默认值：
 
 ~~~bash
-curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo XURI_HOME=/opt/xuri APP_PORT=9090 VERSION=2.0.0 bash
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo XURI_HOME=/opt/xuri APP_PORT=9090 VERSION=2.4.3 bash
 ~~~
 
 ## 4. 状态与日志
