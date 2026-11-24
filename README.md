@@ -18,12 +18,34 @@
 |---|---|---|
 | 一台 Windows 电脑 | [Windows 便携包](https://hermannmayer.github.io/xuri-classroom/deploy/windows) | 解压 → 双击 `setup.cmd`，首次向导自动下载 JRE 25 + MySQL 8 并初始化 |
 | Linux 服务器 | [Linux 安装包](https://hermannmayer.github.io/xuri-classroom/deploy/linux) | `tar -xzf …` → `sudo bash install.sh --port 8080`，装成 systemd 服务 |
-| 已有 Docker | [Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker) | `docker compose up -d`（默认编排只拉 GHCR 预构建镜像，不编译） |
+| 已有 Docker | [Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker) | 一条命令：`curl -fsSL …/docker-one-line.sh \| sudo bash`，自动建目录、生成密码、拉镜像、起服务 |
 
 ### Docker 一键部署
 
+一台干净的 Linux 机器（已装 Docker），**复制这一行就能跑完**：
+
 ```bash
-# 在线单文件编排：compose 里已内联空库初始化 SQL，只需先放一份 .env
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
+```
+
+脚本会自己做完这些事：建 `/opt/xuri-classroom` → 生成随机数据库密码与 JWT 密钥 → 拉 `ghcr.io/hermannmayer/xuri-classroom` 镜像 → 起 MySQL 8 + 应用 → 打健康检查 → 打印访问地址。
+
+常用变体：
+
+```bash
+# 换端口 / 换安装目录 / 固定版本
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh \
+  | sudo APP_PORT=9090 XURI_HOME=/srv/xuri VERSION=2.4.4 bash
+```
+
+- **重复执行是幂等的**：保留 `.env` 与数据卷，只更新 compose 文件并 `up -d`。升级就是重跑这一行。
+- 需要 Docker Compose **v2**（`docker compose` 子命令）；检测到旧版 v1 会直接提示升级，不会装出半吊子环境。
+- 国内网络拉不动镜像时，改 `.env` 里的 `XURI_IMAGE` 指向镜像源后重跑。
+
+<details>
+<summary>不想跑脚本？手工起（把下面整段粘进终端）</summary>
+
+```bash
 mkdir -p /opt/xuri-classroom && cd /opt/xuri-classroom
 umask 077
 { echo "DB_PASSWORD=$(openssl rand -hex 16)"; echo "JWT_SECRET=$(openssl rand -base64 48)"; } > .env
@@ -31,7 +53,9 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/do
   | docker compose --env-file .env -f - up -d
 ```
 
-- 仓库里默认的 `docker-compose.yml` 同样是镜像版：`cp .env.example .env` 改两个密码后 `docker compose up -d` 即可，**不触发任何编译**。
+</details>
+
+- 已经有仓库副本时，默认的 `docker-compose.yml` 也是镜像版：`cp .env.example .env` 改两个密码后 `docker compose up -d`，**不触发任何编译**。
 - 默认地址 `http://<本机IP>:8080`；默认管理员 `admin / 123456`，**首次登录立即修改**（程序不强制，属运维要求）。
 - 数据库使用 **MySQL 8**。
 - 装不上、起不来、打不开：[部署常见问题](https://hermannmayer.github.io/xuri-classroom/deploy/faq)；版本与升级：[版本与升级](https://hermannmayer.github.io/xuri-classroom/deploy/versioning)。
@@ -174,15 +198,18 @@ sudo bash install.sh --port 8080 --db-password '改成强密码'   # 没有 Java
 ### Docker
 
 ```bash
-# 方式一：仓库默认编排（镜像版，不编译）
+# 方式一：一行脚本（推荐，纯净系统直接跑）
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo bash
+
+# 方式二：仓库默认编排（镜像版，不编译）
 cp .env.example .env      # 改 DB_PASSWORD / JWT_SECRET，按需改 APP_PORT
 docker compose up -d
 
-# 方式二：Release 的 docker.tar.gz 部署包（包内就是 docker/ 目录那份）
+# 方式三：Release 的 docker.tar.gz 部署包（包内就是 docker/ 目录那份）
 cp .env.example .env
 docker compose -f docker-compose.release.yml up -d
 
-# 方式三：从源码自己编译（需要 Node 20+ / JDK 25，首次约 5-10 分钟）
+# 方式四：从源码自己编译（需要 Node 20+ / JDK 25，首次约 5-10 分钟）
 docker compose -f docker-compose.build.yml up -d --build
 ```
 
