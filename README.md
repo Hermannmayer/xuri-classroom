@@ -282,7 +282,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
   | Docker | 卷 `xuri-classroom-db-data` | 卷 `xuri-classroom-app-files` |
 
 - **备份**：`mysqldump --single-transaction` 导出库 + 打包附件目录（Windows 也可直接停服务后整目录复制）。**升级前必须备份，并且定期演练一次恢复**。
-- **初始化脚本只对空库执行**：`init-mysql.sql` 开头有 25 处 `DROP TABLE IF EXISTS`，对已有数据的库执行等于清库；升级只能跑迁移脚本。
+- **初始化脚本只对空库执行**：`init-mysql.sql` 开头有 26 处 `DROP TABLE IF EXISTS`，对已有数据的库执行等于清库；升级只能跑迁移脚本。
 - 恢复顺序：停服务 → 空库导入 `db.sql.gz` → 解开附件 → 启动 → 抽查列表与答卷。
 - 各端详细命令见 [Windows](https://hermannmayer.github.io/xuri-classroom/deploy/windows#备份)、[Linux](https://hermannmayer.github.io/xuri-classroom/deploy/linux#备份)、[Docker](https://hermannmayer.github.io/xuri-classroom/deploy/docker#备份)。
 

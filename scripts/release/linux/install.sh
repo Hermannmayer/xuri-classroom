@@ -118,7 +118,7 @@ Java 选项：
   sudo bash install.sh --no-systemd --install-dir /tmp/xuri --db-password 'Str0ng-Pass'
 
 注意：
-  · app/init-mysql.sql 含大量 DROP TABLE（当前版本 25 处），只允许对空库执行；
+  · app/init-mysql.sql 含大量 DROP TABLE（当前版本 26 处），只允许对空库执行；
     安装器在导入前会检查表数量，非空库直接中止。
   · 卸载：sudo bash uninstall.sh（默认保留安装目录与数据）
 USAGE

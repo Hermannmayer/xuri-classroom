@@ -34,7 +34,7 @@ description: "装不上、起不来、打不开、登录失败、数据恢复—
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| 初始化脚本执行后数据没了 | `init-mysql.sql` 开头 25 处 `DROP TABLE IF EXISTS` | 它只用于**空库**；有数据的库升级只能跑迁移脚本 |
+| 初始化脚本执行后数据没了 | `init-mysql.sql` 开头 26 处 `DROP TABLE IF EXISTS` | 它只用于**空库**；有数据的库升级只能跑迁移脚本 |
 | `Unknown column xxx` | 库结构落后于程序 | 按发布说明跑对应的迁移 SQL，再启动 |
 | MySQL 连不上 | 地址/端口/账号/权限/bind-address | 先用 `mysql -h <host> -u <user> -p` 手工验证，再查应用配置 |
 | 能否用 MySQL 5.7 / MariaDB | 不支持 | 使用 MySQL 8（`mysql:8.0` 或本机 8.x） |

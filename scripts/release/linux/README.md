@@ -9,7 +9,7 @@
 |---|---|
 | **VERSION** | 版本号，例如 2.0.0 |
 | **app/xuri-classroom-<版本>.jar** | 可执行 jar，发布版已内置前端静态资源 |
-| **app/init-mysql.sql** | 空库初始化脚本。**含 25 处 DROP TABLE，只能对空库执行** |
+| **app/init-mysql.sql** | 空库初始化脚本。**含 26 处 DROP TABLE，只能对空库执行** |
 | **install.sh** | 安装器（建用户/目录、生成配置、可选建库、注册 systemd） |
 | **uninstall.sh** | 卸载器（默认保留安装目录与数据） |
 | **app.env.example** | 运行配置模板；安装器会复制为 **app.env** |
@@ -91,7 +91,7 @@ sudo bash install.sh --no-systemd --install-dir /tmp/xuri --db-password '你的�
 2. 创建数据库（如果不存在），字符集 utf8mb4
 3. 创建 **--db-user** 并授权（本机库会同时授权 '%'、'localhost'、'127.0.0.1'）
 4. **检查目标库表数量**：非空库直接中止，不会导入
-5. 导入 **app/init-mysql.sql**（含 25 处 DROP TABLE，只有空库才安全）
+5. 导入 **app/init-mysql.sql**（含 26 处 DROP TABLE，只有空库才安全）
 
 > ⚠️ 绝对不要对已有数据的库执行 **--init-db**。
 > 安装器有“表数量”闸门，但请自己也确认库名/主机没有填错。

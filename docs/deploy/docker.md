@@ -113,7 +113,7 @@ sudo APP_PORT=9090 VERSION=2.4.3 bash docker-one-line.sh   # VERSION 填当前�
 - **首次启动**（`xuri-classroom-db-data` 卷为空）时，`mysql` 容器会执行挂进去的 `init-mysql.sql`：建表、写种子数据、创建管理员 `admin / 123456`。
 - 卷里**已经有数据时不会重跑**初始化脚本——这是 Docker 官方镜像的行为，也是保护。
 - 首次登录后**立即修改 admin 密码**（程序不强制）；生产环境确认 `.env` 里 `DB_PASSWORD`、`JWT_SECRET` 都不是默认值。
-- `init-mysql.sql` 只用于空库（开头 25 处 `DROP TABLE IF EXISTS`）。
+- `init-mysql.sql` 只用于空库（开头 26 处 `DROP TABLE IF EXISTS`）。
 
 ## 访问
 

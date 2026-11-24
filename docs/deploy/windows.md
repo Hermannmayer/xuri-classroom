@@ -107,7 +107,7 @@ lib/launcher.ps1                     启动器
 - 首次向导自动建库、建表、写入种子数据（角色、用户组、系统参数）与管理员 `admin / 123456`。
 - **程序不会强制改密**：请登录后到"账号设置"改掉默认密码。生产环境还要把 `config/app.env` 里的 `DB_PASSWORD`、`DB_ROOT_PASSWORD` 改成自己的值，并确认 `SK_JWT_SECRET` 已生成（丢了每次重启都会随机生成，所有人掉线）。
 - `config/app.env` 里和部署相关的键：`PORT`（网站端口）、`DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD/DB_ROOT_PASSWORD`、`SK_JWT_SECRET`、`JAVA_OPTS`（默认 `-Xmx1024m`）、`FILE_STORAGE_ROOT`（默认 `data\files`）。下载源在 `config/runtime.env`（`JRE_URLS`、`MYSQL_MIRRORS`、`MYSQL_PORT`）。
-- `app/init-mysql.sql` 只用于空库；`data/mysql/` 里已经有数据时**不要**再跑它（开头 25 处 `DROP TABLE IF EXISTS`，等于清库）。
+- `app/init-mysql.sql` 只用于空库；`data/mysql/` 里已经有数据时**不要**再跑它（开头 26 处 `DROP TABLE IF EXISTS`，等于清库）。
 
 ## 访问
 

@@ -29,7 +29,7 @@ curl -fL -o init-mysql.sql \
   https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/server/rdbms/src/main/resources/scripts/init-mysql.sql
 ~~~
 
-> ⚠️ init-mysql.sql 含 25 处 **DROP TABLE**，只在数据卷为空时由 MySQL 官方镜像自动执行一次。
+> ⚠️ init-mysql.sql 含 26 处 **DROP TABLE**，只在数据卷为空时由 MySQL 官方镜像自动执行一次。
 > 已有数据的库绝对不要再挂这个文件（也不要对生产库手工执行）。
 
 ## 2. 前置条件

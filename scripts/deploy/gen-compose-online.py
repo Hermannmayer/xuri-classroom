@@ -30,7 +30,7 @@ HEADER = """# 旭日云课堂 · 在线单文件编排（GHCR 镜像 + mysql:8.0
 # 注意：
 #   · Compose 不支持直接读 HTTP URL（-f https://... 会被当成相对路径），只能走管道
 #   · 本文件由 scripts/deploy/gen-compose-online.py 生成，不要手改
-#   · 内联 SQL 含 25 处 DROP TABLE，只在数据卷为空时执行一次
+#   · 内联 SQL 含 26 处 DROP TABLE，只在数据卷为空时执行一次
 """
 
 BODY = """name: xuri-classroom

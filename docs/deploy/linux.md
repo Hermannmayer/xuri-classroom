@@ -84,7 +84,7 @@ sudo bash install.sh --port 8080 --download-jre --init-db --db-password '改成�
   sudo mysql surveyking < app/init-mysql.sql
   ```
 
-- `init-mysql.sql` 开头有 25 处 `DROP TABLE IF EXISTS`，**只对空库执行**。
+- `init-mysql.sql` 开头有 26 处 `DROP TABLE IF EXISTS`，**只对空库执行**。
 - 首次登录后立即修改 `admin` 密码（程序不强制，属运维要求）；生产环境务必改 `app.env` 里的 `DB_PASSWORD`，并确认 `SK_JWT_SECRET` 有值。
 
 ## 访问
