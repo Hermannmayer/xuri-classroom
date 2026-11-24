@@ -3,13 +3,13 @@
 :root[data-theme='dark'] {
   --bp-bg: #1e3a5f;
   --bp-bg-deep: #152a44;
-  --bp-line: rgba(255, 255, 255, 0.38);
-  --bp-line-soft: rgba(255, 255, 255, 0.40);
+  --bp-line: rgba(255, 255, 255, 0.45);
+  --bp-line-soft: rgba(255, 255, 255, 0.22);
   --bp-grid: rgba(255, 255, 255, 0.05);
   --bp-text: #ffffff;
 
   --bp-text-soft: #cfe2f6;
-  --bp-blue: #4a90d9;
+  --bp-blue: #5fa3e6;
   --bp-orange: #ff8a5c;
 
 
