@@ -4,7 +4,7 @@
   --bp-bg: #1e3a5f;
   --bp-bg-deep: #152a44;
   --bp-line: rgba(255, 255, 255, 0.45);
-  --bp-line-soft: rgba(255, 255, 255, 0.22);
+  --bp-line-soft: rgba(255, 255, 255, 0.38);
   --bp-grid: rgba(255, 255, 255, 0.05);
   --bp-text: #ffffff;
 
@@ -1039,7 +1039,7 @@ body {
   max-height: 110px;
   overflow: auto;
   padding: 3px 7px;
-  border: 1px solid var(--bp-line-soft);
+  border: 1px solid var(--bp-line);
   background: var(--bp-panel);
 }
 .option-rich-preview p {

@@ -15,7 +15,7 @@
 .sk-sheet button {
 
   height: 40px;
-  border: 1px solid var(--bp-line-soft);
+  border: 1px solid var(--bp-line);
   background: transparent;
   color: var(--bp-text-soft);
   font-family: inherit;
@@ -116,7 +116,7 @@
 .sk-answer-top .sk-answer-back {
   flex: 0 0 auto;
   border-radius: 0;
-  border: 1px solid var(--bp-line-soft);
+  border: 1px solid var(--bp-line);
   background: transparent;
   color: var(--bp-text-soft);
   padding: 0 8px;
@@ -325,7 +325,7 @@
 }
 .sk-matrix th,
 .sk-matrix td {
-  border: 1px solid var(--bp-line-soft);
+  border: 1px solid var(--bp-line);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 400;
