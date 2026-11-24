@@ -6,26 +6,61 @@
 
 ## v2.4.4 (2026-11-25)
 
-补丁版：修复暗色主题下答题选项选中态几乎不可辨，并整体收敛两套主题的对比度与颜色来源。
+补丁版：答卷链路的一批可靠性修复（提交快照、续答、失效 answerId、随机卷交卷），加上暗色主题对比度整体收敛，以及默认安装改为 GHCR 镜像版。
+
+### 新增
+
+- **在线单文件部署**：新增 `docker/compose-online.yaml`，把 `init-mysql.sql` 内联进 `configs.init_sql`，可用 `curl ... | docker compose -f - up -d` 一条命令起库（Compose 本身不支持 `-f https://`）。配套生成器 `scripts/deploy/gen-compose-online.py`，改 SQL 后重跑即可（幂等）。
+- **客观题人工改分**：批改范围扩到所有有分值的题（含客观题），老师可纠正机器误判；纯客观卷提交后也能直接置为已批改。
+- **交卷用时**：前端交卷上报 `answerInfo.startTime`，首次交卷即可显示用时。
+
+### 变更
+
+- **默认安装改为镜像版**：根 `docker-compose.yml` 换成 `ghcr.io/hermannmayer/xuri-classroom` + `mysql:8.0`，`docker compose up -d` 不再触发任何编译；原编译版保留为 `docker-compose.build.yml`。
+- **去掉 `SK_CRYPTO_KEY` 必填**：Java 代码里零引用，却会在 config 阶段卡住启动。
+- **文档口径统一**：README / QUICKSTART / `docs/deploy/*` / `docker/README` / `scripts/deploy/README` 都改成「默认镜像、编译可选」，示例版本号不再写死 2.0.0。
 
 ### 修复
+
+#### 答卷与交卷
+
+- **提交快照**：考试模式首次保存时由服务端快照题目（`AnswerScoringService#stampServerSnapshot`），改卷或重新导入后，回看旧答卷不再对不上题；公开链路按同一口径剥掉正确答案。
+- **交卷时间窗**：交卷补 `examSetting` 起止校验，`tempSaveAnswer` 与公开查询也走 `validateSubmittable`。
+- **失效 answerId 不再报无权访问**：学员提交时若带的 answerId 已被后台删除，原先直接抛 `AccessDeniedException`，学员既交不了也看不到原因。改为先探测答卷是否存在，不存在则置空按新答卷落库；存在时仍照旧校验 `enableUpdate` / `tempSave`。
+- **历史答卷查询 500**：上一版在 `@Transactional` 的 `loadProject` 里吞掉 `AnswerLookup` 的越权异常，内层事务被标记 rollback-only，已发布项目带失效 answerId 时返回 `UnexpectedRollbackException` 500。改为先用 `AnswerMapper` 做存在性探测（逻辑删除后 `selectById` 返回 null），不存在才降级；越权仍原样抛 403。
+- **续答绕过回收状态**：`loadProject` 的 answerId 分支过去直接 return，既不校验「还能不能答」也不容忍失效 id，导致暂停回收后学员带旧 answerId 仍能接着答。新增 `assertResumableAnswer`（班级准入 + 可提交校验），回收暂停、班级关闭、已截止照常报 `SurveySuspend` / `ExamFinished`。
+- **随机卷 Cookie 卡死交卷**：`PublicAnswerSubmitter` 的 `rd_answer_id_*` cookie 分支此前未跟着降级，答卷被删后每次交卷都 403；现在清掉该 cookie 并按新答卷落库。
+- **答题页死页补出口**：「无法打开这份问卷」补「重新填写 / 去掉班级参数重试」，重试前清掉本机 `sk-answer-*` 与 `sk-draft-*`，不再刷新即复现；服务端未回 answerId 时前端也清掉 `sk-answer-*`。
+- **切屏计数串号**：`ExamControlService` 切屏计数补答卷归属校验，并改为只更新 `meta_info`，避免整行回写覆盖同时刻保存的答案。
+- **发布状态不同步**：`updateProject` 全量保存时同步 `t_project.status` 列，修掉编辑器「发布考试」只写 JSON 造成列表显示未发布、学员却能答。
+- **数据页提示**：AI 待复核空列表补一句说明它只含已由 AI 预批改的答卷。
+
+#### 暗色主题与对比度
 
 - **答题选项选中态**：原先仅靠 `rgba(255,107,53,0.12)` 底色区分，与未选中底只有 1.13:1。改为多通道区分——提亮底色 + 2px 橙边 + 字重 600 + 反色字母标；实测选中底 1.76:1、橙边对底 4.06:1、白字 7.77:1。
 - **hover 覆盖选中态**：`.sk-option:hover:not(:disabled)` 特异性 (0,3,0) 压过 `.sk-option.selected` (0,2,0)，鼠标停在已选项上会把选中样式覆盖掉。hover 规则加 `:not(.selected)`，并显式定义 `.selected:hover`。
 - **禁用态稀释选中底**：去掉 `:disabled` 的 `opacity: 0.85`，改为只降文字色。
-- **深色容器与页面同色**：`colorBgContainer` 与 body 完全同色（1.00:1），卡片和输入框在暗色下"隐形"，只能靠 1px 边框撑住。改为可辨识面板（1.19:1，白字 9.64:1）。
+- **深色容器与页面同色**：`colorBgContainer` 与 body 完全同色（1.00:1），卡片和输入框在暗色下「隐形」，只能靠 1px 边框撑住。改为可辨识面板（1.19:1，白字 9.64:1）。
 - **边框层级倒挂**：`--bp-line-soft` 一度比 `--bp-line` 还亮。深色 1.72:1 → 3.05:1，浅色 1.30:1 → 3.03:1；交互控件（答题卡格子、返回按钮、矩阵单元格、富文本预览框）统一走 `--bp-line`（深 3.66:1 / 浅 3.75:1），虚线分隔保留 soft。
 - **强调色小字不达标**：深色 `#ff6b35` (4.06:1) → `#ff8a5c` (4.95:1)，浅色 `#e8590c` (3.29:1) → `#c2410c` (4.75:1)；选中边框、字母标、`--bp-red` 同步。
-- **语义色重名**：深色 `colorWarning` 与 `colorError` 同值，语义合并；拆为 `#ffb066` / `#ff8f7a`。浅色 `colorPrimary` 3.52:1 → 5.09:1，三级/四级文本补到达标。
+- **语义色重名**：深色 `colorWarning` 与 `colorError` 同值，语义合并；拆为 `#ffb066` / `#ff8f7a`。浅色 `colorPrimary` 3.52:1 → 5.09:1，三级/四级文本补到达标；浅色占位符 4.48:1 → 4.88:1。
 - **写死亮色**：上传卡、签名板、文件预览在暗色下是死白块；新增 `--bp-paper` / `--bp-paper-ink`（不透明，避免签名导出 PNG 变透明），签名 canvas 改用 `getComputedStyle` 读主题色。
 - **内联写死深蓝叠层**：`rgba(30,58,95,0.55)` 收敛为 `var(--bp-panel)`，修掉浅色下卡片被压成灰蓝底、文字掉到 2.62:1。
 - **图表配色**：旧 PALETTE 9 色有 7 色不达 3:1（浅色下最低 1.40:1），新配色 9/9 在深浅两套主题均 ≥3:1。
 - **缺失变量**：补齐 `--bp-red` / `--bp-bg-soft` / `--bp-hover` / `--bp-mono` 这四个被引用却从未定义的变量。
-- **扫描器误报**：`.sk-mark` 由 11px 提到 12px，边框改用 `--bp-line`，加底色。
+- **答题页操作按钮**：`.sk-mark` 由 11px 提到 12px，边框改用 `--bp-line`，加底色。
+
+#### 其他
+
+- **备份卷名**：修 `scripts/deploy/backup.sh` 的卷名 `xuri-classroom_app-files` → `xuri-classroom-app-files`。
+- **文档计数**：`init-mysql.sql` 实际有 26 处 `DROP TABLE IF EXISTS`，文档与安装器提示里写的是 25/22，已统一更正。
+- **测试编译**：`PublicQueryService` 增加 `AnswerValidationService` 依赖后，`PublicQueryServiceTest` 的构造调用没跟着改，导致 `:api:compileTestJava` 编译失败、部署门禁红；只补 mock 参数，不改断言与用例。
 
 ### 升级
 
 无数据库结构变更。升级后强制刷新一次页面即可。
+
+**注意**：默认安装方式已改为 GHCR 镜像版。如果之前用 `docker compose` 从源码编译部署，升级时请改用 `docker-compose.build.yml`，否则会拉到镜像而不是本地构建。
 
 **已知未修**：答题页「收藏」按钮对管理员/老师可见但后端返回 403——`repo:book` 是学员专属权限（`PermissionEnum.java:68`），admin 不会自动获得；而 `PublicAnswer.tsx:778` 渲染按钮时缺少 `can()` 门控。属接线遗漏，计划下个版本修。
 
