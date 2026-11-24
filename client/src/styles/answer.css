@@ -66,14 +66,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 7px;
-  border: 1px solid var(--bp-line-soft);
+  padding: 2px 9px;
+  border: 1px solid var(--bp-line);
   border-radius: 0;
-  background: transparent;
-  color: var(--bp-text-soft);
+  background: var(--bp-fill-soft);
+  color: var(--bp-text);
   font-family: inherit;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
   letter-spacing: 0.04em;
   white-space: nowrap;
   cursor: pointer;
@@ -309,7 +309,7 @@
   gap: 12px;
   max-width: 560px;
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--bp-text-soft);
 }
 
