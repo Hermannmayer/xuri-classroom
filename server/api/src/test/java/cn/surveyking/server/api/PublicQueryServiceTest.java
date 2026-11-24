@@ -5,6 +5,7 @@ import cn.surveyking.server.core.exception.ErrorCodeException;
 import cn.surveyking.server.domain.dto.ProjectSetting;
 import cn.surveyking.server.domain.dto.ProjectView;
 import cn.surveyking.server.domain.dto.PublicQueryRequest;
+import cn.surveyking.server.impl.AnswerValidationService;
 import cn.surveyking.server.impl.PublicQueryService;
 import cn.surveyking.server.impl.WechatAccessGuard;
 import cn.surveyking.server.service.AnswerService;
@@ -36,7 +37,7 @@ class PublicQueryServiceTest {
 		ProjectService projectService = mock(ProjectService.class);
 		when(projectService.getProject("missing")).thenReturn(project);
 		return new PublicQueryService(projectService, mock(AnswerService.class), mock(WechatAccessGuard.class),
-				mock(MessageSource.class));
+				mock(MessageSource.class), mock(AnswerValidationService.class));
 	}
 
 	private PublicQueryRequest request() {
