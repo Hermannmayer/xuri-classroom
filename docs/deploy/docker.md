@@ -55,7 +55,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 ```bash
 # 下载后再执行，便于先看一眼脚本内容
 curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh -o docker-one-line.sh
-sudo APP_PORT=9090 VERSION=2.4.3 bash docker-one-line.sh   # VERSION 填当前版本，不带 v
+sudo APP_PORT=9090 VERSION=2.4.4 bash docker-one-line.sh   # VERSION 填当前版本，不带 v
 ```
 
 > **国内网络**：GitHub raw 可能很慢或不通，可以在 URL 前加第三方代理前缀，例如
@@ -92,7 +92,7 @@ sudo APP_PORT=9090 VERSION=2.4.3 bash docker-one-line.sh   # VERSION 填当前�
    | 变量 | 默认 | 说明 |
    |---|---|---|
    | `APP_PORT` | `8080` | 对外端口 |
-   | `VERSION` | `latest` | 镜像 tag，**不带 `v`**（例如 `2.4.3`）；生产建议固定版本 |
+   | `VERSION` | `latest` | 镜像 tag，**不带 `v`**（例如 `2.4.4`）；生产建议固定版本 |
    | `DB_NAME` / `DB_USER` | `surveyking` / `xuri` | 库名与连接账号 |
    | `XURI_IMAGE` | `ghcr.io/hermannmayer/xuri-classroom` | 换国内镜像源，如 `ghcr.nju.edu.cn/hermannmayer/xuri-classroom` |
    | `JAVA_OPTS` | `-Xmx768m` | JVM 堆上限（4GB 机器用 768m，8GB 可用 1536m） |

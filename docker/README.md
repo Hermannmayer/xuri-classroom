@@ -90,7 +90,7 @@ curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/sc
 可用环境变量覆盖默认值：
 
 ~~~bash
-curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo XURI_HOME=/opt/xuri APP_PORT=9090 VERSION=2.4.3 bash
+curl -fsSL https://raw.githubusercontent.com/Hermannmayer/xuri-classroom/main/scripts/deploy/docker-one-line.sh | sudo XURI_HOME=/opt/xuri APP_PORT=9090 VERSION=2.4.4 bash
 ~~~
 
 ## 4. 状态与日志
