@@ -5,6 +5,8 @@ AGENTS.local.md
 
 # AI 协作文档只保留本地，不随仓库分发
 /docs/ai/
+# 本机运维笔记：含内网地址、SSH 命令、个人环境，不入库
+/docs/ops/
 
 .gradle
 build/
